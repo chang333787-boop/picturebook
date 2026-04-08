@@ -160,6 +160,10 @@
   <button class="tb-btn tb-btn-load" onclick="document.getElementById('file-input').click()">📂 불러오기</button>
   <input type="file" id="file-input" accept=".json" style="display:none" onchange="importJSON(event)"/>
   <button class="tb-btn tb-btn-clear" onclick="clearAll()">🗑 초기화</button>
+  <button id="group-move-btn" class="tb-btn" onclick="toggleGroupMove()"
+    style="background:#f0f4ff;color:var(--primary);border:1.5px solid #c0d4f5;">
+    🔗 묶음 이동: 꺼짐
+  </button>
   <button class="tb-btn" onclick="showHelp()" style="background:#f0f4ff;color:var(--primary);border:1.5px solid var(--primary)">❓</button>
   <div style="display:flex;align-items:center;gap:4px;background:#f0f4ff;border-radius:50px;padding:3px 8px;border:1.5px solid #d0e0f5;">
     <button onclick="setZoom(zoom-0.1)" style="border:none;background:none;font-size:16px;cursor:pointer;line-height:1;color:var(--primary);font-weight:bold;">−</button>
@@ -364,30 +368,80 @@ function renderCard(s) {
   el.addEventListener('pointerdown', e => {
     if (['INPUT','BUTTON','LABEL','TEXTAREA'].includes(e.target.tagName)) return;
     if (e.target.classList.contains('port-dot')) return;
-    e.preventDefault();
-    e.stopPropagation();
-    el.setPointerCapture(e.pointerId);
+    // 드래그 후보 상태만 저장 (아직 실제 드래그 아님)
     const cv = toCanvas(e.clientX, e.clientY);
-    dragState = { num: s.num, ox: s.x - cv.x, oy: s.y - cv.y };
-    el.classList.add('dragging');
+    el._pendingDrag = {
+      pointerId: e.pointerId,
+      startX: e.clientX, startY: e.clientY,
+      cv, num: s.num
+    };
   });
   el.addEventListener('pointermove', e => {
+    // 드래그 후보가 있고 아직 dragState 없을 때: 임계값 확인
+    if (el._pendingDrag && el._pendingDrag.pointerId === e.pointerId && !dragState) {
+      const dx = e.clientX - el._pendingDrag.startX;
+      const dy = e.clientY - el._pendingDrag.startY;
+      if (Math.sqrt(dx*dx+dy*dy) > 8) {
+        // 8px 이상 움직이면 진짜 드래그 시작
+        e.preventDefault();
+        el.setPointerCapture(e.pointerId);
+        const cv = el._pendingDrag.cv;
+        if (groupMoveOn) {
+          const nums = getConnectedNums(s.num);
+          const offsets = {};
+          nums.forEach(n => {
+            const sc = scenes[n];
+            offsets[n] = { ox: sc.x - cv.x, oy: sc.y - cv.y };
+            document.getElementById('card-'+n)?.classList.add('group-selected');
+          });
+          dragState = { num: s.num, group: true, nums, offsets };
+        } else {
+          dragState = { num: s.num, ox: s.x - cv.x, oy: s.y - cv.y };
+        }
+        el.classList.add('dragging');
+        el._pendingDrag = null;
+      }
+      return;
+    }
     if (!dragState || dragState.num !== s.num) return;
     e.preventDefault();
-    const sc = scenes[dragState.num];
     const cv = toCanvas(e.clientX, e.clientY);
-    sc.x = Math.max(0, cv.x + dragState.ox);
-    sc.y = Math.max(0, cv.y + dragState.oy);
-    el.style.left = sc.x + 'px';
-    el.style.top  = sc.y + 'px';
+    if (dragState.group) {
+      dragState.nums.forEach(n => {
+        const sc = scenes[n];
+        const off = dragState.offsets[n];
+        sc.x = Math.max(0, cv.x + off.ox);
+        sc.y = Math.max(0, cv.y + off.oy);
+        const cel = document.getElementById('card-'+n);
+        if (cel) { cel.style.left=sc.x+'px'; cel.style.top=sc.y+'px'; }
+      });
+    } else {
+      const sc = scenes[dragState.num];
+      sc.x = Math.max(0, cv.x + dragState.ox);
+      sc.y = Math.max(0, cv.y + dragState.oy);
+      el.style.left = sc.x + 'px';
+      el.style.top  = sc.y + 'px';
+    }
     if (rafId) cancelAnimationFrame(rafId);
     rafId = requestAnimationFrame(() => { drawArrows(); rafId = null; });
   });
   el.addEventListener('pointerup', e => {
+    el._pendingDrag = null;
     if (!dragState || dragState.num !== s.num) return;
+    if (dragState.group) {
+      dragState.nums.forEach(n => document.getElementById('card-'+n)?.classList.remove('group-selected'));
+    }
     el.classList.remove('dragging');
     dragState = null;
     pushToFirebase();
+  });
+  el.addEventListener('pointercancel', e => {
+    el._pendingDrag = null;
+    if (dragState && dragState.num === s.num) {
+      if (dragState.group) dragState.nums.forEach(n => document.getElementById('card-'+n)?.classList.remove('group-selected'));
+      el.classList.remove('dragging');
+      dragState = null;
+    }
   });
 
   // 포트 드래그 (연결선) — Pointer Events
@@ -856,6 +910,39 @@ document.getElementById('canvas-wrap').addEventListener('wheel', e => {
   e.preventDefault();
   setZoom(zoom + (e.deltaY < 0 ? 0.1 : -0.1));
 }, {passive:false});
+
+/* ================================================================
+   묶음 이동 기능
+   ================================================================ */
+let groupMoveOn = false;
+
+function toggleGroupMove() {
+  groupMoveOn = !groupMoveOn;
+  document.body.classList.toggle('group-mode', groupMoveOn);
+  document.getElementById('group-move-btn').textContent =
+    '🔗 묶음 이동: ' + (groupMoveOn ? '켜짐' : '꺼짐');
+}
+
+/* 특정 카드와 연결된 모든 카드 번호 반환 (양방향) */
+function getConnectedNums(startNum) {
+  const visited = new Set();
+  const queue = [startNum];
+  while (queue.length) {
+    const num = queue.shift();
+    if (visited.has(num)) continue;
+    visited.add(num);
+    const s = scenes[num];
+    if (!s) continue;
+    // 이 카드에서 연결된 카드
+    if (s.nextA && scenes[s.nextA]) queue.push(s.nextA);
+    if (s.nextB && scenes[s.nextB]) queue.push(s.nextB);
+    // 이 카드를 가리키는 카드들
+    Object.values(scenes).forEach(sc => {
+      if (sc.nextA === num || sc.nextB === num) queue.push(sc.num);
+    });
+  }
+  return [...visited];
+}
 
 function showHelp() {
   alert(`📌 가지 프로그램 사용법

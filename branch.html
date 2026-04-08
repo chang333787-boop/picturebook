@@ -378,6 +378,7 @@ function onCardMouseDown(e, num) {
   document.getElementById('card-'+num).classList.add('dragging');
 }
 
+let rafId = null;
 document.addEventListener('mousemove', e => {
   // 카드 드래그
   if (dragState) {
@@ -386,7 +387,8 @@ document.addEventListener('mousemove', e => {
     s.y = Math.max(0, (e.clientY - dragState.sy) / zoom);
     const el = document.getElementById('card-'+dragState.num);
     if (el) { el.style.left=s.x+'px'; el.style.top=s.y+'px'; }
-    drawArrows();
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = requestAnimationFrame(() => { drawArrows(); rafId = null; });
   }
   // 연결선 드래그
   if (connState) {
@@ -474,7 +476,7 @@ function getCardAt(clientX, clientY) {
 function drawArrows() {
   const svg = document.getElementById('arrows');
   // 기존 path/text 제거 (defs, temp-line 유지)
-  svg.querySelectorAll('path.arrow, text.arrow-label').forEach(el => el.remove());
+  svg.querySelectorAll('path.arrow, text.arrow-label, rect.arrow-label').forEach(el => el.remove());
 
   Object.values(scenes).forEach(s => {
     drawArrow(svg, s, 'A');

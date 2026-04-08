@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>가지 프로그램 — 실시간 공유</title>
+  <link href="https://fonts.googleapis.com/css2?family=Jua&family=Nanum+Gothic:wght@400;700&display=swap" rel="stylesheet"/>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <style>
+    :root {
+      --bg:#f4f8ff; --panel:#fff; --primary:#4a90d9;
+      --start:#06d6a0; --ending:#ef476f;
+      --text:#1e2d3d; --muted:#7a8fa6;
+      --shadow:rgba(30,60,100,0.12); --radius:14px;
+      --font-h:'Jua',sans-serif; --font-b:'Nanum Gothic',sans-serif;
+    }
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:var(--font-b);background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column;overflow:hidden;}
+
+    /* 입장 화면 */
+    #join-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:999;}
+    #join-screen.hidden{display:none;}
+    .join-card{background:var(--panel);border-radius:24px;padding:40px 36px;box-shadow:0 8px 40px var(--shadow);text-align:center;width:320px;}
+    .join-card h1{font-family:var(--font-h);font-size:24px;color:var(--primary);margin-bottom:8px;}
+    .join-card p{font-size:14px;color:var(--muted);margin-bottom:24px;line-height:1.7;}
+    .join-input{width:100%;padding:12px 16px;border:2px solid #d0e0f5;border-radius:50px;font-family:var(--font-h);font-size:18px;text-align:center;color:var(--text);margin-bottom:12px;}
+    .join-input:focus{outline:none;border-color:var(--primary);}
+    .join-btn{width:100%;padding:13px;background:var(--primary);color:#fff;border:none;border-radius:50px;font-family:var(--font-h);font-size:18px;cursor:pointer;}
+    .join-hint{font-size:12px;color:var(--muted);margin-top:12px;}
+
+    /* 툴바 */
+    #toolbar{background:var(--panel);border-bottom:2px solid #e0eaf5;padding:8px 14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;z-index:100;box-shadow:0 2px 8px var(--shadow);}
+    #toolbar h1{font-family:var(--font-h);font-size:17px;color:var(--primary);}
+    .tb-btn{padding:6px 13px;border:none;border-radius:50px;font-family:var(--font-h);font-size:13px;cursor:pointer;transition:transform .12s;}
+    .tb-btn:active{transform:scale(.95);}
+    .tb-btn-add{background:var(--primary);color:#fff;}
+    .tb-btn-check{background:var(--ending);color:#fff;}
+    .tb-btn-save{background:#2d6a4f;color:#fff;}
+    .tb-btn-load{background:#5a3e8a;color:#fff;}
+    .tb-btn-clear{background:#e0e8f0;color:var(--text);}
+    #team-badge{background:#e8f0ff;color:var(--primary);font-family:var(--font-h);font-size:13px;padding:4px 12px;border-radius:50px;cursor:pointer;border:1.5px solid #c0d4f5;}
+    #online-badge{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--muted);}
+    #online-dot{width:8px;height:8px;border-radius:50%;background:#ccc;}
+    #online-dot.on{background:var(--start);animation:pulse 1.5s infinite;}
+    @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+    #save-status{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:4px;}
+    #save-dot{width:8px;height:8px;border-radius:50%;background:#ccc;transition:background .3s;}
+    #save-dot.saved{background:var(--start);}
+    #save-dot.changed{background:#f0a000;}
+    .legend{display:flex;gap:10px;align-items:center;margin-left:auto;flex-wrap:wrap;}
+    .legend-item{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted);}
+    .legend-dot{width:10px;height:10px;border-radius:50%;}
+
+    /* 캔버스 */
+    #canvas-wrap{flex:1;position:relative;overflow:auto;background:radial-gradient(circle,#c8d8f022 1px,transparent 1px);background-size:28px 28px;}
+    #canvas{position:absolute;top:0;left:0;min-width:2400px;min-height:1400px;}
+    svg#arrows{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;overflow:visible;}
+
+    /* 카드 */
+    .scene-card{position:absolute;width:180px;background:var(--panel);border-radius:var(--radius);box-shadow:0 4px 16px var(--shadow);border:2.5px solid #d0e0f5;cursor:grab;user-select:none;transition:box-shadow .15s,border-color .15s;}
+    .scene-card:hover{box-shadow:0 8px 24px var(--shadow);}
+    .scene-card.dragging{box-shadow:0 12px 32px rgba(0,0,0,.2);cursor:grabbing;z-index:999;}
+    .scene-card.type-start{border-color:var(--start);}
+    .scene-card.type-ending{border-color:var(--ending);}
+    .scene-card.type-normal{border-color:#b0cce8;}
+    .scene-card.error-unconnected{border-color:#f0a000!important;background:#fffbe8;}
+    .card-header{display:flex;align-items:center;justify-content:space-between;padding:8px 10px 4px;}
+    .card-num{font-family:var(--font-h);font-size:13px;padding:2px 8px;border-radius:50px;color:#fff;}
+    .type-start .card-num{background:var(--start);}
+    .type-ending .card-num{background:var(--ending);}
+    .type-normal .card-num{background:var(--primary);}
+    .card-delete{width:22px;height:22px;border:none;background:#ffe0e0;color:#c00;border-radius:50%;font-size:13px;cursor:pointer;line-height:22px;text-align:center;padding:0;}
+    .card-body{padding:0 10px 10px;}
+    .card-title-input{width:100%;border:1.5px solid #d0e0f5;border-radius:8px;padding:5px 8px;font-family:var(--font-b);font-size:13px;color:var(--text);background:#f8fbff;margin-bottom:6px;}
+    .card-title-input:focus{outline:none;border-color:var(--primary);background:#fff;}
+    .card-type-row{display:flex;gap:4px;margin-bottom:6px;}
+    .type-radio{display:none;}
+    .type-label{flex:1;text-align:center;padding:3px 0;border-radius:6px;font-size:11px;cursor:pointer;border:1.5px solid #dde8f5;color:var(--muted);transition:all .1s;}
+    .type-radio:checked+.type-label{color:#fff;border-color:transparent;}
+    .type-radio[value="start"]:checked+.type-label{background:var(--start);}
+    .type-radio[value="normal"]:checked+.type-label{background:var(--primary);}
+    .type-radio[value="ending"]:checked+.type-label{background:var(--ending);}
+    .choice-row{display:flex;align-items:center;gap:4px;margin-bottom:4px;}
+    .choice-dot{width:8px;height:8px;border-radius:50%;background:var(--primary);flex-shrink:0;}
+    .choice-text{flex:1;border:1.5px solid #d0e0f5;border-radius:6px;padding:3px 6px;font-size:12px;font-family:var(--font-b);}
+    .choice-text:focus{outline:none;border-color:var(--primary);}
+    .choice-next{width:40px;border:1.5px solid #d0e0f5;border-radius:6px;padding:3px 4px;font-size:12px;text-align:center;}
+    .choice-next:focus{outline:none;border-color:var(--primary);}
+    .choice-hint{font-size:10px;color:var(--muted);margin-bottom:2px;}
+
+    /* 모달 */
+    #modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:500;align-items:center;justify-content:center;}
+    #modal-overlay.open{display:flex;}
+    #modal{background:var(--panel);border-radius:20px;padding:28px 24px;width:320px;box-shadow:0 16px 48px rgba(0,0,0,.25);}
+    #modal h2{font-family:var(--font-h);font-size:20px;margin-bottom:16px;color:var(--primary);}
+    .modal-field{margin-bottom:12px;}
+    .modal-field label{display:block;font-size:13px;margin-bottom:4px;color:var(--muted);}
+    .modal-field input,.modal-field select{width:100%;padding:8px 12px;border:2px solid #d0e0f5;border-radius:10px;font-size:14px;font-family:var(--font-b);}
+    .modal-field input:focus,.modal-field select:focus{outline:none;border-color:var(--primary);}
+    .modal-btns{display:flex;gap:8px;margin-top:16px;}
+    .modal-ok{flex:1;padding:10px;background:var(--primary);color:#fff;border:none;border-radius:50px;font-family:var(--font-h);font-size:16px;cursor:pointer;}
+    .modal-cancel{padding:10px 16px;background:#eef3ff;color:var(--text);border:none;border-radius:50px;font-family:var(--font-h);font-size:16px;cursor:pointer;}
+
+    /* 검사 패널 */
+    #check-panel{display:none;position:fixed;bottom:20px;right:20px;width:280px;background:var(--panel);border-radius:16px;box-shadow:0 8px 32px var(--shadow);padding:16px 18px;z-index:200;border:2px solid #e0eaf5;max-height:340px;overflow-y:auto;}
+    #check-panel h3{font-family:var(--font-h);font-size:16px;margin-bottom:10px;}
+    .check-ok{color:var(--start);font-weight:700;}
+    .check-warn{color:#e08000;}
+    .check-error{color:var(--ending);}
+    .check-item{font-size:13px;margin-bottom:6px;padding:6px 8px;border-radius:8px;background:#f8fbff;}
+    #check-close{margin-top:10px;width:100%;padding:7px;background:#eef3ff;border:none;border-radius:50px;font-family:var(--font-h);font-size:14px;cursor:pointer;}
+  </style>
+</head>
+<body>
+
+<!-- 팀 입장 화면 -->
+<div id="join-screen">
+  <div class="join-card">
+    <div style="font-size:48px;margin-bottom:8px">🌿</div>
+    <h1>가지 프로그램</h1>
+    <p>팀 이름을 입력하면<br>팀원과 함께 실시간으로 작업해요!</p>
+    <input id="join-input" class="join-input" placeholder="예: 2모둠" maxlength="20"
+      onkeydown="if(event.key==='Enter')joinTeam()"/>
+    <button class="join-btn" onclick="joinTeam()">입장하기 →</button>
+    <div class="join-hint">⚠️ 같은 팀은 똑같은 팀 이름으로 입장하세요</div>
+  </div>
+</div>
+
+<!-- 툴바 -->
+<div id="toolbar">
+  <h1>🌿 가지</h1>
+  <div id="team-badge" onclick="leaveTeam()" title="팀 바꾸기">👥 <span id="team-label">-</span></div>
+  <div id="online-badge"><div id="online-dot"></div><span id="online-label">연결 중...</span></div>
+  <button class="tb-btn tb-btn-add"   onclick="openModal()">＋ 장면 추가</button>
+  <button class="tb-btn tb-btn-check" onclick="checkStructure()">🔍 구조 검사</button>
+  <button class="tb-btn tb-btn-save"  onclick="exportJSON()">💾 파일 저장</button>
+  <button class="tb-btn tb-btn-load"  onclick="document.getElementById('file-input').click()">📂 불러오기</button>
+  <input type="file" id="file-input" accept=".json" style="display:none" onchange="importJSON(event)"/>
+  <button class="tb-btn tb-btn-clear" onclick="clearAll()">🗑 초기화</button>
+  <button class="tb-btn" onclick="showHelp()" style="background:#f0f4ff;color:var(--primary);border:1.5px solid var(--primary)">❓</button>
+  <div class="legend">
+    <div id="save-status"><div id="save-dot"></div><span id="save-label">-</span></div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--start)"></div>시작</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--primary)"></div>일반</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--ending)"></div>엔딩</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#f0a000"></div>오류</div>
+  </div>
+</div>
+
+<!-- 캔버스 -->
+<div id="canvas-wrap">
+  <div id="canvas"><svg id="arrows"></svg></div>
+</div>
+
+<!-- 장면 추가 모달 -->
+<div id="modal-overlay">
+  <div id="modal">
+    <h2>새 장면 추가</h2>
+    <div class="modal-field"><label>장면 번호</label><input id="m-num" type="number" min="1" max="999" placeholder="예: 1"/></div>
+    <div class="modal-field"><label>장면 제목</label><input id="m-title" type="text" placeholder="예: 숲 입구"/></div>
+    <div class="modal-field"><label>장면 종류</label>
+      <select id="m-type">
+        <option value="normal">일반 장면</option>
+        <option value="start">시작 장면</option>
+        <option value="ending">엔딩 장면</option>
+      </select>
+    </div>
+    <div class="modal-btns">
+      <button class="modal-cancel" onclick="closeModal()">취소</button>
+      <button class="modal-ok" onclick="addScene()">추가하기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 구조 검사 패널 -->
+<div id="check-panel">
+  <h3>🔍 구조 검사 결과</h3>
+  <div id="check-result"></div>
+  <button id="check-close" onclick="document.getElementById('check-panel').style.display='none'">닫기</button>
+</div>
+
+<script>
+/* ── Firebase 초기화 ── */
+const firebaseConfig = {
+  apiKey:            "AIzaSyBK12nBkj6Pdwu-zpL3w0krU1PzS78McmE",
+  authDomain:        "picturebook-8731f.firebaseapp.com",
+  databaseURL:       "https://picturebook-8731f-default-rtdb.firebaseio.com",
+  projectId:         "picturebook-8731f",
+  storageBucket:     "picturebook-8731f.firebasestorage.app",
+  messagingSenderId: "590974087190",
+  appId:             "1:590974087190:web:a9e9ba15adf020ff470537"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+/* ── 상태 ── */
+let scenes   = {};
+let teamName = '';
+let dbRef    = null;
+let isRemote = false;
+let dragState= null;
+let pushTimer= null;
+
+/* ── 팀 입장 ── */
+function joinTeam() {
+  const val = document.getElementById('join-input').value.trim();
+  if (!val) { alert('팀 이름을 입력해주세요!'); return; }
+  teamName = val;
+  document.getElementById('team-label').textContent = teamName;
+  document.getElementById('join-screen').classList.add('hidden');
+
+  // Firebase 실시간 구독
+  dbRef = db.ref('teams/' + encodeURIComponent(teamName) + '/scenes');
+  dbRef.on('value', snapshot => {
+    isRemote = true;
+    scenes   = snapshot.val() || {};
+    renderAll();
+    isRemote = false;
+    setSaveStatus('saved');
+  });
+
+  // 온라인 상태 감시
+  db.ref('.info/connected').on('value', snap => {
+    setOnline(snap.val() === true);
+  });
+}
+
+function leaveTeam() {
+  if (!confirm('팀을 바꾸려면 새로고침이 필요해요. 계속할까요?')) return;
+  location.reload();
+}
+
+function setOnline(on) {
+  document.getElementById('online-dot').className = on ? 'on' : '';
+  document.getElementById('online-label').textContent = on
+    ? teamName + ' 연결됨 🟢' : '연결 끊김 🔴';
+}
+
+/* ── Firebase 저장 (600ms 디바운스) ── */
+function pushToFirebase() {
+  if (isRemote || !dbRef) return;
+  setSaveStatus('changed');
+  clearTimeout(pushTimer);
+  pushTimer = setTimeout(() => {
+    dbRef.set(scenes)
+      .then(()  => setSaveStatus('saved'))
+      .catch(() => setSaveStatus('error'));
+  }, 600);
+}
+
+function setSaveStatus(s) {
+  const dot  = document.getElementById('save-dot');
+  const lbl  = document.getElementById('save-label');
+  if (s === 'saved') {
+    dot.className = 'saved';
+    const t = new Date();
+    lbl.textContent = `저장됨 ${t.getHours()}:${String(t.getMinutes()).padStart(2,'0')}`;
+  } else if (s === 'changed') {
+    dot.className = 'changed'; lbl.textContent = '저장 중...';
+  } else {
+    dot.className = ''; lbl.textContent = '-';
+  }
+}
+
+/* ── 렌더링 ── */
+function renderAll() {
+  document.querySelectorAll('.scene-card').forEach(el => el.remove());
+  Object.values(scenes).forEach(s => renderCard(s));
+  drawArrows();
+}
+
+function renderCard(s) {
+  const el = document.createElement('div');
+  el.className = `scene-card type-${s.type}`;
+  el.id = `card-${s.num}`;
+  el.style.left = s.x + 'px';
+  el.style.top  = s.y + 'px';
+
+  let choiceHTML = '';
+  if (s.type !== 'ending') {
+    const c1 = (s.choices&&s.choices[0])||{text:'',next:''};
+    const c2 = (s.choices&&s.choices[1])||{text:'',next:''};
+    choiceHTML = `
+      <div class="choice-hint">선택지 → 이동 번호</div>
+      <div class="choice-row">
+        <div class="choice-dot"></div>
+        <input class="choice-text" placeholder="선택지 A" value="${c1.text||''}"
+          onchange="updateChoice(${s.num},0,'text',this.value)"/>
+        <input class="choice-next" placeholder="번호" value="${c1.next||''}"
+          onchange="updateChoice(${s.num},0,'next',this.value)"/>
+      </div>
+      <div class="choice-row">
+        <div class="choice-dot" style="background:#ef476f"></div>
+        <input class="choice-text" placeholder="선택지 B" value="${c2.text||''}"
+          onchange="updateChoice(${s.num},1,'text',this.value)"/>
+        <input class="choice-next" placeholder="번호" value="${c2.next||''}"
+          onchange="updateChoice(${s.num},1,'next',this.value)"/>
+      </div>`;
+  } else {
+    choiceHTML = `<div style="text-align:center;font-size:12px;color:var(--ending);padding:4px 0;">🏁 이야기 끝</div>`;
+  }
+
+  const types=['start','normal','ending'], labels=['시작','일반','엔딩'];
+  const radios = types.map((t,i)=>
+    `<input class="type-radio" type="radio" name="type-${s.num}" id="tr-${s.num}-${t}"
+       value="${t}" ${s.type===t?'checked':''} onchange="updateType(${s.num},'${t}')">
+     <label class="type-label" for="tr-${s.num}-${t}">${labels[i]}</label>`
+  ).join('');
+
+  el.innerHTML = `
+    <div class="card-header">
+      <span class="card-num">장면 ${s.num}</span>
+      <button class="card-delete" onclick="deleteScene(${s.num})">✕</button>
+    </div>
+    <div class="card-body">
+      <input class="card-title-input" placeholder="장면 제목" value="${s.title||''}"
+        onchange="updateTitle(${s.num},this.value)"/>
+      <div class="card-type-row">${radios}</div>
+      ${choiceHTML}
+    </div>`;
+
+  el.addEventListener('mousedown', e => startDrag(e, s.num));
+  el.addEventListener('touchstart', e => startDrag(e, s.num), {passive:false});
+  document.getElementById('canvas').appendChild(el);
+}
+
+/* ── 드래그 ── */
+function startDrag(e, num) {
+  if (['INPUT','BUTTON','SELECT','LABEL'].includes(e.target.tagName)) return;
+  e.preventDefault();
+  const s  = scenes[num];
+  const pt = e.touches ? e.touches[0] : e;
+  dragState = { num, startX: pt.clientX - s.x, startY: pt.clientY - s.y };
+  document.getElementById('card-'+num).classList.add('dragging');
+}
+document.addEventListener('mousemove', e => {
+  if (!dragState) return;
+  e.preventDefault();
+  const pt = e.touches ? e.touches[0] : e;
+  const s  = scenes[dragState.num];
+  s.x = Math.max(0, pt.clientX - dragState.startX);
+  s.y = Math.max(0, pt.clientY - dragState.startY);
+  document.getElementById('card-'+dragState.num).style.left = s.x+'px';
+  document.getElementById('card-'+dragState.num).style.top  = s.y+'px';
+  drawArrows();
+});
+document.addEventListener('mouseup', () => {
+  if (!dragState) return;
+  document.getElementById('card-'+dragState.num)?.classList.remove('dragging');
+  dragState = null;
+  pushToFirebase();
+});
+
+/* ── 화살표 ── */
+function drawArrows() {
+  const svg = document.getElementById('arrows');
+  svg.innerHTML = `<defs>
+    <marker id="ah"  viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#4a90d9"/></marker>
+    <marker id="ahB" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#ef476f"/></marker>
+  </defs>`;
+  Object.values(scenes).forEach(s => {
+    (s.choices||[]).forEach((c,i) => {
+      const n = parseInt(c.next);
+      if (!n||!scenes[n]) return;
+      const t=scenes[n], x1=s.x+180, y1=s.y+40+i*30, x2=t.x, y2=t.y+40, cx=(x1+x2)/2;
+      const color=i===0?'#4a90d9':'#ef476f', mid=i===0?'ah':'ahB';
+      svg.innerHTML+=`
+        <path d="M${x1},${y1} C${cx},${y1} ${cx},${y2} ${x2},${y2}"
+          fill="none" stroke="${color}" stroke-width="2" marker-end="url(#${mid})" opacity="0.8"/>
+        <text x="${(x1+x2)/2}" y="${(y1+y2)/2-4}" font-size="11" fill="${color}"
+          text-anchor="middle" font-family="Nanum Gothic,sans-serif">${c.text||''}</text>`;
+    });
+  });
+}
+
+/* ── 데이터 업데이트 ── */
+function updateTitle(num,val){ scenes[num].title=val; drawArrows(); pushToFirebase(); }
+function updateType(num,type){ scenes[num].type=type; renderAll(); pushToFirebase(); }
+function updateChoice(num,idx,field,val){
+  if(!scenes[num].choices) scenes[num].choices=[];
+  if(!scenes[num].choices[idx]) scenes[num].choices[idx]={text:'',next:''};
+  scenes[num].choices[idx][field]=field==='next'?(val?parseInt(val):''):val;
+  drawArrows(); pushToFirebase();
+}
+
+/* ── 장면 추가/삭제 ── */
+function openModal()  { document.getElementById('modal-overlay').classList.add('open'); document.getElementById('m-num').focus(); }
+function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); }
+
+function addScene() {
+  const num  = parseInt(document.getElementById('m-num').value);
+  const title= document.getElementById('m-title').value.trim()||'새 장면';
+  const type = document.getElementById('m-type').value;
+  if (!num||num<1){ alert('장면 번호를 입력해주세요!'); return; }
+  if (scenes[num]){ alert(`장면 ${num}은 이미 있어요!`); return; }
+  const xs=Object.values(scenes).map(s=>s.x), ys=Object.values(scenes).map(s=>s.y);
+  const x=xs.length?Math.max(...xs)+40:60, y=ys.length?(Math.min(...ys)+Math.max(...ys))/2:60;
+  scenes[num]={num,title,type,x:Math.min(x,2000),y:Math.max(20,y),
+    choices:type==='ending'?[]:[{text:'',next:''},{text:'',next:''}]};
+  renderAll(); pushToFirebase(); closeModal();
+  document.getElementById('m-num').value='';
+  document.getElementById('m-title').value='';
+}
+
+function deleteScene(num){
+  if(!confirm(`장면 ${num}을 삭제할까요?`)) return;
+  delete scenes[num]; renderAll(); pushToFirebase();
+}
+function clearAll(){
+  if(!confirm('모든 장면을 지울까요?')) return;
+  scenes={}; renderAll(); pushToFirebase();
+}
+
+/* ── 파일 저장/불러오기 ── */
+function exportJSON(){
+  const data={teamName,savedAt:new Date().toISOString(),scenes};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=`가지구조_${teamName}_${new Date().toLocaleDateString('ko-KR').replace(/\. /g,'-').replace('.','')}.json`;
+  a.click(); URL.revokeObjectURL(url);
+}
+function importJSON(event){
+  const file=event.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const data=JSON.parse(e.target.result);
+      scenes=data.scenes||data;
+      const fixed={}; Object.values(scenes).forEach(s=>{fixed[s.num]=s;}); scenes=fixed;
+      renderAll(); pushToFirebase();
+      alert(`✅ "${file.name}" 불러오기 완료!`);
+    }catch{ alert('❌ 올바른 가지 파일이 아니에요.'); }
+  };
+  reader.readAsText(file); event.target.value='';
+}
+
+/* ── 구조 검사 ── */
+function checkStructure(){
+  const panel=document.getElementById('check-panel');
+  const result=document.getElementById('check-result');
+  panel.style.display='block';
+  const items=[];
+  document.querySelectorAll('.scene-card').forEach(el=>el.classList.remove('error-unconnected'));
+  if(!Object.keys(scenes).length){result.innerHTML='<div class="check-item check-warn">⚠️ 장면이 없어요.</div>';return;}
+  const starts=Object.values(scenes).filter(s=>s.type==='start');
+  const endings=Object.values(scenes).filter(s=>s.type==='ending');
+  if(!starts.length) items.push({cls:'check-error',msg:'❌ 시작 장면이 없어요!'});
+  else if(starts.length>1) items.push({cls:'check-warn',msg:`⚠️ 시작 장면이 ${starts.length}개예요.`});
+  else items.push({cls:'check-ok',msg:'✅ 시작: 장면 '+starts[0].num});
+  if(!endings.length) items.push({cls:'check-error',msg:'❌ 엔딩 장면이 없어요!'});
+  else items.push({cls:'check-ok',msg:`✅ 엔딩: ${endings.length}개 (${endings.map(e=>e.num).join(', ')})`});
+  const broken=[];
+  Object.values(scenes).forEach(s=>{
+    if(s.type==='ending') return;
+    (s.choices||[]).forEach(c=>{
+      const n=parseInt(c.next);
+      if(c.next!==''&&c.next!=null&&!scenes[n]){
+        broken.push(`장면 ${s.num} → 없는 장면 ${c.next}`);
+        document.getElementById('card-'+s.num)?.classList.add('error-unconnected');
+      }
+    });
+  });
+  if(broken.length) broken.forEach(b=>items.push({cls:'check-error',msg:'❌ '+b}));
+  else items.push({cls:'check-ok',msg:'✅ 모든 연결 정상'});
+  const noChoice=Object.values(scenes).filter(s=>s.type==='normal'&&(!s.choices||s.choices.every(c=>!c.next)));
+  if(noChoice.length){
+    items.push({cls:'check-warn',msg:`⚠️ 연결 없는 장면: ${noChoice.map(s=>s.num).join(', ')}`});
+    noChoice.forEach(s=>document.getElementById('card-'+s.num)?.classList.add('error-unconnected'));
+  }
+  result.innerHTML=items.map(i=>`<div class="check-item ${i.cls}">${i.msg}</div>`).join('');
+}
+
+function showHelp(){
+  alert(`📌 가지 프로그램 사용법
+
+🟢 실시간 공유
+• 같은 팀 이름으로 입장하면 자동으로 함께 작업돼요!
+• 한 명이 장면을 추가하면 팀원 화면에 바로 나타나요.
+
+📝 기본 사용
+1. [+ 장면 추가]로 새 장면 만들기
+2. 카드 드래그로 위치 조정
+3. 선택지 입력 → 이동할 장면 번호 입력
+4. [🔍 구조 검사]로 연결 확인
+
+💾 저장
+• Firebase에 자동 실시간 저장
+• [💾 파일 저장]으로 백업도 가능`);
+}
+</script>
+</body>
+</html>

@@ -360,49 +360,76 @@ function renderCard(s) {
     ${portsHTML}`;
 
   // 카드 드래그
-  el.addEventListener('mousedown', e => onCardMouseDown(e, s.num));
-  el.addEventListener('touchstart', e => {
-    if (e.touches.length !== 1) return;
+  // Pointer Events로 카드 드래그 처리 (마우스+터치 통합)
+  el.addEventListener('pointerdown', e => {
+    if (['INPUT','BUTTON','LABEL','TEXTAREA'].includes(e.target.tagName)) return;
+    if (e.target.classList.contains('port-dot')) return;
     e.preventDefault();
-    onCardMouseDown(e, s.num);
-    const onTm = ev => {
-      ev.preventDefault();
-      onPointerMove(ev.touches[0].clientX, ev.touches[0].clientY);
-    };
-    const onTe = ev => {
-      ev.preventDefault();
-      onPointerUp(ev.changedTouches[0].clientX, ev.changedTouches[0].clientY);
-      document.removeEventListener('touchmove', onTm);
-      document.removeEventListener('touchend', onTe);
-    };
-    document.addEventListener('touchmove', onTm, {passive:false});
-    document.addEventListener('touchend', onTe, {passive:false});
-  }, {passive:false});
+    e.stopPropagation();
+    el.setPointerCapture(e.pointerId);
+    const cv = toCanvas(e.clientX, e.clientY);
+    dragState = { num: s.num, ox: s.x - cv.x, oy: s.y - cv.y };
+    el.classList.add('dragging');
+  });
+  el.addEventListener('pointermove', e => {
+    if (!dragState || dragState.num !== s.num) return;
+    e.preventDefault();
+    const sc = scenes[dragState.num];
+    const cv = toCanvas(e.clientX, e.clientY);
+    sc.x = Math.max(0, cv.x + dragState.ox);
+    sc.y = Math.max(0, cv.y + dragState.oy);
+    el.style.left = sc.x + 'px';
+    el.style.top  = sc.y + 'px';
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = requestAnimationFrame(() => { drawArrows(); rafId = null; });
+  });
+  el.addEventListener('pointerup', e => {
+    if (!dragState || dragState.num !== s.num) return;
+    el.classList.remove('dragging');
+    dragState = null;
+    pushToFirebase();
+  });
 
-  // 포트 드래그 (연결선)
+  // 포트 드래그 (연결선) — Pointer Events
   el.querySelectorAll('.port-dot').forEach(dot => {
-    dot.addEventListener('mousedown', e => { e.stopPropagation(); onPortMouseDown(e); });
-    dot.addEventListener('touchstart', e => {
+    dot.style.touchAction = 'none';
+    dot.addEventListener('pointerdown', e => {
       e.stopPropagation();
       e.preventDefault();
-      const fakeE = { currentTarget: dot, target: dot, stopPropagation:()=>{}, preventDefault:()=>{} };
-      onPortMouseDown(fakeE);
-      // 터치 이동/종료는 document에서 처리
-      const onTouchMove = ev => {
-        ev.preventDefault();
-        const t = ev.touches[0];
-        onPointerMove(t.clientX, t.clientY);
-      };
-      const onTouchEnd = ev => {
-        ev.preventDefault();
-        const t = ev.changedTouches[0];
-        onPointerUp(t.clientX, t.clientY);
-        document.removeEventListener('touchmove', onTouchMove);
-        document.removeEventListener('touchend', onTouchEnd);
-      };
-      document.addEventListener('touchmove', onTouchMove, {passive:false});
-      document.addEventListener('touchend', onTouchEnd, {passive:false});
-    }, {passive:false});
+      dot.setPointerCapture(e.pointerId);
+      const num  = parseInt(dot.dataset.num);
+      const port = dot.dataset.port;
+      const sc   = scenes[num];
+      const startX = sc.x + 200;
+      const startY = sc.y + (port==='A' ? 120 : 140);
+      connState = { fromNum: num, port };
+      const tl = document.getElementById('temp-line');
+      tl.setAttribute('display','');
+      tl.setAttribute('stroke', port==='A' ? '#4a90d9' : '#ef476f');
+      tl.setAttribute('x1', startX); tl.setAttribute('y1', startY);
+      tl.setAttribute('x2', startX); tl.setAttribute('y2', startY);
+    });
+    dot.addEventListener('pointermove', e => {
+      if (!connState) return;
+      e.preventDefault();
+      const cv = toCanvas(e.clientX, e.clientY);
+      const tl = document.getElementById('temp-line');
+      tl.setAttribute('x2', cv.x);
+      tl.setAttribute('y2', cv.y);
+      document.querySelectorAll('.scene-card').forEach(c => c.classList.remove('highlight'));
+      const target = getCardAt(e.clientX, e.clientY);
+      if (target && target !== connState.fromNum) {
+        document.getElementById('card-'+target)?.classList.add('highlight');
+      }
+    });
+    dot.addEventListener('pointerup', e => {
+      if (!connState) return;
+      document.querySelectorAll('.scene-card').forEach(c => c.classList.remove('highlight'));
+      document.getElementById('temp-line').setAttribute('display','none');
+      const target = getCardAt(e.clientX, e.clientY);
+      if (target && target !== connState.fromNum) connect(connState.fromNum, connState.port, target);
+      connState = null;
+    });
   });
 
   document.getElementById('canvas').appendChild(el);
@@ -518,30 +545,21 @@ function onPointerUp(clientX, clientY) {
   }
 }
 
-/* ── 마우스 이벤트 ── */
-document.addEventListener('mousemove', e => {
-  if (!dragState && !connState && !panState) return;
-  if (panState) {
-    canvasOffX += e.clientX - panState.lastX;
-    canvasOffY += e.clientY - panState.lastY;
-    panState.lastX = e.clientX;
-    panState.lastY = e.clientY;
-    applyTransform();
-    return;
-  }
-  onPointerMove(e.clientX, e.clientY);
-});
-document.addEventListener('mouseup', e => {
-  panState = null;
-  onPointerUp(e.clientX, e.clientY);
-});
-
-/* ── 캔버스 배경 클릭 → 팬 시작 ── */
+/* ── 마우스: 배경 팬 ── */
 getWrap().addEventListener('mousedown', e => {
   if (e.target === getWrap() || e.target === getCanvas() || e.target.id === 'arrows') {
     panState = { lastX: e.clientX, lastY: e.clientY };
   }
 });
+document.addEventListener('mousemove', e => {
+  if (!panState) return;
+  canvasOffX += e.clientX - panState.lastX;
+  canvasOffY += e.clientY - panState.lastY;
+  panState.lastX = e.clientX;
+  panState.lastY = e.clientY;
+  applyTransform();
+});
+document.addEventListener('mouseup', () => { panState = null; });
 
 /* ── Ctrl+휠 줌 ── */
 getWrap().addEventListener('wheel', e => {
@@ -559,21 +577,22 @@ getWrap().addEventListener('wheel', e => {
   applyTransform();
 }, {passive:false});
 
-/* ── 터치 이벤트 ── */
+/* ── 터치: 핀치줌 + 배경 팬 ── */
 getWrap().addEventListener('touchstart', e => {
-  if (dragState || connState) return;
   if (e.touches.length === 2) {
-    // 핀치줌 시작
     e.preventDefault();
-    pinchState = { dist: getTouchDist(e.touches), zoom, offX: canvasOffX, offY: canvasOffY,
-      midX: (e.touches[0].clientX+e.touches[1].clientX)/2,
-      midY: (e.touches[0].clientY+e.touches[1].clientY)/2 };
     panState = null;
+    pinchState = {
+      dist: getTouchDist(e.touches), zoom,
+      offX: canvasOffX, offY: canvasOffY,
+      midX: (e.touches[0].clientX+e.touches[1].clientX)/2,
+      midY: (e.touches[0].clientY+e.touches[1].clientY)/2
+    };
   } else if (e.touches.length === 1) {
     const t = e.touches[0];
     const el = document.elementFromPoint(t.clientX, t.clientY);
-    // 카드나 포트가 아닌 배경 터치 → 팬
-    if (!el.closest('.scene-card')) {
+    if (!el || (!el.closest('.scene-card'))) {
+      e.preventDefault();
       panState = { lastX: t.clientX, lastY: t.clientY };
     }
   }
@@ -582,13 +601,10 @@ getWrap().addEventListener('touchstart', e => {
 getWrap().addEventListener('touchmove', e => {
   e.preventDefault();
   if (e.touches.length === 2 && pinchState) {
-    // 핀치줌
     const newDist = getTouchDist(e.touches);
-    const oldZoom = zoom;
     zoom = Math.min(2.0, Math.max(0.3, pinchState.zoom * newDist / pinchState.dist));
     zoom = Math.round(zoom * 100) / 100;
-    const wrap = getWrap();
-    const rect = wrap.getBoundingClientRect();
+    const rect = getWrap().getBoundingClientRect();
     const mx = pinchState.midX - rect.left;
     const my = pinchState.midY - rect.top;
     canvasOffX = mx - (mx - pinchState.offX) * (zoom / pinchState.zoom);
@@ -596,27 +612,19 @@ getWrap().addEventListener('touchmove', e => {
     applyTransform();
     return;
   }
-  if (e.touches.length === 1) {
+  if (e.touches.length === 1 && panState) {
     const t = e.touches[0];
-    if (panState && !dragState && !connState) {
-      canvasOffX += t.clientX - panState.lastX;
-      canvasOffY += t.clientY - panState.lastY;
-      panState.lastX = t.clientX;
-      panState.lastY = t.clientY;
-      applyTransform();
-    } else {
-      onPointerMove(t.clientX, t.clientY);
-    }
+    canvasOffX += t.clientX - panState.lastX;
+    canvasOffY += t.clientY - panState.lastY;
+    panState.lastX = t.clientX;
+    panState.lastY = t.clientY;
+    applyTransform();
   }
 }, {passive:false});
 
 getWrap().addEventListener('touchend', e => {
-  pinchState = null;
-  if (e.touches.length === 0) {
-    panState = null;
-    const changed = e.changedTouches[0];
-    onPointerUp(changed.clientX, changed.clientY);
-  }
+  if (e.touches.length < 2) pinchState = null;
+  if (e.touches.length === 0) panState = null;
 }, {passive:false});
 
 /* ── 연결 처리 ── */

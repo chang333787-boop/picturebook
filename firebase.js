@@ -43,7 +43,7 @@ const auth = firebase.auth();
    ================================================================ */
 
 /**
- * DATA_PATH_VERSION
+ * DATA_PATH_
  * 'v1' → teams/$encodedName          (현재 기본, 기존 동작 유지)
  * 'v2' → classes/$classId/teams/$encodedName  (클래스 구조)
  *
@@ -52,7 +52,7 @@ const auth = firebase.auth();
  *   2. Firebase Rules v2 적용 완료
  *   3. 기존 teams/ 데이터 마이그레이션 또는 학기 초 초기화
  */
-const DATA_PATH_VERSION = 'v1';
+const DATA_PATH_VERSION = 'v2';
 
 /**
  * 팀 Firebase 경로 헬퍼

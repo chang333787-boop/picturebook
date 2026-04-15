@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>가지 branch — 교사 로그인</title>
+  <link href="https://fonts.googleapis.com/css2?family=Jua&family=Nanum+Gothic:wght@400;700&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg:#f4f8ff; --panel:#fff; --primary:#4a90d9;
+      --text:#1e2d3d; --muted:#7a8fa6;
+      --shadow:rgba(30,60,100,0.12); --radius:16px;
+      --font-h:'Jua',sans-serif; --font-b:'Nanum Gothic',sans-serif;
+      --error:#ef476f; --success:#06d6a0;
+    }
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{
+      font-family:var(--font-b);background:var(--bg);color:var(--text);
+      min-height:100vh;display:flex;align-items:center;justify-content:center;
+      padding:20px;
+    }
+
+    .auth-wrap {
+      width:100%;max-width:380px;
+    }
+
+    /* 브랜드 */
+    .auth-brand {
+      text-align:center;margin-bottom:28px;
+    }
+    .auth-brand-logo {
+      font-family:var(--font-h);font-size:28px;color:var(--primary);
+    }
+    .auth-brand-sub {
+      font-size:13px;color:var(--muted);margin-top:4px;
+    }
+
+    /* 카드 */
+    .auth-card {
+      background:var(--panel);border-radius:20px;
+      padding:32px 28px;box-shadow:0 8px 40px var(--shadow);
+    }
+    .auth-card-title {
+      font-family:var(--font-h);font-size:18px;color:var(--text);
+      margin-bottom:20px;text-align:center;
+    }
+
+    /* 입력 */
+    .auth-field {
+      margin-bottom:14px;
+    }
+    .auth-label {
+      display:block;font-size:12px;color:var(--muted);
+      margin-bottom:5px;font-family:var(--font-h);
+    }
+    .auth-input {
+      width:100%;padding:11px 14px;border:2px solid #d0e0f5;
+      border-radius:50px;font-family:var(--font-b);font-size:15px;
+      color:var(--text);transition:border-color .15s;
+    }
+    .auth-input:focus{outline:none;border-color:var(--primary);}
+
+    /* 버튼 */
+    .auth-btn {
+      width:100%;padding:13px;background:var(--primary);color:#fff;
+      border:none;border-radius:50px;font-family:var(--font-h);
+      font-size:16px;cursor:pointer;margin-top:6px;
+      transition:opacity .15s,transform .12s;
+    }
+    .auth-btn:hover{opacity:.9;}
+    .auth-btn:active{transform:scale(.98);}
+    .auth-btn:disabled{opacity:.5;cursor:not-allowed;}
+
+    /* 에러 / 상태 */
+    .auth-error {
+      font-size:13px;color:var(--error);margin-top:12px;
+      text-align:center;min-height:20px;line-height:1.5;
+    }
+    .auth-notice {
+      font-size:12px;color:var(--muted);margin-top:16px;
+      text-align:center;line-height:1.6;
+    }
+
+    /* 로그인 완료 상태 */
+    .auth-logged-in {
+      text-align:center;display:none;
+    }
+    .auth-logged-in-icon { font-size:40px;margin-bottom:12px; }
+    .auth-logged-in-name {
+      font-family:var(--font-h);font-size:16px;color:var(--text);margin-bottom:4px;
+    }
+    .auth-logged-in-role {
+      font-size:12px;color:var(--muted);margin-bottom:20px;
+    }
+    .auth-btn--enter {
+      background:#06d6a0;margin-bottom:10px;
+    }
+    .auth-btn--logout {
+      background:#e0e8f0;color:var(--muted);
+    }
+
+    /* 홈 링크 */
+    .auth-home-link {
+      display:block;text-align:center;margin-top:16px;
+      font-size:12px;color:var(--muted);text-decoration:none;
+    }
+    .auth-home-link:hover{color:var(--primary);}
+  </style>
+</head>
+<body>
+
+<div class="auth-wrap">
+
+  <!-- 브랜드 -->
+  <div class="auth-brand">
+    <div class="auth-brand-logo">🌿 가지 branch</div>
+    <div class="auth-brand-sub">교사 로그인</div>
+  </div>
+
+  <!-- 카드 -->
+  <div class="auth-card">
+
+    <!-- 로그인 폼 -->
+    <div id="login-form">
+      <div class="auth-card-title">교사 계정으로 로그인</div>
+      <div class="auth-field">
+        <label class="auth-label" for="auth-email">이메일</label>
+        <input id="auth-email" class="auth-input" type="email"
+          placeholder="teacher@school.kr" autocomplete="email"/>
+      </div>
+      <div class="auth-field">
+        <label class="auth-label" for="auth-pw">비밀번호</label>
+        <input id="auth-pw" class="auth-input" type="password"
+          placeholder="비밀번호" autocomplete="current-password"/>
+      </div>
+      <button id="btn-login" class="auth-btn">로그인 →</button>
+      <div id="auth-error" class="auth-error"></div>
+      <p class="auth-notice">
+        교사 계정은 관리자가 별도 발급합니다.<br>
+        계정 문의는 학교 담당자에게 확인해주세요.
+      </p>
+    </div>
+
+    <!-- 로그인 완료 상태 -->
+    <div id="logged-in-view" class="auth-logged-in">
+      <div class="auth-logged-in-icon">✅</div>
+      <div id="logged-in-name" class="auth-logged-in-name">-</div>
+      <div id="logged-in-role" class="auth-logged-in-role">-</div>
+      <button id="btn-enter-admin" class="auth-btn auth-btn--enter">
+        관리 화면으로 →
+      </button>
+      <button id="btn-logout" class="auth-btn auth-btn--logout">
+        로그아웃
+      </button>
+    </div>
+
+  </div>
+
+  <a href="index.html" class="auth-home-link">← 홈으로 돌아가기</a>
+
+</div>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+
+<script>
+/* ================================================================
+   teacher-auth.html — 교사 로그인 전용 화면
+   ─────────────────────────────────────────────────────────────────
+   역할:
+     Firebase Auth 이메일/비밀번호 로그인
+     Custom Claim의 role 확인 (teacher | super_admin)
+     인증 성공 → maker.html?admin=1 으로 이동
+   ─────────────────────────────────────────────────────────────────
+   임시 구조 메모:
+     admin/pw fallback 제거됨. Firebase Auth 단일 경로만 사용.
+   ================================================================ */
+
+const firebaseConfig = {
+  apiKey:            'AIzaSyBK12nBkj6Pdwu-zpL3w0krU1PzS78McmE',
+  authDomain:        'picturebook-8731f.firebaseapp.com',
+  projectId:         'picturebook-8731f',
+  storageBucket:     'picturebook-8731f.firebasestorage.app',
+  messagingSenderId: '590974087190',
+  appId:             '1:590974087190:web:a9e9ba15adf020ff470537'
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+
+/* ── DOM 참조 ── */
+const loginForm     = document.getElementById('login-form');
+const loggedInView  = document.getElementById('logged-in-view');
+const emailInput    = document.getElementById('auth-email');
+const pwInput       = document.getElementById('auth-pw');
+const btnLogin      = document.getElementById('btn-login');
+const btnEnter      = document.getElementById('btn-enter-admin');
+const btnLogout     = document.getElementById('btn-logout');
+const authError     = document.getElementById('auth-error');
+const loggedInName  = document.getElementById('logged-in-name');
+const loggedInRole  = document.getElementById('logged-in-role');
+
+const ROLE_LABEL = {
+  'super_admin': '총 관리자',
+  'teacher':     '교사',
+};
+
+/* ── 인증 상태 감지 ── */
+auth.onAuthStateChanged(async user => {
+  if (!user) {
+    _showLoginForm();
+    return;
+  }
+
+  /* forceRefresh: true — 로그인 직후 최신 Custom Claim 보장
+     기존 세션에서 Claim이 새로 부여된 경우에도 즉시 반영 */
+  const tokenResult = await user.getIdTokenResult(/* forceRefresh */ true);
+  const role        = tokenResult.claims.role ?? null;
+
+  if (role !== 'teacher' && role !== 'super_admin') {
+    /* 계정은 있으나 교사 role이 없는 경우 */
+    _showLoginForm();
+    setError('이 계정에는 교사 권한이 없어요. 관리자에게 문의해주세요.');
+    await auth.signOut();
+    return;
+  }
+
+  _showLoggedIn(user, role);
+});
+
+/* ── 로그인 ── */
+btnLogin.addEventListener('click', _doLogin);
+pwInput.addEventListener('keydown', e => { if (e.key === 'Enter') _doLogin(); });
+emailInput.addEventListener('keydown', e => { if (e.key === 'Enter') pwInput.focus(); });
+
+async function _doLogin() {
+  const email = emailInput.value.trim();
+  const pw    = pwInput.value;
+  if (!email || !pw) { setError('이메일과 비밀번호를 모두 입력해주세요.'); return; }
+
+  setError('');
+  btnLogin.disabled    = true;
+  btnLogin.textContent = '확인 중...';
+
+  try {
+    await auth.signInWithEmailAndPassword(email, pw);
+    /* onAuthStateChanged가 role 확인 후 화면 전환 처리 */
+  } catch (err) {
+    btnLogin.disabled    = false;
+    btnLogin.textContent = '로그인 →';
+    setError(_authErrMsg(err.code));
+  }
+}
+
+/* ── 관리 화면으로 이동 ── */
+btnEnter.addEventListener('click', () => {
+  window.location.href = 'maker.html?admin=1';
+});
+
+/* ── 로그아웃 ── */
+btnLogout.addEventListener('click', async () => {
+  await auth.signOut();
+});
+
+/* ── 헬퍼 ── */
+function _showLoginForm() {
+  loginForm.style.display    = '';
+  loggedInView.style.display = 'none';
+  btnLogin.disabled    = false;
+  btnLogin.textContent = '로그인 →';
+}
+
+function _showLoggedIn(user, role) {
+  loginForm.style.display    = 'none';
+  loggedInView.style.display = 'block';
+  loggedInName.textContent   = user.email;
+  loggedInRole.textContent   = ROLE_LABEL[role] ?? role;
+  setError('');
+}
+
+function setError(msg) {
+  authError.textContent = msg;
+}
+
+function _authErrMsg(code) {
+  const map = {
+    'auth/user-not-found':     '등록된 계정이 없어요.',
+    'auth/wrong-password':     '비밀번호가 틀렸어요.',
+    'auth/invalid-email':      '이메일 형식이 올바르지 않아요.',
+    'auth/invalid-credential': '이메일 또는 비밀번호가 올바르지 않아요.',
+    'auth/too-many-requests':  '로그인 시도가 너무 많아요. 잠시 후 다시 시도해주세요.',
+    'auth/user-disabled':      '비활성화된 계정이에요. 관리자에게 문의해주세요.',
+  };
+  return map[code] ?? `로그인 실패: ${code}`;
+}
+</script>
+</body>
+</html>

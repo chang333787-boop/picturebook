@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+  <meta name="theme-color" content="#0d1117"/>
+  <title>가지 viewer</title>
+  <link href="https://fonts.googleapis.com/css2?family=Jua&family=Nanum+Gothic:wght@400;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="viewer.css"/>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════
+     ENTRY 화면
+     ═══════════════════════════════════════════ -->
+<div id="entry-screen">
+  <div class="entry-card">
+    <div class="entry-logo">🌿</div>
+    <h1 class="entry-title">가지 viewer</h1>
+    <p class="entry-sub">
+      팀 이름을 입력하면<br/>
+      완성된 이야기를 감상할 수 있어요
+    </p>
+    <input
+      id="entry-team-input"
+      class="entry-input"
+      type="text"
+      placeholder="팀 이름 (예: 2모둠)"
+      maxlength="30"
+      autocomplete="off"
+    />
+    <div id="entry-error" class="entry-error"></div>
+    <button id="entry-submit" class="entry-submit">작품 보기 →</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     PLAYER 화면
+     ═══════════════════════════════════════════ -->
+<div id="player-screen" class="hidden">
+
+  <!-- HUD (상단 바) -->
+  <div id="hud"></div>
+
+  <!-- 본문 영역 -->
+  <div class="player-body">
+
+    <!-- 풀스크린 stage: 검은 배경 -->
+    <div id="stage-wrap">
+      <!-- 16:9 작품 무대 프레임 -->
+      <div id="viewer-frame" class="stage theme-default">
+        <!-- 장면 콘텐츠가 여기 렌더됨 -->
+        <!-- safe-area 점선 (edit 모드에서만 표시) — viewer-frame 기준 -->
+        <div id="safe-area-hint" class="safe-area-hint hidden"></div>
+      </div>
+    </div>
+
+    <!-- edit panel (editMode일 때만 표시) -->
+    <div id="edit-panel"></div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     Scripts
+     로드 순서:
+       Firebase SDK
+       → viewer-state.js
+       → viewer-data.js
+       → viewer-controls.js
+       → viewer-render.js
+       → viewer-edit.js
+       → viewer-entry.js  (DOMContentLoaded 등록)
+     ═══════════════════════════════════════════ -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="viewer-state.js"></script>
+<script src="viewer-data.js"></script>
+<script src="viewer-controls.js"></script>
+<script src="viewer-render.js"></script>
+<script src="viewer-edit.js"></script>
+<script src="viewer-entry.js"></script>
+
+</body>
+</html>

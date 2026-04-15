@@ -1,0 +1,335 @@
+/* ================================================================
+   home.css — 가지 branch home 허브
+   기존 maker/viewer 스타일과 독립, 동일 폰트 패밀리 공유
+   ================================================================ */
+
+/* ── 변수 ── */
+:root {
+  --home-bg:        #0e1320;
+  --home-surface:   #161d2f;
+  --home-surface2:  #1e2840;
+  --home-border:    rgba(255,255,255,0.09);
+  --home-text:      #e8edf5;
+  --home-muted:     #8394ad;
+
+  /* 카드 강조색 */
+  --c-make:   #4a90e2;  /* 파랑 — 제작 */
+  --c-view:   #3abf8a;  /* 청록 — 감상 */
+  --c-admin:  #e8a440;  /* 황금 — 관리 */
+
+  /* 타이포 */
+  --font-ui:   'Jua', 'Apple SD Gothic Neo', sans-serif;
+  --font-body: 'Nanum Gothic', 'Apple SD Gothic Neo', sans-serif;
+
+  /* 애니메이션 */
+  --t: 0.22s;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ── 리셋 ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ── body ── */
+body.home {
+  min-height: 100dvh;
+  background: var(--home-bg);
+  color: var(--home-text);
+  font-family: var(--font-body);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px;
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* ================================================================
+   배경 blob
+   ================================================================ */
+.home-bg {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+.home-bg__blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.18;
+}
+.home-bg__blob--1 {
+  width: 520px; height: 520px;
+  background: var(--c-make);
+  top: -120px; left: -80px;
+}
+.home-bg__blob--2 {
+  width: 400px; height: 400px;
+  background: var(--c-view);
+  bottom: -60px; right: -40px;
+}
+.home-bg__blob--3 {
+  width: 280px; height: 280px;
+  background: var(--c-admin);
+  top: 50%; left: 55%;
+  transform: translate(-50%, -50%);
+}
+
+/* ================================================================
+   main 컨테이너
+   ================================================================ */
+.home-main {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 880px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 48px;
+}
+
+/* ================================================================
+   Hero
+   ================================================================ */
+.hero {
+  text-align: center;
+  animation: fadeUp 0.5s var(--ease-out) both;
+}
+
+.hero__logo {
+  margin-bottom: 16px;
+}
+.hero__logo-mark {
+  font-size: 48px;
+  display: inline-block;
+  animation: floatLogo 3.6s ease-in-out infinite;
+  filter: drop-shadow(0 4px 16px rgba(74,144,226,0.4));
+}
+@keyframes floatLogo {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-6px); }
+}
+
+.hero__title {
+  font-family: var(--font-ui);
+  font-size: clamp(28px, 6vw, 44px);
+  color: var(--home-text);
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+  margin-bottom: 12px;
+}
+.hero__title-accent {
+  color: var(--c-make);
+}
+
+.hero__desc {
+  font-size: clamp(14px, 2vw, 16px);
+  color: var(--home-muted);
+  line-height: 1.7;
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+/* ================================================================
+   Cards
+   ================================================================ */
+.home-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  width: 100%;
+}
+
+/* ── 개별 카드 ── */
+.home-card {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  background: var(--home-surface);
+  border: 1px solid var(--home-border);
+  border-radius: 20px;
+  padding: 32px 24px 28px;
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  outline-offset: 4px;
+  /* 진입 애니메이션 */
+  animation: fadeUp 0.5s var(--ease-out) both;
+  transition:
+    transform var(--t) var(--ease-out),
+    box-shadow var(--t) var(--ease-out),
+    border-color var(--t);
+}
+
+/* 카드 위 색상 줄기 */
+.home-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  border-radius: 20px 20px 0 0;
+  transition: height var(--t) var(--ease-out);
+}
+.home-card--make::before  { background: var(--c-make); }
+.home-card--view::before  { background: var(--c-view); }
+.home-card--admin::before { background: var(--c-admin); }
+
+/* hover */
+.home-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 16px 48px rgba(0,0,0,0.35);
+}
+.home-card--make:hover  { border-color: rgba(74,144,226,0.4);  box-shadow: 0 16px 48px rgba(74,144,226,0.18); }
+.home-card--view:hover  { border-color: rgba(58,191,138,0.4);  box-shadow: 0 16px 48px rgba(58,191,138,0.18); }
+.home-card--admin:hover { border-color: rgba(232,164,64,0.4);  box-shadow: 0 16px 48px rgba(232,164,64,0.18); }
+
+.home-card:hover::before { height: 4px; }
+
+/* focus-visible */
+.home-card:focus-visible {
+  outline: 2px solid var(--c-make);
+}
+.home-card--view:focus-visible  { outline-color: var(--c-view); }
+.home-card--admin:focus-visible { outline-color: var(--c-admin); }
+
+/* active */
+.home-card:active { transform: translateY(-2px) scale(0.99); }
+
+/* ── 카드 내부 ── */
+.home-card__inner {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 100%;
+}
+
+.home-card__icon {
+  font-size: 32px;
+  display: block;
+  line-height: 1;
+  margin-bottom: 4px;
+  transition: transform var(--t) var(--ease-out);
+}
+.home-card:hover .home-card__icon {
+  transform: scale(1.12);
+}
+
+.home-card__text { flex: 1; }
+
+.home-card__title {
+  font-family: var(--font-ui);
+  font-size: 20px;
+  color: var(--home-text);
+  margin-bottom: 8px;
+  line-height: 1.3;
+}
+.home-card--make  .home-card__title { color: #9ec8f5; }
+.home-card--view  .home-card__title { color: #8de0c4; }
+.home-card--admin .home-card__title { color: #f5d48e; }
+
+.home-card__desc {
+  font-size: 14px;
+  color: var(--home-muted);
+  line-height: 1.7;
+}
+
+.home-card__arrow {
+  display: block;
+  font-size: 18px;
+  color: var(--home-border);
+  text-align: right;
+  transition: color var(--t), transform var(--t) var(--ease-out);
+  margin-top: 8px;
+}
+.home-card--make:hover  .home-card__arrow { color: var(--c-make);  transform: translateX(4px); }
+.home-card--view:hover  .home-card__arrow { color: var(--c-view);  transform: translateX(4px); }
+.home-card--admin:hover .home-card__arrow { color: var(--c-admin); transform: translateX(4px); }
+
+/* ================================================================
+   Footer
+   ================================================================ */
+.home-footer {
+  text-align: center;
+  animation: fadeUp 0.5s 0.45s var(--ease-out) both;
+}
+
+.home-footer__hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--home-muted);
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--home-border);
+  border-radius: 50px;
+  padding: 8px 18px;
+  line-height: 1.5;
+}
+.home-footer__icon { font-size: 15px; }
+
+/* ================================================================
+   애니메이션
+   ================================================================ */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ================================================================
+   반응형
+   ================================================================ */
+
+/* 태블릿: 2열 */
+@media (max-width: 780px) {
+  .home-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  /* 세 번째 카드(교사 관리)는 아래 가운데 */
+  .home-card:last-child {
+    grid-column: 1 / -1;
+    max-width: 400px;
+    margin: 0 auto;
+    width: 100%;
+  }
+}
+
+/* 모바일: 1열 */
+@media (max-width: 500px) {
+  body.home { padding: 24px 16px; }
+
+  .home-main { gap: 36px; }
+
+  .home-cards {
+    grid-template-columns: 1fr;
+  }
+  .home-card:last-child {
+    grid-column: auto;
+    max-width: none;
+    margin: 0;
+  }
+
+  .home-card {
+    padding: 24px 20px 20px;
+    border-radius: 16px;
+  }
+  .home-card__icon { font-size: 28px; }
+  .home-card__title { font-size: 18px; }
+
+  .hero__logo-mark { font-size: 40px; }
+
+  /* 모바일: hover 효과 최소화 (터치 디바이스) */
+  @media (hover: none) {
+    .home-card:hover { transform: none; box-shadow: none; }
+    .home-card:active { transform: scale(0.98); }
+  }
+}
+
+/* 모션 감소 설정 */
+@media (prefers-reduced-motion: reduce) {
+  .hero__logo-mark { animation: none; }
+  .home-card,
+  .hero,
+  .home-footer { animation: none; opacity: 1; transform: none; }
+}

@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="theme-color" content="#0e1320"/>
+  <meta name="description" content="장면을 연결해 인터랙티브 콘텐츠를 만들고 공유해 보세요."/>
+  <title>가지 branch</title>
+  <link href="https://fonts.googleapis.com/css2?family=Jua&family=Nanum+Gothic:wght@400;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="home.css"/>
+</head>
+<body class="home">
+
+  <!-- 배경 장식 -->
+  <div class="home-bg" aria-hidden="true">
+    <div class="home-bg__blob home-bg__blob--1"></div>
+    <div class="home-bg__blob home-bg__blob--2"></div>
+    <div class="home-bg__blob home-bg__blob--3"></div>
+  </div>
+
+  <main class="home-main">
+
+    <!-- Hero -->
+    <header class="hero" role="banner">
+      <div class="hero__logo" aria-label="가지 branch 로고">
+        <span class="hero__logo-mark">🌿</span>
+      </div>
+      <h1 class="hero__title">가지 <span class="hero__title-accent">branch</span></h1>
+      <p class="hero__desc">장면을 연결해 인터랙티브 콘텐츠를 만들고 공유해 보세요.</p>
+    </header>
+
+    <!-- 메인 카드 -->
+    <section class="home-cards" aria-label="주요 기능">
+
+      <!-- 작품 만들기 -->
+      <a href="maker.html" class="home-card home-card--make" aria-label="작품 만들기로 이동">
+        <div class="home-card__inner">
+          <span class="home-card__icon" aria-hidden="true">✏️</span>
+          <div class="home-card__text">
+            <h2 class="home-card__title">작품 만들기</h2>
+            <p class="home-card__desc">팀 이름과 PIN으로 들어가 장면을 연결하고 작품을 만들어요.</p>
+          </div>
+          <span class="home-card__arrow" aria-hidden="true">→</span>
+        </div>
+      </a>
+
+      <!-- 작품 보기 -->
+      <a href="viewer.html" class="home-card home-card--view" aria-label="작품 보기로 이동">
+        <div class="home-card__inner">
+          <span class="home-card__icon" aria-hidden="true">▶</span>
+          <div class="home-card__text">
+            <h2 class="home-card__title">작품 보기</h2>
+            <p class="home-card__desc">팀 이름을 입력하고 완성된 작품을 감상해요.</p>
+          </div>
+          <span class="home-card__arrow" aria-hidden="true">→</span>
+        </div>
+      </a>
+
+      <!-- 교사 관리 -->
+      <!-- 교사 로그인 화면(teacher-auth.html) → Firebase Auth → maker.html?admin=1 -->
+      <a href="teacher-auth.html" class="home-card home-card--admin" aria-label="교사 관리로 이동">
+        <div class="home-card__inner">
+          <span class="home-card__icon" aria-hidden="true">🛠</span>
+          <div class="home-card__text">
+            <h2 class="home-card__title">교사 관리</h2>
+            <p class="home-card__desc">모둠 작품을 확인하고 정리하거나 점검해요.</p>
+          </div>
+          <span class="home-card__arrow" aria-hidden="true">→</span>
+        </div>
+      </a>
+
+    </section>
+
+    <!-- 하단 안내 -->
+    <footer class="home-footer">
+      <p class="home-footer__hint">
+        <span class="home-footer__icon" aria-hidden="true">💡</span>
+        작품을 만들려면 팀 이름과 PIN이 필요해요.
+      </p>
+    </footer>
+
+  </main>
+
+  <script>
+    /* 카드 진입 애니메이션 — IntersectionObserver 없이 단순 처리 */
+    document.addEventListener('DOMContentLoaded', () => {
+      document.querySelectorAll('.home-card').forEach((card, i) => {
+        card.style.animationDelay = `${0.1 + i * 0.1}s`;
+      });
+    });
+  </script>
+
+</body>
+</html>

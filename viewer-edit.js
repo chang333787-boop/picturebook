@@ -1065,13 +1065,37 @@ function _queueSaveButtons(scene) {
 
 /* ================================================================
    장면 template override
+   ─────────────────────────────────────────────────────────────
+   v0.3 명시 모드(text/picturebook/movie)에서는 모드가 곧 레이아웃을 결정
+   하므로 "이 장면 레이아웃"(layoutTemplate)과 "텍스트 위치"(textAnchor)는
+   설계 충돌이라 숨긴다. legacy(document/미지정)에서만 노출 + "기존 모드 전용" 표시.
+   모드 카드(_modePickerHtml)는 모든 모드에서 항상 노출.
    ================================================================ */
 function _sceneTemplateHtml(scene) {
+  const isV03Mode = scene.presentationMode === 'text' ||
+                    scene.presentationMode === 'picturebook' ||
+                    scene.presentationMode === 'movie';
+
+  /* 모드 카드는 항상 노출 */
+  const modeCardHtml = _modePickerHtml(scene);
+
+  /* v0.3 모드에선 layoutTemplate / textAnchor UI 숨김.
+     데이터(scene.layoutTemplate, scene.textAnchor)는 메모리/DB에 남아있되
+     UI에서 조작 진입점만 차단. 사용자가 모드를 다시 document로 바꾸면
+     legacy UI에서 다시 보임. */
+  if (isV03Mode) {
+    return modeCardHtml;
+  }
+
+  /* legacy (document / 모드 미지정 기존 작품) — 기존 UI 노출 */
   const options = ['(기본)', 'full-image', 'text-page', 'map-layout'];
   return `
-    ${_modePickerHtml(scene)}
-    <div class="edit-row">
-      <label class="edit-label">이 장면 레이아웃</label>
+    ${modeCardHtml}
+    <div class="edit-row edit-row--legacy">
+      <label class="edit-label">
+        이 장면 레이아웃
+        <span class="edit-section-tag">기존 모드 전용</span>
+      </label>
       <div class="edit-toggle-group" style="flex-wrap:wrap;">
         ${options.map(tpl => `
           <button class="edit-toggle js-scene-tpl ${(scene.layoutTemplate || '(기본)') === tpl ? 'active' : ''}"

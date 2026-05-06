@@ -1,0 +1,584 @@
+/* ================================================================
+   v03-modes.css — maker preview용 v0.3 모드별 기본형 룰
+   ─────────────────────────────────────────────────────────────
+   ⚠ TODO: 이 파일과 viewer.css 끝부분의 v0.3 섹션은 같은 룰이다.
+   maker preview에서 viewer와 같은 외양을 받기 위해 사본을 둔다.
+   다음 정리 단계에서 단일 source of truth로 통일 가능.
+   ================================================================ */
+
+   ║  v0.3 모드별 기본형 레이아웃 — 2단계 (감상 화면 구조)      ║
+   ╠═══════════════════════════════════════════════════════════╣
+   ║  text  / picturebook / movie 3개 모드의 기본형 구조.       ║
+   ║  기존 .scene-screen 룰 위에 cascading으로 덮어씀.          ║
+   ║                                                            ║
+   ║  새 클래스(viewer-render._renderScene*에서 부여):          ║
+   ║  · .scene-screen--text      → 텍스트형 (중앙 카드)         ║
+   ║  · .scene-screen--pb        → 그림책형 (TB/LR 분할)        ║
+   ║    .pb--tb / .pb--lr                                       ║
+   ║  · .scene-screen--movie     → 무비형 (미디어 + 결정 패널)  ║
+   ║                                                            ║
+   ║  테마 슬롯 (CSS 변수) — 다음 단계에서 본격 활용:            ║
+   ║  --v03-card-bg, --v03-card-fg, --v03-divider 등            ║
+   ║  지금은 기존 viewer.css 변수(--text 등)와 합리적 톤만 사용. ║
+   ╚═══════════════════════════════════════════════════════════╝ */
+
+/* ── 테마 슬롯 변수 (v0.3 기본형 — light 톤 자체 정의) ──
+   기존 viewer.css 변수와 충돌 안 하도록 v03- 접두사 사용 */
+.scene-screen--text,
+.scene-screen--pb,
+.scene-screen--movie {
+  --v03-bg:           #f4f5f7;
+  --v03-bg-soft:      #eaecef;
+  --v03-card-bg:      #ffffff;
+  --v03-card-border:  #e1e4e8;
+  --v03-card-shadow:  0 1px 2px rgba(20,30,50,0.04), 0 8px 24px rgba(20,30,50,0.06);
+  --v03-fg:           #1a1f2e;
+  --v03-fg-soft:      #4a5568;
+  --v03-fg-muted:     #8a93a3;
+  --v03-divider:      #e1e4e8;
+  --v03-accent:       #2d6cdf;
+  --v03-btn-bg:       #ffffff;
+  --v03-btn-fg:       #1a1f2e;
+  --v03-btn-border:   #d1d5db;
+  --v03-btn-hover-bg: #f4f5f7;
+  --v03-btn-hover-bd: #2d6cdf;
+  --v03-illust-bg:    #eef0f4;
+  --v03-illust-mark:  #cdd2db;
+  --v03-media-bg:     #1a1d24;
+  --v03-media-fg:     #ffffff;
+  --v03-r-sm:         4px;
+  --v03-r-md:         6px;
+  --v03-r-lg:         10px;
+}
+
+/* ╭─────────────────────────────────────────╮
+   │  공통: v0.3 버튼 (모드별 색만 변주)     │
+   ╰─────────────────────────────────────────╯ */
+.choice-v03 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 11px 14px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+  text-align: left;
+  cursor: pointer;
+  border: 1px solid var(--v03-btn-border);
+  background: var(--v03-btn-bg);
+  color: var(--v03-btn-fg);
+  border-radius: var(--v03-r-md);
+  transition: background 0.12s, border-color 0.12s, transform 0.08s;
+}
+.choice-v03:hover:not(:disabled) {
+  background: var(--v03-btn-hover-bg);
+  border-color: var(--v03-btn-hover-bd);
+}
+.choice-v03:active:not(:disabled) {
+  transform: scale(0.99);
+}
+.choice-v03:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.choice-v03::after {
+  content: '→';
+  color: var(--v03-fg-muted);
+  margin-left: 12px;
+  flex-shrink: 0;
+}
+.choice-v03--empty {
+  color: var(--v03-fg-muted);
+  font-style: italic;
+}
+
+/* ╭─────────────────────────────────────────╮
+   │  모드 1: 텍스트형 (text)                │
+   │  배경 + 중앙 카드 + 카드 안 (제목→본문→버튼) │
+   ╰─────────────────────────────────────────╯ */
+.scene-screen--text {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: var(--v03-bg);
+}
+.scene-screen--text .scene-bg {
+  position: absolute; inset: 0;
+  background-size: cover; background-position: center;
+}
+.scene-screen--text .scene-bg-overlay {
+  position: absolute; inset: 0;
+  background: rgba(0, 0, 0, 0.25);
+}
+.scene-screen--text .scene-bg-solid {
+  position: absolute; inset: 0;
+  background: linear-gradient(135deg, #2c3245 0%, #3a4258 100%);
+}
+.scene-screen--text .scene-content--text {
+  position: absolute; inset: 0;
+  pointer-events: none;  /* 카드만 events 받음 */
+}
+.scene-screen--text .text-card {
+  position: absolute;
+  /* JS가 inline style로 left/top/width/(height) 박음. transform으로 center 기준 */
+  transform: translate(-50%, -50%);
+  background: var(--v03-card-bg);
+  color: var(--v03-fg);
+  border: 1px solid var(--v03-card-border);
+  border-radius: var(--v03-r-lg);
+  box-shadow: var(--v03-card-shadow);
+  padding: 28px 32px 22px;
+  pointer-events: auto;
+  /* 가시성 보장 — 최소 크기 (내용이 너무 작아져 사라지지 않게) */
+  min-width: 240px;
+  min-height: 120px;
+  /* 화면 안 유지 — 너무 커져 부모 밖으로 안 나가게 */
+  max-width: calc(100% - 32px);
+  max-height: calc(100% - 32px);
+  /* 내부 스크롤 — 콘텐츠가 넘쳐도 카드 자체는 화면 안에 */
+  overflow: auto;
+  /* 콘텐츠 분포: 본문이 늘어나도 버튼이 항상 보이게 */
+  display: flex;
+  flex-direction: column;
+}
+.scene-screen--text .text-card__title {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  color: var(--v03-fg);
+  margin: 0 0 14px;
+}
+.scene-screen--text .text-card__body {
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--v03-fg);
+  margin: 0 0 18px;
+  flex: 1;  /* 본문이 영역 차지, 버튼은 아래로 밀림 */
+  white-space: pre-wrap;
+}
+.scene-screen--text .text-card__body--scroll {
+  /* 매우 긴 본문 — 카드 내부에서 자체 스크롤 */
+  overflow-y: auto;
+  max-height: 50vh;
+}
+.scene-screen--text .text-card__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--v03-divider);
+  /* 버튼 영역 가시성 보장 (v0.3 명세) — 카드 안 항상 맨 아래 */
+  flex-shrink: 0;
+}
+
+/* ╭─────────────────────────────────────────╮
+   │  모드 2: 그림책형 (picturebook)         │
+   │  TB(상하) 또는 LR(좌우) 50:50 분할      │
+   ╰─────────────────────────────────────────╯ */
+.scene-screen--pb {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: var(--v03-bg);
+  /* 패딩 줄임: 좁은 viewer-frame에서 콘텐츠 면적 확보 */
+  padding: 12px;
+}
+.scene-screen--pb .pb-frame {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  /* gap 줄임: 16px → 10px */
+  gap: 10px;
+  background: var(--v03-bg-soft);
+  border-radius: var(--v03-r-md);
+}
+/* TB: 위 그림 / 아래 텍스트 — v0.3 명세상 50:50 유지하되
+   체감상 텍스트 영역에 제목·본문·버튼 다 들어가야 하므로
+   minmax(0, 1fr)로 그림이 텍스트 압박하지 않게 함 */
+.scene-screen--pb.pb--tb .pb-frame {
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: 1fr;
+}
+/* LR: 좌 그림 / 우 텍스트 — 50:50 (v0.3 고정)
+   minmax(0, 1fr)로 영역이 콘텐츠에 의해 안 늘어나도록 (overflow는 자식 처리) */
+.scene-screen--pb.pb--lr .pb-frame {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-rows: 1fr;
+}
+
+/* 그림 슬롯 */
+.scene-screen--pb .pb-illust {
+  background: var(--v03-illust-bg);
+  background-size: cover;
+  background-position: center;
+  border-radius: var(--v03-r-md);
+  border: 1px solid var(--v03-card-border);
+  /* 그림은 영역 채우게 (자식 없음, background로만 표시) */
+  min-width: 0;
+  min-height: 0;
+}
+.scene-screen--pb .pb-illust--empty {
+  display: grid;
+  place-items: center;
+  background: var(--v03-illust-bg);
+}
+.scene-screen--pb .pb-empty-mark {
+  font-size: 48px;
+  line-height: 1;
+  color: var(--v03-illust-mark);
+  opacity: 0.45;
+  font-weight: 300;
+  /* 의도적으로 짧고 중성적 — v0.3 명세: 감성 문구 금지 */
+}
+
+/* 텍스트 영역 — 좁은 환경에서 효율적으로 */
+.scene-screen--pb .pb-text {
+  background: var(--v03-card-bg);
+  border: 1px solid var(--v03-card-border);
+  border-radius: var(--v03-r-md);
+  /* 패딩 줄임: 22px 28px 18px → 16px 20px 14px (좁은 영역 효율) */
+  padding: 16px 20px 14px;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  min-width: 0;   /* grid item shrink 허용 */
+  min-height: 0;
+}
+.scene-screen--pb .pb-text__title {
+  /* 폰트 viewport-반응 — 좁아지면 살짝 작아짐 */
+  font-size: clamp(16px, 2.2vw, 22px);
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--v03-fg);
+  margin: 0 0 10px;
+}
+.scene-screen--pb .pb-text__body {
+  font-size: clamp(13px, 1.5vw, 14.5px);
+  line-height: 1.7;
+  color: var(--v03-fg);
+  margin: 0 0 12px;
+  flex: 1;
+  white-space: pre-wrap;
+}
+.scene-screen--pb .pb-text__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--v03-divider);
+  flex-shrink: 0;
+  /* 버튼은 텍스트 영역 안에만, 그림 영역 침범 금지 (v0.3 명세) */
+}
+
+/* ╭─────────────────────────────────────────╮
+   │  모드 3: 무비형 (movie)                 │
+   │  위 미디어(어두움) + 아래 결정 패널(light) │
+   │  결정 패널 자연 높이 + 최대 40%          │
+   ╰─────────────────────────────────────────╯ */
+.scene-screen--movie {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: var(--v03-media-bg);
+  display: grid;
+  grid-template-rows: 1fr auto;  /* 위 미디어 = 가용 공간, 아래 결정 = 자연 높이 */
+}
+.scene-screen--movie .movie-media {
+  background: var(--v03-media-bg);
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  min-height: 0;  /* grid 1fr가 줄어들 수 있어야 결정 패널이 자연 높이 가짐 */
+}
+.scene-screen--movie .movie-poster {
+  width: 100%;
+  height: 100%;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+.scene-screen--movie .movie-poster--empty {
+  display: grid;
+  place-items: center;
+  background: var(--v03-media-bg);
+}
+.scene-screen--movie .movie-empty-mark {
+  font-size: 56px;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.18);
+  font-weight: 300;
+  /* 중성적 placeholder — v0.3 명세 */
+}
+.scene-screen--movie .movie-controls {
+  position: absolute;
+  bottom: 18px; left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 100px;
+  padding: 6px 18px;
+  color: white;
+  pointer-events: none;
+}
+.scene-screen--movie .movie-controls__play {
+  font-size: 12px;
+}
+
+/* 결정 패널 — light 톤, 자연 높이 + 최대 40% */
+.scene-screen--movie .movie-decision {
+  background: var(--v03-card-bg);
+  color: var(--v03-fg);
+  border-top: 1px solid var(--v03-card-border);
+  padding: 16px 24px 18px;
+  /* v0.3 명세: 자연 높이 기반 + 최대 40%, 넘치면 내부 스크롤 */
+  max-height: 40%;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.scene-screen--movie .movie-decision__desc {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--v03-fg-soft);
+  margin: 0;
+  white-space: pre-wrap;
+}
+.scene-screen--movie .movie-decision__actions {
+  display: flex;
+  gap: 8px;
+  /* 기본 세로 (1개·3+개) */
+  flex-direction: column;
+}
+/* 2개 + 가로 허용 시점 — JS가 data-btn-layout="pair" 부여
+   가로 가능 조건: 컨테이너 폭이 충분할 때.
+   v0.3 명세: 폭 충분 + 문구 짧을 때만 가로, 그 외 세로 자동 전환.
+   여기서는 컨테이너 폭으로 1차 분기 (640px 이상). 문구 길이 감지는
+   다음 단계 — JS가 측정 후 클래스 토글. 지금은 폭만으로. */
+.scene-screen--movie .movie-decision__actions[data-btn-layout="pair"] {
+  flex-direction: column;  /* 기본은 세로 */
+}
+@media (min-width: 640px) {
+  .scene-screen--movie .movie-decision__actions[data-btn-layout="pair"] {
+    flex-direction: row;
+  }
+  .scene-screen--movie .movie-decision__actions[data-btn-layout="pair"] .choice-v03 {
+    flex: 1;
+    /* 가로 배치 시 화살표 숨기고 가운데 정렬 */
+    justify-content: center;
+    text-align: center;
+  }
+  .scene-screen--movie .movie-decision__actions[data-btn-layout="pair"] .choice-v03::after {
+    display: none;
+  }
+}
+
+/* ╭─────────────────────────────────────────╮
+   │  반응형 — 좁은 화면 보정                │
+   ╰─────────────────────────────────────────╯ */
+@media (max-width: 720px) {
+  /* 그림책 LR은 좁은 화면에서 자동으로 TB로 전환.
+     16:9 viewer-frame 안에서 좌우 50:50은 720px 미만에서 너무 좁아짐
+     (각 영역 ~360px → 패딩/gap 빼면 본문 영역 ~280px → 한글 가독성 한계).
+     720px 임계점은 viewer-frame이 그 폭 미만이면 LR 포기하고 TB로. */
+  .scene-screen--pb.pb--lr .pb-frame {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+/* ╭─────────────────────────────────────────╮
+   │  v0.3 모드 클래스가 있으면 기존 룰 무력 │
+   ╰─────────────────────────────────────────╯ */
+/* 기존 .text-box, .choices-bottom 등 legacy 클래스는 v0.3 모드 stage 안에선
+   생성되지 않음 (renderScene 분기). 따라서 별도 무력화 룰 불필요. */
+
+/* end of v0.3 mode layouts */
+
+/* ================================================================
+   preview 전용 — viewer 클래스 위에 얹는 미세 조정
+   maker의 preview-card 컨테이너 환경에서 viewer scene 클래스가
+   잘 보이도록 보정.
+   ================================================================ */
+.preview-stage {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+.preview-card-frame {
+  position: relative;
+}
+
+/* preview 전용 — 미연결 경고 */
+.preview-choice-warn {
+  background: rgba(220, 100, 100, 0.1);
+  border: 1px solid rgba(220, 100, 100, 0.4);
+  color: #ff8080;
+  padding: 8px 12px;
+  font-size: 12px;
+  border-radius: 4px;
+  text-align: center;
+  margin-top: 4px;
+}
+
+/* preview 에러 */
+.preview-error {
+  color: #ff8080;
+  font-size: 18px;
+  text-align: center;
+  padding: 40px 20px;
+}
+
+/* preview legacy 카드 (document/모드 미지정) */
+.preview-legacy-card {
+  background: linear-gradient(135deg, #0d1f3c, #1a2e50);
+  border: 2px solid #4a90d9;
+  border-radius: 16px;
+  padding: 24px 24px 20px;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  color: #e8f0ff;
+}
+.preview-legacy-img-wrap {
+  background: rgba(0,0,0,0.25);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 14px;
+  max-height: 240px;
+  overflow: hidden;
+}
+.preview-legacy-img-wrap img {
+  max-width: 100%;
+  max-height: 240px;
+  object-fit: contain;
+  cursor: zoom-in;
+}
+.preview-legacy-title {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: #fff;
+}
+.preview-legacy-body {
+  font-size: 14px;
+  line-height: 1.7;
+  color: #e8f0ff;
+  margin-bottom: 14px;
+  white-space: pre-wrap;
+  flex: 1;
+}
+.preview-legacy-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px solid rgba(255,255,255,0.15);
+  padding-top: 12px;
+}
+
+/* preview 엔딩 카드 */
+.preview-ending-card {
+  background: linear-gradient(135deg, #2a0a1a, #400a2a);
+  border: 2px solid #ef476f;
+  border-radius: 16px;
+  padding: 32px 28px;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  text-align: center;
+  overflow: auto;
+}
+.preview-ending-card--true {
+  background: linear-gradient(135deg, #3a2800, #5a4000);
+  border-color: #f0c000;
+}
+.preview-ending-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+}
+.preview-ending-headline {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 6px;
+  color: #ef8080;
+}
+.preview-ending-card--true .preview-ending-headline {
+  color: #f0c000;
+}
+.preview-ending-sub {
+  font-size: 13px;
+  color: rgba(255,255,255,0.7);
+  margin-bottom: 16px;
+}
+.preview-ending-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #fff;
+  margin: 12px 0 8px;
+}
+.preview-ending-body {
+  font-size: 14px;
+  line-height: 1.7;
+  color: rgba(255,255,255,0.85);
+  margin-bottom: 18px;
+  white-space: pre-wrap;
+  max-width: 480px;
+}
+.preview-ending-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+.preview-ending-btn {
+  padding: 10px 20px;
+  border-radius: 50px;
+  border: 2px solid #80c0ff;
+  background: rgba(255,255,255,0.1);
+  color: #80c0ff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.preview-ending-btn:hover {
+  background: rgba(255,255,255,0.2);
+}
+.preview-ending-btn--close {
+  border-color: #80ff80;
+  color: #80ff80;
+}
+
+/* edit-section-tag — maker도 미래에 v0.3 패널 보일 가능성 대비. 현재 maker는 안 씀. */
+.edit-section-tag {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #8a93a3;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 100px;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .scene-screen--pb.pb--lr .pb-frame {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}

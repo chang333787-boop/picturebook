@@ -4352,24 +4352,29 @@ html, body {
   width: 100%;
   height: 100%;
   background: var(--v03-bg);
-  padding: 16px;
+  /* 패딩 줄임: 좁은 viewer-frame에서 콘텐츠 면적 확보 */
+  padding: 12px;
 }
 .scene-screen--pb .pb-frame {
   width: 100%;
   height: 100%;
   display: grid;
-  gap: 16px;
+  /* gap 줄임: 16px → 10px */
+  gap: 10px;
   background: var(--v03-bg-soft);
   border-radius: var(--v03-r-md);
 }
-/* TB: 위 그림 / 아래 텍스트 — 50:50 (v0.3 고정) */
+/* TB: 위 그림 / 아래 텍스트 — v0.3 명세상 50:50 유지하되
+   체감상 텍스트 영역에 제목·본문·버튼 다 들어가야 하므로
+   minmax(0, 1fr)로 그림이 텍스트 압박하지 않게 함 */
 .scene-screen--pb.pb--tb .pb-frame {
-  grid-template-rows: 1fr 1fr;
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
   grid-template-columns: 1fr;
 }
-/* LR: 좌 그림 / 우 텍스트 — 50:50 (v0.3 고정) */
+/* LR: 좌 그림 / 우 텍스트 — 50:50 (v0.3 고정)
+   minmax(0, 1fr)로 영역이 콘텐츠에 의해 안 늘어나도록 (overflow는 자식 처리) */
 .scene-screen--pb.pb--lr .pb-frame {
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   grid-template-rows: 1fr;
 }
 
@@ -4380,6 +4385,9 @@ html, body {
   background-position: center;
   border-radius: var(--v03-r-md);
   border: 1px solid var(--v03-card-border);
+  /* 그림은 영역 채우게 (자식 없음, background로만 표시) */
+  min-width: 0;
+  min-height: 0;
 }
 .scene-screen--pb .pb-illust--empty {
   display: grid;
@@ -4395,37 +4403,40 @@ html, body {
   /* 의도적으로 짧고 중성적 — v0.3 명세: 감성 문구 금지 */
 }
 
-/* 텍스트 영역 */
+/* 텍스트 영역 — 좁은 환경에서 효율적으로 */
 .scene-screen--pb .pb-text {
   background: var(--v03-card-bg);
   border: 1px solid var(--v03-card-border);
   border-radius: var(--v03-r-md);
-  padding: 22px 28px 18px;
+  /* 패딩 줄임: 22px 28px 18px → 16px 20px 14px (좁은 영역 효율) */
+  padding: 16px 20px 14px;
   display: flex;
   flex-direction: column;
   overflow: auto;
-  min-height: 0;  /* grid item shrink 허용 */
+  min-width: 0;   /* grid item shrink 허용 */
+  min-height: 0;
 }
 .scene-screen--pb .pb-text__title {
-  font-size: 22px;
+  /* 폰트 viewport-반응 — 좁아지면 살짝 작아짐 */
+  font-size: clamp(16px, 2.2vw, 22px);
   font-weight: 700;
   line-height: 1.3;
   color: var(--v03-fg);
-  margin: 0 0 12px;
+  margin: 0 0 10px;
 }
 .scene-screen--pb .pb-text__body {
-  font-size: 14.5px;
+  font-size: clamp(13px, 1.5vw, 14.5px);
   line-height: 1.7;
   color: var(--v03-fg);
-  margin: 0 0 16px;
+  margin: 0 0 12px;
   flex: 1;
   white-space: pre-wrap;
 }
 .scene-screen--pb .pb-text__actions {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding-top: 12px;
+  gap: 6px;
+  padding-top: 10px;
   border-top: 1px solid var(--v03-divider);
   flex-shrink: 0;
   /* 버튼은 텍스트 영역 안에만, 그림 영역 침범 금지 (v0.3 명세) */
@@ -4539,11 +4550,14 @@ html, body {
 /* ╭─────────────────────────────────────────╮
    │  반응형 — 좁은 화면 보정                │
    ╰─────────────────────────────────────────╯ */
-@media (max-width: 600px) {
-  /* 그림책 LR은 좁은 화면에서 자동으로 TB로 전환 */
+@media (max-width: 720px) {
+  /* 그림책 LR은 좁은 화면에서 자동으로 TB로 전환.
+     16:9 viewer-frame 안에서 좌우 50:50은 720px 미만에서 너무 좁아짐
+     (각 영역 ~360px → 패딩/gap 빼면 본문 영역 ~280px → 한글 가독성 한계).
+     720px 임계점은 viewer-frame이 그 폭 미만이면 LR 포기하고 TB로. */
   .scene-screen--pb.pb--lr .pb-frame {
     grid-template-columns: 1fr;
-    grid-template-rows: 1fr 1fr;
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
   }
 }
 

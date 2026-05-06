@@ -49,13 +49,18 @@ function renderAll() {
       식별자는 data-* 속성으로 표현, 바인딩은 bindCardEvents에서
    ================================================================ */
 function buildCardHTML(s) {
-  const types  = ['start', 'normal', 'ending'];
-  const labels = ['시작', '일반', '엔딩'];
+  /* 장면 타입 언어 정리 1차:
+     · UI 노출 타입은 '일반 / 엔딩' 2종만
+     · 기존 data의 type === 'start' 값은 라디오에서 '일반' 선택으로 보임
+       (데이터는 그대로 유지 — 사용자가 라디오를 만질 때만 'normal'로 변경) */
+  const types  = ['normal', 'ending'];
+  const labels = ['일반', '엔딩'];
+  const currentType = (s.type === 'ending') ? 'ending' : 'normal';   // 'start' → 'normal' 표시
 
   const radios = types.map((t, i) =>
     `<input class="type-radio js-type-radio" type="radio"
        name="type-${s.num}" id="tr-${s.num}-${t}"
-       value="${t}" ${s.type === t ? 'checked' : ''} data-num="${s.num}" data-value="${t}">
+       value="${t}" ${currentType === t ? 'checked' : ''} data-num="${s.num}" data-value="${t}">
      <label class="type-label" for="tr-${s.num}-${t}">${labels[i]}</label>`
   ).join('');
 
@@ -137,6 +142,18 @@ function buildCardHTML(s) {
   const starBadge = (s.type === 'ending' && s.trueEnding)
     ? `<span style="font-size:13px;margin-left:2px;" title="진엔딩">⭐</span>` : '';
 
+  /* ── 역할 배지: projectMeta.entrySceneId/replaySceneId와 비교 ──
+     '시작'을 장면 종류가 아니라 역할로 표시 (UI 언어 정리 1차) */
+  const pm          = (typeof projectMeta === 'object' && projectMeta) ? projectMeta : {};
+  const isEntry     = pm.entrySceneId  !== null && pm.entrySceneId  !== undefined
+                    && String(pm.entrySceneId)  === String(s.num);
+  const isReplay    = pm.replaySceneId !== null && pm.replaySceneId !== undefined
+                    && String(pm.replaySceneId) === String(s.num);
+  const roleBadges  = [
+    isEntry  ? '<span style="display:inline-block;font-size:10px;line-height:1;padding:3px 6px;border-radius:8px;background:#e8f5e9;color:#2e7d32;border:1px solid #81c784;margin-left:4px;font-family:var(--font-h);" title="첫 감상자가 시작하는 장면">첫 감상 시작</span>' : '',
+    isReplay ? '<span style="display:inline-block;font-size:10px;line-height:1;padding:3px 6px;border-radius:8px;background:#e3f2fd;color:#1565c0;border:1px solid #90caf9;margin-left:4px;font-family:var(--font-h);" title="다른 결말 찾기에서 시작하는 장면">다시 시작점</span>' : '',
+  ].join('');
+
   const imgAreaHtml = s.imageData
     ? `<div class="card-image-area">
         <img src="${s.imageData}" class="card-thumb js-img-thumb"
@@ -167,18 +184,55 @@ function buildCardHTML(s) {
   return `
     <div class="card-header">
       <span class="card-num-badge js-rename-btn" data-num="${s.num}"
-        title="번호 바꾸기">장면 ${s.num}${starBadge}</span>
+        title="번호 바꾸기">장면 ${s.num}${starBadge}</span>${roleBadges}
       <button class="card-delete js-delete-btn" data-num="${s.num}">✕</button>
     </div>
     ${imgAreaHtml}
     <div class="card-body">
-      <div class="card-field-label">장면 내용</div>
+      <div class="card-field-label">제목</div>
       <textarea class="card-textarea js-title-input"
-        placeholder="장면 내용을 여러 줄로 써보세요"
+        placeholder="장면 제목 또는 짧은 글"
         data-num="${s.num}">${s.title || ''}</textarea>
-      <div class="card-type-row">${radios}</div>
+      ${_bodyPreviewHtml(s)}
+      <div class="card-type-row">${radios}${_modeBadgeHtml(s)}</div>
     </div>
     ${portsHTML}`;
+}
+
+/* ── 본문 미리보기 (title/body 분리 1차) ──
+   · body 있음: 1~2줄 회색 미리보기 + 다듬기에서 수정 힌트
+   · body 없음: 표시 안 함 — 카드는 기존과 거의 동일 인상 유지
+   · branch는 구조 설계기이므로 본문은 카드 안에서 편집하지 않음 (다듬기 화면에서) */
+function _bodyPreviewHtml(s) {
+  const body = (s && typeof s.body === 'string') ? s.body.trim() : '';
+  if (!body) return '';
+  /* 한 줄, 최대 60자 말줄임 — 카드 높이 1줄로 고정 */
+  const oneLine = body.replace(/\s+/g, ' ').trim();
+  const preview = oneLine.length > 60 ? oneLine.slice(0, 60) + '…' : oneLine;
+  /* HTML escape — & / < / > / 따옴표 모두 */
+  const safe = preview
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+  return `<div class="card-body-preview" title="본문은 다듬기 화면에서 수정해요">${safe}</div>`;
+}
+
+/* ── 모드 배지 (모드 시스템 뼈대 1차) ──
+   · scene.presentationMode 값을 작은 배지로 표시 (text/picturebook/movie/document)
+   · 명시 설정된 경우만 표시 — null이면 배지 없음 (branch는 구조 설계기, 깔끔함 유지)
+   · 편집 UI 아님 — 모드 변경은 다듬기 화면(viewer-edit)에서만 */
+function _modeBadgeHtml(s) {
+  const m = s && s.presentationMode;
+  if (m !== 'text' && m !== 'picturebook' && m !== 'movie' && m !== 'document') return '';
+  const meta = {
+    text:        { icon: '📝', label: '텍스트' },
+    picturebook: { icon: '🎨', label: '그림책' },
+    movie:       { icon: '🎬', label: '무비' },
+    document:    { icon: '📜', label: '기록물' },
+  }[m];
+  return `<span class="card-mode-badge card-mode-badge--${m}" title="장면 모드: ${meta.label} (다듬기 화면에서 변경)">${meta.icon} ${meta.label}</span>`;
 }
 
 /* ================================================================
@@ -200,6 +254,8 @@ function bindCardEvents(el, s) {
   if (textarea) {
     textarea.addEventListener('focus', () => ensureEditable(num));
     textarea.addEventListener('input', e => updateTitle(num, e.target.value));
+    /* blur 시 debounced save 즉시 flush — 포커스 떠날 때 유실 방지 */
+    textarea.addEventListener('blur',  () => flushTitleSaves(num));
   }
 
   /* 종류 라디오 */
@@ -237,19 +293,47 @@ function bindCardEvents(el, s) {
   el.querySelector('.js-img-remove')
     ?.addEventListener('click', () => removeImage(num));
 
-  /* 카드 드래그 */
+  /* ── 카드 드래그 (개별 / 묶음) ──
+     핵심 정책: 이동도 편집. 잠금 확보 전 드래그 시작 금지.
+     · 개별: 해당 장면 ensureEditable, 실패 시 드래그 안 함
+     · 묶음(groupMoveOn): connected 장면 전체 잠금 확보, 하나라도 실패하면 취소 */
   el.addEventListener('pointerdown', e => {
     if (['INPUT','BUTTON','LABEL','TEXTAREA','IMG'].includes(e.target.tagName)) return;
     if (e.target.classList.contains('port-dot')) return;
-    if (isLockedByOther(num)) return;
-    const cv    = toCanvas(e.clientX, e.clientY);
-    const lockP = ensureEditable(num);
-    el._pendingDrag = {
-      pointerId: e.pointerId,
-      startX: e.clientX, startY: e.clientY,
-      cv, num, lockP, lockOk: null
-    };
-    lockP.then(ok => { if (el._pendingDrag) el._pendingDrag.lockOk = ok; });
+
+    const cv = toCanvas(e.clientX, e.clientY);
+
+    if (groupMoveOn) {
+      const nums = getConnectedNums(num);
+
+      /* 1차 사전 체크: 다른 사람이 편집 중인 장면이 하나라도 있으면 즉시 거부.
+         드래그 시작조차 하지 않음 — 사용자가 움직였는데 갑자기 취소되는 일 없음 */
+      const blockedByOther = nums.filter(n => isLockedByOther(n));
+      if (blockedByOther.length > 0) {
+        alert(`묶음 이동을 할 수 없어요.\n다른 사람이 편집 중: 장면 ${blockedByOther.join(', ')}`);
+        return;
+      }
+
+      /* 2차 All-or-nothing 잠금 — 내 세션으로 전부 확보 시도 */
+      const lockAllP = ensureEditableForGroup(nums);
+      el._pendingDrag = {
+        pointerId: e.pointerId,
+        startX: e.clientX, startY: e.clientY,
+        cv, num, group: true, nums,
+        lockAllP, lockAllOk: null
+      };
+      lockAllP.then(ok => { if (el._pendingDrag) el._pendingDrag.lockAllOk = ok; });
+    } else {
+      /* 개별 이동 — 내가 대상 장면 잠글 수 있어야 함 */
+      if (isLockedByOther(num)) return;
+      const lockP = ensureEditable(num);
+      el._pendingDrag = {
+        pointerId: e.pointerId,
+        startX: e.clientX, startY: e.clientY,
+        cv, num, lockP, lockOk: null
+      };
+      lockP.then(ok => { if (el._pendingDrag) el._pendingDrag.lockOk = ok; });
+    }
   });
 
   el.addEventListener('pointermove', e => {
@@ -261,19 +345,48 @@ function bindCardEvents(el, s) {
         el.setPointerCapture(e.pointerId);
         const pDrag = el._pendingDrag;
         el._pendingDrag = null;
-        if (pDrag.lockOk === true) {
-          _startDrag(el, s, pDrag.cv);
-        } else if (pDrag.lockOk === false) {
-          el.releasePointerCapture(e.pointerId);
-          syncCardState(num);
-        } else {
-          el._deferredDrag = pDrag;
-          pDrag.lockP.then(ok => {
-            el._deferredDrag = null;
-            if (!ok) { syncCardState(num); return; }
-            if (dragState || pDrag.cancelled) return;
+
+        if (pDrag.group) {
+          /* 묶음 이동 — all-or-nothing 검증 */
+          if (pDrag.lockAllOk === true) {
             _startDrag(el, s, pDrag.cv);
-          });
+          } else if (pDrag.lockAllOk === false) {
+            el.releasePointerCapture(e.pointerId);
+            alert('일부 장면을 잠글 수 없어서 묶음 이동을 취소했어요.');
+          } else {
+            /* 잠금 아직 대기 중 — 완료될 때까지 기다림 */
+            el._deferredDrag = pDrag;
+            pDrag.lockAllP.then(ok => {
+              el._deferredDrag = null;
+              if (!ok) {
+                alert('일부 장면을 잠글 수 없어서 묶음 이동을 취소했어요.');
+                return;
+              }
+              if (dragState || pDrag.cancelled) return;
+              _startDrag(el, s, pDrag.cv);
+            });
+          }
+        } else {
+          /* 개별 이동 */
+          if (pDrag.lockOk === true) {
+            _startDrag(el, s, pDrag.cv);
+          } else if (pDrag.lockOk === false) {
+            el.releasePointerCapture(e.pointerId);
+            syncCardState(num);
+            alert('다른 사람이 편집 중인 장면은 이동할 수 없어요.');
+          } else {
+            el._deferredDrag = pDrag;
+            pDrag.lockP.then(ok => {
+              el._deferredDrag = null;
+              if (!ok) {
+                syncCardState(num);
+                alert('다른 사람이 편집 중인 장면은 이동할 수 없어요.');
+                return;
+              }
+              if (dragState || pDrag.cancelled) return;
+              _startDrag(el, s, pDrag.cv);
+            });
+          }
         }
       }
       return;
@@ -282,11 +395,28 @@ function bindCardEvents(el, s) {
     e.preventDefault();
     const cv = toCanvas(e.clientX, e.clientY);
     if (dragState.group) {
+      /* ★ 그룹 단위 clamp — 각 장면을 따로 Math.max(0,...)하면
+         왼쪽/위 경계에 닿은 장면만 멈추고 다른 장면은 계속 이동해서 상대 위치가 깨짐.
+         그룹 전체의 proposed 좌표 중 가장 작은 값을 찾아 전체에 offset을 더함. */
+      /* 1차: 각 장면의 예상 좌표 계산 */
+      const proposed = {};
+      let minX = Infinity, minY = Infinity;
+      dragState.nums.forEach(n => {
+        const off = dragState.offsets[n];
+        const px  = cv.x + off.ox;
+        const py  = cv.y + off.oy;
+        proposed[n] = { x: px, y: py };
+        if (px < minX) minX = px;
+        if (py < minY) minY = py;
+      });
+      /* 2차: 그룹 전체가 경계 안으로 들어오도록 offset 보정 */
+      const shiftX = minX < 0 ? -minX : 0;
+      const shiftY = minY < 0 ? -minY : 0;
+      /* 3차: 실제 반영 — 상대 위치 완벽 유지 */
       dragState.nums.forEach(n => {
         const sc  = scenes[n];
-        const off = dragState.offsets[n];
-        sc.x = Math.max(0, cv.x + off.ox);
-        sc.y = Math.max(0, cv.y + off.oy);
+        sc.x = proposed[n].x + shiftX;
+        sc.y = proposed[n].y + shiftY;
         const cel = document.getElementById('card-' + n);
         if (cel) { cel.style.left = sc.x + 'px'; cel.style.top = sc.y + 'px'; }
       });
@@ -305,13 +435,15 @@ function bindCardEvents(el, s) {
     if (el._deferredDrag) { el._deferredDrag.cancelled = true; el._deferredDrag = null; }
     el._pendingDrag = null;
     if (!dragState || dragState.num !== num) return;
-    if (dragState.group)
+    const wasGroup = !!dragState.group;
+    const groupNums = wasGroup ? dragState.nums.slice() : [num];
+    if (wasGroup)
       dragState.nums.forEach(n => document.getElementById('card-'+n)?.classList.remove('group-selected'));
     el.classList.remove('dragging');
     touchEdit(num);
-    const _n = num;
     dragState = null;
-    pushToFirebase(_n);
+    /* ★ 그룹 이동 시 모든 장면 저장 (기존엔 시작 장면만 저장해서 좌표 반영 안 됨) */
+    groupNums.forEach(n => pushToFirebase(n));
   });
 
   el.addEventListener('pointercancel', () => {

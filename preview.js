@@ -8,13 +8,15 @@ let previewHistory = [];
 let previewCurrent = null;
 
 function startPreview() {
-  const starts = Object.values(scenes).filter(s => s.type === 'start');
-  if (!starts.length) {
-    alert('시작 장면이 없어요! 시작 장면을 하나 만들어주세요.');
+  /* admin/분석 문구 정리 1차: entry 기준으로 미리보기 시작점 결정.
+     없으면 기존 start scene fallback. 둘 다 없으면 안내. */
+  const entryNum = (typeof _resolveEntryNum === 'function') ? _resolveEntryNum() : null;
+  if (entryNum == null) {
+    alert('첫 감상 시작점이 지정되지 않았어요.\n장면을 만들거나 [⚙ 표지·시작점]에서 지정해주세요.');
     return;
   }
   previewHistory = [];
-  previewCurrent = starts[0].num;
+  previewCurrent = entryNum;
   document.getElementById('preview-team-badge').textContent = '👥 ' + (teamName || '팀');
   document.getElementById('preview-overlay').style.display = 'flex';
   renderPreviewScene(previewCurrent);
@@ -27,10 +29,10 @@ function closePreview() {
 }
 
 function restartPreview() {
-  const starts = Object.values(scenes).filter(s => s.type === 'start');
-  if (!starts.length) return;
+  const entryNum = (typeof _resolveEntryNum === 'function') ? _resolveEntryNum() : null;
+  if (entryNum == null) return;
   previewHistory = [];
-  previewCurrent = starts[0].num;
+  previewCurrent = entryNum;
   renderPreviewScene(previewCurrent);
 }
 
@@ -48,12 +50,23 @@ function renderPreviewScene(num) {
     return;
   }
 
-  const isStart   = s.type === 'start';
   const isEnding  = s.type === 'ending';
   const isTrueEnd = isEnding && s.trueEnding;
+  const roles     = (typeof _sceneRolesMaker === 'function') ? _sceneRolesMaker(s) : { isEntry: false, isReplay: false };
 
-  const badgeColor = isStart ? '#06d6a0' : isTrueEnd ? '#f0c000' : isEnding ? '#ef476f' : '#4a90d9';
-  const badgeText  = isStart ? '🟢 시작' : isTrueEnd ? '⭐ 진엔딩' : isEnding ? '🏁 엔딩' : `장면 ${s.num}`;
+  /* 배지 — '시작' 장면 종류 표현 제거, entry/replay는 역할로 표시 */
+  let badgeColor, badgeText;
+  if (roles.isEntry) {
+    badgeColor = '#06d6a0'; badgeText = '🟢 첫 감상 시작';
+  } else if (roles.isReplay) {
+    badgeColor = '#4a90d9'; badgeText = '🔁 다시 시작점';
+  } else if (isTrueEnd) {
+    badgeColor = '#f0c000'; badgeText = '⭐ 진엔딩';
+  } else if (isEnding) {
+    badgeColor = '#ef476f'; badgeText = '🏁 엔딩';
+  } else {
+    badgeColor = '#4a90d9'; badgeText = `장면 ${s.num}`;
+  }
 
   const cardBg = isTrueEnd
     ? 'linear-gradient(135deg,#3a2800,#5a4000)'
@@ -61,7 +74,10 @@ function renderPreviewScene(num) {
     ? 'linear-gradient(135deg,#2a0a1a,#400a2a)'
     : 'linear-gradient(135deg,#0d1f3c,#1a2e50)';
 
-  const cardBorder = isTrueEnd ? '#f0c000' : isEnding ? '#ef476f' : isStart ? '#06d6a0' : '#4a90d9';
+  const cardBorder = isTrueEnd ? '#f0c000'
+                   : isEnding  ? '#ef476f'
+                   : roles.isEntry ? '#06d6a0'
+                   : '#4a90d9';
 
   /* 선택지 버튼 */
   let choicesHtml = '';
@@ -161,8 +177,11 @@ function renderPreviewScene(num) {
   historyEl.innerHTML = totalHistory.map((n, i) => {
     const sc = scenes[n];
     const isLast = i === totalHistory.length - 1;
+    const scRoles = (sc && typeof _sceneRolesMaker === 'function') ? _sceneRolesMaker(sc) : { isEntry: false, isReplay: false };
     const col = sc?.type === 'ending' ? (sc?.trueEnding ? '#f0c000' : '#ef476f')
-              : sc?.type === 'start'  ? '#06d6a0' : '#4a90d9';
+              : scRoles.isEntry  ? '#06d6a0'
+              : scRoles.isReplay ? '#4a90d9'
+              : '#4a90d9';
     return `<div style="width:${isLast?12:8}px;height:${isLast?12:8}px;border-radius:50%;
       background:${col};opacity:${isLast?1:0.5};transition:all .2s;"
       title="장면 ${n}"></div>`;

@@ -28,6 +28,12 @@ function _bindEntryEvents() {
   document.getElementById('entry-submit')
     ?.addEventListener('click', handleEntrySubmit);
 
+  /* 클래스 코드 → 팀 이름 필드로 Enter 이동 */
+  document.getElementById('entry-code-input')
+    ?.addEventListener('keydown', e => {
+      if (e.key === 'Enter') document.getElementById('entry-team-input')?.focus();
+    });
+
   document.getElementById('entry-team-input')
     ?.addEventListener('keydown', e => {
       if (e.key === 'Enter') handleEntrySubmit();
@@ -47,33 +53,48 @@ function _processQueryParam() {
   _enterViewer(teamName, editMode, fromMaker, classId);
 }
 
-/* ── entry 화면 submit ── */
+/* ── entry 화면 직접 제출 — v2 classCodes lookup ── */
 async function handleEntrySubmit() {
-  const input    = document.getElementById('entry-team-input');
-  const errEl    = document.getElementById('entry-error');
-  const teamName = input?.value.trim();
+  const codeInput = document.getElementById('entry-code-input');
+  const teamInput = document.getElementById('entry-team-input');
+  const code      = codeInput?.value.trim().toUpperCase();
+  const teamName  = teamInput?.value.trim();
 
+  if (!code) {
+    _setEntryError('클래스 코드를 입력해주세요 (예: JL26A)');
+    codeInput?.focus();
+    return;
+  }
   if (!teamName) {
     _setEntryError('팀 이름을 입력해주세요');
+    teamInput?.focus();
     return;
   }
 
   _setEntryLoading(true);
   _setEntryError('');
 
-  /* ⚠️ entry 화면 직접 제출은 classId 없이 진입
-     v2에서 classId가 필요한 경우는 반드시 ?team=...&classId=... query param 경유 사용
-     직접 입장 시 classId=null → teams/ 경로(v1)로 폴백 */
-  const editMode = new URLSearchParams(location.search).get('edit') === '1';
-  await _enterViewer(teamName, editMode);
-  _setEntryLoading(false);
+  try {
+    /* classCodes/$code → classId 조회 (viewer 전용 Firebase 인스턴스 사용) */
+    const classId = await lookupClassIdForViewer(code);
+    if (!classId) {
+      _setEntryError('클래스 코드가 올바르지 않아요. 선생님께 확인해주세요.');
+      _setEntryLoading(false);
+      return;
+    }
+
+    await _enterViewer(teamName, false, false, classId);
+  } catch (err) {
+    _setEntryError(err.message || '작품을 불러오는 중 오류가 발생했어요.');
+    _setEntryLoading(false);
+  }
 }
 
 /* ── 실제 진입 처리 ── */
 async function _enterViewer(teamName, editMode = false, fromMaker = false, classId = null) {
   try {
     _setEntryLoading(true);
-    await loadTeamData(teamName, classId);  // classId: v2 경로용 (v1에서는 null)
+    await loadTeamData(teamName, classId, fromMaker);  // fromMaker: isPublic 차단 예외용
 
     /* edit 모드 + fromMaker 상태 설정 */
     if (editMode) ViewerState.editMode = true;
@@ -85,8 +106,21 @@ async function _enterViewer(teamName, editMode = false, fromMaker = false, class
     /* entry 화면 → player 화면 전환 */
     _showPlayerScreen();
 
-    /* 시작 장면 또는 cover로 이동 */
-    startViewer();
+    /* edit 모드: startViewerEdit (cover 우회) / 감상 모드: startViewer */
+    if (editMode) {
+      /* 장면 글 수정 / 배치 편집을 위한 잠금 리스너 초기화 ──
+         maker와 같은 Firebase 경로(`$basePath/locks`)를 공유해
+         같은 장면을 두 화면에서 동시 편집하지 못하도록 한다.
+         감상 모드에선 편집 행위가 없으므로 초기화하지 않음. */
+      const encodedName = encodeURIComponent(teamName);
+      const basePath = classId
+        ? `classes/${classId}/teams/${encodedName}`
+        : `teams/${encodedName}`;
+      if (typeof initViewerLocks === 'function') initViewerLocks(basePath);
+      startViewerEdit();   // 첫 장면부터, cover 없이 scene 렌더로 시작
+    } else {
+      startViewer();
+    }
 
   } catch (err) {
     _setEntryError(err.message || '작품을 불러오는 중 오류가 발생했어요.');

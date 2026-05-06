@@ -4,6 +4,32 @@
    ================================================================ */
 
 /* ================================================================
+   복귀 context 저장 헬퍼
+   maker/admin에서 viewer·edit 탭을 열 때 현재 URL을 localStorage에 저장.
+   viewer 쪽 _returnToMaker가 소비해서 정확한 복귀 대상을 결정함.
+   key: 'branchReturnContext' — { source, url, savedAt }
+   ================================================================ */
+function _saveReturnContext(source) {
+  try {
+    localStorage.setItem('branchReturnContext', JSON.stringify({
+      source:  source,            // 'maker' | 'admin'
+      url:     location.href,
+      savedAt: Date.now(),
+    }));
+  } catch (e) { /* storage 실패해도 진입은 계속 */ }
+}
+
+/* ================================================================
+   Undo 시스템 제거 (협업 안정화 1차)
+   ─────────────────────────────────────────────────────────────
+   이전에 있던 전역 snapshot 기반 Undo는 동시 편집 구조와 단위가
+   맞지 않아 다른 사용자의 변경까지 되돌릴 위험이 있어 제거.
+   텍스트 입력칸의 브라우저 기본 undo(Ctrl+Z)는 그대로 동작함 — 우리 코드는
+   그걸 가로채지 않음.
+   대안: 초기화/삭제/불러오기/템플릿 적용 등 큰 작업은 confirm 유지.
+   ================================================================ */
+
+/* ================================================================
    mutation 단일 진입점
    ================================================================
 
@@ -65,12 +91,75 @@ function _afterMutation() {
 
 /* ── 필드 단위 래퍼 ── */
 
-async function updateTitle(num, val) {
-  /* textarea는 이미 화면에 반영된 상태 — 카드 재렌더 불필요, 저장만 */
-  if (!await ensureEditable(num)) return;
+/* ================================================================
+   updateTitle — 타이핑 끊김 원천 차단
+   ─────────────────────────────────────────────────────────────
+   설계 원칙:
+   · 입력마다 await 금지 — 타이핑 중 네트워크 대기 0
+   · 즉시 로컬 scenes[num].title 반영 (UI는 이미 textarea)
+   · lock 확보는 focus 시점 1회 (sceneRenderer의 textarea focus 핸들러)
+   · 내 세션(activeEdits[num]) 있으면 debounce 저장
+   · 세션 없으면 로컬 반영만 — focus 핸들러가 lock 확보하면 이후 입력부터 저장
+   · 남의 lock이어도 로컬 내용은 유지 (유실 없음)
+   · debounce 400ms — 400~800 권장 범위 최소값
+   flush: blur / 장면 전환 / preview·viewer 열기 직전 / 페이지 이탈
+   ================================================================ */
+const _titleSaveTimers = {};   // num → timeoutId
+const _titleDirty      = new Set();
+
+function updateTitle(num, val) {
+  if (!scenes[num]) return;
+
+  /* 1. 즉시 로컬 반영 — await 없음, 동기 */
   scenes[num].title = val;
-  pushToFirebase(num);
+  _titleDirty.add(num);
+
+  /* 2. 내 편집 세션 있을 때만 저장 예약
+        세션 없음 = focus 시점 lock 확보 진행 중 or 남의 lock.
+        이 경우 로컬 반영만 — 세션 확보되면 다음 입력부터 자동으로 저장 재개. */
+  if (!activeEdits[num]) return;
+
+  /* 세션 있음 — idle timer 리셋 (releaseLock 방지) */
+  touchEdit(num);
+
+  /* 3. 저장 debounce — 타이핑 멈추면 push */
+  clearTimeout(_titleSaveTimers[num]);
+  _titleSaveTimers[num] = setTimeout(() => {
+    delete _titleSaveTimers[num];
+    if (_titleDirty.has(num)) {
+      _titleDirty.delete(num);
+      pushToFirebase(num);
+    }
+  }, 400);
 }
+
+/* 강제 flush — blur / 장면 전환 / preview·viewer 열기 / 페이지 이탈 */
+function flushTitleSaves(num) {
+  if (num !== undefined) {
+    clearTimeout(_titleSaveTimers[num]);
+    delete _titleSaveTimers[num];
+    if (_titleDirty.has(num)) {
+      _titleDirty.delete(num);
+      pushToFirebase(num);
+    }
+    return;
+  }
+  /* 전체 flush */
+  const keys = Object.keys(_titleSaveTimers);
+  keys.forEach(k => {
+    clearTimeout(_titleSaveTimers[k]);
+    delete _titleSaveTimers[k];
+  });
+  if (_titleDirty.size > 0) {
+    const nums = Array.from(_titleDirty);
+    _titleDirty.clear();
+    nums.forEach(n => pushToFirebase(n));
+  }
+}
+
+/* 페이지 이탈 시 강제 flush */
+window.addEventListener('beforeunload', () => flushTitleSaves());
+window.addEventListener('pagehide',    () => flushTitleSaves());
 
 async function updateType(num, type) {
   await mutateScene(num, { type }, { needsArrows: true });
@@ -110,7 +199,7 @@ async function renameScene(num) {
 }
 
 async function deleteScene(num) {
-  if (!confirm(`장면 ${num}을 삭제할까요?`)) return;
+  if (!confirm(`장면 ${num}을(를) 삭제할까요?\n삭제한 뒤에는 되돌릴 수 없어요.`)) return;
   if (!await ensureEditable(num)) {
     alert(`다른 사람이 장면 ${num}을(를) 편집 중이에요.`); return;
   }
@@ -125,7 +214,9 @@ async function deleteScene(num) {
 }
 
 function clearAll() {
-  if (!confirm('모든 장면을 지울까요?')) return;
+  /* 반드시 확인창 먼저 — 확인 전 아무 삭제 없음.
+     Undo 제거됨 → 되돌릴 수 없음을 명확히 경고. */
+  if (!confirm('정말 모든 장면을 초기화할까요?\n이 작업은 되돌릴 수 없어요.')) return;
   scenes = {}; nextNum = 1;
   _afterMutation();
 }
@@ -215,7 +306,7 @@ function toggleMode() {
   btn.style.borderColor = advancedMode ? '#81c784' : '#f0c040';
 }
 function showHelp() {
-  alert(`📌 가지 프로그램 사용법\n\n➕ [+ 장면 추가] 버튼으로 카드 생성\n🔗 포트(●) 드래그로 카드 연결\n🔢 번호 배지 클릭으로 번호 변경\n🟢 같은 팀 이름+PIN으로 실시간 공유\n🔍 Ctrl+휠 또는 ±버튼으로 줌`);
+  alert(`📌 가지 branch 사용법\n\n➕ [+ 장면 추가] 버튼으로 카드 생성\n🔗 포트(●) 드래그로 카드 연결\n🔢 번호 배지 클릭으로 번호 변경\n🟢 같은 클래스 코드 + 팀 이름 + PIN이면 실시간 공유\n🔍 Ctrl+휠 또는 ±버튼으로 줌`);
 }
 
 /* ================================================================
@@ -246,6 +337,23 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-zoom-out')   ?.addEventListener('click', () => setZoom(zoom - 0.1));
   document.getElementById('btn-zoom-in')    ?.addEventListener('click', () => setZoom(zoom + 0.1));
   document.getElementById('btn-zoom-reset') ?.addEventListener('click', () => setZoom(1));
+
+  /* ── 프로젝트 설정 패널 (표지 · 시작점) ── */
+  document.getElementById('btn-project-settings')?.addEventListener('click', () => {
+    if (typeof openProjectSettings === 'function') openProjectSettings();
+  });
+  document.getElementById('ps-close-btn') ?.addEventListener('click', () => closeProjectSettings?.());
+  document.getElementById('ps-cancel-btn')?.addEventListener('click', () => closeProjectSettings?.());
+  document.getElementById('ps-save-btn')  ?.addEventListener('click', () => saveProjectSettings?.());
+  document.getElementById('ps-cover-input')?.addEventListener('change', (e) => {
+    if (typeof handleCoverImageUpload === 'function') handleCoverImageUpload(e.target);
+  });
+  document.getElementById('ps-cover-remove')?.addEventListener('click', () => {
+    if (typeof removeCoverImage === 'function') removeCoverImage();
+  });
+
+  /* ── 구조 편집 Ctrl+Z 제거 (협업 안정화 1차) ──
+     브라우저 기본 텍스트 undo는 INPUT/TEXTAREA에서 그대로 동작 — 가로채지 않음 */
   document.getElementById('mode-toggle-btn')?.addEventListener('click', toggleMode);
   document.getElementById('file-input')     ?.addEventListener('change', importJSON);
 
@@ -258,6 +366,8 @@ window.addEventListener('DOMContentLoaded', () => {
     const cid  = classId  ? `&classId=${encodeURIComponent(classId)}` : '';
     const url  = name ? `viewer.html?team=${name}${cid}&from=maker` : 'viewer.html';
     closePreview();
+    flushTitleSaves();
+    _saveReturnContext('maker');
     window.open(url, '_blank');
   });
 
@@ -303,18 +413,34 @@ window.addEventListener('DOMContentLoaded', () => {
     const name = encodeURIComponent(teamName || '');
     if (!name) { alert('먼저 팀 이름으로 입장해 주세요.'); return; }
     const cid = classId ? `&classId=${encodeURIComponent(classId)}` : '';
+    flushTitleSaves();
+    _saveReturnContext('maker');
     window.open(`viewer.html?team=${name}&edit=1&from=maker${cid}`, '_blank');
   });
 
   /* 빠르게 확인하기 → 기존 preview (다음 단계 패널에서 바인딩, 툴바 btn-preview와 동일 함수) */
 
-  /* 완성본 보기 → viewer.html?team=...&from=maker(&classId=...) */
+  /* 완성본 보기 → viewer.html?team=...&from=maker(&classId=...)
+     ─────────────────────────────────────────────────────────────
+     열기 방식: 명시적 window.open() — 감상 화면 다듬기와 통일.
+     <a target="_blank"> 기본 클릭은 브라우저에 따라 window.opener=null로
+     세팅되어 close()가 실패할 수 있음 → preventDefault + window.open() 강제. */
   function _updateViewerLink() {
     const link = document.getElementById('btn-open-viewer');
     if (!link) return;
     const name = teamName ? encodeURIComponent(teamName) : '';
     const cid  = classId  ? `&classId=${encodeURIComponent(classId)}` : '';
-    link.href = name ? `viewer.html?team=${name}&from=maker${cid}` : 'viewer.html';
+    const url  = name ? `viewer.html?team=${name}&from=maker${cid}` : 'viewer.html';
+    /* href는 사용자에게 url 미리보기/우클릭용으로만 유지 */
+    link.href = url;
+    /* 기본 클릭 차단 + 명시적 window.open — opener 관계 유지 보장 */
+    link.onclick = (e) => {
+      e.preventDefault();
+      if (!teamName) { alert('먼저 팀 이름으로 입장해 주세요.'); return; }
+      flushTitleSaves();           // 열기 직전 저장 flush
+      _saveReturnContext('maker'); // 복귀 context 저장
+      window.open(url, '_blank');
+    };
   }
   /* teamName이 설정될 때 업데이트 — firebase.js의 joinTeam 후 호출되도록
      MutationObserver로 team-label 변화를 감지 */
@@ -378,5 +504,41 @@ window.addEventListener('DOMContentLoaded', () => {
       joinInput.value = _teamParam;
       joinPin?.focus();
     }
+  }
+
+  /* ================================================================
+     maker auto-resume — viewer/edit에서 close 실패 fallback으로 돌아왔을 때
+     sessionStorage의 makerSession으로 재입장 화면 건너뛰기
+     ─────────────────────────────────────────────────────────────
+     조건: ?resume=1 query + sessionStorage.makerSession 존재
+     세션 저장은 같은 탭 내에서만 유효 — 탭 닫히면 즉시 소멸
+     TTL 2시간 — 너무 오래된 세션은 무시
+     PIN 재검증은 _resumeTeamFromSession에서 수행 (보안)
+     ================================================================ */
+  const _resumeParam = new URLSearchParams(location.search).get('resume');
+  if (_resumeParam === '1') {
+    try {
+      const raw = sessionStorage.getItem('makerSession');
+      if (raw) {
+        const ctx = JSON.parse(raw);
+        const MAX_AGE = 2 * 60 * 60 * 1000; // 2시간
+        const fresh = ctx && ctx.pin && ctx.teamName
+                   && (Date.now() - (ctx.savedAt || 0) < MAX_AGE);
+
+        if (fresh && typeof _resumeTeamFromSession === 'function') {
+          /* 입장 화면을 즉시 숨겨두고 복원 시도 — 플래시 방지 */
+          const joinScreen = document.getElementById('join-screen');
+          if (joinScreen) joinScreen.classList.add('hidden');
+
+          _resumeTeamFromSession(ctx).then(ok => {
+            if (!ok && joinScreen) {
+              /* 실패 시 원복 — 사용자가 수동 재입장 */
+              joinScreen.classList.remove('hidden');
+              sessionStorage.removeItem('makerSession');
+            }
+          });
+        }
+      }
+    } catch (e) { /* 실패해도 일반 입장 화면 유지 */ }
   }
 });

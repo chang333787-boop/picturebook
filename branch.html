@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>가지 branch — 이동 중</title>
+  <!-- 최우선: meta refresh (JS 꺼져있어도 동작) -->
+  <meta http-equiv="refresh" content="0; url=index.html">
+  <!-- JS 가능하면 즉시 replace (history에 이 페이지 남기지 않음) -->
+  <script>
+    (function () {
+      try { location.replace('index.html'); }
+      catch (e) { location.href = 'index.html'; }
+    })();
+  </script>
+  <style>
+    body {
+      font-family: 'Jua', 'Nanum Gothic', sans-serif;
+      background: #0d1117;
+      color: #c9d1d9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 24px;
+      text-align: center;
+    }
+    .msg { max-width: 420px; line-height: 1.7; }
+    .msg h1 {
+      font-size: 22px;
+      margin: 0 0 12px;
+      color: #58a6ff;
+    }
+    .msg p { font-size: 15px; margin: 0 0 16px; }
+    .msg a {
+      display: inline-block;
+      padding: 10px 24px;
+      border-radius: 50px;
+      background: #58a6ff;
+      color: #fff;
+      text-decoration: none;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="msg">
+    <h1>페이지가 이동되었어요</h1>
+    <p>이 페이지는 더 이상 사용되지 않아요.<br>자동으로 이동하지 않는다면 아래 버튼을 눌러주세요.</p>
+    <a href="index.html">가지 branch 홈으로 이동 →</a>
+  </div>
+</body>
+</html>

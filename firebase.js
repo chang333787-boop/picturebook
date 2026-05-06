@@ -43,7 +43,7 @@ const auth = firebase.auth();
    ================================================================ */
 
 /**
- * DATA_PATH_
+ * DATA_PATH_VERSION
  * 'v1' → teams/$encodedName          (현재 기본, 기존 동작 유지)
  * 'v2' → classes/$classId/teams/$encodedName  (클래스 구조)
  *
@@ -181,6 +181,13 @@ async function _joinTeamV2() {
   if (!/^\d{4,6}$/.test(pin)) { errEl.textContent = 'PIN은 숫자 4~6자리로 입력해주세요'; return; }
 
   try {
+    /* ★ anonymous auth 보장 — Rules의 auth != null 조건을 충족하기 위해
+       이미 로그인된 경우(teacher Auth 포함) 재로그인 없이 통과.
+       비인증 상태(학생)일 때만 anonymous sign-in 실행. */
+    if (!auth.currentUser) {
+      await auth.signInAnonymously();
+    }
+
     const foundClassId = await _lookupClassId(code.toUpperCase());
     if (!foundClassId) { errEl.textContent = '❌ 클래스 코드가 올바르지 않아요'; return; }
 
@@ -206,22 +213,127 @@ async function _joinTeamV2() {
   }
 }
 
+/* ── resume: sessionStorage 컨텍스트로 입장 화면 건너뛰기 ──
+   code lookup 건너뛰고 classId로 바로 입장. PIN 재검증 포함. */
+async function _resumeTeamFromSession(ctx) {
+  if (!ctx || !ctx.teamName || !ctx.pin) return false;
+
+  try {
+    if (!auth.currentUser) {
+      await auth.signInAnonymously();
+    }
+
+    /* v2 classId 우선, 없으면 v1 경로 */
+    const encodedName = encodeURIComponent(ctx.teamName);
+    let teamRef;
+    if (ctx.classId && DATA_PATH_VERSION === 'v2') {
+      teamRef = db.ref(getTeamPath(encodedName, ctx.classId));
+      classId = ctx.classId;
+    } else {
+      teamRef = db.ref(getTeamPath(encodedName));
+    }
+
+    /* PIN 재검증 — sessionStorage가 어쨌든 조작될 수 있으므로 반드시 확인 */
+    const snap     = await teamRef.child('pin').once('value');
+    const savedPin = snap.val();
+
+    if (savedPin === null || savedPin !== ctx.pin) {
+      /* PIN 불일치 → 일반 입장 화면으로 폴백 */
+      sessionStorage.removeItem('makerSession');
+      return false;
+    }
+
+    _enterTeam(ctx.teamName, teamRef);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
 /* ── 공통 입장 처리 — v1/v2 공유 ── */
 function _enterTeam(val, teamRef) {
   teamName = val;
   document.getElementById('team-label').textContent = teamName;
   document.getElementById('join-screen').classList.add('hidden');
 
+  /* ★ maker 세션 컨텍스트 저장 — ?resume=1 복귀 시 재입장 방지용
+     sessionStorage: 같은 탭 내에서만 유효 (탭 닫히면 사라짐)
+     PIN은 localStorage에 저장하지 않음 — 탭 생존 기간만 허용 */
+  try {
+    const pinInput  = document.getElementById('join-pin')?.value?.trim();
+    const codeInput = document.getElementById('join-code')?.value?.trim()?.toUpperCase();
+    if (pinInput) {
+      sessionStorage.setItem('makerSession', JSON.stringify({
+        teamName:  val,
+        classId:   classId   || null,
+        classCode: codeInput || null,   // v2 재입장에 필요
+        pin:       pinInput,
+        savedAt:   Date.now(),
+      }));
+    }
+  } catch (e) { /* sessionStorage 막혀도 정상 동작 유지 */ }
+
   dbRef = teamRef.child('scenes');
   dbRef.on('value', snapshot => {
     isRemote = true;
     scenes   = snapshot.val() || {};
+    /* ★ buttons 호환 보존 (옵션 2 — viewer-edit가 v0.3 N개 버튼 저장 시):
+       snapshot.val()은 DB 노드 본체를 통째로 받아오므로, viewer-edit가 저장한
+       buttons[] 배열이 scenes[num].buttons로 자동 들어와 있다.
+       이후 maker가 set/update를 호출해도 scenes[num] 안에 buttons가
+       포함된 채로 다시 저장되어 손실되지 않음.
+       단, sceneRenderer.js가 신규 장면을 만들 땐 buttons 키 없이 시작 —
+       이건 신규 장면이라 정상 동작. */
     const nums = Object.keys(scenes).map(Number);
     if (nums.length) nextNum = Math.max(...nums) + 1;
-    renderAll();
+
+    /* ★ 타이핑 보호: 현재 포커스가 제목 입력창(js-title-input)에 있으면
+       renderAll() 건너뜀 — 전체 카드 DOM 재생성으로 인한 커서/포커스 유실 방지.
+       scenes 값은 이미 업데이트됨 → blur나 장면 전환 시 자연스럽게 반영됨.
+       팀 내 lock 시스템 덕에 내가 편집 중인 장면을 남이 동시 수정하는 상황은 거의 없음. */
+    const focused = document.activeElement;
+    const isTypingTitle = focused
+      && focused.classList
+      && focused.classList.contains('js-title-input');
+
+    if (!isTypingTitle) {
+      renderAll();
+    }
     isRemote = false;
     setSaveStatus('saved');
   });
+
+  /* ★ 프로젝트 메타(viewer-meta) 구독 — 다른 사람이 설정 패널에서 저장해도 자동 반영
+     viewer-edit이 쓰는 presentation / isPublic 필드는 건드리지 않고
+     cover/entry/replay 필드만 projectMeta 로컬 캐시에 반영. */
+  teamRef.child('viewer-meta').on('value', snap => {
+    const prev = projectMeta || {};
+    const meta = snap.val() || {};
+    projectMeta = {
+      coverTitle:     (typeof meta.coverTitle     === 'string') ? meta.coverTitle     : null,
+      coverImageData: (typeof meta.coverImageData === 'string') ? meta.coverImageData : null,
+      entrySceneId:   (meta.entrySceneId  !== undefined && meta.entrySceneId  !== null) ? String(meta.entrySceneId)  : null,
+      replaySceneId:  (meta.replaySceneId !== undefined && meta.replaySceneId !== null) ? String(meta.replaySceneId) : null,
+    };
+    /* ★ 역할 배지([첫 감상 시작]/[다시 시작점])가 영향받는 카드만 재렌더 —
+       entry/replay가 바뀐 이전/현재 num 모두 커버. 편집 중 카드는 스킵하여
+       textarea 포커스 유실 방지. */
+    const affected = new Set();
+    [prev.entrySceneId, prev.replaySceneId, projectMeta.entrySceneId, projectMeta.replaySceneId]
+      .forEach(id => { if (id !== null && id !== undefined) affected.add(String(id)); });
+    affected.forEach(num => {
+      if (scenes[num] && !activeEdits[num] && typeof renderCard === 'function') {
+        renderCard(scenes[num]);
+      }
+    });
+    /* 설정 패널이 열려있으면 값 다시 채움 (다른 사람 저장 반영) */
+    if (typeof refreshProjectSettingsIfOpen === 'function') {
+      refreshProjectSettingsIfOpen();
+    }
+  });
+
+  /* ★ 프로젝트 메타 저장 함수 노출 — projectSettings.js가 호출 */
+  window._metaRef = teamRef.child('viewer-meta');
 
   lockRef = teamRef.child('locks');
   lockRef.on('value', snap => {
@@ -297,4 +409,22 @@ function setSaveStatus(s) {
   } else {
     dot.className = ''; lbl.textContent = '-';
   }
+}
+
+/* ================================================================
+   프로젝트 메타(viewer-meta) 저장 — 얇은 wrapper
+   ─────────────────────────────────────────────────────────────
+   · 전달 받은 필드만 update() → presentation / isPublic 등
+     viewer-edit이 저장한 다른 필드는 건드리지 않음
+   · 인자 partial 예: { coverTitle: '...', coverImageData: '...', ... }
+   · null을 명시적으로 넣으면 Firebase에서 해당 필드 제거됨
+   · 반환: Promise
+   ================================================================ */
+function pushProjectMetaToFirebase(partial) {
+  if (!window._metaRef) return Promise.reject(new Error('not joined'));
+  if (!partial || typeof partial !== 'object') return Promise.reject(new Error('invalid partial'));
+  setSaveStatus('changed');
+  return window._metaRef.update(partial)
+    .then(() => { setSaveStatus('saved'); })
+    .catch(err => { setSaveStatus('error'); throw err; });
 }

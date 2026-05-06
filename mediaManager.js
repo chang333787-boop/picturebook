@@ -13,34 +13,116 @@ const mediaState = {
   uploading: new Set(),   // 현재 업로드 중인 scene num 집합
 };
 
-const IMAGE_MAX_BYTES = 5 * 1024 * 1024;  // 5MB
-const IMAGE_MAX_PX    = 800;
-const IMAGE_QUALITY   = 0.75;
+/* ================================================================
+   이미지 업로드 정책 (구조 개편 1차 — 자동 압축)
+   ─────────────────────────────────────────────────────────────
+   · 5MB 이하: 원본 그대로 업로드 (품질 보존)
+   · 5MB 초과: 브라우저 canvas로 자동 압축 시도
+       - 긴 변 최대 1920px
+       - JPEG 품질 0.82로 시작
+       - 투명 PNG는 PNG 유지 시도 → 실패 시 JPEG fallback
+   · 자동 압축 후에도 5MB 초과 시에만 에러
+   ================================================================ */
+const IMAGE_SOFT_LIMIT_BYTES = 5 * 1024 * 1024;   // 5MB — 원본 업로드 허용 한계
+const IMAGE_MAX_DIMENSION    = 1920;              // 압축 시 긴 변 최대
+const IMAGE_JPEG_QUALITY     = 0.82;              // 압축 품질
 
-/* ── 이미지 압축 ── */
-function compressImage(file, callback, onError) {
-  const reader = new FileReader();
-  reader.onerror = () => onError?.('파일 읽기 실패');
-  reader.onload  = e => {
-    const img    = new Image();
-    img.onerror  = () => onError?.('이미지 파싱 실패');
-    img.onload   = () => {
+/* ── 파일을 dataURL로 변환 (압축 없음) ── */
+function _readFileAsDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('파일 읽기 실패'));
+    reader.onload  = e => resolve(e.target.result);
+    reader.readAsDataURL(file);
+  });
+}
+
+/* ── 이미지 canvas 압축 ──
+   긴 변 maxDimension 이하로 축소 + 선택한 포맷으로 인코딩.
+   transparent=true면 PNG 유지 시도 (알파 보존), 아니면 JPEG. */
+function _compressImageDataURL(dataUrl, { maxDimension = IMAGE_MAX_DIMENSION, transparent = false, quality = IMAGE_JPEG_QUALITY }) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onerror = () => reject(new Error('이미지 파싱 실패'));
+    img.onload  = () => {
       let w = img.width, h = img.height;
-      if (w > IMAGE_MAX_PX || h > IMAGE_MAX_PX) {
-        if (w > h) { h = Math.round(h * IMAGE_MAX_PX / w); w = IMAGE_MAX_PX; }
-        else        { w = Math.round(w * IMAGE_MAX_PX / h); h = IMAGE_MAX_PX; }
+      if (w > maxDimension || h > maxDimension) {
+        if (w > h) { h = Math.round(h * maxDimension / w); w = maxDimension; }
+        else       { w = Math.round(w * maxDimension / h); h = maxDimension; }
       }
       const cv = document.createElement('canvas');
       cv.width = w; cv.height = h;
-      cv.getContext('2d').drawImage(img, 0, 0, w, h);
-      callback(cv.toDataURL('image/jpeg', IMAGE_QUALITY));
+      const ctx = cv.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+      const mime = transparent ? 'image/png' : 'image/jpeg';
+      try {
+        resolve(cv.toDataURL(mime, quality));
+      } catch (e) {
+        reject(e);
+      }
     };
-    img.src = e.target.result;
-  };
-  reader.readAsDataURL(file);
+    img.src = dataUrl;
+  });
 }
 
-/* ── 이미지 업로드 ── */
+/* ── dataURL 바이트 크기 추정 (base64 → bytes) ── */
+function _estimateDataUrlBytes(dataUrl) {
+  /* 'data:image/xxx;base64,' 헤더 제외 후 base64 길이 × 3/4 */
+  const commaIdx = dataUrl.indexOf(',');
+  if (commaIdx < 0) return dataUrl.length;
+  const base64Len = dataUrl.length - commaIdx - 1;
+  return Math.round(base64Len * 0.75);
+}
+
+/* ================================================================
+   공통 유틸: 파일 → (필요 시 압축된) dataURL
+   프로젝트 설정 UI 등 uploadImage 외 다른 경로에서도 동일 정책 적용
+   ─────────────────────────────────────────────────────────────
+   · 비이미지 → throw
+   · 5MB 이하 → 원본 dataURL
+   · 5MB 초과 → 1920px + JPEG 0.82, 필요시 해상도 단계 축소
+   · 최종 한계 초과 시 throw
+   ================================================================ */
+async function compressFileForUpload(file) {
+  if (!file) throw new Error('파일이 없어요');
+  if (!file.type.startsWith('image/')) throw new Error('이미지 파일만 업로드할 수 있어요');
+
+  const origDataUrl   = await _readFileAsDataURL(file);
+  const isTransparent = file.type === 'image/png' || file.type === 'image/webp';
+
+  if (file.size <= IMAGE_SOFT_LIMIT_BYTES) return origDataUrl;
+
+  let finalDataUrl;
+  try {
+    finalDataUrl = await _compressImageDataURL(origDataUrl, {
+      maxDimension: IMAGE_MAX_DIMENSION,
+      transparent:  isTransparent,
+      quality:      IMAGE_JPEG_QUALITY,
+    });
+  } catch {
+    finalDataUrl = await _compressImageDataURL(origDataUrl, {
+      maxDimension: IMAGE_MAX_DIMENSION, transparent: false, quality: IMAGE_JPEG_QUALITY,
+    });
+  }
+  if (isTransparent && _estimateDataUrlBytes(finalDataUrl) > IMAGE_SOFT_LIMIT_BYTES) {
+    finalDataUrl = await _compressImageDataURL(origDataUrl, {
+      maxDimension: IMAGE_MAX_DIMENSION, transparent: false, quality: IMAGE_JPEG_QUALITY,
+    });
+  }
+  let tryDim = 1440;
+  while (_estimateDataUrlBytes(finalDataUrl) > IMAGE_SOFT_LIMIT_BYTES && tryDim >= 1024) {
+    finalDataUrl = await _compressImageDataURL(origDataUrl, {
+      maxDimension: tryDim, transparent: false, quality: IMAGE_JPEG_QUALITY,
+    });
+    tryDim -= 256;
+  }
+  if (_estimateDataUrlBytes(finalDataUrl) > IMAGE_SOFT_LIMIT_BYTES) {
+    throw new Error('이미지가 너무 커요. 작은 파일을 써 주세요');
+  }
+  return finalDataUrl;
+}
+
+/* ── 이미지 업로드 (자동 압축 지원) ── */
 async function uploadImage(num, input) {
   const file = input.files[0];
   if (!file) return;
@@ -48,41 +130,84 @@ async function uploadImage(num, input) {
   /* 중복 업로드 방지 */
   if (mediaState.uploading.has(num)) { input.value = ''; return; }
 
-  /* 잠금 확보 */
-  if (!await ensureEditable(num)) { input.value = ''; return; }
-
-  /* 파일 크기 검증 */
-  if (file.size > IMAGE_MAX_BYTES) {
-    alert('이미지가 너무 커요. 5MB 이하 파일을 선택해주세요.');
-    input.value = ''; return;
-  }
-
   /* 파일 형식 검증 */
   if (!file.type.startsWith('image/')) {
     alert('이미지 파일만 업로드할 수 있어요.');
     input.value = ''; return;
   }
 
+  /* 잠금 확보 */
+  if (!await ensureEditable(num)) { input.value = ''; return; }
+
   /* 업로드 중 UI */
   mediaState.uploading.add(num);
   _showUploadingIndicator(num);
 
-  compressImage(
-    file,
-    dataUrl => {
-      mediaState.uploading.delete(num);
-      if (!scenes[num]) return;   // 업로드 중 장면 삭제된 경우
-      scenes[num].imageData = dataUrl;
-      renderCard(scenes[num]);    // ui.js
-      drawArrows();               // ui.js
-      pushToFirebase(num);        // firebase.js
-    },
-    errMsg => {
-      mediaState.uploading.delete(num);
-      alert(`❌ 이미지 처리 실패: ${errMsg}`);
-      renderCard(scenes[num]);
+  try {
+    const origDataUrl = await _readFileAsDataURL(file);
+    const isTransparent = file.type === 'image/png' || file.type === 'image/webp';
+
+    let finalDataUrl;
+
+    if (file.size <= IMAGE_SOFT_LIMIT_BYTES) {
+      /* 5MB 이하: 원본 그대로 */
+      finalDataUrl = origDataUrl;
+    } else {
+      /* 5MB 초과: 자동 압축 시도 */
+      /* 1차: 포맷 유지 (PNG면 PNG, 아니면 JPEG) */
+      try {
+        finalDataUrl = await _compressImageDataURL(origDataUrl, {
+          maxDimension: IMAGE_MAX_DIMENSION,
+          transparent:  isTransparent,
+          quality:      IMAGE_JPEG_QUALITY,
+        });
+      } catch (e) {
+        /* 첫 압축 실패 시 JPEG fallback */
+        finalDataUrl = await _compressImageDataURL(origDataUrl, {
+          maxDimension: IMAGE_MAX_DIMENSION,
+          transparent:  false,
+          quality:      IMAGE_JPEG_QUALITY,
+        });
+      }
+
+      /* PNG가 여전히 크면 JPEG로 재시도 */
+      if (isTransparent && _estimateDataUrlBytes(finalDataUrl) > IMAGE_SOFT_LIMIT_BYTES) {
+        finalDataUrl = await _compressImageDataURL(origDataUrl, {
+          maxDimension: IMAGE_MAX_DIMENSION,
+          transparent:  false,
+          quality:      IMAGE_JPEG_QUALITY,
+        });
+      }
+
+      /* 그래도 크면 해상도 더 축소하며 재시도 (최대 2회) */
+      let tryDim = 1440;
+      while (_estimateDataUrlBytes(finalDataUrl) > IMAGE_SOFT_LIMIT_BYTES && tryDim >= 1024) {
+        finalDataUrl = await _compressImageDataURL(origDataUrl, {
+          maxDimension: tryDim,
+          transparent:  false,
+          quality:      IMAGE_JPEG_QUALITY,
+        });
+        tryDim -= 256;
+      }
+
+      if (_estimateDataUrlBytes(finalDataUrl) > IMAGE_SOFT_LIMIT_BYTES) {
+        throw new Error('이미지가 너무 커요. 작은 파일을 써 주세요.');
+      }
     }
-  );
+
+    /* 저장 */
+    mediaState.uploading.delete(num);
+    if (!scenes[num]) return;   // 업로드 중 장면 삭제된 경우
+    scenes[num].imageData = finalDataUrl;
+    renderCard(scenes[num]);
+    drawArrows();
+    pushToFirebase(num);
+  } catch (err) {
+    mediaState.uploading.delete(num);
+    alert(`❌ 이미지 처리 실패: ${err.message || err}`);
+    if (scenes[num]) renderCard(scenes[num]);
+  }
+
   input.value = '';
 }
 

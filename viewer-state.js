@@ -9,9 +9,20 @@ const ViewerState = {
   project: {
     teamName: '',
     classId:  null,      // v2 경로용 — DATA_PATH_VERSION='v2'일 때만 설정
+    isPublic: false,     // 공개 정책 — viewer-meta/isPublic 기준, 기본 비공개
     mode: 'story',       // 'story' | 'explore' | 'hybrid'
     theme: 'default',    // 'default' | 'fairybook' | 'explore'
     template: 'full-image', // 'full-image' | 'text-page' | 'map-layout'
+
+    /* ── 표지 / 시작점 구조 (구조 개편 1차) ──
+       · cover: 프로젝트 입구 (표지) — 제목/이미지가 첫 장면과 분리됨
+       · entrySceneId: 첫 감상 시작 장면 (소개 장면 두고 싶으면 여기로)
+       · replaySceneId: 엔딩 후 '다른 결말' 시작 장면 (보통 본편 첫 장면)
+       null이면 기존 start scene에서 자동 마이그레이션됨 (viewer-data.js) */
+    coverTitle:     null,
+    coverImageData: null,
+    entrySceneId:   null,
+    replaySceneId:  null,
   },
 
   /* ── 장면 데이터 (adapter 변환 후) ── */

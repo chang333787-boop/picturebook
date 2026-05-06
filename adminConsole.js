@@ -39,17 +39,19 @@ window.addEventListener('DOMContentLoaded', () => {
   list.addEventListener('click', e => {
     if (!adminState.verified) return;
 
-    const makerBtn  = e.target.closest('.js-admin-maker');
-    const viewerBtn = e.target.closest('.js-admin-viewer');
-    const detailBtn = e.target.closest('.js-admin-detail');
-    const deleteBtn = e.target.closest('.js-admin-delete');
-    const moreBtn   = e.target.closest('.js-admin-more');
+    const makerBtn    = e.target.closest('.js-admin-maker');
+    const viewerBtn   = e.target.closest('.js-admin-viewer');
+    const detailBtn   = e.target.closest('.js-admin-detail');
+    const deleteBtn   = e.target.closest('.js-admin-delete');
+    const moreBtn     = e.target.closest('.js-admin-more');
+    const publicBtn   = e.target.closest('.js-admin-toggle-public');
 
     if (makerBtn)  _openMaker(makerBtn.dataset.name);
     if (viewerBtn) _openViewer(viewerBtn.dataset.name);
     if (detailBtn) _toggleDetail(detailBtn.dataset.encoded);
     if (deleteBtn) _deleteTeam(deleteBtn.dataset.encoded, deleteBtn.dataset.name);
     if (moreBtn)   _toggleMoreMenu(moreBtn);
+    if (publicBtn) _toggleIsPublic(publicBtn.dataset.encoded, publicBtn.dataset.name, publicBtn.dataset.public === 'true');
   });
 });
 
@@ -134,14 +136,16 @@ function _loadAdminDataV1() {
   db.ref('teams').once('value').then(snapshot => {
     const raw = snapshot.val();
     if (!raw) {
-      list.innerHTML = '<div class="admin-empty">등록된 모둠이 없어요.</div>';
+      list.innerHTML = '<div class="admin-empty">등록된 팀이 없어요.</div>';
       _renderSummaryBar([]);
       _renderFilterBar([]);
       return;
     }
     adminState.allTeams = Object.entries(raw).map(([encodedName, teamData]) => {
-      const scenes = Object.values(teamData.scenes || {});
-      return _analyzeTeam(encodedName, scenes);
+      const scenes   = Object.values(teamData.scenes || {});
+      const isPublic = teamData['viewer-meta']?.isPublic === true;
+      const meta     = teamData['viewer-meta'] || {};
+      return _analyzeTeam(encodedName, scenes, isPublic, meta);
     });
     _renderSummaryBar(adminState.allTeams);
     _renderFilterBar(adminState.allTeams);
@@ -176,14 +180,16 @@ async function _loadAdminDataV2() {
   db.ref(`classes/${resolvedClassId}/teams`).once('value').then(snapshot => {
     const raw = snapshot.val();
     if (!raw) {
-      list.innerHTML = '<div class="admin-empty">이 클래스에 등록된 모둠이 없어요.</div>';
+      list.innerHTML = '<div class="admin-empty">이 클래스에 등록된 팀이 없어요.</div>';
       _renderSummaryBar([]);
       _renderFilterBar([]);
       return;
     }
     adminState.allTeams = Object.entries(raw).map(([encodedName, teamData]) => {
-      const scenes = Object.values(teamData.scenes || {});
-      return _analyzeTeam(encodedName, scenes);
+      const scenes   = Object.values(teamData.scenes || {});
+      const isPublic = teamData['viewer-meta']?.isPublic === true;
+      const meta     = teamData['viewer-meta'] || {};
+      return _analyzeTeam(encodedName, scenes, isPublic, meta);
     });
     _renderSummaryBar(adminState.allTeams);
     _renderFilterBar(adminState.allTeams);
@@ -194,16 +200,43 @@ async function _loadAdminDataV2() {
 }
 
 /* ================================================================
-   팀 상태 분석 — pure function (변경 없음)
+   팀 상태 분석 — pure function
+   ─────────────────────────────────────────────────────────────
+   admin/분석 문구 정리 1차:
+   · '시작 장면' 개수 개념 제거 (entry는 single)
+   · entry/replay는 명시 설정(meta) 우선 → 없으면 start scene fallback
+   · entryValid/replayValid = 실제 scenes에 존재하는 장면을 가리키는지
    ================================================================ */
-function _analyzeTeam(encodedName, scenes) {
+function _analyzeTeam(encodedName, scenes, isPublic = false, meta = {}) {
   const name     = decodeURIComponent(encodedName);
   const total    = scenes.length;
-  const starts   = scenes.filter(s => s.type === 'start').length;
   const endings  = scenes.filter(s => s.type === 'ending').length;
-  const normals  = scenes.filter(s => s.type === 'normal').length;
   const trueEnds = scenes.filter(s => s.type === 'ending' && s.trueEnding).length;
   const hasImage = scenes.some(s => s.imageData);
+
+  /* 일반 = 엔딩이 아닌 모든 장면 (기존 type === 'start' 데이터도 일반으로 묶음) */
+  const normals  = scenes.filter(s => s.type !== 'ending').length;
+
+  /* entry/replay 해석 — viewer의 _migrateCoverAndEntryDefaults와 같은 논리 */
+  const sceneByNum = Object.fromEntries(scenes.map(s => [String(s.num), s]));
+  const startScene = scenes.find(s => s.type === 'start')
+                   || scenes.slice().sort((a, b) => Number(a.num) - Number(b.num))[0]
+                   || null;
+
+  const entryMetaSet  = meta.entrySceneId  !== null && meta.entrySceneId  !== undefined && meta.entrySceneId  !== '';
+  const replayMetaSet = meta.replaySceneId !== null && meta.replaySceneId !== undefined && meta.replaySceneId !== '';
+  const entryExplicit = entryMetaSet  && !!sceneByNum[String(meta.entrySceneId)];
+  const replayExplicit= replayMetaSet && !!sceneByNum[String(meta.replaySceneId)];
+
+  const entryNum  = entryExplicit  ? Number(meta.entrySceneId)
+                    : (startScene ? Number(startScene.num) : null);
+  const replayNum = replayExplicit ? Number(meta.replaySceneId) : entryNum;
+
+  const entryValid  = entryNum  != null;
+  const replayValid = replayNum != null;
+  /* 명시 설정됐지만 유효하지 않은 경우 (존재하지 않는 장면을 가리킴) */
+  const entryBroken  = entryMetaSet  && !entryExplicit;
+  const replayBroken = replayMetaSet && !replayExplicit;
 
   const nonEndingScenes = scenes.filter(s => s.type !== 'ending');
   const connected       = nonEndingScenes.filter(s => s.nextA || s.nextB).length;
@@ -212,26 +245,34 @@ function _analyzeTeam(encodedName, scenes) {
 
   const noTitle = scenes.filter(s => !s.title?.trim()).length;
 
+  /* 고립 = 진입 장면(entryNum) 아니면서 아무도 가리키지 않는 장면 */
   const allNextIds = new Set(scenes.flatMap(s => [s.nextA, s.nextB].filter(Boolean).map(String)));
   const isolated   = scenes.filter(s =>
-    s.type !== 'start' && !allNextIds.has(String(s.num))
+    String(s.num) !== String(entryNum) && !allNextIds.has(String(s.num))
   ).length;
 
-  const status         = _classifyStatus({ total, starts, endings, connectivity, isolated });
-  const interpretation = _makeInterpretation(status, { total, starts, endings, connectivity, noTitle, isolated });
-  const problems       = _listProblems({ starts, endings, connectivity, noTitle, isolated, total });
+  const ctx = {
+    total, endings, entryValid, replayValid, entryBroken, replayBroken,
+    connectivity, isolated, noTitle,
+  };
+  const status         = _classifyStatus(ctx);
+  const interpretation = _makeInterpretation(status, ctx);
+  const problems       = _listProblems(ctx);
 
   return {
-    encodedName, name, total, starts, endings, normals, trueEnds,
+    encodedName, name, total,
+    endings, normals, trueEnds,
+    entryNum, replayNum, entryValid, replayValid, entryBroken, replayBroken,
     hasImage, connectivity, noTitle, isolated, status, interpretation, problems,
+    isPublic,
   };
 }
 
-function _classifyStatus({ total, starts, endings, connectivity, isolated }) {
+function _classifyStatus({ total, endings, entryValid, entryBroken, replayBroken, connectivity, isolated }) {
   if (total === 0) return 'not-started';
-  if (starts === 0 || endings === 0 || connectivity < 50 || isolated > 3)
+  if (!entryValid || entryBroken || replayBroken || endings === 0 || connectivity < 50 || isolated > 3)
     return 'needs-attention';
-  if (starts >= 1 && endings >= 1 && connectivity >= 70)
+  if (entryValid && endings >= 1 && connectivity >= 70)
     return 'ready';
   return 'in-progress';
 }
@@ -243,12 +284,14 @@ const STATUS_META = {
   'needs-attention': { label: '확인 필요', color: '#c00',    bg: '#fff0f0', icon: '🔴' },
 };
 
-function _makeInterpretation(status, { total, starts, endings, connectivity, noTitle, isolated }) {
+function _makeInterpretation(status, { total, endings, entryValid, entryBroken, replayBroken, connectivity, noTitle, isolated }) {
   if (status === 'not-started') return '아직 작품 제작을 시작하지 않았어요.';
   if (status === 'needs-attention') {
-    if (starts === 0) return '시작 장면이 없어 작품을 열기 어려워요.';
-    if (endings === 0) return '엔딩 장면이 없어 이야기가 완성되지 않았어요.';
-    if (isolated > 3) return '연결이 끊긴 장면이 많아요. 흐름 점검이 필요해요.';
+    if (entryBroken)    return '첫 감상 시작점이 존재하지 않는 장면을 가리켜요.';
+    if (!entryValid)    return '첫 감상 시작점이 없어 작품을 열기 어려워요.';
+    if (replayBroken)   return '다시 시작점이 존재하지 않는 장면을 가리켜요.';
+    if (endings === 0)  return '엔딩 장면이 없어 이야기가 완성되지 않았어요.';
+    if (isolated > 3)   return '연결이 끊긴 장면이 많아요. 흐름 점검이 필요해요.';
     return '구조에 문제가 있어 교사 확인이 필요해요.';
   }
   if (status === 'ready') {
@@ -260,14 +303,16 @@ function _makeInterpretation(status, { total, starts, endings, connectivity, noT
   return '이야기를 만들고 있는 중이에요.';
 }
 
-function _listProblems({ starts, endings, connectivity, noTitle, isolated, total }) {
+function _listProblems({ total, endings, entryValid, entryBroken, replayBroken, connectivity, noTitle, isolated }) {
   const problems = [];
   if (total === 0) return problems;
-  if (starts === 0)       problems.push({ icon: '⚠️', text: '시작 장면이 없어요' });
-  if (endings === 0)      problems.push({ icon: '⚠️', text: '엔딩 장면이 없어요' });
+  if (entryBroken)      problems.push({ icon: '❌', text: '첫 감상 시작점이 존재하지 않는 장면을 가리켜요' });
+  else if (!entryValid) problems.push({ icon: '⚠️', text: '첫 감상 시작점이 지정되지 않았어요' });
+  if (replayBroken)     problems.push({ icon: '❌', text: '다시 시작점이 존재하지 않는 장면을 가리켜요' });
+  if (endings === 0)    problems.push({ icon: '⚠️', text: '엔딩 장면이 없어요' });
   if (connectivity < 70 && total > 1) problems.push({ icon: '🔗', text: `연결 완성도 ${connectivity}%` });
-  if (isolated > 0)       problems.push({ icon: '🔴', text: `고립 장면 ${isolated}개` });
-  if (noTitle > 0)        problems.push({ icon: '📝', text: `내용 없는 장면 ${noTitle}개` });
+  if (isolated > 0)     problems.push({ icon: '🔴', text: `고립 장면 ${isolated}개` });
+  if (noTitle > 0)      problems.push({ icon: '📝', text: `내용 없는 장면 ${noTitle}개` });
   return problems;
 }
 
@@ -369,7 +414,7 @@ function _renderTeamList() {
     teams.sort((a, b) => (ORDER[a.status] ?? 9) - (ORDER[b.status] ?? 9));
 
   if (!teams.length) {
-    list.innerHTML = '<div class="admin-empty">해당 상태의 모둠이 없어요.</div>';
+    list.innerHTML = '<div class="admin-empty">해당 상태의 팀이 없어요.</div>';
     return;
   }
 
@@ -402,6 +447,11 @@ function _teamCardHtml(t) {
   const viewerBtn = canView
     ? `<button class="admin-action-btn admin-action-btn--viewer js-admin-viewer" data-name="${t.name}" title="Viewer로 보기">▶ 감상</button>`
     : `<button class="admin-action-btn admin-action-btn--viewer admin-action-btn--disabled" disabled title="감상 가능 상태가 아니에요">▶ 감상</button>`;
+  const publicBtn = `<button class="admin-action-btn js-admin-toggle-public ${t.isPublic ? 'admin-action-btn--public-on' : 'admin-action-btn--public-off'}"
+    data-encoded="${t.encodedName}" data-name="${t.name}" data-public="${t.isPublic}"
+    title="${t.isPublic ? '비공개로 전환' : '공개로 전환'}">
+    ${t.isPublic ? '🌐 공개 중' : '🔒 비공개'}
+  </button>`;
   const detailBtn = `<button class="admin-action-btn admin-action-btn--detail js-admin-detail" data-encoded="${t.encodedName}" title="상세 보기">상세</button>`;
   const moreBtn   = `<button class="admin-action-btn admin-action-btn--more js-admin-more" title="더 보기">⋯</button>
     <div class="admin-more-menu" style="display:none;">
@@ -418,7 +468,7 @@ function _teamCardHtml(t) {
         ${badges.join('')}
       </div>
       <div class="admin-card-actions">
-        ${makerBtn}${viewerBtn}${detailBtn}
+        ${makerBtn}${viewerBtn}${publicBtn}${detailBtn}
         <div class="admin-more-wrap">${moreBtn}</div>
       </div>
     </div>
@@ -426,7 +476,9 @@ function _teamCardHtml(t) {
     <div class="admin-card-body">
       <div class="admin-card-stats">
         ${t.total > 0
-          ? `장면 ${t.total}개 · 시작 ${t.starts} · 일반 ${t.normals} · 엔딩 ${t.endings}`
+          ? `장면 ${t.total}개 · 일반 ${t.normals} · 엔딩 ${t.endings}${
+              t.entryNum != null ? ` · 첫 감상 장면 ${t.entryNum}` : ''
+            }`
           : '장면 없음'}
       </div>
       <p class="admin-card-interp">${t.interpretation}</p>
@@ -447,13 +499,49 @@ function _teamCardHtml(t) {
 function _openMaker(teamName) {
   const cid = adminState.adminClassId
     ? `&classId=${encodeURIComponent(adminState.adminClassId)}` : '';
+  /* maker 열기 — return context 저장 불필요 (maker가 viewer 열 때 자기가 저장) */
   window.open(`maker.html?team=${encodeURIComponent(teamName)}${cid}`, '_blank');
 }
 
 function _openViewer(teamName) {
   const cid = adminState.adminClassId
     ? `&classId=${encodeURIComponent(adminState.adminClassId)}` : '';
+  /* ★ admin → viewer 직접 진입: 복귀 대상은 admin 화면
+     source='admin' 명시 → viewer의 _returnToMaker가 admin 경로로 정확히 fallback */
+  try {
+    localStorage.setItem('branchReturnContext', JSON.stringify({
+      source:  'admin',
+      url:     location.href,
+      savedAt: Date.now(),
+    }));
+  } catch (e) { /* storage 실패해도 진입은 계속 */ }
   window.open(`viewer.html?team=${encodeURIComponent(teamName)}${cid}&from=maker`, '_blank');
+}
+
+/* ================================================================
+   공개/비공개 토글
+   viewer-meta/isPublic을 반전 저장 후 카드 즉시 갱신
+   ================================================================ */
+async function _toggleIsPublic(encodedName, teamName, currentIsPublic) {
+  if (!adminState.verified) return;
+
+  const newIsPublic = !currentIsPublic;
+  const label       = newIsPublic ? '공개' : '비공개';
+
+  const metaPath = (DATA_PATH_VERSION === 'v2' && adminState.adminClassId)
+    ? `classes/${adminState.adminClassId}/teams/${encodedName}/viewer-meta/isPublic`
+    : `teams/${encodedName}/viewer-meta/isPublic`;
+
+  try {
+    await db.ref(metaPath).set(newIsPublic);
+
+    /* allTeams 상태 즉시 업데이트 후 카드 리렌더 */
+    const team = adminState.allTeams.find(t => t.encodedName === encodedName);
+    if (team) team.isPublic = newIsPublic;
+    _renderTeamList();
+  } catch (err) {
+    alert(`❌ ${label} 전환 실패: ${err.message}`);
+  }
 }
 
 function _toggleMoreMenu(btn) {
@@ -507,11 +595,19 @@ function _toggleDetail(encodedName) {
            <div class="admin-detail-label">장면 목록 (${arr.length}개)</div>
            <div class="admin-scene-chips">
              ${arr.map(s => {
-               const color = s.type==='start'?'#06d6a0':s.type==='ending'?'#ef476f':'#4a90d9';
+               /* 언어 정리: '시작' 타입 표현 제거. 엔딩/일반만 색으로 구분하고
+                  entry/replay는 역할 배지로 별도 표시. */
+               const isEnding = s.type === 'ending';
+               const isEntry  = team && String(team.entryNum)  === String(s.num);
+               const isReplay = team && String(team.replayNum) === String(s.num);
+               const color = isEnding ? '#ef476f' : '#4a90d9';
                const nexts = [s.nextA && `A→${s.nextA}`, s.nextB && `B→${s.nextB}`].filter(Boolean);
+               const roleBadgeHtml = [
+                 isEntry  ? '<span class="chip-role" style="background:#e8f5e9;color:#2e7d32;border:1px solid #81c784;padding:1px 6px;border-radius:8px;font-size:10px;margin-left:3px;">첫 감상</span>' : '',
+                 isReplay ? '<span class="chip-role" style="background:#e3f2fd;color:#1565c0;border:1px solid #90caf9;padding:1px 6px;border-radius:8px;font-size:10px;margin-left:3px;">다시</span>' : '',
+               ].join('');
                return `<div class="admin-scene-chip" style="border-color:${color};">
-                 <span class="chip-type" style="color:${color};">${
-                   s.type==='start'?'시작':s.type==='ending'?'엔딩':'일반'} ${s.num}</span>
+                 <span class="chip-type" style="color:${color};">${isEnding ? '엔딩' : '일반'} ${s.num}</span>${roleBadgeHtml}
                  <span class="chip-title">${s.title ? s.title.slice(0,18) : '(내용 없음)'}</span>
                  ${nexts.length ? `<span class="chip-next">${nexts.join(' ')}</span>` : ''}
                </div>`;
@@ -531,7 +627,7 @@ function _toggleDetail(encodedName) {
    ================================================================ */
 function _deleteTeam(encodedName, displayName) {
   if (!adminState.verified) return;
-  if (!confirm(`"${displayName}" 모둠의 모든 데이터를 삭제할까요?\n이 작업은 되돌릴 수 없어요!`)) return;
+  if (!confirm(`"${displayName}" 팀의 모든 데이터를 삭제할까요?\n이 작업은 되돌릴 수 없어요!`)) return;
 
   const teamPath = (DATA_PATH_VERSION === 'v2' && adminState.adminClassId)
     ? `classes/${adminState.adminClassId}/teams/${encodedName}`
@@ -539,7 +635,7 @@ function _deleteTeam(encodedName, displayName) {
 
   db.ref(teamPath).remove()
     .then(() => {
-      alert(`✅ "${displayName}" 모둠 데이터가 삭제됐어요.`);
+      alert(`✅ "${displayName}" 팀 데이터가 삭제됐어요.`);
       adminState.allTeams = adminState.allTeams.filter(t => t.encodedName !== encodedName);
       _renderSummaryBar(adminState.allTeams);
       _renderFilterBar(adminState.allTeams);

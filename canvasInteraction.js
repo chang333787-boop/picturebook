@@ -36,11 +36,17 @@ function setZoom(val) {
   applyTransform();
 }
 
-/* ── 드래그 시작 헬퍼 — 잠금 확보 후에만 호출됨 ── */
+/* ── 드래그 시작 헬퍼 — 잠금 확보 후에만 호출됨
+   ─────────────────────────────────────────────────────────────
+   호출 시점 전제: 개별/묶음 모두 호출자(sceneRenderer pointermove)가
+   `ensureEditable`로 필요한 모든 장면의 잠금을 확보한 뒤 호출함.
+   즉 이 함수가 실행되는 순간 이미 잠금 ok 상태.
+   ═════════════════════════════════════════════════════════════ */
 let rafId = null;
 
 function _startDrag(el, s, cv) {
   if (dragState) return;
+
   if (groupMoveOn) {
     const nums    = getConnectedNums(s.num);
     const offsets = {};
@@ -54,6 +60,16 @@ function _startDrag(el, s, cv) {
     dragState = { num: s.num, ox: s.x - cv.x, oy: s.y - cv.y };
   }
   el.classList.add('dragging');
+}
+
+/* ── 묶음 이동 사전 잠금 (all-or-nothing) ──
+   호출 시점: pointerdown 시. connected 장면 전체에 대해 ensureEditable 시도.
+   반환: Promise<boolean> — 모두 성공하면 true, 하나라도 실패하면 false.
+   ⚠ 부분 성공이 나올 수 있지만 그 경우 전체가 실패로 보고됨(drag 취소).
+     이미 획득한 잠금은 TTL(~idle timeout)로 자연 해제됨. */
+async function ensureEditableForGroup(nums) {
+  const results = await Promise.all(nums.map(n => ensureEditable(n)));
+  return results.every(ok => ok === true);
 }
 
 /* ── 묶음 이동 ── */

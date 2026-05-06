@@ -157,7 +157,10 @@
   color: var(--v03-fg);
   margin: 0 0 18px;
   flex: 1;  /* 본문이 영역 차지, 버튼은 아래로 밀림 */
+  /* 줄바꿈 정책: 한국어 단어 단위 + 영문/숫자 강제 줄바꿈 */
   white-space: pre-wrap;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
 }
 .scene-screen--text .text-card__body--scroll {
   /* 매우 긴 본문 — 카드 내부에서 자체 스크롤 */
@@ -261,7 +264,10 @@
   color: var(--v03-fg);
   margin: 0 0 12px;
   flex: 1;
+  /* 줄바꿈 정책: 한국어 단어 단위 + 영문/숫자 강제 줄바꿈 */
   white-space: pre-wrap;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
 }
 .scene-screen--pb .pb-text__actions {
   display: flex;
@@ -347,7 +353,10 @@
   line-height: 1.55;
   color: var(--v03-fg-soft);
   margin: 0;
+  /* 줄바꿈 정책: 한국어 단어 단위 + 영문/숫자 강제 줄바꿈 */
   white-space: pre-wrap;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
 }
 .scene-screen--movie .movie-decision__actions {
   display: flex;

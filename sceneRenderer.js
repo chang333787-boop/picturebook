@@ -64,6 +64,12 @@ function buildCardHTML(s) {
      <label class="type-label" for="tr-${s.num}-${t}">${labels[i]}</label>`
   ).join('');
 
+  /* buttons[] 길이 인식 (단계 1 — viewer-edit이 N개 추가 시 canvas에도 반영)
+     · maker canvas는 choiceA/B input으로 첫 2개만 직접 편집 (단순성 유지)
+     · 3번째 이상 버튼은 "+N개 더" 인디케이터로 존재만 표시 — 본편집은 viewer-edit
+     · cnt(choiceCount)는 maker UI 토글용 (1/2개) — buttons 길이와 별도 */
+  const buttonsLen = Array.isArray(s.buttons) ? s.buttons.length : 0;
+  const extraChoicesCount = Math.max(0, buttonsLen - 2);
   const cnt = s.choiceCount || 2;
   let portsHTML = '';
 
@@ -90,6 +96,14 @@ function buildCardHTML(s) {
         </label>
       </div>`;
 
+    /* 3+개 인디케이터 — buttons[]에 3번째 이상 있을 때만 표시.
+       maker canvas에선 본편집 안 함 — 다듬기 화면에서 편집. */
+    const extraHintHTML = extraChoicesCount > 0
+      ? `<div class="card-extra-choices-hint">
+           +${extraChoicesCount}개 더 (다듬기 화면에서 편집)
+         </div>`
+      : '';
+
     if (cnt === 1) {
       portsHTML = `
         <div class="card-ports">
@@ -98,6 +112,7 @@ function buildCardHTML(s) {
             <span style="flex:1;font-size:11px;color:var(--muted);padding:2px 5px;">다음 장면으로</span>
             <div class="port-dot A" data-num="${s.num}" data-port="A" title="드래그해서 연결"></div>
           </div>
+          ${extraHintHTML}
         </div>`;
     } else {
       portsHTML = `
@@ -117,6 +132,7 @@ function buildCardHTML(s) {
               padding:2px 5px;font-size:11px;font-family:var(--font-b);"/>
             <div class="port-dot B" data-num="${s.num}" data-port="B" title="드래그해서 연결"></div>
           </div>
+          ${extraHintHTML}
         </div>`;
     }
   } else {
@@ -199,18 +215,17 @@ function buildCardHTML(s) {
     ${portsHTML}`;
 }
 
-/* ── 본문 미리보기 (title/body 분리 1차) ──
-   · body 있음: 1~2줄 회색 미리보기 + 다듬기에서 수정 힌트
+/* ── 본문 미리보기 (title/body 분리, 멀티라인 단계 1) ──
+   · body 있음: 멀티라인 회색 미리보기 (CSS line-clamp 4줄 후 말줄임)
    · body 없음: 표시 안 함 — 카드는 기존과 거의 동일 인상 유지
-   · branch는 구조 설계기이므로 본문은 카드 안에서 편집하지 않음 (다듬기 화면에서) */
+   · branch는 구조 설계기이므로 본문은 카드 안에서 편집하지 않음 (다듬기 화면에서)
+   · 줄바꿈 정책: 한국어 단어 단위 + 영문/숫자 강제 줄바꿈 (CSS에서 처리) */
 function _bodyPreviewHtml(s) {
   const body = (s && typeof s.body === 'string') ? s.body.trim() : '';
   if (!body) return '';
-  /* 한 줄, 최대 60자 말줄임 — 카드 높이 1줄로 고정 */
-  const oneLine = body.replace(/\s+/g, ' ').trim();
-  const preview = oneLine.length > 60 ? oneLine.slice(0, 60) + '…' : oneLine;
-  /* HTML escape — & / < / > / 따옴표 모두 */
-  const safe = preview
+  /* 멀티라인 — 사용자가 입력한 줄바꿈 그대로 표시 (CSS pre-wrap)
+     긴 본문은 CSS line-clamp가 4줄 후 ellipsis 처리 */
+  const safe = body
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')

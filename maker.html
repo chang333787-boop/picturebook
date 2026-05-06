@@ -220,20 +220,38 @@
 
     .card-body{padding:0 8px 8px;}
     .card-field-label{font-size:10px;color:var(--muted);margin-bottom:2px;}
-    .card-textarea{width:100%;border:1.5px solid #d0e0f5;border-radius:8px;padding:5px 7px;font-family:var(--font-b);font-size:12px;color:var(--text);background:#f8fbff;resize:vertical;min-height:56px;line-height:1.5;margin-bottom:6px;}
+    /* card-textarea(제목): 폰트 12 → 11, min-height 56 → 40 — 제목 비중 줄임.
+       maker canvas는 흐름 설계기 — 제목이 너무 크면 본문 영역 밀려남 */
+    .card-textarea{width:100%;border:1.5px solid #d0e0f5;border-radius:8px;padding:4px 7px;font-family:var(--font-b);font-size:11px;color:var(--text);background:#f8fbff;resize:vertical;min-height:40px;line-height:1.4;margin-bottom:6px;
+      white-space: pre-wrap; word-break: keep-all; overflow-wrap: anywhere;}
     .card-textarea:focus{outline:none;border-color:var(--primary);background:#fff;}
-    /* 본문 미리보기 (title/body 분리 1차) — 카드 안에 1줄 회색 미리보기.
-       branch는 구조 설계기이므로 편집 UI 아님 — 다듬기 화면에서 수정.
-       UX 마감: 카드 높이 편차 최소화 — 1줄 고정 + 말줄임 */
+    /* 본문 미리보기 — title/body 분리, 멀티라인 기준 (단계 1).
+       max-lines 4줄 표시 후 말줄임. 한국어/영문 혼용 줄바꿈 정책 적용.
+       branch는 구조 설계기이므로 편집은 viewer-edit에서. */
     .card-body-preview{
-      font-size:11px; color:var(--muted); line-height:1.4;
-      padding:3px 8px; margin:-2px 0 6px;
+      font-size:11px; color:var(--muted); line-height:1.5;
+      padding:4px 8px; margin:-2px 0 6px;
       background:rgba(74,144,217,0.04);
       border-left:2px solid rgba(74,144,217,0.22);
       border-radius:4px;
-      height:1.7em;
-      overflow:hidden;
-      white-space:nowrap; text-overflow:ellipsis;
+      /* 멀티라인 + max-lines 4줄 후 말줄임 */
+      display: -webkit-box;
+      -webkit-line-clamp: 4;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      /* 본문/설명문 줄바꿈 정책 */
+      white-space: pre-wrap;
+      word-break: keep-all;
+      overflow-wrap: anywhere;
+    }
+    /* +N개 더 인디케이터 — 3+개 버튼 표시 (단계 1) */
+    .card-extra-choices-hint{
+      font-size:10px; color:var(--muted); text-align:center;
+      padding:3px 8px; margin:2px 8px 4px;
+      background:rgba(155,77,202,0.06);
+      border:1px dashed rgba(155,77,202,0.3);
+      border-radius:6px;
+      font-family:var(--font-b);
     }
     /* 모드 배지 (모드 시스템 뼈대 1차) — 카드 우측 type-row에.
        장면 설계기에 작은 힌트만, 편집 불가 (viewer-edit에서 변경). */

@@ -75,10 +75,11 @@ async function mutateScene(num, patch, {
 
 /* 패치 부수 효과 — 상태 일관성 보장 */
 function _applyMutateSideEffects(num, patch) {
-  if (patch.choiceCount === 1) {
-    scenes[num].nextB   = '';
-    scenes[num].choiceB = '';
-  }
+  /* W2-A: choiceCount는 더 이상 maker UI 토글로 변경되지 않음 (1/2 토글 제거).
+     updateChoiceLabel이 buttons.length 기준 호환 동기화로 patch에 넣지만,
+     이때 nextB/choiceB를 자동으로 비우면 안 됨 — 사용자가 첫 버튼만 입력하는
+     중간 상태에서도 두 번째 버튼 데이터가 손상되기 때문.
+     legacy 호환 import 등에서 명시적 부작용 필요하면 별도 함수로. */
 }
 
 /* ── 구조·대량 mutation 공통 후처리 ──
@@ -246,25 +247,41 @@ async function updateChoiceCount(num, cnt) {
 
 async function updateChoiceLabel(num, port, val) {
   /* 선택지 라벨은 카드 재렌더 없이 화살표만 갱신.
-     buttons[] 동기화 (단계 2) — viewer-edit과 정합성 유지:
-     · maker가 choiceA/B 편집 시 buttons[0/1].label도 함께 patch
-     · buttons[]가 없거나 짧으면 그대로 두고 choiceA/B만 저장 (1단계 일관성 복구가 처리)
-     · buttons[]가 있고 인덱스에 해당하면 라벨 동시 갱신 */
+     buttons[] 우선 동기화 (W2-A: 단일 배열 구조 통일):
+     · 라벨이 buttons[idx]에 없으면 새 항목 만들어 추가
+     · 동시에 choiceA/B 호환 키도 patch (1단계 양방향 동기화 정책 유지) */
   const s = scenes[num];
   if (!s) return;
   const idx = port === 'A' ? 0 : 1;
 
+  /* legacy choiceA/B 호환 patch — viewer-data adaptChoices가 둘 다 읽음 */
   const patch = port === 'A' ? { choiceA: val } : { choiceB: val };
 
-  /* buttons[] 양방향 동기화 — 해당 인덱스 라벨이 있으면 같이 갱신.
-     없으면 maker 기준 새로 만들지 않음 (viewer-edit이 buttons 구조 책임). */
-  if (Array.isArray(s.buttons) && s.buttons[idx]) {
-    /* 메모리 복사본으로 갱신 후 patch에 포함 — Firebase는 buttons 전체 배열 덮어씀 */
-    const newButtons = s.buttons.map((b, i) =>
-      i === idx ? { ...b, label: val } : b
-    );
-    patch.buttons = newButtons;
+  /* buttons[] 갱신 — 없으면 만들고, 있으면 해당 인덱스 업데이트.
+     기존 nextId는 유지. 없는 인덱스 채우려면 빈 객체로 padding. */
+  const currentButtons = Array.isArray(s.buttons) ? [...s.buttons] : [];
+  /* idx 미만 인덱스가 비어있으면 빈 객체로 채움 (예: B 입력하는데 A가 없는 경우) */
+  while (currentButtons.length <= idx) {
+    const i = currentButtons.length;
+    /* legacy nextA/nextB가 있으면 buttons에 보존. 없으면 빈 객체. */
+    const legacyNext = i === 0 ? s.nextA : i === 1 ? s.nextB : null;
+    const legacyLabel = i === 0 ? (s.choiceA || '') : i === 1 ? (s.choiceB || '') : '';
+    currentButtons.push({
+      id: String.fromCharCode(65 + i),
+      label: legacyLabel,
+      ...(legacyNext ? { nextId: String(legacyNext) } : {}),
+    });
   }
+  /* 해당 인덱스 라벨 갱신 */
+  currentButtons[idx] = {
+    ...currentButtons[idx],
+    id: currentButtons[idx].id || (port === 'A' ? 'A' : 'B'),
+    label: val,
+  };
+  patch.buttons = currentButtons;
+
+  /* choiceCount 호환 동기화 — buttons.length 기준 (1개 또는 2개 이상). */
+  patch.choiceCount = currentButtons.length === 1 ? 1 : 2;
 
   await mutateScene(num, patch, { skipCardRender: true, needsArrows: true, silent: true });
 }

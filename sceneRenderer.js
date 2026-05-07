@@ -28,9 +28,18 @@ function addScene() {
   const cy   = rect.height / 2 + (Math.random() - 0.5) * 100;
   const cv   = toCanvas(rect.left + cx, rect.top + cy);
 
-  scenes[num] = { num, title: '', type: 'normal',
+  /* 신규 장면 (W2-A): buttons[] 단일 배열 구조로 시작.
+     · buttons: 빈 배열 [] — 사용자가 input에 입력하면 첫 항목 채워짐
+     · choiceA/B/choiceCount: legacy 호환 동기화 (옵션 2 정책 — 1단계)
+     · body: 신규는 빈 채로 시작. _hasBody=true로 새 구조 명시 */
+  scenes[num] = {
+    num, title: '', body: '', type: 'normal',
     x: Math.max(20, cv.x), y: Math.max(20, cv.y),
-    choiceA: '', choiceB: '', choiceCount: 2 };
+    buttons: [],
+    /* legacy 호환 — viewer-data가 buttons 우선 읽지만 maker 다른 경로/import 호환 */
+    choiceA: '', choiceB: '', choiceCount: 2,
+    _hasBody: true,
+  };
   renderCard(scenes[num]);
   drawArrows();
   pushToFirebase();
@@ -64,95 +73,68 @@ function buildCardHTML(s) {
      <label class="type-label" for="tr-${s.num}-${t}">${labels[i]}</label>`
   ).join('');
 
-  /* buttons[] 길이 인식 (단계 2 — N개 모두 카드에 표시)
-     · maker canvas는 첫 2개(A/B)만 input으로 직접 편집 — 흐름 설계기 단순성
-     · 3번째 이상 버튼은 read-only 라벨로 표시 (분기 연결 dot은 유지)
-     · cnt(choiceCount)는 maker UI 토글용 (1/2개) — buttons 길이와 별도 */
+  /* ── 버튼 N개 통일 구조 (W2-A) ──
+     · v0.3: 다음 1개 / 선택지 2개 토글 제거. buttons[] 단일 배열 구조.
+     · 최소 1개, 최대 6개 (사용자 결정).
+     · 모든 버튼이 같은 구조 — 1개도 일반 버튼.
+     · maker canvas: 첫 2개(A/B) input은 항상 표시 (사용자가 두 번째 버튼 추가 가능).
+       3+개는 read-only 라벨 (W2-B에서 N개 분기 연결 풀 지원 예정).
+     · maker는 choiceCount 토글 X — buttons[].length가 진실. */
   const buttonsList = Array.isArray(s.buttons) ? s.buttons : [];
   const buttonsLen = buttonsList.length;
-  const cnt = s.choiceCount || 2;
+
   let portsHTML = '';
 
   if (s.type !== 'ending') {
-    const toggleHTML = `
-      <div style="display:flex;gap:4px;margin-bottom:6px;padding:0 8px;">
-        <label style="flex:1;text-align:center;padding:3px 0;border-radius:6px;font-size:11px;cursor:pointer;
-          border:1.5px solid ${cnt===1?'var(--primary)':'#dde8f5'};
-          background:${cnt===1?'var(--primary)':'transparent'};
-          color:${cnt===1?'#fff':'var(--muted)'};">
-          <input class="js-cnt-radio" type="radio" name="cnt-${s.num}"
-            value="1" ${cnt===1?'checked':''} data-num="${s.num}" data-value="1"
-            style="display:none;"/>
-          다음 1개
-        </label>
-        <label style="flex:1;text-align:center;padding:3px 0;border-radius:6px;font-size:11px;cursor:pointer;
-          border:1.5px solid ${cnt===2?'var(--primary)':'#dde8f5'};
-          background:${cnt===2?'var(--primary)':'transparent'};
-          color:${cnt===2?'#fff':'var(--muted)'};">
-          <input class="js-cnt-radio" type="radio" name="cnt-${s.num}"
-            value="2" ${cnt===2?'checked':''} data-num="${s.num}" data-value="2"
-            style="display:none;"/>
-          선택지 2개
-        </label>
+    /* 첫 2개(A/B) — 항상 input 2개 표시. 사용자가 한 번에 라벨 입력 가능.
+       buttons[] 우선 라벨, 없으면 choiceA/B fallback (legacy 호환). */
+    const labelA = (buttonsList[0] && typeof buttonsList[0].label === 'string')
+      ? buttonsList[0].label : (s.choiceA || '');
+    const labelB = (buttonsList[1] && typeof buttonsList[1].label === 'string')
+      ? buttonsList[1].label : (s.choiceB || '');
+
+    const editableRows = `
+      <div class="port-row">
+        <input class="port-label-input js-choice-label" placeholder="버튼 1"
+          value="${_escapeHtml(labelA)}" data-num="${s.num}" data-port="A"
+          style="flex:1;min-width:0;border:1.5px solid #d0e0f5;border-radius:6px;
+          padding:2px 5px;font-size:11px;font-family:var(--font-b);"/>
+        <div class="port-dot A" data-num="${s.num}" data-port="A" title="드래그해서 연결"></div>
+      </div>
+      <div class="port-row">
+        <input class="port-label-input js-choice-label" placeholder="버튼 2 (선택)"
+          value="${_escapeHtml(labelB)}" data-num="${s.num}" data-port="B"
+          style="flex:1;min-width:0;border:1.5px solid #d0e0f5;border-radius:6px;
+          padding:2px 5px;font-size:11px;font-family:var(--font-b);"/>
+        <div class="port-dot B" data-num="${s.num}" data-port="B" title="드래그해서 연결"></div>
       </div>`;
 
-    /* 3+개 read-only 라벨 HTML — buttons[]에 인덱스 2 이상 있을 때만.
-       cnt에 무관하게 buttons[] 기준으로 렌더 (viewer-edit이 N개 추가했으면 다 보임).
-       단, cnt=1 모드면 인덱스 1(B)도 read-only로 표시 (사용자가 다시 2개로 토글하기 전엔 비활성).
-       dot은 완전 비활성 (옵션 A) — data-port 제거 + pointer-events:none 으로
-       canvasInteraction이 드래그/클릭 못 잡게. nextC/nextD는 maker 시스템 전체가
-       지원 안 하므로 분기 연결은 viewer-edit에서만. */
-    const readonlyStartIdx = (cnt === 1) ? 1 : 2;
+    /* 3+개 read-only 라벨 — buttons[]에 인덱스 2 이상 있을 때만.
+       dot은 완전 비활성 (W2-A 한계 — W2-B에서 N개 분기 연결 풀 지원 예정). */
     let readonlyChoicesHTML = '';
-    for (let i = readonlyStartIdx; i < buttonsLen; i++) {
+    for (let i = 2; i < buttonsLen && i < 6; i++) {
       const b = buttonsList[i] || {};
-      const labelText = (typeof b.label === 'string' && b.label) ? b.label : `(선택지 ${i + 1})`;
+      const labelText = (typeof b.label === 'string' && b.label) ? b.label : `(버튼 ${i + 1})`;
       readonlyChoicesHTML += `
           <div class="port-row port-row--readonly">
             <span class="port-readonly-label" title="다듬기 화면에서 분기 연결">${_escapeHtml(labelText)}</span>
             <div class="port-dot port-dot--readonly port-dot--disabled" title="이 선택지는 다듬기 화면에서 분기 연결"></div>
           </div>`;
     }
-    /* "다듬기에서 더 편집" 진입점 — 3+개 있을 때 표시 */
+
+    /* 다듬기 진입점 — buttons 3개 이상 있을 때만 표시 (3+개 분기 연결 안내) */
     const editHintHTML = (buttonsLen > 2)
       ? `<div class="card-edit-hint" data-num="${s.num}">
-           ✏️ 다듬기 화면에서 편집
+           ✏️ 버튼 ${buttonsLen}개 — 다듬기 화면에서 편집
          </div>`
       : '';
 
-    if (cnt === 1) {
-      portsHTML = `
-        <div class="card-ports">
-          ${toggleHTML}
-          <div class="port-row">
-            <span style="flex:1;font-size:11px;color:var(--muted);padding:2px 5px;">다음 장면으로</span>
-            <div class="port-dot A" data-num="${s.num}" data-port="A" title="드래그해서 연결"></div>
-          </div>
-          ${readonlyChoicesHTML}
-          ${editHintHTML}
-        </div>`;
-    } else {
-      portsHTML = `
-        <div class="card-ports">
-          ${toggleHTML}
-          <div class="port-row">
-            <input class="port-label-input js-choice-label" placeholder="선택지 A"
-              value="${s.choiceA || ''}" data-num="${s.num}" data-port="A"
-              style="flex:1;min-width:0;border:1.5px solid #d0e0f5;border-radius:6px;
-              padding:2px 5px;font-size:11px;font-family:var(--font-b);"/>
-            <div class="port-dot A" data-num="${s.num}" data-port="A" title="드래그해서 연결"></div>
-          </div>
-          <div class="port-row">
-            <input class="port-label-input js-choice-label" placeholder="선택지 B"
-              value="${s.choiceB || ''}" data-num="${s.num}" data-port="B"
-              style="flex:1;min-width:0;border:1.5px solid #d0e0f5;border-radius:6px;
-              padding:2px 5px;font-size:11px;font-family:var(--font-b);"/>
-            <div class="port-dot B" data-num="${s.num}" data-port="B" title="드래그해서 연결"></div>
-          </div>
-          ${readonlyChoicesHTML}
-          ${editHintHTML}
-        </div>`;
-    }
+    portsHTML = `
+      <div class="card-ports">
+        ${editableRows}
+        ${readonlyChoicesHTML}
+        ${editHintHTML}
+      </div>`;
   } else {
     const isTrueEnding = s.trueEnding || false;
     portsHTML = `
@@ -313,10 +295,9 @@ function bindCardEvents(el, s) {
     radio.addEventListener('change', () => updateType(num, radio.dataset.value));
   });
 
-  /* 선택지 개수 토글 */
-  el.querySelectorAll('.js-cnt-radio').forEach(radio => {
-    radio.addEventListener('change', () => updateChoiceCount(num, Number(radio.dataset.value)));
-  });
+  /* 선택지 개수 토글은 W2-A에서 제거됨 — buttons[] 단일 배열 구조로 통일.
+     js-cnt-radio 셀렉터는 카드에 더 이상 없으므로 forEach 0회 (안전).
+     legacy 데이터 호환을 위해 updateChoiceCount 함수는 ui.js에 남겨둠 (호출 안 됨). */
 
   /* 선택지 라벨 */
   el.querySelectorAll('.js-choice-label').forEach(input => {

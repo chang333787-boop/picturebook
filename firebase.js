@@ -285,29 +285,25 @@ function _enterTeam(val, teamRef) {
        단, sceneRenderer.js가 신규 장면을 만들 땐 buttons 키 없이 시작 —
        이건 신규 장면이라 정상 동작. */
 
-    /* ★ legacy body 매핑 (단계 2 잔여 결함 수정):
-       legacy 작품은 raw.title에 모든 텍스트가 있고 body 필드 없음.
-       maker도 viewer-data.adaptScenes처럼 메모리에서 매핑해줘야
-       카드 본문 칸이 비어보이지 않고, 사용자가 제목만 수정해도 본문 손실 없음.
+    /* ★ legacy body 매핑 정책 (W2-A에서 변경):
+       이전(8단계): body 없으면 메모리에서 body=title로 자동 복제 → maker 카드에서
+       제목/본문 칸이 같은 값으로 보이는 결함 발견.
+       지금(W2-A): 자동 복제 제거. maker는 raw.body를 그대로 사용 (없으면 빈 채).
+       _hasBody는 더 이상 필요 없으나 호환을 위해 단순 플래그로만 둠.
 
-       정책:
-       · DB에 body 필드 명시적으로 있으면 (값이 빈 문자열이어도 OK): 새 구조로 인식, _hasBody=true
-       · DB에 body 필드 없으면 (legacy): _hasBody=false + 메모리에서 body=title 매핑
-       · _hasBody는 메모리 sentinel — pushToFirebase에서 제외 (DB에 안 저장됨)
-       · _hasBody=false인 상태에서 push될 때 body 키도 제외 — DB 형태 보존
-       · 단, ui.js의 updateBody 또는 updateTitle이 호출되면 _hasBody=true로
-         전환되어 다음 push 시 body가 정식 저장됨 (legacy → 새 구조 전환점) */
+       legacy 작품의 옛 title은 viewer-edit/viewer 감상에선 adaptScenes의
+       fallback 매핑이 처리 (raw.body 없으면 raw.title을 body로 해석) →
+       legacy 작품 감상은 그대로 보임. maker 카드에서만 분리됨 = 사용자가
+       maker에서 보면 본문 칸 빈 채, viewer-edit/감상 가면 옛 글 보임.
+
+       다음 턴(W2-B 이후)에 별도 마이그레이션 도구로 legacy 데이터 정식 변환 예정. */
     Object.keys(scenes).forEach(numKey => {
       const s = scenes[numKey];
       if (!s || typeof s !== 'object') return;
       const hasBodyField = Object.prototype.hasOwnProperty.call(s, 'body') &&
                            s.body !== null && s.body !== undefined;
-      if (hasBodyField) {
-        s._hasBody = true;
-      } else {
-        s._hasBody = false;
-        s.body = s.title || '';   /* 메모리만 — push에서 제외됨 */
-      }
+      s._hasBody = hasBodyField;
+      /* body 자동 복제 제거 — s.body는 raw 그대로 (없으면 undefined) */
     });
 
     const nums = Object.keys(scenes).map(Number);

@@ -4381,27 +4381,37 @@ html, body {
   grid-template-rows: 1fr;
 }
 
-/* 그림 슬롯 */
+/* 그림 슬롯 — A4 비율(세로/가로) 그림 안전 처리:
+   cover 중심 + center crop. 원본 비율 보존보다 페이지 안 안정 배치 우선.
+   inner padding으로 액자 느낌 — 그림이 영역 전체를 꽉 채우지 않게 (시각 압박 줄임). */
 .scene-screen--pb .pb-illust {
   background: var(--v03-illust-bg);
   background-size: cover;
   background-position: center;
+  background-repeat: no-repeat;
   border-radius: var(--v03-r-md);
   border: 1px solid var(--v03-card-border);
-  /* 그림은 영역 채우게 (자식 없음, background로만 표시) */
+  /* inner framing — 그림 슬롯 안에 살짝 여백.
+     그림이 있을 때는 cover로 채워지고, 없을 때(empty)는 placeholder가 안에 표시 */
   min-width: 0;
   min-height: 0;
+  /* A4 그림 안전 크롭: cover 중심 + center 정렬. 사용자가 세로 A4 올리면
+     좌우는 잘리지만 가운데가 보임. 가로 A4면 위아래 살짝 잘림. 둘 다 의도된 동작. */
 }
 .scene-screen--pb .pb-illust--empty {
   display: grid;
   place-items: center;
-  background: var(--v03-illust-bg);
+  /* 더 옅은 배경 — 시각 압박 줄임 (0.45 opacity 마크와 어울림) */
+  background: linear-gradient(135deg,
+    var(--v03-illust-bg) 0%,
+    color-mix(in srgb, var(--v03-illust-bg) 70%, white) 100%);
 }
 .scene-screen--pb .pb-empty-mark {
-  font-size: 48px;
+  /* 마크 크기 줄임 + opacity 더 낮춤 — placeholder가 화면을 안 압도하게 */
+  font-size: 36px;
   line-height: 1;
   color: var(--v03-illust-mark);
-  opacity: 0.45;
+  opacity: 0.3;
   font-weight: 300;
   /* 의도적으로 짧고 중성적 — v0.3 명세: 감성 문구 금지 */
 }
@@ -4559,11 +4569,12 @@ html, body {
 /* ╭─────────────────────────────────────────╮
    │  반응형 — 좁은 화면 보정                │
    ╰─────────────────────────────────────────╯ */
-@media (max-width: 720px) {
+@media (max-width: 820px) {
   /* 그림책 LR은 좁은 화면에서 자동으로 TB로 전환.
-     16:9 viewer-frame 안에서 좌우 50:50은 720px 미만에서 너무 좁아짐
-     (각 영역 ~360px → 패딩/gap 빼면 본문 영역 ~280px → 한글 가독성 한계).
-     720px 임계점은 viewer-frame이 그 폭 미만이면 LR 포기하고 TB로. */
+     16:9 viewer-frame 안에서 좌우 50:50은 820px 미만에서 너무 좁아짐
+     (각 영역 ~410px → 패딩/gap 빼면 본문 영역 ~330px → 한글 가독성 한계).
+     820px 임계점은 viewer-frame이 그 폭 미만이면 LR 포기하고 TB로.
+     일반적인 노트북 1366×768 + 사이드바 등 빼면 viewer-frame이 800px 안팎 — 안전하게 TB 우선. */
   .scene-screen--pb.pb--lr .pb-frame {
     grid-template-columns: 1fr;
     grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);

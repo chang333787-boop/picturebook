@@ -64,12 +64,12 @@ function buildCardHTML(s) {
      <label class="type-label" for="tr-${s.num}-${t}">${labels[i]}</label>`
   ).join('');
 
-  /* buttons[] 길이 인식 (단계 1 — viewer-edit이 N개 추가 시 canvas에도 반영)
-     · maker canvas는 choiceA/B input으로 첫 2개만 직접 편집 (단순성 유지)
-     · 3번째 이상 버튼은 "+N개 더" 인디케이터로 존재만 표시 — 본편집은 viewer-edit
+  /* buttons[] 길이 인식 (단계 2 — N개 모두 카드에 표시)
+     · maker canvas는 첫 2개(A/B)만 input으로 직접 편집 — 흐름 설계기 단순성
+     · 3번째 이상 버튼은 read-only 라벨로 표시 (분기 연결 dot은 유지)
      · cnt(choiceCount)는 maker UI 토글용 (1/2개) — buttons 길이와 별도 */
-  const buttonsLen = Array.isArray(s.buttons) ? s.buttons.length : 0;
-  const extraChoicesCount = Math.max(0, buttonsLen - 2);
+  const buttonsList = Array.isArray(s.buttons) ? s.buttons : [];
+  const buttonsLen = buttonsList.length;
   const cnt = s.choiceCount || 2;
   let portsHTML = '';
 
@@ -96,11 +96,27 @@ function buildCardHTML(s) {
         </label>
       </div>`;
 
-    /* 3+개 인디케이터 — buttons[]에 3번째 이상 있을 때만 표시.
-       maker canvas에선 본편집 안 함 — 다듬기 화면에서 편집. */
-    const extraHintHTML = extraChoicesCount > 0
-      ? `<div class="card-extra-choices-hint">
-           +${extraChoicesCount}개 더 (다듬기 화면에서 편집)
+    /* 3+개 read-only 라벨 HTML — buttons[]에 인덱스 2 이상 있을 때만.
+       cnt에 무관하게 buttons[] 기준으로 렌더 (viewer-edit이 N개 추가했으면 다 보임).
+       단, cnt=1 모드면 인덱스 1(B)도 read-only로 표시 (사용자가 다시 2개로 토글하기 전엔 비활성).
+       dot은 완전 비활성 (옵션 A) — data-port 제거 + pointer-events:none 으로
+       canvasInteraction이 드래그/클릭 못 잡게. nextC/nextD는 maker 시스템 전체가
+       지원 안 하므로 분기 연결은 viewer-edit에서만. */
+    const readonlyStartIdx = (cnt === 1) ? 1 : 2;
+    let readonlyChoicesHTML = '';
+    for (let i = readonlyStartIdx; i < buttonsLen; i++) {
+      const b = buttonsList[i] || {};
+      const labelText = (typeof b.label === 'string' && b.label) ? b.label : `(선택지 ${i + 1})`;
+      readonlyChoicesHTML += `
+          <div class="port-row port-row--readonly">
+            <span class="port-readonly-label" title="다듬기 화면에서 분기 연결">${_escapeHtml(labelText)}</span>
+            <div class="port-dot port-dot--readonly port-dot--disabled" title="이 선택지는 다듬기 화면에서 분기 연결"></div>
+          </div>`;
+    }
+    /* "다듬기에서 더 편집" 진입점 — 3+개 있을 때 표시 */
+    const editHintHTML = (buttonsLen > 2)
+      ? `<div class="card-edit-hint" data-num="${s.num}">
+           ✏️ 다듬기 화면에서 편집
          </div>`
       : '';
 
@@ -112,7 +128,8 @@ function buildCardHTML(s) {
             <span style="flex:1;font-size:11px;color:var(--muted);padding:2px 5px;">다음 장면으로</span>
             <div class="port-dot A" data-num="${s.num}" data-port="A" title="드래그해서 연결"></div>
           </div>
-          ${extraHintHTML}
+          ${readonlyChoicesHTML}
+          ${editHintHTML}
         </div>`;
     } else {
       portsHTML = `
@@ -132,7 +149,8 @@ function buildCardHTML(s) {
               padding:2px 5px;font-size:11px;font-family:var(--font-b);"/>
             <div class="port-dot B" data-num="${s.num}" data-port="B" title="드래그해서 연결"></div>
           </div>
-          ${extraHintHTML}
+          ${readonlyChoicesHTML}
+          ${editHintHTML}
         </div>`;
     }
   } else {
@@ -205,33 +223,41 @@ function buildCardHTML(s) {
     </div>
     ${imgAreaHtml}
     <div class="card-body">
-      <div class="card-field-label">제목</div>
-      <textarea class="card-textarea js-title-input"
-        placeholder="장면 제목 또는 짧은 글"
-        data-num="${s.num}">${s.title || ''}</textarea>
-      ${_bodyPreviewHtml(s)}
+      <!-- 본문 — 시각 중심 (단계 2: 카드 위계 뒤집기)
+           이 장면이 어떤 장면인지 한눈에 파악하는 게 maker canvas 목적 -->
+      <textarea class="card-body-textarea js-body-input"
+        placeholder="장면 본문 — 어떤 장면인지 적어요"
+        rows="3"
+        data-num="${s.num}">${_escapeHtml(s.body || '')}</textarea>
+      <!-- 제목 — 작은 라벨 (선택). 본문보다 약하게 -->
+      <input class="card-title-input js-title-input"
+        placeholder="장면 라벨 (선택)"
+        type="text"
+        value="${_escapeHtml(s.title || '')}"
+        data-num="${s.num}"/>
       <div class="card-type-row">${radios}${_modeBadgeHtml(s)}</div>
     </div>
     ${portsHTML}`;
 }
 
-/* ── 본문 미리보기 (title/body 분리, 멀티라인 단계 1) ──
-   · body 있음: 멀티라인 회색 미리보기 (CSS line-clamp 4줄 후 말줄임)
-   · body 없음: 표시 안 함 — 카드는 기존과 거의 동일 인상 유지
-   · branch는 구조 설계기이므로 본문은 카드 안에서 편집하지 않음 (다듬기 화면에서)
-   · 줄바꿈 정책: 한국어 단어 단위 + 영문/숫자 강제 줄바꿈 (CSS에서 처리) */
-function _bodyPreviewHtml(s) {
-  const body = (s && typeof s.body === 'string') ? s.body.trim() : '';
-  if (!body) return '';
-  /* 멀티라인 — 사용자가 입력한 줄바꿈 그대로 표시 (CSS pre-wrap)
-     긴 본문은 CSS line-clamp가 4줄 후 ellipsis 처리 */
-  const safe = body
+/* HTML escape — & / < / > / 따옴표 모두 (textarea/input value용) */
+function _escapeHtml(str) {
+  return String(str || '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
-  return `<div class="card-body-preview" title="본문은 다듬기 화면에서 수정해요">${safe}</div>`;
+}
+
+/* ── 본문 미리보기 (legacy, 단계 1에서 추가) ──
+   단계 2부터는 본문이 직접 편집 textarea로 옮겨감 — _bodyPreviewHtml은
+   더 이상 카드 본체에서 호출하지 않음. 함수는 호환을 위해 남겨두지만 사용처 없음.
+   향후 정리 단계에서 제거 가능. */
+function _bodyPreviewHtml(s) {
+  const body = (s && typeof s.body === 'string') ? s.body.trim() : '';
+  if (!body) return '';
+  return `<div class="card-body-preview" title="본문은 다듬기 화면에서 수정해요">${_escapeHtml(body)}</div>`;
 }
 
 /* ── 모드 배지 (모드 시스템 뼈대 1차) ──
@@ -264,13 +290,22 @@ function bindCardEvents(el, s) {
   el.querySelector('.js-delete-btn')
     ?.addEventListener('click', () => deleteScene(num));
 
-  /* 텍스트 입력 */
-  const textarea = el.querySelector('.js-title-input');
-  if (textarea) {
-    textarea.addEventListener('focus', () => ensureEditable(num));
-    textarea.addEventListener('input', e => updateTitle(num, e.target.value));
+  /* 제목 input — 한 줄 input 태그 (단계 2부터 textarea 아님). 이벤트는 동일 정책 */
+  const titleInput = el.querySelector('.js-title-input');
+  if (titleInput) {
+    titleInput.addEventListener('focus', () => ensureEditable(num));
+    titleInput.addEventListener('input', e => updateTitle(num, e.target.value));
     /* blur 시 debounced save 즉시 flush — 포커스 떠날 때 유실 방지 */
-    textarea.addEventListener('blur',  () => flushTitleSaves(num));
+    titleInput.addEventListener('blur',  () => flushTitleSaves(num));
+  }
+
+  /* 본문 textarea — 단계 2 신규: 카드에서 본문 직접 편집.
+     깊은 편집(textBox/모드/이미지 등)은 viewer-edit에서. */
+  const bodyTextarea = el.querySelector('.js-body-input');
+  if (bodyTextarea) {
+    bodyTextarea.addEventListener('focus', () => ensureEditable(num));
+    bodyTextarea.addEventListener('input', e => updateBody(num, e.target.value));
+    bodyTextarea.addEventListener('blur',  () => flushBodySaves(num));
   }
 
   /* 종류 라디오 */

@@ -284,19 +284,51 @@ function _enterTeam(val, teamRef) {
        포함된 채로 다시 저장되어 손실되지 않음.
        단, sceneRenderer.js가 신규 장면을 만들 땐 buttons 키 없이 시작 —
        이건 신규 장면이라 정상 동작. */
+
+    /* ★ legacy body 매핑 (단계 2 잔여 결함 수정):
+       legacy 작품은 raw.title에 모든 텍스트가 있고 body 필드 없음.
+       maker도 viewer-data.adaptScenes처럼 메모리에서 매핑해줘야
+       카드 본문 칸이 비어보이지 않고, 사용자가 제목만 수정해도 본문 손실 없음.
+
+       정책:
+       · DB에 body 필드 명시적으로 있으면 (값이 빈 문자열이어도 OK): 새 구조로 인식, _hasBody=true
+       · DB에 body 필드 없으면 (legacy): _hasBody=false + 메모리에서 body=title 매핑
+       · _hasBody는 메모리 sentinel — pushToFirebase에서 제외 (DB에 안 저장됨)
+       · _hasBody=false인 상태에서 push될 때 body 키도 제외 — DB 형태 보존
+       · 단, ui.js의 updateBody 또는 updateTitle이 호출되면 _hasBody=true로
+         전환되어 다음 push 시 body가 정식 저장됨 (legacy → 새 구조 전환점) */
+    Object.keys(scenes).forEach(numKey => {
+      const s = scenes[numKey];
+      if (!s || typeof s !== 'object') return;
+      const hasBodyField = Object.prototype.hasOwnProperty.call(s, 'body') &&
+                           s.body !== null && s.body !== undefined;
+      if (hasBodyField) {
+        s._hasBody = true;
+      } else {
+        s._hasBody = false;
+        s.body = s.title || '';   /* 메모리만 — push에서 제외됨 */
+      }
+    });
+
     const nums = Object.keys(scenes).map(Number);
     if (nums.length) nextNum = Math.max(...nums) + 1;
 
-    /* ★ 타이핑 보호: 현재 포커스가 제목 입력창(js-title-input)에 있으면
+    /* ★ 타이핑 보호: 현재 포커스가 카드 텍스트 입력 영역에 있으면
        renderAll() 건너뜀 — 전체 카드 DOM 재생성으로 인한 커서/포커스 유실 방지.
+       대상 셀렉터:
+       · js-title-input  — 제목 input (단계 2부터 input 태그)
+       · js-body-input   — 본문 textarea (단계 2 신규)
+       · js-choice-label — 선택지 A/B input (port-label-input)
        scenes 값은 이미 업데이트됨 → blur나 장면 전환 시 자연스럽게 반영됨.
        팀 내 lock 시스템 덕에 내가 편집 중인 장면을 남이 동시 수정하는 상황은 거의 없음. */
     const focused = document.activeElement;
-    const isTypingTitle = focused
+    const isTypingCard = focused
       && focused.classList
-      && focused.classList.contains('js-title-input');
+      && (focused.classList.contains('js-title-input')  ||
+          focused.classList.contains('js-body-input')   ||
+          focused.classList.contains('js-choice-label'));
 
-    if (!isTypingTitle) {
+    if (!isTypingCard) {
       renderAll();
     }
     isRemote = false;
@@ -367,6 +399,22 @@ function _enterTeam(val, teamRef) {
 /* ── Firebase 저장 (scene 단위 dirty write) ── */
 const dirtyScenes = new Set();
 
+/* push 직전 sentinel 필터 — 메모리 전용 키(_hasBody)와
+   legacy 매핑된 body(아직 사용자가 명시 편집 안 한 상태)는 DB에 저장하지 않는다.
+   이러면 legacy 작품의 DB 형태가 보존되고, 사용자가 본문/제목을 명시 편집할 때만
+   body 필드가 DB에 등장한다 (단계 2 잔여 결함 수정). */
+function _sceneToDbShape(s) {
+  if (!s || typeof s !== 'object') return s;
+  const out = { ...s };
+  /* _hasBody는 메모리 sentinel — DB에 저장 X */
+  delete out._hasBody;
+  /* legacy 매핑 상태(_hasBody=false)면 body 키도 빼서 DB 원형 유지 */
+  if (s._hasBody === false) {
+    delete out.body;
+  }
+  return out;
+}
+
 function pushToFirebase(num) {
   if (isRemote || !dbRef) return;
   if (num !== undefined) dirtyScenes.add(num);
@@ -375,14 +423,19 @@ function pushToFirebase(num) {
   pushTimer = setTimeout(() => {
     if (!dbRef) return;
     if (dirtyScenes.size === 0) {
-      dbRef.set(scenes)
+      /* 전체 set — 모든 장면을 DB shape으로 변환 */
+      const cleanScenes = {};
+      Object.keys(scenes).forEach(k => {
+        cleanScenes[k] = _sceneToDbShape(scenes[k]);
+      });
+      dbRef.set(cleanScenes)
         .then(() => setSaveStatus('saved'))
         .catch(() => setSaveStatus('error'));
       return;
     }
     const updates = {};
     dirtyScenes.forEach(n => {
-      updates[n] = scenes[n] ? scenes[n] : null;
+      updates[n] = scenes[n] ? _sceneToDbShape(scenes[n]) : null;
     });
     dirtyScenes.clear();
     dbRef.update(updates)

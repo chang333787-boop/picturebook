@@ -110,8 +110,19 @@ const _titleDirty      = new Set();
 function updateTitle(num, val) {
   if (!scenes[num]) return;
 
+  /* legacy 매핑 보존 (단계 2 잔여 결함 수정):
+     legacy 작품은 처음 로드 시 _hasBody=false + body=title 매핑된 상태.
+     이 상태에서 사용자가 제목만 수정하고 push되면 body 키가 DB에 안 저장되어,
+     다음 로드 시 매핑이 다시 발동하여 본문이 새 제목으로 덮임.
+     → 사용자가 제목을 수정하는 순간 _hasBody=true로 확정 = 매핑된 body가
+     DB에 정식 저장되어 보존됨. legacy → 새 구조 전환점. */
+  const s = scenes[num];
+  if (s._hasBody === false) {
+    s._hasBody = true;
+  }
+
   /* 1. 즉시 로컬 반영 — await 없음, 동기 */
-  scenes[num].title = val;
+  s.title = val;
   _titleDirty.add(num);
 
   /* 2. 내 편집 세션 있을 때만 저장 예약
@@ -131,6 +142,66 @@ function updateTitle(num, val) {
       pushToFirebase(num);
     }
   }, 400);
+}
+
+/* ================================================================
+   updateBody — title/body 분리 (단계 2)
+   ─────────────────────────────────────────────────────────────
+   maker canvas 카드에서 본문(scene.body) 직접 편집을 위한 debounced 저장.
+   updateTitle과 같은 패턴: 즉시 로컬 반영 + 400ms debounce + blur flush.
+   본문은 v0.3 모드 감상에서 시각 중심 — viewer-edit과 양방향 동기화 보장.
+   ================================================================ */
+const _bodySaveTimers = {};   // num → timeoutId
+const _bodyDirty      = new Set();
+
+function updateBody(num, val) {
+  if (!scenes[num]) return;
+
+  /* 본문 명시 편집 — _hasBody=true 확정 (단계 2 잔여 결함 수정).
+     이 시점부터 DB에 body 필드가 정식 저장되며, snapshot 매핑이 더 이상 발동 안 함. */
+  scenes[num]._hasBody = true;
+
+  /* 1. 즉시 로컬 반영 */
+  scenes[num].body = val;
+  _bodyDirty.add(num);
+
+  /* 2. 내 편집 세션 있을 때만 저장 예약 — title과 같은 정책 */
+  if (!activeEdits[num]) return;
+  touchEdit(num);
+
+  /* 3. 저장 debounce */
+  clearTimeout(_bodySaveTimers[num]);
+  _bodySaveTimers[num] = setTimeout(() => {
+    delete _bodySaveTimers[num];
+    if (_bodyDirty.has(num)) {
+      _bodyDirty.delete(num);
+      pushToFirebase(num);
+    }
+  }, 400);
+}
+
+/* 강제 flush — blur / 장면 전환 / preview·viewer 열기 / 페이지 이탈 */
+function flushBodySaves(num) {
+  if (num !== undefined) {
+    clearTimeout(_bodySaveTimers[num]);
+    delete _bodySaveTimers[num];
+    if (_bodyDirty.has(num)) {
+      _bodyDirty.delete(num);
+      pushToFirebase(num);
+    }
+    return;
+  }
+  /* 전체 flush */
+  const keys = Object.keys(_bodySaveTimers);
+  keys.forEach(k => {
+    clearTimeout(_bodySaveTimers[k]);
+    delete _bodySaveTimers[k];
+  });
+  if (_bodyDirty.size > 0) {
+    const nums = Array.from(_bodyDirty);
+    _bodyDirty.clear();
+    nums.forEach(n => pushToFirebase(n));
+  }
 }
 
 /* 강제 flush — blur / 장면 전환 / preview·viewer 열기 / 페이지 이탈 */
@@ -157,9 +228,9 @@ function flushTitleSaves(num) {
   }
 }
 
-/* 페이지 이탈 시 강제 flush */
-window.addEventListener('beforeunload', () => flushTitleSaves());
-window.addEventListener('pagehide',    () => flushTitleSaves());
+/* 페이지 이탈 시 강제 flush — title + body 둘 다 */
+window.addEventListener('beforeunload', () => { flushTitleSaves(); flushBodySaves(); });
+window.addEventListener('pagehide',    () => { flushTitleSaves(); flushBodySaves(); });
 
 async function updateType(num, type) {
   await mutateScene(num, { type }, { needsArrows: true });
@@ -174,8 +245,27 @@ async function updateChoiceCount(num, cnt) {
 }
 
 async function updateChoiceLabel(num, port, val) {
-  /* 선택지 라벨은 카드 재렌더 없이 화살표만 갱신 */
+  /* 선택지 라벨은 카드 재렌더 없이 화살표만 갱신.
+     buttons[] 동기화 (단계 2) — viewer-edit과 정합성 유지:
+     · maker가 choiceA/B 편집 시 buttons[0/1].label도 함께 patch
+     · buttons[]가 없거나 짧으면 그대로 두고 choiceA/B만 저장 (1단계 일관성 복구가 처리)
+     · buttons[]가 있고 인덱스에 해당하면 라벨 동시 갱신 */
+  const s = scenes[num];
+  if (!s) return;
+  const idx = port === 'A' ? 0 : 1;
+
   const patch = port === 'A' ? { choiceA: val } : { choiceB: val };
+
+  /* buttons[] 양방향 동기화 — 해당 인덱스 라벨이 있으면 같이 갱신.
+     없으면 maker 기준 새로 만들지 않음 (viewer-edit이 buttons 구조 책임). */
+  if (Array.isArray(s.buttons) && s.buttons[idx]) {
+    /* 메모리 복사본으로 갱신 후 patch에 포함 — Firebase는 buttons 전체 배열 덮어씀 */
+    const newButtons = s.buttons.map((b, i) =>
+      i === idx ? { ...b, label: val } : b
+    );
+    patch.buttons = newButtons;
+  }
+
   await mutateScene(num, patch, { skipCardRender: true, needsArrows: true, silent: true });
 }
 

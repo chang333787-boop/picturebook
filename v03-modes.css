@@ -212,27 +212,31 @@
   grid-template-rows: 1fr;
 }
 
-/* 그림 슬롯 */
+/* 그림 슬롯 — A4 비율(세로/가로) 그림 안전 처리:
+   cover 중심 + center crop. 원본 비율 보존보다 페이지 안 안정 배치 우선.
+   inner padding으로 액자 느낌 — 그림이 영역 전체를 꽉 채우지 않게 (시각 압박 줄임). */
 .scene-screen--pb .pb-illust {
   background: var(--v03-illust-bg);
   background-size: cover;
   background-position: center;
+  background-repeat: no-repeat;
   border-radius: var(--v03-r-md);
   border: 1px solid var(--v03-card-border);
-  /* 그림은 영역 채우게 (자식 없음, background로만 표시) */
   min-width: 0;
   min-height: 0;
 }
 .scene-screen--pb .pb-illust--empty {
   display: grid;
   place-items: center;
-  background: var(--v03-illust-bg);
+  background: linear-gradient(135deg,
+    var(--v03-illust-bg) 0%,
+    color-mix(in srgb, var(--v03-illust-bg) 70%, white) 100%);
 }
 .scene-screen--pb .pb-empty-mark {
-  font-size: 48px;
+  font-size: 36px;
   line-height: 1;
   color: var(--v03-illust-mark);
-  opacity: 0.45;
+  opacity: 0.3;
   font-weight: 300;
   /* 의도적으로 짧고 중성적 — v0.3 명세: 감성 문구 금지 */
 }
@@ -585,7 +589,7 @@
   white-space: nowrap;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 820px) {
   .scene-screen--pb.pb--lr .pb-frame {
     grid-template-columns: 1fr;
     grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);

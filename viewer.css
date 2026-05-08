@@ -1225,6 +1225,108 @@ html, body {
   text-align: center;
 }
 
+/* ── 3단계 신규: 유형별 다듬기 패널 보조 클래스 ──
+   원칙: 새 디자인 발명 X. 기존 .edit-* 톤(폰트/색/여백) 그대로 재사용. */
+
+/* placeholder row — "추후 추가" 안내가 있는 줄 (텍스트형의 글자스타일/효과/테마 등) */
+.edit-row--placeholder {
+  opacity: 0.7;
+}
+.edit-row--placeholder .edit-label {
+  color: var(--text-muted);
+}
+
+/* legacy row — 모드 카드 + "이 장면 레이아웃 / 텍스트 위치" 행처럼
+   기존 모드 전용으로만 노출되는 영역. 보조 톤. */
+.edit-row--legacy {
+  opacity: 0.85;
+}
+.edit-row--legacy .edit-label {
+  color: var(--text-muted);
+}
+
+/* muted compact row — legacy 텍스트 위치(9칸)처럼 보조 + 살짝 압축 */
+.edit-row--muted-compact {
+  opacity: 0.85;
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+.edit-row--muted-compact .edit-label {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+/* section note — "추후 추가", "임시 집계" 등 작은 안내 텍스트.
+   .edit-section-hint보다 인라인 톤. */
+.edit-section-note {
+  display: block;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+  background: rgba(0,0,0,0.03);
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  font-style: italic;
+}
+
+/* 그림책형 이미지 진입점 행 (그림 상태 + 업로드/바로 그리기 버튼) */
+.edit-pb-image-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.edit-pb-image-status {
+  font-size: 13px;
+  color: var(--text);
+  padding: 6px 0;
+}
+.edit-pb-image-status strong {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* 무비형 미디어 진입점 행 (배지 + 업로드 버튼) */
+.edit-movie-media-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.edit-movie-media-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  background: rgba(0,0,0,0.04);
+  border: 1px solid var(--border);
+  color: var(--text);
+  white-space: nowrap;
+}
+
+/* W4-A: 그림책형 본문 글상자 슬라이더 — 4행 grid (이름 / 슬라이더 / 값) */
+.edit-pb-bodybox-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.edit-pb-bodybox-row {
+  display: grid;
+  grid-template-columns: 92px 1fr 44px;
+  align-items: center;
+  gap: 8px;
+}
+.edit-pb-bodybox-name {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.edit-pb-bodybox-val {
+  font-size: 12px;
+  color: var(--text);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ================================================================
    에러 화면
    ================================================================ */
@@ -4132,6 +4234,38 @@ html, body {
   font-style: normal;
   opacity: 0.75;
 }
+
+/* nextId 드롭다운 (W2-B-α) — 버튼별 다음 장면 연결 편집 */
+.edit-btn-next-label {
+  margin-right: 4px;
+  color: var(--text-muted, #888);
+  font-size: 12px;
+}
+.edit-btn-next-select {
+  padding: 2px 6px;
+  border-radius: 5px;
+  border: 1px solid var(--border, #444);
+  background: var(--bg, #1a1a1a);
+  color: var(--text, #ddd);
+  font-size: 12px;
+  cursor: pointer;
+  max-width: 180px;
+  /* 길어지면 ... 처리 */
+  text-overflow: ellipsis;
+}
+.edit-btn-next-select:focus {
+  outline: 2px solid var(--accent, #5b9dff);
+  outline-offset: 1px;
+}
+.edit-btn-next-select:hover {
+  border-color: var(--accent, #5b9dff);
+}
+/* 미연결 상태 (빈 값 selected) — 시각적 약하게 */
+.edit-btn-next-select option[value=""]:checked,
+.edit-btn-next-select:not(:focus):has(option[value=""]:checked) {
+  color: var(--text-muted, #888);
+  font-style: italic;
+}
 .edit-btn-nolink {
   color: rgba(255, 255, 255, 0.35);
   font-style: italic;
@@ -4609,4 +4743,82 @@ html, body {
   vertical-align: middle;
   /* 제목과 함께 줄바꿈 안 되게 */
   white-space: nowrap;
+}
+
+/* ================================================================
+   3단계 — 유형별 다듬기 섹션 클래스
+   ─────────────────────────────────────────────────────────────
+   원칙: 새 디자인 발명 X. 기존 .edit-row / .edit-toggle-group 톤 그대로 활용.
+   여기서는 유형 전용으로만 보이는 보조 클래스만 정의.
+   ================================================================ */
+
+/* 진입점만 있고 본격 구현이 추후로 미뤄진 항목 — 시각상 옅게 */
+.edit-row--placeholder {
+  opacity: 0.7;
+}
+
+/* "추후 추가" / 임시 안내 같은 보조 텍스트 — 작고 옅게 */
+.edit-section-note {
+  font-size: 12px;
+  color: var(--text-muted, #8a93a3);
+  line-height: 1.5;
+  padding: 6px 0;
+  font-style: italic;
+}
+
+/* 그림책형 / 체험전시형 이미지 슬롯 행 — 상태 + 업로드 진입점 */
+.edit-pb-image-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.edit-pb-image-status {
+  font-size: 13px;
+  color: var(--text, #ddd);
+  padding: 4px 0;
+}
+
+/* 무비형 미디어 행 — 배지 + 업로드 진입점 */
+.edit-movie-media-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.edit-movie-media-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 14px;
+  font-size: 12px;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: var(--text, #ddd);
+  white-space: nowrap;
+}
+
+
+/* ── W4 진단 배너 (사용자 보고 케이스 디버깅용 — 안정되면 제거) ──
+   화면 우상단에 항상 노출. 어떤 분기/데이터로 들어왔는지 즉시 확인. */
+.branch-diag-banner {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 9999;
+  padding: 6px 10px;
+  font-family: monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #fff;
+  background: rgba(220, 53, 69, 0.92);
+  border-radius: 4px;
+  pointer-events: none;
+  max-width: 70%;
+  word-break: break-all;
+  white-space: normal;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+}
+.branch-diag-banner b {
+  color: #fff700;
+  font-weight: 700;
 }

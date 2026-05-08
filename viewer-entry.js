@@ -40,17 +40,18 @@ function _bindEntryEvents() {
     });
 }
 
-/* ── query param 처리: ?team=2모둠&edit=1&from=maker&classId=abc ── */
+/* ── query param 처리: ?team=2모둠&edit=1&from=maker&classId=abc&scene=N ── */
 function _processQueryParam() {
   const params    = new URLSearchParams(location.search);
   const teamName  = params.get('team');
   const editMode  = params.get('edit') === '1';
   const fromMaker = params.get('from') === 'maker';
   const classId   = params.get('classId') || null;  // v2 경로용
+  const sceneNum  = params.get('scene') || null;    // C-2: 특정 장면 자동 선택
 
   if (!teamName) return;
 
-  _enterViewer(teamName, editMode, fromMaker, classId);
+  _enterViewer(teamName, editMode, fromMaker, classId, sceneNum);
 }
 
 /* ── entry 화면 직접 제출 — v2 classCodes lookup ── */
@@ -91,7 +92,7 @@ async function handleEntrySubmit() {
 }
 
 /* ── 실제 진입 처리 ── */
-async function _enterViewer(teamName, editMode = false, fromMaker = false, classId = null) {
+async function _enterViewer(teamName, editMode = false, fromMaker = false, classId = null, sceneNum = null) {
   try {
     _setEntryLoading(true);
     await loadTeamData(teamName, classId, fromMaker);  // fromMaker: isPublic 차단 예외용
@@ -117,7 +118,9 @@ async function _enterViewer(teamName, editMode = false, fromMaker = false, class
         ? `classes/${classId}/teams/${encodedName}`
         : `teams/${encodedName}`;
       if (typeof initViewerLocks === 'function') initViewerLocks(basePath);
-      startViewerEdit();   // 첫 장면부터, cover 없이 scene 렌더로 시작
+      /* C-2: sceneNum이 있으면 그 장면부터 시작 (maker 카드의 다듬기 진입점에서 옴).
+         없으면 첫 장면부터. ViewerState.scenes의 키가 string num이라 그대로 전달. */
+      startViewerEdit(sceneNum);
     } else {
       startViewer();
     }

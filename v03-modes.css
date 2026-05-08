@@ -179,37 +179,252 @@
 
 /* ╭─────────────────────────────────────────╮
    │  모드 2: 그림책형 (picturebook)         │
-   │  TB(상하) 또는 LR(좌우) 50:50 분할      │
+   │  4단계 갱신:                              │
+   │  · 분할형(split):       TB 60:40         │
+   │  · 그림 중심형(imageCenter): TB 80:20    │
+   │  · A4 페이지 컨테이너 가운데 (좌우 여백) │
+   │  · LR 폐기 (legacy 데이터 호환만 유지)   │
    ╰─────────────────────────────────────────╯ */
 .scene-screen--pb {
   position: relative;
   width: 100%;
   height: 100%;
   background: var(--v03-bg);
-  /* 패딩 줄임: 좁은 viewer-frame에서 콘텐츠 면적 확보 */
+  /* A4 컨테이너가 가운데 들어가도록 화면을 안 꽉 채움 */
   padding: 12px;
+  display: grid;
+  place-items: center;
 }
+
+/* A4 페이지 컨테이너 — 화면 가운데, 좌우 여백 유지 (mockup 기준).
+   가로/세로 모드 모두 A4 비율 (가로 297:210 ≈ 1.414).
+   max-width/height으로 viewer-frame 안에서 안 넘어가게. */
+.scene-screen--pb .pb-page {
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  /* A4 가로 비율: width:height = 297:210 → 약 1.414:1
+     viewer-frame이 가로일 때 가로 A4, 세로일 때 세로 A4 자동.
+     aspect-ratio로 단순화하되, 좁은 환경(min(...))에서 안 깨지게. */
+  aspect-ratio: 297 / 210;
+  /* viewer-frame이 더 좁으면 width 우선, 더 길면 height 우선 */
+  display: flex;
+  flex-direction: column;
+}
+
+/* 좁은 환경 (모바일 세로) — 세로 A4 비율 자동 전환 */
+@media (max-aspect-ratio: 1/1) {
+  .scene-screen--pb .pb-page {
+    aspect-ratio: 210 / 297;
+  }
+}
+
 .scene-screen--pb .pb-frame {
   width: 100%;
   height: 100%;
   display: grid;
-  /* gap 줄임: 16px → 10px */
   gap: 10px;
   background: var(--v03-bg-soft);
   border-radius: var(--v03-r-md);
+  padding: 8px;
+  box-sizing: border-box;
 }
-/* TB: 위 그림 / 아래 텍스트 — v0.3 명세상 50:50 유지하되
-   체감상 텍스트 영역에 제목·본문·버튼 다 들어가야 하므로
-   minmax(0, 1fr)로 그림이 텍스트 압박하지 않게 함 */
-.scene-screen--pb.pb--tb .pb-frame {
-  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+
+/* 분할형 (split) — 위 그림 60 / 아래 텍스트+선택지 40 */
+.scene-screen--pb.pb--split .pb-frame {
+  grid-template-rows: minmax(0, 6fr) minmax(0, 4fr);
   grid-template-columns: 1fr;
 }
-/* LR: 좌 그림 / 우 텍스트 — 50:50 (v0.3 고정)
-   minmax(0, 1fr)로 영역이 콘텐츠에 의해 안 늘어나도록 (overflow는 자식 처리) */
+
+/* 그림 중심형 (imageCenter) — 상단 장면(그림+제목+본문) 80 / 하단 선택지 20.
+   상단은 .pb-stage가 이미지 위에 제목/본문 올림 (overlay 형태). */
+.scene-screen--pb.pb--imagecenter .pb-frame {
+  grid-template-rows: minmax(0, 8fr) minmax(0, 2fr);
+  grid-template-columns: 1fr;
+}
+
+/* 그림 중심형 stage — 그림 + 그 위 제목 / 본문 글상자 (overlay) */
+.scene-screen--pb.pb--imagecenter .pb-stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--v03-r-md);
+  overflow: hidden;
+}
+/* 그림 중심형 illust — 강한 우선순위로 inline background-image가 안 잘리게.
+   기본 .pb-illust 룰의 background shorthand가 inline image를 reset하는 경우 방어. */
+.scene-screen--pb.pb--imagecenter .pb-stage .pb-illust {
+  position: absolute;
+  inset: 0;
+  border: none;
+  border-radius: 0;
+  background-color: transparent;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  z-index: 0;
+}
+/* 그림 없음 placeholder — empty 상태에서도 영역은 차지 */
+.scene-screen--pb.pb--imagecenter .pb-stage .pb-illust--empty {
+  background-color: var(--v03-illust-bg, #eef2f8);
+  display: grid;
+  place-items: center;
+}
+
+/* W4 디버그 정보 — 다듬기 모드에서만 좌하단 표시 (감상 모드에선 HTML로도 안 그려짐) */
+.scene-screen--pb.pb--imagecenter .pb-debug-info {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  padding: 4px 8px;
+  font-size: 10px;
+  font-family: monospace;
+  color: #fff;
+  background: rgba(0,0,0,0.6);
+  border-radius: 4px;
+  z-index: 5;
+  pointer-events: none;
+  max-width: calc(100% - 16px);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.scene-screen--pb.pb--imagecenter .pb-stage__title-overlay {
+  position: absolute;
+  top: 12px;
+  left: 16px;
+  right: 16px;
+  font-family: var(--v03-font-h, var(--font-h, sans-serif));
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--v03-card-fg, #1a1a1a);
+  text-shadow: 0 1px 4px rgba(255,255,255,0.6);
+}
+.scene-screen--pb.pb--imagecenter .pb-stage__body-overlay {
+  position: absolute;
+  /* W4: 기본값 — viewer-render의 inline style이 left/top/width/height/background를 덮어쓰지만
+     null/legacy 작품 대비 fallback 값 둠. PB_BODY_BOX_DEFAULTS와 일관 (15/25/55/0.85). */
+  top: 25%;
+  left: 15%;
+  width: 55%;
+  /* height: 명시값 있으면 inline style이 박힘, 없으면 콘텐츠 자동 (auto) */
+  padding: 10px 14px;
+  background: rgba(255,255,255,0.85);
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  /* 사용자 명시 height일 때 콘텐츠 넘치면 내부 스크롤 */
+  overflow: auto;
+  box-sizing: border-box;
+  /* 위치/크기 변경 시 부드러운 전환 (다듬기 슬라이더 input 이벤트와 시너지) — 단 드래그 중엔 끔 */
+  transition: left 80ms, top 80ms, width 80ms, height 80ms, background 80ms;
+}
+.scene-screen--pb.pb--imagecenter .pb-stage__body-overlay.pb-body-overlay--moving,
+.scene-screen--pb.pb--imagecenter .pb-stage__body-overlay.pb-body-overlay--resizing {
+  /* 드래그/리사이즈 중에는 transition 끄기 — 즉시 반응 */
+  transition: none;
+}
+.scene-screen--pb.pb--imagecenter .pb-stage__body-overlay .pb-text__body {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--v03-card-fg, #1a1a1a);
+}
+
+/* ── W4: 다듬기 모드 핸들 (드래그 ✥ + 리사이즈 4 모서리) ──
+   감상 모드(data-edit-mode 없음)에선 이 핸들들이 HTML로도 안 그려지지만,
+   안전 위해 CSS에서도 숨김 보장.
+   ─────────────────────────────────────────────────────────────
+   ⚠ 수정: 이전엔 모서리 핸들이 글상자 밖 -7px 위치였는데 .pb-stage의
+   overflow: hidden에 의해 잘려서 안 보이고 클릭도 안 됨. 이번 수정에서
+   핸들을 글상자 안쪽 +2px로 옮겨 항상 visible + clickable. */
+.scene-screen--pb.pb--imagecenter .pb-body-handle {
+  position: absolute;
+  display: none;
+  user-select: none;
+  pointer-events: auto;
+}
+.scene-screen--pb.pb--imagecenter[data-edit-mode="true"] .pb-body-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+/* 가운데 이동 핸들 ✥ — mockup 부합: 글상자 가운데 큰 그립 (사용자가 본문 위 박스 자체를 잡음).
+   본문이 길면 시각 방해될 수 있어 약간 반투명. */
+.scene-screen--pb.pb--imagecenter .pb-body-handle--move {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 44px;
+  height: 44px;
+  font-size: 22px;
+  color: #fff;
+  background: rgba(74, 144, 217, 0.85);
+  border-radius: 50%;
+  cursor: move;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  z-index: 3;
+  font-weight: 700;
+  /* 본문 가독성 — 편집 중에만 보이지만 너무 무겁지 않게 */
+  opacity: 0.9;
+}
+.scene-screen--pb.pb--imagecenter .pb-body-handle--move:hover,
+.scene-screen--pb.pb--imagecenter .pb-body-handle--move:active {
+  background: rgba(74, 144, 217, 1);
+  opacity: 1;
+}
+/* 4 모서리 리사이즈 핸들 — 글상자 안쪽 모서리에 배치 (overflow hidden 회피 + 더 큼 + 시각 명확) */
+.scene-screen--pb.pb--imagecenter [class*="pb-body-handle--resize-"] {
+  width: 18px;
+  height: 18px;
+  background: #fff;
+  border: 2px solid rgba(74, 144, 217, 1);
+  border-radius: 4px;
+  z-index: 3;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+.scene-screen--pb.pb--imagecenter .pb-body-handle--resize-nw {
+  top: 2px; left: 2px;
+  cursor: nwse-resize;
+}
+.scene-screen--pb.pb--imagecenter .pb-body-handle--resize-ne {
+  top: 2px; right: 2px;
+  cursor: nesw-resize;
+}
+.scene-screen--pb.pb--imagecenter .pb-body-handle--resize-sw {
+  bottom: 2px; left: 2px;
+  cursor: nesw-resize;
+}
+.scene-screen--pb.pb--imagecenter .pb-body-handle--resize-se {
+  bottom: 2px; right: 2px;
+  cursor: nwse-resize;
+}
+/* 다듬기 모드일 때 본문 글상자 외곽 점선 강조 — 편집 가능 표시.
+   2px 두께 + 진한 색 + offset 0으로 글상자 자체 외곽선처럼 */
+.scene-screen--pb.pb--imagecenter[data-edit-mode="true"] .pb-stage__body-overlay {
+  outline: 2px dashed rgba(74, 144, 217, 0.7);
+  outline-offset: 0;
+}
+.scene-screen--pb.pb--imagecenter[data-edit-mode="true"] .pb-stage__body-overlay.pb-body-overlay--moving,
+.scene-screen--pb.pb--imagecenter[data-edit-mode="true"] .pb-stage__body-overlay.pb-body-overlay--resizing {
+  outline: 2px solid rgba(74, 144, 217, 1);
+}
+.scene-screen--pb.pb--imagecenter .pb-text--bottom-only {
+  /* 그림 중심형의 하단 — 선택지만 들어감 */
+  padding: 6px 12px;
+}
+
+
+/* LR (legacy) — 사용자 원칙: 폐기. 데이터 호환을 위해 룰만 유지하되 split과 동일 동작.
+   향후 정리 단계에서 이 룰 제거 가능. */
 .scene-screen--pb.pb--lr .pb-frame {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  grid-template-rows: 1fr;
+  grid-template-rows: minmax(0, 6fr) minmax(0, 4fr);
+  grid-template-columns: 1fr;
+}
+/* 구 .pb--tb 룰도 동일 fallback (legacy 진입 안 깨지게) */
+.scene-screen--pb.pb--tb .pb-frame {
+  grid-template-rows: minmax(0, 6fr) minmax(0, 4fr);
+  grid-template-columns: 1fr;
 }
 
 /* 그림 슬롯 — A4 비율(세로/가로) 그림 안전 처리:
@@ -337,6 +552,33 @@
 }
 .scene-screen--movie .movie-controls__play {
   font-size: 12px;
+}
+
+/* ── 영상 후 노출 흐름 (4단계 보강) ──
+   재생 전/중: data-played="false" → 결정 패널(.movie-decision) 통째 숨김.
+   재생 후/영상 없음: data-played="true" → 정상 노출.
+   영상 없는 케이스는 viewer-render에서 즉시 "true"로 박혀 영향 없음.
+
+   본문 ON/OFF 시각 분기 (data-body-enabled):
+   · "on" : .movie-decision__desc 표시 (이미 _renderSceneMovie에서 body 있을 때만 HTML 생성)
+   · "off": .movie-decision__desc 숨김 (혹시 잔여 본문 HTML 있어도 안 보이게 안전)
+   ※ HTML 생성 단계에서 이미 분기되지만, CSS도 같이 막아 사용자가 토글 시
+     재렌더 사이의 짧은 깜빡임 방지. */
+.scene-screen--movie[data-played="false"] .movie-decision {
+  visibility: hidden;
+  pointer-events: none;
+}
+.scene-screen--movie[data-body-enabled="off"] .movie-decision__desc {
+  display: none;
+}
+
+/* 정식 video 태그 — movie-media 영역 꽉 채움 + 컨트롤 표시 */
+.scene-screen--movie .movie-video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+  display: block;
 }
 
 /* 결정 패널 — light 톤, 자연 높이 + 최대 40% */
@@ -594,4 +836,160 @@
     grid-template-columns: 1fr;
     grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
   }
+}
+
+/* ╭─────────────────────────────────────────╮
+   │  모드 4: 체험전시형 (experience) — 4단계 │
+   │  배경 이미지 전체 + 상단 제목 + 하단     │
+   │  안내문 + 임시 연결 메뉴                 │
+   ╰─────────────────────────────────────────╯ */
+.scene-screen--experience {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: var(--v03-bg, #f4f5f7);
+  overflow: hidden;
+}
+
+/* 배경 이미지 — 화면 전체 */
+.scene-screen--experience .exp-bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+.scene-screen--experience .exp-bg--empty {
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #eef2f8 0%, #dde5ef 100%);
+}
+.scene-screen--experience .exp-empty-mark {
+  font-size: 64px;
+  opacity: 0.3;
+}
+.scene-screen--experience .exp-empty-hint {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--v03-card-fg, #6a7280);
+  opacity: 0.7;
+}
+
+/* 상단 제목 — 슬라이드형 헤더 톤 (mockup 기준: 깃발 형태가 아닌 단순 헤더) */
+.scene-screen--experience .exp-title-overlay {
+  position: absolute;
+  top: 16px;
+  left: 20px;
+  padding: 8px 16px;
+  font-family: var(--v03-font-h, var(--font-h, sans-serif));
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--v03-card-fg, #1a1a1a);
+  background: rgba(255,255,255,0.9);
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  max-width: calc(100% - 40px);
+}
+
+/* 하단 안내문 패널 — 본문 있을 때만 표시 (지시문/안내문) */
+.scene-screen--experience .exp-body-panel {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  bottom: 80px;  /* 임시 연결 메뉴 위 — 메뉴 없으면 .exp-connect-menu 없음 */
+  padding: 10px 16px;
+  background: rgba(255,255,255,0.9);
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  max-height: 30%;
+  overflow-y: auto;
+}
+.scene-screen--experience .exp-body-panel p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--v03-card-fg, #1a1a1a);
+}
+/* 연결 메뉴 없으면 안내문이 더 아래로 */
+.scene-screen--experience:not(:has(.exp-connect-menu)) .exp-body-panel {
+  bottom: 20px;
+}
+
+/* 임시 연결 메뉴 — 정식 connectObjects 모델 들어오면 이 컨테이너는 제거되고
+   배경 이미지 위 위치/크기 조정 가능한 진짜 오브젝트로 대체됨.
+   현재는 하단 메뉴 형태로 임시 표시 (탐색 동작은 성립). */
+.scene-screen--experience .exp-connect-menu {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  bottom: 16px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  padding: 8px;
+  background: rgba(255,255,255,0.85);
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+/* experience용 choice 버튼 톤 — 일반 선택지보다 작고 깔끔한 메뉴 톤 */
+.choice-v03--experience {
+  padding: 8px 14px;
+  font-size: 13px;
+  border-radius: 8px;
+  border: 1px solid var(--v03-card-border, #d0d7e0);
+  background: #fff;
+  color: var(--v03-card-fg, #1a1a1a);
+  cursor: pointer;
+  font-family: var(--v03-font-h, var(--font-h, sans-serif));
+  transition: background 120ms, border-color 120ms;
+}
+.choice-v03--experience:hover {
+  background: var(--v03-bg-soft, #eef2f8);
+  border-color: var(--v03-accent, #4a90d9);
+}
+.choice-v03--experience:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 체험전시형 표준 네비 (4단계 보강) — 뒤로가기 / 처음으로.
+   배경 이미지 위에 떠있는 작은 둥근 버튼. mockup의 학교 지도 화면 톤 따라.
+   다음(next) 버튼은 사용자가 만든 연결 오브젝트(buttons[])가 담당하므로 표준 X. */
+.scene-screen--experience .exp-nav {
+  position: absolute;
+  z-index: 10;
+}
+.scene-screen--experience .exp-nav--top-left {
+  top: 16px;
+  left: 16px;
+}
+.scene-screen--experience .exp-nav--top-right {
+  top: 16px;
+  right: 16px;
+}
+.exp-nav-btn {
+  padding: 8px 14px;
+  font-size: 13px;
+  font-family: var(--v03-font-h, var(--font-h, sans-serif));
+  border-radius: 8px;
+  border: 1px solid rgba(0,0,0,0.08);
+  background: rgba(255,255,255,0.92);
+  color: var(--v03-card-fg, #1a1a1a);
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  transition: background 120ms;
+}
+.exp-nav-btn:hover {
+  background: #fff;
+}
+.exp-nav-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* 제목 overlay가 좌상단 네비와 겹치지 않도록 — 뒤로가기 버튼 위 또는 우측으로 */
+.scene-screen--experience .exp-title-overlay {
+  /* 뒤로가기 버튼이 좌상단 16px에 있으므로 제목은 더 아래로 */
+  top: 64px;
 }

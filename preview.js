@@ -118,6 +118,18 @@ function _previewEscHtml(str) {
     ({ '<':'&lt;', '>':'&gt;', '&':'&amp;', '"':'&quot;', "'":'&#39;' }[m]));
 }
 
+/* preview용 choices 필터 (W2-A 잔여 정리) — viewer-render._v03FilterChoices와 동일 정책.
+   라벨도 nextNum도 둘 다 비어있는 빈 버튼은 표시 안 함. */
+function _previewFilterChoices(choices) {
+  if (!Array.isArray(choices)) return [];
+  return choices.filter(c => {
+    if (!c) return false;
+    const hasLabel = String(c.label || '').trim().length > 0;
+    const hasNext  = !!c.nextNum;
+    return hasLabel || hasNext;
+  });
+}
+
 /* preview용 버튼 HTML — viewer의 .choice-v03와 같은 클래스 사용.
    미연결(nextNum=null)이면 disabled + 빨간 표시 */
 function _previewBtnHtml(c, mode) {
@@ -193,7 +205,7 @@ function _renderPreviewText(s) {
 
   const titleHtml = title ? `<h3 class="text-card__title">${_previewEscHtml(title)}</h3>` : '';
   const bodyHtml  = body  ? `<p class="text-card__body">${_previewEscHtml(body)}</p>`   : '';
-  const btnsHtml  = choices.map(c => _previewBtnHtml(c, 'text')).join('');
+  const btnsHtml  = _previewFilterChoices(choices).map(c => _previewBtnHtml(c, 'text')).join('');
 
   document.getElementById('preview-card').innerHTML = `
     <div class="scene-screen scene-screen--text preview-stage"
@@ -226,7 +238,7 @@ function _renderPreviewPicturebook(s, submode) {
 
   const titleHtml = title ? `<h3 class="pb-text__title">${_previewEscHtml(title)}</h3>` : '';
   const bodyHtml  = body  ? `<p class="pb-text__body">${_previewEscHtml(body)}</p>`   : '';
-  const btnsHtml  = choices.map(c => _previewBtnHtml(c, 'picturebook')).join('');
+  const btnsHtml  = _previewFilterChoices(choices).map(c => _previewBtnHtml(c, 'picturebook')).join('');
 
   document.getElementById('preview-card').innerHTML = `
     <div class="scene-screen scene-screen--pb ${layoutClass} preview-stage"
@@ -260,7 +272,7 @@ function _renderPreviewMovie(s) {
     ? `<p class="movie-decision__desc">${_previewEscHtml(body)}</p>` : '';
 
   const btnLayout = choices.length === 2 ? 'pair' : 'stack';
-  const btnsHtml  = choices.map(c => _previewBtnHtml(c, 'movie')).join('');
+  const btnsHtml  = _previewFilterChoices(choices).map(c => _previewBtnHtml(c, 'movie')).join('');
 
   document.getElementById('preview-card').innerHTML = `
     <div class="scene-screen scene-screen--movie preview-stage"
@@ -290,7 +302,7 @@ function _renderPreviewLegacy(s) {
        </div>` : '';
 
   /* legacy 버튼은 viewer choice-v03 그대로 (기록물형도 같은 시스템 공유) */
-  const btnsHtml  = choices.map(c => _previewBtnHtml(c, 'picturebook')).join('');
+  const btnsHtml  = _previewFilterChoices(choices).map(c => _previewBtnHtml(c, 'picturebook')).join('');
 
   document.getElementById('preview-card').innerHTML = `
     <div class="preview-legacy-card">

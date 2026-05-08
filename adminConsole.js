@@ -238,15 +238,32 @@ function _analyzeTeam(encodedName, scenes, isPublic = false, meta = {}) {
   const entryBroken  = entryMetaSet  && !entryExplicit;
   const replayBroken = replayMetaSet && !replayExplicit;
 
+  /* 한 장면의 모든 next num 수집 (B-단계 N개 분기 인식).
+     · buttons[] 우선 (W2-A 이후 기본 구조)
+     · 없으면 legacy nextA/nextB fallback
+     · falsy 값은 제외 */
+  function _outgoingNumsAll(s) {
+    if (!s) return [];
+    const out = [];
+    if (Array.isArray(s.buttons) && s.buttons.length > 0) {
+      s.buttons.forEach(b => { if (b && b.nextId) out.push(String(b.nextId)); });
+    } else {
+      if (s.nextA) out.push(String(s.nextA));
+      if (s.nextB) out.push(String(s.nextB));
+    }
+    return out;
+  }
+
   const nonEndingScenes = scenes.filter(s => s.type !== 'ending');
-  const connected       = nonEndingScenes.filter(s => s.nextA || s.nextB).length;
+  /* 연결됨 = next 대상 1개 이상 (buttons[] 또는 nextA/B 어디든) */
+  const connected       = nonEndingScenes.filter(s => _outgoingNumsAll(s).length > 0).length;
   const connectivity    = nonEndingScenes.length
     ? Math.round(connected / nonEndingScenes.length * 100) : 0;
 
   const noTitle = scenes.filter(s => !s.title?.trim()).length;
 
   /* 고립 = 진입 장면(entryNum) 아니면서 아무도 가리키지 않는 장면 */
-  const allNextIds = new Set(scenes.flatMap(s => [s.nextA, s.nextB].filter(Boolean).map(String)));
+  const allNextIds = new Set(scenes.flatMap(s => _outgoingNumsAll(s)));
   const isolated   = scenes.filter(s =>
     String(s.num) !== String(entryNum) && !allNextIds.has(String(s.num))
   ).length;
@@ -601,7 +618,18 @@ function _toggleDetail(encodedName) {
                const isEntry  = team && String(team.entryNum)  === String(s.num);
                const isReplay = team && String(team.replayNum) === String(s.num);
                const color = isEnding ? '#ef476f' : '#4a90d9';
-               const nexts = [s.nextA && `A→${s.nextA}`, s.nextB && `B→${s.nextB}`].filter(Boolean);
+               /* nexts 표시 — buttons[] 우선, 없으면 nextA/B fallback (B-단계 N개 인식).
+                  최대 6개까지 chip에 표시. 라벨 길면 약자 (A→1, B→2, ...) */
+               let nexts;
+               if (Array.isArray(s.buttons) && s.buttons.length > 0) {
+                 nexts = s.buttons.slice(0, 6).map((b, i) => {
+                   if (!b || !b.nextId) return null;
+                   const portChar = String.fromCharCode(65 + i);
+                   return `${portChar}→${b.nextId}`;
+                 }).filter(Boolean);
+               } else {
+                 nexts = [s.nextA && `A→${s.nextA}`, s.nextB && `B→${s.nextB}`].filter(Boolean);
+               }
                const roleBadgeHtml = [
                  isEntry  ? '<span class="chip-role" style="background:#e8f5e9;color:#2e7d32;border:1px solid #81c784;padding:1px 6px;border-radius:8px;font-size:10px;margin-left:3px;">첫 감상</span>' : '',
                  isReplay ? '<span class="chip-role" style="background:#e3f2fd;color:#1565c0;border:1px solid #90caf9;padding:1px 6px;border-radius:8px;font-size:10px;margin-left:3px;">다시</span>' : '',

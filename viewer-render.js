@@ -111,24 +111,84 @@ function renderCover() {
 function renderScene(scene) {
   const stage = document.getElementById('viewer-frame');
 
-  /* 모드 결정 — v0.3 기본형: text / picturebook / movie 3개만 본격 적용.
-     document는 보류이므로 기존 처리 유지하되 새 구조 안 들어감. */
-  const presentationMode = (typeof resolvePresentationMode === 'function')
-    ? resolvePresentationMode(scene) : 'picturebook';
-  const presentationSubmode = (typeof resolvePresentationSubmode === 'function')
-    ? resolvePresentationSubmode(scene) : null;
+  /* 모드 결정 (4단계 갱신) — 작품 단위 projectType이 1단계에서 도입됨.
+     우선순위:
+       1. ViewerState.project.projectType (작품 단위 type, 1단계 도입)
+       2. scene.presentationMode (legacy scene 단위 모드 — fallback)
+       3. 'picturebook' fallback
+     experience는 4단계에서 정식 분기 — _renderSceneExperience 호출. */
+  const VALID_PTYPES = ['text', 'picturebook', 'movie', 'experience'];
+  const projectType = (ViewerState && ViewerState.project &&
+                       typeof ViewerState.project.projectType === 'string' &&
+                       VALID_PTYPES.includes(ViewerState.project.projectType))
+    ? ViewerState.project.projectType
+    : null;
 
-  /* 모드별 렌더 분기 (v0.3 — 2단계) */
+  let presentationMode;
+  if (projectType) {
+    presentationMode = projectType;
+  } else {
+    presentationMode = (typeof resolvePresentationMode === 'function')
+      ? resolvePresentationMode(scene) : 'picturebook';
+  }
+
+  /* 그림책형 하위 모드 결정 (4단계).
+     · 새 명시 필드 scene.picturebookSubmode 우선: 'split' | 'imageCenter'
+     · 없으면 legacy presentationSubmode 무시하고 'split' 기본 (LR 폐기 정책)
+     · 'spread'(LR) 값은 데이터 보존하되 'split'으로 fallback (사용자 원칙: LR 없음) */
+  let pbSubmode = 'split';
+  if (presentationMode === 'picturebook') {
+    if (scene && scene.picturebookSubmode === 'imageCenter') pbSubmode = 'imageCenter';
+    else                                                     pbSubmode = 'split';
+  }
+
+  /* W4 진단 (사용자 보고 케이스 — 그림 안 보임, 분기 모호):
+     console + DOM 둘 다 출력. 한 사이클 안정되면 제거. */
+  try {
+    const _imgLen = scene && scene.imageData ? String(scene.imageData).length : 0;
+    const _imgUrlLen = scene && scene.imageUrl ? String(scene.imageUrl).length : 0;
+    console.log('[BRANCH-W4-DIAG] renderScene', {
+      projectType_ViewerState: ViewerState && ViewerState.project && ViewerState.project.projectType,
+      presentationMode_resolved: presentationMode,
+      pbSubmode,
+      scene_id: scene && scene.id,
+      scene_presentationMode: scene && scene.presentationMode,
+      scene_picturebookSubmode: scene && scene.picturebookSubmode,
+      imageData_len: _imgLen,
+      imageUrl_len: _imgUrlLen,
+      editMode: ViewerState && ViewerState.editMode,
+    });
+  } catch (e) { /* 콘솔 막혀도 동작 유지 */ }
+
+  /* 모드별 렌더 분기 (v0.3 — 4단계 갱신) */
   if (presentationMode === 'text') {
     _renderSceneText(stage, scene);
   } else if (presentationMode === 'picturebook') {
-    _renderScenePicturebook(stage, scene, presentationSubmode);
+    _renderScenePicturebook(stage, scene, pbSubmode);
   } else if (presentationMode === 'movie') {
     _renderSceneMovie(stage, scene);
+  } else if (presentationMode === 'experience') {
+    _renderSceneExperience(stage, scene);
   } else {
     /* document 등 기타 모드 — 기존 통합 렌더(legacy) 유지 */
-    _renderSceneLegacy(stage, scene, presentationMode, presentationSubmode);
+    const legacySub = (typeof resolvePresentationSubmode === 'function')
+      ? resolvePresentationSubmode(scene) : null;
+    _renderSceneLegacy(stage, scene, presentationMode, legacySub);
   }
+
+  /* W4 진단 — 어떤 분기로 갔는지 화면 우상단에 항상 표시.
+     사용자 화면 보고 어디서 빠졌는지 즉시 진단 가능. */
+  try {
+    const diag = document.createElement('div');
+    diag.className = 'branch-diag-banner';
+    const imgLen = scene && scene.imageData ? String(scene.imageData).length : 0;
+    diag.innerHTML =
+      `MODE=<b>${presentationMode}</b>` +
+      (presentationMode === 'picturebook' ? ` SUB=<b>${pbSubmode}</b>` : '') +
+      ` · imageData=${imgLen > 0 ? `${imgLen}자` : '없음'}` +
+      ` · ptype-state=${(ViewerState && ViewerState.project && ViewerState.project.projectType) || '(null)'}`;
+    stage.appendChild(diag);
+  } catch (e) { /* 진단 실패해도 동작 유지 */ }
 
   /* 이벤트 바인딩 — 모드 무관 공통 */
   _bindSceneEvents(stage, scene);
@@ -199,7 +259,7 @@ function _renderSceneCard(scene, choices) {
     ? `<p class="text-card__body${isLong ? ' text-card__body--scroll' : ''}">${escHtml(body)}</p>` : '';
 
   /* 버튼 영역 — 카드 안 맨 아래. v0.3 텍스트형은 좌측정렬 세로 */
-  const btns = choices.map(c => _v03ChoiceBtnHtml(scene, c, 'text')).join('');
+  const btns = _v03FilterChoices(choices).map(c => _v03ChoiceBtnHtml(scene, c, 'text')).join('');
   const btnsHtml = `<div class="text-card__actions">${btns}</div>`;
 
   return `${titleHtml}${bodyHtml}${btnsHtml}`;
@@ -212,12 +272,19 @@ function _renderSceneCard(scene, choices) {
    submode: 'spread' = LR(좌우), 'stage' = TB(상하). 기본은 'stage'(TB). */
 function _renderScenePicturebook(stage, scene, submode) {
   const choices = Array.isArray(scene.choices) ? scene.choices : [];
-  const bgImage = scene.imageData || null;
-  /* TB 기본 — submode가 명확히 'spread'(LR)일 때만 LR */
-  const isLR = submode === 'spread';
-  const layoutClass = isLR ? 'pb--lr' : 'pb--tb';
+  /* W4 디버그: 그림 데이터 소스 — viewer-edit은 imageData||imageUrl 둘 다 보고
+     viewer-render는 이전엔 imageData만 봤음. 데이터 소스 일치를 위해 둘 다 본다. */
+  const bgImage = scene.imageData || scene.imageUrl || null;
+  const isEditMode = !!(ViewerState && ViewerState.editMode);
 
-  /* 그림 영역 — 이미지 있으면 표시, 없으면 placeholder (감상자에게도 표시) */
+  /* 4단계 분기 — 새 명시 필드 picturebookSubmode 기반.
+     · 'split'        : 분할형 (TB 60:40, mockup 'a_clean_ui_ux_mockup_screenshot...' 기준)
+     · 'imageCenter'  : 그림 중심형 (TB 80:20, mockup 'a_clean_ui_mockup_app_screenshot_illustration_o' 기준)
+     LR(spread)는 사용자 원칙으로 폐기 — 데이터는 보존하되 'split'으로 fallback. */
+  const isImageCenter = submode === 'imageCenter';
+  const layoutClass = isImageCenter ? 'pb--imagecenter' : 'pb--split';
+
+  /* 그림 영역 — 이미지 있으면 표시, 없으면 placeholder */
   const illustHtml = bgImage
     ? `<div class="pb-illust" style="background-image:url('${bgImage}')"></div>`
     : `<div class="pb-illust pb-illust--empty">
@@ -231,20 +298,89 @@ function _renderScenePicturebook(stage, scene, submode) {
     ? `<h3 class="pb-text__title">${escHtml(title)}</h3>` : '';
   const bodyHtml  = body
     ? `<p class="pb-text__body">${escHtml(body)}</p>` : '';
-  const btns = choices.map(c => _v03ChoiceBtnHtml(scene, c, 'picturebook')).join('');
+  const btns = _v03FilterChoices(choices).map(c => _v03ChoiceBtnHtml(scene, c, 'picturebook')).join('');
 
+  /* 그림 중심형: 제목은 그림 위 상단 고정 / 본문은 그림 위 글상자.
+     분할형: 제목/본문/선택지 모두 하단 텍스트 영역. */
+  if (isImageCenter) {
+    /* W4: 본문 글상자 위치/크기/배경막 동적 적용 — 다듬기에서 조정.
+       다듬기 모드(editMode)에서는 ✥ 드래그 핸들 + 4 모서리 ⤡ 리사이즈 핸들 노출. */
+    const bodyBox = (typeof getPicturebookBodyBox === 'function')
+      ? getPicturebookBodyBox(scene)
+      : { x: 15, y: 25, width: 55, height: null, backdropOpacity: 0.85 };
+    /* 배경막 색상은 흰색 기준 — opacity로 강도 조절. 0이면 완전 투명, 1이면 완전 불투명.
+       height: null이면 콘텐츠 자동, 숫자면 명시 높이 (W4: 사용자가 모서리 리사이즈로 박스 높이 명시 가능). */
+    const heightStyle = (typeof bodyBox.height === 'number') ? ` height: ${bodyBox.height}%;` : '';
+    const bodyOverlayStyle = body
+      ? `left: ${bodyBox.x}%; top: ${bodyBox.y}%; width: ${bodyBox.width}%;${heightStyle}`
+        + ` background: rgba(255, 255, 255, ${bodyBox.backdropOpacity});`
+        + ` box-shadow: 0 2px 6px rgba(0,0,0,${0.08 * bodyBox.backdropOpacity});`
+      : '';
+
+    /* 다듬기 모드 — 드래그 핸들(가운데 ✥) + 리사이즈 핸들(4 모서리).
+       감상 모드에서는 노출 X. mockup 기준: 제목은 고정(🔒), 본문 상자만 조절. */
+    const isEdit = !!(ViewerState && ViewerState.editMode);
+    const editHandlesHtml = isEdit ? `
+      <div class="pb-body-handle pb-body-handle--move js-pb-body-move" title="드래그하여 위치 이동">✥</div>
+      <div class="pb-body-handle pb-body-handle--resize-nw js-pb-body-resize" data-corner="nw" title="크기 조절"></div>
+      <div class="pb-body-handle pb-body-handle--resize-ne js-pb-body-resize" data-corner="ne" title="크기 조절"></div>
+      <div class="pb-body-handle pb-body-handle--resize-sw js-pb-body-resize" data-corner="sw" title="크기 조절"></div>
+      <div class="pb-body-handle pb-body-handle--resize-se js-pb-body-resize" data-corner="se" title="크기 조절"></div>
+    ` : '';
+
+    /* W4 디버그 정보 — 다듬기 모드일 때만 좌하단에 데이터 상태 표시.
+       사용자가 "그림 있음 판정인데 화면에 안 보임" 같은 불일치 즉시 진단 가능.
+       감상 모드에선 안 보임. */
+    const debugInfoHtml = isEdit ? `
+      <div class="pb-debug-info">
+        bg=${bgImage ? `있음(${String(bgImage).slice(0,30)}...)` : '없음'}
+        · imageData=${scene.imageData ? '있음' : '없음'}
+        · imageUrl=${scene.imageUrl ? '있음' : '없음'}
+      </div>
+    ` : '';
+
+    stage.innerHTML = `
+      <div class="scene-screen scene-screen--pb ${layoutClass}"
+        data-display="${scene.displayType}"
+        data-scene-num="${escHtml(String(scene.id))}"
+        data-presentation-mode="picturebook"
+        data-presentation-submode="imageCenter"
+        ${isEdit ? 'data-edit-mode="true"' : ''}>
+        <div class="pb-page">
+          <div class="pb-frame">
+            <div class="pb-stage">
+              ${illustHtml}
+              ${title ? `<div class="pb-stage__title-overlay">${escHtml(title)}</div>` : ''}
+              ${body  ? `<div class="pb-stage__body-overlay js-pb-body-overlay" style="${bodyOverlayStyle}">
+                <p class="pb-text__body">${escHtml(body)}</p>
+                ${editHandlesHtml}
+              </div>` : ''}
+              ${debugInfoHtml}
+            </div>
+            <div class="pb-text pb-text--bottom-only">
+              <div class="pb-text__actions">${btns}</div>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    return;
+  }
+
+  /* 분할형 (기본) — 위 그림 60 / 아래 텍스트+선택지 40 */
   stage.innerHTML = `
     <div class="scene-screen scene-screen--pb ${layoutClass}"
       data-display="${scene.displayType}"
       data-scene-num="${escHtml(String(scene.id))}"
       data-presentation-mode="picturebook"
-      data-presentation-submode="${isLR ? 'spread' : 'stage'}">
-      <div class="pb-frame">
-        ${illustHtml}
-        <div class="pb-text">
-          ${titleHtml}
-          ${bodyHtml}
-          <div class="pb-text__actions">${btns}</div>
+      data-presentation-submode="split">
+      <div class="pb-page">
+        <div class="pb-frame">
+          ${illustHtml}
+          <div class="pb-text">
+            ${titleHtml}
+            ${bodyHtml}
+            <div class="pb-text__actions">${btns}</div>
+          </div>
         </div>
       </div>
     </div>`;
@@ -260,38 +396,60 @@ function _renderSceneMovie(stage, scene) {
   const poster = (typeof resolveMoviePoster === 'function')
     ? resolveMoviePoster(scene) : null;
 
-  /* 미디어 영역 — poster가 있으면 표시, 영상 url(다음 단계) 있으면 video.
-     없으면 placeholder. 어두운 프레임 톤 유지. */
+  /* 미디어 영역 — videoUrl 있으면 정식 <video> 태그 + 종료 이벤트 listener.
+     영상 없으면 poster 또는 placeholder.
+     ─────────────────────────────────────────────────────────────
+     영상 재생 후 노출 흐름 (4단계 보강):
+     · videoUrl 있음 → data-played="false"로 시작, 'ended' 이벤트로 "true" 전환
+     · videoUrl 없음 → data-played="true" 즉시 (재생할 영상 없으니 노출 정상)
+     · CSS에서 data-played="false"일 때 .movie-decision 숨김 → 영상 중 선택지/본문 안 보임 */
+  const hasVideo = !!md.videoUrl;
   let mediaInner;
-  if (poster) {
+  if (hasVideo) {
+    /* poster가 있으면 video의 poster 속성으로, 없으면 검은 배경 */
+    const posterAttr = poster ? ` poster="${poster}"` : '';
+    mediaInner = `<video class="movie-video js-movie-video" controls
+      preload="metadata"${posterAttr}
+      src="${md.videoUrl}"></video>`;
+  } else if (poster) {
     mediaInner = `<div class="movie-poster" style="background-image:url('${poster}')"></div>`;
-    if (md.videoUrl) {
-      /* 영상 컨트롤 — 의사 표시. 실제 video 태그는 다음 단계 */
-      mediaInner += `<div class="movie-controls" aria-hidden="true">
-        <span class="movie-controls__play">▶</span>
-      </div>`;
-    }
   } else {
     mediaInner = `<div class="movie-poster movie-poster--empty">
       <div class="movie-empty-mark">▶</div>
     </div>`;
   }
 
-  /* 결정 패널 — body(설명문) optional + 버튼 */
+  /* 결정 패널 — body(설명문) optional + 버튼.
+     bodyEnabled 명시 필드 (3단계 도입) 우선:
+     · true  → 본문 표시 (body가 비어있어도 빈 상태로)
+     · false → 본문 숨김 (사용자가 명시적으로 OFF)
+     · null/undefined → fallback: body 존재 여부 (3단계까지의 임시 정책과 동일).
+     영상 후 노출 흐름: 영상 재생 후 본문/선택지 노출 — 시각 분기는 CSS의
+     data-movie-reveal 속성으로 처리, 여기선 데이터만 셋팅. */
   const body = String(scene.body || '').trim();
-  const bodyHtml = body
-    ? `<p class="movie-decision__desc">${escHtml(body)}</p>` : '';
+  const bodyEnabled = (scene.bodyEnabled === true) ? true
+                    : (scene.bodyEnabled === false) ? false
+                    : !!body;
+  const bodyHtml = (bodyEnabled && body)
+    ? `<p class="movie-decision__desc">${escHtml(body)}</p>`
+    : '';
 
   /* 버튼 배열 — v0.3: 1개=세로, 2개=폭 충분하면 가로(CSS data 속성으로 분기), 3+개=세로 */
   const btnCount = choices.length;
   const btnLayout = btnCount === 2 ? 'pair' : 'stack';
-  const btns = choices.map(c => _v03ChoiceBtnHtml(scene, c, 'movie')).join('');
+  const btns = _v03FilterChoices(choices).map(c => _v03ChoiceBtnHtml(scene, c, 'movie')).join('');
 
-  /* 무비형 메타 데이터 속성 — 기존 captionMode/choiceReveal 유지 */
+  /* 무비형 메타 데이터 속성 — 기존 captionMode/choiceReveal + 본문 ON/OFF + 재생 상태 (4단계 신규)
+     · data-played="false" : 영상 재생 전/중 — CSS에서 .movie-decision 숨김
+     · data-played="true"  : 영상 종료 또는 영상 없음 — .movie-decision 노출
+     초기값: videoUrl 있으면 "false", 없으면 "true". 'ended' 이벤트로 토글. */
+  const initialPlayed = hasVideo ? 'false' : 'true';
   const movieAttrs =
     ` data-movie-caption="${md.captionMode || 'overlay'}"` +
     ` data-movie-reveal="${md.choiceReveal || 'end'}"` +
-    (md.videoUrl ? ' data-movie-has-video="true"' : '');
+    ` data-body-enabled="${bodyEnabled ? 'on' : 'off'}"` +
+    ` data-played="${initialPlayed}"` +
+    (hasVideo ? ' data-movie-has-video="true"' : '');
 
   stage.innerHTML = `
     <div class="scene-screen scene-screen--movie"
@@ -307,6 +465,68 @@ function _renderSceneMovie(stage, scene) {
           ${btns}
         </div>
       </div>
+    </div>`;
+}
+
+/* ── 모드 4: 체험전시형 (experience) ──
+   설계문서 §8: 배경 이미지 위에 연결 오브젝트로 탐색하는 전시·안내형.
+   구조:
+   · 배경 이미지 전체 (없으면 placeholder)
+   · 상단 제목 (있으면, 슬라이드형 헤더 톤)
+   · 하단 안내문 (본문 있으면, 짧은 지시문/안내문 패널)
+   · 일반 선택지 버튼 X — 연결 오브젝트가 그 자리를 대신
+   · 연결 오브젝트는 정식 connectObjects 모델 미구현 → 임시로 buttons[]를
+     하단 메뉴 형태로 표시 (사용자 원칙: 임시 집계)
+   목표: 정식 connectObjects 데이터 모델 들어오기 전까지 viewer 탐색이 성립하기만. */
+function _renderSceneExperience(stage, scene) {
+  const choices = Array.isArray(scene.choices) ? scene.choices : [];
+  const bgImage = scene.imageData || null;
+
+  const title = String(scene.title || '').trim();
+  const body  = String(scene.body  || '').trim();
+
+  /* 임시 연결 오브젝트 — 정식 모델 들어올 때까지 buttons[]를 화면 하단 메뉴로 표시.
+     일반 선택지 버튼처럼 보이지 않도록 "연결 메뉴" 톤으로. */
+  const connectBtns = _v03FilterChoices(choices).map(c =>
+    _v03ChoiceBtnHtml(scene, c, 'experience')
+  ).join('');
+
+  const titleOverlayHtml = title
+    ? `<div class="exp-title-overlay">${escHtml(title)}</div>` : '';
+  const bodyPanelHtml = body
+    ? `<div class="exp-body-panel"><p>${escHtml(body)}</p></div>` : '';
+
+  const bgInner = bgImage
+    ? `<div class="exp-bg" style="background-image:url('${bgImage}')"></div>`
+    : `<div class="exp-bg exp-bg--empty">
+         <div class="exp-empty-mark">🗺</div>
+         <div class="exp-empty-hint">배경 이미지 없음</div>
+       </div>`;
+
+  /* 표준 네비 (4단계 보강) — 체험전시형은 일반 선택지 흐름이 없어서
+     자체 네비가 필요. 설계문서 §8: 다음/뒤로가기/처음으로.
+     · 뒤로가기: historyStack 있을 때만 활성 (탐색 중)
+     · 처음으로: 항상 활성 (replay/entry로 복귀)
+     · "다음": 사용자가 만든 연결 오브젝트(buttons[])가 담당 — 표준 버튼 X */
+  const canGoBack = ViewerState && ViewerState.historyStack &&
+                    ViewerState.historyStack.length > 0;
+  const navBackBtn = `<button class="exp-nav-btn exp-nav-btn--back js-exp-nav-back"
+    ${canGoBack ? '' : 'disabled'}
+    title="뒤로가기">← 뒤로가기</button>`;
+  const navHomeBtn = `<button class="exp-nav-btn exp-nav-btn--home js-exp-nav-home"
+    title="처음으로">🏠 처음으로</button>`;
+
+  stage.innerHTML = `
+    <div class="scene-screen scene-screen--experience"
+      data-display="${scene.displayType}"
+      data-scene-num="${escHtml(String(scene.id))}"
+      data-presentation-mode="experience">
+      ${bgInner}
+      <div class="exp-nav exp-nav--top-left">${navBackBtn}</div>
+      <div class="exp-nav exp-nav--top-right">${navHomeBtn}</div>
+      ${titleOverlayHtml}
+      ${bodyPanelHtml}
+      ${connectBtns ? `<div class="exp-connect-menu">${connectBtns}</div>` : ''}
     </div>`;
 }
 
@@ -363,6 +583,21 @@ function _renderSceneLegacy(stage, scene, presentationMode, presentationSubmode)
    v0.3 버튼 HTML — 모드별 클래스 부여
    기존 _choiceButtonHtml과 별도. 기존 함수는 legacy 경로에서 계속 사용.
    ================================================================ */
+/* 감상 화면용 choices 필터 — W2-A 잔여 정리.
+   maker 카드의 input 항상 2개 정책으로 인해 빈 라벨 + 미연결 버튼이 buttons[]에
+   남아있을 수 있음. 감상 화면에서 그런 빈 버튼을 표시하는 건 어색하므로 skip.
+   기준: 라벨이 빈 채 AND nextId 없음 → 사용자가 의도한 버튼 아님 (빈 칸 잔재).
+   라벨이 있거나 nextId 연결된 버튼은 표시 (미연결 + 라벨 있음 = 진짜 미연결 경고).  */
+function _v03FilterChoices(choices) {
+  if (!Array.isArray(choices)) return [];
+  return choices.filter(c => {
+    if (!c) return false;
+    const hasLabel = String(c.label || '').trim().length > 0;
+    const hasNext  = !!c.nextId;
+    return hasLabel || hasNext;
+  });
+}
+
 function _v03ChoiceBtnHtml(scene, choice, mode) {
   const disabled = !choice.nextId ? 'disabled' : '';
   const label    = String(choice.label || '').trim() || '(빈 버튼)';
@@ -398,6 +633,7 @@ const TEXTBOX_CLAMP = {
   minHeight: 25,       // % (height 명시된 경우)
   marginPct: 5,        // 화면 가장자리 안전 여백 %
 };
+
 
 function _resolveTextBox(scene) {
   const raw = (scene && typeof scene.textBox === 'object' && scene.textBox) ? scene.textBox : {};
@@ -507,6 +743,26 @@ function _bindSceneEvents(stage, scene) {
 
   stage.querySelector('.js-audio-toggle')
     ?.addEventListener('click', toggleNarrationAudio);
+
+  /* 무비형 영상 종료 이벤트 (4단계 보강) — 재생 끝나면 data-played="true"로 토글.
+     CSS에서 .movie-decision 노출 룰이 이 속성에 묶여있음.
+     영상 없는 케이스는 _renderSceneMovie가 이미 "true"로 시작 → 여기서 안 잡힘. */
+  stage.querySelectorAll('.js-movie-video').forEach(video => {
+    video.addEventListener('ended', () => {
+      const movieScreen = video.closest('.scene-screen--movie');
+      if (movieScreen) movieScreen.setAttribute('data-played', 'true');
+    });
+  });
+
+  /* 체험전시형 표준 네비 (4단계 신규) — 뒤로가기 / 처음으로.
+     "다음"은 사용자가 만든 연결 오브젝트(buttons[])가 담당하므로 표준 버튼 X. */
+  stage.querySelector('.js-exp-nav-back')?.addEventListener('click', () => {
+    if (typeof navigateBack === 'function') navigateBack();
+  });
+  stage.querySelector('.js-exp-nav-home')?.addEventListener('click', () => {
+    if (typeof restartStory === 'function') restartStory();
+    else if (typeof restartFromCover === 'function') restartFromCover();
+  });
 }
 
 /* ================================================================

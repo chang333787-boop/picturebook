@@ -247,24 +247,28 @@ async function updateChoiceCount(num, cnt) {
 
 async function updateChoiceLabel(num, port, val) {
   /* 선택지 라벨은 카드 재렌더 없이 화살표만 갱신.
-     buttons[] 우선 동기화 (W2-A: 단일 배열 구조 통일):
+     buttons[] 우선 동기화 (W2-B-β: N개 port 인식):
+     · port → 인덱스 ('A'→0, 'B'→1, 'C'→2, ...)
      · 라벨이 buttons[idx]에 없으면 새 항목 만들어 추가
-     · 동시에 choiceA/B 호환 키도 patch (1단계 양방향 동기화 정책 유지) */
+     · 첫 2개는 choiceA/B 호환 키도 patch (1단계 양방향 동기화 정책 유지) */
   const s = scenes[num];
   if (!s) return;
-  const idx = port === 'A' ? 0 : 1;
 
-  /* legacy choiceA/B 호환 patch — viewer-data adaptChoices가 둘 다 읽음 */
-  const patch = port === 'A' ? { choiceA: val } : { choiceB: val };
+  /* port → 인덱스 변환 (대문자 알파벳 → 0-5). 잘못된 port면 무시 */
+  const idx = (typeof port === 'string') ? port.charCodeAt(0) - 65 : -1;
+  if (idx < 0 || idx > 5) return;
+
+  /* legacy choiceA/B 호환 patch — 첫 2개만 */
+  const patch = {};
+  if (idx === 0) patch.choiceA = val;
+  else if (idx === 1) patch.choiceB = val;
 
   /* buttons[] 갱신 — 없으면 만들고, 있으면 해당 인덱스 업데이트.
-     기존 nextId는 유지. 없는 인덱스 채우려면 빈 객체로 padding. */
+     idx 미만 인덱스가 비어있으면 빈 객체로 채움 (legacy fallback 적용) */
   const currentButtons = Array.isArray(s.buttons) ? [...s.buttons] : [];
-  /* idx 미만 인덱스가 비어있으면 빈 객체로 채움 (예: B 입력하는데 A가 없는 경우) */
   while (currentButtons.length <= idx) {
     const i = currentButtons.length;
-    /* legacy nextA/nextB가 있으면 buttons에 보존. 없으면 빈 객체. */
-    const legacyNext = i === 0 ? s.nextA : i === 1 ? s.nextB : null;
+    const legacyNext  = i === 0 ? s.nextA : i === 1 ? s.nextB : null;
     const legacyLabel = i === 0 ? (s.choiceA || '') : i === 1 ? (s.choiceB || '') : '';
     currentButtons.push({
       id: String.fromCharCode(65 + i),
@@ -272,15 +276,14 @@ async function updateChoiceLabel(num, port, val) {
       ...(legacyNext ? { nextId: String(legacyNext) } : {}),
     });
   }
-  /* 해당 인덱스 라벨 갱신 */
   currentButtons[idx] = {
     ...currentButtons[idx],
-    id: currentButtons[idx].id || (port === 'A' ? 'A' : 'B'),
+    id: currentButtons[idx].id || String.fromCharCode(65 + idx),
     label: val,
   };
   patch.buttons = currentButtons;
 
-  /* choiceCount 호환 동기화 — buttons.length 기준 (1개 또는 2개 이상). */
+  /* choiceCount 호환 동기화 — buttons.length 기준 */
   patch.choiceCount = currentButtons.length === 1 ? 1 : 2;
 
   await mutateScene(num, patch, { skipCardRender: true, needsArrows: true, silent: true });
@@ -330,7 +333,18 @@ function clearAll() {
 
 /* ── 파일 I/O ── */
 function exportJSON() {
-  const data = { teamName, savedAt: new Date().toISOString(), scenes };
+  /* sentinel 키(_hasBody 등) 제외 — DB 저장 형태와 일관 (firebase.js _sceneToDbShape와 동일 정책).
+     legacy 상태(_hasBody=false)면 body 키도 제외해 import 시 자동 재인식. */
+  const cleanScenes = {};
+  Object.keys(scenes).forEach(k => {
+    const s = scenes[k];
+    if (!s || typeof s !== 'object') return;
+    const out = { ...s };
+    delete out._hasBody;
+    if (s._hasBody === false) delete out.body;
+    cleanScenes[k] = out;
+  });
+  const data = { teamName, savedAt: new Date().toISOString(), scenes: cleanScenes };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
@@ -348,11 +362,25 @@ function importJSON(e) {
       const fixed = {};
       Object.values(scenes).forEach(s => { fixed[s.num] = s; });
       scenes = fixed;
+
+      /* 들어온 데이터에 _hasBody 자동 갱신 (firebase snapshot 매핑과 동일 정책).
+         legacy import 시 body 필드 없는 장면은 _hasBody=false로 표시되어
+         viewer adaptScenes의 fallback 매핑이 정상 동작. */
+      Object.keys(scenes).forEach(numKey => {
+        const s = scenes[numKey];
+        if (!s || typeof s !== 'object') return;
+        const hasBodyField = Object.prototype.hasOwnProperty.call(s, 'body') &&
+                             s.body !== null && s.body !== undefined;
+        s._hasBody = hasBodyField;
+      });
+
       const nums = Object.keys(scenes).map(Number);
       if (nums.length) nextNum = Math.max(...nums) + 1;
       _afterMutation();
       alert(`✅ "${file.name}" 불러오기 완료!`);
-    } catch { alert('❌ 올바른 가지 파일이 아니에요.'); }
+    } catch (err) {
+      alert(`❌ 올바른 가지 파일이 아니에요.\n${err && err.message ? err.message : ''}`);
+    }
   };
   reader.readAsText(file); e.target.value = '';
 }
@@ -368,31 +396,75 @@ function selectTemplate(tpl) {
     btn.style.color      = active ? 'var(--primary)' : 'var(--text)';
   });
 }
+
+/* ── 작품 유형 선택 (1단계 신규) ──
+   기본값은 DEFAULT_PROJECT_TYPE (state.js, 'picturebook').
+   _enterTeam에서 새 작품일 경우 이 값을 viewer-meta/projectType에 저장.
+   기존 작품은 viewer-meta 구독에서 읽어오는 값이 우선. */
+let selectedProjectType = (typeof DEFAULT_PROJECT_TYPE === 'string') ? DEFAULT_PROJECT_TYPE : 'picturebook';
+function selectProjectType(ptype) {
+  if (!Array.isArray(PROJECT_TYPES) || !PROJECT_TYPES.includes(ptype)) return;
+  selectedProjectType = ptype;
+  document.querySelectorAll('[data-ptype]').forEach(btn => {
+    const active = btn.dataset.ptype === ptype;
+    btn.style.border     = active ? '2px solid var(--primary)' : '2px solid #d0e0f5';
+    btn.style.background = active ? '#e8f0ff' : '#fff';
+    btn.style.color      = active ? 'var(--primary)' : 'var(--text)';
+  });
+}
 function applyTemplate(tpl) {
   if (tpl === 'blank' || Object.keys(scenes).length > 0) return;
+
+  /* 템플릿 헬퍼 (W2-A 이후): legacy 표기를 buttons[] 단일 구조로 자동 변환.
+     호환을 위해 choiceA/B/choiceCount/nextA/B도 함께 박음 (양방향 동기화 정책). */
+  const tplScene = (cfg) => {
+    const buttons = [];
+    if (cfg.choiceA || cfg.nextA) {
+      buttons.push({
+        id: 'A',
+        label: cfg.choiceA || '',
+        ...(cfg.nextA ? { nextId: String(cfg.nextA) } : {}),
+      });
+    }
+    if (cfg.choiceB || cfg.nextB) {
+      buttons.push({
+        id: 'B',
+        label: cfg.choiceB || '',
+        ...(cfg.nextB ? { nextId: String(cfg.nextB) } : {}),
+      });
+    }
+    return {
+      ...cfg,
+      buttons,
+      body: cfg.body || '',
+      _hasBody: true,
+      presentationMode: cfg.presentationMode || 'picturebook',
+    };
+  };
+
   const templates = {
     'two-ending': [
-      { num:1,type:'start', title:'시작 장면',x:320,y:80, choiceCount:2,choiceA:'선택지 A',choiceB:'선택지 B',nextA:2,nextB:3 },
-      { num:2,type:'normal',title:'A 경로',   x:120,y:280,choiceCount:1,choiceA:'다음으로',nextA:4 },
-      { num:3,type:'normal',title:'B 경로',   x:520,y:280,choiceCount:1,choiceA:'다음으로',nextA:5 },
-      { num:4,type:'ending',title:'결말 A',   x:120,y:480 },
-      { num:5,type:'ending',title:'결말 B',   x:520,y:480 },
+      tplScene({ num:1,type:'start', title:'시작 장면',x:320,y:80, choiceCount:2,choiceA:'선택지 A',choiceB:'선택지 B',nextA:2,nextB:3 }),
+      tplScene({ num:2,type:'normal',title:'A 경로',   x:120,y:280,choiceCount:1,choiceA:'다음으로',nextA:4 }),
+      tplScene({ num:3,type:'normal',title:'B 경로',   x:520,y:280,choiceCount:1,choiceA:'다음으로',nextA:5 }),
+      tplScene({ num:4,type:'ending',title:'결말 A',   x:120,y:480 }),
+      tplScene({ num:5,type:'ending',title:'결말 B',   x:520,y:480 }),
     ],
     'rejoin': [
-      { num:1,type:'start', title:'시작 장면',      x:320,y:60, choiceCount:2,choiceA:'선택지 A',choiceB:'선택지 B',nextA:2,nextB:3 },
-      { num:2,type:'normal',title:'A 경로',          x:120,y:240,choiceCount:1,choiceA:'합류',nextA:4 },
-      { num:3,type:'normal',title:'B 경로',          x:520,y:240,choiceCount:1,choiceA:'합류',nextA:4 },
-      { num:4,type:'normal',title:'다시 만나는 장면',x:320,y:420,choiceCount:2,choiceA:'선택지 A',choiceB:'선택지 B',nextA:5,nextB:6 },
-      { num:5,type:'ending',title:'결말 A',          x:120,y:620 },
-      { num:6,type:'ending',title:'결말 B',          x:520,y:620 },
+      tplScene({ num:1,type:'start', title:'시작 장면',      x:320,y:60, choiceCount:2,choiceA:'선택지 A',choiceB:'선택지 B',nextA:2,nextB:3 }),
+      tplScene({ num:2,type:'normal',title:'A 경로',          x:120,y:240,choiceCount:1,choiceA:'합류',nextA:4 }),
+      tplScene({ num:3,type:'normal',title:'B 경로',          x:520,y:240,choiceCount:1,choiceA:'합류',nextA:4 }),
+      tplScene({ num:4,type:'normal',title:'다시 만나는 장면',x:320,y:420,choiceCount:2,choiceA:'선택지 A',choiceB:'선택지 B',nextA:5,nextB:6 }),
+      tplScene({ num:5,type:'ending',title:'결말 A',          x:120,y:620 }),
+      tplScene({ num:6,type:'ending',title:'결말 B',          x:520,y:620 }),
     ],
     'true-end': [
-      { num:1,type:'start', title:'시작 장면',   x:320,y:60, choiceCount:2,choiceA:'선택지 A',choiceB:'선택지 B',nextA:2,nextB:3 },
-      { num:2,type:'normal',title:'A 경로',      x:120,y:240,choiceCount:1,choiceA:'다음으로',nextA:4 },
-      { num:3,type:'normal',title:'B 경로',      x:520,y:240,choiceCount:2,choiceA:'계속',choiceB:'비밀 선택',nextA:5,nextB:6 },
-      { num:4,type:'ending',title:'일반 결말 A', x:120,y:440 },
-      { num:5,type:'ending',title:'일반 결말 B', x:420,y:440 },
-      { num:6,type:'ending',title:'진짜 결말 ⭐',x:700,y:440,trueEnding:true },
+      tplScene({ num:1,type:'start', title:'시작 장면',   x:320,y:60, choiceCount:2,choiceA:'선택지 A',choiceB:'선택지 B',nextA:2,nextB:3 }),
+      tplScene({ num:2,type:'normal',title:'A 경로',      x:120,y:240,choiceCount:1,choiceA:'다음으로',nextA:4 }),
+      tplScene({ num:3,type:'normal',title:'B 경로',      x:520,y:240,choiceCount:2,choiceA:'계속',choiceB:'비밀 선택',nextA:5,nextB:6 }),
+      tplScene({ num:4,type:'ending',title:'일반 결말 A', x:120,y:440 }),
+      tplScene({ num:5,type:'ending',title:'일반 결말 B', x:420,y:440 }),
+      tplScene({ num:6,type:'ending',title:'진짜 결말 ⭐',x:700,y:440,trueEnding:true }),
     ],
   };
   const tplData = templates[tpl]; if (!tplData) return;
@@ -496,6 +568,11 @@ window.addEventListener('DOMContentLoaded', () => {
   /* 템플릿 (data-tpl 속성으로 통합) */
   document.querySelectorAll('[data-tpl]').forEach(btn =>
     btn.addEventListener('click', () => selectTemplate(btn.dataset.tpl))
+  );
+
+  /* 작품 유형 (1단계: data-ptype 속성으로 통합) */
+  document.querySelectorAll('[data-ptype]').forEach(btn =>
+    btn.addEventListener('click', () => selectProjectType(btn.dataset.ptype))
   );
 
   /* ESC */

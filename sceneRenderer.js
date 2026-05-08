@@ -28,10 +28,14 @@ function addScene() {
   const cy   = rect.height / 2 + (Math.random() - 0.5) * 100;
   const cv   = toCanvas(rect.left + cx, rect.top + cy);
 
-  /* 신규 장면 (W2-A): buttons[] 단일 배열 구조로 시작.
+  /* 신규 장면 (W2-A 잔여 정리): buttons[] 단일 배열 구조로 시작.
      · buttons: 빈 배열 [] — 사용자가 input에 입력하면 첫 항목 채워짐
      · choiceA/B/choiceCount: legacy 호환 동기화 (옵션 2 정책 — 1단계)
-     · body: 신규는 빈 채로 시작. _hasBody=true로 새 구조 명시 */
+     · body: 신규는 빈 채로 시작. _hasBody=true로 새 구조 명시
+     · presentationMode: 'picturebook' 기본값 — 신규 장면 만들 때 viewer-edit에서
+       legacy UI(이 장면 레이아웃 + 텍스트 위치 9칸)가 처음부터 안 보이게.
+       사용자가 다른 모드(text/movie)로 바꾸면 변경됨. legacy 작품(presentationMode 없음)은
+       그대로 — viewer-edit이 isV03Mode=false로 판정해 legacy UI 노출. */
   scenes[num] = {
     num, title: '', body: '', type: 'normal',
     x: Math.max(20, cv.x), y: Math.max(20, cv.y),
@@ -39,8 +43,55 @@ function addScene() {
     /* legacy 호환 — viewer-data가 buttons 우선 읽지만 maker 다른 경로/import 호환 */
     choiceA: '', choiceB: '', choiceCount: 2,
     _hasBody: true,
+    presentationMode: 'picturebook',
   };
   renderCard(scenes[num]);
+  drawArrows();
+  pushToFirebase();
+}
+
+/* ── 버튼 추가 (C-1: maker canvas에서 직접 추가) ──
+   · 카드의 "+ 버튼 추가" 클릭 시 호출
+   · buttons[] 길이가 6 미만일 때만 동작
+   · legacy 작품 (buttons[] 없음)이면 choiceA/B를 buttons[0/1]로 옮긴 후 새 항목 추가
+   · renderCard 후 pushToFirebase로 즉시 저장 */
+function addButton(num) {
+  const s = scenes[num];
+  if (!s) return;
+
+  /* buttons[] 초기화 — legacy choiceA/B 이관 (있으면) */
+  if (!Array.isArray(s.buttons)) s.buttons = [];
+  if (s.buttons.length === 0) {
+    /* legacy fallback: choiceA/B + nextA/B를 buttons[0/1]로 이관 */
+    if (s.choiceA || s.nextA) {
+      s.buttons.push({
+        id: 'A',
+        label: s.choiceA || '',
+        ...(s.nextA ? { nextId: String(s.nextA) } : {}),
+      });
+    }
+    if (s.choiceB || s.nextB) {
+      s.buttons.push({
+        id: 'B',
+        label: s.choiceB || '',
+        ...(s.nextB ? { nextId: String(s.nextB) } : {}),
+      });
+    }
+  }
+
+  if (s.buttons.length >= 6) return;  /* 최대 6개 제한 */
+
+  /* 빈 항목 추가 */
+  const newIdx = s.buttons.length;
+  s.buttons.push({
+    id: String.fromCharCode(65 + newIdx),
+    label: '',
+  });
+
+  /* choiceCount 호환 동기화 */
+  s.choiceCount = s.buttons.length === 1 ? 1 : 2;
+
+  renderCard(s);
   drawArrows();
   pushToFirebase();
 }
@@ -61,79 +112,53 @@ function buildCardHTML(s) {
   /* 장면 타입 언어 정리 1차:
      · UI 노출 타입은 '일반 / 엔딩' 2종만
      · 기존 data의 type === 'start' 값은 라디오에서 '일반' 선택으로 보임
-       (데이터는 그대로 유지 — 사용자가 라디오를 만질 때만 'normal'로 변경) */
-  const types  = ['normal', 'ending'];
-  const labels = ['일반', '엔딩'];
-  const currentType = (s.type === 'ending') ? 'ending' : 'normal';   // 'start' → 'normal' 표시
+       (데이터는 그대로 유지 — 사용자가 라디오를 만질 때만 'normal'로 변경)
+     · 라디오 자체는 _buildTypeRowHtml에서 생성 — 카드 본체는 유형별 분기 (2단계). */
 
-  const radios = types.map((t, i) =>
-    `<input class="type-radio js-type-radio" type="radio"
-       name="type-${s.num}" id="tr-${s.num}-${t}"
-       value="${t}" ${currentType === t ? 'checked' : ''} data-num="${s.num}" data-value="${t}">
-     <label class="type-label" for="tr-${s.num}-${t}">${labels[i]}</label>`
-  ).join('');
-
-  /* ── 버튼 N개 통일 구조 (W2-A) ──
+  /* ── 버튼 N개 통일 구조 (W2-B-β + C-1) ──
      · v0.3: 다음 1개 / 선택지 2개 토글 제거. buttons[] 단일 배열 구조.
-     · 최소 1개, 최대 6개 (사용자 결정).
-     · 모든 버튼이 같은 구조 — 1개도 일반 버튼.
-     · maker canvas: 첫 2개(A/B) input은 항상 표시 (사용자가 두 번째 버튼 추가 가능).
-       3+개는 read-only 라벨 (W2-B에서 N개 분기 연결 풀 지원 예정).
-     · maker는 choiceCount 토글 X — buttons[].length가 진실. */
+     · 최소 1개, 최대 6개.
+     · 모든 버튼이 input + 활성 dot — 사용자가 카드에서 직접 편집 + 분기 연결.
+     · "+ 버튼 추가" 진입점 (C-1): buttons.length < 6일 때 카드에 표시.
+     · 삭제는 다듬기 화면에서 (단순성 유지 — maker는 흐름 설계기). */
   const buttonsList = Array.isArray(s.buttons) ? s.buttons : [];
   const buttonsLen = buttonsList.length;
+  /* 실제 표시 개수 — buttons[]가 비어있으면 legacy fallback으로 2개 표시 */
+  const visualCount = buttonsLen > 0 ? Math.min(buttonsLen, 6) : 2;
 
   let portsHTML = '';
 
   if (s.type !== 'ending') {
-    /* 첫 2개(A/B) — 항상 input 2개 표시. 사용자가 한 번에 라벨 입력 가능.
-       buttons[] 우선 라벨, 없으면 choiceA/B fallback (legacy 호환). */
-    const labelA = (buttonsList[0] && typeof buttonsList[0].label === 'string')
-      ? buttonsList[0].label : (s.choiceA || '');
-    const labelB = (buttonsList[1] && typeof buttonsList[1].label === 'string')
-      ? buttonsList[1].label : (s.choiceB || '');
+    /* 모든 N개 버튼을 input + 활성 dot으로 (W2-B-β).
+       buttons[] 우선, 없으면 legacy fallback으로 첫 2개 표시. */
+    let editableRows = '';
 
-    const editableRows = `
-      <div class="port-row">
-        <input class="port-label-input js-choice-label" placeholder="버튼 1"
-          value="${_escapeHtml(labelA)}" data-num="${s.num}" data-port="A"
-          style="flex:1;min-width:0;border:1.5px solid #d0e0f5;border-radius:6px;
-          padding:2px 5px;font-size:11px;font-family:var(--font-b);"/>
-        <div class="port-dot A" data-num="${s.num}" data-port="A" title="드래그해서 연결"></div>
-      </div>
-      <div class="port-row">
-        <input class="port-label-input js-choice-label" placeholder="버튼 2 (선택)"
-          value="${_escapeHtml(labelB)}" data-num="${s.num}" data-port="B"
-          style="flex:1;min-width:0;border:1.5px solid #d0e0f5;border-radius:6px;
-          padding:2px 5px;font-size:11px;font-family:var(--font-b);"/>
-        <div class="port-dot B" data-num="${s.num}" data-port="B" title="드래그해서 연결"></div>
-      </div>`;
-
-    /* 3+개 read-only 라벨 — buttons[]에 인덱스 2 이상 있을 때만.
-       dot은 완전 비활성 (W2-A 한계 — W2-B에서 N개 분기 연결 풀 지원 예정). */
-    let readonlyChoicesHTML = '';
-    for (let i = 2; i < buttonsLen && i < 6; i++) {
-      const b = buttonsList[i] || {};
-      const labelText = (typeof b.label === 'string' && b.label) ? b.label : `(버튼 ${i + 1})`;
-      readonlyChoicesHTML += `
-          <div class="port-row port-row--readonly">
-            <span class="port-readonly-label" title="다듬기 화면에서 분기 연결">${_escapeHtml(labelText)}</span>
-            <div class="port-dot port-dot--readonly port-dot--disabled" title="이 선택지는 다듬기 화면에서 분기 연결"></div>
-          </div>`;
+    if (buttonsLen > 0) {
+      /* 새 구조: buttons[] 길이만큼 input + dot 표시 (최대 6개) */
+      const drawCount = Math.min(buttonsLen, 6);
+      for (let i = 0; i < drawCount; i++) {
+        const b = buttonsList[i] || {};
+        const portChar = String.fromCharCode(65 + i);
+        const lbl = (typeof b.label === 'string') ? b.label : '';
+        editableRows += _portRowHtml(s.num, portChar, i, lbl);
+      }
+    } else {
+      /* legacy fallback: choiceA/B 두 줄 (사용자가 입력하면 buttons[] 생성됨) */
+      editableRows  = _portRowHtml(s.num, 'A', 0, s.choiceA || '');
+      editableRows += _portRowHtml(s.num, 'B', 1, s.choiceB || '');
     }
 
-    /* 다듬기 진입점 — buttons 3개 이상 있을 때만 표시 (3+개 분기 연결 안내) */
-    const editHintHTML = (buttonsLen > 2)
-      ? `<div class="card-edit-hint" data-num="${s.num}">
-           ✏️ 버튼 ${buttonsLen}개 — 다듬기 화면에서 편집
-         </div>`
+    /* + 버튼 추가 진입점 (C-1) — visualCount < 6일 때만 표시.
+       클릭 시 sceneRenderer.addButton(num) 호출 — buttons[]에 빈 항목 추가 + 재렌더 */
+    const addButtonHTML = (visualCount < 6)
+      ? `<button type="button" class="card-add-button js-add-button" data-num="${s.num}"
+           title="버튼 추가 (최대 6개)">+ 버튼 추가</button>`
       : '';
 
     portsHTML = `
       <div class="card-ports">
         ${editableRows}
-        ${readonlyChoicesHTML}
-        ${editHintHTML}
+        ${addButtonHTML}
       </div>`;
   } else {
     const isTrueEnding = s.trueEnding || false;
@@ -170,7 +195,53 @@ function buildCardHTML(s) {
     isReplay ? '<span style="display:inline-block;font-size:10px;line-height:1;padding:3px 6px;border-radius:8px;background:#e3f2fd;color:#1565c0;border:1px solid #90caf9;margin-left:4px;font-family:var(--font-h);" title="다른 결말 찾기에서 시작하는 장면">다시 시작점</span>' : '',
   ].join('');
 
-  const imgAreaHtml = s.imageData
+  /* ─── 작품 유형별 카드 얼굴 (2단계) ───────────────────────────
+     원칙:
+     · shell(header/ports/포트 dot 위치)은 공통 유지
+     · 가운데 content(이미지 + body) 영역만 유형별 분기
+     · 4개 content 함수로 위계와 요약 정보만 다름
+     · 체험전시형도 ports 영역은 유지 (dot/연결 인터랙션 보존) — 카드 본체에
+       "연결 X개" 요약을 위에 추가하는 방식으로 위계 표현. */
+  const _ptype = _resolveProjectType();
+  const contentHtml = _buildCardContentByType(s, _ptype);
+
+  return `
+    <div class="card-header">
+      <span class="card-num-badge js-rename-btn" data-num="${s.num}"
+        title="번호 바꾸기">장면 ${s.num}${starBadge}</span>${roleBadges}
+      <button class="card-edit-jump js-edit-jump" data-num="${s.num}"
+        title="이 장면 다듬기">🎨</button>
+      <button class="card-delete js-delete-btn" data-num="${s.num}">✕</button>
+    </div>
+    ${contentHtml}
+    ${portsHTML}`;
+}
+
+/* ─── 작품 유형 해석 (2단계) ─────────────────────────────────
+   projectMeta.projectType을 안전하게 읽고, 잘못된 값/없으면 fallback. */
+function _resolveProjectType() {
+  const pm = (typeof projectMeta === 'object' && projectMeta) ? projectMeta : {};
+  const valid = ['text', 'picturebook', 'movie', 'experience'];
+  if (typeof pm.projectType === 'string' && valid.includes(pm.projectType)) {
+    return pm.projectType;
+  }
+  return 'picturebook';   // DEFAULT_PROJECT_TYPE 일관
+}
+
+/* ─── 카드 content 분기 진입 함수 (2단계) ─────────────────────── */
+function _buildCardContentByType(s, ptype) {
+  switch (ptype) {
+    case 'text':       return _buildTextCardContent(s);
+    case 'movie':      return _buildMovieCardContent(s);
+    case 'experience': return _buildExperienceCardContent(s);
+    case 'picturebook':
+    default:           return _buildPicturebookCardContent(s);
+  }
+}
+
+/* ─── 카드 공통 부품: 이미지 영역 / 라디오+모드배지 ───────────── */
+function _buildImageAreaHtml(s) {
+  return s.imageData
     ? `<div class="card-image-area">
         <img src="${s.imageData}" class="card-thumb js-img-thumb"
           data-num="${s.num}" title="클릭하면 크게 보기"/>
@@ -196,30 +267,140 @@ function buildCardHTML(s) {
             data-num="${s.num}" style="display:none"/>
         </label>
       </div>`;
+}
 
+function _buildTypeRowHtml(s) {
+  const types  = ['normal', 'ending'];
+  const labels = ['일반', '엔딩'];
+  const currentType = (s.type === 'ending') ? 'ending' : 'normal';
+  const radios = types.map((t, i) =>
+    `<input class="type-radio js-type-radio" type="radio"
+       name="type-${s.num}" id="tr-${s.num}-${t}"
+       value="${t}" ${currentType === t ? 'checked' : ''} data-num="${s.num}" data-value="${t}">
+     <label class="type-label" for="tr-${s.num}-${t}">${labels[i]}</label>`
+  ).join('');
+  return `<div class="card-type-row">${radios}${_modeBadgeHtml(s)}</div>`;
+}
+
+/* ─── 1) 텍스트형 카드 ────────────────────────────────────────
+   위계: 본문 > 제목 > 선택지
+   특징: 이미지 슬롯 노출 안 함, 본문이 가장 큼, 제목은 보조 */
+function _buildTextCardContent(s) {
   return `
-    <div class="card-header">
-      <span class="card-num-badge js-rename-btn" data-num="${s.num}"
-        title="번호 바꾸기">장면 ${s.num}${starBadge}</span>${roleBadges}
-      <button class="card-delete js-delete-btn" data-num="${s.num}">✕</button>
-    </div>
-    ${imgAreaHtml}
-    <div class="card-body">
-      <!-- 본문 — 시각 중심 (단계 2: 카드 위계 뒤집기)
-           이 장면이 어떤 장면인지 한눈에 파악하는 게 maker canvas 목적 -->
-      <textarea class="card-body-textarea js-body-input"
-        placeholder="장면 본문 — 어떤 장면인지 적어요"
-        rows="3"
+    <div class="card-body card-body--text">
+      <textarea class="card-body-textarea card-body-textarea--featured js-body-input"
+        placeholder="장면 본문 — 이 장면의 글"
+        rows="4"
         data-num="${s.num}">${_escapeHtml(s.body || '')}</textarea>
-      <!-- 제목 — 작은 라벨 (선택). 본문보다 약하게 -->
+      <input class="card-title-input card-title-input--secondary js-title-input"
+        placeholder="장면 라벨 (선택)"
+        type="text"
+        value="${_escapeHtml(s.title || '')}"
+        data-num="${s.num}"/>
+      ${_buildTypeRowHtml(s)}
+    </div>`;
+}
+
+/* ─── 2) 그림책형 카드 ────────────────────────────────────────
+   위계: 그림 썸네일 > 본문 미리보기 > 제목 > 선택지
+   특징: 그림 썸네일 가장 위, 본문은 짧게(2줄), 제목은 보조 */
+function _buildPicturebookCardContent(s) {
+  return `
+    ${_buildImageAreaHtml(s)}
+    <div class="card-body card-body--picturebook">
+      <textarea class="card-body-textarea js-body-input"
+        placeholder="장면 본문 (짧게)"
+        rows="2"
+        data-num="${s.num}">${_escapeHtml(s.body || '')}</textarea>
       <input class="card-title-input js-title-input"
         placeholder="장면 라벨 (선택)"
         type="text"
         value="${_escapeHtml(s.title || '')}"
         data-num="${s.num}"/>
-      <div class="card-type-row">${radios}${_modeBadgeHtml(s)}</div>
+      ${_buildTypeRowHtml(s)}
+    </div>`;
+}
+
+/* ─── 3) 무비형 카드 ──────────────────────────────────────────
+   위계: 미디어 썸네일 > 본문 상태 > 제목 > 선택지
+   특징: 그림책형 구조 차용 + 영상/이미지 배지 + 본문 ON/OFF 배지
+   주의: 영상 데이터 모델은 아직 미구현 → 임시 판정 (imageData 있으면 미디어 있음) */
+function _buildMovieCardContent(s) {
+  /* 미디어 타입 임시 판정 — movieData 데이터 모델 들어오기 전까지 imageData만 봄.
+     향후 s.movieData / s.movieKind 같은 명시 필드가 들어오면 그걸 우선. */
+  const hasMovie = s.movieData && (typeof s.movieData === 'object' || typeof s.movieData === 'string');
+  const hasImage = !!s.imageData;
+  let mediaBadge = '';
+  if (hasMovie) {
+    mediaBadge = `<span class="card-meta-badge card-meta-badge--video">🎬 영상</span>`;
+  } else if (hasImage) {
+    mediaBadge = `<span class="card-meta-badge card-meta-badge--image">🖼 이미지</span>`;
+  } else {
+    mediaBadge = `<span class="card-meta-badge card-meta-badge--empty">⚪ 미디어 없음</span>`;
+  }
+
+  /* 본문 ON/OFF 판정 (3단계 정합) — bodyEnabled 명시 필드 우선.
+     3단계에서 viewer-edit이 bodyEnabled 토글을 명시 저장하므로 이 값 우선.
+     undefined/null이면 body 존재 여부로 fallback (legacy / 3단계 전 작품 호환).
+     viewer-edit.js의 _typeSectionMovieHtml과 동일 정책. */
+  const bodyEnabled = (s.bodyEnabled === true) ? true
+                    : (s.bodyEnabled === false) ? false
+                    : !!(s.body && String(s.body).trim());
+  const bodyBadge = bodyEnabled
+    ? `<span class="card-meta-badge card-meta-badge--body-on">📝 본문 사용</span>`
+    : `<span class="card-meta-badge card-meta-badge--body-off">📝 본문 없음</span>`;
+
+  return `
+    ${_buildImageAreaHtml(s)}
+    <div class="card-meta-row card-meta-row--movie">
+      ${mediaBadge}
+      ${bodyBadge}
     </div>
-    ${portsHTML}`;
+    <div class="card-body card-body--movie">
+      <textarea class="card-body-textarea js-body-input"
+        placeholder="본문 (선택)"
+        rows="2"
+        data-num="${s.num}">${_escapeHtml(s.body || '')}</textarea>
+      <input class="card-title-input js-title-input"
+        placeholder="장면 라벨 (선택)"
+        type="text"
+        value="${_escapeHtml(s.title || '')}"
+        data-num="${s.num}"/>
+      ${_buildTypeRowHtml(s)}
+    </div>`;
+}
+
+/* ─── 4) 체험전시형 카드 ───────────────────────────────────────
+   위계: 배경 이미지 썸네일 > 연결 오브젝트 요약 > 제목 > 본문(1줄)
+   특징: "연결 X개"가 카드 본체 위에 가장 먼저 보임. 일반 ports 영역은 유지
+        (사용자 원칙: dot 위치 체계 유지). 단 카드 위계로는 보조 정도.
+   주의: connectObjects 데이터 모델 미구현 → 임시 집계 (buttons.length 사용) */
+function _buildExperienceCardContent(s) {
+  /* 임시 연결 오브젝트 집계 — 정식 데이터 모델 들어오기 전까지 buttons[]를
+     "연결 오브젝트 수" 추정치로 사용. 향후 s.connectObjects 들어오면 그걸 우선. */
+  const buttonsList = Array.isArray(s.buttons) ? s.buttons : [];
+  const objCount = buttonsList.length;
+  const objSummary = (objCount > 0)
+    ? `🔗 연결 ${objCount}개`
+    : `🔗 연결 0개`;
+
+  return `
+    ${_buildImageAreaHtml(s)}
+    <div class="card-meta-row card-meta-row--experience">
+      <span class="card-meta-badge card-meta-badge--connect-summary">${objSummary}</span>
+    </div>
+    <div class="card-body card-body--experience">
+      <input class="card-title-input js-title-input"
+        placeholder="장면 라벨 (선택)"
+        type="text"
+        value="${_escapeHtml(s.title || '')}"
+        data-num="${s.num}"/>
+      <textarea class="card-body-textarea card-body-textarea--single js-body-input"
+        placeholder="안내문 (선택)"
+        rows="1"
+        data-num="${s.num}">${_escapeHtml(s.body || '')}</textarea>
+      ${_buildTypeRowHtml(s)}
+    </div>`;
 }
 
 /* HTML escape — & / < / > / 따옴표 모두 (textarea/input value용) */
@@ -230,6 +411,20 @@ function _escapeHtml(str) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+/* 버튼 행 HTML — N개 통일 (W2-B-β).
+   모든 인덱스가 input + 활성 dot. 색상은 인덱스 기반 (port-dot--N 클래스). */
+function _portRowHtml(num, portChar, idx, labelVal) {
+  const placeholder = idx === 0 ? '버튼 1' : `버튼 ${idx + 1}`;
+  return `
+      <div class="port-row">
+        <input class="port-label-input js-choice-label" placeholder="${placeholder}"
+          value="${_escapeHtml(labelVal)}" data-num="${num}" data-port="${portChar}"
+          style="flex:1;min-width:0;border:1.5px solid #d0e0f5;border-radius:6px;
+          padding:2px 5px;font-size:11px;font-family:var(--font-b);"/>
+        <div class="port-dot port-dot--${portChar}" data-num="${num}" data-port="${portChar}" title="드래그해서 연결"></div>
+      </div>`;
 }
 
 /* ── 본문 미리보기 (legacy, 단계 1에서 추가) ──
@@ -303,6 +498,36 @@ function bindCardEvents(el, s) {
   el.querySelectorAll('.js-choice-label').forEach(input => {
     input.addEventListener('change', () => updateChoiceLabel(num, input.dataset.port, input.value));
   });
+
+  /* + 버튼 추가 (C-1) — buttons.length < 6일 때만 카드에 표시되는 진입점 */
+  el.querySelector('.js-add-button')
+    ?.addEventListener('click', async e => {
+      e.stopPropagation();
+      const ok = await ensureEditable(num);
+      if (!ok) return;
+      addButton(num);
+    });
+
+  /* 🎨 다듬기 점프 (C-2) — 카드별 viewer-edit 진입.
+     기존 #btn-viewer-edit과 같은 흐름이되 scene 파라미터 추가하여
+     viewer-entry가 startViewerEdit(num)으로 자동 선택. */
+  el.querySelector('.js-edit-jump')
+    ?.addEventListener('click', e => {
+      e.stopPropagation();
+      const tn  = (typeof teamName !== 'undefined' && teamName) ? teamName : '';
+      const cid = (typeof classId !== 'undefined' && classId) ? classId : '';
+      if (!tn) { alert('먼저 팀 이름으로 입장해 주세요.'); return; }
+      if (typeof flushTitleSaves === 'function') flushTitleSaves();
+      if (typeof flushBodySaves  === 'function') flushBodySaves();
+      if (typeof _saveReturnContext === 'function') _saveReturnContext('maker');
+      const params = [
+        `team=${encodeURIComponent(tn)}`,
+        `edit=1`, `from=maker`,
+        `scene=${encodeURIComponent(num)}`,
+      ];
+      if (cid) params.push(`classId=${encodeURIComponent(cid)}`);
+      window.open(`viewer.html?${params.join('&')}`, '_blank');
+    });
 
   /* 진엔딩 체크박스 */
   el.querySelector('.js-true-ending')
@@ -502,12 +727,16 @@ function bindCardEvents(el, s) {
 
       const port   = dot.dataset.port;
       const sc     = scenes[num];
+      /* port → 인덱스 + startY/색상 (W2-B-β: N개 dot 지원) */
+      const portIdx = (typeof port === 'string') ? port.charCodeAt(0) - 65 : 0;
+      const idx     = (portIdx >= 0 && portIdx < 6) ? portIdx : 0;
+      const _COLORS = ['#4a90d9', '#ef476f', '#06a77d', '#f4a261', '#9b4dca', '#ff6b35'];
       const startX = sc.x + 200;
-      const startY = sc.y + (port === 'A' ? 120 : 140);
+      const startY = sc.y + 120 + (idx * 20);
       connState    = { fromNum: num, port };
       const tl     = document.getElementById('temp-line');
       tl.setAttribute('display', '');
-      tl.setAttribute('stroke', port === 'A' ? '#4a90d9' : '#ef476f');
+      tl.setAttribute('stroke', _COLORS[idx]);
       tl.setAttribute('x1', startX); tl.setAttribute('y1', startY);
       tl.setAttribute('x2', startX); tl.setAttribute('y2', startY);
     });
@@ -600,8 +829,35 @@ function renderCard(s) {
 function connect(fromNum, port, toNum) {
   const s = scenes[fromNum];
   if (!s) return;
-  if (port === 'A') s.nextA = toNum;
-  else              s.nextB = toNum;
+
+  /* port → 인덱스 ('A'→0, 'B'→1, 'C'→2, ...) — W2-B-β */
+  const idx = (typeof port === 'string') ? port.charCodeAt(0) - 65 : -1;
+  if (idx < 0 || idx > 5) return;  /* 최대 6개 (사용자 결정) */
+
+  /* buttons[] 갱신 — 해당 인덱스에 nextId 저장. 라벨은 기존 값 유지 */
+  if (!Array.isArray(s.buttons)) s.buttons = [];
+  while (s.buttons.length <= idx) {
+    const i = s.buttons.length;
+    /* 빈 슬롯은 legacy choiceA/B fallback으로 채움 */
+    const legacyLabel = i === 0 ? (s.choiceA || '') : i === 1 ? (s.choiceB || '') : '';
+    s.buttons.push({
+      id: String.fromCharCode(65 + i),
+      label: legacyLabel,
+    });
+  }
+  s.buttons[idx] = {
+    ...s.buttons[idx],
+    id: s.buttons[idx].id || String.fromCharCode(65 + idx),
+    nextId: String(toNum),
+  };
+
+  /* nextA/nextB 호환 동기화 — 첫 2개만 (legacy 코드 호환) */
+  if (idx === 0) s.nextA = toNum;
+  else if (idx === 1) s.nextB = toNum;
+
+  /* choiceCount 호환 동기화 */
+  s.choiceCount = s.buttons.length === 1 ? 1 : 2;
+
   renderCard(s);
   drawArrows();
   pushToFirebase();
@@ -618,21 +874,48 @@ function getCardAt(clientX, clientY) {
 function drawArrows() {
   const svg = document.getElementById('arrows');
   svg.querySelectorAll('path.arrow, text.arrow-label, rect.arrow-label').forEach(el => el.remove());
-  Object.values(scenes).forEach(s => { drawArrow(svg, s, 'A'); drawArrow(svg, s, 'B'); });
+
+  /* W2-B-β: buttons[] 기반 N개 화살표.
+     · buttons[].nextId 기준 (진실)
+     · buttons[]가 없으면 legacy nextA/nextB fallback
+     · 인덱스별로 색상/위치 다양화 (6색)  */
+  Object.values(scenes).forEach(s => {
+    const buttons = Array.isArray(s.buttons) ? s.buttons : [];
+
+    if (buttons.length > 0) {
+      /* 새 구조: buttons[i].nextId 따라 화살표 */
+      buttons.slice(0, 6).forEach((b, i) => {
+        if (!b || !b.nextId) return;
+        drawArrowForIndex(svg, s, i, String(b.nextId), b.label || '');
+      });
+    } else {
+      /* legacy fallback: nextA/nextB */
+      if (s.nextA) drawArrowForIndex(svg, s, 0, String(s.nextA), s.choiceA || '');
+      if (s.nextB && (s.choiceCount || 2) > 1) {
+        drawArrowForIndex(svg, s, 1, String(s.nextB), s.choiceB || '');
+      }
+    }
+  });
 }
 
-function drawArrow(svg, s, port) {
-  if (port === 'B' && (s.choiceCount || 2) === 1) return;
-  const next = port === 'A' ? s.nextA : s.nextB;
-  if (!next || !scenes[next]) return;
-  const t = scenes[next];
+/* 인덱스 기반 화살표 그리기 (W2-B-β) — A/B 외 N개 지원.
+   6색 팔레트: A=파랑, B=빨강, C=초록, D=노랑, E=보라, F=주황 */
+const _PORT_COLORS = ['#4a90d9', '#ef476f', '#06a77d', '#f4a261', '#9b4dca', '#ff6b35'];
+const _PORT_MARKERS = ['ahA', 'ahB', 'ahC', 'ahD', 'ahE', 'ahF'];
 
-  const x1 = s.x + 200, y1 = s.y + (port === 'A' ? 120 : 140);
-  const x2 = t.x,        y2 = t.y + 50;
+function drawArrowForIndex(svg, s, idx, nextNum, labelText) {
+  if (!nextNum || !scenes[nextNum]) return;
+  const t = scenes[nextNum];
+
+  /* 시작 위치 — 인덱스별로 y 오프셋. A=120, B=140, C=160, ... */
+  const x1 = s.x + 200;
+  const y1 = s.y + 120 + (idx * 20);
+  const x2 = t.x;
+  const y2 = t.y + 50;
   const cx = (x1 + x2) / 2;
-  const color    = port === 'A' ? '#4a90d9' : '#ef476f';
-  const markerId = port === 'A' ? 'ahA' : 'ahB';
-  const label    = port === 'A' ? (s.choiceA || 'A') : (s.choiceB || 'B');
+
+  const color    = _PORT_COLORS[idx] || _PORT_COLORS[0];
+  const markerId = _PORT_MARKERS[idx] || _PORT_MARKERS[0];
 
   const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
   path.setAttribute('class', 'arrow');
@@ -644,7 +927,10 @@ function drawArrow(svg, s, port) {
   path.setAttribute('opacity', '0.85');
   svg.appendChild(path);
 
-  if (label && label !== 'A' && label !== 'B') {
+  /* 라벨 표시 — 의미 있는 라벨만 */
+  const label = String(labelText || '').trim();
+  const portChar = String.fromCharCode(65 + idx);
+  if (label && label !== portChar) {
     const lx = x1 + 6, ly = y1 - 16;
     const lw = Math.min(label.length * 8 + 8, 80), lh = 16;
 
@@ -652,18 +938,34 @@ function drawArrow(svg, s, port) {
     bg.setAttribute('class', 'arrow-label');
     bg.setAttribute('x', lx);  bg.setAttribute('y', ly);
     bg.setAttribute('width', lw); bg.setAttribute('height', lh);
-    bg.setAttribute('rx', '8'); bg.setAttribute('fill', color);
-    bg.setAttribute('opacity', '0.18');
+    bg.setAttribute('rx', 3); bg.setAttribute('fill', '#fff');
+    bg.setAttribute('stroke', color); bg.setAttribute('stroke-width', '1');
     svg.appendChild(bg);
 
     const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
     txt.setAttribute('class', 'arrow-label');
-    txt.setAttribute('x', lx + lw / 2); txt.setAttribute('y', ly + 11);
-    txt.setAttribute('font-size', '10'); txt.setAttribute('fill', color);
-    txt.setAttribute('text-anchor', 'middle');
-    txt.setAttribute('font-family', 'Nanum Gothic,sans-serif');
-    txt.setAttribute('font-weight', 'bold');
-    txt.textContent = label.length > 9 ? label.slice(0,9) + '…' : label;
+    txt.setAttribute('x', lx + 4); txt.setAttribute('y', ly + 12);
+    txt.setAttribute('font-size', '11');
+    txt.setAttribute('fill', color);
+    txt.textContent = label.length > 8 ? label.slice(0, 8) + '…' : label;
     svg.appendChild(txt);
   }
+}
+
+/* 기존 drawArrow는 호환을 위해 유지 (호출처 없어도 외부 코드 안전) */
+function drawArrow(svg, s, port) {
+  const idx = port === 'A' ? 0 : port === 'B' ? 1 : -1;
+  if (idx < 0) return;
+  /* 새 buttons[] 우선 */
+  const buttons = Array.isArray(s.buttons) ? s.buttons : [];
+  if (buttons[idx] && buttons[idx].nextId) {
+    drawArrowForIndex(svg, s, idx, String(buttons[idx].nextId), buttons[idx].label || '');
+    return;
+  }
+  /* legacy fallback */
+  if (port === 'B' && (s.choiceCount || 2) === 1) return;
+  const next = port === 'A' ? s.nextA : s.nextB;
+  if (!next) return;
+  const label = port === 'A' ? (s.choiceA || '') : (s.choiceB || '');
+  drawArrowForIndex(svg, s, idx, String(next), label);
 }

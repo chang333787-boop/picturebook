@@ -274,6 +274,23 @@ function _enterTeam(val, teamRef) {
   } catch (e) { /* sessionStorage 막혀도 정상 동작 유지 */ }
 
   dbRef = teamRef.child('scenes');
+
+  /* 작품 유형 1회 저장 (1단계 신규) — 새 작품 진입일 때만 기록.
+     viewer-meta에 projectType이 이미 있으면 기존 작품 → 덮어쓰지 않음.
+     없으면 사용자가 join-screen에서 선택한 selectedProjectType을 기록.
+     selectedProjectType이 없거나 잘못된 값이면 DEFAULT_PROJECT_TYPE.
+     이 작업은 dbRef.on 등록 전 1회 — 이후 viewer-meta 구독이 자동 반영. */
+  teamRef.child('viewer-meta/projectType').once('value').then(snap => {
+    if (snap.exists()) return;   // 기존 작품 — 손대지 않음
+    const fallback = (typeof DEFAULT_PROJECT_TYPE === 'string') ? DEFAULT_PROJECT_TYPE : 'picturebook';
+    let chosen = (typeof selectedProjectType === 'string'
+                  && Array.isArray(PROJECT_TYPES)
+                  && PROJECT_TYPES.includes(selectedProjectType))
+      ? selectedProjectType
+      : fallback;
+    teamRef.child('viewer-meta/projectType').set(chosen).catch(() => {/* 저장 실패해도 메모리 fallback 유지 */});
+  }).catch(() => { /* 네트워크 실패 시 무시 — 메모리 fallback 유지 */ });
+
   dbRef.on('value', snapshot => {
     isRemote = true;
     scenes   = snapshot.val() || {};
@@ -306,6 +323,28 @@ function _enterTeam(val, teamRef) {
       /* body 자동 복제 제거 — s.body는 raw 그대로 (없으면 undefined) */
     });
 
+    /* ★ legacy 마이그레이션 감지 (A-1): snapshot 첫 로드 시 한 번만 실행.
+       기준 — 본문 후보로 보이는 legacy 장면:
+         · body 필드 없음 (_hasBody=false)
+         · AND title 길이 30자 이상 OR title에 줄바꿈 포함 (사용자가 본문도 title에 적은 경우)
+       이 조건 충족 장면이 1개 이상이면 토스트 알림 트리거.
+       _migrationToastShown 플래그로 한 작품에서 한 번만 보이게 (재진입 시 또 뜨지 않게). */
+    if (!_migrationToastShown && typeof showLegacyMigrationToast === 'function') {
+      const legacyBodyCandidates = Object.values(scenes).filter(s => {
+        if (!s || typeof s !== 'object') return false;
+        if (s._hasBody) return false;  /* 새 구조 — 마이그레이션 대상 아님 */
+        const t = String(s.title || '');
+        const hasNewline = t.includes('\n');
+        const isLong     = t.length >= 30;
+        return hasNewline || isLong;
+      });
+      if (legacyBodyCandidates.length > 0) {
+        _migrationToastShown = true;
+        /* 사용자에게 알림. 마이그레이션 실행은 다음 턴(A-2)에서 추가 예정 — 현재는 알림만 */
+        showLegacyMigrationToast(legacyBodyCandidates.length);
+      }
+    }
+
     const nums = Object.keys(scenes).map(Number);
     if (nums.length) nextNum = Math.max(...nums) + 1;
 
@@ -337,7 +376,17 @@ function _enterTeam(val, teamRef) {
   teamRef.child('viewer-meta').on('value', snap => {
     const prev = projectMeta || {};
     const meta = snap.val() || {};
+
+    /* 작품 유형 (1단계 신규) — DB 우선, 없거나 잘못된 값이면 fallback (점검 2 결정).
+       PROJECT_TYPES 화이트리스트로 잘못된 값 차단. */
+    const validType = (typeof meta.projectType === 'string'
+                       && Array.isArray(PROJECT_TYPES)
+                       && PROJECT_TYPES.includes(meta.projectType))
+      ? meta.projectType
+      : DEFAULT_PROJECT_TYPE;
+
     projectMeta = {
+      projectType:    validType,
       coverTitle:     (typeof meta.coverTitle     === 'string') ? meta.coverTitle     : null,
       coverImageData: (typeof meta.coverImageData === 'string') ? meta.coverImageData : null,
       entrySceneId:   (meta.entrySceneId  !== undefined && meta.entrySceneId  !== null) ? String(meta.entrySceneId)  : null,
@@ -354,6 +403,19 @@ function _enterTeam(val, teamRef) {
         renderCard(scenes[num]);
       }
     });
+
+    /* 작품 유형 변경 시 모든 카드 재렌더 (2단계 신규).
+       projectType은 카드 얼굴 자체를 결정하므로 prev !== curr이면 전체 영향.
+       편집 중 카드는 renderCard에서 알아서 스킵 (activeEdits) 또는 안전하게
+       activeEdits 보호. */
+    const prevPType = prev.projectType;
+    const currPType = projectMeta.projectType;
+    if (prevPType && currPType && prevPType !== currPType && typeof renderCard === 'function') {
+      Object.keys(scenes).forEach(num => {
+        if (!activeEdits[num]) renderCard(scenes[num]);
+      });
+    }
+
     /* 설정 패널이 열려있으면 값 다시 채움 (다른 사람 저장 반영) */
     if (typeof refreshProjectSettingsIfOpen === 'function') {
       refreshProjectSettingsIfOpen();
@@ -395,6 +457,9 @@ function _enterTeam(val, teamRef) {
 /* ── Firebase 저장 (scene 단위 dirty write) ── */
 const dirtyScenes = new Set();
 
+/* legacy 마이그레이션 토스트 1회성 플래그 (A-1) — 한 작품 진입 후 한 번만 알림 */
+let _migrationToastShown = false;
+
 /* push 직전 sentinel 필터 — 메모리 전용 키(_hasBody)와
    legacy 매핑된 body(아직 사용자가 명시 편집 안 한 상태)는 DB에 저장하지 않는다.
    이러면 legacy 작품의 DB 형태가 보존되고, 사용자가 본문/제목을 명시 편집할 때만
@@ -417,28 +482,46 @@ function pushToFirebase(num) {
   setSaveStatus('changed');
   clearTimeout(pushTimer);
   pushTimer = setTimeout(() => {
-    if (!dbRef) return;
-    if (dirtyScenes.size === 0) {
-      /* 전체 set — 모든 장면을 DB shape으로 변환 */
-      const cleanScenes = {};
-      Object.keys(scenes).forEach(k => {
-        cleanScenes[k] = _sceneToDbShape(scenes[k]);
-      });
-      dbRef.set(cleanScenes)
-        .then(() => setSaveStatus('saved'))
-        .catch(() => setSaveStatus('error'));
-      return;
-    }
-    const updates = {};
-    dirtyScenes.forEach(n => {
-      updates[n] = scenes[n] ? _sceneToDbShape(scenes[n]) : null;
-    });
-    dirtyScenes.clear();
-    dbRef.update(updates)
-      .then(() => setSaveStatus('saved'))
-      .catch(() => setSaveStatus('error'));
+    _flushPushToFirebaseNow();
   }, 600);
 }
+
+/* 강제 즉시 push — 페이지 떠날 때 / 명시적 저장 시 호출.
+   pushToFirebase의 setTimeout 내용을 추출해 즉시 실행 가능하게 분리 (안전망). */
+function _flushPushToFirebaseNow() {
+  if (!dbRef) return;
+  clearTimeout(pushTimer);
+  pushTimer = null;
+  if (dirtyScenes.size === 0) {
+    /* 전체 set — 모든 장면을 DB shape으로 변환 */
+    const cleanScenes = {};
+    Object.keys(scenes).forEach(k => {
+      cleanScenes[k] = _sceneToDbShape(scenes[k]);
+    });
+    dbRef.set(cleanScenes)
+      .then(() => setSaveStatus('saved'))
+      .catch(() => setSaveStatus('error'));
+    return;
+  }
+  const updates = {};
+  dirtyScenes.forEach(n => {
+    updates[n] = scenes[n] ? _sceneToDbShape(scenes[n]) : null;
+  });
+  dirtyScenes.clear();
+  dbRef.update(updates)
+    .then(() => setSaveStatus('saved'))
+    .catch(() => setSaveStatus('error'));
+}
+
+/* 페이지 이탈 시 강제 push — 600ms debounce 중인 변경 손실 방지.
+   ui.js의 flushTitleSaves/flushBodySaves가 먼저 실행되어 dirtyScenes에
+   변경을 적재하면, 여기서 즉시 DB로 push. */
+window.addEventListener('beforeunload', () => {
+  if (pushTimer || dirtyScenes.size > 0) _flushPushToFirebaseNow();
+});
+window.addEventListener('pagehide', () => {
+  if (pushTimer || dirtyScenes.size > 0) _flushPushToFirebaseNow();
+});
 
 /* 장면 삭제 시 개별 remove */
 function removeSceneFromFirebase(num) {
@@ -449,14 +532,43 @@ function removeSceneFromFirebase(num) {
 function setSaveStatus(s) {
   const dot = document.getElementById('save-dot');
   const lbl = document.getElementById('save-label');
+  if (!dot || !lbl) return;
   if (s === 'saved') {
     dot.className = 'saved';
     const t = new Date();
     lbl.textContent = `저장됨 ${t.getHours()}:${String(t.getMinutes()).padStart(2,'0')}`;
+    lbl.style.color = '';
+    lbl.style.cursor = '';
+    lbl.title = '';
+    lbl.onclick = null;
   } else if (s === 'changed') {
-    dot.className = 'changed'; lbl.textContent = '저장 중...';
+    dot.className = 'changed';
+    lbl.textContent = '저장 중...';
+    lbl.style.color = '';
+    lbl.style.cursor = '';
+    lbl.title = '';
+    lbl.onclick = null;
+  } else if (s === 'error') {
+    /* 저장 실패 — 사용자에게 명확히 알림 + 클릭으로 재시도.
+       마감 직전 사용자가 데이터 손실 인지 못하는 경우 방지 */
+    dot.className = 'changed';
+    dot.style.background = '#ef476f';   /* 빨강 */
+    lbl.textContent = '⚠️ 저장 실패 — 클릭해서 다시 시도';
+    lbl.style.color = '#ef476f';
+    lbl.style.cursor = 'pointer';
+    lbl.title = '저장이 실패했어요. 네트워크 확인 후 클릭해서 다시 시도하세요.';
+    lbl.onclick = () => {
+      lbl.onclick = null;
+      _flushPushToFirebaseNow();
+    };
   } else {
-    dot.className = ''; lbl.textContent = '-';
+    dot.className = '';
+    dot.style.background = '';
+    lbl.textContent = '-';
+    lbl.style.color = '';
+    lbl.style.cursor = '';
+    lbl.title = '';
+    lbl.onclick = null;
   }
 }
 

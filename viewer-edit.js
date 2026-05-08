@@ -37,6 +37,15 @@ function _scheduleViewerFrameReRender() {
   });
 }
 
+/* ─── 작품 유형 안전 해석 (3단계 신규) ──────────────────────────
+   ViewerState.project.projectType (1단계에서 도입)을 화이트리스트 검증해 반환.
+   잘못된 값/없음이면 picturebook fallback. 다듬기 패널 분기와 미리보기 분기에서 사용. */
+function _resolveViewerProjectType() {
+  const valid = ['text', 'picturebook', 'movie', 'experience'];
+  const t = ViewerState && ViewerState.project ? ViewerState.project.projectType : null;
+  return (typeof t === 'string' && valid.includes(t)) ? t : 'picturebook';
+}
+
 /* ── 저장 큐 추가 + debounce 예약 ── */
 function _queueSave(num, fields) {
   if (_editText.num !== num) return;
@@ -427,6 +436,7 @@ function renderEditPanel() {
 
   /* ── 선택지 없는 장면(엔딩 등) ── */
   if (scene.choices.length === 0) {
+    const _ptype = _resolveViewerProjectType();
     panel.innerHTML = `
       <div class="edit-panel-inner">
         ${_editActionsHtml()}
@@ -436,10 +446,8 @@ function renderEditPanel() {
         <div class="edit-divider"></div>
         ${_textEditHtml(scene)}
 
-        <!-- 【2】 장면 설정 -->
-        <div class="edit-divider"></div>
-        <h4 class="edit-section-title edit-section-title--major">② 장면 설정</h4>
-        ${_sceneTemplateHtml(scene)}
+        <!-- 【2】 유형별 설정 (3단계: scene 단위 모드 카드 → 작품 유형 분기) -->
+        ${_typeSectionsHtml(scene, _ptype)}
 
         <!-- 엔딩은 선택지 없음 — 【3】 선택지 표현 섹션 자체 생략 -->
         <div class="edit-divider"></div>
@@ -449,7 +457,7 @@ function renderEditPanel() {
       </div>`;
     _bindEditActions(panel);
     _bindNavEvents(panel);
-    _bindSceneTemplateEvents(panel, scene);
+    _bindTypeSectionsEvents(panel, scene);
     _bindTextEditEvents(panel, scene);
     panel.querySelector('.js-edit-save')?.addEventListener('click', () => _doSave(panel));
     _installLockChangeHandlerOnce();
@@ -471,15 +479,17 @@ function renderEditPanel() {
   const isOverlay = p.placement === 'overlay';
 
   /* ─────────────────────────────────────────────────────────────
-     ③ 선택지 표현 섹션 노출 정책 (v0.3 — 옵션 C)
+     ③ 선택지 표현 섹션 노출 정책 (3단계 갱신)
      ─────────────────────────────────────────────────────────────
-     v0.3 명시 모드(text/picturebook/movie)에서는 placement / size /
-     stylePreset / opacity 같은 legacy 컨트롤이 새 _renderScene*
-     렌더 분기에서 무시된다. 사용자가 조작해도 화면에 반영되지 않으므로
-     "가짜 컨트롤"이 됨 → 통째로 숨김.
-     document(보류 모드) 또는 모드 미지정(기존 작품 = legacy) 에서만 노출.
-     섹션 제목/안내에 "기존 모드 전용" 명시. */
-  const isV03Mode = scene.presentationMode === 'text' ||
+     1단계 이후 작품 단위 projectType이 4종 중 하나로 결정되면 legacy
+     placement/size/stylePreset/opacity 컨트롤은 새 _renderScene*에서
+     무시되므로 통째 숨김. 이전 코드에서 사용하던 scene.presentationMode
+     기준 isV03Mode 분기는 더 이상 필요 없음 — 다만 안전을 위해 둘 중 하나만
+     맞아도 v0.3로 인정. */
+  const _ptypeForLegacy = _resolveViewerProjectType();
+  const isV03Project = ['text', 'picturebook', 'movie', 'experience'].includes(_ptypeForLegacy);
+  const isV03Mode = isV03Project ||
+                    scene.presentationMode === 'text' ||
                     scene.presentationMode === 'picturebook' ||
                     scene.presentationMode === 'movie';
   const showLegacyChoiceSection = !isV03Mode;
@@ -568,11 +578,8 @@ function renderEditPanel() {
       <div class="edit-divider"></div>
       ${_textEditHtml(scene)}
 
-      <!-- 【2】 장면 설정 — 레이아웃 + 텍스트 위치
-           (로드맵: 나중에 '모드 전용 편집층'으로 이동할 예정) -->
-      <div class="edit-divider"></div>
-      <h4 class="edit-section-title edit-section-title--major">② 장면 설정</h4>
-      ${_sceneTemplateHtml(scene)}
+      <!-- 【2】 유형별 설정 (3단계: 작품 유형 분기) -->
+      ${_typeSectionsHtml(scene, _ptypeForLegacy)}
 
       ${legacyChoiceSectionHtml}
 
@@ -582,7 +589,7 @@ function renderEditPanel() {
 
   _bindEditActions(panel);
   _bindNavEvents(panel);
-  _bindSceneTemplateEvents(panel, scene);
+  _bindTypeSectionsEvents(panel, scene);
   _bindEditPanelEvents(panel, scene, choice);
   _bindTextEditEvents(panel, scene);
   _installLockChangeHandlerOnce();
@@ -694,6 +701,199 @@ function initEditInteractions() {
     });
 
     _attachDrag(wrap, choiceId, frame);
+  });
+
+  /* W4: 그림책형 그림 중심형 — 본문 글상자 드래그/리사이즈 인터랙션.
+     mockup 부합:
+     · ✥ 가운데 핸들 (또는 본문 영역) → 위치 이동
+     · 4 모서리 ⤡ 핸들 → 크기 조절 (width + height 둘 다)
+     · 제목은 손대지 않음 (고정 — mockup 🔒)
+     좌표는 pb-stage 영역 기준 % (글상자가 그 안에서 절대위치). */
+  frame.querySelectorAll('.js-pb-body-overlay').forEach(overlay => {
+    _attachPbBodyBoxInteractions(overlay, frame);
+  });
+}
+
+/* ─── 그림책형 본문 글상자 인터랙션 (W4) ─────────────────────
+   감상 모드에서는 핸들이 없어서 동작 X. 다듬기 모드만 적용. */
+function _attachPbBodyBoxInteractions(overlay, frame) {
+  /* 위치 기준 컨테이너: pb-stage (그림이 든 상단 80% 영역).
+     글상자는 pb-stage 안에서 left/top/width/height %로 위치. */
+  const stage = overlay.closest('.pb-stage');
+  if (!stage) return;
+
+  /* 현재 장면 + 변경 적용 헬퍼 */
+  const getScene = () => ViewerState.scenes[ViewerState.currentSceneId];
+  const getBox = () => {
+    const s = getScene();
+    if (!s) return null;
+    const cur = (typeof getPicturebookBodyBox === 'function') ? getPicturebookBodyBox(s) : null;
+    /* 깊은 복사 — 직접 ref 수정하면 다음 호출에서 같은 객체. 안전하게 새 객체. */
+    return cur ? { ...cur } : { x: 15, y: 25, width: 55, height: null, backdropOpacity: 0.85 };
+  };
+  const applyBox = (box) => {
+    const s = getScene();
+    if (!s) return;
+    /* 메모리 박기 + DB 저장 큐 — _editText.num 매칭 안 되면 _queueSave 가드에 걸리므로
+       saveSceneText 직접 호출 fallback. 둘 다 시도. */
+    s.picturebookBodyBox = { ...box };
+    if (typeof _queueSave === 'function') {
+      _queueSave(s.num || s.id, { picturebookBodyBox: { ...box } });
+    }
+    /* inline style 직접 갱신 (재렌더 사이 깜빡임 방지) */
+    overlay.style.left  = `${box.x}%`;
+    overlay.style.top   = `${box.y}%`;
+    overlay.style.width = `${box.width}%`;
+    if (typeof box.height === 'number') {
+      overlay.style.height = `${box.height}%`;
+    } else {
+      overlay.style.height = '';
+    }
+    overlay.style.background = `rgba(255,255,255,${box.backdropOpacity})`;
+  };
+
+  /* ── 가운데 ✥ 또는 본문 영역 자체 → 위치 드래그 ── */
+  const moveHandle = overlay.querySelector('.js-pb-body-move');
+  if (moveHandle) {
+    let dragging = false, pid = null;
+    let startX, startY, startBox;
+    let rafPending = false;
+    let lastEvt = null;
+
+    moveHandle.addEventListener('pointerdown', e => {
+      if (!ViewerState.editMode) return;
+      e.preventDefault();
+      e.stopPropagation();
+      dragging = true;
+      pid = e.pointerId;
+      moveHandle.setPointerCapture(pid);
+      overlay.classList.add('pb-body-overlay--moving');
+      startX = e.clientX;
+      startY = e.clientY;
+      startBox = getBox();
+    });
+
+    moveHandle.addEventListener('pointermove', e => {
+      if (!dragging || e.pointerId !== pid) return;
+      e.preventDefault();
+      lastEvt = e;
+      if (rafPending) return;
+      rafPending = true;
+      requestAnimationFrame(() => {
+        rafPending = false;
+        if (!lastEvt || !startBox) return;
+        const stageRect = stage.getBoundingClientRect();
+        const dx = ((lastEvt.clientX - startX) / stageRect.width)  * 100;
+        const dy = ((lastEvt.clientY - startY) / stageRect.height) * 100;
+        const box = { ...startBox };
+        const heightPct = (typeof box.height === 'number') ? box.height : 25;  // 자동일 땐 추정값
+        /* clamp — 글상자가 pb-stage를 벗어나지 않도록 */
+        box.x = Math.max(0, Math.min(100 - box.width,  startBox.x + dx));
+        box.y = Math.max(0, Math.min(100 - heightPct,  startBox.y + dy));
+        box.x = Math.round(box.x * 10) / 10;
+        box.y = Math.round(box.y * 10) / 10;
+        applyBox(box);
+      });
+    });
+
+    const endMove = () => {
+      if (!dragging) return;
+      dragging = false;
+      overlay.classList.remove('pb-body-overlay--moving');
+      if (typeof _flushPendingSave === 'function') _flushPendingSave();
+      /* 다듬기 패널 슬라이더 갱신 — 슬라이더 값이 새 위치 반영되도록 */
+      if (typeof renderEditPanel === 'function') renderEditPanel();
+    };
+    moveHandle.addEventListener('pointerup',     e => { if (e.pointerId === pid) { try{moveHandle.releasePointerCapture(pid);}catch(_){}; endMove(); } });
+    moveHandle.addEventListener('pointercancel', endMove);
+  }
+
+  /* ── 4 모서리 → 크기 리사이즈 ── */
+  overlay.querySelectorAll('.js-pb-body-resize').forEach(handle => {
+    let resizing = false, pid = null;
+    let startX, startY, startBox, corner;
+    let rafPending = false;
+    let lastEvt = null;
+
+    handle.addEventListener('pointerdown', e => {
+      if (!ViewerState.editMode) return;
+      e.preventDefault();
+      e.stopPropagation();
+      resizing = true;
+      pid = e.pointerId;
+      handle.setPointerCapture(pid);
+      overlay.classList.add('pb-body-overlay--resizing');
+      startX = e.clientX;
+      startY = e.clientY;
+      startBox = getBox();
+      corner = handle.dataset.corner;  // 'nw' / 'ne' / 'sw' / 'se'
+      /* height 명시값으로 박기 — null이면 현재 보이는 높이를 % 추정해서 시작값으로 */
+      if (typeof startBox.height !== 'number') {
+        const stageRect = stage.getBoundingClientRect();
+        const overlayRect = overlay.getBoundingClientRect();
+        startBox.height = (overlayRect.height / stageRect.height) * 100;
+      }
+    });
+
+    handle.addEventListener('pointermove', e => {
+      if (!resizing || e.pointerId !== pid) return;
+      e.preventDefault();
+      lastEvt = e;
+      if (rafPending) return;
+      rafPending = true;
+      requestAnimationFrame(() => {
+        rafPending = false;
+        if (!lastEvt || !startBox) return;
+        const stageRect = stage.getBoundingClientRect();
+        const dxPct = ((lastEvt.clientX - startX) / stageRect.width)  * 100;
+        const dyPct = ((lastEvt.clientY - startY) / stageRect.height) * 100;
+        const box = { ...startBox };
+
+        /* 코너별 리사이즈 — 반대편 모서리는 고정.
+           se (남동): width/height 늘림, 위치 그대로
+           sw (남서): height 늘림, x/width는 좌측 끌림
+           ne (북동): width 늘림, y/height는 상단 끌림
+           nw (북서): x/y/width/height 모두 변함 */
+        if (corner === 'se') {
+          box.width  = startBox.width  + dxPct;
+          box.height = startBox.height + dyPct;
+        } else if (corner === 'sw') {
+          box.x      = startBox.x      + dxPct;
+          box.width  = startBox.width  - dxPct;
+          box.height = startBox.height + dyPct;
+        } else if (corner === 'ne') {
+          box.y      = startBox.y      + dyPct;
+          box.width  = startBox.width  + dxPct;
+          box.height = startBox.height - dyPct;
+        } else if (corner === 'nw') {
+          box.x      = startBox.x      + dxPct;
+          box.y      = startBox.y      + dyPct;
+          box.width  = startBox.width  - dxPct;
+          box.height = startBox.height - dyPct;
+        }
+
+        /* clamp — 최소/최대 + stage 안 보장 */
+        box.width  = Math.max(20, Math.min(95, box.width));
+        box.height = Math.max(12, Math.min(90, box.height));
+        box.x      = Math.max(0,  Math.min(100 - box.width,  box.x));
+        box.y      = Math.max(0,  Math.min(100 - box.height, box.y));
+        box.x      = Math.round(box.x * 10) / 10;
+        box.y      = Math.round(box.y * 10) / 10;
+        box.width  = Math.round(box.width * 10) / 10;
+        box.height = Math.round(box.height * 10) / 10;
+        applyBox(box);
+      });
+    });
+
+    const endResize = () => {
+      if (!resizing) return;
+      resizing = false;
+      overlay.classList.remove('pb-body-overlay--resizing');
+      if (typeof _flushPendingSave === 'function') _flushPendingSave();
+      if (typeof renderEditPanel === 'function') renderEditPanel();
+    };
+    handle.addEventListener('pointerup',     e => { if (e.pointerId === pid) { try{handle.releasePointerCapture(pid);}catch(_){}; endResize(); } });
+    handle.addEventListener('pointercancel', endResize);
   });
 }
 
@@ -882,10 +1082,36 @@ function _buttonRowHtml(choice, idx, total) {
   if (len > 60) counterClass += ' edit-btn-counter--over';
   else if (len > 30) counterClass += ' edit-btn-counter--warn';
 
-  /* nextId 표시 — 이번 턴 read-only */
-  const nextLabel = choice && choice.nextId
-    ? `→ 장면 ${escHtml(String(choice.nextId))}`
-    : `<span class="edit-btn-nolink">미연결</span>`;
+  /* nextId 드롭다운 (W2-B-α) — 사용자가 버튼별 분기 연결 편집.
+     ViewerState.scenes에서 모든 장면 목록 가져와 옵션으로 제공.
+     · (미연결) — 빈 값 (현재 미연결이면 selected)
+     · 장면 N — N은 scene.num. 라벨에 제목도 같이 (있으면)
+     · 자기 자신도 옵션에 포함 (사용자 의도 존중) */
+  const currentNext = choice && choice.nextId ? String(choice.nextId) : '';
+  const allScenes = (typeof ViewerState !== 'undefined' && ViewerState.scenes)
+    ? Object.values(ViewerState.scenes) : [];
+  /* num 오름차순 정렬 */
+  const sortedScenes = allScenes.slice().sort((a, b) => {
+    const na = Number(a.num || a.id || 0);
+    const nb = Number(b.num || b.id || 0);
+    return na - nb;
+  });
+  const optionsHtml = sortedScenes.map(s => {
+    const sNum = String(s.num || s.id || '');
+    if (!sNum) return '';
+    const sTitle = String(s.title || '').trim();
+    const labelText = sTitle
+      ? `장면 ${sNum} (${sTitle.length > 12 ? sTitle.slice(0, 12) + '…' : sTitle})`
+      : `장면 ${sNum}`;
+    const sel = sNum === currentNext ? ' selected' : '';
+    return `<option value="${escHtml(sNum)}"${sel}>${escHtml(labelText)}</option>`;
+  }).join('');
+
+  const nextSelectHtml = `
+    <select class="edit-btn-next-select js-edit-btn-next" data-idx="${idx}">
+      <option value=""${currentNext ? '' : ' selected'}>(미연결)</option>
+      ${optionsHtml}
+    </select>`;
 
   /* 1개일 때는 삭제 버튼 숨김 (0개 방지) */
   const removeBtn = total > 1
@@ -910,7 +1136,10 @@ function _buttonRowHtml(choice, idx, total) {
         <span class="${counterClass}">
           <span class="js-edit-btn-len">${len}</span> / 30
         </span>
-        <span class="edit-btn-target">${nextLabel}</span>
+        <span class="edit-btn-target">
+          <span class="edit-btn-next-label">다음 →</span>
+          ${nextSelectHtml}
+        </span>
       </div>
     </div>`;
 }
@@ -1012,7 +1241,28 @@ function _bindButtonsEditEvents(panel, scene) {
     _queueSaveButtons(scene);
     _flushPendingSave();
     /* 패널 재렌더 — 인덱스가 다 바뀌므로 통째로 다시 그림 */
-    renderEditPanel();
+    renderEditPanel();    _scheduleViewerFrameReRender();
+  });
+
+  /* nextId 드롭다운 — 위임 (W2-B-α 신규).
+     사용자가 버튼별 다음 장면 선택. 빈 값(미연결)도 OK.
+     buttons[idx].nextId 갱신 후 _queueSaveButtons로 buttons 전체 저장. */
+  list.addEventListener('change', e => {
+    const sel = e.target.closest('.js-edit-btn-next');
+    if (!sel) return;
+    if (!_editText.editable) return;
+
+    const idx = parseInt(sel.dataset.idx, 10);
+    if (isNaN(idx) || !scene.choices[idx]) return;
+
+    const val = sel.value || '';
+    /* 빈 값 = 미연결 (null로 저장). buildButtonsPatchForSave가 nextId 없으면 키 자체 제외 */
+    scene.choices[idx].nextId = val || null;
+    /* nextNum도 함께 갱신 — preview 화살표 같은 곳에서 참고 */
+    scene.choices[idx].nextNum = val ? Number(val) : null;
+
+    _queueSaveButtons(scene);
+    _flushPendingSave();
     _scheduleViewerFrameReRender();
   });
 
@@ -1064,12 +1314,432 @@ function _queueSaveButtons(scene) {
 }
 
 /* ================================================================
+   ★ 유형별 다듬기 섹션 (3단계 신규)
+   ─────────────────────────────────────────────────────────────
+   원칙:
+   · 기존 edit shell(액션바/네비/제목·본문·선택지/저장 버튼)은 그대로
+   · 가운데 ②번 영역(=장면 설정)을 작품 유형별로 분기
+   · scene 단위 모드 카드(_modePickerHtml)와 legacy 레이아웃 토글
+     (_sceneTemplateHtml의 layoutTemplate/textAnchor)은 1단계 이후 의미 없어짐
+     → 호출 위치를 _typeSectionsHtml로 교체. 함수 자체는 dead code로 남김
+   · 사용자 원칙: 새 디자인 발명 X — 기존 .edit-row / .edit-toggle-group 톤 그대로
+
+   설계문서 §3-1 기준:
+   · text: 제목/본문/선택지 + 글자박스 자유도 (3단계는 진입점만)
+   · picturebook: 이미지 업로드 + 바로 그리기 + 하위 모드 (분할형/그림 중심형)
+   · movie: 미디어 업로드 + 본문 사용 ON/OFF + 미디어 타입 표시
+   · experience: 배경 이미지 + 연결 오브젝트 진입점 (정식 모델 향후)
+   ================================================================ */
+function _typeSectionsHtml(scene, ptype) {
+  switch (ptype) {
+    case 'text':       return _typeSectionTextHtml(scene);
+    case 'picturebook':return _typeSectionPicturebookHtml(scene);
+    case 'movie':      return _typeSectionMovieHtml(scene);
+    case 'experience': return _typeSectionExperienceHtml(scene);
+    default:           return _typeSectionPicturebookHtml(scene);
+  }
+}
+
+/* ── 1) 텍스트형 전용 섹션 ─────────────────────────────────────
+   기준 노출: 글자박스 편집(폰트/크기/색/굵기), 효과, 테마
+   3단계 범위: 진입점 자리만 잡고 "추후 추가" 안내. 미구현 기능은 발명 안 함. */
+function _typeSectionTextHtml(scene) {
+  return `
+    <div class="edit-divider"></div>
+    <h4 class="edit-section-title edit-section-title--major">② 텍스트형 설정</h4>
+    <div class="edit-section-hint">
+      텍스트형은 글이 주인공입니다. 이미지·미디어 슬롯은 노출하지 않습니다.
+    </div>
+
+    <div class="edit-row edit-row--placeholder">
+      <label class="edit-label">글자 스타일</label>
+      <div class="edit-section-note">🅰 폰트 / 크기 / 색 / 굵기 — 추후 추가</div>
+    </div>
+
+    <div class="edit-row edit-row--placeholder">
+      <label class="edit-label">효과</label>
+      <div class="edit-section-note">✨ 장면 진입 / 본문 표시 / 선택지 등장 효과 — 추후 추가</div>
+    </div>
+
+    <div class="edit-row edit-row--placeholder">
+      <label class="edit-label">테마</label>
+      <div class="edit-section-note">🎨 종이책형 · 노트형 · 카드형 · 문서형 등 8종 — 추후 추가</div>
+    </div>`;
+}
+
+/* ── 2) 그림책형 전용 섹션 ─────────────────────────────────────
+   mockup: a_clean_ui_screenshot_mockup_of_a_digital_storyb.png 기준
+   포함:
+   · 하위 모드 토글 (분할형 / 그림 중심형)
+   · 이미지 업로드 진입점 / 바로 그리기 진입점
+   · 그림 중심형 전용: 본문 글상자 / 배경막 (3단계는 진입점만) */
+function _typeSectionPicturebookHtml(scene) {
+  /* 하위 모드 — scene.picturebookSubmode 명시 필드 (3단계 신규) */
+  const sub = (scene.picturebookSubmode === 'imageCenter') ? 'imageCenter' : 'split';
+  const isImageCenter = sub === 'imageCenter';
+  const hasImage = !!(scene.imageData || scene.imageUrl);
+
+  return `
+    <div class="edit-divider"></div>
+    <h4 class="edit-section-title edit-section-title--major">② 그림책형 설정</h4>
+
+    <div class="edit-row">
+      <label class="edit-label">하위 모드</label>
+      <div class="edit-toggle-group">
+        <button type="button"
+          class="edit-toggle js-pb-submode ${sub === 'split' ? 'active' : ''}"
+          data-val="split">📖 분할형</button>
+        <button type="button"
+          class="edit-toggle js-pb-submode ${sub === 'imageCenter' ? 'active' : ''}"
+          data-val="imageCenter">🎨 그림 중심형</button>
+      </div>
+      <div class="edit-section-hint">
+        분할형: 위 그림 60 / 아래 본문·선택지 40 · A4 페이지 컨테이너 가운데<br>
+        그림 중심형: 그림 80 / 선택지 20 · 본문은 그림 위 글상자
+      </div>
+    </div>
+
+    <div class="edit-row">
+      <label class="edit-label">장면 그림</label>
+      <div class="edit-pb-image-row">
+        <div class="edit-pb-image-status">
+          ${hasImage
+            ? `🖼 <strong>그림 있음</strong> — 미리보기에서 확인`
+            : `<span class="edit-section-note">아직 그림이 없어요</span>`}
+        </div>
+        <div class="edit-toggle-group">
+          <button type="button" class="edit-toggle js-pb-image-upload">🖼 이미지 업로드</button>
+          <button type="button" class="edit-toggle js-pb-image-draw">✏️ 바로 그리기</button>
+        </div>
+      </div>
+      <div class="edit-section-hint">
+        업로드/바로 그리기 정식 진입점은 추후 연결됩니다 (3단계는 진입 구조 분기까지).
+      </div>
+    </div>
+
+    ${isImageCenter ? (() => {
+      /* W4: 본문 글상자 정식 컨트롤 — 슬라이더 5종 (X / Y / W / H / 배경막).
+         viewer 화면에서 직접 드래그/리사이즈로도 조절 가능 (이번 단계 W4 통합). */
+      const bb = (typeof getPicturebookBodyBox === 'function')
+        ? getPicturebookBodyBox(scene)
+        : { x: 15, y: 25, width: 55, height: null, backdropOpacity: 0.85 };
+      /* 높이 슬라이더 — null이면 'auto' (콘텐츠 자동), 값이 있으면 그 값 */
+      const isHeightAuto = (typeof bb.height !== 'number');
+      const heightVal = isHeightAuto ? 30 : bb.height;
+      return `
+    <div class="edit-row">
+      <label class="edit-label">본문 글상자 (그림 중심형)</label>
+      <div class="edit-pb-bodybox-grid">
+        <div class="edit-pb-bodybox-row">
+          <span class="edit-pb-bodybox-name">가로 위치 (X)</span>
+          <input type="range" class="edit-range js-pb-bb-x"
+            min="0" max="80" step="1" value="${bb.x}">
+          <span class="edit-pb-bodybox-val js-pb-bb-x-val">${bb.x}%</span>
+        </div>
+        <div class="edit-pb-bodybox-row">
+          <span class="edit-pb-bodybox-name">세로 위치 (Y)</span>
+          <input type="range" class="edit-range js-pb-bb-y"
+            min="0" max="80" step="1" value="${bb.y}">
+          <span class="edit-pb-bodybox-val js-pb-bb-y-val">${bb.y}%</span>
+        </div>
+        <div class="edit-pb-bodybox-row">
+          <span class="edit-pb-bodybox-name">글상자 폭 (W)</span>
+          <input type="range" class="edit-range js-pb-bb-w"
+            min="20" max="95" step="1" value="${bb.width}">
+          <span class="edit-pb-bodybox-val js-pb-bb-w-val">${bb.width}%</span>
+        </div>
+        <div class="edit-pb-bodybox-row">
+          <span class="edit-pb-bodybox-name">글상자 높이 (H)</span>
+          <input type="range" class="edit-range js-pb-bb-h"
+            min="12" max="90" step="1" value="${heightVal}"
+            ${isHeightAuto ? 'data-auto="true"' : ''}>
+          <span class="edit-pb-bodybox-val js-pb-bb-h-val">${isHeightAuto ? '자동' : heightVal + '%'}</span>
+        </div>
+        <div class="edit-pb-bodybox-row">
+          <span class="edit-pb-bodybox-name">배경막 강도</span>
+          <input type="range" class="edit-range js-pb-bb-op"
+            min="0" max="100" step="5" value="${Math.round(bb.backdropOpacity * 100)}">
+          <span class="edit-pb-bodybox-val js-pb-bb-op-val">${Math.round(bb.backdropOpacity * 100)}%</span>
+        </div>
+      </div>
+      <div class="edit-toggle-group" style="margin-top:6px;">
+        <button type="button" class="edit-toggle js-pb-bb-reset">기본값으로</button>
+        <button type="button" class="edit-toggle js-pb-bb-auto-h" ${isHeightAuto ? 'disabled' : ''}>높이 자동</button>
+      </div>
+      <div class="edit-section-hint">
+        본문 글상자가 그림 위에서 어디에 어떤 크기로 떠 있을지 조절합니다.
+        ✥ 가운데 핸들로 위치 이동, 모서리 ⤡로 크기 조절도 가능합니다.
+        "높이 자동"은 본문 길이에 맞춰 자동 조절합니다.
+      </div>
+    </div>`;
+    })() : ''}
+
+    <div class="edit-row edit-row--placeholder">
+      <label class="edit-label">글자 스타일</label>
+      <div class="edit-section-note">🅰 폰트 / 크기 / 색 / 굵기 / 부분 스타일링 — 추후 추가</div>
+    </div>`;
+}
+
+/* ── 3) 무비형 전용 섹션 ───────────────────────────────────────
+   포함:
+   · 미디어 타입 배지 + 업로드 진입점
+   · 본문 사용 ON/OFF (scene.bodyEnabled 명시 필드 — 3단계 신규) */
+function _typeSectionMovieHtml(scene) {
+  /* 미디어 타입 임시 판정 — sceneRenderer._buildMovieCardContent와 동일 정책.
+     향후 정식 movieData 모델 들어오면 둘 다 갱신 필요. */
+  const hasMovie = scene.movieData &&
+                   (typeof scene.movieData === 'object' || typeof scene.movieData === 'string');
+  const hasImage = !!scene.imageData;
+  let mediaLabel;
+  if (hasMovie)      mediaLabel = '🎬 영상';
+  else if (hasImage) mediaLabel = '🖼 이미지';
+  else               mediaLabel = '⚪ 미디어 없음';
+
+  /* 본문 사용 ON/OFF — scene.bodyEnabled 명시 필드 (3단계 신규).
+     undefined/null이면 body 존재 여부로 fallback (2단계까지의 임시 판정과 일관).
+     사용자가 토글하면 명시값으로 박힘 → 빈 본문이라도 ON 가능. */
+  const bodyEnabled = (scene.bodyEnabled === true) ? true
+                    : (scene.bodyEnabled === false) ? false
+                    : !!(scene.body && String(scene.body).trim());
+
+  return `
+    <div class="edit-divider"></div>
+    <h4 class="edit-section-title edit-section-title--major">② 무비형 설정</h4>
+
+    <div class="edit-row">
+      <label class="edit-label">미디어</label>
+      <div class="edit-movie-media-row">
+        <span class="edit-movie-media-badge">${mediaLabel}</span>
+        <button type="button" class="edit-toggle js-movie-media-upload">
+          🎬 미디어 업로드/교체
+        </button>
+      </div>
+      <div class="edit-section-hint">
+        장면당 영상 1개 (최대 1분). mp4 권장. 업로드 정식 흐름은 추후 연결.
+      </div>
+    </div>
+
+    <div class="edit-row">
+      <label class="edit-label">본문 사용</label>
+      <div class="edit-toggle-group">
+        <button type="button"
+          class="edit-toggle js-movie-body-enabled ${bodyEnabled ? 'active' : ''}"
+          data-val="on">📝 본문 사용</button>
+        <button type="button"
+          class="edit-toggle js-movie-body-enabled ${!bodyEnabled ? 'active' : ''}"
+          data-val="off">— 본문 없음</button>
+      </div>
+      <div class="edit-section-hint">
+        ON: 영상 후 본문 + 선택지 표시 / OFF: 영상 후 선택지만.
+        설정은 이 장면 단위입니다.
+      </div>
+    </div>`;
+}
+
+/* ── 4) 체험전시형 전용 섹션 ────────────────────────────────────
+   3단계 현실 목표 (사용자 결정): 완성보다 전용 편집 진입 구조 분기까지만.
+   포함:
+   · 배경 이미지 슬롯 진입점
+   · 연결 오브젝트 추가 진입점 (정식 connectObjects 모델 추후)
+   주의: connectObjects 데이터 모델 미구현 — 임시 집계는 sceneRenderer 카드 표시만. */
+function _typeSectionExperienceHtml(scene) {
+  const hasBg = !!(scene.imageData || scene.imageUrl);
+  /* 임시 연결 오브젝트 집계 — sceneRenderer._buildExperienceCardContent와 동일 정책.
+     정식 모델(scene.connectObjects)이 들어오면 buttons.length 대신 그걸 사용. */
+  const buttonsList = Array.isArray(scene.buttons) ? scene.buttons : [];
+  const tempCount = buttonsList.length;
+
+  return `
+    <div class="edit-divider"></div>
+    <h4 class="edit-section-title edit-section-title--major">② 체험전시형 설정</h4>
+    <div class="edit-section-hint">
+      이미지 위에 연결 오브젝트(버튼/화살표/깃발/다음/뒤로가기/처음으로/투명 클릭 영역)를
+      배치해 참여자가 직접 눌러 탐색하게 만드는 모드입니다.
+    </div>
+
+    <div class="edit-row">
+      <label class="edit-label">배경 이미지</label>
+      <div class="edit-pb-image-row">
+        <div class="edit-pb-image-status">
+          ${hasBg
+            ? `🖼 <strong>배경 있음</strong>`
+            : `<span class="edit-section-note">아직 배경이 없어요</span>`}
+        </div>
+        <div class="edit-toggle-group">
+          <button type="button" class="edit-toggle js-exp-bg-upload">🖼 배경 업로드/교체</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="edit-row">
+      <label class="edit-label">연결 오브젝트 (${tempCount}개)</label>
+      <div class="edit-section-hint">
+        ※ 임시 집계: 현재 buttons[] 기반으로 표시 중입니다.
+        정식 connectObjects 데이터 모델은 향후 단계에서 도입됩니다.
+      </div>
+      <div class="edit-toggle-group" style="flex-wrap:wrap;">
+        <button type="button" class="edit-toggle js-exp-obj-add" data-val="button">🔘 버튼</button>
+        <button type="button" class="edit-toggle js-exp-obj-add" data-val="arrow">➡ 화살표</button>
+        <button type="button" class="edit-toggle js-exp-obj-add" data-val="flag">🚩 깃발</button>
+        <button type="button" class="edit-toggle js-exp-obj-add" data-val="next">⏭ 다음</button>
+        <button type="button" class="edit-toggle js-exp-obj-add" data-val="back">⏮ 뒤로가기</button>
+        <button type="button" class="edit-toggle js-exp-obj-add" data-val="home">🏠 처음으로</button>
+      </div>
+      <div class="edit-section-hint">
+        오브젝트 추가/위치/크기 정식 편집은 향후 단계에서 연결됩니다 (3단계는 진입 구조 분기까지).
+      </div>
+    </div>`;
+}
+
+/* ── 유형별 섹션 이벤트 바인딩 (3단계 신규) ─────────────────────
+   현재 토글되는 명시 필드는 무비형 bodyEnabled와 그림책형 picturebookSubmode 둘.
+   나머지는 진입점만 — 클릭 시 안내 (3단계 범위에서 정식 연결 안 함). */
+function _bindTypeSectionsEvents(panel, scene) {
+  if (!panel || !scene) return;
+  const ptype = _resolveViewerProjectType();
+
+  if (ptype === 'picturebook') {
+    panel.querySelectorAll('.js-pb-submode').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (!_editText.editable) return;
+        const val = btn.dataset.val === 'imageCenter' ? 'imageCenter' : 'split';
+        scene.picturebookSubmode = val;
+        _queueSave(scene.num || scene.id, { picturebookSubmode: val });
+        _flushPendingSave();
+        renderEditPanel();
+        _scheduleViewerFrameReRender();
+      });
+    });
+    panel.querySelectorAll('.js-pb-image-upload, .js-pb-image-draw').forEach(btn => {
+      btn.addEventListener('click', () => {
+        alert('업로드/바로 그리기 정식 흐름은 다음 단계에서 연결됩니다.');
+      });
+    });
+
+    /* W4-A: 본문 글상자 슬라이더 (그림 중심형 전용 — placeholder가 노출 안 되면 element 없음) ─
+       사용자가 슬라이더 만지는 동안 viewer 화면 즉시 반영 (input 이벤트).
+       값 확정(change 이벤트)에서 _queueSave + _flushPendingSave.
+       높이는 본문에 따라 auto → height 슬라이더 없음 (의도). */
+    const pbBb = (typeof getPicturebookBodyBox === 'function')
+      ? getPicturebookBodyBox(scene)
+      : { x: 15, y: 25, width: 55, backdropOpacity: 0.85 };
+    const _ensurePbBb = () => {
+      if (!scene.picturebookBodyBox || typeof scene.picturebookBodyBox !== 'object') {
+        scene.picturebookBodyBox = { ...pbBb };
+      }
+      return scene.picturebookBodyBox;
+    };
+
+    const _pbBbBindRange = (selector, valSelector, key, valFormat) => {
+      const range = panel.querySelector(selector);
+      const valEl = panel.querySelector(valSelector);
+      if (!range) return;
+      range.addEventListener('input', () => {
+        if (!_editText.editable) return;
+        const bb = _ensurePbBb();
+        const numeric = Number(range.value);
+        bb[key] = (key === 'backdropOpacity') ? (numeric / 100) : numeric;
+        if (valEl) valEl.textContent = valFormat(numeric);
+        _scheduleViewerFrameReRender();   /* 즉시 반영 */
+      });
+      range.addEventListener('change', () => {
+        if (!_editText.editable) return;
+        const bb = _ensurePbBb();
+        _queueSave(scene.num || scene.id, { picturebookBodyBox: { ...bb } });
+        _flushPendingSave();
+      });
+    };
+    _pbBbBindRange('.js-pb-bb-x',  '.js-pb-bb-x-val',  'x',               (n) => `${n}%`);
+    _pbBbBindRange('.js-pb-bb-y',  '.js-pb-bb-y-val',  'y',               (n) => `${n}%`);
+    _pbBbBindRange('.js-pb-bb-w',  '.js-pb-bb-w-val',  'width',           (n) => `${n}%`);
+    _pbBbBindRange('.js-pb-bb-op', '.js-pb-bb-op-val', 'backdropOpacity', (n) => `${n}%`);
+
+    /* W4: 높이 슬라이더 — 명시값으로 박힐 때마다 height 갱신.
+       사용자가 "높이 자동" 클릭하면 height를 null로 되돌림 (콘텐츠 자동). */
+    const hRange = panel.querySelector('.js-pb-bb-h');
+    const hValEl = panel.querySelector('.js-pb-bb-h-val');
+    if (hRange) {
+      hRange.addEventListener('input', () => {
+        if (!_editText.editable) return;
+        const bb = _ensurePbBb();
+        const numeric = Number(hRange.value);
+        bb.height = numeric;
+        hRange.removeAttribute('data-auto');
+        if (hValEl) hValEl.textContent = `${numeric}%`;
+        _scheduleViewerFrameReRender();
+      });
+      hRange.addEventListener('change', () => {
+        if (!_editText.editable) return;
+        const bb = _ensurePbBb();
+        _queueSave(scene.num || scene.id, { picturebookBodyBox: { ...bb } });
+        _flushPendingSave();
+      });
+    }
+
+    panel.querySelector('.js-pb-bb-auto-h')?.addEventListener('click', () => {
+      if (!_editText.editable) return;
+      const bb = _ensurePbBb();
+      bb.height = null;
+      _queueSave(scene.num || scene.id, { picturebookBodyBox: { ...bb } });
+      _flushPendingSave();
+      renderEditPanel();
+      _scheduleViewerFrameReRender();
+    });
+
+    panel.querySelector('.js-pb-bb-reset')?.addEventListener('click', () => {
+      if (!_editText.editable) return;
+      scene.picturebookBodyBox = { x: 15, y: 25, width: 55, height: null, backdropOpacity: 0.85 };
+      _queueSave(scene.num || scene.id, { picturebookBodyBox: { ...scene.picturebookBodyBox } });
+      _flushPendingSave();
+      renderEditPanel();          /* 슬라이더 값 갱신 */
+      _scheduleViewerFrameReRender();
+    });
+  }
+
+  if (ptype === 'movie') {
+    panel.querySelectorAll('.js-movie-body-enabled').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (!_editText.editable) return;
+        const enabled = btn.dataset.val === 'on';
+        scene.bodyEnabled = enabled;
+        _queueSave(scene.num || scene.id, { bodyEnabled: enabled });
+        _flushPendingSave();
+        renderEditPanel();
+        _scheduleViewerFrameReRender();
+      });
+    });
+    panel.querySelectorAll('.js-movie-media-upload').forEach(btn => {
+      btn.addEventListener('click', () => {
+        alert('미디어 업로드 정식 흐름은 다음 단계에서 연결됩니다.');
+      });
+    });
+  }
+
+  if (ptype === 'experience') {
+    panel.querySelectorAll('.js-exp-bg-upload').forEach(btn => {
+      btn.addEventListener('click', () => {
+        alert('배경 업로드 정식 흐름은 다음 단계에서 연결됩니다.');
+      });
+    });
+    panel.querySelectorAll('.js-exp-obj-add').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const t = btn.dataset.val || '?';
+        alert('연결 오브젝트 추가(' + t + ') 정식 편집은 다음 단계에서 연결됩니다.');
+      });
+    });
+  }
+}
+
+/* ================================================================
    장면 template override
    ─────────────────────────────────────────────────────────────
    v0.3 명시 모드(text/picturebook/movie)에서는 모드가 곧 레이아웃을 결정
    하므로 "이 장면 레이아웃"(layoutTemplate)과 "텍스트 위치"(textAnchor)는
    설계 충돌이라 숨긴다. legacy(document/미지정)에서만 노출 + "기존 모드 전용" 표시.
    모드 카드(_modePickerHtml)는 모든 모드에서 항상 노출.
+   ⚠ 3단계 이후: 작품 단위 projectType 도입으로 _modePickerHtml + legacy
+      layoutTemplate/textAnchor는 호출 위치에서 빠짐. _sceneTemplateHtml 자체는
+      dead code로 남김 (사용자 원칙: shell 유지).
    ================================================================ */
 function _sceneTemplateHtml(scene) {
   const isV03Mode = scene.presentationMode === 'text' ||

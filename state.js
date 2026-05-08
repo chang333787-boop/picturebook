@@ -11,6 +11,16 @@ let dbRef    = null;
 let isRemote = false;
 let nextNum  = 1;
 
+/* ── 작품 유형 (1단계: project-level type) ──────────────────────
+   설계문서 §3-1: 작품 만들기 첫 질문 = 어떤 작품을 만들까요?
+   4종 고정. 작품 생성 시 결정, 생성 후 변경은 1차에서 막음 (UI 미노출).
+   ─────────────────────────────────────────────────────────────
+   브랜치/다듬기/뷰어 구조를 통째로 결정하는 상위 분기값.
+   2~4단계에서 sceneRenderer / viewer-edit / viewer-render가 이 값으로 분기.
+   ───────────────────────────────────────────────────────────── */
+const PROJECT_TYPES = ['text', 'picturebook', 'movie', 'experience'];
+const DEFAULT_PROJECT_TYPE = 'picturebook';   // 점검 2 결정: fallback
+
 /* ── 프로젝트 메타 (viewer-meta 경로와 매칭) ──
    구조 개편 1차에서 viewer 쪽이 쓰고 있는 cover/entry/replay 필드의
    maker 쪽 로컬 캐시. 프로젝트 설정 UI에서 읽고 쓰는 원본.
@@ -18,6 +28,7 @@ let nextNum  = 1;
    null인 항목은 아직 명시 저장되지 않음 → projectSettings.js가
    start scene에서 기본값을 계산해 UI 초기값으로 사용. */
 let projectMeta = {
+  projectType:    DEFAULT_PROJECT_TYPE,  // 1단계 신규 — 작품 유형
   coverTitle:     null,
   coverImageData: null,
   entrySceneId:   null,

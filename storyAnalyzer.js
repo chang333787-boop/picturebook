@@ -74,23 +74,58 @@ function findAllRoutes(startNum = null) {
 
     if (s.type === 'ending') { routes.push(newPath); return; }
 
-    const cnt  = s.choiceCount || 2;
-    const hasA = s.nextA && scenes[s.nextA];
-    const hasB = s.nextB && scenes[s.nextB];
-    const brokenA = s.nextA && !scenes[s.nextA];
-    const brokenB = s.nextB && !scenes[s.nextB];
-
-    if (cnt === 1) {
-      if (hasA) dfs(Number(s.nextA), [...newPath, { choice: '→', choiceLabel: '' }], visitedInPath);
-      else if (brokenA) routes.push([...newPath, { broken: true, brokenNum: s.nextA }]);
-      else      routes.push(newPath);   // 다음 장면 없음 (엔딩 아님)
+    /* 한 장면의 모든 분기를 buttons[] 또는 legacy nextA/B에서 추출 (B-단계 N개 처리).
+       각 항목: { idx, portChar, label, nextNum (있으면), broken (없거나 잘림) } */
+    const branches = [];
+    const buttonsList = Array.isArray(s.buttons) ? s.buttons : [];
+    if (buttonsList.length > 0) {
+      /* 새 구조: buttons[] 우선 — 최대 6개 */
+      buttonsList.slice(0, 6).forEach((b, i) => {
+        if (!b) return;
+        const portChar = String.fromCharCode(65 + i);
+        const label = (b.label && b.label.trim()) ? b.label : `선택지 ${portChar}`;
+        if (b.nextId) {
+          if (scenes[b.nextId]) branches.push({ portChar, label, nextNum: b.nextId });
+          else                  branches.push({ portChar, label, broken: b.nextId });
+        }
+        /* nextId 없으면 미연결 — branches에 추가 안 함 (감상에서 안 보임) */
+      });
     } else {
-      if (hasA) dfs(Number(s.nextA), [...newPath, { choice: 'A', choiceLabel: s.choiceA || '선택지 A' }], visitedInPath);
-      else if (brokenA) routes.push([...newPath, { choice: 'A', choiceLabel: s.choiceA || '선택지 A' }, { broken: true, brokenNum: s.nextA }]);
-      if (hasB) dfs(Number(s.nextB), [...newPath, { choice: 'B', choiceLabel: s.choiceB || '선택지 B' }], visitedInPath);
-      else if (brokenB) routes.push([...newPath, { choice: 'B', choiceLabel: s.choiceB || '선택지 B' }, { broken: true, brokenNum: s.nextB }]);
-      if (!hasA && !hasB && !brokenA && !brokenB) routes.push(newPath);
+      /* legacy: nextA/B + choiceCount */
+      const cnt  = s.choiceCount || 2;
+      const hasA = s.nextA && scenes[s.nextA];
+      const brokenA = s.nextA && !scenes[s.nextA];
+      if (cnt === 1) {
+        if (hasA) branches.push({ portChar: '→', label: '', nextNum: s.nextA });
+        else if (brokenA) branches.push({ portChar: '→', label: '', broken: s.nextA });
+      } else {
+        if (hasA) branches.push({ portChar: 'A', label: s.choiceA || '선택지 A', nextNum: s.nextA });
+        else if (brokenA) branches.push({ portChar: 'A', label: s.choiceA || '선택지 A', broken: s.nextA });
+        const hasB = s.nextB && scenes[s.nextB];
+        const brokenB = s.nextB && !scenes[s.nextB];
+        if (hasB) branches.push({ portChar: 'B', label: s.choiceB || '선택지 B', nextNum: s.nextB });
+        else if (brokenB) branches.push({ portChar: 'B', label: s.choiceB || '선택지 B', broken: s.nextB });
+      }
     }
+
+    if (branches.length === 0) {
+      /* 다음 장면 없음 (엔딩 아닌데 분기도 없음) */
+      routes.push(newPath);
+      return;
+    }
+
+    branches.forEach(br => {
+      if (br.broken) {
+        routes.push([...newPath,
+          { choice: br.portChar, choiceLabel: br.label },
+          { broken: true, brokenNum: br.broken },
+        ]);
+      } else if (br.nextNum) {
+        dfs(Number(br.nextNum),
+          [...newPath, { choice: br.portChar, choiceLabel: br.label }],
+          visitedInPath);
+      }
+    });
   }
   dfs(Number(startNum), [], new Set());
   return routes;

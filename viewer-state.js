@@ -10,6 +10,13 @@ const ViewerState = {
     teamName: '',
     classId:  null,      // v2 경로용 — DATA_PATH_VERSION='v2'일 때만 설정
     isPublic: false,     // 공개 정책 — viewer-meta/isPublic 기준, 기본 비공개
+
+    /* ── 작품 유형 (1단계: project-level type) ──
+       4종 고정 — text/picturebook/movie/experience
+       2~4단계에서 viewer-render가 이 값으로 분기.
+       legacy 작품(viewer-meta에 projectType 없음)은 'picturebook' fallback. */
+    projectType: 'picturebook',
+
     mode: 'story',       // 'story' | 'explore' | 'hybrid'
     theme: 'default',    // 'default' | 'fairybook' | 'explore'
     template: 'full-image', // 'full-image' | 'text-page' | 'map-layout'

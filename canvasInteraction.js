@@ -84,17 +84,54 @@ function toggleGroupMove() {
 
 function getConnectedNums(startNum) {
   const visited = new Set();
-  const queue   = [startNum];
+  /* 모든 num을 String으로 일관 처리 — visited Set이 1과 '1'을 다른 키로 보지 않도록.
+     scenes 객체의 key는 어차피 string. */
+  const queue   = [String(startNum)];
+
+  /* W2-B-β: 한 장면의 모든 next 대상 num 수집.
+     buttons[].nextId 우선, 없으면 nextA/nextB fallback (legacy 호환). */
+  function _outgoingNums(s) {
+    if (!s) return [];
+    const out = [];
+    if (Array.isArray(s.buttons) && s.buttons.length > 0) {
+      s.buttons.forEach(b => {
+        if (b && b.nextId) out.push(String(b.nextId));
+      });
+    } else {
+      if (s.nextA) out.push(String(s.nextA));
+      if (s.nextB) out.push(String(s.nextB));
+    }
+    return out;
+  }
+
+  /* 한 장면이 num을 next로 가리키는지 체크 (역방향 탐색용) */
+  function _pointsToNum(sc, num) {
+    if (!sc) return false;
+    const target = String(num);
+    if (Array.isArray(sc.buttons) && sc.buttons.length > 0) {
+      return sc.buttons.some(b => b && String(b.nextId || '') === target);
+    }
+    return String(sc.nextA || '') === target || String(sc.nextB || '') === target;
+  }
+
   while (queue.length) {
     const num = queue.shift();
     if (visited.has(num)) continue;
     visited.add(num);
     const s = scenes[num];
     if (!s) continue;
-    if (s.nextA && scenes[s.nextA]) queue.push(s.nextA);
-    if (s.nextB && scenes[s.nextB]) queue.push(s.nextB);
+
+    /* 정방향: 이 장면의 next 대상들 */
+    _outgoingNums(s).forEach(nextNum => {
+      if (scenes[nextNum] && !visited.has(nextNum)) queue.push(nextNum);
+    });
+
+    /* 역방향: 이 장면을 가리키는 모든 장면 */
     Object.values(scenes).forEach(sc => {
-      if (sc.nextA === num || sc.nextB === num) queue.push(sc.num);
+      if (_pointsToNum(sc, num)) {
+        const scNum = String(sc.num);
+        if (!visited.has(scNum)) queue.push(scNum);
+      }
     });
   }
   return [...visited];

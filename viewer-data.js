@@ -73,6 +73,13 @@ async function loadTeamData(teamName, classId = null, fromMaker = false) {
   const metaSnap = await db.ref(`${basePath}/viewer-meta`).once('value');
   const meta     = metaSnap.val();
   if (meta) {
+    /* 작품 유형 (1단계 신규) — 화이트리스트 검증, 없거나 잘못된 값이면 'picturebook' fallback */
+    const VALID_PTYPES = ['text', 'picturebook', 'movie', 'experience'];
+    if (typeof meta.projectType === 'string' && VALID_PTYPES.includes(meta.projectType)) {
+      ViewerState.project.projectType = meta.projectType;
+    }
+    /* else: ViewerState.project.projectType은 viewer-state.js의 기본값 'picturebook' 유지 */
+
     if (meta.mode)     ViewerState.project.mode     = meta.mode;
     if (meta.theme)    ViewerState.project.theme    = meta.theme;
     if (meta.template) ViewerState.project.template = meta.template;
@@ -158,6 +165,10 @@ async function saveSceneText(num, fields) {
     'buttons',
     /* maker 호환 동기화 (옵션 2) — buttons 저장 시 함께 patch */
     'choiceA', 'choiceB', 'choiceCount',
+    'nextA', 'nextB',     /* W2-B-α: nextId 변경 시 maker canvas 화살표 정합성 */
+    'bodyEnabled',        /* 3단계: 무비형 본문 사용 ON/OFF (scene 단위 명시 필드) */
+    'picturebookSubmode', /* 3단계: 그림책형 하위 모드 (split | imageCenter) */
+    'picturebookBodyBox', /* W4-A: 그림책형 본문 글상자 위치/폭/배경막 (그림 중심형 전용) */
   ];
   const patch = {};
   ALLOWED.forEach(k => {
@@ -295,6 +306,30 @@ function adaptScenes(rawScenes) {
          · choiceReveal: 'end'(영상 종료 후 노출) | 'always'(항상 표시)
          movie 모드 아닐 땐 의미 없음 — 렌더 영향 없음. */
       movieData: _normalizeMovieData(raw.movieData),
+
+      /* ── 무비형 본문 사용 ON/OFF (3단계 신규) ──
+         scene 단위 명시 필드. true/false만 인정. undefined/null이면 viewer-edit
+         쪽에서 body 존재 여부로 fallback (sceneRenderer 카드 표시와 동일 정책). */
+      bodyEnabled: (raw.bodyEnabled === true) ? true
+                 : (raw.bodyEnabled === false) ? false
+                 : null,
+
+      /* ── 그림책형 하위 모드 (3단계 신규) ──
+         '분할형'(split) | '그림 중심형'(imageCenter). 기본은 분할형. */
+      picturebookSubmode: (raw.picturebookSubmode === 'imageCenter') ? 'imageCenter'
+                        : (raw.picturebookSubmode === 'split') ? 'split'
+                        : null,
+
+      /* ── 그림책형 본문 글상자 (W4-A 신규) ──
+         그림 중심형(imageCenter)에서 본문이 그림 위에 떠있는 글상자.
+         사용자가 위치 / 폭 / 배경막 강도를 조절. 높이는 본문에 따라 auto.
+         값 범위 — 모두 안전하게 clamp:
+         · x  : 0~80 (% — 글상자 좌측 위치)
+         · y  : 0~80 (% — 글상자 상단 위치)
+         · width : 20~95 (% — 글상자 폭)
+         · backdropOpacity : 0~1 (배경막 강도. 0=투명, 1=완전 불투명)
+         null이면 viewer-render에서 mockup 기본값 사용 (x:15 y:25 w:55 op:0.85). */
+      picturebookBodyBox: _normalizePbBodyBox(raw.picturebookBodyBox),
 
       /* 위치 (maker 캔버스 좌표 — viewer에서는 표시용으로만) */
       x: raw.x || 0,
@@ -609,6 +644,48 @@ function getMovieData(scene) {
   return scene.movieData || _normalizeMovieData(null);
 }
 
+/* ── 그림책형 본문 글상자 (W4-A 신규) ────────────────────────────
+   사용자가 그림 중심형에서 본문 글상자의 위치/폭/배경막 강도를 조절한 값.
+   값 범위 안전 clamp + 기본값 (mockup 기준).
+   null/undefined/잘못된 형식이면 PB_BODY_BOX_DEFAULTS 적용. */
+const PB_BODY_BOX_DEFAULTS = {
+  x: 15,                  /* % — 좌측 시작 */
+  y: 25,                  /* % — 상단 시작 */
+  width: 55,              /* % — 글상자 폭 */
+  height: null,           /* % — null이면 콘텐츠 자동, 숫자면 명시 높이 (W4 추가) */
+  backdropOpacity: 0.85,  /* 0~1 */
+};
+
+function _clampNum(v, min, max, fallback) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(min, Math.min(max, n));
+}
+
+function _normalizePbBodyBox(raw) {
+  if (!raw || typeof raw !== 'object') return null;   /* null이면 viewer-render가 기본값 사용 */
+  const out = {
+    x:               _clampNum(raw.x,               0,  80, PB_BODY_BOX_DEFAULTS.x),
+    y:               _clampNum(raw.y,               0,  80, PB_BODY_BOX_DEFAULTS.y),
+    width:           _clampNum(raw.width,           20, 95, PB_BODY_BOX_DEFAULTS.width),
+    backdropOpacity: _clampNum(raw.backdropOpacity, 0,   1, PB_BODY_BOX_DEFAULTS.backdropOpacity),
+  };
+  /* height — 명시값(숫자)일 때만 보존. null/undefined면 콘텐츠 자동 (mockup 기본). */
+  if (raw.height === null || raw.height === undefined) {
+    out.height = null;
+  } else {
+    out.height = _clampNum(raw.height, 12, 90, PB_BODY_BOX_DEFAULTS.height || 30);
+  }
+  return out;
+}
+
+/* viewer-render / viewer-edit에서 사용 — 항상 숫자 4개 반환 (null fallback 처리). */
+function getPicturebookBodyBox(scene) {
+  const v = scene && scene.picturebookBodyBox;
+  if (v && typeof v === 'object') return v;
+  return { ...PB_BODY_BOX_DEFAULTS };
+}
+
 /* 포스터 이미지 fallback 체인:
    movieData.posterImage → scene.imageData → null (placeholder UI) */
 function resolveMoviePoster(scene) {
@@ -677,6 +754,12 @@ function buildButtonsPatchForSave(choices) {
     choiceA:     (buttons[0] && buttons[0].label) || '',
     choiceB:     (buttons[1] && buttons[1].label) || '',
     choiceCount: buttons.length === 1 ? 1 : 2,
+    /* nextA/nextB도 buttons[0/1].nextId 기준으로 동기화 (W2-B-α).
+       이게 없으면 viewer-edit에서 nextId 변경해도 maker canvas의 drawArrows가
+       옛 nextA/nextB를 보고 잘못된 화살표 그림. 빈 문자열로 명시 동기화하여
+       Firebase가 키를 삭제하도록 함 (null도 가능하나 빈 문자열이 일관). */
+    nextA:       (buttons[0] && buttons[0].nextId) ? String(buttons[0].nextId) : '',
+    nextB:       (buttons[1] && buttons[1].nextId) ? String(buttons[1].nextId) : '',
   };
   return patch;
 }

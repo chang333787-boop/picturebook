@@ -333,3 +333,27 @@ body.home {
   .hero,
   .home-footer { animation: none; opacity: 1; transform: none; }
 }
+
+/* ════════════════════════════════════════════════════════════
+   W7: 시작점/다시시작점 카드 시각 강조
+   사용자 결정: "시작 장면은 일반 카드와 같게 보이지 말 것 — 표지형으로 별도 표시"
+   ════════════════════════════════════════════════════════════ */
+
+/* 시작점 카드 (entrySceneId) — 첫 감상 진입점. 보더 + 살짝 글로우만, 라벨은 본체 안 .card-meta-row--role. */
+.scene-card.is-entry-scene {
+  border: 2.5px solid #4caf50;
+  box-shadow:
+    0 0 0 3px rgba(76, 175, 80, 0.10),
+    0 3px 12px rgba(76, 175, 80, 0.18);
+}
+
+/* 다시 시작점 카드 (replaySceneId) — 보더 + 글로우만 */
+.scene-card.is-replay-scene {
+  border: 2px solid #2196f3;
+  box-shadow:
+    0 0 0 3px rgba(33, 150, 243, 0.10),
+    0 3px 12px rgba(33, 150, 243, 0.15);
+}
+
+/* W7: 시작점/다시시작점 배지는 .card-meta-badge 클래스 사용 (maker.html 인라인 스타일 정의).
+   본체 위 별도 줄 .card-meta-row--role. 같은 톤 자동 통일. */

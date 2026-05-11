@@ -250,13 +250,32 @@ async function updateChoiceLabel(num, port, val) {
      buttons[] 우선 동기화 (W2-B-β: N개 port 인식):
      · port → 인덱스 ('A'→0, 'B'→1, 'C'→2, ...)
      · 라벨이 buttons[idx]에 없으면 새 항목 만들어 추가
-     · 첫 2개는 choiceA/B 호환 키도 patch (1단계 양방향 동기화 정책 유지) */
+     · 첫 2개는 choiceA/B 호환 키도 patch (1단계 양방향 동기화 정책 유지)
+     W6: 체험전시형은 connectObjects[].label 사용 — buttons[] 흐름 X. */
   const s = scenes[num];
   if (!s) return;
 
   /* port → 인덱스 변환 (대문자 알파벳 → 0-5). 잘못된 port면 무시 */
   const idx = (typeof port === 'string') ? port.charCodeAt(0) - 65 : -1;
   if (idx < 0 || idx > 5) return;
+
+  /* W6 체험전시형 분기 — connectObjects[realIdx].label 갱신 */
+  const _ptype = (typeof projectMeta !== 'undefined' && projectMeta && projectMeta.projectType) || null;
+  if (_ptype === 'experience') {
+    const allCo = Array.isArray(s.connectObjects) ? [...s.connectObjects] : [];
+    /* back/home 제외 인덱스만 카드 포트로 노출됨 — 그 순서의 idx에 매핑 */
+    const eligibleIdxs = [];
+    allCo.forEach((co, i) => {
+      if (co && co.type !== 'back' && co.type !== 'home') eligibleIdxs.push(i);
+    });
+    if (idx >= eligibleIdxs.length) return;
+    const realIdx = eligibleIdxs[idx];
+    /* 라벨 max 20자 (체험전시형 정책) */
+    const safeLabel = String(val || '').slice(0, 20);
+    allCo[realIdx] = { ...allCo[realIdx], label: safeLabel };
+    await mutateScene(num, { connectObjects: allCo }, { skipCardRender: true, needsArrows: false, silent: true });
+    return;
+  }
 
   /* legacy choiceA/B 호환 patch — 첫 2개만 */
   const patch = {};
@@ -316,10 +335,30 @@ async function deleteScene(num) {
   releaseLock(num);
   removeSceneFromFirebase(num);
   delete scenes[num];
+  /* W7 번호 재사용 안전성: 삭제된 번호를 가리키는 모든 참조 끊기.
+     이전엔 nextA/nextB만 정리 → buttons[i].nextId 남아있어 번호 재사용 시
+     새 장면이 옛 흐름에 연결되는 버그. 사용자 결정: "버그없게 수정". */
+  const numStr = String(num);
   Object.values(scenes).forEach(s => {
-    if (s.nextA === num) s.nextA = '';
-    if (s.nextB === num) s.nextB = '';
+    if (s.nextA === num || s.nextA === numStr) s.nextA = '';
+    if (s.nextB === num || s.nextB === numStr) s.nextB = '';
+    if (Array.isArray(s.buttons)) {
+      s.buttons.forEach(b => {
+        if (b && (b.nextId === num || b.nextId === numStr)) b.nextId = null;
+      });
+    }
+    /* 체험전시형 connectObjects.nextId도 정리 */
+    if (Array.isArray(s.connectObjects)) {
+      s.connectObjects.forEach(co => {
+        if (co && (co.nextId === num || co.nextId === numStr)) co.nextId = null;
+      });
+    }
   });
+  /* entrySceneId / replaySceneId가 삭제된 장면을 가리키면 null로 (시작점 잃음) */
+  if (projectMeta) {
+    if (projectMeta.entrySceneId  === numStr) projectMeta.entrySceneId  = null;
+    if (projectMeta.replaySceneId === numStr) projectMeta.replaySceneId = null;
+  }
   _afterMutation();
 }
 
@@ -412,6 +451,96 @@ function selectProjectType(ptype) {
     btn.style.color      = active ? 'var(--primary)' : 'var(--text)';
   });
 }
+
+/* ================================================================
+   W6 신규 흐름: 작품 유형 선택 화면 (입장 후)
+   ─────────────────────────────────────────────────────────────
+   · firebase._enterTeam에서 호출 — viewer-meta/projectType 조회 후
+   · 기존 유형 있으면 그 카드만 강조 ("이전 선택" 배지)
+   · 사용자가 다른 카드 누르면 confirm: "이전에 X형으로 만들어졌어요. X형으로 들어갈까요?"
+     → "X형으로 들어가기" = 기존 유형 사용 + maker 진입
+     → "취소" = 화면 머무름 (사용자가 다시 결정)
+   · 사용자가 같은 카드 누르면 즉시 진입
+   · 신규 작품(existingType 없음)이면 어떤 카드 눌러도 confirm 없음 — 즉시 진입
+   ================================================================ */
+let _ptypeExistingType = null;   /* firebase에서 로드된 기존 유형 */
+
+function showPtypeScreen(existingType) {
+  _ptypeExistingType = existingType || null;
+  const screen = document.getElementById('ptype-screen');
+  if (!screen) return;
+  /* 기존 유형 카드만 "이전 선택" 강조 */
+  document.querySelectorAll('#ptype-grid .ptype-card').forEach(c => {
+    c.classList.toggle('previously-selected',
+      _ptypeExistingType && c.dataset.ptype === _ptypeExistingType);
+  });
+  screen.classList.add('show');
+}
+function hidePtypeScreen() {
+  const screen = document.getElementById('ptype-screen');
+  if (screen) screen.classList.remove('show');
+}
+
+function _onPtypeCardClick(clickedType) {
+  if (!Array.isArray(PROJECT_TYPES) || !PROJECT_TYPES.includes(clickedType)) return;
+  const _LABEL = { text: '텍스트형', picturebook: '그림책형', movie: '무비형', experience: '체험전시형' };
+
+  /* W7 projectType 강제 lock — 4개 모드 모두 동일 적용.
+     · 텍스트형 → 다른 모드 카드 클릭 차단
+     · 그림책형 → 다른 모드 카드 클릭 차단
+     · 무비형 → 다른 모드 카드 클릭 차단
+     · 체험전시형 → 다른 모드 카드 클릭 차단
+     사용자 결정: "무비뿐만아니라 텍스트에서도 가면안되고, 전시형에서도 가면안되는거야".
+     기존 모드 무엇이든 다른 모드 카드 클릭 시 무조건 기존 모드 강제 진입. */
+  if (_ptypeExistingType && _ptypeExistingType !== clickedType) {
+    alert(
+      '이 작품은 「' + (_LABEL[_ptypeExistingType] || _ptypeExistingType) + '」 모드로 만들어졌어요.\n' +
+      '작품 유형은 만들 때 한 번 정해지면 바뀌지 않아요.\n\n' +
+      '다른 모드로 만들고 싶으면 새 작품을 만들어주세요.\n\n' +
+      '「' + (_LABEL[_ptypeExistingType] || _ptypeExistingType) + '」 모드로 들어갑니다.'
+    );
+    selectProjectType(_ptypeExistingType);
+    _enterMakerAfterPtypeSelected(_ptypeExistingType);
+    return;
+  }
+
+  /* 기존 유형 없음 (신규 작품) 또는 같은 유형 클릭 — 즉시 진입 */
+  selectProjectType(clickedType);
+  _enterMakerAfterPtypeSelected(clickedType);
+}
+
+/* ptype 결정 후 firebase에 저장 + maker 캔버스 노출 */
+async function _enterMakerAfterPtypeSelected(ptype) {
+  /* W7 projectType lock: viewer-meta/projectType 반드시 박힌 후 maker 진입.
+     ─────────────────────────────────────────────────────────────
+     저장 케이스:
+     1) 신규 작품 — _ptypeExistingType=null → 저장
+     2) 옛 작품 (projectType 필드 누락) — _ptypeExistingType=null → 저장 (여기서 lock 첫 박힘)
+     3) 기존 작품 (projectType 있음) — _ptypeExistingType=valid → 저장 스킵
+     ─────────────────────────────────────────────────────────────
+     이 흐름이 옛 작품 lock 정상화의 핵심:
+     · 사용자 캡처에서 projectType이 undefined인 작품도 이 진입에서 박힘
+     · 다음부턴 viewer-data가 valid한 'movie'를 읽음 → 그림책 fallback 안 함. */
+  if (!_ptypeExistingType) {
+    if (typeof db !== 'undefined' && typeof teamName === 'string' && teamName) {
+      try {
+        const encodedName = encodeURIComponent(teamName);
+        const basePath = (typeof classId === 'string' && classId)
+          ? 'classes/' + classId + '/teams/' + encodedName
+          : 'teams/' + encodedName;
+        try {
+          await db.ref(basePath + '/viewer-meta/projectType').set(ptype);
+          /* 저장 성공 → 메모리 _ptypeExistingType 갱신 (이번 세션 안 한번 더 클릭해도 저장 스킵) */
+          _ptypeExistingType = ptype;
+        } catch (saveErr) {
+          alert('작품 유형 저장에 실패했어요. 네트워크를 확인하고 다시 시도해주세요.');
+          return;   // ptype 화면 유지 (잘못된 모드로 진입 차단)
+        }
+      } catch (e) { /* path 구성 실패 — noop, fallback 진입 */ }
+    }
+  }
+  hidePtypeScreen();
+}
 function applyTemplate(tpl) {
   if (tpl === 'blank' || Object.keys(scenes).length > 0) return;
 
@@ -474,15 +603,10 @@ function applyTemplate(tpl) {
 }
 
 /* ── 모드 / 도움말 ── */
-let advancedMode = false;
+let advancedMode = true;   /* W7: 항상 advanced (간단히/더보기 토글 제거) */
 function toggleMode() {
-  advancedMode = !advancedMode;
-  document.body.classList.toggle('beginner-mode', !advancedMode);
-  const btn = document.getElementById('mode-toggle-btn');
-  btn.textContent      = advancedMode ? '⚙️ 간단히' : '⚙️ 더보기';
-  btn.style.background  = advancedMode ? '#e8f5e9' : '#fff7e6';
-  btn.style.color       = advancedMode ? '#2e7d32' : '#c07000';
-  btn.style.borderColor = advancedMode ? '#81c784' : '#f0c040';
+  /* W7: 사용자 결정 — "간단히/더보기는 의미 없음, 제거". 함수는 호환을 위해 남겨둠.
+     항상 모든 정보 노출. body.beginner-mode 클래스도 추가 안 함. */
 }
 function showHelp() {
   alert(`📌 가지 branch 사용법\n\n➕ [+ 장면 추가] 버튼으로 카드 생성\n🔗 포트(●) 드래그로 카드 연결\n🔢 번호 배지 클릭으로 번호 변경\n🟢 같은 클래스 코드 + 팀 이름 + PIN이면 실시간 공유\n🔍 Ctrl+휠 또는 ±버튼으로 줌`);
@@ -556,6 +680,9 @@ window.addEventListener('DOMContentLoaded', () => {
   /* 구조 검사 */
   document.getElementById('check-close')?.addEventListener('click', () => {
     document.getElementById('check-panel').style.display = 'none';
+    /* W7: 검사 결과로 박힌 카드 강조 원복. 사용자: "장면 3,5,6이 다시 원래 화면으로 안돌아감". */
+    document.querySelectorAll('.scene-card.error-card').forEach(c => c.classList.remove('error-card'));
+    document.querySelectorAll('.scene-card.rt-highlight').forEach(c => c.classList.remove('rt-highlight'));
   });
 
   /* 이미지 모달 — 바깥 클릭 닫기는 mediaManager.js에서 등록 (source of truth) */
@@ -565,14 +692,16 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-admin-close')  ?.addEventListener('click', closeAdmin);
   document.getElementById('btn-admin-refresh')?.addEventListener('click', loadAdminData);
 
-  /* 템플릿 (data-tpl 속성으로 통합) */
+  /* 템플릿 — HTML에서 제거됨 (사용자 결정: 시작 템플릿 폐기). querySelectorAll은 빈 NodeList → noop. */
   document.querySelectorAll('[data-tpl]').forEach(btn =>
     btn.addEventListener('click', () => selectTemplate(btn.dataset.tpl))
   );
 
-  /* 작품 유형 (1단계: data-ptype 속성으로 통합) */
-  document.querySelectorAll('[data-ptype]').forEach(btn =>
-    btn.addEventListener('click', () => selectProjectType(btn.dataset.ptype))
+  /* W6 신규 흐름: 작품 유형 카드 클릭 — ptype-screen 안에서 클릭됨.
+     · existingType (firebase에서 로드된 기존 유형) 있고 사용자 선택과 다르면 confirm
+     · 같거나 신규(existingType 없음)면 즉시 진입 */
+  document.querySelectorAll('#ptype-grid [data-ptype]').forEach(btn =>
+    btn.addEventListener('click', () => _onPtypeCardClick(btn.dataset.ptype))
   );
 
   /* ESC */
@@ -592,17 +721,26 @@ window.addEventListener('DOMContentLoaded', () => {
     btn.textContent = collapsed ? '+' : '−';
   });
 
-  /* 감상 화면 다듬기 → viewer.html?team=...&edit=1&from=maker(&classId=...) */
+  /* 감상 화면 다듬기 → viewer.html?team=...&edit=1&from=maker(&classId=...)(&ptype=...)
+     ─────────────────────────────────────────────────────────────
+     W7 projectType lock 보강: maker 메모리의 selectedProjectType을 ptype 쿼리로 전달.
+     viewer-meta DB에 projectType 누락된 옛 작품도 maker가 정한 모드로 정확 진입.
+     viewer-data가 hint를 받으면 fallback 대신 hint 사용 + viewer-meta에 보정 저장. */
   document.getElementById('btn-viewer-edit')?.addEventListener('click', () => {
     const name = encodeURIComponent(teamName || '');
     if (!name) { alert('먼저 팀 이름으로 입장해 주세요.'); return; }
     const cid = classId ? `&classId=${encodeURIComponent(classId)}` : '';
+    const pt  = (typeof selectedProjectType === 'string' && selectedProjectType)
+      ? `&ptype=${encodeURIComponent(selectedProjectType)}` : '';
     flushTitleSaves();
     _saveReturnContext('maker');
-    window.open(`viewer.html?team=${name}&edit=1&from=maker${cid}`, '_blank');
+    window.open(`viewer.html?team=${name}&edit=1&from=maker${cid}${pt}`, '_blank');
   });
 
-  /* 빠르게 확인하기 → 기존 preview (다음 단계 패널에서 바인딩, 툴바 btn-preview와 동일 함수) */
+  /* W7 통합: "빠르게 확인하기" + "완성본 보기" → "감상 테스트" 하나로 통합.
+     btn-preview(다음 단계 패널)는 제거됨 → ui.js의 startPreview 핸들러는 noop.
+     preview 모달 코드(preview.js)는 다른 진입점 없으면 자연 사장. 코드는 보존(회귀 X).
+     감상 테스트 → btn-open-viewer (아래 _updateViewerLink) — viewer.html 새 탭. */
 
   /* 완성본 보기 → viewer.html?team=...&from=maker(&classId=...)
      ─────────────────────────────────────────────────────────────
@@ -614,7 +752,9 @@ window.addEventListener('DOMContentLoaded', () => {
     if (!link) return;
     const name = teamName ? encodeURIComponent(teamName) : '';
     const cid  = classId  ? `&classId=${encodeURIComponent(classId)}` : '';
-    const url  = name ? `viewer.html?team=${name}&from=maker${cid}` : 'viewer.html';
+    const pt   = (typeof selectedProjectType === 'string' && selectedProjectType)
+      ? `&ptype=${encodeURIComponent(selectedProjectType)}` : '';
+    const url  = name ? `viewer.html?team=${name}&from=maker${cid}${pt}` : 'viewer.html';
     /* href는 사용자에게 url 미리보기/우클릭용으로만 유지 */
     link.href = url;
     /* 기본 클릭 차단 + 명시적 window.open — opener 관계 유지 보장 */
@@ -635,8 +775,9 @@ window.addEventListener('DOMContentLoaded', () => {
   }
   _updateViewerLink();
 
-  /* 초기 모드 */
-  document.body.classList.add('beginner-mode');
+  /* W7: 간단히/더보기 토글 제거. 항상 모든 정보 노출 — 직관성 우선 (사용자 결정).
+     이전 초기값: document.body.classList.add('beginner-mode')
+     이제: beginner-mode 절대 추가 안 함. .adv-only 영역도 항상 보임. */
 
   /* DATA_PATH_VERSION에 따라 클래스 코드 입력 필드 표시/숨김
      v1: 숨김 (기존 동작 유지)

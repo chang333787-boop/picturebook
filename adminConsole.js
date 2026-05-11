@@ -295,10 +295,10 @@ function _classifyStatus({ total, endings, entryValid, entryBroken, replayBroken
 }
 
 const STATUS_META = {
-  'not-started':     { label: '미시작',    color: '#8394ad', bg: '#f0f4ff', icon: '⬜' },
-  'in-progress':     { label: '작업 중',   color: '#f0a000', bg: '#fff8e6', icon: '🟡' },
-  'ready':           { label: '감상 가능', color: '#1a6b4a', bg: '#e8faf2', icon: '🟢' },
-  'needs-attention': { label: '확인 필요', color: '#c00',    bg: '#fff0f0', icon: '🔴' },
+  'not-started':     { label: '미시작',    color: '#6b5638', bg: '#f4ecd8', icon: '⬜' },
+  'in-progress':     { label: '작업 중',   color: '#a07020', bg: '#fdf3df', icon: '🟡' },
+  'ready':           { label: '감상 가능', color: '#5a8a4a', bg: '#eaf3df', icon: '🟢' },
+  'needs-attention': { label: '확인 필요', color: '#c8503c', bg: '#fbf0ec', icon: '🔴' },
 };
 
 function _makeInterpretation(status, { total, endings, entryValid, entryBroken, replayBroken, connectivity, noTitle, isolated }) {
@@ -604,7 +604,7 @@ function _toggleDetail(encodedName) {
            </div>
          </div>`
       : `<div class="admin-detail-section">
-           <div class="admin-detail-label" style="color:#1a6b4a;">✅ 구조 이상 없음</div>
+           <div class="admin-detail-label" style="color:#5a8a4a;">✅ 구조 이상 없음</div>
          </div>`;
 
     const sceneChips = arr.length
@@ -617,7 +617,7 @@ function _toggleDetail(encodedName) {
                const isEnding = s.type === 'ending';
                const isEntry  = team && String(team.entryNum)  === String(s.num);
                const isReplay = team && String(team.replayNum) === String(s.num);
-               const color = isEnding ? '#ef476f' : '#4a90d9';
+               const color = isEnding ? '#c8503c' : '#5a92c2';
                /* nexts 표시 — buttons[] 우선, 없으면 nextA/B fallback (B-단계 N개 인식).
                   최대 6개까지 chip에 표시. 라벨 길면 약자 (A→1, B→2, ...) */
                let nexts;
@@ -631,8 +631,8 @@ function _toggleDetail(encodedName) {
                  nexts = [s.nextA && `A→${s.nextA}`, s.nextB && `B→${s.nextB}`].filter(Boolean);
                }
                const roleBadgeHtml = [
-                 isEntry  ? '<span class="chip-role" style="background:#e8f5e9;color:#2e7d32;border:1px solid #81c784;padding:1px 6px;border-radius:8px;font-size:10px;margin-left:3px;">첫 감상</span>' : '',
-                 isReplay ? '<span class="chip-role" style="background:#e3f2fd;color:#1565c0;border:1px solid #90caf9;padding:1px 6px;border-radius:8px;font-size:10px;margin-left:3px;">다시</span>' : '',
+                 isEntry  ? '<span class="chip-role" style="background:#eaf3df;color:#5a8a4a;border:1px solid #b8d1a8;padding:1px 6px;border-radius:8px;font-size:10px;margin-left:3px;">첫 감상</span>' : '',
+                 isReplay ? '<span class="chip-role" style="background:#eef3f9;color:#3a6ab0;border:1px solid #b8cde0;padding:1px 6px;border-radius:8px;font-size:10px;margin-left:3px;">다시</span>' : '',
                ].join('');
                return `<div class="admin-scene-chip" style="border-color:${color};">
                  <span class="chip-type" style="color:${color};">${isEnding ? '엔딩' : '일반'} ${s.num}</span>${roleBadgeHtml}
@@ -642,7 +642,7 @@ function _toggleDetail(encodedName) {
              }).join('')}
            </div>
          </div>`
-      : `<div class="admin-detail-section"><span style="color:var(--muted);font-size:12px;">장면 없음</span></div>`;
+      : `<div class="admin-detail-section"><span style="color:#6b5638;font-size:12px;">장면 없음</span></div>`;
 
     detail.innerHTML = `<div class="admin-detail-inner">${problemsHtml}${sceneChips}</div>`;
   }).catch(err => {

@@ -3,92 +3,128 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <meta name="theme-color" content="#0e1320"/>
-  <meta name="description" content="장면을 연결해 인터랙티브 콘텐츠를 만들고 공유해 보세요."/>
+  <meta name="theme-color" content="#fbf6ea"/>
+  <meta name="description" content="한 이야기, 여러 갈래길. 장면을 잇고 갈래를 그려서 우리만의 작품을 만들어요."/>
   <title>가지 branch</title>
-  <link href="https://fonts.googleapis.com/css2?family=Jua&family=Nanum+Gothic:wght@400;700&display=swap" rel="stylesheet"/>
-  <link rel="stylesheet" href="home.css"/>
+
+  <!-- Warm Paper 디자인 폰트: 손글씨 + 본문 + 제목 -->
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Jua&family=Nanum+Gothic:wght@400;700&family=Nanum+Pen+Script&family=Gowun+Batang:wght@400;700&display=swap" rel="stylesheet"/>
+
+  <!-- W7 Step 1: tokens-warm.css 먼저, warm-screens.css 다음. 기존 home.css는 보존하지 않음(이 화면은 전면 교체) -->
+  <link rel="stylesheet" href="tokens-warm.css"/>
+  <link rel="stylesheet" href="warm-screens.css"/>
 </head>
-<body class="home">
+<body>
 
-  <!-- 배경 장식 -->
-  <div class="home-bg" aria-hidden="true">
-    <div class="home-bg__blob home-bg__blob--1"></div>
-    <div class="home-bg__blob home-bg__blob--2"></div>
-    <div class="home-bg__blob home-bg__blob--3"></div>
-  </div>
+<!-- v + accent-coral: 디자인 토큰 활성화 (코랄 액센트). 다른 페이지 영향 X (이 wrapper 안에서만 적용) -->
+<div class="v accent-coral">
 
-  <main class="home-main">
+  <div class="w-screen wh">
 
-    <!-- Hero -->
-    <header class="hero" role="banner">
-      <div class="hero__logo" aria-label="가지 branch 로고">
-        <span class="hero__logo-mark">🌿</span>
-      </div>
-      <h1 class="hero__title">가지 <span class="hero__title-accent">branch</span></h1>
-      <p class="hero__desc">장면을 연결해 인터랙티브 콘텐츠를 만들고 공유해 보세요.</p>
-    </header>
+    <!-- 종이 테이프 장식 -->
+    <div class="wh__bg-tape" aria-hidden="true"></div>
 
-    <!-- 메인 카드 -->
-    <section class="home-cards" aria-label="주요 기능">
+    <div class="wh__main">
 
-      <!-- 작품 만들기 -->
-      <a href="maker.html" class="home-card home-card--make" aria-label="작품 만들기로 이동">
-        <div class="home-card__inner">
-          <span class="home-card__icon" aria-hidden="true">✏️</span>
-          <div class="home-card__text">
-            <h2 class="home-card__title">작품 만들기</h2>
-            <p class="home-card__desc">클래스 코드·팀 이름·PIN으로 입장해 장면을 연결하고 작품을 만들어요.</p>
+      <!-- 히어로 -->
+      <section class="wh__hero">
+        <p class="wh__eyebrow">함께 만들고 함께 감상해요</p>
+        <h1 class="wh__title">
+          <span class="wh__title-accent">가지</span> branch
+        </h1>
+        <p class="wh__sub">
+          한 이야기, 여러 갈래길.<br/>
+          장면을 잇고 갈래를 그려서 우리만의 작품을 만들어요.
+        </p>
+      </section>
+
+      <!-- 메인 카드: 작품 만들기 / 감상하기 / 수업 관리 -->
+      <section class="wh__cards" aria-label="주요 기능">
+
+        <!-- ① 작품 만들기 -->
+        <a class="wh-card wh-card--make" href="maker.html" aria-label="작품 만들기로 이동">
+          <div class="wh-card__head">
+            <span class="wh-card__icon" aria-hidden="true">✎</span>
+            <span class="badge badge--make">제작</span>
           </div>
-          <span class="home-card__arrow" aria-hidden="true">→</span>
-        </div>
-      </a>
+          <p class="wh-card__kicker">새 이야기를 시작해요</p>
+          <h2 class="wh-card__title">작품 만들기</h2>
+          <p class="wh-card__desc">
+            장면을 잇고 갈래를 그려서 나만의 이야기를 만들어요. 텍스트·그림책·무비·체험전시 4가지 유형을 골라 시작할 수 있어요.
+          </p>
+          <span class="wh-card__cta">시작하기 →</span>
+        </a>
 
-      <!-- 작품 보기 -->
-      <a href="viewer.html" class="home-card home-card--view" aria-label="작품 보기로 이동">
-        <div class="home-card__inner">
-          <span class="home-card__icon" aria-hidden="true">▶</span>
-          <div class="home-card__text">
-            <h2 class="home-card__title">작품 보기</h2>
-            <p class="home-card__desc">클래스 코드와 팀 이름을 입력하고 완성된 작품을 감상해요.</p>
+        <!-- ② 감상하기 -->
+        <a class="wh-card wh-card--view" href="viewer.html" aria-label="작품 감상하기로 이동">
+          <div class="wh-card__head">
+            <span class="wh-card__icon" aria-hidden="true">☾</span>
+            <span class="badge badge--view">감상</span>
           </div>
-          <span class="home-card__arrow" aria-hidden="true">→</span>
-        </div>
-      </a>
+          <p class="wh-card__kicker">친구의 이야기를</p>
+          <h2 class="wh-card__title">감상하기</h2>
+          <p class="wh-card__desc">
+            친구가 만든 이야기를 읽고 갈래를 골라봐요.
+          </p>
+          <span class="wh-card__cta">감상하기 →</span>
+        </a>
 
-      <!-- 교사 관리 -->
-      <!-- 교사 로그인 화면(teacher-auth.html) → Firebase Auth → maker.html?admin=1 -->
-      <a href="teacher-auth.html" class="home-card home-card--admin" aria-label="교사 관리로 이동">
-        <div class="home-card__inner">
-          <span class="home-card__icon" aria-hidden="true">🛠</span>
-          <div class="home-card__text">
-            <h2 class="home-card__title">교사 관리</h2>
-            <p class="home-card__desc">교사 로그인으로 클래스별 팀 작품을 관리하고 공개 여부를 정해요.</p>
+        <!-- ③ 수업 관리 (교사) -->
+        <a class="wh-card wh-card--admin" href="teacher-auth.html" aria-label="교사 관리로 이동">
+          <div class="wh-card__head">
+            <span class="wh-card__icon" aria-hidden="true">✦</span>
+            <span class="badge badge--admin">교사</span>
           </div>
-          <span class="home-card__arrow" aria-hidden="true">→</span>
-        </div>
-      </a>
+          <p class="wh-card__kicker">학급과 작품을</p>
+          <h2 class="wh-card__title">수업 관리</h2>
+          <p class="wh-card__desc">
+            학급 코드와 작품을 관리하고 점검해요.
+          </p>
+          <span class="wh-card__cta">관리하기 →</span>
+        </a>
 
-    </section>
+      </section>
 
-    <!-- 하단 안내 -->
-    <footer class="home-footer">
-      <p class="home-footer__hint">
-        <span class="home-footer__icon" aria-hidden="true">💡</span>
-        처음이면 선생님께 받은 <strong>클래스 코드</strong>를 준비해주세요.
-      </p>
-    </footer>
+      <!-- 하단 빠른 입장: 학급 코드 바로 감상 -->
+      <form class="wh__quick" id="wh-quick-form" aria-label="학급 코드로 바로 감상" autocomplete="off">
+        <span class="wh__quick-icon" aria-hidden="true">🔑</span>
+        <label class="wh__quick-label" for="wh-quick-input">학급 코드로 바로 감상</label>
+        <input
+          id="wh-quick-input"
+          class="wh__quick-input"
+          type="text"
+          placeholder="BR-0000"
+          inputmode="text"
+          maxlength="16"
+          aria-label="학급 코드 입력"/>
+        <span class="wh__quick-divider" aria-hidden="true"></span>
+        <button type="submit" class="btn btn--soft btn--sm" id="wh-quick-go">입장 →</button>
+      </form>
 
-  </main>
+    </div><!-- /wh__main -->
 
-  <script>
-    /* 카드 진입 애니메이션 — IntersectionObserver 없이 단순 처리 */
-    document.addEventListener('DOMContentLoaded', () => {
-      document.querySelectorAll('.home-card').forEach((card, i) => {
-        card.style.animationDelay = `${0.1 + i * 0.1}s`;
-      });
+  </div><!-- /w-screen -->
+
+</div><!-- /v accent-coral -->
+
+<script>
+  /* 빠른 입장: 클래스 코드 입력 → viewer.html?code=... 흐름 진입.
+     기존 viewer.html이 ?code= 또는 entry 흐름을 이미 처리하므로 단순 redirect만. */
+  (function () {
+    var form  = document.getElementById('wh-quick-form');
+    var input = document.getElementById('wh-quick-input');
+    if (!form || !input) return;
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var code = (input.value || '').trim().toUpperCase();
+      if (!code) { input.focus(); return; }
+      /* viewer 진입 — 코드만 들고 보냄. viewer-entry.js가 이후 흐름 처리 */
+      window.location.href = 'viewer.html?code=' + encodeURIComponent(code);
     });
-  </script>
+  })();
+</script>
 
 </body>
 </html>

@@ -5,8 +5,44 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
   <meta name="theme-color" content="#0d1117"/>
   <title>가지 branch — 작품 보기</title>
-  <link href="https://fonts.googleapis.com/css2?family=Jua&family=Nanum+Gothic:wght@400;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Jua&family=Nanum+Gothic:wght@400;700&family=Gowun+Batang:wght@400;700&family=Black+Han+Sans&family=Nanum+Pen+Script&family=Gaegu:wght@400;700&family=Cormorant+Garamond:wght@400;700&display=swap" rel="stylesheet"/>
+  <link href="https://cdn.jsdelivr.net/gh/quiple/galmuri/dist/galmuri.css" rel="stylesheet"/>
   <link rel="stylesheet" href="viewer.css"/>
+  <link rel="stylesheet" href="v03-modes.css"/>
+  <!-- W8: 자동 진입(?team= 있을 때) 깜빡임 차단.
+       maker → "감상 테스트" / "다듬기" 진입 시 entry 화면이 잠깐 보였다가 사라지는 현상 제거.
+       JS 로드 전에 inline으로 처리 — CSS의 #entry-screen{display:flex} 효과 무력화. -->
+  <script>
+    (function () {
+      try {
+        var p = new URLSearchParams(location.search);
+        if (p.get('team')) {
+          var s = document.createElement('style');
+          s.textContent = ''
+            + '#entry-screen{display:none !important;}'
+            + '#auto-enter-loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;'
+            + 'background:#fbf6ea;font-family:\'Jua\',sans-serif;color:#6b5638;font-size:14px;letter-spacing:0.02em;z-index:200;}'
+            + '#auto-enter-loading.fade-out{opacity:0;transition:opacity 0.25s ease-out;pointer-events:none;}';
+          document.head.appendChild(s);
+          /* 로딩 표시 — body 첫 자식으로 박기 (DOMContentLoaded 후 추가) */
+          document.addEventListener('DOMContentLoaded', function () {
+            if (document.getElementById('auto-enter-loading')) return;
+            var el = document.createElement('div');
+            el.id = 'auto-enter-loading';
+            el.textContent = '작품을 불러오는 중…';
+            document.body.appendChild(el);
+          });
+          /* viewer-entry.js가 _enterViewer 완료 후 player 렌더 끝나면 이 함수가 로딩 제거 */
+          window.__hideAutoEnterLoading = function () {
+            var el = document.getElementById('auto-enter-loading');
+            if (!el) return;
+            el.classList.add('fade-out');
+            setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 280);
+          };
+        }
+      } catch (e) { /* noop */ }
+    })();
+  </script>
 </head>
 <body>
 
@@ -15,7 +51,7 @@
      ═══════════════════════════════════════════ -->
 <div id="entry-screen">
   <div class="entry-card">
-    <div class="entry-logo">🌿</div>
+    <p class="entry-logo">ㅡ 친구의 이야기를 ㅡ</p>
     <h1 class="entry-title">작품 보기</h1>
     <p class="entry-sub">
       클래스 코드와 팀 이름을 입력하면<br/>
@@ -84,6 +120,8 @@
      ═══════════════════════════════════════════ -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
 <script src="viewer-state.js"></script>
 <script src="viewer-data.js"></script>
 <script src="viewer-locks.js"></script>

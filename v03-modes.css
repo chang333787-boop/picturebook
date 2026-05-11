@@ -27,25 +27,28 @@
 .scene-screen--text,
 .scene-screen--pb,
 .scene-screen--movie {
-  --v03-bg:           #f4f5f7;
-  --v03-bg-soft:      #eaecef;
-  --v03-card-bg:      #ffffff;
-  --v03-card-border:  #e1e4e8;
-  --v03-card-shadow:  0 1px 2px rgba(20,30,50,0.04), 0 8px 24px rgba(20,30,50,0.06);
-  --v03-fg:           #1a1f2e;
-  --v03-fg-soft:      #4a5568;
-  --v03-fg-muted:     #8a93a3;
-  --v03-divider:      #e1e4e8;
-  --v03-accent:       #2d6cdf;
-  --v03-btn-bg:       #ffffff;
-  --v03-btn-fg:       #1a1f2e;
-  --v03-btn-border:   #d1d5db;
-  --v03-btn-hover-bg: #f4f5f7;
-  --v03-btn-hover-bd: #2d6cdf;
-  --v03-illust-bg:    #eef0f4;
-  --v03-illust-mark:  #cdd2db;
-  --v03-media-bg:     #1a1d24;
-  --v03-media-fg:     #ffffff;
+  /* W8 Warm Paper: 종이톤 player.
+     원칙(사용자 확정): 구조 안전 — 마크업/JS/클래스 0% 건드림. 변수만 종이톤으로.
+     --v03-media-bg/fg는 무비형 미디어 정체성 (다크 허용)이라 어두운 톤 유지. */
+  --v03-bg:           #fbf6ea;
+  --v03-bg-soft:      #f4ecd8;
+  --v03-card-bg:      #fffaee;
+  --v03-card-border:  rgba(80,50,20,0.10);
+  --v03-card-shadow:  0 1px 2px rgba(120,90,50,0.06), 0 8px 24px rgba(120,90,50,0.08);
+  --v03-fg:           #2b1f10;
+  --v03-fg-soft:      #4a3820;
+  --v03-fg-muted:     #9a8868;
+  --v03-divider:      rgba(80,50,20,0.10);
+  --v03-accent:       #c66f4a;
+  --v03-btn-bg:       #fffaee;
+  --v03-btn-fg:       #2b1f10;
+  --v03-btn-border:   rgba(80,50,20,0.18);
+  --v03-btn-hover-bg: #f4ecd8;
+  --v03-btn-hover-bd: #c66f4a;
+  --v03-illust-bg:    #f4ecd8;
+  --v03-illust-mark:  #9a8868;
+  --v03-media-bg:     #1a1d24;   /* 무비형 정체성 — 어두운 톤 유지 */
+  --v03-media-fg:     #ffffff;   /* 미디어 위 흰 글씨 유지 */
   --v03-r-sm:         4px;
   --v03-r-md:         6px;
   --v03-r-lg:         10px;
@@ -71,7 +74,32 @@
   color: var(--v03-btn-fg);
   border-radius: var(--v03-r-md);
   transition: background 0.12s, border-color 0.12s, transform 0.08s;
+  /* W4-D 안전망: 라벨이 maxlength를 우회해 들어와도 화면 깨짐 방지.
+     · 한 줄 표시 + 넘으면 ellipsis(...)
+     · button 자체는 단일 텍스트 자식 + ::after 화살표 구조라
+       overflow를 button 단계에서 처리. */
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
+/* button 안 텍스트가 길면 ellipsis 동작 위해 — text 자식이 따로 없는 경우
+   button 자체에 white-space:nowrap이 적용되어 ::after와 함께 자동 처리 */
+/* W7-A 정정 v6: 무비형 선택지 — 어두운 overlay 위 반투명 흰 버튼 (가독성 + 영상 위 자연스러움) */
+.scene-screen--movie .choice-v03 {
+  background: rgba(255, 255, 255, 0.92);
+  color: #181a1f;
+  border-color: rgba(255, 255, 255, 0.85);
+  font-weight: 600;
+  text-align: center;
+  justify-content: center;
+}
+.scene-screen--movie .choice-v03:hover:not(:disabled) {
+  background: #ffffff;
+  border-color: #ffffff;
+  transform: translateY(-1px);
+}
+
 .choice-v03:hover:not(:disabled) {
   background: var(--v03-btn-hover-bg);
   border-color: var(--v03-btn-hover-bd);
@@ -144,7 +172,8 @@
   flex-direction: column;
 }
 .scene-screen--text .text-card__title {
-  font-size: 22px;
+  /* W5: font-size는 아래 본문 위계 정정 룰에서 본문 × 0.78로 결정 (보조 위계).
+     여기선 line-height/letter-spacing/margin 등만 정의. */
   font-weight: 700;
   line-height: 1.3;
   letter-spacing: -0.01em;
@@ -152,7 +181,8 @@
   margin: 0 0 14px;
 }
 .scene-screen--text .text-card__body {
-  font-size: 15px;
+  /* W5: font-size는 아래 W5 본문 위계 룰에서 var(--text-fs-body, 18px)로 결정.
+     여기선 line-height/margin/flex 등 박스 동작만 정의. */
   line-height: 1.7;
   color: var(--v03-fg);
   margin: 0 0 18px;
@@ -186,31 +216,45 @@
    │  · LR 폐기 (legacy 데이터 호환만 유지)   │
    ╰─────────────────────────────────────────╯ */
 .scene-screen--pb {
-  position: relative;
-  width: 100%;
-  height: 100%;
+  position: absolute;
+  inset: 0;
   background: var(--v03-bg);
   /* A4 컨테이너가 가운데 들어가도록 화면을 안 꽉 채움 */
   padding: 12px;
   display: grid;
   place-items: center;
+  /* 컨테이너 쿼리 활성화 — 자식 .pb-page가 viewer-frame 모양에 따라 fit */
+  container-type: size;
+  container-name: pbstage;
+  box-sizing: border-box;
 }
 
-/* A4 페이지 컨테이너 — 화면 가운데, 좌우 여백 유지 (mockup 기준).
-   가로/세로 모드 모두 A4 비율 (가로 297:210 ≈ 1.414).
-   max-width/height으로 viewer-frame 안에서 안 넘어가게. */
+/* A4 페이지 컨테이너 — 가운데, 좌우 또는 상하 여백 유지.
+   기본은 가로 A4 비율 (297:210). container query가 viewer-frame 모양에 따라
+   어느 차원을 100% 차지할지 결정.
+   · 부모가 A4보다 가로 길음(>1.414) → height: 100% 기준 (좌우 여백)
+   · 부모가 A4보다 세로 길음(≤1.414) → width: 100% 기준 (상하 여백) */
 .scene-screen--pb .pb-page {
-  width: 100%;
-  height: 100%;
-  max-width: 100%;
-  max-height: 100%;
-  /* A4 가로 비율: width:height = 297:210 → 약 1.414:1
-     viewer-frame이 가로일 때 가로 A4, 세로일 때 세로 A4 자동.
-     aspect-ratio로 단순화하되, 좁은 환경(min(...))에서 안 깨지게. */
-  aspect-ratio: 297 / 210;
-  /* viewer-frame이 더 좁으면 width 우선, 더 길면 height 우선 */
   display: flex;
   flex-direction: column;
+  aspect-ratio: 297 / 210;
+  /* fallback: container query 미지원 환경 */
+  width: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  box-sizing: border-box;
+}
+@container pbstage (aspect-ratio > 297/210) {
+  .scene-screen--pb .pb-page {
+    width: auto;
+    height: 100%;
+  }
+}
+@container pbstage (aspect-ratio <= 297/210) {
+  .scene-screen--pb .pb-page {
+    width: 100%;
+    height: auto;
+  }
 }
 
 /* 좁은 환경 (모바일 세로) — 세로 A4 비율 자동 전환 */
@@ -272,24 +316,6 @@
   place-items: center;
 }
 
-/* W4 디버그 정보 — 다듬기 모드에서만 좌하단 표시 (감상 모드에선 HTML로도 안 그려짐) */
-.scene-screen--pb.pb--imagecenter .pb-debug-info {
-  position: absolute;
-  left: 8px;
-  bottom: 8px;
-  padding: 4px 8px;
-  font-size: 10px;
-  font-family: monospace;
-  color: #fff;
-  background: rgba(0,0,0,0.6);
-  border-radius: 4px;
-  z-index: 5;
-  pointer-events: none;
-  max-width: calc(100% - 16px);
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
 .scene-screen--pb.pb--imagecenter .pb-stage__title-overlay {
   position: absolute;
   top: 12px;
@@ -410,8 +436,38 @@
   outline: 2px solid rgba(74, 144, 217, 1);
 }
 .scene-screen--pb.pb--imagecenter .pb-text--bottom-only {
-  /* 그림 중심형의 하단 — 선택지만 들어감 */
-  padding: 6px 12px;
+  /* 그림 중심형의 하단 — 선택지만 들어감.
+     20% 영역에 1~6개 선택지가 fit하도록 가로 flex + wrap.
+     mockup 부합: 그림 중심형 mockup의 선택지는 가로 나란히. */
+  padding: 6px 10px;
+  overflow: hidden;
+  display: flex;
+  align-items: stretch;
+  box-sizing: border-box;
+}
+.scene-screen--pb.pb--imagecenter .pb-text--bottom-only .pb-text__actions {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 6px;
+  width: 100%;
+  height: 100%;
+  align-items: stretch;
+  justify-content: center;
+  align-content: center;
+}
+/* 그림 중심형 선택지 버튼 — 작고 가로 분배.
+   1개: 풀폭 / 2~3개: 한 줄 / 4~6개: 자동 wrap */
+.scene-screen--pb.pb--imagecenter .pb-text--bottom-only .choice-v03 {
+  flex: 1 1 calc(33% - 6px);
+  min-width: 100px;
+  max-width: 100%;
+  padding: 6px 10px;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
 }
 
 
@@ -498,26 +554,105 @@
   /* 버튼은 텍스트 영역 안에만, 그림 영역 침범 금지 (v0.3 명세) */
 }
 
+/* ── 분할형(split) 전용 — 아래 40% 영역 안에 제목+본문+선택지 모두 fit ──
+   원칙:
+   · 제목  : 위에 고정 (1줄)
+   · 본문  : 가운데 늘어남 + 자체 overflow:auto (길어도 스크롤만, 잘림 없음)
+   · 선택지: 아래 고정 + 가로 flex + wrap (mockup TB 부합 + 자리 절약)
+   사용자 보고 케이스: 풀 폭 세로 stack 선택지 3개+ 본문 → 영역 초과 후 잘림. */
+.scene-screen--pb.pb--split .pb-text {
+  /* 부모 grid 영역 안에 fit */
+  overflow: hidden;
+  padding: 12px 16px;
+}
+.scene-screen--pb.pb--split .pb-text__title {
+  flex: 0 0 auto;
+  font-size: clamp(15px, 1.8vw, 18px);
+  margin: 0 0 6px;
+}
+.scene-screen--pb.pb--split .pb-text__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  margin: 0 0 8px;
+  font-size: clamp(12px, 1.3vw, 13.5px);
+  line-height: 1.55;
+}
+.scene-screen--pb.pb--split .pb-text__actions {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 8px;
+  align-items: stretch;
+  justify-content: center;
+  align-content: flex-start;
+  /* 영역 초과시 잘림 방지 — 끝에 padding으로 안전 마진 */
+  max-height: 50%;
+  overflow: hidden;
+}
+.scene-screen--pb.pb--split .pb-text__actions .choice-v03 {
+  flex: 1 1 calc(33% - 6px);
+  min-width: 100px;
+  max-width: 100%;
+  padding: 6px 10px;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
 /* ╭─────────────────────────────────────────╮
    │  모드 3: 무비형 (movie)                 │
    │  위 미디어(어두움) + 아래 결정 패널(light) │
    │  결정 패널 자연 높이 + 최대 40%          │
    ╰─────────────────────────────────────────╯ */
 .scene-screen--movie {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  background: var(--v03-media-bg);
-  display: grid;
-  grid-template-rows: 1fr auto;  /* 위 미디어 = 가용 공간, 아래 결정 = 자연 높이 */
-}
-.scene-screen--movie .movie-media {
-  background: var(--v03-media-bg);
-  position: relative;
+  /* W7-A 정정 v7: overlay 구조 유지 + 명시적 가두기.
+     이전 fix9: 선택지 6개가 viewer-frame 폭 넘어 viewport 끝까지 흘러나옴.
+     원인:
+       1) overflow: hidden 없어서 자식이 viewer-frame 밖으로 나감
+       2) flex-wrap: wrap으로 6개 줄바꿈 → 여러 줄 → max-height 60% 넘김
+       3) .choice-v03 본체 width: 100% + flex 충돌
+     해결:
+       1) overflow: hidden 강제 → 자식 절대 viewer-frame 못 넘어감
+       2) flex-wrap: nowrap → 6개 한 줄
+       3) min-width: 0 + width: auto로 flex 분배 정확히 */
+  position: absolute;
+  inset: 0;
+  background: #000;
   overflow: hidden;
-  display: grid;
-  place-items: center;
-  min-height: 0;  /* grid 1fr가 줄어들 수 있어야 결정 패널이 자연 높이 가짐 */
+}
+/* 영상/포스터 전체 영역 — viewer-frame 통째로 차지 */
+.scene-screen--movie .movie-media {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  overflow: hidden;
+}
+/* 결정 패널 — 영상 위에 overlay (그림책 imageCenter 구조).
+   하단 중앙에 본문 글상자처럼 떠있고, 아래 선택지가 가로 분배. */
+.scene-screen--movie .movie-decision {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  /* W7-A 정정 v7: 폭 명시 — 부모 .scene-screen--movie의 left:0 right:0 만으로
+     부족할 수 있어 명시적으로 width 100% + 박스 모델 보장. */
+  width: 100%;
+  max-width: 100%;
+  background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.55) 70%, rgba(0,0,0,0) 100%);
+  padding: 40px 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 60%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
+  z-index: 2;
 }
 .scene-screen--movie .movie-poster {
   width: 100%;
@@ -568,36 +703,48 @@
   visibility: hidden;
   pointer-events: none;
 }
+/* W7-A: 선택지 노출 시점 = always — 영상 재생 중에도 결정 패널 보임.
+   data-played="false"여도 위 룰을 무력화 (특이도 = data-* 두 개) */
+.scene-screen--movie[data-played="false"][data-movie-reveal="always"] .movie-decision {
+  visibility: visible;
+  pointer-events: auto;
+}
 .scene-screen--movie[data-body-enabled="off"] .movie-decision__desc {
   display: none;
 }
 
-/* 정식 video 태그 — movie-media 영역 꽉 채움 + 컨트롤 표시 */
+/* W7-A: 자막 표시 방식 — caption-bar는 본문을 자막 띠 톤으로 (어두운 배경 + 흰 글씨).
+   overlay(기본)는 결정 패널과 자연스럽게 어우러지는 톤. */
+.scene-screen--movie[data-movie-caption="caption-bar"] .movie-decision__desc {
+  background: rgba(20, 24, 33, 0.92);
+  color: #fff;
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: center;
+  letter-spacing: 0.01em;
+}
+
+/* 정식 video 태그 — movie-media 영역 안 꽉 채우되 절대 안 넘어감 */
 .scene-screen--movie .movie-video {
   width: 100%;
   height: 100%;
+  /* W7-A 정정 v3: max-* 명시 — video 자체가 자연 크기를 가지면 부모 grid row를
+     밀어낼 수 있어 부모 영역 강제 제한 */
+  max-width: 100%;
+  max-height: 100%;
   object-fit: contain;
   background: #000;
   display: block;
 }
 
-/* 결정 패널 — light 톤, 자연 높이 + 최대 40% */
-.scene-screen--movie .movie-decision {
-  background: var(--v03-card-bg);
-  color: var(--v03-fg);
-  border-top: 1px solid var(--v03-card-border);
-  padding: 16px 24px 18px;
-  /* v0.3 명세: 자연 높이 기반 + 최대 40%, 넘치면 내부 스크롤 */
-  max-height: 40%;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
+/* 결정 패널 — flex 0 0 40% 절대 비율. 자체 스크롤로 본문/선택지 길어도 OK */
+/* W7-A 정정 v6: 옛 flex 60/40 룰 폐기 — 위에서 absolute overlay 룰 사용 */
 .scene-screen--movie .movie-decision__desc {
   font-size: 14px;
   line-height: 1.55;
-  color: var(--v03-fg-soft);
+  color: #fff;          /* W7-A 정정 v6: 어두운 overlay 위에 흰 글씨 */
   margin: 0;
   /* 줄바꿈 정책: 한국어 단어 단위 + 영문/숫자 강제 줄바꿈 */
   white-space: pre-wrap;
@@ -605,31 +752,45 @@
   overflow-wrap: anywhere;
 }
 .scene-screen--movie .movie-decision__actions {
+  /* W7-A 정정 v7: 명시적으로 row + nowrap.
+     이전엔 column이 default + pair만 row였는데, fix9에서 row+wrap로 바꿨다가
+     6개 줄바꿈해 흘러내림.
+     이제: 항상 row + nowrap → 6개라도 한 줄에 작게 들어감 + viewer-frame 폭 절대 안 넘음. */
   display: flex;
-  gap: 8px;
-  /* 기본 세로 (1개·3+개) */
-  flex-direction: column;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: 6px;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
 }
-/* 2개 + 가로 허용 시점 — JS가 data-btn-layout="pair" 부여
-   가로 가능 조건: 컨테이너 폭이 충분할 때.
-   v0.3 명세: 폭 충분 + 문구 짧을 때만 가로, 그 외 세로 자동 전환.
-   여기서는 컨테이너 폭으로 1차 분기 (640px 이상). 문구 길이 감지는
-   다음 단계 — JS가 측정 후 클래스 토글. 지금은 폭만으로. */
+/* legacy data-btn-layout="pair"도 동일 룰 적용 (변별 의미 사라짐) */
 .scene-screen--movie .movie-decision__actions[data-btn-layout="pair"] {
-  flex-direction: column;  /* 기본은 세로 */
+  flex-direction: row;
+  flex-wrap: nowrap;
 }
+.scene-screen--movie .movie-decision__actions .choice-v03 {
+  /* flex 1 1 0: 부모 폭을 N개 선택지가 1/N씩 균등 분배.
+     min-width: 0: flex 자식이 부모 폭 안 넘게 (text 내용에 의한 강제 늘어남 차단).
+     width: auto: 본체 룰의 width: 100% 무력화 (flex 분배 우선). */
+  flex: 1 1 0;
+  width: auto;
+  min-width: 0;
+  padding: 9px 8px;       /* 6개 들어가도 글자 보이게 작은 padding */
+  font-size: 12.5px;
+  text-align: center;
+  justify-content: center;
+}
+.scene-screen--movie .movie-decision__actions .choice-v03::after {
+  display: none;       /* 화살표 숨김 (가로 분배 시 공간 부족) */
+}
+
 @media (min-width: 640px) {
-  .scene-screen--movie .movie-decision__actions[data-btn-layout="pair"] {
-    flex-direction: row;
-  }
-  .scene-screen--movie .movie-decision__actions[data-btn-layout="pair"] .choice-v03 {
-    flex: 1;
-    /* 가로 배치 시 화살표 숨기고 가운데 정렬 */
-    justify-content: center;
-    text-align: center;
-  }
-  .scene-screen--movie .movie-decision__actions[data-btn-layout="pair"] .choice-v03::after {
-    display: none;
+  /* 폭 충분하면 padding/글씨 조금 키움 */
+  .scene-screen--movie .movie-decision__actions .choice-v03 {
+    padding: 10px 12px;
+    font-size: 13.5px;
   }
 }
 
@@ -910,47 +1071,203 @@
   line-height: 1.5;
   color: var(--v03-card-fg, #1a1a1a);
 }
-/* 연결 메뉴 없으면 안내문이 더 아래로 */
-.scene-screen--experience:not(:has(.exp-connect-menu)) .exp-body-panel {
-  bottom: 20px;
+/* (W6 정식 connectObjects 적용 — 기존 .exp-body-panel 위치 단순화) */
+.scene-screen--experience .exp-body-panel {
+  /* 기본 위치는 위 룰의 bottom: 20px 사용 (임시 connect-menu 폐기) */
 }
 
-/* 임시 연결 메뉴 — 정식 connectObjects 모델 들어오면 이 컨테이너는 제거되고
-   배경 이미지 위 위치/크기 조정 가능한 진짜 오브젝트로 대체됨.
-   현재는 하단 메뉴 형태로 임시 표시 (탐색 동작은 성립). */
-.scene-screen--experience .exp-connect-menu {
+/* ── W6: 정식 connectObjects 모델 — 배경 위에 절대 위치로 떠 있는 오브젝트 ──
+   .exp-objects-layer는 배경 이미지 영역과 동일 100%×100%.
+   각 .connect-object는 그 안에서 left/top/width/height % 좌표.
+   타입별 시각 (.connect-object--button / --arrow / --flag / --next / --back / --home / --invisible). */
+.scene-screen--experience .exp-objects-layer {
   position: absolute;
-  left: 20px;
-  right: 20px;
-  bottom: 16px;
+  inset: 0;
+  pointer-events: none;   /* layer는 통과 — 자식 .connect-object만 잡음 */
+  z-index: 2;
+}
+.scene-screen--experience .connect-object {
+  position: absolute;
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+  align-items: center;
   justify-content: center;
-  padding: 8px;
-  background: rgba(255,255,255,0.85);
-  border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-}
-/* experience용 choice 버튼 톤 — 일반 선택지보다 작고 깔끔한 메뉴 톤 */
-.choice-v03--experience {
-  padding: 8px 14px;
-  font-size: 13px;
-  border-radius: 8px;
-  border: 1px solid var(--v03-card-border, #d0d7e0);
-  background: #fff;
-  color: var(--v03-card-fg, #1a1a1a);
+  gap: 4px;
+  pointer-events: auto;   /* 자식은 클릭 잡음 */
   cursor: pointer;
+  user-select: none;
   font-family: var(--v03-font-h, var(--font-h, sans-serif));
-  transition: background 120ms, border-color 120ms;
+  transition: transform 80ms, box-shadow 120ms;
+  box-sizing: border-box;
+  /* W6-2: 박스 크기 ↔ 내용 크기 정합성 — container query 활성화.
+     자식(.co-label/.co-icon)이 cqh/cqw 단위로 자동 스케일.
+     기존 vw 단위는 viewport 기준이라 박스 크기 변해도 폰트/아이콘은 안 변하는 문제. */
+  container-type: size;
+  container-name: cobj;
 }
-.choice-v03--experience:hover {
-  background: var(--v03-bg-soft, #eef2f8);
-  border-color: var(--v03-accent, #4a90d9);
+.scene-screen--experience .connect-object:hover {
+  transform: scale(1.03);
 }
-.choice-v03--experience:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+/* 라벨 — 박스 높이의 약 35% 폰트. 작아지지도 너무 커지지도 않게 clamp. */
+.scene-screen--experience .connect-object .co-label {
+  font-size: clamp(10px, 35cqh, 28px);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+/* 아이콘 — 박스 짧은 변(cqmin)의 60% 정도. 작은 박스에서도 또렷, 큰 박스에서도 시원하게. */
+.scene-screen--experience .connect-object .co-icon {
+  font-size: clamp(14px, 60cqmin, 64px);
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+/* 타입별 시각 + 패딩도 박스에 비례 (cq* 사용) */
+.scene-screen--experience .connect-object--button {
+  background: #fff;
+  border: 1.5px solid var(--v03-accent, #4a90d9);
+  border-radius: clamp(6px, 12cqmin, 16px);
+  color: var(--v03-card-fg, #1a1a1a);
+  padding: clamp(2px, 8cqmin, 12px) clamp(6px, 12cqmin, 18px);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
+.scene-screen--experience .connect-object--button .co-label {
+  /* 버튼은 라벨이 메인 — 박스 높이 50% 정도 */
+  font-size: clamp(10px, 45cqh, 28px);
+}
+.scene-screen--experience .connect-object--arrow {
+  background: rgba(74, 144, 217, 0.92);
+  color: #fff;
+  border-radius: 50%;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+.scene-screen--experience .connect-object--arrow .co-icon {
+  /* 화살표는 아이콘 메인 — 박스 짧은 변의 70% */
+  font-size: clamp(16px, 70cqmin, 72px);
+}
+.scene-screen--experience .connect-object--flag {
+  background: transparent;
+  flex-direction: column;
+  gap: 2px;
+  justify-content: flex-start;
+}
+.scene-screen--experience .connect-object--flag .co-icon {
+  /* 깃발은 박스 높이의 65% 차지 — 큰 깃발 + 작은 라벨 비율 */
+  font-size: clamp(18px, 65cqh, 80px);
+  filter: drop-shadow(0 2px 3px rgba(0,0,0,0.3));
+  line-height: 1;
+}
+.scene-screen--experience .connect-object--flag .co-label {
+  background: rgba(255,255,255,0.92);
+  padding: 1px 5px;
+  border-radius: 4px;
+  /* 깃발 라벨은 작게 — 박스 높이 18% */
+  font-size: clamp(8px, 18cqh, 16px);
+}
+.scene-screen--experience .connect-object--next,
+.scene-screen--experience .connect-object--back,
+.scene-screen--experience .connect-object--home {
+  background: rgba(33, 41, 51, 0.88);
+  color: #fff;
+  border-radius: clamp(4px, 10cqmin, 12px);
+  padding: clamp(2px, 8cqmin, 10px) clamp(4px, 10cqmin, 14px);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+}
+.scene-screen--experience .connect-object--next .co-icon,
+.scene-screen--experience .connect-object--back .co-icon,
+.scene-screen--experience .connect-object--home .co-icon {
+  /* 시스템 액션은 라벨 + 아이콘 균형 — 아이콘 작게 */
+  font-size: clamp(12px, 50cqh, 32px);
+}
+.scene-screen--experience .connect-object--next .co-label,
+.scene-screen--experience .connect-object--back .co-label,
+.scene-screen--experience .connect-object--home .co-label {
+  font-size: clamp(10px, 40cqh, 24px);
+}
+.scene-screen--experience .connect-object--invisible {
+  background: transparent;
+  border: 0;
+  /* 투명 영역은 박스 크기만 영향, 내용 스케일 무관 (사용자 명시 예외) */
+}
+/* 다듬기 모드에서 invisible은 점선 외곽 표시 (감상 모드에선 진짜 안 보임) */
+.scene-screen--experience[data-edit-mode="true"] .connect-object--invisible {
+  background: rgba(74, 144, 217, 0.08);
+  border: 2px dashed rgba(74, 144, 217, 0.6);
+  border-radius: 6px;
+}
+.scene-screen--experience[data-edit-mode="true"] .connect-object--invisible .co-label--invisible-hint {
+  font-size: 11px;
+  color: rgba(74, 144, 217, 0.9);
+  font-style: italic;
+  background: rgba(255,255,255,0.85);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* 다듬기 모드 — 모든 오브젝트에 점선 외곽 + 핸들 노출 */
+.scene-screen--experience[data-edit-mode="true"] .connect-object {
+  outline: 1px dashed rgba(74, 144, 217, 0.5);
+  outline-offset: 1px;
+}
+.scene-screen--experience[data-edit-mode="true"] .connect-object--moving,
+.scene-screen--experience[data-edit-mode="true"] .connect-object--resizing {
+  outline: 2px solid rgba(74, 144, 217, 1);
+  z-index: 100;
+}
+
+/* 핸들 (W4 패턴) — 다듬기 모드만 */
+.scene-screen--experience .co-handle {
+  position: absolute;
+  display: none;
+  user-select: none;
+  pointer-events: auto;
+}
+.scene-screen--experience[data-edit-mode="true"] .co-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.scene-screen--experience .co-handle--move {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 32px;
+  height: 32px;
+  font-size: 16px;
+  color: #fff;
+  background: rgba(74, 144, 217, 0.9);
+  border-radius: 50%;
+  cursor: move;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+  z-index: 3;
+  font-weight: 700;
+}
+.scene-screen--experience .co-handle--move:hover,
+.scene-screen--experience .co-handle--move:active {
+  background: rgba(74, 144, 217, 1);
+}
+.scene-screen--experience [class*="co-handle--resize-"] {
+  width: 14px;
+  height: 14px;
+  background: #fff;
+  border: 2px solid rgba(74, 144, 217, 1);
+  border-radius: 3px;
+  z-index: 3;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+.scene-screen--experience .co-handle--resize-nw {
+  top: 2px; left: 2px; cursor: nwse-resize;
+}
+.scene-screen--experience .co-handle--resize-ne {
+  top: 2px; right: 2px; cursor: nesw-resize;
+}
+.scene-screen--experience .co-handle--resize-sw {
+  bottom: 2px; left: 2px; cursor: nesw-resize;
+}
+.scene-screen--experience .co-handle--resize-se {
+  bottom: 2px; right: 2px; cursor: nwse-resize;
 }
 
 /* 체험전시형 표준 네비 (4단계 보강) — 뒤로가기 / 처음으로.
@@ -992,4 +1309,302 @@
 .scene-screen--experience .exp-title-overlay {
   /* 뒤로가기 버튼이 좌상단 16px에 있으므로 제목은 더 아래로 */
   top: 64px;
+}
+
+/* ================================================================
+   W5: 텍스트형 본격 보강 — 폰트 변수 / 8종 테마 / 효과
+   ─────────────────────────────────────────────────────────────
+   · 폰트: --font-* 변수 8종. text-card에 inline CSS 변수로 흘려넣음.
+   · 테마: data-text-theme="..." 분기 (8종)
+   · 효과: data-text-entrance / data-text-body 분기
+   · 사용자 직접 스타일(폰트/크기/색/굵기)이 테마 기본값 위에 덮어씀.
+   ================================================================ */
+
+/* 폰트 변수 — 사용자 메모리 기반 */
+:root {
+  --font-gothic:    'Nanum Gothic', 'Apple SD Gothic Neo', sans-serif;
+  --font-batang:    'Gowun Batang', 'Apple SD Gothic Neo', serif;
+  --font-jua:       'Jua', 'Apple SD Gothic Neo', sans-serif;
+  --font-hanna:     'Black Han Sans', 'Jua', sans-serif;
+  --font-pen:       'Nanum Pen Script', 'Gaegu', cursive;
+  --font-gaegu:     'Gaegu', 'Nanum Pen Script', cursive;
+  --font-galmuri:   'Galmuri7', 'Galmuri', monospace;
+  --font-cormorant: 'Cormorant Garamond', 'Gowun Batang', serif;
+}
+
+/* 사용자 스타일 적용 (CSS 변수로 inline 박힘) */
+.scene-screen--text .text-card {
+  font-family: var(--text-ff, var(--font-gothic));
+  font-weight: var(--text-weight, normal);
+}
+.scene-screen--text .text-card__body {
+  font-size: var(--text-fs-body, 15px);
+  font-weight: inherit;
+}
+.scene-screen--text .text-card__title {
+  /* W5 본문 위계 정정: 텍스트형은 "본문이 주인공" — 제목은 보조.
+     기존엔 제목이 본문 × 1.4로 더 컸으나, 사용자 원칙(본문 > 제목)에 맞춰
+     제목을 본문 × 0.78 (약 18px 본문일 때 14px 제목)로 보조 위계로 변경.
+     색상도 muted 톤으로 약화. */
+  font-size: calc(var(--text-fs-body, 18px) * 0.78);
+  font-weight: 700;
+  opacity: 0.72;
+  letter-spacing: 0.02em;
+}
+.scene-screen--text .text-card__body,
+.scene-screen--text .text-card__title {
+  color: var(--text-color-override, var(--v03-fg));
+}
+
+/* W5: 본문 위계 강화 — 본문이 가장 크고 시각적으로 메인.
+   · 본문 기본 크기 15px → 18px로 키움 (사용자 슬라이더로 12~28 조절 가능)
+   · line-height 여유 + letter-spacing 미세 조정으로 가독성 ↑
+   · 제목과의 시각 격차 명확 (제목 0.78배 + opacity 0.72) */
+.scene-screen--text .text-card__body {
+  font-size: var(--text-fs-body, 18px);
+  line-height: 1.75;
+  letter-spacing: 0.01em;
+  font-weight: inherit;
+}
+
+/* ─── 테마 8종 ─── */
+
+/* classic — 기본 (현재 톤) */
+.scene-screen--text[data-text-theme="classic"] .text-card {
+  background: #ffffff;
+  color: #1a1a1a;
+  border: 1px solid #e0e0e0;
+}
+
+/* novel — 베이지 + 명조 */
+.scene-screen--text[data-text-theme="novel"] .text-card {
+  background: #f7f1e3;
+  color: #3d2914;
+  border: 1px solid #d4c4a0;
+  font-family: var(--text-ff, var(--font-batang));
+}
+.scene-screen--text[data-text-theme="novel"] .text-card__title {
+  color: #5c2c2c;
+}
+
+/* paperbook — 오래된 종이 */
+.scene-screen--text[data-text-theme="paperbook"] .text-card {
+  background:
+    repeating-linear-gradient(0deg, transparent 0 2px, rgba(120, 90, 50, 0.03) 2px 3px),
+    #f4ead5;
+  color: #3d2914;
+  border: 1px solid #c8b896;
+  box-shadow: 0 4px 12px rgba(120, 90, 50, 0.15);
+  font-family: var(--text-ff, var(--font-batang));
+}
+.scene-screen--text[data-text-theme="paperbook"] .text-card__title {
+  color: #6b3f1a;
+  border-bottom: 1px dashed #c8b896;
+  padding-bottom: 8px;
+}
+
+/* note — 격자 + 손글씨 */
+.scene-screen--text[data-text-theme="note"] .text-card {
+  background:
+    linear-gradient(#dceaf5 1px, transparent 1px) 0 0/100% 28px,
+    #fafdff;
+  color: #2c4060;
+  border: 1px solid #c8d8e8;
+  font-family: var(--text-ff, var(--font-gaegu));
+}
+.scene-screen--text[data-text-theme="note"] .text-card__title {
+  color: #1c4070;
+}
+
+/* magazine — 굵은 헤드라인 */
+.scene-screen--text[data-text-theme="magazine"] .text-card {
+  background: #ffffff;
+  color: #1a1a1a;
+  border: none;
+  border-left: 6px solid #d62c1a;
+  border-radius: 4px;
+  padding-left: 28px;
+}
+.scene-screen--text[data-text-theme="magazine"] .text-card__title {
+  font-family: var(--font-hanna);
+  font-size: calc(var(--text-fs-body, 15px) * 2);
+  letter-spacing: -0.02em;
+  color: #1a1a1a;
+}
+
+/* handwriting — 편지지 */
+.scene-screen--text[data-text-theme="handwriting"] .text-card {
+  background: #fffaf0;
+  color: #2a2418;
+  border: 1px solid #e8d4a8;
+  border-radius: 4px;
+  font-family: var(--text-ff, var(--font-pen));
+  /* 본문은 펜 글씨라 line-height 더 여유 */
+}
+.scene-screen--text[data-text-theme="handwriting"] .text-card__body {
+  font-size: calc(var(--text-fs-body, 15px) * 1.3); /* 펜 폰트는 작아보여 보정 */
+  line-height: 1.6;
+}
+.scene-screen--text[data-text-theme="handwriting"] .text-card__title {
+  color: #4a2c1a;
+}
+
+/* retro — 검은 배경 + 픽셀 */
+.scene-screen--text[data-text-theme="retro"] .text-card {
+  background: #1a1a1a;
+  color: #4af09a;
+  border: 2px solid #4af09a;
+  border-radius: 0;
+  font-family: var(--text-ff, var(--font-galmuri));
+  box-shadow: 0 0 20px rgba(74, 240, 154, 0.15);
+}
+.scene-screen--text[data-text-theme="retro"] .text-card__title {
+  color: #ffea4a;
+  text-shadow: 2px 2px 0 rgba(255, 234, 74, 0.3);
+}
+
+/* dark — 어두운 톤 */
+.scene-screen--text[data-text-theme="dark"] .text-card {
+  background: #161d2f;
+  color: #e8edf5;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+.scene-screen--text[data-text-theme="dark"] .text-card__title {
+  color: #ffffff;
+}
+
+/* ─── 효과: 진입 ─── */
+@keyframes textFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes textSlideIn {
+  from { opacity: 0; transform: translate(-50%, calc(-50% + 20px)); }
+  to   { opacity: 1; transform: translate(-50%, -50%); }
+}
+.scene-screen--text[data-text-entrance="fade"] .text-card {
+  animation: textFadeIn 0.45s ease-out both;
+}
+.scene-screen--text[data-text-entrance="slide"] .text-card {
+  animation: textSlideIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ─── 효과: 본문 타자기 ─── */
+@keyframes typewriterReveal {
+  from { clip-path: inset(0 100% 0 0); }
+  to   { clip-path: inset(0 0 0 0); }
+}
+.scene-screen--text[data-text-body="typewriter"] .text-card__body {
+  animation: typewriterReveal 1.6s steps(40, end) both;
+  /* 텍스트 길이에 비례한 자연스러운 진행감. 길이 무관 일정한 시간이라 짧은 글은 빠르게,
+     긴 글은 천천히 보이는 시각적 효과 부여. */
+}
+
+/* ================================================================
+   W5 다듬기 패널 — 폰트/색/테마 카드 스타일
+   ================================================================ */
+.edit-font-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+}
+.edit-font-btn {
+  padding: 10px 8px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px;
+  color: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 120ms, border-color 120ms;
+}
+.edit-font-btn:hover {
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(255,255,255,0.18);
+}
+.edit-font-btn.active {
+  background: rgba(74,144,217,0.2);
+  border-color: rgba(74,144,217,0.7);
+  color: #c8dcf2;
+}
+
+.edit-color-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.edit-color-btn {
+  width: 32px;
+  height: 32px;
+  border: 2px solid rgba(255,255,255,0.15);
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 9px;
+  color: #888;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 80ms, border-color 120ms;
+}
+.edit-color-btn:hover {
+  transform: scale(1.08);
+}
+.edit-color-btn.active {
+  border-color: #4a90d9;
+  border-width: 3px;
+  box-shadow: 0 0 0 2px rgba(74,144,217,0.3);
+}
+.edit-color-picker {
+  width: 40px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 6px;
+  cursor: pointer;
+  background: transparent;
+}
+
+.edit-slider {
+  width: 100%;
+  margin: 4px 0;
+  accent-color: #4a90d9;
+}
+
+.edit-theme-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+}
+.edit-theme-card {
+  padding: 12px 10px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 8px;
+  color: inherit;
+  text-align: center;
+  cursor: pointer;
+  transition: background 120ms, border-color 120ms, transform 80ms;
+}
+.edit-theme-card:hover {
+  transform: translateY(-1px);
+  background: rgba(255,255,255,0.06);
+  border-color: rgba(255,255,255,0.15);
+}
+.edit-theme-card.active {
+  background: rgba(74,144,217,0.15);
+  border-color: rgba(74,144,217,0.7);
+  box-shadow: 0 0 0 1px rgba(74,144,217,0.4);
+}
+.edit-theme-card-name {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: #e8edf5;
+}
+.edit-theme-card-desc {
+  font-size: 11px;
+  color: #8394ad;
+  line-height: 1.4;
 }

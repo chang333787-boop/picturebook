@@ -51,7 +51,7 @@ async function lookupClassIdForViewer(code) {
    classId: v2 경로에서 필요 (v1에서는 null)
    fromMaker: 교사/제작자 테스트 세션 여부 (isPublic 차단 제외용)
    ================================================================ */
-async function loadTeamData(teamName, classId = null, fromMaker = false) {
+async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHint = null) {
   const db          = getViewerDb();
   const encodedName = encodeURIComponent(teamName);
 
@@ -60,26 +60,51 @@ async function loadTeamData(teamName, classId = null, fromMaker = false) {
     ? `classes/${classId}/teams/${encodedName}`
     : `teams/${encodedName}`;
 
-  const snapshot  = await db.ref(`${basePath}/scenes`).once('value');
+  /* W7 성능 보강: scenes + viewer-meta를 병렬 로드.
+     · 이전엔 scenes 다 받은 뒤(수MB 가능) viewer-meta 받음 → 순차 1~3초 + 그림책 깜빡임.
+     · 이제 둘 다 동시 시작. viewer-meta가 보통 더 빨리 와 projectType 즉시 결정.
+     · 더 이상 RTDB round-trip 두 번 + 직렬 대기 없음. */
+  const [snapshot, metaSnap] = await Promise.all([
+    db.ref(`${basePath}/scenes`).once('value'),
+    db.ref(`${basePath}/viewer-meta`).once('value'),
+  ]);
   const rawScenes = snapshot.val();
+  const meta      = metaSnap.val();
 
   if (!rawScenes) throw new Error(`"${teamName}" 작품을 찾을 수 없어요.`);
+
+  /* W7 projectType 강제 lock (사용자 결정):
+     "무슨일이있어도 다른모드로 맘대로 못넘어가게 설정해"
+     ─────────────────────────────────────────────────────────────
+     결정 우선순위 (위에서 아래 순서):
+     1. viewer-meta.projectType valid → 그 값 (DB가 절대 진실)
+     2. ptypeHint valid (maker URL ?ptype=) → hint 사용 + DB 보정 저장
+        ※ hint는 maker가 메모리에 가진 사용자 결정. lock 정책의 연장이지 위배 아님.
+     3. 그 외 → 'picturebook' fallback (legacy 작품 보호용 최후 수단)
+        · DB 보정 저장 안 함 — fallback이 실제 작품 모드와 다를 수 있음
+        · 사용자가 maker에서 ptype 화면 거치면 그때 정상 박힘 */
+  const VALID_PTYPES = ['text', 'picturebook', 'movie', 'experience'];
+  if (meta && typeof meta.projectType === 'string' && VALID_PTYPES.includes(meta.projectType)) {
+    ViewerState.project.projectType = meta.projectType;
+  } else if (typeof ptypeHint === 'string' && VALID_PTYPES.includes(ptypeHint)) {
+    /* maker가 보낸 hint — 사용자 결정의 연장. fallback 대신 hint 사용 + DB 보정 저장. */
+    ViewerState.project.projectType = ptypeHint;
+    try {
+      db.ref(`${basePath}/viewer-meta/projectType`).set(ptypeHint);
+      console.log('[projectType lock] hint로 보정 저장:', ptypeHint, '| basePath:', basePath);
+    } catch (e) { /* noop */ }
+  } else {
+    /* viewer-meta 없거나 projectType 없는 legacy 작품 — 그림책 fallback.
+       이 fallback은 read-only — DB에 보정 저장 X. */
+    ViewerState.project.projectType = 'picturebook';
+  }
 
   ViewerState.project.teamName = teamName;
   ViewerState.project.classId  = classId;  // ★ v2에서 저장 경로에 재사용
   ViewerState.scenes           = adaptScenes(rawScenes);
 
-  /* 프로젝트 메타 읽기 (선택적 — viewer-meta 노드가 있으면 사용) */
-  const metaSnap = await db.ref(`${basePath}/viewer-meta`).once('value');
-  const meta     = metaSnap.val();
+  /* 프로젝트 메타 — projectType 외 나머지 필드 처리 (위에서 이미 받음) */
   if (meta) {
-    /* 작품 유형 (1단계 신규) — 화이트리스트 검증, 없거나 잘못된 값이면 'picturebook' fallback */
-    const VALID_PTYPES = ['text', 'picturebook', 'movie', 'experience'];
-    if (typeof meta.projectType === 'string' && VALID_PTYPES.includes(meta.projectType)) {
-      ViewerState.project.projectType = meta.projectType;
-    }
-    /* else: ViewerState.project.projectType은 viewer-state.js의 기본값 'picturebook' 유지 */
-
     if (meta.mode)     ViewerState.project.mode     = meta.mode;
     if (meta.theme)    ViewerState.project.theme    = meta.theme;
     if (meta.template) ViewerState.project.template = meta.template;
@@ -169,6 +194,11 @@ async function saveSceneText(num, fields) {
     'bodyEnabled',        /* 3단계: 무비형 본문 사용 ON/OFF (scene 단위 명시 필드) */
     'picturebookSubmode', /* 3단계: 그림책형 하위 모드 (split | imageCenter) */
     'picturebookBodyBox', /* W4-A: 그림책형 본문 글상자 위치/폭/배경막 (그림 중심형 전용) */
+    'connectObjects',     /* W6: 체험전시형 정식 연결 오브젝트 모델 [{id,type,x,y,w,h,label,nextId}] */
+    'textStyle',          /* W5: 텍스트형 글자 스타일 {fontFamily, fontSize, color, weight} */
+    'textTheme',          /* W5: 텍스트형 테마 (8종 중 1) */
+    'textEffect',         /* W5: 텍스트형 효과 {entrance, body} */
+    'imageData',          /* W7: 무비형 포스터 이미지 (그림책형/체험전시형도 사용 — 다듬기 패널 업로드 저장) */
   ];
   const patch = {};
   ALLOWED.forEach(k => {
@@ -217,13 +247,27 @@ async function saveViewerMeta() {
     });
   });
 
-  await db.ref(`${basePath}/viewer-meta`).set({
+  /* W7 projectType 보존 핵심 fix:
+     이전엔 viewer-meta 통째 set 시 projectType 안 박아 옛 값까지 사라짐.
+     사용자 캡처 시나리오: ptype 화면에서 'movie' 저장 → 다듬기 저장 시 viewer-meta
+     통째 덮어쓰기 → projectType 필드 사라짐 → viewer 진입 시 undefined → 그림책 fallback.
+     이제: ViewerState.project.projectType이 valid 값이면 매 저장 시 함께 박음. */
+  const VALID_PTYPES = ['text', 'picturebook', 'movie', 'experience'];
+  const ptype = ViewerState.project.projectType;
+  const ptypePatch = (typeof ptype === 'string' && VALID_PTYPES.includes(ptype))
+    ? { projectType: ptype }
+    : {};
+
+  /* W7: set → update. set은 노드 통째 덮어쓰기라 명시 안 한 필드(projectType 등) 사라짐.
+     update는 명시한 키만 갱신, 나머지 보존. */
+  await db.ref(`${basePath}/viewer-meta`).update({
     mode:         ViewerState.project.mode,
     theme:        ViewerState.project.theme,
     template:     ViewerState.project.template,
     presentation: presentationData,
     isPublic:     ViewerState.project.isPublic,  // 공개 정책 유지
     savedAt:      Date.now(),
+    ...ptypePatch,                               // ★ projectType 보존 (안전망 이중)
   });
 }
 
@@ -330,6 +374,10 @@ function adaptScenes(rawScenes) {
          · backdropOpacity : 0~1 (배경막 강도. 0=투명, 1=완전 불투명)
          null이면 viewer-render에서 mockup 기본값 사용 (x:15 y:25 w:55 op:0.85). */
       picturebookBodyBox: _normalizePbBodyBox(raw.picturebookBodyBox),
+      connectObjects:     _normalizeConnectObjects(raw.connectObjects) || [],
+      textStyle:          _normalizeTextStyle(raw.textStyle),
+      textTheme:          _normalizeTextTheme(raw.textTheme),
+      textEffect:         _normalizeTextEffect(raw.textEffect),
 
       /* 위치 (maker 캔버스 좌표 — viewer에서는 표시용으로만) */
       x: raw.x || 0,
@@ -382,8 +430,12 @@ function adaptChoices(raw) {
        maker의 updateChoiceLabel이 buttons는 안 건드리고 choiceA/B만 갱신했을 수 있음.
        이 경우 buttons[0/1].label과 choiceA/B가 어긋남 → maker 값이 더 최신일 수 있으니
        runtime에서 choiceA/B로 덮어씀 (메모리만, DB는 그대로).
-       다음 viewer-edit 저장 시 buildButtonsPatchForSave가 양쪽을 다시 동기화함. */
-    return raw.buttons
+       다음 viewer-edit 저장 시 buildButtonsPatchForSave가 양쪽을 다시 동기화함.
+
+       W7 legacy 보정: buttons[]가 6개 초과인 옛 작품은 표시 시 6개로 자름.
+       데이터는 보존, viewer에는 6개만. */
+    const sliced = raw.buttons.slice(0, 6);
+    return sliced
       .filter(b => b && typeof b === 'object')
       .map((b, i) => {
         const id = (typeof b.id === 'string' && b.id) ? b.id : _autoChoiceId(i);
@@ -684,6 +736,179 @@ function getPicturebookBodyBox(scene) {
   const v = scene && scene.picturebookBodyBox;
   if (v && typeof v === 'object') return v;
   return { ...PB_BODY_BOX_DEFAULTS };
+}
+
+/* ================================================================
+   W6: 체험전시형 정식 connectObjects 모델
+   ─────────────────────────────────────────────────────────────
+   scene.connectObjects = [{ id, type, x, y, w, h, label, nextId }, ...]
+   · 좌표/크기 단위: % (배경 이미지 영역 기준)
+   · 1차 타입 5종: button / arrow / flag / next / invisible
+     (back/home은 상단 시스템 네비로 제공 — 1차 추가 타입에서 제외)
+   · invisible: 시각 없이 클릭 영역만 (이미지 일부 클릭으로 분기)
+   · 1차 범위: 표시 + 위치/크기 + label/nextId
+   · 후순위: 회전/복제/레이어/스타일
+   · legacy 호환: 이전 버전에서 만든 back/home 데이터는 그대로 표시
+     (정규화 시 통과 허용. 다듬기 추가 버튼에서만 제외 — 신규 추가 못함)
+   ================================================================ */
+const VALID_CONNECT_OBJECT_TYPES = [
+  'button', 'arrow', 'flag', 'next', 'invisible'
+];
+/* legacy 호환 — 데이터 정규화에선 통과 허용 (기존 작품 손상 방지). */
+const _LEGACY_CONNECT_OBJECT_TYPES = ['back', 'home'];
+const _ALL_CONNECT_OBJECT_TYPES_FOR_NORMALIZE = [
+  ...VALID_CONNECT_OBJECT_TYPES, ..._LEGACY_CONNECT_OBJECT_TYPES,
+];
+/* 타입별 기본 크기 (%) — 추가 시 화면 가운데에 적당한 크기로 생성 */
+const CONNECT_OBJECT_DEFAULT_SIZE = {
+  button:    { w: 22, h: 9  },
+  arrow:     { w: 10, h: 10 },
+  flag:      { w: 8,  h: 14 },
+  next:      { w: 16, h: 8  },
+  /* legacy */
+  back:      { w: 16, h: 8  },
+  home:      { w: 16, h: 8  },
+  invisible: { w: 25, h: 25 },
+};
+const CONNECT_OBJECT_LABEL_MAX = 20;   /* 체험전시형 라벨 max (W4-D 결정) */
+
+function _normalizeConnectObject(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  /* legacy 호환 — back/home 데이터도 통과 (기존 작품 손상 방지). */
+  const type = _ALL_CONNECT_OBJECT_TYPES_FOR_NORMALIZE.includes(raw.type) ? raw.type : 'button';
+  const def = CONNECT_OBJECT_DEFAULT_SIZE[type] || { w: 20, h: 10 };
+  /* id 없으면 자동 생성 (구버전 데이터 호환) */
+  const id = (typeof raw.id === 'string' && raw.id)
+    ? raw.id
+    : ('co_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6));
+  /* label은 max 20자(체험전시형 정책)로 절단 */
+  let label = (typeof raw.label === 'string') ? raw.label : '';
+  if (label.length > CONNECT_OBJECT_LABEL_MAX) label = label.slice(0, CONNECT_OBJECT_LABEL_MAX);
+  /* nextId — string 또는 null. 자기 자신도 허용 (사용자 의도 존중). */
+  const nextId = (raw.nextId !== null && raw.nextId !== undefined && raw.nextId !== '')
+    ? String(raw.nextId)
+    : null;
+  return {
+    id,
+    type,
+    x:      _clampNum(raw.x, 0, 100, 40),
+    y:      _clampNum(raw.y, 0, 100, 40),
+    w:      _clampNum(raw.w, 2, 100, def.w),
+    h:      _clampNum(raw.h, 2, 100, def.h),
+    label,
+    nextId,
+  };
+}
+
+function _normalizeConnectObjects(arr) {
+  if (!Array.isArray(arr)) return null;   /* null이면 빈 배열 취급 (DB 미저장 신호) */
+  const out = [];
+  for (const raw of arr) {
+    const co = _normalizeConnectObject(raw);
+    if (co) out.push(co);
+  }
+  return out;
+}
+
+/* ================================================================
+   W5: 텍스트형 보강 — 텍스트 스타일/테마/효과 데이터 모델
+   ─────────────────────────────────────────────────────────────
+   scene.textStyle = { fontFamily, fontSize, color, weight }
+   scene.textTheme = 'classic' | 'novel' | 'paperbook' | 'note' |
+                     'magazine' | 'handwriting' | 'retro' | 'dark'
+   scene.textEffect = { entrance: 'none'|'fade'|'slide', body: 'none'|'typewriter' }
+   · 모든 필드 optional — 없으면 기본값 (CSS 변수)
+   · viewer-render에서 적용, viewer-edit에서 편집
+   · 1차 범위: 데이터 모델 + 다듬기 UI + 8종 테마 톤 차이
+   · 후순위: 효과 본격 (애니메이션 정교화)
+   ================================================================ */
+const VALID_TEXT_THEMES = [
+  'classic', 'novel', 'paperbook', 'note',
+  'magazine', 'handwriting', 'retro', 'dark',
+];
+const VALID_TEXT_FONTS = [
+  'gothic',     /* Nanum Gothic — 기본 산세리프 */
+  'batang',     /* Gowun Batang — 명조 */
+  'pen',        /* Nanum Pen Script — 손글씨 */
+  'gaegu',      /* Gaegu — 동글동글 손글씨 */
+  'hanna',      /* Black Han Sans — 굵은 헤드라인 */
+  'jua',        /* Jua — 친근한 산세리프 */
+  'galmuri',    /* Galmuri — 픽셀/레트로 */
+  'cormorant',  /* Cormorant Garamond — 영문 명조 */
+];
+const TEXT_STYLE_DEFAULTS = {
+  fontFamily: 'gothic',
+  fontSize:   18,        /* px — viewer 기본. W5: 본문 위계 강화 (본문이 메인) */
+  color:      '',        /* 빈 문자열이면 테마 기본 색 사용 */
+  weight:     'normal',  /* normal | bold */
+};
+const VALID_TEXT_EFFECTS = {
+  entrance: ['none', 'fade', 'slide'],
+  body:     ['none', 'typewriter'],
+};
+const TEXT_EFFECT_DEFAULTS = {
+  entrance: 'none',
+  body:     'none',
+};
+
+function _normalizeTextStyle(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const fontFamily = VALID_TEXT_FONTS.includes(raw.fontFamily) ? raw.fontFamily : TEXT_STYLE_DEFAULTS.fontFamily;
+  const fontSize   = _clampNum(raw.fontSize, 10, 36, TEXT_STYLE_DEFAULTS.fontSize);
+  const color      = (typeof raw.color === 'string') ? raw.color : TEXT_STYLE_DEFAULTS.color;
+  const weight     = (raw.weight === 'bold') ? 'bold' : 'normal';
+  return { fontFamily, fontSize, color, weight };
+}
+
+function _normalizeTextTheme(raw) {
+  if (typeof raw !== 'string') return null;
+  return VALID_TEXT_THEMES.includes(raw) ? raw : null;
+}
+
+function _normalizeTextEffect(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const entrance = VALID_TEXT_EFFECTS.entrance.includes(raw.entrance) ? raw.entrance : TEXT_EFFECT_DEFAULTS.entrance;
+  const body     = VALID_TEXT_EFFECTS.body.includes(raw.body)         ? raw.body     : TEXT_EFFECT_DEFAULTS.body;
+  return { entrance, body };
+}
+
+function getTextStyle(scene) {
+  const v = scene && scene.textStyle;
+  if (v && typeof v === 'object') return v;
+  return { ...TEXT_STYLE_DEFAULTS };
+}
+function getTextTheme(scene) {
+  const v = scene && scene.textTheme;
+  return (typeof v === 'string' && VALID_TEXT_THEMES.includes(v)) ? v : 'classic';
+}
+function getTextEffect(scene) {
+  const v = scene && scene.textEffect;
+  if (v && typeof v === 'object') return v;
+  return { ...TEXT_EFFECT_DEFAULTS };
+}
+
+/* viewer-render / viewer-edit에서 사용 — 항상 배열 반환 (null/undef → []). */
+function getConnectObjects(scene) {
+  const v = scene && scene.connectObjects;
+  if (Array.isArray(v)) return v;
+  return [];
+}
+
+/* 새 connectObject 생성 — 다듬기 패널 "오브젝트 추가" 진입점에서 호출.
+   기본 위치는 화면 가운데, 크기는 타입별 default. */
+function createConnectObject(type) {
+  const t = VALID_CONNECT_OBJECT_TYPES.includes(type) ? type : 'button';
+  const def = CONNECT_OBJECT_DEFAULT_SIZE[t];
+  return {
+    id: 'co_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6),
+    type: t,
+    x: 50 - def.w / 2,   /* 가운데 정렬 */
+    y: 50 - def.h / 2,
+    w: def.w,
+    h: def.h,
+    label: '',
+    nextId: null,
+  };
 }
 
 /* 포스터 이미지 fallback 체인:

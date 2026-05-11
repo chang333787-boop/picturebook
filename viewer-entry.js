@@ -40,7 +40,7 @@ function _bindEntryEvents() {
     });
 }
 
-/* ── query param 처리: ?team=2모둠&edit=1&from=maker&classId=abc&scene=N ── */
+/* ── query param 처리: ?team=2모둠&edit=1&from=maker&classId=abc&scene=N&ptype=movie ── */
 function _processQueryParam() {
   const params    = new URLSearchParams(location.search);
   const teamName  = params.get('team');
@@ -48,10 +48,11 @@ function _processQueryParam() {
   const fromMaker = params.get('from') === 'maker';
   const classId   = params.get('classId') || null;  // v2 경로용
   const sceneNum  = params.get('scene') || null;    // C-2: 특정 장면 자동 선택
+  const ptypeHint = params.get('ptype') || null;    // W7: maker가 보낸 모드 hint (lock 보강)
 
   if (!teamName) return;
 
-  _enterViewer(teamName, editMode, fromMaker, classId, sceneNum);
+  _enterViewer(teamName, editMode, fromMaker, classId, sceneNum, ptypeHint);
 }
 
 /* ── entry 화면 직접 제출 — v2 classCodes lookup ── */
@@ -92,10 +93,10 @@ async function handleEntrySubmit() {
 }
 
 /* ── 실제 진입 처리 ── */
-async function _enterViewer(teamName, editMode = false, fromMaker = false, classId = null, sceneNum = null) {
+async function _enterViewer(teamName, editMode = false, fromMaker = false, classId = null, sceneNum = null, ptypeHint = null) {
   try {
     _setEntryLoading(true);
-    await loadTeamData(teamName, classId, fromMaker);  // fromMaker: isPublic 차단 예외용
+    await loadTeamData(teamName, classId, fromMaker, ptypeHint);  // fromMaker: isPublic 차단 예외용 / ptypeHint: maker 모드 hint
 
     /* edit 모드 + fromMaker 상태 설정 */
     if (editMode) ViewerState.editMode = true;
@@ -125,9 +126,24 @@ async function _enterViewer(teamName, editMode = false, fromMaker = false, class
       startViewer();
     }
 
+    /* W8: 자동 진입(?team=) 깜빡임 차단 — player 렌더 끝나면 로딩 제거.
+       viewer.html head의 inline script가 window.__hideAutoEnterLoading 정의. */
+    if (typeof window.__hideAutoEnterLoading === 'function') {
+      /* 다음 프레임에서 — player DOM이 그려진 다음이 자연스러움 */
+      requestAnimationFrame(function () { window.__hideAutoEnterLoading(); });
+    }
+
   } catch (err) {
     _setEntryError(err.message || '작품을 불러오는 중 오류가 발생했어요.');
     _setEntryLoading(false);
+    /* W8: 오류 시 자동 진입 로딩 제거 + entry 화면 강제 표시.
+       inline script가 #entry-screen{display:none !important}로 숨겨놨기 때문에
+       inline style로 덮어 사용자가 입력칸 다시 볼 수 있게 함. */
+    if (typeof window.__hideAutoEnterLoading === 'function') {
+      window.__hideAutoEnterLoading();
+    }
+    const entryEl = document.getElementById('entry-screen');
+    if (entryEl) entryEl.style.cssText = 'display:flex !important;';
   }
 }
 

@@ -21,6 +21,27 @@ let nextNum  = 1;
 const PROJECT_TYPES = ['text', 'picturebook', 'movie', 'experience'];
 const DEFAULT_PROJECT_TYPE = 'picturebook';   // 점검 2 결정: fallback
 
+/* ── 모드별 선택지 라벨 글자수 max (W4-D 결정) ──
+   mockup + 영역 크기 기준으로 결정.
+   · picturebook 30 : A4 컨테이너의 짧은 한 줄 — mockup의 "함께 있으면 마음이 따뜻해져서"(14자) 여유 있게.
+   · text         60 : 영역이 가장 큼 — 본문 중심형이지만 선택지도 길어질 수 있음.
+   · movie        30 : 결정 패널이 좁음.
+   · experience   20 : 학교 지도 mockup의 짧은 라벨 (운동장/교실/도서관 등).
+   maker 입력란의 maxlength + viewer ellipsis 안전망 양쪽에 적용. */
+const CHOICE_LABEL_MAX_BY_MODE = {
+  text:        60,
+  picturebook: 30,
+  movie:       30,
+  experience:  20,
+};
+const CHOICE_LABEL_MAX_DEFAULT = 30;
+function getChoiceLabelMax(mode) {
+  if (mode && Object.prototype.hasOwnProperty.call(CHOICE_LABEL_MAX_BY_MODE, mode)) {
+    return CHOICE_LABEL_MAX_BY_MODE[mode];
+  }
+  return CHOICE_LABEL_MAX_DEFAULT;
+}
+
 /* ── 프로젝트 메타 (viewer-meta 경로와 매칭) ──
    구조 개편 1차에서 viewer 쪽이 쓰고 있는 cover/entry/replay 필드의
    maker 쪽 로컬 캐시. 프로젝트 설정 UI에서 읽고 쓰는 원본.

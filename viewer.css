@@ -6,17 +6,19 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  /* 기본 테마 */
-  --bg:          #0d1117;
-  --surface:     #161b22;
-  --surface2:    #21262d;
-  --border:      rgba(255,255,255,0.12);
-  --text:        #e6edf3;
-  --text-muted:  #8b949e;
-  --accent:      #58a6ff;
-  --accent2:     #f0a000;
-  --ending:      #f85149;
-  --explore:     #56d364;
+  /* W8 Warm Paper: 다듬기 패널 + cover/scene/terminal 옛 영역에 종이톤.
+     4모드 player(v03 변수 격리), 무비형 미디어(--v03-media-bg 별도)는 영향 0.
+     사용자 원칙: 구조 안전 — 변수만 변경, 마크업/JS/클래스 0% 건드림. */
+  --bg:          #fbf6ea;
+  --surface:     #fffaee;
+  --surface2:    #f4ecd8;
+  --border:      rgba(80,50,20,0.10);
+  --text:        #2b1f10;
+  --text-muted:  #6b5638;
+  --accent:      #c66f4a;      /* 다듬기 강조 = 코랄 (제작 톤) */
+  --accent2:     #c79550;      /* 보조 = 골드 */
+  --ending:      #c8503c;      /* 종이톤 빨강 */
+  --explore:     #5a8a4a;      /* 종이톤 진녹 */
 
   /* 타이포 */
   --font-story:  'Nanum Gothic', 'Apple SD Gothic Neo', sans-serif;
@@ -61,77 +63,147 @@ html, body {
   font-family: var(--font-story);
 }
 
-/* ── entry 화면 ── */
+/* ── entry 화면 (Warm Paper) ── */
 #entry-screen {
   position: fixed;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(ellipse at 60% 40%, #1a2a4a 0%, var(--bg) 70%);
+  background: #fbf6ea;
+  background-image:
+    radial-gradient(circle at 20% 30%, rgba(120,90,50,0.025) 0, transparent 50%),
+    radial-gradient(circle at 70% 70%, rgba(120,90,50,0.020) 0, transparent 50%);
   z-index: 100;
   transition: opacity var(--t-slow);
+  padding: 20px;
 }
 #entry-screen.hidden { display: none; }
+/* 종이 테이프 장식 — home/maker join과 통일 */
+#entry-screen::before {
+  content: '';
+  position: absolute;
+  top: 32px;
+  left: 50%;
+  transform: translateX(-50%) rotate(-2deg);
+  width: 100px;
+  height: 18px;
+  background: rgba(232,164,64,0.32);
+  border-radius: 2px;
+  box-shadow: 0 1px 2px rgba(120,90,50,0.10);
+  opacity: 0.7;
+  pointer-events: none;
+}
 
 .entry-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 24px;
-  padding: 48px 40px;
+  position: relative;
+  background: #fffaee;
+  border: 1px solid rgba(80,50,20,0.10);
+  border-radius: 20px;
+  padding: 40px 32px 32px;
   width: min(420px, 92vw);
   text-align: center;
-  box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+  box-shadow:
+    0 1px 0 rgba(120,90,50,0.06),
+    0 2px 6px rgba(120,90,50,0.06),
+    0 16px 32px rgba(120,90,50,0.10);
+  animation: entryFadeUp 0.5s cubic-bezier(0.22,1,0.36,1) both;
 }
-.entry-logo   { font-size: 48px; margin-bottom: 12px; }
-.entry-title  { font-family: var(--font-ui); font-size: 26px; color: var(--text); margin-bottom: 6px; }
-.entry-sub    { font-size: 14px; color: var(--text-muted); margin-bottom: 32px; line-height: 1.6; }
+@keyframes entryFadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* 손글씨 부제 (home/maker join과 같은 톤) */
+.entry-logo {
+  font-family: 'Nanum Pen Script', cursive;
+  font-size: 22px;
+  color: #5a92c2;       /* 감상 = 하늘 톤 */
+  margin-bottom: 4px;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+.entry-title  {
+  font-family: var(--font-ui);
+  font-size: 30px;
+  color: #2b1f10;
+  margin: 0 0 8px;
+  letter-spacing: -0.005em;
+}
+.entry-sub    {
+  font-size: 14px;
+  color: #4a3820;
+  margin-bottom: 28px;
+  line-height: 1.7;
+}
 
 .entry-input {
   width: 100%;
-  padding: 14px 18px;
-  border: 1.5px solid var(--border);
-  border-radius: 12px;
-  background: var(--surface2);
-  color: var(--text);
+  padding: 13px 16px;
+  border: 1.5px solid rgba(80,50,20,0.18);
+  border-radius: 14px;
+  background: #fdf8eb;
+  color: #2b1f10;
   font-family: var(--font-ui);
-  font-size: 18px;
+  font-size: 16px;
   text-align: center;
-  margin-bottom: 12px;
-  transition: border-color var(--t-fast);
+  margin-bottom: 10px;
+  transition: border-color var(--t-fast), background var(--t-fast), box-shadow var(--t-fast);
+  box-sizing: border-box;
 }
-.entry-input:focus { outline: none; border-color: var(--accent); }
-.entry-input::placeholder { color: var(--text-muted); }
+.entry-input:focus {
+  outline: none;
+  border-color: #5a92c2;        /* 감상 = 하늘 액센트 */
+  background: #fffaee;
+  box-shadow: 0 0 0 3px rgba(90,146,194,0.18);
+}
+.entry-input::placeholder { color: #9a8868; }
 
-/* 클래스 코드 입력 — 강조 테두리 */
+/* 클래스 코드 입력 — 강조 */
 .entry-input--code {
-  border-color: rgba(88,166,255,0.4);
-  font-size: 22px;
+  border-color: rgba(90,146,194,0.42);
+  font-size: 20px;
   letter-spacing: 4px;
   margin-bottom: 8px;
+  background: #f4f8fb;
 }
 
 .entry-submit {
   width: 100%;
   padding: 14px;
   border: none;
-  border-radius: 12px;
-  background: var(--accent);
-  color: #fff;
+  border-radius: 999px;
+  background: #5a92c2;       /* 감상 = 하늘 톤 */
+  color: #fffaee;
   font-family: var(--font-ui);
-  font-size: 18px;
+  font-size: 17px;
   cursor: pointer;
-  transition: filter var(--t-fast), transform var(--t-fast);
+  margin-top: 8px;
+  box-shadow:
+    0 1px 2px rgba(120,90,50,0.10),
+    0 4px 12px rgba(90,146,194,0.22);
+  transition: filter var(--t-fast), transform var(--t-fast), box-shadow var(--t-fast);
 }
-.entry-submit:hover  { filter: brightness(1.15); }
-.entry-submit:active { transform: scale(.97); }
-.entry-submit:disabled { opacity: .6; cursor: not-allowed; }
+.entry-submit:hover  {
+  filter: brightness(1.05);
+  box-shadow:
+    0 4px 12px rgba(120,90,50,0.14),
+    0 8px 24px rgba(90,146,194,0.28);
+}
+.entry-submit:active { transform: translateY(1px); }
+.entry-submit:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+  filter: none;
+  box-shadow: 0 1px 2px rgba(120,90,50,0.08);
+}
 
 .entry-error {
   margin-top: 10px;
   font-size: 13px;
-  color: var(--ending);
+  color: #c8503c;
   min-height: 18px;
+  font-family: var(--font-ui);
 }
 
 /* ── player 화면 ── */
@@ -242,19 +314,43 @@ html, body {
   height: 100%;
   /* JS에서 aspect-ratio 계산 후 max-width/height 적용 */
   overflow: hidden;
-  background: var(--bg);
+  /* W7-A 정정 v6: viewer-frame 자체 배경 검정 → transparent.
+     stage.innerHTML 통째 교체 → 빈 검정 stage 잠깐 노출 = 깜빡임.
+     배경을 transparent로 두면 새 scene-screen이 들어오기 전 한 프레임 배경이
+     비어 보일 수 있지만, 이전 scene-screen이 사라지기 전 새 scene이 그려지면
+     깜빡임 안 보임. */
+  background: transparent;
   box-shadow: 0 0 60px rgba(0,0,0,0.8);
+}
+
+/* W7-A 정정 v5: 모드 전환 검은 깜빡임 차단.
+   scene-screen이 들어오는 즉시 페이드인 → 검정 노출 가림. */
+.scene-screen {
+  animation: sceneFadeIn 100ms ease-out;
+}
+@keyframes sceneFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+/* W7 깜빡임 차단: 다듬기 모드에선 페이드인 끔.
+   부분 패치로 대부분 처리되지만, 통째 재렌더 fallback 시에도 페이드인 안 보이게.
+   다듬기는 입력이 잦은 상황이라 매번 fade-in이 깜빡임으로 체감됨. */
+#viewer-frame.edit-mode-on .scene-screen,
+body.edit-mode-active .scene-screen {
+  animation: none;
 }
 /* 화면이 16:9보다 넓을 때: 좌우 레터박스 */
 #stage-wrap.letterbox-h #viewer-frame {
   height: 100%;
   width: auto;
+  max-width: 100%;   /* W7-A 정정 v5: viewport 폭 절대 안 넘어감 */
   aspect-ratio: 16 / 9;
 }
 /* 화면이 16:9보다 좁을 때: 상하 필러박스 */
 #stage-wrap.letterbox-v #viewer-frame {
   width: 100%;
   height: auto;
+  max-height: 100%;  /* W7-A 정정 v5: viewport 높이 절대 안 넘어감 — 결정 패널 잘림 방지 */
   aspect-ratio: 16 / 9;
 }
 
@@ -1897,22 +1993,25 @@ html, body {
    viewer ↔ maker 왕복 UX — 액션바 + edit 패널 상단
    ================================================================ */
 
-/* ── maker 복귀 바 (fromMaker일 때만 표시) ── */
+/* ── maker 복귀 바 (fromMaker일 때만 표시) ──
+   W8: 종이 골드 톤으로 통일 (teacher-auth + "마감 편집 중" 배지와 같은 액센트).
+   학생은 보지 않는 제작자 전용 상태 표시 — 골드 = "안내·관리" 의미와 맞음. */
 .maker-return-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   padding: 7px 16px;
-  background: rgba(30, 40, 64, 0.92);
-  border-bottom: 1px solid rgba(88,166,255,0.2);
+  background: rgba(199, 149, 80, 0.18);
+  border-bottom: 1px solid rgba(199, 149, 80, 0.32);
   backdrop-filter: blur(8px);
   flex-wrap: wrap;
 }
 .maker-return-label {
-  font-size: 11px;
-  color: rgba(88,166,255,0.8);
-  letter-spacing: .06em;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  color: #8a5a1f;
+  letter-spacing: .04em;
   white-space: nowrap;
 }
 .maker-return-actions {
@@ -1926,25 +2025,28 @@ html, body {
   font-family: var(--font-ui);
   font-size: 12px;
   cursor: pointer;
-  border: 1.5px solid rgba(255,255,255,0.18);
-  background: rgba(255,255,255,0.07);
-  color: var(--text);
+  border: 1.5px solid rgba(199, 149, 80, 0.42);
+  background: #fffaee;
+  color: #6b5638;
   transition: background var(--t-fast), border-color var(--t-fast), transform var(--t-fast);
   white-space: nowrap;
 }
 .maker-return-btn:hover {
-  background: rgba(255,255,255,0.14);
+  background: #f4ecd8;
+  border-color: #c79550;
+  color: #2b1f10;
   transform: translateY(-1px);
 }
 .maker-return-btn:active { transform: scale(.97); }
 .maker-return-btn--edit {
-  border-color: rgba(192,132,252,0.5);
-  color: #c084fc;
-  background: rgba(192,132,252,0.1);
+  border-color: rgba(198, 111, 74, 0.42);
+  color: #c66f4a;
+  background: #fdf3e8;
 }
 .maker-return-btn--edit:hover {
-  background: rgba(192,132,252,0.2);
-  border-color: #c084fc;
+  background: #f8e6df;
+  border-color: #c66f4a;
+  color: #2b1f10;
 }
 
 /* ── edit panel 상단 액션 영역 ── */
@@ -4798,27 +4900,208 @@ html, body {
 }
 
 
-/* ── W4 진단 배너 (사용자 보고 케이스 디버깅용 — 안정되면 제거) ──
-   화면 우상단에 항상 노출. 어떤 분기/데이터로 들어왔는지 즉시 확인. */
-.branch-diag-banner {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  z-index: 9999;
+
+/* ── W6: 체험전시형 다듬기 패널 — connectObject row ── */
+.edit-co-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 8px 0;
+}
+.edit-co-row {
+  border: 1px solid var(--edit-card-border, #2a3340);
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: rgba(255,255,255,0.02);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.edit-co-row-main {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.edit-co-badge {
+  flex-shrink: 0;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 4px;
+  background: rgba(74, 144, 217, 0.18);
+  color: #c8dcf2;
+  white-space: nowrap;
+}
+.edit-co-badge--button   { background: rgba(74, 144, 217, 0.18); color: #c8dcf2; }
+.edit-co-badge--arrow    { background: rgba(74, 144, 217, 0.25); color: #d0e3f5; }
+.edit-co-badge--flag     { background: rgba(217, 74, 74, 0.18);  color: #f5c8c8; }
+.edit-co-badge--next     { background: rgba(74, 217, 144, 0.18); color: #c8f5d8; }
+.edit-co-badge--back     { background: rgba(217, 144, 74, 0.18); color: #f5d8c8; }
+.edit-co-badge--home     { background: rgba(144, 74, 217, 0.18); color: #d8c8f5; }
+.edit-co-badge--invisible{ background: rgba(140, 140, 140, 0.18); color: #d0d0d0; }
+.edit-co-label {
+  flex: 1;
+  min-width: 0;
+}
+.edit-co-remove {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border: 1px solid rgba(220, 53, 69, 0.4);
+  background: rgba(220, 53, 69, 0.1);
+  color: #ff8090;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+}
+.edit-co-remove:hover {
+  background: rgba(220, 53, 69, 0.25);
+  border-color: rgba(220, 53, 69, 0.7);
+}
+.edit-co-row-meta {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-size: 11px;
+  color: var(--edit-fg-muted, #8a93a3);
+}
+.edit-co-counter {
+  flex-shrink: 0;
+}
+.edit-co-target {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+.edit-co-next-label {
+  flex-shrink: 0;
+}
+.edit-co-next {
+  flex: 1;
+  min-width: 0;
+  padding: 3px 6px;
+  font-size: 11px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--edit-card-border, #2a3340);
+  border-radius: 4px;
+  color: inherit;
+}
+.edit-co-system-hint {
+  font-size: 11px;
+  color: #8a93a3;
+  font-style: italic;
+}
+.edit-co-add-area {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--edit-divider, rgba(255,255,255,0.08));
+}
+.edit-section-note--empty {
+  padding: 12px;
+  text-align: center;
+  background: rgba(255,255,255,0.03);
+  border: 1px dashed rgba(255,255,255,0.1);
+  border-radius: 6px;
+  color: #8a93a3;
+  font-size: 12px;
+}
+
+/* ── W7-B: 무비형 영상 업로드 진행률 + 에러 ── */
+.edit-movie-progress {
+  margin-top: 10px;
+  padding: 8px 10px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--edit-card-border, #2a3340);
+  border-radius: 6px;
+}
+.edit-movie-progress-bar {
+  width: 100%;
+  height: 6px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.edit-movie-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4a90e2, #3abf8a);
+  border-radius: 3px;
+  width: 0%;
+  transition: width 200ms ease-out;
+}
+.edit-movie-progress-text {
+  margin-top: 6px;
+  font-size: 11px;
+  color: #c8dcf2;
+  text-align: center;
+}
+.edit-movie-error {
+  margin-top: 8px;
   padding: 6px 10px;
-  font-family: monospace;
+  background: rgba(220, 53, 69, 0.12);
+  border: 1px solid rgba(220, 53, 69, 0.4);
+  border-radius: 6px;
+  color: #ff8090;
   font-size: 11px;
   line-height: 1.5;
-  color: #fff;
-  background: rgba(220, 53, 69, 0.92);
-  border-radius: 4px;
-  pointer-events: none;
-  max-width: 70%;
-  word-break: break-all;
-  white-space: normal;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.25);
 }
-.branch-diag-banner b {
-  color: #fff700;
-  font-weight: 700;
+.edit-movie-video-section,
+.edit-movie-poster-section {
+  padding: 10px 0;
+  border-top: 1px dashed rgba(255,255,255,0.06);
+}
+.edit-movie-video-section:first-of-type {
+  border-top: 0;
+  padding-top: 4px;
+}
+
+/* ════════════════════════════════════════════════════════════
+   W7: 엔딩 본문 살림 — 사용자 본문이 메인, 시스템 라벨이 보조
+   사용자 결정: "사용자 본문이 실제 엔딩 본문 영역으로 보이게 할 것"
+   ════════════════════════════════════════════════════════════ */
+
+/* 사용자가 입력한 엔딩 제목 — 본문 위 작은 라벨 */
+.ending-user-title {
+  font-family: 'Jua', 'Nanum Gothic', sans-serif;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.65);
+  margin-bottom: 14px;
+  letter-spacing: 0.04em;
+}
+
+/* 사용자가 쓴 엔딩 본문 — 메인 (큰 글씨, 중앙 정렬) */
+.ending-user-body {
+  font-family: 'Nanum Gothic', sans-serif;
+  font-size: 22px;
+  line-height: 1.7;
+  color: #fff;
+  margin-bottom: 28px;
+  white-space: pre-wrap;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  letter-spacing: -0.005em;
+  /* 긴 본문 안전 */
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+/* 시스템 표시 (🏁 이야기 끝) — 작게, 본문 아래 보조 */
+.ending-system-label-small {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'Jua', sans-serif;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.5);
+  letter-spacing: 0.04em;
+  margin-bottom: 18px;
+  padding: 4px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 16px;
+}
+.ending-system-icon-small {
+  font-size: 13px;
+  line-height: 1;
 }

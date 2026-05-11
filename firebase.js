@@ -37,6 +37,122 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db   = firebase.database();
 const auth = firebase.auth();
+/* W7-B: Firebase Storage 인스턴스 — 영상(mp4) 업로드/삭제용.
+   firebase-storage-compat.js가 maker.html/viewer.html에 로드되어 있으면 활성화. */
+const storage = (typeof firebase.storage === 'function') ? firebase.storage() : null;
+
+/* ================================================================
+   W7-B: 영상 업로드/삭제 헬퍼 (Firebase Storage)
+   ─────────────────────────────────────────────────────────────
+   정책:
+   · 장면당 영상 1개. 업로드 시 기존 영상은 자동 덮어씀(같은 경로) 또는 삭제 후 업로드.
+   · 형식: video/mp4 권장. 클라이언트에서 mime 검증.
+   · 크기: 50MB 이내 (학교 환경 고려).
+   · 길이: 60초 이내 (HTMLVideoElement.duration로 사전 검증).
+   · Storage 경로: videos/{classId|'_legacy'}/{encodedTeamName}/scene_{num}.mp4
+   ─────────────────────────────────────────────────────────────
+   uploadVideoToStorage(file, scene, opts)
+     opts.onProgress(percent) — 진행률 0~100
+     opts.classId, opts.teamName 명시 또는 전역값 사용
+     resolve → { downloadURL, storagePath }
+     reject  → Error
+   deleteVideoFromStorage(storagePath) — 실패해도 throw 안 함 (best-effort)
+   ================================================================ */
+const VIDEO_MAX_BYTES   = 50 * 1024 * 1024;   /* 50MB */
+const VIDEO_MAX_SECONDS = 60;                 /* 1분 */
+const VIDEO_ALLOWED_MIME_PREFIX = 'video/';
+
+function _videoStoragePath(sceneNum, ctx) {
+  const cid = (ctx && ctx.classId) || (typeof classId !== 'undefined' && classId) || '_legacy';
+  const tn  = (ctx && ctx.teamName) || (typeof teamName !== 'undefined' && teamName) || 'unknown';
+  const encodedName = encodeURIComponent(tn);
+  return `videos/${cid}/${encodedName}/scene_${sceneNum}.mp4`;
+}
+
+/* HTMLVideoElement로 영상 길이 사전 검증 — 업로드 전 메모리에서 mp4 메타데이터 로드 */
+function _probeVideoDuration(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const v = document.createElement('video');
+    v.preload = 'metadata';
+    v.onloadedmetadata = () => {
+      const dur = v.duration;
+      URL.revokeObjectURL(url);
+      if (typeof dur !== 'number' || isNaN(dur) || dur === Infinity) {
+        reject(new Error('영상 길이를 확인할 수 없어요. mp4 파일이 맞는지 확인해주세요.'));
+        return;
+      }
+      resolve(dur);
+    };
+    v.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('영상 파일을 읽지 못했어요. mp4 파일이 맞는지 확인해주세요.'));
+    };
+    v.src = url;
+  });
+}
+
+async function uploadVideoToStorage(file, sceneNum, opts) {
+  if (!storage) throw new Error('Storage가 초기화되지 않았어요. 페이지를 새로고침해주세요.');
+  if (!file) throw new Error('파일이 선택되지 않았어요.');
+  /* 형식 */
+  if (!file.type || !file.type.startsWith(VIDEO_ALLOWED_MIME_PREFIX)) {
+    throw new Error('영상 파일이 아니에요. mp4 파일을 선택해주세요.');
+  }
+  /* 크기 */
+  if (file.size > VIDEO_MAX_BYTES) {
+    const mb = (file.size / 1024 / 1024).toFixed(1);
+    throw new Error(`파일이 너무 커요 (${mb}MB). 50MB 이내 영상만 가능해요.`);
+  }
+  /* 길이 — 사전 검증 (Storage 업로드 전) */
+  const dur = await _probeVideoDuration(file);
+  if (dur > VIDEO_MAX_SECONDS + 0.5) {
+    throw new Error(`영상이 너무 길어요 (${dur.toFixed(1)}초). 60초 이내 영상만 가능해요.`);
+  }
+
+  /* anonymous auth 보장 — Storage 규칙의 auth != null 충족 */
+  if (!auth.currentUser) {
+    try { await auth.signInAnonymously(); }
+    catch (e) { /* 인증 실패해도 일단 시도 — Storage 규칙이 막으면 reject */ }
+  }
+
+  const storagePath = _videoStoragePath(sceneNum, opts || {});
+  const ref = storage.ref(storagePath);
+  const onProgress = opts && typeof opts.onProgress === 'function' ? opts.onProgress : null;
+
+  /* put + 진행률 listener */
+  return new Promise((resolve, reject) => {
+    const task = ref.put(file, {
+      contentType: file.type || 'video/mp4',
+      cacheControl: 'public, max-age=3600',
+    });
+    task.on('state_changed',
+      snap => {
+        if (onProgress && snap.totalBytes > 0) {
+          onProgress(Math.min(100, Math.round((snap.bytesTransferred / snap.totalBytes) * 100)));
+        }
+      },
+      err => reject(err),
+      async () => {
+        try {
+          const url = await task.snapshot.ref.getDownloadURL();
+          resolve({ downloadURL: url, storagePath });
+        } catch (e) { reject(e); }
+      }
+    );
+  });
+}
+
+async function deleteVideoFromStorage(storagePath) {
+  if (!storage || !storagePath) return false;
+  try {
+    await storage.ref(storagePath).delete();
+    return true;
+  } catch (e) {
+    /* 이미 없거나 권한 없으면 무시 — best-effort */
+    return false;
+  }
+}
 
 /* ================================================================
    Step 3: 경로 전략 feature flag
@@ -160,6 +276,8 @@ function _joinTeamV1() {
     }
     if (savedPin === null) teamRef.child('pin').set(pin);
 
+    /* W6 신규 흐름: PIN 통과 시 _enterTeam만 호출. _enterTeam이 자체적으로 viewer-meta
+       조회 + ptype-screen 노출 흐름 처리. */
     _enterTeam(val, teamRef);
   }).catch(() => {
     errEl.textContent = '⚠️ 네트워크 오류가 났어요. 다시 시도해보세요';
@@ -207,6 +325,8 @@ async function _joinTeamV2() {
 
     /* ★ 전역 classId 저장 — 이후 viewer 링크/저장에 사용 */
     classId = foundClassId;
+
+    /* W6 신규 흐름: _enterTeam이 자체 viewer-meta 조회 + ptype-screen 흐름 처리 */
     _enterTeam(val, teamRef);
   } catch {
     errEl.textContent = '⚠️ 네트워크 오류가 났어요. 다시 시도해보세요';
@@ -243,6 +363,7 @@ async function _resumeTeamFromSession(ctx) {
       return false;
     }
 
+    /* W6: _enterTeam이 자체 viewer-meta 조회 + ptype-screen 노출 처리 */
     _enterTeam(ctx.teamName, teamRef);
     return true;
   } catch (e) {
@@ -275,21 +396,25 @@ function _enterTeam(val, teamRef) {
 
   dbRef = teamRef.child('scenes');
 
-  /* 작품 유형 1회 저장 (1단계 신규) — 새 작품 진입일 때만 기록.
-     viewer-meta에 projectType이 이미 있으면 기존 작품 → 덮어쓰지 않음.
-     없으면 사용자가 join-screen에서 선택한 selectedProjectType을 기록.
-     selectedProjectType이 없거나 잘못된 값이면 DEFAULT_PROJECT_TYPE.
-     이 작업은 dbRef.on 등록 전 1회 — 이후 viewer-meta 구독이 자동 반영. */
+  /* W7 신규 흐름 강화: 입장 직후 ptype-screen 노출 — 사용자가 작품 유형 선택.
+     · viewer-meta/projectType once 조회 → 기존 유형 있으면 그 카드에 "이전 선택" 강조
+       (다른 카드 누르면 ui.js의 _onPtypeCardClick에서 alert 후 강제 진입)
+     · 없으면 신규 작품 — 어느 카드든 즉시 진입 (선택 후 viewer-meta/projectType 저장)
+     · ★ W7 핵심 fix: viewer-meta 노드는 있는데 projectType 필드만 누락된 옛 작품 →
+       이번에도 ptype 화면 표시 + 사용자 선택 강제 + 저장. 다음부턴 lock 정상 작동.
+     · 네트워크 실패 시에도 ptype-screen은 노출 (기존 유형 모름 상태로) */
   teamRef.child('viewer-meta/projectType').once('value').then(snap => {
-    if (snap.exists()) return;   // 기존 작품 — 손대지 않음
-    const fallback = (typeof DEFAULT_PROJECT_TYPE === 'string') ? DEFAULT_PROJECT_TYPE : 'picturebook';
-    let chosen = (typeof selectedProjectType === 'string'
-                  && Array.isArray(PROJECT_TYPES)
-                  && PROJECT_TYPES.includes(selectedProjectType))
-      ? selectedProjectType
-      : fallback;
-    teamRef.child('viewer-meta/projectType').set(chosen).catch(() => {/* 저장 실패해도 메모리 fallback 유지 */});
-  }).catch(() => { /* 네트워크 실패 시 무시 — 메모리 fallback 유지 */ });
+    const VALID = ['text', 'picturebook', 'movie', 'experience'];
+    const raw = snap.exists() ? snap.val() : null;
+    const existing = (typeof raw === 'string' && VALID.includes(raw)) ? raw : null;
+    if (existing && typeof selectProjectType === 'function') {
+      selectProjectType(existing);   /* 메모리 변수 동기 */
+    }
+    /* projectType 누락된 옛 작품도 ptype 화면 강제 표시 → 사용자가 선택해야 maker 진입 */
+    if (typeof showPtypeScreen === 'function') showPtypeScreen(existing);
+  }).catch(() => {
+    if (typeof showPtypeScreen === 'function') showPtypeScreen(null);
+  });
 
   dbRef.on('value', snapshot => {
     isRemote = true;
@@ -323,30 +448,32 @@ function _enterTeam(val, teamRef) {
       /* body 자동 복제 제거 — s.body는 raw 그대로 (없으면 undefined) */
     });
 
-    /* ★ legacy 마이그레이션 감지 (A-1): snapshot 첫 로드 시 한 번만 실행.
-       기준 — 본문 후보로 보이는 legacy 장면:
-         · body 필드 없음 (_hasBody=false)
-         · AND title 길이 30자 이상 OR title에 줄바꿈 포함 (사용자가 본문도 title에 적은 경우)
-       이 조건 충족 장면이 1개 이상이면 토스트 알림 트리거.
-       _migrationToastShown 플래그로 한 작품에서 한 번만 보이게 (재진입 시 또 뜨지 않게). */
-    if (!_migrationToastShown && typeof showLegacyMigrationToast === 'function') {
-      const legacyBodyCandidates = Object.values(scenes).filter(s => {
-        if (!s || typeof s !== 'object') return false;
-        if (s._hasBody) return false;  /* 새 구조 — 마이그레이션 대상 아님 */
-        const t = String(s.title || '');
-        const hasNewline = t.includes('\n');
-        const isLong     = t.length >= 30;
-        return hasNewline || isLong;
-      });
-      if (legacyBodyCandidates.length > 0) {
+    /* ★ legacy 마이그레이션 감지 (W7 보강): snapshot 첫 로드 시 한 번만 실행.
+       ─────────────────────────────────────────────────────────────
+       검사 대상 5개 패턴:
+       1. title에 본문이 들어간 옛 작품 (body 필드 없음 + title 30자+ 또는 줄바꿈 포함)
+       2. legacy choiceA/B/nextA/nextB만 있고 buttons[] 없음
+       3. buttons[] 6개 초과 (옛 제한 없을 때 만든 작품)
+       4. connectObjects에 back/home 타입 (W6 5종 정리 전)
+       5. viewer-meta 자체 없음 (이건 별도 — _ptypeExistingType이 null인 흐름에서 처리)
+       ─────────────────────────────────────────────────────────────
+       _migrationToastShown 플래그로 한 작품에서 한 번만 보이게.
+       표시 후 사용자 행동: 다듬기에서 직접 정리하거나 그대로 둠.
+       자동 DB 저장 X — 사용자 lock 정책 위배. 인지 + 안내만. */
+    if (!_migrationToastShown) {
+      const legacyDiagnosis = _diagnoseLegacyPatterns(scenes);
+      if (legacyDiagnosis.hasAny) {
         _migrationToastShown = true;
-        /* 사용자에게 알림. 마이그레이션 실행은 다음 턴(A-2)에서 추가 예정 — 현재는 알림만 */
-        showLegacyMigrationToast(legacyBodyCandidates.length);
+        showLegacyMigrationToast(legacyDiagnosis);
       }
     }
 
+    /* W7: 빈 slot 1번부터 찾기. 이전엔 Math.max+1이라 삭제 후 추가 시 빈 슬롯 무시.
+       이제: 가장 작은 빈 번호 찾음. 1,2,4 있으면 3번 채택. 모두 삭제면 1번. */
     const nums = Object.keys(scenes).map(Number);
-    if (nums.length) nextNum = Math.max(...nums) + 1;
+    let candidate = 1;
+    while (nums.includes(candidate)) candidate++;
+    nextNum = candidate;
 
     /* ★ 타이핑 보호: 현재 포커스가 카드 텍스트 입력 영역에 있으면
        renderAll() 건너뜀 — 전체 카드 DOM 재생성으로 인한 커서/포커스 유실 방지.
@@ -451,7 +578,9 @@ function _enterTeam(val, teamRef) {
       on ? teamName + ' 연결됨 🟢' : '연결 끊김 🔴';
   });
 
-  setTimeout(() => applyTemplate(selectedTemplate), 800);
+  /* W6: 시작 템플릿 폐기 — 사용자 결정. applyTemplate 호출 제거.
+     applyTemplate 함수 자체는 ui.js에 남김 (외부 호출 없음, dead code).
+     selectedTemplate 변수도 더 이상 사용되지 않음. */
 }
 
 /* ── Firebase 저장 (scene 단위 dirty write) ── */
@@ -459,6 +588,109 @@ const dirtyScenes = new Set();
 
 /* legacy 마이그레이션 토스트 1회성 플래그 (A-1) — 한 작품 진입 후 한 번만 알림 */
 let _migrationToastShown = false;
+
+/* ================================================================
+   W7 legacy 진단 (A+B): 5개 패턴 검사 + 종합 결과 반환
+   ─────────────────────────────────────────────────────────────
+   반환 형태:
+     { hasAny: bool,
+       titleAsBody: int,   // title에 본문 들어간 장면 수
+       legacyChoice: int,  // choiceA/B만 있고 buttons[] 없는 장면 수
+       overflowBtns: int,  // buttons[] 6개 초과 장면 수
+       legacyCO: int,      // back/home connectObjects 보유 장면 수
+       totalScenes: int }
+   ================================================================ */
+function _diagnoseLegacyPatterns(scenes) {
+  const result = {
+    hasAny: false, titleAsBody: 0, legacyChoice: 0,
+    overflowBtns: 0, legacyCO: 0, totalScenes: 0,
+  };
+  if (!scenes || typeof scenes !== 'object') return result;
+  Object.values(scenes).forEach(s => {
+    if (!s || typeof s !== 'object') return;
+    result.totalScenes++;
+
+    /* 1. title에 본문 들어간 옛 작품 */
+    if (!s._hasBody) {
+      const t = String(s.title || '');
+      if (t.includes('\n') || t.length >= 30) result.titleAsBody++;
+    }
+
+    /* 2. legacy choiceA/B만 있고 buttons[] 없음 */
+    const hasButtons = Array.isArray(s.buttons) && s.buttons.length > 0;
+    const hasLegacyChoice = (typeof s.choiceA === 'string' && s.choiceA.trim()) ||
+                            (typeof s.choiceB === 'string' && s.choiceB.trim()) ||
+                            (s.nextA != null) || (s.nextB != null);
+    if (!hasButtons && hasLegacyChoice) result.legacyChoice++;
+
+    /* 3. buttons[] 6개 초과 */
+    if (Array.isArray(s.buttons) && s.buttons.length > 6) result.overflowBtns++;
+
+    /* 4. connectObjects에 back/home 타입 (W6 5종 정리 전) */
+    if (Array.isArray(s.connectObjects)) {
+      const hasLegacyType = s.connectObjects.some(co =>
+        co && (co.type === 'back' || co.type === 'home')
+      );
+      if (hasLegacyType) result.legacyCO++;
+    }
+  });
+  result.hasAny = result.titleAsBody > 0 || result.legacyChoice > 0 ||
+                  result.overflowBtns > 0 || result.legacyCO > 0;
+  return result;
+}
+
+/* ================================================================
+   W7 legacy 토스트 표시 — maker.html의 legacy-migration-toast 활용
+   진단 결과를 사람 친화적 메시지로 변환.
+   기존 토스트 HTML 구조: legacy-toast-count + legacy-toast-msg + legacy-toast-hint
+   ================================================================ */
+function showLegacyMigrationToast(diagnosis) {
+  const toast = document.getElementById('legacy-migration-toast');
+  if (!toast) return;
+
+  /* 발견된 패턴 종합 카운트 (가장 큰 값을 메인 카운트로, 다른 패턴은 hint에 명시) */
+  const counts = [
+    diagnosis.titleAsBody,
+    diagnosis.legacyChoice,
+    diagnosis.overflowBtns,
+    diagnosis.legacyCO,
+  ].filter(n => n > 0);
+  const maxCount = counts.length > 0 ? Math.max(...counts) : 0;
+
+  const countEl = toast.querySelector('#legacy-toast-count');
+  if (countEl) countEl.textContent = String(maxCount);
+
+  /* 패턴별 안내 메시지 — 가장 빈번한 케이스 먼저 */
+  const lines = [];
+  if (diagnosis.titleAsBody > 0) {
+    lines.push(`· 제목 칸에 본문 같은 긴 글이 들어있는 장면 ${diagnosis.titleAsBody}개`);
+  }
+  if (diagnosis.legacyChoice > 0) {
+    lines.push(`· 옛 선택지 구조(A/B 형태)로 만든 장면 ${diagnosis.legacyChoice}개`);
+  }
+  if (diagnosis.overflowBtns > 0) {
+    lines.push(`· 선택지 7개 이상인 장면 ${diagnosis.overflowBtns}개 (지금은 6개까지)`);
+  }
+  if (diagnosis.legacyCO > 0) {
+    lines.push(`· 옛 연결 오브젝트 종류(뒤로/홈) 보유 장면 ${diagnosis.legacyCO}개`);
+  }
+
+  const msgEl = toast.querySelector('.legacy-toast-msg');
+  if (msgEl) {
+    msgEl.innerHTML =
+      `옛 구조로 저장된 부분이 있어요.<br>` +
+      `<small style="display:block;margin-top:6px;line-height:1.6;color:#666;">${lines.join('<br>')}</small>`;
+  }
+
+  const hintEl = toast.querySelector('.legacy-toast-hint');
+  if (hintEl) {
+    hintEl.innerHTML =
+      `※ 그대로 두어도 감상은 정상 동작해요.<br>` +
+      `※ 다듬기 화면에서 본문/선택지를 다시 저장하면 자동 정리됩니다.`;
+  }
+
+  toast.style.display = 'flex';
+}
 
 /* push 직전 sentinel 필터 — 메모리 전용 키(_hasBody)와
    legacy 매핑된 body(아직 사용자가 명시 편집 안 한 상태)는 DB에 저장하지 않는다.

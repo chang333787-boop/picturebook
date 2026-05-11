@@ -12,10 +12,15 @@ const ViewerState = {
     isPublic: false,     // 공개 정책 — viewer-meta/isPublic 기준, 기본 비공개
 
     /* ── 작품 유형 (1단계: project-level type) ──
-       4종 고정 — text/picturebook/movie/experience
+       4종 고정 — text/picturebook/movie/experience.
        2~4단계에서 viewer-render가 이 값으로 분기.
-       legacy 작품(viewer-meta에 projectType 없음)은 'picturebook' fallback. */
-    projectType: 'picturebook',
+       ───────────────────────────────────────────────
+       기본값: null (viewer-meta 로드 전엔 미정).
+       null일 때 viewer-render는 scene.presentationMode 또는 'picturebook' 최종 fallback.
+       이전엔 기본값을 'picturebook'으로 박았는데, viewer-meta projectType 로드 전에
+       무비형/체험전시형 작품이 잠깐 그림책으로 렌더되는 깜빡임 발생.
+       null로 두면 viewer-meta 로드까지 정확한 분기 보장. */
+    projectType: null,
 
     mode: 'story',       // 'story' | 'explore' | 'hybrid'
     theme: 'default',    // 'default' | 'fairybook' | 'explore'

@@ -4,44 +4,96 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>가지 branch — 교사 로그인</title>
-  <link href="https://fonts.googleapis.com/css2?family=Jua&family=Nanum+Gothic:wght@400;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Jua&family=Nanum+Gothic:wght@400;700&family=Nanum+Pen+Script&display=swap" rel="stylesheet"/>
   <style>
+    /* W8 Warm Paper: 선생님 영역 — index.html, maker join, viewer entry와 같은 종이톤.
+       선생님 강조색은 골드 — index.html admin 카드와 일치. 진엽서/공책 느낌. */
     :root {
-      --bg:#f4f8ff; --panel:#fff; --primary:#4a90d9;
-      --text:#1e2d3d; --muted:#7a8fa6;
-      --shadow:rgba(30,60,100,0.12); --radius:16px;
-      --font-h:'Jua',sans-serif; --font-b:'Nanum Gothic',sans-serif;
-      --error:#ef476f; --success:#06d6a0;
+      --bg:        #fbf6ea;
+      --paper-2:   #f4ecd8;
+      --cream:     #fffaee;
+      --line:      rgba(80,50,20,0.10);
+      --line-2:    rgba(80,50,20,0.18);
+      --ink:       #2b1f10;
+      --ink-2:     #4a3820;
+      --ink-3:     #6b5638;
+      --pencil:    #9a8868;
+      --primary:   #c79550;     /* 선생님 영역 강조색 (골드/오커) */
+      --primary-2: #d6a868;
+      --primary-fg:#2b1f10;
+      --error:     #c8503c;
+      --success:   #5a8a4a;     /* 종이톤에 어울리는 진녹 */
+      --radius:    16px;
+      --font-h:    'Jua', sans-serif;
+      --font-b:    'Nanum Gothic', sans-serif;
+      --font-hand: 'Nanum Pen Script', cursive;
     }
     *{box-sizing:border-box;margin:0;padding:0;}
     body{
-      font-family:var(--font-b);background:var(--bg);color:var(--text);
+      font-family:var(--font-b);background:var(--bg);color:var(--ink);
       min-height:100vh;display:flex;align-items:center;justify-content:center;
       padding:20px;
+      position:relative;overflow-x:hidden;
+      background-image:
+        radial-gradient(circle at 20% 30%, rgba(120,90,50,0.025) 0, transparent 50%),
+        radial-gradient(circle at 70% 70%, rgba(120,90,50,0.020) 0, transparent 50%);
+    }
+    /* 종이 테이프 장식 (home/maker join/viewer entry와 통일) */
+    body::before{
+      content:'';position:fixed;top:32px;left:50%;
+      transform:translateX(-50%) rotate(-2deg);
+      width:100px;height:18px;
+      background:rgba(232,164,64,0.40);
+      border-radius:2px;
+      box-shadow:0 1px 2px rgba(120,90,50,0.10);
+      opacity:0.7;
+      pointer-events:none;
+      z-index:0;
     }
 
     .auth-wrap {
-      width:100%;max-width:380px;
+      width:100%;max-width:400px;
+      position:relative;z-index:1;
     }
 
     /* 브랜드 */
     .auth-brand {
-      text-align:center;margin-bottom:28px;
+      text-align:center;margin-bottom:24px;
     }
     .auth-brand-logo {
-      font-family:var(--font-h);font-size:28px;color:var(--primary);
+      font-family:var(--font-h);font-size:30px;color:var(--ink);
+      letter-spacing:-0.005em;
+    }
+    .auth-brand-logo-accent {
+      color:var(--primary);
     }
     .auth-brand-sub {
-      font-size:13px;color:var(--muted);margin-top:4px;
+      font-family:var(--font-hand);
+      font-size:20px;color:var(--primary);
+      margin-bottom:6px;
+      letter-spacing:0.02em;
+      line-height:1;
     }
 
     /* 카드 */
     .auth-card {
-      background:var(--panel);border-radius:20px;
-      padding:32px 28px;box-shadow:0 8px 40px var(--shadow);
+      position:relative;
+      background:var(--cream);
+      border:1px solid var(--line);
+      border-radius:20px;
+      padding:32px 28px;
+      box-shadow:
+        0 1px 0 rgba(120,90,50,0.06),
+        0 2px 6px rgba(120,90,50,0.06),
+        0 16px 32px rgba(120,90,50,0.10);
+      animation:authFadeUp 0.5s cubic-bezier(0.22,1,0.36,1) both;
+    }
+    @keyframes authFadeUp{
+      from{opacity:0;transform:translateY(16px);}
+      to{opacity:1;transform:translateY(0);}
     }
     .auth-card-title {
-      font-family:var(--font-h);font-size:18px;color:var(--text);
+      font-family:var(--font-h);font-size:18px;color:var(--ink);
       margin-bottom:20px;text-align:center;
     }
 
@@ -50,59 +102,93 @@
       margin-bottom:14px;
     }
     .auth-label {
-      display:block;font-size:12px;color:var(--muted);
-      margin-bottom:5px;font-family:var(--font-h);
+      display:block;font-size:12px;color:var(--ink-3);
+      margin-bottom:6px;font-family:var(--font-h);letter-spacing:0.03em;
     }
     .auth-input {
-      width:100%;padding:11px 14px;border:2px solid #d0e0f5;
-      border-radius:50px;font-family:var(--font-b);font-size:15px;
-      color:var(--text);transition:border-color .15s;
+      width:100%;padding:12px 16px;
+      background:#fdf8eb;
+      border:1.5px solid var(--line-2);
+      border-radius:14px;
+      font-family:var(--font-b);font-size:15px;
+      color:var(--ink);
+      transition:border-color 180ms,background 180ms,box-shadow 180ms;
     }
-    .auth-input:focus{outline:none;border-color:var(--primary);}
+    .auth-input::placeholder{color:var(--pencil);}
+    .auth-input:focus{
+      outline:none;
+      border-color:var(--primary);
+      background:var(--cream);
+      box-shadow:0 0 0 3px rgba(199,149,80,0.20);
+    }
 
     /* 버튼 */
     .auth-btn {
-      width:100%;padding:13px;background:var(--primary);color:#fff;
-      border:none;border-radius:50px;font-family:var(--font-h);
-      font-size:16px;cursor:pointer;margin-top:6px;
-      transition:opacity .15s,transform .12s;
+      width:100%;padding:13px;
+      background:var(--primary);color:var(--primary-fg);
+      border:none;border-radius:999px;
+      font-family:var(--font-h);font-size:16px;cursor:pointer;
+      margin-top:6px;
+      box-shadow:0 1px 2px rgba(120,90,50,0.10),0 4px 12px rgba(199,149,80,0.24);
+      transition:filter 180ms,transform 80ms,box-shadow 180ms;
+      font-weight:400;
     }
-    .auth-btn:hover{opacity:.9;}
-    .auth-btn:active{transform:scale(.98);}
-    .auth-btn:disabled{opacity:.5;cursor:not-allowed;}
+    .auth-btn:hover{
+      filter:brightness(1.05);
+      box-shadow:0 4px 12px rgba(120,90,50,0.14),0 8px 24px rgba(199,149,80,0.30);
+    }
+    .auth-btn:active{transform:translateY(1px);}
+    .auth-btn:disabled{opacity:.55;cursor:not-allowed;filter:none;box-shadow:0 1px 2px rgba(120,90,50,0.08);}
 
     /* 에러 / 상태 */
     .auth-error {
       font-size:13px;color:var(--error);margin-top:12px;
       text-align:center;min-height:20px;line-height:1.5;
+      font-family:var(--font-h);
     }
     .auth-notice {
-      font-size:12px;color:var(--muted);margin-top:16px;
-      text-align:center;line-height:1.6;
+      font-size:12px;color:var(--ink-3);margin-top:16px;
+      text-align:center;line-height:1.7;
+      padding-top:14px;
+      border-top:1px dashed var(--line);
     }
 
     /* 로그인 완료 상태 */
     .auth-logged-in {
       text-align:center;display:none;
     }
-    .auth-logged-in-icon { font-size:40px;margin-bottom:12px; }
+    .auth-logged-in-icon { font-size:48px;margin-bottom:12px; }
     .auth-logged-in-name {
-      font-family:var(--font-h);font-size:16px;color:var(--text);margin-bottom:4px;
+      font-family:var(--font-h);font-size:18px;color:var(--ink);margin-bottom:4px;
     }
     .auth-logged-in-role {
-      font-size:12px;color:var(--muted);margin-bottom:20px;
+      font-size:12px;color:var(--ink-3);margin-bottom:20px;letter-spacing:0.05em;
     }
     .auth-btn--enter {
-      background:#06d6a0;margin-bottom:10px;
+      background:var(--success);color:#fffaee;margin-bottom:10px;
+      box-shadow:0 1px 2px rgba(120,90,50,0.10),0 4px 12px rgba(90,138,74,0.24);
+    }
+    .auth-btn--enter:hover{
+      background:#6b9b5a;
+      box-shadow:0 4px 12px rgba(120,90,50,0.14),0 8px 24px rgba(90,138,74,0.30);
     }
     .auth-btn--logout {
-      background:#e0e8f0;color:var(--muted);
+      background:var(--paper-2);
+      color:var(--ink-2);
+      border:1px solid var(--line-2);
+      box-shadow:none;
+    }
+    .auth-btn--logout:hover{
+      background:#ebe0c6;color:var(--ink);
+      box-shadow:none;
+      filter:none;
     }
 
     /* 홈 링크 */
     .auth-home-link {
-      display:block;text-align:center;margin-top:16px;
-      font-size:12px;color:var(--muted);text-decoration:none;
+      display:block;text-align:center;margin-top:18px;
+      font-size:12px;color:var(--ink-3);text-decoration:none;
+      transition:color 150ms;
     }
     .auth-home-link:hover{color:var(--primary);}
   </style>
@@ -113,8 +199,8 @@
 
   <!-- 브랜드 -->
   <div class="auth-brand">
-    <div class="auth-brand-logo">🌿 가지 branch</div>
-    <div class="auth-brand-sub">교사 로그인</div>
+    <div class="auth-brand-sub">ㅡ 한 학기를 책임지는 ㅡ</div>
+    <div class="auth-brand-logo">가지 <span class="auth-brand-logo-accent">교사 관리</span></div>
   </div>
 
   <!-- 카드 -->

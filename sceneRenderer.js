@@ -19,8 +19,14 @@
 
 /* ── 카드 추가 ── */
 function addScene() {
-  while (scenes[nextNum]) nextNum++;
-  const num = nextNum++;
+  /* W7: 빈 slot 재사용 — 1번부터 차례로 비어있는 번호 찾기.
+     이전엔 nextNum이 module-scoped로 한 방향 증가만 해 1,2,3,4 모두 삭제하면
+     번호 5부터 시작하는 버그.
+     이제: scenes에 없는 가장 작은 번호 자동 채택. 1번 비면 1번, 2번 비면 2번. */
+  let num = 1;
+  while (scenes[num]) num++;
+  /* nextNum 변수도 동기화 (외부 다른 로직에서 참조하는 경우 정합성 유지) */
+  nextNum = num + 1;
 
   const wrap = document.getElementById('canvas-wrap');
   const rect = wrap.getBoundingClientRect();
@@ -115,12 +121,16 @@ function buildCardHTML(s) {
        (데이터는 그대로 유지 — 사용자가 라디오를 만질 때만 'normal'로 변경)
      · 라디오 자체는 _buildTypeRowHtml에서 생성 — 카드 본체는 유형별 분기 (2단계). */
 
-  /* ── 버튼 N개 통일 구조 (W2-B-β + C-1) ──
-     · v0.3: 다음 1개 / 선택지 2개 토글 제거. buttons[] 단일 배열 구조.
-     · 최소 1개, 최대 6개.
-     · 모든 버튼이 input + 활성 dot — 사용자가 카드에서 직접 편집 + 분기 연결.
-     · "+ 버튼 추가" 진입점 (C-1): buttons.length < 6일 때 카드에 표시.
-     · 삭제는 다듬기 화면에서 (단순성 유지 — maker는 흐름 설계기). */
+  /* W6 1순위 1C-1D: 체험전시형은 buttons[] 개념을 사용하지 않고 connectObjects[]로
+     포트/연결선이 통일된다. 다른 모드(text/picturebook/movie)는 기존 buttons[] 그대로 유지.
+     · 체험전시형 포트: connectObjects 중 nextId가 의미 있는 타입만 (back/home 제외).
+     · 색/dot/연결선 시스템은 그대로 (사용자 원칙: shell 유지). */
+  const _projType = (typeof projectMeta !== 'undefined' && projectMeta && projectMeta.projectType)
+    || (typeof DEFAULT_PROJECT_TYPE !== 'undefined' ? DEFAULT_PROJECT_TYPE : null);
+  const _isExperience = _projType === 'experience';
+
+  /* 일반 모드(text/picturebook/movie)는 기존 buttons[] 그대로 — ports 영역 노출.
+     체험전시형은 portsHTML='' 이므로 buttonsList도 사용 안 됨 (단순 변수 보존). */
   const buttonsList = Array.isArray(s.buttons) ? s.buttons : [];
   const buttonsLen = buttonsList.length;
   /* 실제 표시 개수 — buttons[]가 비어있으면 legacy fallback으로 2개 표시 */
@@ -128,7 +138,14 @@ function buildCardHTML(s) {
 
   let portsHTML = '';
 
-  if (s.type !== 'ending') {
+  /* W6: 체험전시형 카드는 ports 영역(input + dot) 자체를 안 보임.
+     · 모든 연결은 다듬기 패널에서 next 드롭다운으로 설정 (행동버튼 개념 완전 제거)
+     · 카드 본체는 연결 오브젝트 갯수 요약 + 라벨 + 안내문만
+     · 캔버스 화살표는 connectObjects[].nextId 기반으로 그대로 그려짐 (drawArrows에서 처리)
+     · 일반 모드의 6개 제한과 분리 — 체험전시형은 N개 가능. */
+  if (_isExperience) {
+    portsHTML = '';
+  } else if (s.type !== 'ending') {
     /* 모든 N개 버튼을 input + 활성 dot으로 (W2-B-β).
        buttons[] 우선, 없으면 legacy fallback으로 첫 2개 표시. */
     let editableRows = '';
@@ -190,9 +207,11 @@ function buildCardHTML(s) {
                     && String(pm.entrySceneId)  === String(s.num);
   const isReplay    = pm.replaySceneId !== null && pm.replaySceneId !== undefined
                     && String(pm.replaySceneId) === String(s.num);
-  const roleBadges  = [
-    isEntry  ? '<span style="display:inline-block;font-size:10px;line-height:1;padding:3px 6px;border-radius:8px;background:#e8f5e9;color:#2e7d32;border:1px solid #81c784;margin-left:4px;font-family:var(--font-h);" title="첫 감상자가 시작하는 장면">첫 감상 시작</span>' : '',
-    isReplay ? '<span style="display:inline-block;font-size:10px;line-height:1;padding:3px 6px;border-radius:8px;background:#e3f2fd;color:#1565c0;border:1px solid #90caf9;margin-left:4px;font-family:var(--font-h);" title="다른 결말 찾기에서 시작하는 장면">다시 시작점</span>' : '',
+  /* W7 시작점/다시시작점 배지: 포스터/본문사용과 같은 .card-meta-badge 클래스 그대로 사용.
+     사용자: "저밑에 포스터 본문사용처럼 넣어주지않으렴". 톤 자동 통일. */
+  const roleBadges = [
+    isEntry  ? '<span class="card-meta-badge card-meta-badge--entry" title="첫 감상자가 시작하는 장면">🚪 시작점</span>' : '',
+    isReplay ? '<span class="card-meta-badge card-meta-badge--replay" title="다른 결말 찾기에서 시작하는 장면">🔄 다시 시작</span>' : '',
   ].join('');
 
   /* ─── 작품 유형별 카드 얼굴 (2단계) ───────────────────────────
@@ -205,14 +224,20 @@ function buildCardHTML(s) {
   const _ptype = _resolveProjectType();
   const contentHtml = _buildCardContentByType(s, _ptype);
 
+  /* W7: roleBadges를 본체 위 별도 줄로 — 포스터/본문사용과 같은 .card-meta-row */
+  const roleBadgeRow = roleBadges
+    ? `<div class="card-meta-row card-meta-row--role">${roleBadges}</div>`
+    : '';
+
   return `
     <div class="card-header">
       <span class="card-num-badge js-rename-btn" data-num="${s.num}"
-        title="번호 바꾸기">장면 ${s.num}${starBadge}</span>${roleBadges}
+        title="번호 바꾸기">장면 ${s.num}${starBadge}</span>
       <button class="card-edit-jump js-edit-jump" data-num="${s.num}"
-        title="이 장면 다듬기">🎨</button>
+        title="이 장면 다듬기">✎</button>
       <button class="card-delete js-delete-btn" data-num="${s.num}">✕</button>
     </div>
+    ${roleBadgeRow}
     ${contentHtml}
     ${portsHTML}`;
 }
@@ -279,7 +304,10 @@ function _buildTypeRowHtml(s) {
        value="${t}" ${currentType === t ? 'checked' : ''} data-num="${s.num}" data-value="${t}">
      <label class="type-label" for="tr-${s.num}-${t}">${labels[i]}</label>`
   ).join('');
-  return `<div class="card-type-row">${radios}${_modeBadgeHtml(s)}</div>`;
+  /* W7: 카드별 모드 배지(_modeBadgeHtml) 제거.
+     작품 단위 projectType lock 도입 후 개별 scene presentationMode는 의미 없음.
+     사용자: "옆에 그림책이라고 써있는게 불편함 불안함" → 제거. */
+  return `<div class="card-type-row">${radios}</div>`;
 }
 
 /* ─── 1) 텍스트형 카드 ────────────────────────────────────────
@@ -326,22 +354,20 @@ function _buildPicturebookCardContent(s) {
    특징: 그림책형 구조 차용 + 영상/이미지 배지 + 본문 ON/OFF 배지
    주의: 영상 데이터 모델은 아직 미구현 → 임시 판정 (imageData 있으면 미디어 있음) */
 function _buildMovieCardContent(s) {
-  /* 미디어 타입 임시 판정 — movieData 데이터 모델 들어오기 전까지 imageData만 봄.
-     향후 s.movieData / s.movieKind 같은 명시 필드가 들어오면 그걸 우선. */
-  const hasMovie = s.movieData && (typeof s.movieData === 'object' || typeof s.movieData === 'string');
-  const hasImage = !!s.imageData;
+  /* W7-B: 영상 우선, 포스터(imageData) fallback. movieData.videoUrl 정식 모델 기준. */
+  const md = (s.movieData && typeof s.movieData === 'object') ? s.movieData : {};
+  const hasVideo = !!md.videoUrl;
+  const hasPoster = !!(md.posterImage || s.imageData);
   let mediaBadge = '';
-  if (hasMovie) {
+  if (hasVideo) {
     mediaBadge = `<span class="card-meta-badge card-meta-badge--video">🎬 영상</span>`;
-  } else if (hasImage) {
-    mediaBadge = `<span class="card-meta-badge card-meta-badge--image">🖼 이미지</span>`;
+  } else if (hasPoster) {
+    mediaBadge = `<span class="card-meta-badge card-meta-badge--image">🖼 포스터</span>`;
   } else {
     mediaBadge = `<span class="card-meta-badge card-meta-badge--empty">⚪ 미디어 없음</span>`;
   }
 
-  /* 본문 ON/OFF 판정 (3단계 정합) — bodyEnabled 명시 필드 우선.
-     3단계에서 viewer-edit이 bodyEnabled 토글을 명시 저장하므로 이 값 우선.
-     undefined/null이면 body 존재 여부로 fallback (legacy / 3단계 전 작품 호환).
+  /* 본문 ON/OFF 판정 — bodyEnabled 명시 필드 우선. undefined/null이면 body 존재 여부로 fallback.
      viewer-edit.js의 _typeSectionMovieHtml과 동일 정책. */
   const bodyEnabled = (s.bodyEnabled === true) ? true
                     : (s.bodyEnabled === false) ? false
@@ -350,8 +376,11 @@ function _buildMovieCardContent(s) {
     ? `<span class="card-meta-badge card-meta-badge--body-on">📝 본문 사용</span>`
     : `<span class="card-meta-badge card-meta-badge--body-off">📝 본문 없음</span>`;
 
+  /* W7-B 카드 정리: 무비형은 영상이 메인 + 포스터는 다듬기 패널에서 관리.
+     카드 본체에 일반 이미지 넣기 영역(_buildImageAreaHtml)을 두면 사용자 혼란 —
+     "이미지 넣기"가 영상도 포스터도 아닌 별도 일반 이미지로 보임.
+     무비형 카드는 상태 배지만 표시하고, 모든 미디어 입력은 다듬기 패널에서. */
   return `
-    ${_buildImageAreaHtml(s)}
     <div class="card-meta-row card-meta-row--movie">
       ${mediaBadge}
       ${bodyBadge}
@@ -376,13 +405,16 @@ function _buildMovieCardContent(s) {
         (사용자 원칙: dot 위치 체계 유지). 단 카드 위계로는 보조 정도.
    주의: connectObjects 데이터 모델 미구현 → 임시 집계 (buttons.length 사용) */
 function _buildExperienceCardContent(s) {
-  /* 임시 연결 오브젝트 집계 — 정식 데이터 모델 들어오기 전까지 buttons[]를
-     "연결 오브젝트 수" 추정치로 사용. 향후 s.connectObjects 들어오면 그걸 우선. */
-  const buttonsList = Array.isArray(s.buttons) ? s.buttons : [];
-  const objCount = buttonsList.length;
-  const objSummary = (objCount > 0)
-    ? `🔗 연결 ${objCount}개`
-    : `🔗 연결 0개`;
+  /* W6: 정식 connectObjects 모델 — buttons[] 임시 집계 폐기.
+     체험전시형은 탐색형/허브형 구조라 "엔딩" 개념이 자연스럽지 않음.
+     · type 라디오(일반/엔딩) 제거 — 카드 본문에서 안 보임
+     · _modeBadgeHtml 제거 — 작품 단위 모드라 카드별 배지 무의미
+     카드 본체는 연결 오브젝트 요약 + 장면 라벨 + 안내문 중심. */
+  const objects = Array.isArray(s.connectObjects) ? s.connectObjects : [];
+  const objCount = objects.length;
+  const objSummary = objCount > 0
+    ? `🔗 연결 오브젝트 ${objCount}개`
+    : `🔗 연결 오브젝트 0개`;
 
   return `
     ${_buildImageAreaHtml(s)}
@@ -399,7 +431,6 @@ function _buildExperienceCardContent(s) {
         placeholder="안내문 (선택)"
         rows="1"
         data-num="${s.num}">${_escapeHtml(s.body || '')}</textarea>
-      ${_buildTypeRowHtml(s)}
     </div>`;
 }
 
@@ -414,13 +445,33 @@ function _escapeHtml(str) {
 }
 
 /* 버튼 행 HTML — N개 통일 (W2-B-β).
-   모든 인덱스가 input + 활성 dot. 색상은 인덱스 기반 (port-dot--N 클래스). */
-function _portRowHtml(num, portChar, idx, labelVal) {
-  const placeholder = idx === 0 ? '버튼 1' : `버튼 ${idx + 1}`;
+   모든 인덱스가 input + 활성 dot. 색상은 인덱스 기반 (port-dot--N 클래스).
+   W6: coType 인자가 들어오면 체험전시형 — type별 placeholder ("버튼 N" 대신 "버튼 라벨"). */
+const _CO_PLACEHOLDER_BY_TYPE = {
+  button:    '버튼 라벨',
+  arrow:     '화살표 라벨',
+  flag:      '깃발 라벨',
+  next:      '다음 라벨',
+  invisible: '영역 라벨',
+};
+function _portRowHtml(num, portChar, idx, labelVal, coType) {
+  /* placeholder — 일반 모드는 "버튼 N", 체험전시형은 type별 라벨 */
+  let placeholder;
+  if (coType && Object.prototype.hasOwnProperty.call(_CO_PLACEHOLDER_BY_TYPE, coType)) {
+    placeholder = _CO_PLACEHOLDER_BY_TYPE[coType];
+  } else {
+    placeholder = idx === 0 ? '버튼 1' : `버튼 ${idx + 1}`;
+  }
+  /* W4-D: 카드 input에도 모드별 maxlength 적용 (입력 자체 잠금 — viewer 다듬기와 동기). */
+  const _ptype = (typeof projectMeta !== 'undefined' && projectMeta && projectMeta.projectType)
+    || (typeof DEFAULT_PROJECT_TYPE !== 'undefined' ? DEFAULT_PROJECT_TYPE : null);
+  const maxLen = (typeof getChoiceLabelMax === 'function')
+    ? getChoiceLabelMax(_ptype) : 30;
   return `
       <div class="port-row">
         <input class="port-label-input js-choice-label" placeholder="${placeholder}"
           value="${_escapeHtml(labelVal)}" data-num="${num}" data-port="${portChar}"
+          maxlength="${maxLen}"
           style="flex:1;min-width:0;border:1.5px solid #d0e0f5;border-radius:6px;
           padding:2px 5px;font-size:11px;font-family:var(--font-b);"/>
         <div class="port-dot port-dot--${portChar}" data-num="${num}" data-port="${portChar}" title="드래그해서 연결"></div>
@@ -811,8 +862,17 @@ function syncCardState(num) {
 function renderCard(s) {
   document.getElementById('card-' + s.num)?.remove();
 
+  /* W7: 시작점/다시시작점 카드 시각 강조 — class로 표시 */
+  const pm = (typeof projectMeta === 'object' && projectMeta) ? projectMeta : {};
+  const isEntry  = pm.entrySceneId  != null && String(pm.entrySceneId)  === String(s.num);
+  const isReplay = pm.replaySceneId != null && String(pm.replaySceneId) === String(s.num);
+  const roleClass = [
+    isEntry  ? 'is-entry-scene'  : '',
+    isReplay ? 'is-replay-scene' : '',
+  ].filter(Boolean).join(' ');
+
   const el       = document.createElement('div');
-  el.className   = `scene-card type-${s.type}`;
+  el.className   = `scene-card type-${s.type}${roleClass ? ' ' + roleClass : ''}`;
   el.id          = `card-${s.num}`;
   el.style.cssText = `position:absolute;left:${s.x}px;top:${s.y}px;`;
 
@@ -834,7 +894,27 @@ function connect(fromNum, port, toNum) {
   const idx = (typeof port === 'string') ? port.charCodeAt(0) - 65 : -1;
   if (idx < 0 || idx > 5) return;  /* 최대 6개 (사용자 결정) */
 
-  /* buttons[] 갱신 — 해당 인덱스에 nextId 저장. 라벨은 기존 값 유지 */
+  /* W6: 체험전시형은 connectObjects[] 기반 — buttons[] 사용 X.
+     포트 idx는 buildCardHTML에서 필터링된 (back/home 제외) connectObjects 순서.
+     같은 필터링 + 인덱스로 nextId 갱신. */
+  const _ptype = (typeof projectMeta !== 'undefined' && projectMeta && projectMeta.projectType) || null;
+  if (_ptype === 'experience') {
+    if (!Array.isArray(s.connectObjects)) s.connectObjects = [];
+    /* back/home 제외 필터링된 배열 */
+    const eligibleIdxs = [];
+    s.connectObjects.forEach((co, i) => {
+      if (co && co.type !== 'back' && co.type !== 'home') eligibleIdxs.push(i);
+    });
+    if (idx >= eligibleIdxs.length) return;   /* 빈 포트는 무시 (체험전시형은 다듬기에서 추가) */
+    const realIdx = eligibleIdxs[idx];
+    s.connectObjects[realIdx].nextId = String(toNum);
+    renderCard(s);
+    drawArrows();
+    pushToFirebase();
+    return;
+  }
+
+  /* 그 외 모드 — 기존 buttons[] 흐름 */
   if (!Array.isArray(s.buttons)) s.buttons = [];
   while (s.buttons.length <= idx) {
     const i = s.buttons.length;
@@ -875,11 +955,31 @@ function drawArrows() {
   const svg = document.getElementById('arrows');
   svg.querySelectorAll('path.arrow, text.arrow-label, rect.arrow-label').forEach(el => el.remove());
 
+  /* W6: 체험전시형은 connectObjects[] 기반 화살표.
+     다른 모드는 기존 buttons[] 흐름 그대로. */
+  const _ptype = (typeof projectMeta !== 'undefined' && projectMeta && projectMeta.projectType) || null;
+  const _isExperience = _ptype === 'experience';
+
   /* W2-B-β: buttons[] 기반 N개 화살표.
      · buttons[].nextId 기준 (진실)
      · buttons[]가 없으면 legacy nextA/nextB fallback
-     · 인덱스별로 색상/위치 다양화 (6색)  */
+     · 인덱스별로 색상/위치 다양화 (6색)
+     W6: 체험전시형은 connectObjects[]만 사용. back/home은 시스템 액션이라 제외. */
   Object.values(scenes).forEach(s => {
+    if (_isExperience) {
+      const allCo = Array.isArray(s.connectObjects) ? s.connectObjects : [];
+      /* back/home (legacy 호환 시스템 타입) 제외 — 시스템 액션은 nextId 무관 */
+      const eligibleCo = allCo.filter(co => co && co.type !== 'back' && co.type !== 'home');
+      /* W6 4번: 6개 제한과 분리 — 체험전시형은 N개 모두 화살표.
+         색상 팔레트는 6색 순환(i % 6)으로 같은 카드 화살표 구분. */
+      eligibleCo.forEach((co, i) => {
+        if (!co || !co.nextId) return;
+        drawArrowForIndex(svg, s, i % 6, String(co.nextId), co.label || '');
+      });
+      return;
+    }
+
+    /* 그 외 모드 — 기존 buttons[] 흐름 */
     const buttons = Array.isArray(s.buttons) ? s.buttons : [];
 
     if (buttons.length > 0) {

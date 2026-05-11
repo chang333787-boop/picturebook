@@ -1,0 +1,301 @@
+/* ====================================================================
+   가지 branch — Warm Paper 디자인 언어 (v2)
+   ────────────────────────────────────────────────────────────────────
+   세계관: 종이 위에서 자라는 창작 도구.
+            아이보리·크림·종이결을 기본으로,
+            은은한 색 액센트가 의미를 표시.
+
+   원칙:
+   - 차가운 SaaS 다크 ❌  →  따뜻한 종이·노트·문서 ⭕
+   - "여기 누르세요" 보다 "지금 할 일이 자연스럽게 보임"
+   - 모든 페이지가 같은 종이결·곡률·여백 위에서 움직임
+
+   ==================================================================== */
+
+.v {
+  /* ── 타입 ── */
+  --font-ui:      'Jua', 'Apple SD Gothic Neo', sans-serif;
+  --font-body:    'Nanum Gothic', 'Apple SD Gothic Neo', sans-serif;
+  --font-serif:   'Gowun Batang', 'Nanum Myeongjo', serif;
+  --font-hand:    'Nanum Pen Script', 'Jua', cursive;
+  --font-mono:    ui-monospace, 'SF Mono', monospace;
+
+  /* ── 8pt grid ── */
+  --s1: 4px;  --s2: 8px;  --s3: 12px; --s4: 16px;
+  --s5: 24px; --s6: 32px; --s7: 48px; --s8: 64px;  --s9: 96px;
+
+  /* ── 곡률 ── */
+  --r-s: 8px;  --r-m: 14px; --r-l: 20px; --r-xl: 28px; --r-pill: 999px;
+
+  /* ── 모션 ── */
+  --t: 0.18s;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* ── 종이 베이스 (모든 페이지 공통) ── */
+  --paper:        #fbf6ea;   /* 기본 종이 — 아이보리 */
+  --paper-2:      #f4ecd8;   /* 한 톤 어두운 종이 (패널·헤더) */
+  --paper-3:      #ebe0c6;   /* 두 톤 어두운 종이 (구분선·hover) */
+  --cream:        #fffaee;   /* 카드 흰종이 — 본문 카드 */
+  --cream-edge:   #f8efd9;   /* 카드 가장자리 톤 */
+
+  /* ── 잉크 (텍스트) ── */
+  --ink:          #2b1f10;   /* 본문 잉크 */
+  --ink-2:        #4a3820;   /* 보조 */
+  --ink-3:        #6b5638;   /* 캡션 */
+  --pencil:       #9a8868;   /* 연한 연필색 — placeholder, divider */
+  --line:         rgba(80, 50, 20, 0.10);   /* 테두리 */
+  --line-2:       rgba(80, 50, 20, 0.18);   /* 진한 테두리 */
+  --rule:         rgba(80, 50, 20, 0.06);   /* 종이결 그리드선 */
+
+  /* ── 액센트 (부드러운 계열) ── */
+  --sky:          oklch(0.78 0.09 230);   /* 하늘 */
+  --sage:         oklch(0.75 0.07 155);   /* 세이지/민트 */
+  --coral:        oklch(0.72 0.13 35);    /* 코랄/테라코타 */
+  --lilac:        oklch(0.76 0.08 305);   /* 연보라 */
+  --gold:         oklch(0.78 0.12 80);    /* 골드 */
+  --navy:         oklch(0.38 0.07 250);   /* 보조 진한 남색 (제한적) */
+
+  /* ── 의미 (서비스 영역별 고정 색) ── */
+  --c-make:       oklch(0.65 0.11 35);    /* 제작 = 코랄/테라코타 — 따뜻한 도구감 */
+  --c-view:       oklch(0.62 0.08 220);   /* 감상 = 하늘 — 들여다보는 행동 */
+  --c-admin:      oklch(0.62 0.10 80);    /* 교사 = 골드 — 안정·관리 */
+  --c-pin:        oklch(0.62 0.12 30);    /* 진엔딩·중요 표식 */
+
+  /* ── 시스템 alias (기존 토큰과 호환) ── */
+  --bg:           var(--paper);
+  --bg-2:         var(--paper-2);
+  --surface:      var(--cream);
+  --surface-2:    var(--paper-2);
+  --surface-3:    var(--paper-3);
+  --border:       var(--line);
+  --border-2:     var(--line-2);
+  --fg:           var(--ink);
+  --fg-2:         var(--ink-2);
+  --muted:        var(--ink-3);
+
+  --primary:      var(--c-make);
+  --primary-fg:   #fffaee;
+  --primary-soft: color-mix(in oklch, var(--c-make) 14%, transparent);
+  --primary-bd:   color-mix(in oklch, var(--c-make) 38%, transparent);
+
+  --c-warn:       oklch(0.62 0.16 28);
+
+  /* ── 종이 그림자 ── */
+  --elev-0: 0 1px 0 rgba(120, 90, 50, 0.06);
+  --elev-1: 0 1px 2px rgba(120, 90, 50, 0.08),
+            0 2px 4px rgba(120, 90, 50, 0.04);
+  --elev-2: 0 4px 12px rgba(120, 90, 50, 0.10),
+            0 12px 28px rgba(120, 90, 50, 0.08);
+  --elev-3: 0 12px 32px rgba(120, 90, 50, 0.14),
+            0 24px 56px rgba(120, 90, 50, 0.10);
+  --focus:  0 0 0 3px color-mix(in oklch, var(--primary) 30%, transparent);
+
+  /* ── 종이결 (배경 텍스처) ── */
+  --paper-grain:
+    radial-gradient(circle at 20% 30%, rgba(120,90,50,0.025) 0, transparent 50%),
+    radial-gradient(circle at 70% 70%, rgba(120,90,50,0.020) 0, transparent 50%);
+
+  font-family: var(--font-body);
+  color: var(--ink);
+  background: var(--paper);
+  background-image: var(--paper-grain);
+}
+
+/* ── 사양 변형 (Tweak 가능) ── */
+.v.accent-coral { --primary: var(--coral); --primary-bd: color-mix(in oklch, var(--coral) 38%, transparent); --primary-soft: color-mix(in oklch, var(--coral) 12%, transparent); --focus: 0 0 0 3px color-mix(in oklch, var(--coral) 30%, transparent); }
+.v.accent-sage  { --primary: var(--sage);  --primary-bd: color-mix(in oklch, var(--sage) 42%, transparent);  --primary-soft: color-mix(in oklch, var(--sage) 14%, transparent);  --focus: 0 0 0 3px color-mix(in oklch, var(--sage) 32%, transparent); --primary-fg: #1a2a1f; }
+.v.accent-sky   { --primary: var(--sky);   --primary-bd: color-mix(in oklch, var(--sky) 42%, transparent);   --primary-soft: color-mix(in oklch, var(--sky) 12%, transparent);   --focus: 0 0 0 3px color-mix(in oklch, var(--sky) 30%, transparent); --primary-fg: #0f1e2a; }
+
+/* ────────────────────────────────────────────────────────────
+   공통 컴포넌트 — Warm Paper
+   ──────────────────────────────────────────────────────────── */
+.v * { box-sizing: border-box; }
+.v h1, .v h2, .v h3, .v h4, .v h5 {
+  font-family: var(--font-ui);
+  font-weight: 400;
+  letter-spacing: -0.005em;
+  color: var(--ink);
+}
+
+/* ── 버튼 위계 ── */
+.v .btn {
+  font-family: var(--font-ui);
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: var(--s2);
+  height: 42px;
+  padding: 0 var(--s5);
+  border-radius: var(--r-pill);
+  border: 1px solid transparent;
+  font-size: 15px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform var(--t) var(--ease), background var(--t), border-color var(--t), box-shadow var(--t);
+}
+.v .btn:active { transform: translateY(1px); }
+.v .btn:focus-visible { outline: none; box-shadow: var(--focus); }
+
+/* primary — 핵심 CTA */
+.v .btn--primary { background: var(--primary); color: var(--primary-fg); box-shadow: var(--elev-1); }
+.v .btn--primary:hover { filter: brightness(1.05); box-shadow: var(--elev-2); }
+
+/* secondary — 자주 쓰지만 두번째 행동 */
+.v .btn--secondary {
+  background: var(--cream);
+  color: var(--ink);
+  border-color: var(--line-2);
+  box-shadow: var(--elev-0);
+}
+.v .btn--secondary:hover { background: var(--paper-2); border-color: var(--ink-3); }
+
+/* ghost — 보조 행동 */
+.v .btn--ghost { background: transparent; color: var(--ink-2); }
+.v .btn--ghost:hover { background: color-mix(in oklch, var(--ink) 6%, transparent); color: var(--ink); }
+
+/* soft — primary 약화판 */
+.v .btn--soft { background: var(--primary-soft); color: var(--primary); border-color: var(--primary-bd); }
+.v .btn--soft:hover { filter: brightness(0.96); }
+
+/* icon */
+.v .btn--icon {
+  width: 42px; padding: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink-2);
+  border: 1px solid transparent;
+}
+.v .btn--icon:hover { background: color-mix(in oklch, var(--ink) 6%, transparent); color: var(--ink); }
+.v .btn--icon.is-active { background: var(--primary-soft); color: var(--primary); border-color: var(--primary-bd); }
+
+/* sizes */
+.v .btn--sm { height: 32px; padding: 0 var(--s3); font-size: 13px; }
+.v .btn--sm.btn--icon { width: 32px; padding: 0; }
+.v .btn--lg { height: 52px; padding: 0 var(--s6); font-size: 17px; }
+.v .btn--xl { height: 60px; padding: 0 var(--s7); font-size: 19px; }
+
+/* ── 카드 종류 ── */
+.v .card {
+  background: var(--cream);
+  border: 1px solid var(--line);
+  border-radius: var(--r-l);
+  box-shadow: var(--elev-1);
+}
+.v .card--paper {            /* 종이 카드 — 모서리 약간 들림 */
+  background: var(--cream);
+  border: 1px solid var(--line);
+  border-radius: var(--r-m);
+  box-shadow:
+    0 1px 0 rgba(120,90,50,0.08),
+    0 2px 4px rgba(120,90,50,0.06),
+    0 12px 24px rgba(120,90,50,0.08);
+}
+.v .card--note {             /* 노트 카드 — 가로선 */
+  background:
+    repeating-linear-gradient(transparent 0 31px, var(--rule) 31px 32px),
+    var(--cream);
+  border: 1px solid var(--line);
+  border-radius: var(--r-s);
+}
+
+/* ── 뱃지 ── */
+.v .badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  padding: 3px var(--s2);
+  border-radius: var(--r-pill);
+  background: var(--paper-2);
+  color: var(--ink-2);
+  border: 1px solid var(--line);
+  line-height: 1.4;
+  white-space: nowrap;
+  flex-shrink: 0;
+  letter-spacing: 0.02em;
+}
+.v .badge--make  { background: color-mix(in oklch, var(--c-make) 14%, var(--cream)); color: oklch(0.42 0.12 35); border-color: color-mix(in oklch, var(--c-make) 30%, transparent); }
+.v .badge--view  { background: color-mix(in oklch, var(--c-view) 14%, var(--cream)); color: oklch(0.40 0.08 220); border-color: color-mix(in oklch, var(--c-view) 32%, transparent); }
+.v .badge--admin { background: color-mix(in oklch, var(--c-admin) 16%, var(--cream)); color: oklch(0.40 0.10 75); border-color: color-mix(in oklch, var(--c-admin) 34%, transparent); }
+.v .badge--warn  { background: color-mix(in oklch, var(--c-warn) 12%, var(--cream)); color: oklch(0.40 0.16 28); border-color: color-mix(in oklch, var(--c-warn) 30%, transparent); }
+.v .badge--pin   { background: var(--c-pin); color: var(--cream); border-color: transparent; }
+
+/* ── 입력 ── */
+.v .input {
+  width: 100%;
+  height: 44px;
+  padding: 0 var(--s4);
+  background: var(--cream);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-m);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 15px;
+  outline: none;
+  transition: border-color var(--t), box-shadow var(--t);
+}
+.v .input:focus { border-color: var(--primary); box-shadow: var(--focus); }
+.v .input::placeholder { color: var(--pencil); }
+.v .input--ta { height: auto; min-height: 96px; padding: var(--s3) var(--s4); resize: vertical; line-height: 1.7; }
+.v .input--lg { height: 56px; font-size: 17px; }
+
+/* ── 세그먼티드 ── */
+.v .seg {
+  display: inline-flex;
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-m);
+  padding: 3px;
+  gap: 2px;
+}
+.v .seg--full { display: flex; width: 100%; }
+.v .seg--full .seg__btn { flex: 1; }
+.v .seg__btn {
+  font-family: var(--font-ui);
+  height: 30px;
+  padding: 0 var(--s3);
+  background: transparent;
+  border: none;
+  color: var(--ink-3);
+  font-size: 13px;
+  border-radius: calc(var(--r-m) - 4px);
+  cursor: pointer;
+  transition: background var(--t), color var(--t);
+}
+.v .seg__btn:hover { color: var(--ink); }
+.v .seg__btn.is-on { background: var(--cream); color: var(--ink); box-shadow: var(--elev-0); }
+
+/* ── utility ── */
+.v .stack { display: flex; flex-direction: column; }
+.v .row   { display: flex; align-items: center; }
+.v .gap1 { gap: var(--s1); } .v .gap2 { gap: var(--s2); } .v .gap3 { gap: var(--s3); }
+.v .gap4 { gap: var(--s4); } .v .gap5 { gap: var(--s5); } .v .gap6 { gap: var(--s6); }
+.v .muted { color: var(--ink-3); }
+.v .fg2   { color: var(--ink-2); }
+.v .grow  { flex: 1; }
+.v .center { display: flex; align-items: center; justify-content: center; }
+.v .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+
+/* range slider */
+.v .range { width: 100%; accent-color: var(--primary); }
+
+/* dot */
+.v .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--pencil); flex-shrink: 0; }
+.v .dot--entry { background: var(--c-view); box-shadow: 0 0 0 3px color-mix(in oklch, var(--c-view) 24%, transparent); }
+.v .dot--end   { background: var(--c-warn); }
+.v .dot--make  { background: var(--c-make); }
+.v .dot--view  { background: var(--c-view); }
+.v .dot--admin { background: var(--c-admin); }
+
+/* placeholder image (종이 위 빈 칸) */
+.v .img-ph {
+  width: 100%;
+  background:
+    repeating-linear-gradient(135deg,
+      color-mix(in oklch, var(--ink) 5%, transparent) 0 8px,
+      color-mix(in oklch, var(--ink) 3%, transparent) 8px 16px);
+  border-radius: var(--r-s);
+  display: grid; place-items: center;
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+}
+.v .img-ph span { background: var(--cream); padding: 4px 10px; border-radius: 4px; }

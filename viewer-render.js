@@ -144,21 +144,7 @@ function renderScene(scene) {
 
   /* W4 진단 (사용자 보고 케이스 — 그림 안 보임, 분기 모호):
      console + DOM 둘 다 출력. 한 사이클 안정되면 제거. */
-  try {
-    const _imgLen = scene && scene.imageData ? String(scene.imageData).length : 0;
-    const _imgUrlLen = scene && scene.imageUrl ? String(scene.imageUrl).length : 0;
-    console.log('[BRANCH-W4-DIAG] renderScene', {
-      projectType_ViewerState: ViewerState && ViewerState.project && ViewerState.project.projectType,
-      presentationMode_resolved: presentationMode,
-      pbSubmode,
-      scene_id: scene && scene.id,
-      scene_presentationMode: scene && scene.presentationMode,
-      scene_picturebookSubmode: scene && scene.picturebookSubmode,
-      imageData_len: _imgLen,
-      imageUrl_len: _imgUrlLen,
-      editMode: ViewerState && ViewerState.editMode,
-    });
-  } catch (e) { /* 콘솔 막혀도 동작 유지 */ }
+  /* W4 안정 확인 완료 (사용자 검증 통과) — 진단 코드 제거됨. 필요시 git 이력에서 복구 가능. */
 
   /* 모드별 렌더 분기 (v0.3 — 4단계 갱신) */
   if (presentationMode === 'text') {
@@ -178,17 +164,7 @@ function renderScene(scene) {
 
   /* W4 진단 — 어떤 분기로 갔는지 화면 우상단에 항상 표시.
      사용자 화면 보고 어디서 빠졌는지 즉시 진단 가능. */
-  try {
-    const diag = document.createElement('div');
-    diag.className = 'branch-diag-banner';
-    const imgLen = scene && scene.imageData ? String(scene.imageData).length : 0;
-    diag.innerHTML =
-      `MODE=<b>${presentationMode}</b>` +
-      (presentationMode === 'picturebook' ? ` SUB=<b>${pbSubmode}</b>` : '') +
-      ` · imageData=${imgLen > 0 ? `${imgLen}자` : '없음'}` +
-      ` · ptype-state=${(ViewerState && ViewerState.project && ViewerState.project.projectType) || '(null)'}`;
-    stage.appendChild(diag);
-  } catch (e) { /* 진단 실패해도 동작 유지 */ }
+  /* W4 안정 확인 완료 — 진단 배너 DOM 제거됨. */
 
   /* 이벤트 바인딩 — 모드 무관 공통 */
   _bindSceneEvents(stage, scene);
@@ -233,11 +209,33 @@ function _renderSceneText(stage, scene) {
   const tbStyle = _buildTextBoxStyleForText(scene);
   const cardHtml = _renderSceneCard(scene, choices);
 
+  /* W5: 텍스트형 테마 + 글자 스타일 + 효과 적용
+     · data-text-theme: 8종 테마 CSS 분기
+     · inline style: 글자 스타일 (CSS 변수로 카드 안에 흘려넣음)
+     · data-text-entrance/data-text-body: 효과 클래스 */
+  const theme  = (typeof getTextTheme  === 'function') ? getTextTheme(scene)  : 'classic';
+  const style  = (typeof getTextStyle  === 'function') ? getTextStyle(scene)  : null;
+  const effect = (typeof getTextEffect === 'function') ? getTextEffect(scene) : null;
+
+  /* CSS 변수 — text-card에 적용. 빈 값은 CSS 기본값 사용. */
+  const cssVars = [];
+  if (style) {
+    if (style.fontFamily) cssVars.push(`--text-ff: var(--font-${style.fontFamily})`);
+    if (style.fontSize)   cssVars.push(`--text-fs-body: ${style.fontSize}px`);
+    if (style.color)      cssVars.push(`--text-color-override: ${style.color}`);
+    if (style.weight)     cssVars.push(`--text-weight: ${style.weight}`);
+  }
+  const styleAttr = cssVars.length > 0 ? ` style="${cssVars.join(';')}"` : '';
+
   stage.innerHTML = `
     <div class="scene-screen scene-screen--text"
       data-display="${scene.displayType}"
       data-scene-num="${escHtml(String(scene.id))}"
-      data-presentation-mode="text">
+      data-presentation-mode="text"
+      data-text-theme="${escHtml(theme)}"
+      ${effect ? `data-text-entrance="${escHtml(effect.entrance)}"` : ''}
+      ${effect ? `data-text-body="${escHtml(effect.body)}"` : ''}
+      ${styleAttr}>
       ${bgHtml}
       <div class="scene-content scene-content--text">
         <div class="text-card js-text-card" ${tbStyle ? `style="${tbStyle}"` : ''}>
@@ -328,16 +326,7 @@ function _renderScenePicturebook(stage, scene, submode) {
       <div class="pb-body-handle pb-body-handle--resize-se js-pb-body-resize" data-corner="se" title="크기 조절"></div>
     ` : '';
 
-    /* W4 디버그 정보 — 다듬기 모드일 때만 좌하단에 데이터 상태 표시.
-       사용자가 "그림 있음 판정인데 화면에 안 보임" 같은 불일치 즉시 진단 가능.
-       감상 모드에선 안 보임. */
-    const debugInfoHtml = isEdit ? `
-      <div class="pb-debug-info">
-        bg=${bgImage ? `있음(${String(bgImage).slice(0,30)}...)` : '없음'}
-        · imageData=${scene.imageData ? '있음' : '없음'}
-        · imageUrl=${scene.imageUrl ? '있음' : '없음'}
-      </div>
-    ` : '';
+    /* W4 디버그 정보 — 안정 확인 완료, 제거됨. */
 
     stage.innerHTML = `
       <div class="scene-screen scene-screen--pb ${layoutClass}"
@@ -355,7 +344,6 @@ function _renderScenePicturebook(stage, scene, submode) {
                 <p class="pb-text__body">${escHtml(body)}</p>
                 ${editHandlesHtml}
               </div>` : ''}
-              ${debugInfoHtml}
             </div>
             <div class="pb-text pb-text--bottom-only">
               <div class="pb-text__actions">${btns}</div>
@@ -451,13 +439,23 @@ function _renderSceneMovie(stage, scene) {
     ` data-played="${initialPlayed}"` +
     (hasVideo ? ' data-movie-has-video="true"' : '');
 
+  /* W7 깜빡임 차단 핵심: 매 재렌더마다 stage.innerHTML 통째 교체 → video 새로 마운트.
+     같은 videoUrl이면 기존 <video> 노드를 보존해 재사용 → 영상 재로드 X = 깜빡임 X.
+     1) 기존 .movie-video 찾기
+     2) src 같으면 detach 후 새 stage 안에 reattach
+     3) src 다르면 새 노드 (정상 마운트). */
+  const existingVideo = stage.querySelector('.movie-video');
+  const reuseVideo = (existingVideo && hasVideo && existingVideo.getAttribute('src') === md.videoUrl)
+    ? existingVideo
+    : null;
+
   stage.innerHTML = `
     <div class="scene-screen scene-screen--movie"
       data-display="${scene.displayType}"
       data-scene-num="${escHtml(String(scene.id))}"
       data-presentation-mode="movie"${movieAttrs}>
       <div class="movie-media">
-        ${mediaInner}
+        ${reuseVideo ? '' : mediaInner}
       </div>
       <div class="movie-decision">
         ${bodyHtml}
@@ -466,6 +464,12 @@ function _renderSceneMovie(stage, scene) {
         </div>
       </div>
     </div>`;
+
+  /* 보존한 video 노드를 새 .movie-media 안에 옮겨붙임 (재로드 X) */
+  if (reuseVideo) {
+    const newMedia = stage.querySelector('.movie-media');
+    if (newMedia) newMedia.appendChild(reuseVideo);
+  }
 }
 
 /* ── 모드 4: 체험전시형 (experience) ──
@@ -479,17 +483,16 @@ function _renderSceneMovie(stage, scene) {
      하단 메뉴 형태로 표시 (사용자 원칙: 임시 집계)
    목표: 정식 connectObjects 데이터 모델 들어오기 전까지 viewer 탐색이 성립하기만. */
 function _renderSceneExperience(stage, scene) {
-  const choices = Array.isArray(scene.choices) ? scene.choices : [];
-  const bgImage = scene.imageData || null;
+  const bgImage = scene.imageData || scene.imageUrl || null;
+  const isEdit = !!(ViewerState && ViewerState.editMode);
 
   const title = String(scene.title || '').trim();
   const body  = String(scene.body  || '').trim();
 
-  /* 임시 연결 오브젝트 — 정식 모델 들어올 때까지 buttons[]를 화면 하단 메뉴로 표시.
-     일반 선택지 버튼처럼 보이지 않도록 "연결 메뉴" 톤으로. */
-  const connectBtns = _v03FilterChoices(choices).map(c =>
-    _v03ChoiceBtnHtml(scene, c, 'experience')
-  ).join('');
+  /* W6: 정식 connectObjects 모델 — buttons[] 임시 집계 폐기.
+     각 오브젝트는 배경 이미지 영역 위에 절대 위치(% 좌표)로 배치. */
+  const connectObjects = (typeof getConnectObjects === 'function')
+    ? getConnectObjects(scene) : [];
 
   const titleOverlayHtml = title
     ? `<div class="exp-title-overlay">${escHtml(title)}</div>` : '';
@@ -503,11 +506,10 @@ function _renderSceneExperience(stage, scene) {
          <div class="exp-empty-hint">배경 이미지 없음</div>
        </div>`;
 
-  /* 표준 네비 (4단계 보강) — 체험전시형은 일반 선택지 흐름이 없어서
-     자체 네비가 필요. 설계문서 §8: 다음/뒤로가기/처음으로.
-     · 뒤로가기: historyStack 있을 때만 활성 (탐색 중)
-     · 처음으로: 항상 활성 (replay/entry로 복귀)
-     · "다음": 사용자가 만든 연결 오브젝트(buttons[])가 담당 — 표준 버튼 X */
+  /* 표준 시스템 네비 — 사용자가 connectObjects에 next/back/home 타입을 안 넣었을 때
+     fallback으로 항상 보이는 모서리 네비. 이전 동작 유지.
+     · 뒤로가기: historyStack 있을 때만 활성
+     · 처음으로: 항상 활성 */
   const canGoBack = ViewerState && ViewerState.historyStack &&
                     ViewerState.historyStack.length > 0;
   const navBackBtn = `<button class="exp-nav-btn exp-nav-btn--back js-exp-nav-back"
@@ -516,17 +518,78 @@ function _renderSceneExperience(stage, scene) {
   const navHomeBtn = `<button class="exp-nav-btn exp-nav-btn--home js-exp-nav-home"
     title="처음으로">🏠 처음으로</button>`;
 
+  /* 각 connectObject DOM 생성 */
+  const objectsHtml = connectObjects.map(co => _renderConnectObjectHtml(co, isEdit)).join('');
+
   stage.innerHTML = `
     <div class="scene-screen scene-screen--experience"
       data-display="${scene.displayType}"
       data-scene-num="${escHtml(String(scene.id))}"
-      data-presentation-mode="experience">
+      data-presentation-mode="experience"
+      ${isEdit ? 'data-edit-mode="true"' : ''}>
       ${bgInner}
+      <div class="exp-objects-layer js-exp-objects-layer">
+        ${objectsHtml}
+      </div>
       <div class="exp-nav exp-nav--top-left">${navBackBtn}</div>
       <div class="exp-nav exp-nav--top-right">${navHomeBtn}</div>
       ${titleOverlayHtml}
       ${bodyPanelHtml}
-      ${connectBtns ? `<div class="exp-connect-menu">${connectBtns}</div>` : ''}
+    </div>`;
+}
+
+/* connectObject 단일 DOM — 타입별 시각 + 다듬기 모드 핸들 */
+function _renderConnectObjectHtml(co, isEdit) {
+  if (!co || !co.type) return '';
+  const id    = escHtml(co.id || '');
+  const label = escHtml(co.label || '');
+  const styleStr = `left:${co.x}%;top:${co.y}%;width:${co.w}%;height:${co.h}%;`;
+
+  /* 다듬기 모드 핸들 (W4 패턴 차용) */
+  const editHandlesHtml = isEdit ? `
+    <div class="co-handle co-handle--move js-co-move" title="드래그하여 위치 이동">✥</div>
+    <div class="co-handle co-handle--resize-nw js-co-resize" data-corner="nw" title="크기 조절"></div>
+    <div class="co-handle co-handle--resize-ne js-co-resize" data-corner="ne" title="크기 조절"></div>
+    <div class="co-handle co-handle--resize-sw js-co-resize" data-corner="sw" title="크기 조절"></div>
+    <div class="co-handle co-handle--resize-se js-co-resize" data-corner="se" title="크기 조절"></div>
+  ` : '';
+
+  /* 타입별 inner 콘텐츠 */
+  let innerHtml = '';
+  switch (co.type) {
+    case 'button':
+      innerHtml = `<span class="co-label">${label || '버튼'}</span>`;
+      break;
+    case 'arrow':
+      innerHtml = `<span class="co-icon">→</span>${label ? `<span class="co-label">${label}</span>` : ''}`;
+      break;
+    case 'flag':
+      innerHtml = `<span class="co-icon">🚩</span>${label ? `<span class="co-label">${label}</span>` : ''}`;
+      break;
+    case 'next':
+      innerHtml = `<span class="co-icon">⏭</span><span class="co-label">${label || '다음'}</span>`;
+      break;
+    case 'back':
+      innerHtml = `<span class="co-icon">⏮</span><span class="co-label">${label || '뒤로가기'}</span>`;
+      break;
+    case 'home':
+      innerHtml = `<span class="co-icon">🏠</span><span class="co-label">${label || '처음으로'}</span>`;
+      break;
+    case 'invisible':
+      /* 시각 없음 — 다듬기 모드만 점선 외곽 + 라벨 텍스트로 인지 가능하게 */
+      innerHtml = isEdit ? `<span class="co-label co-label--invisible-hint">투명${label ? ': ' + label : ''}</span>` : '';
+      break;
+    default:
+      innerHtml = `<span class="co-label">${label}</span>`;
+  }
+
+  return `
+    <div class="connect-object connect-object--${co.type} js-connect-object"
+      data-co-id="${id}"
+      data-co-type="${co.type}"
+      style="${styleStr}">
+      ${innerHtml}
+      ${editHandlesHtml}
     </div>`;
 }
 
@@ -763,6 +826,39 @@ function _bindSceneEvents(stage, scene) {
     if (typeof restartStory === 'function') restartStory();
     else if (typeof restartFromCover === 'function') restartFromCover();
   });
+
+  /* W6: 체험전시형 connectObjects 클릭 동작.
+     타입별 분기:
+     · button/arrow/flag/invisible/next : nextId가 있으면 그 장면으로 이동
+     · back   : 뒤로가기 (시스템 nav와 동일)
+     · home   : 처음으로 (시스템 nav와 동일)
+     다듬기 모드(editMode true)에선 클릭 동작 비활성 — 핸들 인터랙션이 우선. */
+  if (!ViewerState || !ViewerState.editMode) {
+    stage.querySelectorAll('.js-connect-object').forEach(el => {
+      el.addEventListener('click', (e) => {
+        /* 핸들 클릭은 이벤트 버블링으로 들어와도 처리 X (다듬기 모드 아니면 핸들 자체가 없음) */
+        if (e.target && e.target.closest && e.target.closest('.co-handle')) return;
+        const type = el.getAttribute('data-co-type') || 'button';
+        const coId = el.getAttribute('data-co-id') || '';
+        if (type === 'back') {
+          if (typeof navigateBack === 'function') navigateBack();
+          return;
+        }
+        if (type === 'home') {
+          if (typeof restartStory === 'function') restartStory();
+          else if (typeof restartFromCover === 'function') restartFromCover();
+          return;
+        }
+        /* button/arrow/flag/next/invisible — connectObjects 데이터에서 nextId 찾아 이동 */
+        const objects = (typeof getConnectObjects === 'function')
+          ? getConnectObjects(scene) : [];
+        const co = objects.find(o => o.id === coId);
+        if (co && co.nextId) {
+          if (typeof navigateTo === 'function') navigateTo(co.nextId);
+        }
+      });
+    });
+  }
 }
 
 /* ================================================================
@@ -804,14 +900,39 @@ function _renderStoryEnding(stage, scene) {
     ? `<div class="ending-path-summary">${steps}개의 장면을 거쳐 이 결말에 도달했어요</div>`
     : '';
 
+  /* W7 엔딩 재구조: 사용자가 쓴 엔딩 본문이 주인공.
+     사용자 결정: "이야기 끝은 유지하되 과하게 본문을 덮지 말 것".
+     · 사용자 본문 있음 → 본문이 메인 (큰 글씨), 시스템 표시("이야기 끝") 작은 보조
+     · 사용자 본문 비어있음 → 시스템 메시지가 메인 (이전 동작 유지)
+     · 사용자 제목 → 위쪽 작은 라벨로 (장면 제목)
+     · 진엔딩 배지 + path 요약 + 다른 결말 찾기 버튼은 그대로 */
+  const userTitle = String(scene.title || '').trim();
+  const userBody  = String(scene.body  || '').trim();
+  const hasUserBody = userBody.length > 0;
+
+  const systemLabel = isTrueEnd ? '진짜 결말' : '이야기 끝';
+  const systemIcon  = isTrueEnd ? '🏆' : '🏁';
+
+  /* 본문 있을 때 */
+  const userContentHtml = hasUserBody ? `
+    ${userTitle ? `<div class="ending-user-title">${escHtml(userTitle)}</div>` : ''}
+    <div class="ending-user-body">${escHtml(userBody)}</div>
+    <div class="ending-system-label-small">
+      <span class="ending-system-icon-small">${systemIcon}</span>
+      <span>${systemLabel}</span>
+    </div>
+  ` : `
+    <div class="terminal-icon terminal-icon--story">${systemIcon}</div>
+    <h2 class="terminal-title">${systemLabel}</h2>
+    ${userTitle ? `<p class="terminal-body">${escHtml(userTitle)}</p>` : ''}
+  `;
+
   stage.innerHTML = `
     <div class="terminal-screen terminal-screen--story">
       ${bgHtml}
       <div class="terminal-content">
         ${trueEndBadge}
-        <div class="terminal-icon terminal-icon--story">${isTrueEnd ? '🏆' : '🏁'}</div>
-        <h2 class="terminal-title">${isTrueEnd ? '진짜 결말' : '이야기 끝'}</h2>
-        <p class="terminal-body">${escHtml(scene.title || scene.body || '')}</p>
+        ${userContentHtml}
         ${pathSummary}
         <p class="ending-mood">${moodMsg}</p>
         <div class="terminal-actions">

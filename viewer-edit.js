@@ -26,6 +26,184 @@ const _editText = {
 };
 const EDIT_SAVE_DEBOUNCE_MS = 800;
 
+/* ================================================================
+   W7-B: 영상 업로드 (viewer 쪽 자체 정의)
+   ─────────────────────────────────────────────────────────────
+   viewer.html이 firebase.js를 로드하지 않으므로 (firebase.js는 maker 전용),
+   여기서 동일 헬퍼를 자체 정의. firebase-storage-compat.js는 viewer.html이 로드함.
+   firebase.storage()는 firebase.initializeApp 후에만 동작 — viewer-state.js에서 init 됨.
+   ─────────────────────────────────────────────────────────────
+   값 일치 유지 책임: firebase.js의 같은 헬퍼와 동기 (한쪽 변경 시 둘 다 수정). */
+const _VIEWER_VIDEO_MAX_BYTES   = 50 * 1024 * 1024;
+const _VIEWER_VIDEO_MAX_SECONDS = 60;
+
+function _viewerVideoStoragePath(sceneNum, ctx) {
+  /* viewer 컨텍스트에서는 ViewerState에서 classId/teamName을 읽음.
+     W7-B 성능 보강: 매 업로드마다 timestamp 부여 → 이전 영상과 다른 경로 →
+     · 캐시 충돌 회피 (같은 URL 재사용 시 옛 영상 표시되는 버그 방지)
+     · 덮어쓰기 지연(메타데이터 갱신) 회피 → 두번째 업로드 빠름 */
+  const cid = (ctx && ctx.classId)
+    || (typeof ViewerState !== 'undefined' && ViewerState.classId)
+    || (typeof classId !== 'undefined' && classId)
+    || '_legacy';
+  const tn  = (ctx && ctx.teamName)
+    || (typeof ViewerState !== 'undefined' && ViewerState.teamName)
+    || (typeof teamName !== 'undefined' && teamName)
+    || 'unknown';
+  const encodedName = encodeURIComponent(tn);
+  /* 옵트인: ctx.timestamp가 명시되면 그 값 사용 (재현성 필요한 경우), 없으면 Date.now() */
+  const ts = (ctx && ctx.timestamp) || Date.now();
+  return `videos/${cid}/${encodedName}/scene_${sceneNum}_${ts}.mp4`;
+}
+
+function _viewerProbeVideoDuration(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const v = document.createElement('video');
+    v.preload = 'metadata';
+    v.onloadedmetadata = () => {
+      const dur = v.duration;
+      URL.revokeObjectURL(url);
+      if (typeof dur !== 'number' || isNaN(dur) || dur === Infinity) {
+        reject(new Error('영상 길이를 확인할 수 없어요. mp4 파일이 맞는지 확인해주세요.'));
+        return;
+      }
+      resolve(dur);
+    };
+    v.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('영상 파일을 읽지 못했어요. mp4 파일이 맞는지 확인해주세요.'));
+    };
+    v.src = url;
+  });
+}
+
+async function viewerUploadVideoToStorage(file, sceneNum, opts) {
+  /* viewer는 named app 'viewer'를 사용 — default app 아님.
+     getViewerDb()와 같은 방식으로 named app에서 storage 가져옴.
+     'viewer' app이 아직 init 안 됐으면 getViewerDb 호출로 강제 init. */
+  if (typeof firebase === 'undefined' || typeof firebase.app !== 'function') {
+    throw new Error('Storage SDK가 로드되지 않았어요. 페이지를 새로고침해주세요.');
+  }
+  let storage;
+  let viewerApp;
+  try {
+    viewerApp = firebase.app('viewer');
+  } catch (e) {
+    /* 'viewer' app 없음 → getViewerDb로 강제 init (viewer-data.js의 패턴) */
+    if (typeof getViewerDb === 'function') {
+      try {
+        getViewerDb();
+        viewerApp = firebase.app('viewer');
+      } catch (e2) {
+        throw new Error('Firebase 앱이 초기화되지 않았어요. 페이지를 새로고침해주세요.');
+      }
+    } else {
+      throw new Error('Firebase 앱이 초기화되지 않았어요. 페이지를 새로고침해주세요.');
+    }
+  }
+  if (typeof viewerApp.storage !== 'function') {
+    throw new Error('Storage SDK가 로드되지 않았어요. 페이지를 새로고침해주세요.');
+  }
+  storage = viewerApp.storage();
+  if (!file) throw new Error('파일이 선택되지 않았어요.');
+  if (!file.type || !file.type.startsWith('video/')) {
+    throw new Error('영상 파일이 아니에요. mp4 파일을 선택해주세요.');
+  }
+  if (file.size > _VIEWER_VIDEO_MAX_BYTES) {
+    const mb = (file.size / 1024 / 1024).toFixed(1);
+    throw new Error(`파일이 너무 커요 (${mb}MB). 50MB 이내 영상만 가능해요.`);
+  }
+  const dur = await _viewerProbeVideoDuration(file);
+  if (dur > _VIEWER_VIDEO_MAX_SECONDS + 0.5) {
+    throw new Error(`영상이 너무 길어요 (${dur.toFixed(1)}초). 60초 이내 영상만 가능해요.`);
+  }
+
+  /* anonymous auth 보장 — Storage 규칙의 auth != null 충족.
+     viewer named app의 auth 사용. */
+  try {
+    if (typeof viewerApp.auth === 'function') {
+      const auth = viewerApp.auth();
+      if (!auth.currentUser) {
+        try { await auth.signInAnonymously(); }
+        catch (e) { /* 인증 실패해도 일단 시도 */ }
+      }
+    }
+  } catch (e) { /* auth 없어도 진행 — Storage 규칙이 막으면 reject */ }
+
+  const storagePath = _viewerVideoStoragePath(sceneNum, opts || {});
+  const ref = storage.ref(storagePath);
+  const onProgress = opts && typeof opts.onProgress === 'function' ? opts.onProgress : null;
+
+  return new Promise((resolve, reject) => {
+    const task = ref.put(file, {
+      contentType: file.type || 'video/mp4',
+      cacheControl: 'public, max-age=3600',
+    });
+    task.on('state_changed',
+      snap => {
+        if (onProgress && snap.totalBytes > 0) {
+          onProgress(Math.min(100, Math.round((snap.bytesTransferred / snap.totalBytes) * 100)));
+        }
+      },
+      err => reject(err),
+      async () => {
+        try {
+          const url = await task.snapshot.ref.getDownloadURL();
+          resolve({ downloadURL: url, storagePath });
+        } catch (e) { reject(e); }
+      }
+    );
+  });
+}
+
+async function viewerDeleteVideoFromStorage(storagePath) {
+  if (typeof firebase === 'undefined' || typeof firebase.app !== 'function') return false;
+  if (!storagePath) return false;
+  try {
+    let viewerApp;
+    try { viewerApp = firebase.app('viewer'); }
+    catch (e) {
+      if (typeof getViewerDb === 'function') {
+        getViewerDb();
+        viewerApp = firebase.app('viewer');
+      } else return false;
+    }
+    if (typeof viewerApp.storage !== 'function') return false;
+    await viewerApp.storage().ref(storagePath).delete();
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+/* ── W4-D: 모드별 선택지 라벨 max 글자수 ──
+   maker(state.js)와 동일한 정책. viewer.html은 state.js를 로드 안 하므로
+   여기서 자체 정의 (값 일치 유지 책임은 양쪽 동기 — 변경 시 둘 다 수정).
+   getChoiceLabelMax가 전역에 이미 있으면 그것을 우선 사용.
+   ─────────────────────────────────────────────────────────────
+   · picturebook 30 : A4 컨테이너의 짧은 한 줄 (mockup 기준)
+   · text         60 : 영역 큼
+   · movie        30 : 결정 패널 좁음
+   · experience   20 : 학교 지도 mockup의 짧은 라벨 */
+const _CHOICE_LABEL_MAX_BY_MODE_VIEWER = {
+  text:        60,
+  picturebook: 30,
+  movie:       30,
+  experience:  20,
+};
+const _CHOICE_LABEL_MAX_DEFAULT_VIEWER = 30;
+function _getChoiceLabelMaxViewer(mode) {
+  /* 전역 getChoiceLabelMax가 정의돼 있으면 그것을 사용 (state.js와 일치 보장) */
+  if (typeof getChoiceLabelMax === 'function') {
+    try { return getChoiceLabelMax(mode); } catch (e) { /* fall-through */ }
+  }
+  if (mode && Object.prototype.hasOwnProperty.call(_CHOICE_LABEL_MAX_BY_MODE_VIEWER, mode)) {
+    return _CHOICE_LABEL_MAX_BY_MODE_VIEWER[mode];
+  }
+  return _CHOICE_LABEL_MAX_DEFAULT_VIEWER;
+}
+
 /* ── viewer-frame만 재렌더 — edit-panel은 보존 (포커스 보호 핵심) ── */
 function _scheduleViewerFrameReRender() {
   if (_editText.rafPending) return;
@@ -35,6 +213,162 @@ function _scheduleViewerFrameReRender() {
     const scene = ViewerState.scenes[ViewerState.currentSceneId];
     if (scene && typeof renderScene === 'function') renderScene(scene);
   });
+}
+
+/* ================================================================
+   W7 깜빡임 차단: 부분 업데이트 헬퍼
+   ─────────────────────────────────────────────────────────────
+   _scheduleViewerFrameReRender는 stage.innerHTML 통째 교체라 매번 깜빡임 발생.
+   대신 입력 종류별로 DOM 부분만 갱신 → 통째 재렌더 회피.
+   ─────────────────────────────────────────────────────────────
+   사용 패턴:
+     · 텍스트 스타일 변경 → _patchTextStyle()
+     · 텍스트 테마 변경 → _patchTextTheme()
+     · 텍스트 효과 변경 → _patchTextEffect()
+     · 무비형 captionMode → _patchMovieAttr('caption', value)
+     · 무비형 choiceReveal → _patchMovieAttr('reveal', value)
+     · 체험전시형 오브젝트 이동 → _patchConnectObject(id, fields)
+     · 본문/제목 입력 → _patchSceneText(field, value)
+     · 선택지 라벨 → _patchChoiceLabel(idx, value)
+   해당 노드 못 찾으면 silently noop — 다음 통째 재렌더 때 정합성 회복.
+   ================================================================ */
+
+function _getSceneScreen() {
+  return document.querySelector('#viewer-frame .scene-screen');
+}
+
+/* 텍스트형 — CSS 변수/속성만 갱신 */
+function _patchTextStyle() {
+  const screen = _getSceneScreen();
+  if (!screen || !screen.classList.contains('scene-screen--text')) return false;
+  const scene = ViewerState.scenes[ViewerState.currentSceneId];
+  if (!scene) return false;
+  const style = (typeof getTextStyle === 'function') ? getTextStyle(scene) : (scene.textStyle || {});
+  const fontMap = (typeof TEXT_FONT_FAMILIES === 'object') ? TEXT_FONT_FAMILIES : {};
+  if (style.fontFamily && fontMap[style.fontFamily]) {
+    screen.style.setProperty('--text-font-family', fontMap[style.fontFamily]);
+  }
+  if (typeof style.fontSize === 'number') {
+    screen.style.setProperty('--text-fs-body', style.fontSize + 'px');
+  }
+  if (style.color) {
+    screen.style.setProperty('--text-color-override', style.color);
+  } else {
+    screen.style.removeProperty('--text-color-override');
+  }
+  if (style.weight === 'bold') {
+    screen.style.setProperty('--text-fw-body', '700');
+  } else {
+    screen.style.setProperty('--text-fw-body', '400');
+  }
+  return true;
+}
+
+function _patchTextTheme() {
+  const screen = _getSceneScreen();
+  if (!screen || !screen.classList.contains('scene-screen--text')) return false;
+  const scene = ViewerState.scenes[ViewerState.currentSceneId];
+  if (!scene) return false;
+  const theme = (typeof getTextTheme === 'function') ? getTextTheme(scene) : (scene.textTheme || 'classic');
+  screen.setAttribute('data-text-theme', theme);
+  return true;
+}
+
+function _patchTextEffect() {
+  const screen = _getSceneScreen();
+  if (!screen || !screen.classList.contains('scene-screen--text')) return false;
+  const scene = ViewerState.scenes[ViewerState.currentSceneId];
+  if (!scene) return false;
+  const eff = (typeof getTextEffect === 'function') ? getTextEffect(scene) : (scene.textEffect || {});
+  if (eff.entrance) screen.setAttribute('data-text-entrance', eff.entrance);
+  if (eff.body)     screen.setAttribute('data-text-body',     eff.body);
+  return true;
+}
+
+/* 무비형 — 속성만 토글 (CSS가 그 속성으로 시각 분기) */
+function _patchMovieAttr(kind, value) {
+  const screen = _getSceneScreen();
+  if (!screen || !screen.classList.contains('scene-screen--movie')) return false;
+  const attrMap = {
+    caption: 'data-movie-caption',
+    reveal:  'data-movie-reveal',
+    body:    'data-body-enabled',
+  };
+  const attr = attrMap[kind];
+  if (!attr) return false;
+  screen.setAttribute(attr, value);
+  return true;
+}
+
+/* 본문 텍스트 부분 갱신 — viewer 미리보기에 본문 노드만 갈아끼움 */
+function _patchSceneBody(value) {
+  const screen = _getSceneScreen();
+  if (!screen) return false;
+  /* 모드별 본문 노드 위치 */
+  const bodyNode =
+       screen.querySelector('.text-card__body')
+    || screen.querySelector('.pb-text__body')
+    || screen.querySelector('.movie-decision__desc')
+    || screen.querySelector('.exp-bottom__body');
+  if (!bodyNode) return false;
+  bodyNode.textContent = value || '';
+  return true;
+}
+
+function _patchSceneTitle(value) {
+  const screen = _getSceneScreen();
+  if (!screen) return false;
+  const titleNode =
+       screen.querySelector('.text-card__title')
+    || screen.querySelector('.pb-text__title')
+    || screen.querySelector('.exp-top__title');
+  if (!titleNode) return false;
+  titleNode.textContent = value || '';
+  return true;
+}
+
+/* 선택지 라벨 부분 갱신 */
+function _patchChoiceLabel(idx, value) {
+  const screen = _getSceneScreen();
+  if (!screen) return false;
+  const buttons = screen.querySelectorAll('.choice-v03, .pb-choice, .text-choice');
+  if (!buttons || idx >= buttons.length) return false;
+  const btn = buttons[idx];
+  /* 화살표 ::after 분리 — 텍스트 노드만 갱신 */
+  const textNode = Array.from(btn.childNodes).find(n => n.nodeType === Node.TEXT_NODE);
+  if (textNode) textNode.nodeValue = value || '';
+  else btn.textContent = value || '';
+  return true;
+}
+
+/* 체험전시형 connectObject 부분 갱신 — 오브젝트 위치/크기/라벨 */
+function _patchConnectObject(coId, fields) {
+  const screen = _getSceneScreen();
+  if (!screen || !screen.classList.contains('scene-screen--exp')) return false;
+  const node = screen.querySelector(`[data-co-id="${CSS.escape(String(coId))}"]`);
+  if (!node) return false;
+  if (typeof fields.x === 'number') node.style.left = fields.x + '%';
+  if (typeof fields.y === 'number') node.style.top  = fields.y + '%';
+  if (typeof fields.w === 'number') node.style.width  = fields.w + '%';
+  if (typeof fields.h === 'number') node.style.height = fields.h + '%';
+  if (typeof fields.label === 'string') {
+    const lbl = node.querySelector('.exp-co__label, .exp-button__label');
+    if (lbl) lbl.textContent = fields.label;
+  }
+  return true;
+}
+
+/* 글상자(picturebook 본문 글상자) 위치/크기 부분 갱신 */
+function _patchTextboxPlacement(top, left, width, height) {
+  const screen = _getSceneScreen();
+  if (!screen) return false;
+  const box = screen.querySelector('.pb-text-box');
+  if (!box) return false;
+  if (typeof top    === 'number') box.style.top    = top    + '%';
+  if (typeof left   === 'number') box.style.left   = left   + '%';
+  if (typeof width  === 'number') box.style.width  = width  + '%';
+  if (typeof height === 'number') box.style.height = height + '%';
+  return true;
 }
 
 /* ─── 작품 유형 안전 해석 (3단계 신규) ──────────────────────────
@@ -712,6 +1046,12 @@ function initEditInteractions() {
   frame.querySelectorAll('.js-pb-body-overlay').forEach(overlay => {
     _attachPbBodyBoxInteractions(overlay, frame);
   });
+
+  /* W6: 체험전시형 connectObject 인터랙션.
+     각 오브젝트에 ✥ 이동 + 4 모서리 리사이즈. W4 패턴 차용. */
+  frame.querySelectorAll('.js-connect-object').forEach(el => {
+    _attachConnectObjectInteractions(el, frame);
+  });
 }
 
 /* ─── 그림책형 본문 글상자 인터랙션 (W4) ─────────────────────
@@ -897,6 +1237,152 @@ function _attachPbBodyBoxInteractions(overlay, frame) {
   });
 }
 
+/* ─── W6: 체험전시형 connectObject 드래그/리사이즈 ─────────────────
+   감상 모드에서는 핸들이 없어서 동작 X. 다듬기 모드만 적용.
+   W4의 _attachPbBodyBoxInteractions 패턴 차용 — 좌표 기준은 .exp-objects-layer
+   (배경 이미지 영역과 동일 100% × 100%). */
+function _attachConnectObjectInteractions(coEl, frame) {
+  const layer = coEl.closest('.exp-objects-layer') || coEl.parentElement;
+  if (!layer) return;
+  const coId = coEl.getAttribute('data-co-id');
+  if (!coId) return;
+
+  /* 현재 scene + co 객체 가져오는 헬퍼 — 매번 최신 데이터 fetch */
+  function getScene() {
+    if (!ViewerState || !ViewerState.scenes) return null;
+    return ViewerState.scenes[ViewerState.currentSceneId] || null;
+  }
+  function getCo() {
+    const s = getScene();
+    if (!s || !Array.isArray(s.connectObjects)) return null;
+    return s.connectObjects.find(o => o.id === coId) || null;
+  }
+
+  /* 픽셀 → % 변환 (layer 기준) */
+  function pxToPct(dx, dy) {
+    const rect = layer.getBoundingClientRect();
+    return {
+      dxPct: rect.width  > 0 ? (dx / rect.width)  * 100 : 0,
+      dyPct: rect.height > 0 ? (dy / rect.height) * 100 : 0,
+    };
+  }
+
+  /* 메모리 + DOM 동시 갱신 — clamp 포함 */
+  function applyBox(co, x, y, w, h) {
+    /* clamp */
+    w = Math.max(2, Math.min(100, w));
+    h = Math.max(2, Math.min(100, h));
+    x = Math.max(0, Math.min(100 - w, x));
+    y = Math.max(0, Math.min(100 - h, y));
+    co.x = x; co.y = y; co.w = w; co.h = h;
+    coEl.style.left   = x + '%';
+    coEl.style.top    = y + '%';
+    coEl.style.width  = w + '%';
+    coEl.style.height = h + '%';
+  }
+
+  /* === 이동 핸들 ✥ === */
+  const moveHandle = coEl.querySelector('.js-co-move');
+  if (moveHandle) {
+    let dragging = false, pid = null;
+    let startX = 0, startY = 0;
+    let startCo = null;
+    let rafPending = false, nextDx = 0, nextDy = 0;
+
+    moveHandle.addEventListener('pointerdown', e => {
+      const co = getCo();
+      if (!co) return;
+      e.preventDefault();
+      e.stopPropagation();
+      dragging = true;
+      pid = e.pointerId;
+      try { moveHandle.setPointerCapture(pid); } catch (_) {}
+      startX = e.clientX;
+      startY = e.clientY;
+      startCo = { x: co.x, y: co.y, w: co.w, h: co.h };
+      coEl.classList.add('connect-object--moving');
+    });
+    moveHandle.addEventListener('pointermove', e => {
+      if (!dragging || e.pointerId !== pid) return;
+      nextDx = e.clientX - startX;
+      nextDy = e.clientY - startY;
+      if (rafPending) return;
+      rafPending = true;
+      requestAnimationFrame(() => {
+        rafPending = false;
+        if (!dragging) return;
+        const co = getCo();
+        if (!co || !startCo) return;
+        const { dxPct, dyPct } = pxToPct(nextDx, nextDy);
+        applyBox(co, startCo.x + dxPct, startCo.y + dyPct, startCo.w, startCo.h);
+        _queueSave((getScene().num || getScene().id), { connectObjects: getScene().connectObjects });
+      });
+    });
+    function endMove() {
+      if (!dragging) return;
+      dragging = false;
+      coEl.classList.remove('connect-object--moving');
+      _flushPendingSave();
+    }
+    moveHandle.addEventListener('pointerup',     e => { if (e.pointerId === pid) { try{moveHandle.releasePointerCapture(pid);}catch(_){}; endMove(); } });
+    moveHandle.addEventListener('pointercancel', endMove);
+  }
+
+  /* === 4 모서리 리사이즈 핸들 === */
+  coEl.querySelectorAll('.js-co-resize').forEach(handle => {
+    const corner = handle.getAttribute('data-corner');
+    let dragging = false, pid = null;
+    let startX = 0, startY = 0;
+    let startCo = null;
+    let rafPending = false, nextDx = 0, nextDy = 0;
+
+    handle.addEventListener('pointerdown', e => {
+      const co = getCo();
+      if (!co) return;
+      e.preventDefault();
+      e.stopPropagation();
+      dragging = true;
+      pid = e.pointerId;
+      try { handle.setPointerCapture(pid); } catch (_) {}
+      startX = e.clientX;
+      startY = e.clientY;
+      startCo = { x: co.x, y: co.y, w: co.w, h: co.h };
+      coEl.classList.add('connect-object--resizing');
+    });
+    handle.addEventListener('pointermove', e => {
+      if (!dragging || e.pointerId !== pid) return;
+      nextDx = e.clientX - startX;
+      nextDy = e.clientY - startY;
+      if (rafPending) return;
+      rafPending = true;
+      requestAnimationFrame(() => {
+        rafPending = false;
+        if (!dragging) return;
+        const co = getCo();
+        if (!co || !startCo) return;
+        const { dxPct, dyPct } = pxToPct(nextDx, nextDy);
+        let newX = startCo.x, newY = startCo.y;
+        let newW = startCo.w, newH = startCo.h;
+        /* 모서리별 분기 — 반대편 모서리 고정, 잡은 모서리 따라 움직임 */
+        if (corner === 'nw') { newX = startCo.x + dxPct; newY = startCo.y + dyPct; newW = startCo.w - dxPct; newH = startCo.h - dyPct; }
+        else if (corner === 'ne') { newY = startCo.y + dyPct; newW = startCo.w + dxPct; newH = startCo.h - dyPct; }
+        else if (corner === 'sw') { newX = startCo.x + dxPct; newW = startCo.w - dxPct; newH = startCo.h + dyPct; }
+        else if (corner === 'se') { newW = startCo.w + dxPct; newH = startCo.h + dyPct; }
+        applyBox(co, newX, newY, newW, newH);
+        _queueSave((getScene().num || getScene().id), { connectObjects: getScene().connectObjects });
+      });
+    });
+    function endResize() {
+      if (!dragging) return;
+      dragging = false;
+      coEl.classList.remove('connect-object--resizing');
+      _flushPendingSave();
+    }
+    handle.addEventListener('pointerup',     e => { if (e.pointerId === pid) { try{handle.releasePointerCapture(pid);}catch(_){}; endResize(); } });
+    handle.addEventListener('pointercancel', endResize);
+  });
+}
+
 function _attachDrag(wrap, choiceId, frame) {
   let dragging = false, pointerId = null;
   let startX, startY, startPx, startPy;
@@ -1000,12 +1486,17 @@ function _textEditHtml(scene) {
   const bodyHint  = bodyVal ? '' :
     `<div class="edit-field-hint">장면에서 읽을 내용이에요. 대사·설명·상황 묘사 모두 여기에.</div>`;
 
-  /* ── 버튼 N개 (v0.3): scene.choices 배열을 그대로 ── */
+  /* ── 버튼 N개 (v0.3): scene.choices 배열을 그대로 ──
+     W6 개념 통일: 체험전시형은 행동 버튼 개념을 사용하지 않고 연결오브젝트(connectObjects)로
+     모든 이동을 처리하므로, 이 섹션은 체험전시형 작품에서 제외한다. */
   const isEnding = scene.type === 'ending';
   const choices  = Array.isArray(scene.choices) ? scene.choices : [];
+  const _ptypeForButtons = (ViewerState && ViewerState.project &&
+                            ViewerState.project.projectType) || null;
+  const isExperience = _ptypeForButtons === 'experience';
 
-  /* 엔딩 장면은 버튼 편집 UI 없음 (구조상 선택지 0개) */
-  const buttonsBlock = isEnding ? '' : _buttonsEditHtml(choices);
+  /* 엔딩 장면 + 체험전시형은 버튼 편집 UI 없음 */
+  const buttonsBlock = (isEnding || isExperience) ? '' : _buttonsEditHtml(choices);
 
   return `
     <h4 class="edit-section-title edit-section-title--major">① 기본 정보</h4>
@@ -1077,10 +1568,17 @@ function _buttonRowHtml(choice, idx, total) {
   const label = (choice && typeof choice.label === 'string') ? choice.label : '';
   const len   = label.length;
 
+  /* W4-D: 모드별 max 글자수 (viewer 자체 함수 — state.js 미로드 환경 대비). */
+  const _ptype = (typeof ViewerState !== 'undefined' && ViewerState.project &&
+                  ViewerState.project.projectType) || null;
+  const maxLen = _getChoiceLabelMaxViewer(_ptype);
+  /* 권장 임계: 90% 도달 시 warn (시각 안내). over는 maxLen 초과(원칙상 maxlength로 막혀 발생 X). */
+  const warnAt = Math.floor(maxLen * 0.9);
+
   /* 글자 수 표시: 정상/권장초과/최대초과 */
   let counterClass = 'edit-btn-counter';
-  if (len > 60) counterClass += ' edit-btn-counter--over';
-  else if (len > 30) counterClass += ' edit-btn-counter--warn';
+  if (len > maxLen) counterClass += ' edit-btn-counter--over';
+  else if (len > warnAt) counterClass += ' edit-btn-counter--warn';
 
   /* nextId 드롭다운 (W2-B-α) — 사용자가 버튼별 분기 연결 편집.
      ViewerState.scenes에서 모든 장면 목록 가져와 옵션으로 제공.
@@ -1129,12 +1627,12 @@ function _buttonRowHtml(choice, idx, total) {
           data-idx="${idx}"
           value="${escHtml(label)}"
           placeholder="버튼 문구를 입력하세요"
-          maxlength="60">
+          maxlength="${maxLen}">
         ${removeBtn}
       </div>
       <div class="edit-button-row-meta">
         <span class="${counterClass}">
-          <span class="js-edit-btn-len">${len}</span> / 30
+          <span class="js-edit-btn-len">${len}</span> / ${maxLen}
         </span>
         <span class="edit-btn-target">
           <span class="edit-btn-next-label">다음 →</span>
@@ -1153,7 +1651,9 @@ function _bindTextEditEvents(panel, scene) {
     titleEl.addEventListener('input', e => {
       if (!_editText.editable) return;
       scene.title = e.target.value;
-      _scheduleViewerFrameReRender();
+      /* W7 깜빡임 차단: 매 키 입력마다 통째 재렌더하면 video 노드 새로 마운트 → 깜빡임.
+         부분 패치로 viewer의 제목 노드만 갱신. 실패 시 통째 재렌더 fallback. */
+      if (!_patchSceneTitle(scene.title)) _scheduleViewerFrameReRender();
       _queueSave(scene.id, { title: scene.title });
     });
     titleEl.addEventListener('blur', () => _flushPendingSave());
@@ -1164,7 +1664,9 @@ function _bindTextEditEvents(panel, scene) {
     bodyEl.addEventListener('input', e => {
       if (!_editText.editable) return;
       scene.body = e.target.value;
-      _scheduleViewerFrameReRender();
+      /* W7 깜빡임 차단: 매 키 입력마다 통째 재렌더 → 영상 깜빡임.
+         부분 패치로 viewer의 본문 노드만 갱신. */
+      if (!_patchSceneBody(scene.body)) _scheduleViewerFrameReRender();
       _queueSave(scene.id, { body: scene.body });
     });
     bodyEl.addEventListener('blur', () => _flushPendingSave());
@@ -1198,23 +1700,36 @@ function _bindButtonsEditEvents(panel, scene) {
     const idx = parseInt(input.dataset.idx, 10);
     if (isNaN(idx) || !scene.choices[idx]) return;
 
-    scene.choices[idx].label = input.value;
+    /* W4-D 안전망: maxlength HTML attribute가 우회됐을 때도 데이터 단계에서 절단.
+       (예: 페이스트 일부 환경, 자동완성 등) */
+    const _ptype = (typeof ViewerState !== 'undefined' && ViewerState.project &&
+                    ViewerState.project.projectType) || null;
+    const maxLen = _getChoiceLabelMaxViewer(_ptype);
+    let value = input.value;
+    if (value.length > maxLen) {
+      value = value.slice(0, maxLen);
+      input.value = value;   /* 입력란도 즉시 잘라줌 */
+    }
 
-    /* 글자수 카운터 갱신 (해당 행만) */
+    scene.choices[idx].label = value;
+
+    /* 글자수 카운터 갱신 (해당 행만) — W4-D: 모드별 max 동적 사용 */
     const row = input.closest('.edit-button-row');
     if (row) {
       const lenEl     = row.querySelector('.js-edit-btn-len');
       const counterEl = row.querySelector('.edit-btn-counter');
-      const len = input.value.length;
+      const len = value.length;
       if (lenEl) lenEl.textContent = String(len);
       if (counterEl) {
+        const warnAt = Math.floor(maxLen * 0.9);
         counterEl.classList.remove('edit-btn-counter--warn', 'edit-btn-counter--over');
-        if (len > 60)      counterEl.classList.add('edit-btn-counter--over');
-        else if (len > 30) counterEl.classList.add('edit-btn-counter--warn');
+        if (len > maxLen)      counterEl.classList.add('edit-btn-counter--over');
+        else if (len > warnAt) counterEl.classList.add('edit-btn-counter--warn');
       }
     }
 
-    _scheduleViewerFrameReRender();
+    /* W7 깜빡임 차단: 선택지 라벨 입력은 viewer의 해당 버튼 텍스트만 갱신 */
+    if (!_patchChoiceLabel(idx, val)) _scheduleViewerFrameReRender();
     _queueSaveButtons(scene);
   });
 
@@ -1344,26 +1859,121 @@ function _typeSectionsHtml(scene, ptype) {
    기준 노출: 글자박스 편집(폰트/크기/색/굵기), 효과, 테마
    3단계 범위: 진입점 자리만 잡고 "추후 추가" 안내. 미구현 기능은 발명 안 함. */
 function _typeSectionTextHtml(scene) {
+  /* W5: 텍스트형 본격 보강 — placeholder 폐기, 정식 편집 UI.
+     · 글자 스타일: 폰트(8종) / 크기(슬라이더) / 색(팔레트 + 자유) / 굵기
+     · 테마: 8종 카드 (데이터로는 textTheme, viewer는 data-text-theme 분기 → CSS) 
+     · 효과: 진입 / 본문 (1차는 진입 구조만) */
+  const style  = (typeof getTextStyle  === 'function') ? getTextStyle(scene)  : { fontFamily: 'gothic', fontSize: 16, color: '', weight: 'normal' };
+  const theme  = (typeof getTextTheme  === 'function') ? getTextTheme(scene)  : 'classic';
+  const effect = (typeof getTextEffect === 'function') ? getTextEffect(scene) : { entrance: 'none', body: 'none' };
+
+  /* 폰트 8종 매핑 — UI 표시 + viewer CSS 변수 */
+  const FONTS = [
+    { id: 'gothic',    label: '나눔고딕',  preview: '본문' },
+    { id: 'batang',    label: '고운 바탕', preview: '본문' },
+    { id: 'jua',       label: '주아',      preview: '본문' },
+    { id: 'hanna',     label: '한나',      preview: '본문' },
+    { id: 'pen',       label: '나눔펜',    preview: '본문' },
+    { id: 'gaegu',     label: '개구',      preview: '본문' },
+    { id: 'galmuri',   label: '갈무리',    preview: '본문' },
+    { id: 'cormorant', label: 'Cormorant', preview: 'Body' },
+  ];
+  const fontBtns = FONTS.map(f => `
+    <button type="button"
+      class="edit-font-btn js-edit-text-font ${style.fontFamily === f.id ? 'active' : ''}"
+      data-val="${f.id}"
+      style="font-family:var(--font-${f.id}, var(--font-b))">
+      ${f.label}
+    </button>`).join('');
+
+  /* 색 팔레트 (8개) — + 자유 입력 */
+  const COLORS = ['', '#1a1a1a', '#3d2914', '#5c2c2c', '#1c4070', '#3a5a40', '#5b2c6f', '#666666'];
+  const colorBtns = COLORS.map(c => {
+    const isActive = (style.color || '') === c;
+    const label = c === '' ? '기본' : '';
+    return `<button type="button"
+      class="edit-color-btn js-edit-text-color ${isActive ? 'active' : ''}"
+      data-val="${c}"
+      style="${c ? `background:${c};` : 'background:repeating-conic-gradient(#eee 0 25%,#fff 0 50%) 50%/8px 8px;'}"
+      title="${c || '기본 (테마 색)'}"
+      >${label}</button>`;
+  }).join('');
+
+  /* 테마 8종 카드 */
+  const THEMES = [
+    { id: 'classic',     label: '클래식',   desc: '깔끔한 흰 배경' },
+    { id: 'novel',       label: '소설',     desc: '베이지 배경 + 명조' },
+    { id: 'paperbook',   label: '종이책',   desc: '오래된 종이 톤' },
+    { id: 'note',        label: '노트',     desc: '격자 무늬 + 손글씨' },
+    { id: 'magazine',    label: '잡지',     desc: '굵은 헤드라인' },
+    { id: 'handwriting', label: '손글씨',   desc: '편지지 풍' },
+    { id: 'retro',       label: '레트로',   desc: '검은 배경 + 픽셀' },
+    { id: 'dark',        label: '다크',     desc: '어두운 톤' },
+  ];
+  const themeCards = THEMES.map(t => `
+    <button type="button"
+      class="edit-theme-card edit-theme-card--${t.id} js-edit-text-theme ${theme === t.id ? 'active' : ''}"
+      data-val="${t.id}">
+      <div class="edit-theme-card-name">${t.label}</div>
+      <div class="edit-theme-card-desc">${t.desc}</div>
+    </button>`).join('');
+
   return `
     <div class="edit-divider"></div>
     <h4 class="edit-section-title edit-section-title--major">② 텍스트형 설정</h4>
     <div class="edit-section-hint">
-      텍스트형은 글이 주인공입니다. 이미지·미디어 슬롯은 노출하지 않습니다.
+      텍스트형은 글이 주인공입니다. 본문 위계가 가장 크고, 제목은 보조, 선택지는 카드 하단입니다.
     </div>
 
-    <div class="edit-row edit-row--placeholder">
-      <label class="edit-label">글자 스타일</label>
-      <div class="edit-section-note">🅰 폰트 / 크기 / 색 / 굵기 — 추후 추가</div>
+    <div class="edit-row">
+      <label class="edit-label">🅰 폰트</label>
+      <div class="edit-font-grid">${fontBtns}</div>
     </div>
 
-    <div class="edit-row edit-row--placeholder">
-      <label class="edit-label">효과</label>
-      <div class="edit-section-note">✨ 장면 진입 / 본문 표시 / 선택지 등장 효과 — 추후 추가</div>
+    <div class="edit-row">
+      <label class="edit-label">글자 크기 <span class="edit-label-note">(${style.fontSize}px)</span></label>
+      <input type="range" class="edit-slider js-edit-text-size"
+        min="12" max="28" step="1" value="${style.fontSize}">
     </div>
 
-    <div class="edit-row edit-row--placeholder">
-      <label class="edit-label">테마</label>
-      <div class="edit-section-note">🎨 종이책형 · 노트형 · 카드형 · 문서형 등 8종 — 추후 추가</div>
+    <div class="edit-row">
+      <label class="edit-label">글자 색</label>
+      <div class="edit-color-row">${colorBtns}</div>
+      <input type="color" class="edit-color-picker js-edit-text-color-pick"
+        value="${style.color || '#1a1a1a'}" title="자유 색 선택">
+    </div>
+
+    <div class="edit-row">
+      <label class="edit-label">굵기</label>
+      <div class="edit-toggle-group">
+        <button type="button" class="edit-toggle js-edit-text-weight ${style.weight === 'normal' ? 'active' : ''}" data-val="normal">보통</button>
+        <button type="button" class="edit-toggle js-edit-text-weight ${style.weight === 'bold' ? 'active' : ''}" data-val="bold">굵게</button>
+      </div>
+    </div>
+
+    <div class="edit-divider"></div>
+
+    <div class="edit-row">
+      <label class="edit-label">🎨 테마 <span class="edit-label-note">(8종)</span></label>
+      <div class="edit-theme-grid">${themeCards}</div>
+      <div class="edit-section-hint">테마는 카드 배경/테두리/기본 폰트 톤을 결정합니다. 폰트·크기·색은 위에서 별도 조절 가능.</div>
+    </div>
+
+    <div class="edit-divider"></div>
+
+    <div class="edit-row">
+      <label class="edit-label">✨ 효과</label>
+      <div class="edit-section-hint" style="margin-bottom:6px;">장면 진입 효과</div>
+      <div class="edit-toggle-group">
+        <button type="button" class="edit-toggle js-edit-text-entrance ${effect.entrance === 'none' ? 'active' : ''}" data-val="none">없음</button>
+        <button type="button" class="edit-toggle js-edit-text-entrance ${effect.entrance === 'fade' ? 'active' : ''}" data-val="fade">페이드인</button>
+        <button type="button" class="edit-toggle js-edit-text-entrance ${effect.entrance === 'slide' ? 'active' : ''}" data-val="slide">슬라이드</button>
+      </div>
+      <div class="edit-section-hint" style="margin:10px 0 6px;">본문 표시 효과</div>
+      <div class="edit-toggle-group">
+        <button type="button" class="edit-toggle js-edit-text-body-effect ${effect.body === 'none' ? 'active' : ''}" data-val="none">없음</button>
+        <button type="button" class="edit-toggle js-edit-text-body-effect ${effect.body === 'typewriter' ? 'active' : ''}" data-val="typewriter">타자기</button>
+      </div>
     </div>`;
 }
 
@@ -1485,37 +2095,72 @@ function _typeSectionPicturebookHtml(scene) {
    · 미디어 타입 배지 + 업로드 진입점
    · 본문 사용 ON/OFF (scene.bodyEnabled 명시 필드 — 3단계 신규) */
 function _typeSectionMovieHtml(scene) {
-  /* 미디어 타입 임시 판정 — sceneRenderer._buildMovieCardContent와 동일 정책.
-     향후 정식 movieData 모델 들어오면 둘 다 갱신 필요. */
-  const hasMovie = scene.movieData &&
-                   (typeof scene.movieData === 'object' || typeof scene.movieData === 'string');
-  const hasImage = !!scene.imageData;
-  let mediaLabel;
-  if (hasMovie)      mediaLabel = '🎬 영상';
-  else if (hasImage) mediaLabel = '🖼 이미지';
-  else               mediaLabel = '⚪ 미디어 없음';
+  /* W7: 무비형 본격 보강 — 포스터/자막/선택지 노출 시점 사용자 조절.
+     · scene.imageData = 포스터 이미지 (resolveMoviePoster의 fallback 진입점)
+     · md.captionMode = overlay | caption-bar
+     · md.choiceReveal = end | always
+     · scene.bodyEnabled = 본문 ON/OFF (이미 있음) */
+  const md = (typeof getMovieData === 'function')
+    ? getMovieData(scene)
+    : { captionMode: 'overlay', choiceReveal: 'end', videoUrl: null, posterImage: null };
 
-  /* 본문 사용 ON/OFF — scene.bodyEnabled 명시 필드 (3단계 신규).
-     undefined/null이면 body 존재 여부로 fallback (2단계까지의 임시 판정과 일관).
-     사용자가 토글하면 명시값으로 박힘 → 빈 본문이라도 ON 가능. */
+  /* 미디어 상태 표시 */
+  const hasVideo = !!md.videoUrl;
+  const hasPoster = !!(md.posterImage || scene.imageData);
+  let mediaLabel;
+  if (hasVideo)        mediaLabel = '🎬 영상 있음';
+  else if (hasPoster)  mediaLabel = '🖼 포스터 이미지';
+  else                 mediaLabel = '⚪ 미디어 없음';
+
+  /* 본문 사용 ON/OFF — scene.bodyEnabled 명시 필드 */
   const bodyEnabled = (scene.bodyEnabled === true) ? true
                     : (scene.bodyEnabled === false) ? false
                     : !!(scene.body && String(scene.body).trim());
 
+  /* 자막 모드 — overlay (영상 위 떠있음) / caption-bar (영상 아래 별도 띠) */
+  const captionMode = md.captionMode || 'overlay';
+
+  /* 선택지 노출 시점 — end (영상 종료 후) / always (즉시 보임) */
+  const choiceReveal = md.choiceReveal || 'end';
+
   return `
     <div class="edit-divider"></div>
     <h4 class="edit-section-title edit-section-title--major">② 무비형 설정</h4>
+    <div class="edit-section-hint">
+      무비형은 영상 또는 이미지를 보고 반응을 선택하는 모드입니다.
+      상단에 미디어, 하단에 결정 패널(본문 + 선택지)이 나뉘어 표시됩니다.
+    </div>
 
     <div class="edit-row">
       <label class="edit-label">미디어</label>
       <div class="edit-movie-media-row">
         <span class="edit-movie-media-badge">${mediaLabel}</span>
-        <button type="button" class="edit-toggle js-movie-media-upload">
-          🎬 미디어 업로드/교체
-        </button>
       </div>
-      <div class="edit-section-hint">
-        장면당 영상 1개 (최대 1분). mp4 권장. 업로드 정식 흐름은 추후 연결.
+
+      <!-- W7-B: 영상 업로드 (Firebase Storage) -->
+      <div class="edit-movie-video-section">
+        <div class="edit-section-hint" style="margin:8px 0 6px;font-weight:600;color:#c8dcf2;">🎬 영상 (mp4, 1분 이내, 50MB)</div>
+        <div class="edit-toggle-group">
+          <button type="button" class="edit-toggle js-movie-video-upload">${hasVideo ? '🎬 영상 교체' : '🎬 영상 업로드'}</button>
+          ${hasVideo ? `<button type="button" class="edit-toggle js-movie-video-delete">🗑 영상 삭제</button>` : ''}
+        </div>
+        <div class="js-movie-video-progress edit-movie-progress" style="display:none;">
+          <div class="edit-movie-progress-bar"><div class="edit-movie-progress-fill js-movie-progress-fill"></div></div>
+          <div class="edit-movie-progress-text js-movie-progress-text">업로드 중… 0%</div>
+        </div>
+        <div class="js-movie-video-error edit-movie-error" style="display:none;"></div>
+      </div>
+
+      <!-- 포스터 이미지 -->
+      <div class="edit-movie-poster-section" style="margin-top:10px;">
+        <div class="edit-section-hint" style="margin:8px 0 6px;font-weight:600;color:#c8dcf2;">🖼 포스터 이미지</div>
+        <div class="edit-toggle-group">
+          <button type="button" class="edit-toggle js-movie-poster-upload">🖼 포스터 업로드/교체</button>
+          ${hasPoster ? `<button type="button" class="edit-toggle js-movie-poster-delete">🗑 포스터 삭제</button>` : ''}
+        </div>
+        <div class="edit-section-hint" style="margin-top:6px;">
+          영상 없을 때 단독 표시되거나, 영상 재생 전 썸네일로 사용됩니다.
+        </div>
       </div>
     </div>
 
@@ -1530,8 +2175,37 @@ function _typeSectionMovieHtml(scene) {
           data-val="off">— 본문 없음</button>
       </div>
       <div class="edit-section-hint">
-        ON: 영상 후 본문 + 선택지 표시 / OFF: 영상 후 선택지만.
-        설정은 이 장면 단위입니다.
+        ON: 결정 패널에 본문(설명문) + 선택지 / OFF: 선택지만.
+      </div>
+    </div>
+
+    <div class="edit-row">
+      <label class="edit-label">자막 표시 방식</label>
+      <div class="edit-toggle-group">
+        <button type="button"
+          class="edit-toggle js-movie-caption-mode ${captionMode === 'overlay' ? 'active' : ''}"
+          data-val="overlay">🎞 영상 위 (overlay)</button>
+        <button type="button"
+          class="edit-toggle js-movie-caption-mode ${captionMode === 'caption-bar' ? 'active' : ''}"
+          data-val="caption-bar">📺 자막 띠 (bar)</button>
+      </div>
+      <div class="edit-section-hint">
+        영상 재생 중 본문이 어떻게 보일지 결정합니다. (본문 사용 ON일 때만 효과)
+      </div>
+    </div>
+
+    <div class="edit-row">
+      <label class="edit-label">선택지 노출 시점</label>
+      <div class="edit-toggle-group">
+        <button type="button"
+          class="edit-toggle js-movie-choice-reveal ${choiceReveal === 'end' ? 'active' : ''}"
+          data-val="end">⏯ 영상 끝난 뒤</button>
+        <button type="button"
+          class="edit-toggle js-movie-choice-reveal ${choiceReveal === 'always' ? 'active' : ''}"
+          data-val="always">👁 항상 보임</button>
+      </div>
+      <div class="edit-section-hint">
+        영상이 있는 경우에만 의미 있는 옵션입니다. 끝난 뒤: 영상 종료 후 결정 패널 노출. 항상 보임: 영상과 동시에 노출.
       </div>
     </div>`;
 }
@@ -1544,17 +2218,90 @@ function _typeSectionMovieHtml(scene) {
    주의: connectObjects 데이터 모델 미구현 — 임시 집계는 sceneRenderer 카드 표시만. */
 function _typeSectionExperienceHtml(scene) {
   const hasBg = !!(scene.imageData || scene.imageUrl);
-  /* 임시 연결 오브젝트 집계 — sceneRenderer._buildExperienceCardContent와 동일 정책.
-     정식 모델(scene.connectObjects)이 들어오면 buttons.length 대신 그걸 사용. */
-  const buttonsList = Array.isArray(scene.buttons) ? scene.buttons : [];
-  const tempCount = buttonsList.length;
+
+  /* W6: 정식 connectObjects 모델 사용 — buttons[] 임시 집계 폐기 */
+  const objects = (typeof getConnectObjects === 'function')
+    ? getConnectObjects(scene) : [];
+
+  /* 모든 장면 목록 — nextId 드롭다운용 */
+  const allScenes = (typeof ViewerState !== 'undefined' && ViewerState.scenes)
+    ? Object.values(ViewerState.scenes) : [];
+  const sortedScenes = allScenes.slice().sort((a, b) => {
+    const na = Number(a.num || a.id || 0);
+    const nb = Number(b.num || b.id || 0);
+    return na - nb;
+  });
+
+  /* 오브젝트 행 N개 — 각 행: 타입 배지 + 라벨 input + next 드롭다운 + 삭제 */
+  const objectRows = objects.map((co, idx) => {
+    const typeLabel = _CO_TYPE_LABEL_MAP[co.type] || co.type;
+    const typeIcon  = _CO_TYPE_ICON_MAP[co.type] || '🔘';
+    const label     = String(co.label || '');
+    const labelEsc  = escHtml(label);
+    const len       = label.length;
+    /* nextId 옵션 — 자기 자신도 허용 */
+    const optionsHtml = sortedScenes.map(s => {
+      const sNum = String(s.num || s.id || '');
+      if (!sNum) return '';
+      const sTitle = String(s.title || '').trim();
+      const labelText = sTitle
+        ? `장면 ${sNum} (${sTitle.length > 12 ? sTitle.slice(0, 12) + '…' : sTitle})`
+        : `장면 ${sNum}`;
+      const sel = sNum === String(co.nextId || '') ? ' selected' : '';
+      return `<option value="${escHtml(sNum)}"${sel}>${escHtml(labelText)}</option>`;
+    }).join('');
+
+    /* back/home 타입은 nextId가 무관 (시스템 액션) → 드롭다운 비활성화 */
+    const isSystemNav = (co.type === 'back' || co.type === 'home');
+    const nextSelectHtml = isSystemNav
+      ? `<span class="edit-co-system-hint">(시스템 액션)</span>`
+      : `<select class="edit-co-next js-edit-co-next" data-co-id="${escHtml(co.id)}">
+           <option value="" ${!co.nextId ? 'selected' : ''}>(미연결)</option>
+           ${optionsHtml}
+         </select>`;
+
+    return `
+      <div class="edit-co-row" data-co-id="${escHtml(co.id)}">
+        <div class="edit-co-row-main">
+          <span class="edit-co-badge edit-co-badge--${co.type}">
+            ${typeIcon} ${typeLabel}
+          </span>
+          <input type="text"
+            class="edit-text-input edit-co-label js-edit-co-label"
+            data-co-id="${escHtml(co.id)}"
+            value="${labelEsc}"
+            placeholder="라벨 (선택)"
+            maxlength="20">
+          <button type="button"
+            class="edit-co-remove js-edit-co-remove"
+            data-co-id="${escHtml(co.id)}"
+            title="이 오브젝트 삭제">×</button>
+        </div>
+        <div class="edit-co-row-meta">
+          <span class="edit-co-counter">
+            <span class="js-edit-co-len">${len}</span> / 20
+          </span>
+          <span class="edit-co-target">
+            <span class="edit-co-next-label">다음 →</span>
+            ${nextSelectHtml}
+          </span>
+        </div>
+      </div>`;
+  }).join('');
+
+  const listHtml = objects.length > 0
+    ? `<div class="edit-co-list js-edit-co-list">${objectRows}</div>`
+    : `<div class="edit-section-note edit-section-note--empty">
+         아직 추가된 오브젝트가 없어요. 아래 타입 중 하나를 골라 추가해 보세요.
+       </div>`;
 
   return `
     <div class="edit-divider"></div>
     <h4 class="edit-section-title edit-section-title--major">② 체험전시형 설정</h4>
     <div class="edit-section-hint">
-      이미지 위에 연결 오브젝트(버튼/화살표/깃발/다음/뒤로가기/처음으로/투명 클릭 영역)를
+      이미지 위에 연결 오브젝트(버튼/화살표/깃발/다음/투명 클릭 영역)를
       배치해 참여자가 직접 눌러 탐색하게 만드는 모드입니다.
+      뒤로가기/처음으로는 상단에 항상 표시되는 시스템 버튼이에요.
     </div>
 
     <div class="edit-row">
@@ -1572,24 +2319,49 @@ function _typeSectionExperienceHtml(scene) {
     </div>
 
     <div class="edit-row">
-      <label class="edit-label">연결 오브젝트 (${tempCount}개)</label>
-      <div class="edit-section-hint">
-        ※ 임시 집계: 현재 buttons[] 기반으로 표시 중입니다.
-        정식 connectObjects 데이터 모델은 향후 단계에서 도입됩니다.
-      </div>
-      <div class="edit-toggle-group" style="flex-wrap:wrap;">
-        <button type="button" class="edit-toggle js-exp-obj-add" data-val="button">🔘 버튼</button>
-        <button type="button" class="edit-toggle js-exp-obj-add" data-val="arrow">➡ 화살표</button>
-        <button type="button" class="edit-toggle js-exp-obj-add" data-val="flag">🚩 깃발</button>
-        <button type="button" class="edit-toggle js-exp-obj-add" data-val="next">⏭ 다음</button>
-        <button type="button" class="edit-toggle js-exp-obj-add" data-val="back">⏮ 뒤로가기</button>
-        <button type="button" class="edit-toggle js-exp-obj-add" data-val="home">🏠 처음으로</button>
-      </div>
-      <div class="edit-section-hint">
-        오브젝트 추가/위치/크기 정식 편집은 향후 단계에서 연결됩니다 (3단계는 진입 구조 분기까지).
+      <label class="edit-label">
+        연결 오브젝트
+        <span class="edit-label-note">(${objects.length}개)</span>
+      </label>
+      ${listHtml}
+      <div class="edit-co-add-area">
+        <div class="edit-section-hint">+ 추가</div>
+        <div class="edit-toggle-group" style="flex-wrap:wrap;">
+          <button type="button" class="edit-toggle js-exp-co-add" data-val="button">🔘 버튼</button>
+          <button type="button" class="edit-toggle js-exp-co-add" data-val="arrow">➡ 화살표</button>
+          <button type="button" class="edit-toggle js-exp-co-add" data-val="flag">🚩 깃발</button>
+          <button type="button" class="edit-toggle js-exp-co-add" data-val="next">⏭ 다음</button>
+          <button type="button" class="edit-toggle js-exp-co-add" data-val="invisible">👻 투명 영역</button>
+        </div>
+        <div class="edit-section-hint">
+          오브젝트는 화면 가운데 기본 크기로 추가됩니다. 추가 후 viewer 화면에서 ✥로 이동, 모서리로 크기 조절.
+        </div>
+        <div class="edit-section-hint" style="margin-top:6px;opacity:0.75;">
+          ※ <strong>뒤로가기 / 처음으로</strong>는 모든 장면에서 자동으로 상단에 보이는 시스템 버튼입니다 — 따로 추가할 필요가 없어요.
+        </div>
       </div>
     </div>`;
 }
+
+/* W6: connectObject 타입별 라벨/아이콘 매핑 (UI 표시용) */
+const _CO_TYPE_LABEL_MAP = {
+  button:    '버튼',
+  arrow:     '화살표',
+  flag:      '깃발',
+  next:      '다음',
+  back:      '뒤로가기',
+  home:      '처음으로',
+  invisible: '투명',
+};
+const _CO_TYPE_ICON_MAP = {
+  button:    '🔘',
+  arrow:     '➡',
+  flag:      '🚩',
+  next:      '⏭',
+  back:      '⏮',
+  home:      '🏠',
+  invisible: '👻',
+};
 
 /* ── 유형별 섹션 이벤트 바인딩 (3단계 신규) ─────────────────────
    현재 토글되는 명시 필드는 무비형 bodyEnabled와 그림책형 picturebookSubmode 둘.
@@ -1697,6 +2469,18 @@ function _bindTypeSectionsEvents(panel, scene) {
   }
 
   if (ptype === 'movie') {
+    /* movieData 객체 보장 — 없으면 기본값 */
+    function _ensureMovieData() {
+      if (!scene.movieData || typeof scene.movieData !== 'object') {
+        scene.movieData = {
+          videoUrl: null, posterImage: null,
+          captionMode: 'overlay', choiceReveal: 'end',
+        };
+      }
+      return scene.movieData;
+    }
+
+    /* 본문 사용 ON/OFF — 부분 패치 */
     panel.querySelectorAll('.js-movie-body-enabled').forEach(btn => {
       btn.addEventListener('click', () => {
         if (!_editText.editable) return;
@@ -1704,13 +2488,332 @@ function _bindTypeSectionsEvents(panel, scene) {
         scene.bodyEnabled = enabled;
         _queueSave(scene.num || scene.id, { bodyEnabled: enabled });
         _flushPendingSave();
+        /* 패널 active 클래스만 토글 (renderEditPanel 호출 X — 깜빡임/포커스 손실 방지) */
+        panel.querySelectorAll('.js-movie-body-enabled').forEach(b => {
+          b.classList.toggle('active', (b.dataset.val === 'on') === enabled);
+        });
+        /* viewer: data-body-enabled 속성만 갱신 */
+        if (!_patchMovieAttr('body', enabled ? 'on' : 'off')) _scheduleViewerFrameReRender();
+      });
+    });
+
+    /* W7-B: 영상 업로드 — Firebase Storage. 진행률 표시 + 검증 + URL 저장. */
+    panel.querySelectorAll('.js-movie-video-upload').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (!_editText.editable) return;
+        const errEl   = panel.querySelector('.js-movie-video-error');
+        const progEl  = panel.querySelector('.js-movie-video-progress');
+        const fillEl  = panel.querySelector('.js-movie-progress-fill');
+        const textEl  = panel.querySelector('.js-movie-progress-text');
+        function showErr(msg) {
+          if (!errEl) { alert(msg); return; }
+          errEl.textContent = '⚠ ' + msg;
+          errEl.style.display = 'block';
+          setTimeout(() => { errEl.style.display = 'none'; }, 6000);
+        }
+        function hideProgress() {
+          if (progEl) progEl.style.display = 'none';
+        }
+
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = 'video/mp4,video/*';
+        fileInput.style.display = 'none';
+        fileInput.addEventListener('change', async e => {
+          const file = e.target.files && e.target.files[0];
+          if (!file) return;
+          if (typeof viewerUploadVideoToStorage !== 'function') {
+            showErr('영상 업로드가 활성화되지 않았어요. 페이지를 새로고침해주세요.');
+            return;
+          }
+
+          /* 진행률 UI ON */
+          if (progEl) {
+            progEl.style.display = 'block';
+            if (fillEl) fillEl.style.width = '0%';
+            if (textEl) textEl.textContent = '업로드 준비 중…';
+          }
+          /* 버튼 잠금 */
+          btn.disabled = true;
+          btn.style.opacity = '0.5';
+
+          try {
+            const result = await viewerUploadVideoToStorage(file, (scene.num || scene.id), {
+              onProgress: pct => {
+                if (fillEl) fillEl.style.width = pct + '%';
+                if (textEl) textEl.textContent = '업로드 중… ' + pct + '%';
+              },
+            });
+            /* 성공 → 옛 영상 storagePath 백업 후 새 정보로 덮음 */
+            const _oldStoragePath = (scene.movieData && scene.movieData.videoStoragePath) || null;
+
+            /* movieData.videoUrl + storagePath 저장 */
+            if (!scene.movieData || typeof scene.movieData !== 'object') {
+              scene.movieData = { videoUrl: null, posterImage: null, captionMode: 'overlay', choiceReveal: 'end' };
+            }
+            scene.movieData.videoUrl = result.downloadURL;
+            scene.movieData.videoStoragePath = result.storagePath;   /* 삭제 시 필요 */
+            _queueSave(scene.num || scene.id, { movieData: { ...scene.movieData } });
+            _flushPendingSave();
+            if (textEl) textEl.textContent = '✓ 업로드 완료';
+
+            /* W7-B 성능 보강: 옛 영상이 있었으면 background로 정리.
+               업로드 경로가 timestamp로 새로 만들어졌으므로 옛 파일은 쓰레기로 남음.
+               best-effort — 실패해도 UX 영향 X. */
+            if (_oldStoragePath && _oldStoragePath !== result.storagePath &&
+                typeof viewerDeleteVideoFromStorage === 'function') {
+              viewerDeleteVideoFromStorage(_oldStoragePath);
+            }
+
+            setTimeout(() => {
+              hideProgress();
+              renderEditPanel();
+              _scheduleViewerFrameReRender();
+            }, 600);
+          } catch (err) {
+            hideProgress();
+            const msg = (err && err.message) ? err.message : '업로드에 실패했어요.';
+            showErr(msg);
+          } finally {
+            btn.disabled = false;
+            btn.style.opacity = '';
+          }
+        });
+        document.body.appendChild(fileInput);
+        fileInput.click();
+        setTimeout(() => fileInput.remove(), 1000);
+      });
+    });
+
+    /* W7-B: 영상 삭제 — Storage 정리 + DB 필드 null */
+    panel.querySelectorAll('.js-movie-video-delete').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!_editText.editable) return;
+        if (!confirm('영상을 삭제할까요? Storage에서도 함께 지워집니다.')) return;
+        const md = scene.movieData || {};
+        const storagePath = md.videoStoragePath || null;
+        /* DB 필드 먼저 null로 (UI 즉시 반영) */
+        if (scene.movieData) {
+          scene.movieData.videoUrl = null;
+          scene.movieData.videoStoragePath = null;
+        }
+        _queueSave(scene.num || scene.id, { movieData: { ...scene.movieData } });
+        _flushPendingSave();
+        renderEditPanel();
+        _scheduleViewerFrameReRender();
+        /* Storage 삭제는 best-effort (실패해도 UX 영향 X) */
+        if (storagePath && typeof viewerDeleteVideoFromStorage === 'function') {
+          viewerDeleteVideoFromStorage(storagePath);
+        }
+      });
+    });
+
+    /* W7-A: 포스터 이미지 업로드 — 임시 file input 띄움 + base64 변환 후 scene.imageData 저장
+       (movieData.posterImage와 fallback 일관: resolveMoviePoster가 둘 다 처리) */
+    panel.querySelectorAll('.js-movie-poster-upload').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (!_editText.editable) return;
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = 'image/*';
+        fileInput.style.display = 'none';
+        fileInput.addEventListener('change', e => {
+          const file = e.target.files && e.target.files[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = ev => {
+            const dataUrl = ev.target && ev.target.result;
+            if (typeof dataUrl !== 'string') return;
+            scene.imageData = dataUrl;
+            _queueSave(scene.num || scene.id, { imageData: dataUrl });
+            _flushPendingSave();
+            renderEditPanel();
+            _scheduleViewerFrameReRender();
+          };
+          reader.readAsDataURL(file);
+        });
+        document.body.appendChild(fileInput);
+        fileInput.click();
+        setTimeout(() => fileInput.remove(), 1000);
+      });
+    });
+
+    /* W7-A: 포스터 삭제 */
+    panel.querySelectorAll('.js-movie-poster-delete').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (!_editText.editable) return;
+        if (!confirm('포스터 이미지를 삭제할까요?')) return;
+        scene.imageData = null;
+        const md = _ensureMovieData();
+        md.posterImage = null;
+        _queueSave(scene.num || scene.id, { imageData: null, movieData: { ...md } });
+        _flushPendingSave();
         renderEditPanel();
         _scheduleViewerFrameReRender();
       });
     });
-    panel.querySelectorAll('.js-movie-media-upload').forEach(btn => {
+
+    /* W7-A: 자막 표시 방식 (overlay / caption-bar) — 부분 패치 */
+    panel.querySelectorAll('.js-movie-caption-mode').forEach(btn => {
       btn.addEventListener('click', () => {
-        alert('미디어 업로드 정식 흐름은 다음 단계에서 연결됩니다.');
+        if (!_editText.editable) return;
+        const v = btn.dataset.val === 'caption-bar' ? 'caption-bar' : 'overlay';
+        const md = _ensureMovieData();
+        md.captionMode = v;
+        _queueSave(scene.num || scene.id, { movieData: { ...md } });
+        _flushPendingSave();
+        panel.querySelectorAll('.js-movie-caption-mode').forEach(b => b.classList.toggle('active', b === btn));
+        if (!_patchMovieAttr('caption', v)) _scheduleViewerFrameReRender();
+      });
+    });
+
+    /* W7-A: 선택지 노출 시점 (end / always) — 부분 패치 */
+    panel.querySelectorAll('.js-movie-choice-reveal').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (!_editText.editable) return;
+        const v = btn.dataset.val === 'always' ? 'always' : 'end';
+        const md = _ensureMovieData();
+        md.choiceReveal = v;
+        _queueSave(scene.num || scene.id, { movieData: { ...md } });
+        _flushPendingSave();
+        panel.querySelectorAll('.js-movie-choice-reveal').forEach(b => b.classList.toggle('active', b === btn));
+        if (!_patchMovieAttr('reveal', v)) _scheduleViewerFrameReRender();
+      });
+    });
+  }
+
+  /* W5: 텍스트형 — 글자 스타일/테마/효과 편집 */
+  if (ptype === 'text') {
+    /* textStyle 객체 보장 (없으면 기본값) */
+    function _ensureTextStyle() {
+      if (!scene.textStyle || typeof scene.textStyle !== 'object') {
+        scene.textStyle = { fontFamily: 'gothic', fontSize: 16, color: '', weight: 'normal' };
+      }
+      return scene.textStyle;
+    }
+    function _ensureTextEffect() {
+      if (!scene.textEffect || typeof scene.textEffect !== 'object') {
+        scene.textEffect = { entrance: 'none', body: 'none' };
+      }
+      return scene.textEffect;
+    }
+
+    /* 폰트 선택 */
+    panel.querySelectorAll('.js-edit-text-font').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (!_editText.editable) return;
+        const v = btn.dataset.val || 'gothic';
+        const ts = _ensureTextStyle();
+        ts.fontFamily = v;
+        _queueSave(scene.num || scene.id, { textStyle: { ...ts } });
+        _flushPendingSave();
+        /* 활성 클래스만 갱신 — 패널 재렌더 X (포커스 보존) */
+        panel.querySelectorAll('.js-edit-text-font').forEach(b => b.classList.toggle('active', b === btn));
+        /* W7 깜빡임 차단: CSS 변수만 갱신 — 통째 재렌더 안 함.
+           실패하면(노드 못 찾음) 통째 재렌더 fallback. */
+        if (!_patchTextStyle()) _scheduleViewerFrameReRender();
+      });
+    });
+
+    /* 글자 크기 슬라이더 */
+    panel.querySelectorAll('.js-edit-text-size').forEach(slider => {
+      slider.addEventListener('input', e => {
+        if (!_editText.editable) return;
+        const v = parseInt(e.target.value, 10);
+        if (isNaN(v)) return;
+        const ts = _ensureTextStyle();
+        ts.fontSize = v;
+        /* 라벨 갱신 (인접 .edit-label-note) */
+        const labelNote = slider.closest('.edit-row')?.querySelector('.edit-label-note');
+        if (labelNote) labelNote.textContent = `(${v}px)`;
+        _queueSave(scene.num || scene.id, { textStyle: { ...ts } });
+        if (!_patchTextStyle()) _scheduleViewerFrameReRender();
+      });
+    });
+
+    /* 색 팔레트 */
+    panel.querySelectorAll('.js-edit-text-color').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (!_editText.editable) return;
+        const v = btn.dataset.val || '';
+        const ts = _ensureTextStyle();
+        ts.color = v;
+        _queueSave(scene.num || scene.id, { textStyle: { ...ts } });
+        _flushPendingSave();
+        panel.querySelectorAll('.js-edit-text-color').forEach(b => b.classList.toggle('active', b === btn));
+        if (!_patchTextStyle()) _scheduleViewerFrameReRender();
+      });
+    });
+
+    /* 자유 색 선택 (color picker) */
+    panel.querySelectorAll('.js-edit-text-color-pick').forEach(input => {
+      input.addEventListener('change', e => {
+        if (!_editText.editable) return;
+        const v = e.target.value;
+        const ts = _ensureTextStyle();
+        ts.color = v;
+        _queueSave(scene.num || scene.id, { textStyle: { ...ts } });
+        _flushPendingSave();
+        /* 팔레트 활성 해제 (자유 색이 우선) */
+        panel.querySelectorAll('.js-edit-text-color').forEach(b => b.classList.remove('active'));
+        if (!_patchTextStyle()) _scheduleViewerFrameReRender();
+      });
+    });
+
+    /* 굵기 */
+    panel.querySelectorAll('.js-edit-text-weight').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (!_editText.editable) return;
+        const v = btn.dataset.val === 'bold' ? 'bold' : 'normal';
+        const ts = _ensureTextStyle();
+        ts.weight = v;
+        _queueSave(scene.num || scene.id, { textStyle: { ...ts } });
+        _flushPendingSave();
+        panel.querySelectorAll('.js-edit-text-weight').forEach(b => b.classList.toggle('active', b === btn));
+        if (!_patchTextStyle()) _scheduleViewerFrameReRender();
+      });
+    });
+
+    /* 테마 */
+    panel.querySelectorAll('.js-edit-text-theme').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (!_editText.editable) return;
+        const v = btn.dataset.val || 'classic';
+        scene.textTheme = v;
+        _queueSave(scene.num || scene.id, { textTheme: v });
+        _flushPendingSave();
+        panel.querySelectorAll('.js-edit-text-theme').forEach(b => b.classList.toggle('active', b === btn));
+        /* W7 깜빡임 차단: data-text-theme 속성만 갱신 */
+        if (!_patchTextTheme()) _scheduleViewerFrameReRender();
+      });
+    });
+
+    /* 진입 효과 */
+    panel.querySelectorAll('.js-edit-text-entrance').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (!_editText.editable) return;
+        const v = btn.dataset.val || 'none';
+        const te = _ensureTextEffect();
+        te.entrance = v;
+        _queueSave(scene.num || scene.id, { textEffect: { ...te } });
+        _flushPendingSave();
+        panel.querySelectorAll('.js-edit-text-entrance').forEach(b => b.classList.toggle('active', b === btn));
+        /* 진입 효과는 한 번 더 보고 싶을 때만 통째 재렌더 (효과 미리보기) — 일단 부분 패치 */
+        if (!_patchTextEffect()) _scheduleViewerFrameReRender();
+      });
+    });
+
+    /* 본문 표시 효과 */
+    panel.querySelectorAll('.js-edit-text-body-effect').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (!_editText.editable) return;
+        const v = btn.dataset.val || 'none';
+        const te = _ensureTextEffect();
+        te.body = v;
+        _queueSave(scene.num || scene.id, { textEffect: { ...te } });
+        _flushPendingSave();
+        panel.querySelectorAll('.js-edit-text-body-effect').forEach(b => b.classList.toggle('active', b === btn));
+        if (!_patchTextEffect()) _scheduleViewerFrameReRender();
       });
     });
   }
@@ -1721,10 +2824,76 @@ function _bindTypeSectionsEvents(panel, scene) {
         alert('배경 업로드 정식 흐름은 다음 단계에서 연결됩니다.');
       });
     });
-    panel.querySelectorAll('.js-exp-obj-add').forEach(btn => {
+
+    /* W6: 연결 오브젝트 추가 — 타입별 버튼 클릭 시 createConnectObject 호출 + 저장 */
+    panel.querySelectorAll('.js-exp-co-add').forEach(btn => {
       btn.addEventListener('click', () => {
-        const t = btn.dataset.val || '?';
-        alert('연결 오브젝트 추가(' + t + ') 정식 편집은 다음 단계에서 연결됩니다.');
+        if (!_editText.editable) return;
+        const t = btn.dataset.val || 'button';
+        if (typeof createConnectObject !== 'function') return;
+        const newCo = createConnectObject(t);
+        if (!Array.isArray(scene.connectObjects)) scene.connectObjects = [];
+        scene.connectObjects.push(newCo);
+        _queueSave((scene.num || scene.id), { connectObjects: scene.connectObjects });
+        _flushPendingSave();
+        renderEditPanel();
+        _scheduleViewerFrameReRender();
+      });
+    });
+
+    /* W6: 라벨 input — 실시간 갱신 + 카운터 */
+    panel.querySelectorAll('.js-edit-co-label').forEach(input => {
+      input.addEventListener('input', e => {
+        if (!_editText.editable) return;
+        const coId = input.dataset.coId;
+        const objects = Array.isArray(scene.connectObjects) ? scene.connectObjects : [];
+        const co = objects.find(o => o.id === coId);
+        if (!co) return;
+        /* 안전망 절단 (maxlength 우회 대비) */
+        let value = input.value;
+        if (value.length > 20) {
+          value = value.slice(0, 20);
+          input.value = value;
+        }
+        co.label = value;
+        /* 카운터 갱신 */
+        const row = input.closest('.edit-co-row');
+        if (row) {
+          const lenEl = row.querySelector('.js-edit-co-len');
+          if (lenEl) lenEl.textContent = String(value.length);
+        }
+        _queueSave((scene.num || scene.id), { connectObjects: scene.connectObjects });
+        _scheduleViewerFrameReRender();
+      });
+    });
+
+    /* W6: nextId 드롭다운 변경 */
+    panel.querySelectorAll('.js-edit-co-next').forEach(sel => {
+      sel.addEventListener('change', e => {
+        if (!_editText.editable) return;
+        const coId = sel.dataset.coId;
+        const objects = Array.isArray(scene.connectObjects) ? scene.connectObjects : [];
+        const co = objects.find(o => o.id === coId);
+        if (!co) return;
+        const v = sel.value;
+        co.nextId = (v && v.trim()) ? v.trim() : null;
+        _queueSave((scene.num || scene.id), { connectObjects: scene.connectObjects });
+        _flushPendingSave();
+        _scheduleViewerFrameReRender();
+      });
+    });
+
+    /* W6: 오브젝트 삭제 */
+    panel.querySelectorAll('.js-edit-co-remove').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (!_editText.editable) return;
+        const coId = btn.dataset.coId;
+        if (!Array.isArray(scene.connectObjects)) return;
+        scene.connectObjects = scene.connectObjects.filter(o => o.id !== coId);
+        _queueSave((scene.num || scene.id), { connectObjects: scene.connectObjects });
+        _flushPendingSave();
+        renderEditPanel();
+        _scheduleViewerFrameReRender();
       });
     });
   }

@@ -89,10 +89,23 @@ function getConnectedNums(startNum) {
   const queue   = [String(startNum)];
 
   /* W2-B-β: 한 장면의 모든 next 대상 num 수집.
-     buttons[].nextId 우선, 없으면 nextA/nextB fallback (legacy 호환). */
+     buttons[].nextId 우선, 없으면 nextA/nextB fallback (legacy 호환).
+     W6: 체험전시형은 connectObjects[].nextId 사용 (back/home 제외 — 시스템 액션). */
   function _outgoingNums(s) {
     if (!s) return [];
     const out = [];
+    /* 체험전시형 분기 — projectMeta 기반 */
+    const _ptype = (typeof projectMeta !== 'undefined' && projectMeta && projectMeta.projectType) || null;
+    if (_ptype === 'experience') {
+      if (Array.isArray(s.connectObjects) && s.connectObjects.length > 0) {
+        s.connectObjects.forEach(co => {
+          if (!co || co.type === 'back' || co.type === 'home') return;
+          if (co.nextId) out.push(String(co.nextId));
+        });
+      }
+      return out;
+    }
+    /* 그 외 모드: 기존 buttons[] 흐름 */
     if (Array.isArray(s.buttons) && s.buttons.length > 0) {
       s.buttons.forEach(b => {
         if (b && b.nextId) out.push(String(b.nextId));
@@ -108,6 +121,18 @@ function getConnectedNums(startNum) {
   function _pointsToNum(sc, num) {
     if (!sc) return false;
     const target = String(num);
+    /* 체험전시형 분기 */
+    const _ptype = (typeof projectMeta !== 'undefined' && projectMeta && projectMeta.projectType) || null;
+    if (_ptype === 'experience') {
+      if (Array.isArray(sc.connectObjects) && sc.connectObjects.length > 0) {
+        return sc.connectObjects.some(co => {
+          if (!co || co.type === 'back' || co.type === 'home') return false;
+          return String(co.nextId || '') === target;
+        });
+      }
+      return false;
+    }
+    /* 그 외 */
     if (Array.isArray(sc.buttons) && sc.buttons.length > 0) {
       return sc.buttons.some(b => b && String(b.nextId || '') === target);
     }

@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>브랜치 화면 시안 v2 — 다듬기 패널 없음</title>
+<link href="https://fonts.googleapis.com/css2?family=Jua&family=Nanum+Gothic:wght@400;700&family=Nanum+Pen+Script&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --paper: #fbf6ea;
+    --paper-2: #f4ecd8;
+    --paper-3: #ebe0c6;
+    --cream: #fffaee;
+    --ink: #2b1f10;
+    --ink-2: #4a3820;
+    --ink-3: #6b5638;
+    --pencil: #9a8868;
+    --line: rgba(80,50,20,0.10);
+    --line-2: rgba(80,50,20,0.18);
+    --coral: #c66f4a;
+    --sky: #5a92c2;
+    --sage: #5a8a4a;
+    --gold: #c79550;
+    --shadow-1: 0 1px 2px rgba(120,90,50,0.06), 0 2px 6px rgba(120,90,50,0.06);
+    --shadow-2: 0 4px 12px rgba(120,90,50,0.10), 0 12px 28px rgba(120,90,50,0.10);
+    --font-ui: 'Jua', sans-serif;
+    --font-b: 'Nanum Gothic', sans-serif;
+    --font-hand: 'Nanum Pen Script', cursive;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: var(--font-b);
+    background: #2b1f10;
+    color: var(--ink);
+    padding: 20px;
+    min-height: 100vh;
+  }
+  .doc-title { font-family: var(--font-ui); color: var(--cream); text-align: center; margin-bottom: 6px; font-size: 22px; }
+  .doc-sub { color: var(--paper-3); text-align: center; font-size: 13px; margin-bottom: 20px; font-family: var(--font-hand); }
+
+  .mockup {
+    background: var(--paper);
+    border-radius: 14px;
+    overflow: hidden;
+    max-width: 1320px;
+    margin: 0 auto 28px;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.4);
+  }
+
+  /* ───── 상단 바 ───── */
+  .topbar {
+    background: var(--cream);
+    border-bottom: 1px solid var(--line);
+    padding: 10px 18px;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 16px;
+  }
+  .topbar-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .back-btn {
+    width: 36px; height: 36px; border-radius: 10px;
+    background: var(--paper-2); border: 1px solid var(--line);
+    display: grid; place-items: center; color: var(--ink-2); font-size: 16px;
+  }
+  .project-info { display: flex; flex-direction: column; min-width: 0; }
+  .project-title { font-family: var(--font-ui); font-size: 16px; color: var(--ink); }
+  .project-meta { font-size: 11px; color: var(--ink-3); display: flex; gap: 6px; align-items: center; }
+  .mode-badge {
+    font-family: var(--font-ui); font-size: 10px; padding: 2px 8px; border-radius: 999px;
+    background: color-mix(in oklch, var(--coral) 14%, var(--cream));
+    color: oklch(0.42 0.12 35);
+    border: 1px solid color-mix(in oklch, var(--coral) 30%, transparent);
+  }
+  .saved-dot::before { content: '●'; color: var(--sage); font-size: 8px; margin-right: 3px; }
+
+  .topbar-center {
+    display: flex; align-items: center;
+    background: var(--paper); border: 1px solid var(--line);
+    border-radius: 999px; padding: 4px; gap: 2px; box-shadow: var(--shadow-1);
+  }
+  .tb-action {
+    font-family: var(--font-ui); font-size: 13px;
+    height: 34px; padding: 0 18px; border-radius: 999px;
+    background: transparent; border: none; color: var(--ink-2);
+    display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+  }
+  .tb-action--primary {
+    background: var(--coral); color: var(--cream); padding: 0 22px;
+    box-shadow: 0 1px 2px rgba(120,90,50,0.10), 0 4px 12px rgba(198,111,74,0.24);
+  }
+
+  .topbar-right { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
+  .tool-btn {
+    width: 34px; height: 34px; border-radius: 10px;
+    background: transparent; border: 1px solid transparent;
+    color: var(--ink-2); cursor: pointer; display: grid; place-items: center; font-size: 14px;
+  }
+  .tool-btn.is-on { background: var(--paper-2); border-color: var(--line-2); color: var(--ink); }
+  .toggle-pill {
+    display: inline-flex; padding: 3px;
+    background: var(--paper-2); border: 1px solid var(--line);
+    border-radius: 999px; margin: 0 4px;
+  }
+  .toggle-pill-item {
+    font-family: var(--font-ui); font-size: 11px;
+    padding: 4px 12px; border-radius: 999px;
+    color: var(--ink-3); cursor: pointer;
+  }
+  .toggle-pill-item.is-on { background: var(--cream); color: var(--ink); box-shadow: var(--shadow-1); }
+  .share-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    height: 34px; padding: 0 14px; border-radius: 999px;
+    background: var(--paper-2); border: 1px solid var(--line);
+    color: var(--ink-2); font-family: var(--font-ui); font-size: 12px; cursor: pointer;
+  }
+
+  /* ───── 본문 2분할 (다듬기 패널 제거) ───── */
+  .body {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    min-height: 640px;
+  }
+
+  /* 좌측 사이드 */
+  .side {
+    background: var(--paper-2);
+    border-right: 1px solid var(--line);
+    display: flex; flex-direction: column;
+  }
+  .side-head {
+    padding: 14px 16px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--line);
+  }
+  .side-title { font-family: var(--font-ui); font-size: 13px; color: var(--ink-2); }
+  .side-add {
+    font-family: var(--font-ui); font-size: 11px;
+    padding: 4px 10px;
+    background: color-mix(in oklch, var(--coral) 14%, var(--cream));
+    color: var(--coral);
+    border: 1px solid color-mix(in oklch, var(--coral) 30%, transparent);
+    border-radius: 999px; cursor: pointer;
+  }
+  .side-help {
+    padding: 10px 16px;
+    font-family: var(--font-hand);
+    font-size: 13px;
+    color: var(--pencil);
+    border-bottom: 1px dashed var(--line);
+    line-height: 1.4;
+  }
+  .side-list { padding: 8px; overflow-y: auto; flex: 1; }
+  .side-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 10px; border-radius: 8px; cursor: pointer;
+    font-size: 13px; margin-bottom: 2px;
+  }
+  .side-item:hover { background: var(--paper-3); }
+  .side-item.is-current {
+    background: var(--cream);
+    border: 1.5px solid color-mix(in oklch, var(--coral) 40%, transparent);
+    box-shadow: 0 0 0 3px rgba(198,111,74,0.10);
+  }
+  .side-dot {
+    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+    background: var(--pencil);
+  }
+  .side-dot--entry { background: var(--sage); box-shadow: 0 0 0 3px color-mix(in oklch, var(--sage) 24%, transparent); }
+  .side-dot--end { background: var(--coral); }
+  .side-num { font-family: monospace; font-size: 11px; color: var(--pencil); flex-shrink: 0; width: 18px; }
+  .side-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .side-badge {
+    font-family: var(--font-ui); font-size: 9px;
+    padding: 2px 6px; border-radius: 999px; flex-shrink: 0;
+  }
+  .side-badge--entry { background: color-mix(in oklch, var(--sage) 14%, var(--cream)); color: var(--sage); border: 1px solid color-mix(in oklch, var(--sage) 30%, transparent); }
+  .side-badge--end { background: color-mix(in oklch, var(--coral) 14%, var(--cream)); color: var(--coral); border: 1px solid color-mix(in oklch, var(--coral) 30%, transparent); }
+
+  /* 사이드 푸터 — 구조 요약 */
+  .side-footer {
+    padding: 12px 16px;
+    border-top: 1px solid var(--line);
+    font-size: 11px;
+    color: var(--ink-3);
+    line-height: 1.6;
+    background: var(--paper);
+  }
+  .side-footer-row { display: flex; justify-content: space-between; }
+  .side-footer-row span:first-child { color: var(--pencil); }
+
+  /* 중앙 캔버스 (다듬기 없어서 더 넓음) */
+  .canvas {
+    position: relative;
+    background:
+      radial-gradient(circle at 1px 1px, rgba(80,50,20,0.06) 1px, transparent 0),
+      var(--paper);
+    background-size: 22px 22px;
+    padding: 30px 40px;
+    overflow: hidden;
+  }
+  .canvas-hint {
+    position: absolute;
+    bottom: 14px; left: 50%; transform: translateX(-50%);
+    font-family: var(--font-hand);
+    font-size: 18px;
+    color: var(--ink-3);
+  }
+  .canvas-zoom {
+    position: absolute;
+    bottom: 16px; right: 16px;
+    display: flex; gap: 4px;
+    background: var(--cream);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 3px;
+    box-shadow: var(--shadow-1);
+  }
+  .canvas-zoom button {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: transparent; border: none;
+    color: var(--ink-2); cursor: pointer; font-size: 14px;
+  }
+  .canvas-zoom button:hover { background: var(--paper-2); }
+
+  /* ───── 카드 (편집형 — 현재 우리 카드 유지) ───── */
+  .card-grid {
+    display: flex; align-items: flex-start; gap: 36px; position: relative;
+    flex-wrap: wrap;
+  }
+  .card {
+    width: 260px;
+    background: var(--cream);
+    border: 1.5px solid var(--line);
+    border-radius: 14px;
+    box-shadow: var(--shadow-1);
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+  .card.is-selected {
+    border: 2px solid var(--coral);
+    box-shadow: 0 0 0 4px rgba(198,111,74,0.16), var(--shadow-2);
+  }
+  .card.is-entry {
+    border: 2.5px solid var(--sage);
+    box-shadow: 0 0 0 3px rgba(90,138,74,0.10), var(--shadow-1);
+  }
+  .card.is-ending {
+    background: color-mix(in oklch, var(--coral) 5%, var(--cream));
+    border-color: color-mix(in oklch, var(--coral) 28%, transparent);
+  }
+  .card-head {
+    padding: 7px 10px;
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 6px;
+    background: var(--paper);
+    border-bottom: 1px solid var(--line);
+  }
+  .card-head-left { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; }
+  .card-role-badge {
+    font-family: var(--font-ui); font-size: 10px;
+    padding: 2px 8px; border-radius: 999px; flex-shrink: 0;
+  }
+  .role-badge--start { background: color-mix(in oklch, var(--sage) 14%, var(--cream)); color: var(--sage); }
+  .role-badge--scene { background: var(--paper-2); color: var(--ink-3); }
+  .role-badge--ending { background: color-mix(in oklch, var(--coral) 14%, var(--cream)); color: var(--coral); }
+  .card-num { font-family: monospace; font-size: 11px; color: var(--pencil); margin-left: auto; }
+  .card-head-icons { display: flex; gap: 2px; }
+  .card-icon-btn {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: transparent; border: none; cursor: pointer;
+    display: grid; place-items: center;
+    color: var(--ink-3); font-size: 11px;
+  }
+  .card-icon-btn--edit:hover { background: color-mix(in oklch, var(--coral) 16%, transparent); color: var(--coral); }
+  .card-icon-btn--del:hover { background: color-mix(in oklch, var(--coral) 16%, transparent); color: var(--coral); }
+
+  .card-meta-row {
+    padding: 5px 10px;
+    display: flex; gap: 5px; flex-wrap: wrap;
+    background: var(--paper);
+    border-bottom: 1px solid var(--line);
+  }
+  .card-meta-badge {
+    font-family: var(--font-ui); font-size: 9px;
+    padding: 1px 6px; border-radius: 999px;
+  }
+  .card-meta-badge--entry { background: color-mix(in oklch, var(--sage) 14%, var(--cream)); color: var(--sage); border: 1px solid color-mix(in oklch, var(--sage) 30%, transparent); }
+  .card-meta-badge--replay { background: color-mix(in oklch, var(--sky) 14%, var(--cream)); color: var(--sky); border: 1px solid color-mix(in oklch, var(--sky) 30%, transparent); }
+  .card-meta-badge--media { background: var(--paper-2); color: var(--ink-3); border: 1px solid var(--line); }
+
+  .card-body { padding: 10px 12px 12px; }
+  .card-input {
+    width: 100%; padding: 6px 9px;
+    border: 1.5px solid var(--line);
+    border-radius: 8px;
+    font-family: var(--font-b); font-size: 12px;
+    color: var(--ink);
+    background: var(--paper);
+    margin-bottom: 6px;
+  }
+  .card-input--title { font-family: var(--font-ui); font-size: 13px; }
+  .card-input--body { min-height: 50px; resize: none; }
+
+  .card-role-toggle {
+    display: flex; padding: 2px;
+    background: var(--paper-2);
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    margin-bottom: 6px;
+  }
+  .card-role-toggle button {
+    flex: 1; padding: 5px 0;
+    font-family: var(--font-ui); font-size: 11px;
+    background: transparent; border: none; border-radius: 6px;
+    color: var(--ink-3); cursor: pointer;
+  }
+  .card-role-toggle button.is-on { background: var(--cream); color: var(--ink); box-shadow: var(--shadow-1); }
+  .card-role-toggle button.is-on.is-ending-color { color: var(--coral); }
+
+  .card-choices {
+    border-top: 1px dashed var(--line);
+    padding-top: 8px;
+    margin-top: 4px;
+    display: flex; flex-direction: column; gap: 5px;
+  }
+  .card-choice-row { display: flex; align-items: center; gap: 6px; }
+  .card-choice-input {
+    flex: 1; padding: 5px 8px;
+    border: 1.5px solid var(--line);
+    border-radius: 6px;
+    font-size: 11px;
+    background: var(--paper);
+    color: var(--ink);
+  }
+  .card-choice-dot {
+    width: 14px; height: 14px; border-radius: 50%;
+    flex-shrink: 0;
+    border: 2.5px solid var(--cream);
+    box-shadow: 0 0 0 1.5px currentColor;
+  }
+  .dot--A { color: var(--sky); background: var(--sky); }
+  .dot--B { color: var(--coral); background: var(--coral); }
+  .dot--C { color: var(--sage); background: var(--sage); }
+  .card-add-choice {
+    width: 100%; padding: 5px;
+    background: transparent;
+    border: 1.5px dashed var(--line-2);
+    border-radius: 6px;
+    color: var(--ink-3);
+    font-family: var(--font-ui); font-size: 11px;
+    cursor: pointer;
+    margin-top: 4px;
+  }
+  .card-add-choice:hover { border-color: var(--coral); color: var(--coral); }
+
+  /* SVG 화살표 */
+  .canvas-svg { position: absolute; inset: 0; pointer-events: none; }
+  .canvas-svg path { stroke-width: 2; fill: none; opacity: 0.8; }
+  .canvas-svg .arrow-A { stroke: var(--sky); }
+  .canvas-svg .arrow-B { stroke: var(--coral); }
+
+  /* 4모드 카드 비교 */
+  .modes-compare {
+    max-width: 1320px;
+    margin: 28px auto 0;
+    background: var(--paper);
+    border-radius: 14px;
+    padding: 24px;
+  }
+  .modes-title { font-family: var(--font-ui); font-size: 18px; color: var(--ink); margin-bottom: 4px; text-align: center; }
+  .modes-sub { text-align: center; font-size: 12px; color: var(--ink-3); margin-bottom: 20px; }
+  .modes-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
+  }
+  .mode-cell {
+    background: var(--cream); border-radius: 14px;
+    padding: 14px; border: 1px solid var(--line);
+  }
+  .mode-cell-title {
+    font-family: var(--font-ui); font-size: 14px;
+    margin-bottom: 6px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .mode-cell-desc {
+    font-size: 11px; color: var(--ink-3);
+    margin-bottom: 12px; line-height: 1.55;
+  }
+
+  .card--text-mode .card-body-thumb { display: none; }
+  .card--pb-mode .card-body-thumb { display: block; }
+  .card--movie-mode .card-body-thumb {
+    display: grid; place-items: center;
+    background: #1a1d24; color: #ffd76b; font-size: 22px;
+  }
+  .card--exp-mode .card-body-thumb {
+    background: radial-gradient(circle at 50% 50%, rgba(217,165,80,0.20) 0%, rgba(120,90,50,0.05) 100%), var(--paper-2);
+    position: relative;
+  }
+  .exp-hotspot {
+    position: absolute; width: 7px; height: 7px;
+    border-radius: 50%; background: var(--gold);
+    box-shadow: 0 0 0 3px rgba(199,149,80,0.30);
+  }
+  .card-body-thumb {
+    height: 80px;
+    background:
+      repeating-linear-gradient(135deg, rgba(80,50,20,0.05) 0 8px, rgba(80,50,20,0.03) 8px 16px);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    display: grid; place-items: center;
+    color: var(--ink-3); font-family: monospace; font-size: 10px;
+  }
+
+  /* 어노테이션 */
+  .annot {
+    position: absolute;
+    font-family: var(--font-hand);
+    color: var(--coral);
+    font-size: 14px;
+    pointer-events: none;
+    background: var(--cream);
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px dashed var(--coral);
+    white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+
+<h1 class="doc-title">브랜치 화면 시안 v2 (다듬기 패널 제거)</h1>
+<p class="doc-sub">ㅡ 좌측 사이드 = 네비게이션 / 캔버스 = 편집·구조 / 다듬기는 별도 화면 ㅡ</p>
+
+<!-- ════════════════════════════════════════════════
+     ① 메인 브랜치 화면 (텍스트형 기준)
+     ════════════════════════════════════════════════ -->
+<div class="mockup">
+
+  <!-- 상단 바 (공통) -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <button class="back-btn">←</button>
+      <div class="project-info">
+        <div class="project-title">우주 정원의 비밀</div>
+        <div class="project-meta">
+          <span class="mode-badge">텍스트형</span>
+          <span>5학년 2반 · 별빛모둠</span>
+          <span class="saved-dot">자동 저장됨</span>
+        </div>
+      </div>
+    </div>
+    <div class="topbar-center">
+      <button class="tb-action tb-action--primary">＋ 장면 추가</button>
+      <button class="tb-action">▷ 감상 테스트</button>
+      <button class="tb-action">✎ 다듬기</button>
+    </div>
+    <div class="topbar-right">
+      <button class="tool-btn" title="실행 취소">↶</button>
+      <button class="tool-btn" title="다시 실행">↷</button>
+      <button class="tool-btn" title="구조 검사">⚠</button>
+      <button class="tool-btn" title="루트 보기">🗺</button>
+      <button class="share-btn">↗ 공유</button>
+      <button class="tool-btn">⋮</button>
+    </div>
+  </div>
+
+  <!-- 본문 2분할 -->
+  <div class="body">
+
+    <!-- 좌측: 장면 목록 -->
+    <div class="side">
+      <div class="side-head">
+        <div class="side-title">장면 6개</div>
+        <button class="side-add">＋ 새 장면</button>
+      </div>
+      <div class="side-help">목록의 장면을 누르면<br/>오른쪽 캔버스에서 강조돼요.</div>
+      <div class="side-list">
+        <div class="side-item">
+          <span class="side-dot side-dot--entry"></span>
+          <span class="side-num">01</span>
+          <span class="side-name">첫 등장</span>
+          <span class="side-badge side-badge--entry">시작</span>
+        </div>
+        <div class="side-item is-current">
+          <span class="side-dot"></span>
+          <span class="side-num">02</span>
+          <span class="side-name">우주 정원에서</span>
+        </div>
+        <div class="side-item">
+          <span class="side-dot"></span>
+          <span class="side-num">03</span>
+          <span class="side-name">갈림길</span>
+        </div>
+        <div class="side-item">
+          <span class="side-dot side-dot--end"></span>
+          <span class="side-num">04</span>
+          <span class="side-name">따뜻한 결말</span>
+          <span class="side-badge side-badge--end">엔딩</span>
+        </div>
+        <div class="side-item">
+          <span class="side-dot side-dot--end"></span>
+          <span class="side-num">05</span>
+          <span class="side-name">차가운 결말</span>
+          <span class="side-badge side-badge--end">엔딩</span>
+        </div>
+        <div class="side-item">
+          <span class="side-dot side-dot--end"></span>
+          <span class="side-num">06</span>
+          <span class="side-name">진엔딩 — 다시 만…</span>
+          <span class="side-badge side-badge--end">엔딩</span>
+        </div>
+      </div>
+      <div class="side-footer">
+        <div class="side-footer-row"><span>시작점</span><span>01번</span></div>
+        <div class="side-footer-row"><span>다시 시작점</span><span>—</span></div>
+        <div class="side-footer-row"><span>엔딩</span><span>3개</span></div>
+        <div class="side-footer-row"><span>끊긴 연결</span><span style="color:var(--coral);">없음</span></div>
+      </div>
+    </div>
+
+    <!-- 중앙: 캔버스 (편집형 카드 + 화살표 + 다듬기 패널 X) -->
+    <div class="canvas">
+
+      <svg class="canvas-svg" viewBox="0 0 880 600" preserveAspectRatio="none">
+        <!-- 카드 1 → 카드 2 (A 선택지: 파랑) -->
+        <path class="arrow-A" d="M 280 290 C 320 290, 340 290, 380 290" marker-end="url(#a-A)"/>
+        <!-- 카드 1 → 카드 3 (B 선택지: 코랄) -->
+        <path class="arrow-B" d="M 280 340 C 340 340, 360 480, 420 480" marker-end="url(#a-B)"/>
+        <!-- 카드 2 → 카드 4 (A: 파랑) -->
+        <path class="arrow-A" d="M 600 290 C 640 290, 660 200, 720 200" marker-end="url(#a-A)"/>
+        <defs>
+          <marker id="a-A" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="#5a92c2"/>
+          </marker>
+          <marker id="a-B" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="#c66f4a"/>
+          </marker>
+        </defs>
+      </svg>
+
+      <div class="card-grid">
+
+        <!-- 카드 1: 시작점 -->
+        <div class="card is-entry">
+          <div class="card-head">
+            <div class="card-head-left">
+              <span class="card-role-badge role-badge--start">🚪 시작</span>
+            </div>
+            <span class="card-num">01</span>
+            <div class="card-head-icons">
+              <button class="card-icon-btn card-icon-btn--edit" title="다듬기">✎</button>
+              <button class="card-icon-btn card-icon-btn--del" title="삭제">✕</button>
+            </div>
+          </div>
+          <div class="card-meta-row">
+            <span class="card-meta-badge card-meta-badge--entry">⏵ 첫 감상</span>
+          </div>
+          <div class="card-body">
+            <input class="card-input card-input--title" value="첫 등장"/>
+            <textarea class="card-input card-input--body">아침 햇살이 우주 정원에 스며들었다…</textarea>
+            <div class="card-role-toggle">
+              <button class="is-on">일반</button>
+              <button>엔딩</button>
+            </div>
+            <div class="card-choices">
+              <div class="card-choice-row">
+                <input class="card-choice-input" value="정원으로"/>
+                <span class="card-choice-dot dot--A"></span>
+              </div>
+              <div class="card-choice-row">
+                <input class="card-choice-input" value="도시로"/>
+                <span class="card-choice-dot dot--B"></span>
+              </div>
+              <button class="card-add-choice">＋ 선택지</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 카드 2: 선택됨 (좌측 사이드 02번과 연결) -->
+        <div class="card is-selected">
+          <div class="card-head">
+            <div class="card-head-left">
+              <span class="card-role-badge role-badge--scene">장면</span>
+            </div>
+            <span class="card-num">02</span>
+            <div class="card-head-icons">
+              <button class="card-icon-btn card-icon-btn--edit" title="다듬기">✎</button>
+              <button class="card-icon-btn card-icon-btn--del" title="삭제">✕</button>
+            </div>
+          </div>
+          <div class="card-body">
+            <input class="card-input card-input--title" value="우주 정원에서"/>
+            <textarea class="card-input card-input--body">반짝이는 식물이 가지를 뻗고 친구는 멈춰서 손을 내밀었다.</textarea>
+            <div class="card-role-toggle">
+              <button class="is-on">일반</button>
+              <button>엔딩</button>
+            </div>
+            <div class="card-choices">
+              <div class="card-choice-row">
+                <input class="card-choice-input" value="함께 간다"/>
+                <span class="card-choice-dot dot--A"></span>
+              </div>
+              <button class="card-add-choice">＋ 선택지</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 카드 3: 엔딩 -->
+        <div class="card is-ending">
+          <div class="card-head">
+            <div class="card-head-left">
+              <span class="card-role-badge role-badge--ending">🏁 엔딩</span>
+            </div>
+            <span class="card-num">04</span>
+            <div class="card-head-icons">
+              <button class="card-icon-btn card-icon-btn--edit" title="다듬기">✎</button>
+              <button class="card-icon-btn card-icon-btn--del" title="삭제">✕</button>
+            </div>
+          </div>
+          <div class="card-body">
+            <input class="card-input card-input--title" value="따뜻한 결말"/>
+            <textarea class="card-input card-input--body">정원지기는 다시 미소 지었다.</textarea>
+            <div class="card-role-toggle">
+              <button>일반</button>
+              <button class="is-on is-ending-color">엔딩</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="canvas-hint">캔버스 빈 곳을 드래그해서 둘러봐요</div>
+
+      <div class="canvas-zoom">
+        <button title="축소">−</button>
+        <button title="중앙">⊙</button>
+        <button title="확대">＋</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     ② 4모드 카드 비교 — 모드마다 다른 부분
+     ════════════════════════════════════════════════ -->
+<div class="modes-compare">
+  <h2 class="modes-title">모드별 카드 — 다른 점만</h2>
+  <p class="modes-sub">상단 바·좌측 사이드·캔버스 layout은 4모드 공통. 카드 안 영역만 모드 정체성 따라.</p>
+
+  <div class="modes-grid">
+
+    <!-- 텍스트형 -->
+    <div class="mode-cell">
+      <div class="mode-cell-title">📖 텍스트형</div>
+      <div class="mode-cell-desc">본문 큼. 그림 없음. 선택지 = 텍스트 버튼.</div>
+      <div class="card card--text-mode" style="width:auto;">
+        <div class="card-head">
+          <span class="card-role-badge role-badge--scene">장면</span>
+          <span class="card-num">02</span>
+        </div>
+        <div class="card-body">
+          <input class="card-input card-input--title" value="우주 정원에서"/>
+          <textarea class="card-input card-input--body" style="min-height:50px;">반짝이는 식물이 가지를 뻗고 친구는 손을 내밀었다.</textarea>
+          <div class="card-choices">
+            <div class="card-choice-row">
+              <input class="card-choice-input" value="갈림길로"/>
+              <span class="card-choice-dot dot--A"></span>
+            </div>
+            <div class="card-choice-row">
+              <input class="card-choice-input" value="돌아간다"/>
+              <span class="card-choice-dot dot--B"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 그림책형 -->
+    <div class="mode-cell">
+      <div class="mode-cell-title">🎨 그림책형</div>
+      <div class="mode-cell-desc">그림 + 짧은 본문 + 선택지. 하위 모드 표시.</div>
+      <div class="card card--pb-mode" style="width:auto;">
+        <div class="card-head">
+          <span class="card-role-badge role-badge--scene">장면</span>
+          <span class="card-num">02</span>
+        </div>
+        <div class="card-meta-row">
+          <span class="card-meta-badge card-meta-badge--media">🎨 분할형</span>
+        </div>
+        <div class="card-body">
+          <div class="card-body-thumb">그림 (그림책)</div>
+          <input class="card-input card-input--title" value="우주 정원"/>
+          <textarea class="card-input card-input--body" style="min-height:30px;">친구는 손을 내밀었다.</textarea>
+          <div class="card-choices">
+            <div class="card-choice-row">
+              <input class="card-choice-input" value="따라간다"/>
+              <span class="card-choice-dot dot--A"></span>
+            </div>
+            <div class="card-choice-row">
+              <input class="card-choice-input" value="거절한다"/>
+              <span class="card-choice-dot dot--B"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 무비형 -->
+    <div class="mode-cell">
+      <div class="mode-cell-title">🎬 무비형</div>
+      <div class="mode-cell-desc">영상 썸네일 + 자막 + 선택지. 미디어 정체성.</div>
+      <div class="card card--movie-mode" style="width:auto;">
+        <div class="card-head">
+          <span class="card-role-badge role-badge--scene">장면</span>
+          <span class="card-num">02</span>
+        </div>
+        <div class="card-meta-row">
+          <span class="card-meta-badge card-meta-badge--media">🎬 영상 12s</span>
+        </div>
+        <div class="card-body">
+          <div class="card-body-thumb">🎬</div>
+          <input class="card-input card-input--title" value="우주 정원 영상"/>
+          <textarea class="card-input card-input--body" style="min-height:30px;">자막: 함께 갈래?</textarea>
+          <div class="card-choices">
+            <div class="card-choice-row">
+              <input class="card-choice-input" value="응 좋아"/>
+              <span class="card-choice-dot dot--A"></span>
+            </div>
+            <div class="card-choice-row">
+              <input class="card-choice-input" value="아니야"/>
+              <span class="card-choice-dot dot--B"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 체험전시형 -->
+    <div class="mode-cell">
+      <div class="mode-cell-title">🗺️ 체험전시형</div>
+      <div class="mode-cell-desc">배경 위 연결 오브젝트(핫스팟) = 선택지. 누르면 다음 장면.</div>
+      <div class="card card--exp-mode" style="width:auto;">
+        <div class="card-head">
+          <span class="card-role-badge role-badge--scene">장면</span>
+          <span class="card-num">02</span>
+        </div>
+        <div class="card-meta-row">
+          <span class="card-meta-badge card-meta-badge--media">🔗 오브젝트 3개</span>
+        </div>
+        <div class="card-body">
+          <div class="card-body-thumb">
+            <span class="exp-hotspot" style="top:25%; left:30%;"></span>
+            <span class="exp-hotspot" style="top:55%; left:65%;"></span>
+            <span class="exp-hotspot" style="top:70%; left:25%;"></span>
+          </div>
+          <input class="card-input card-input--title" value="정원 전시장"/>
+          <textarea class="card-input card-input--body" style="min-height:30px;">오브젝트를 눌러요.</textarea>
+          <div class="card-choices">
+            <div class="card-choice-row">
+              <input class="card-choice-input" value="꽃을 본다"/>
+              <span class="card-choice-dot dot--A"></span>
+            </div>
+            <div class="card-choice-row">
+              <input class="card-choice-input" value="나무로"/>
+              <span class="card-choice-dot dot--B"></span>
+            </div>
+            <div class="card-choice-row">
+              <input class="card-choice-input" value="문 앞"/>
+              <span class="card-choice-dot dot--C"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>

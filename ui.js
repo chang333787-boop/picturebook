@@ -628,6 +628,8 @@ window.addEventListener('DOMContentLoaded', () => {
 
   /* 툴바 */
   document.getElementById('btn-add-scene')  ?.addEventListener('click', addScene);
+  /* W8 Phase B: 좌측 사이드 "＋ 새 장면" 버튼도 같은 동작 */
+  document.getElementById('ss-add-btn')     ?.addEventListener('click', addScene);
   document.getElementById('btn-check')      ?.addEventListener('click', checkStructure);
   document.getElementById('btn-export')     ?.addEventListener('click', exportJSON);
   document.getElementById('btn-import')     ?.addEventListener('click', () =>

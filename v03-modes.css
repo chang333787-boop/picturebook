@@ -243,6 +243,14 @@
   max-width: 100%;
   max-height: 100%;
   box-sizing: border-box;
+  /* W8 따뜻한 디자인 — 책 페이지처럼 떠 있는 종이결 그림자 + 미세 보더 */
+  background: var(--v03-card-bg);
+  border-radius: 12px;
+  border: 1px solid rgba(80,50,20,0.06);
+  box-shadow:
+    0 1px 2px rgba(120,90,50,0.06),
+    0 8px 28px rgba(120,90,50,0.14),
+    0 24px 48px rgba(120,90,50,0.10);
 }
 @container pbstage (aspect-ratio > 297/210) {
   .scene-screen--pb .pb-page {
@@ -297,14 +305,16 @@
   overflow: hidden;
 }
 /* 그림 중심형 illust — 강한 우선순위로 inline background-image가 안 잘리게.
-   기본 .pb-illust 룰의 background shorthand가 inline image를 reset하는 경우 방어. */
+   기본 .pb-illust 룰의 background shorthand가 inline image를 reset하는 경우 방어.
+   W8: cover → contain. 학생 그림 잘림 절대 방지 (사용자 핵심 원칙). */
 .scene-screen--pb.pb--imagecenter .pb-stage .pb-illust {
   position: absolute;
   inset: 0;
   border: none;
   border-radius: 0;
-  background-color: transparent;
-  background-size: cover;
+  /* 여백 = 종이톤 (그림 좌우 여백) */
+  background-color: var(--v03-illust-bg);
+  background-size: contain;
   background-position: center;
   background-repeat: no-repeat;
   z-index: 0;
@@ -352,9 +362,12 @@
 }
 .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay .pb-text__body {
   margin: 0;
-  font-size: 13px;
+  /* W8: textStyle 반영 — 분할형과 동일 CSS 변수. 폰트/크기/색/굵기 다듬기에서 조정 */
+  font-family: var(--pb-font-family, 'Gowun Batang', 'Nanum Gothic', serif);
+  font-size: var(--pb-fs-body, 13px);
+  font-weight: var(--pb-fw-body, 400);
+  color: var(--pb-color-override, var(--v03-card-fg, #1a1a1a));
   line-height: 1.5;
-  color: var(--v03-card-fg, #1a1a1a);
 }
 
 /* ── W4: 다듬기 모드 핸들 (드래그 ✥ + 리사이즈 4 모서리) ──
@@ -454,7 +467,14 @@
   height: 100%;
   align-items: stretch;
   justify-content: center;
+  /* W8: 기본 center — 1행만 있을 땐 박스 가운데. 2행 이상은 아래에서 stretch로 오버라이드 */
   align-content: center;
+}
+/* 4·5·6개일 때만 stretch — 행 자체를 박스 전체로 늘림 */
+.scene-screen--pb.pb--imagecenter .pb-text--bottom-only .pb-text__actions[data-count="4"],
+.scene-screen--pb.pb--imagecenter .pb-text--bottom-only .pb-text__actions[data-count="5"],
+.scene-screen--pb.pb--imagecenter .pb-text--bottom-only .pb-text__actions[data-count="6"] {
+  align-content: stretch;
 }
 /* 그림 중심형 선택지 버튼 — 작고 가로 분배.
    1개: 풀폭 / 2~3개: 한 줄 / 4~6개: 자동 wrap */
@@ -483,12 +503,11 @@
   grid-template-columns: 1fr;
 }
 
-/* 그림 슬롯 — A4 비율(세로/가로) 그림 안전 처리:
-   cover 중심 + center crop. 원본 비율 보존보다 페이지 안 안정 배치 우선.
-   inner padding으로 액자 느낌 — 그림이 영역 전체를 꽉 채우지 않게 (시각 압박 줄임). */
+/* 그림 슬롯 — 학생 그림 비율 다양 (가로/세로/정사각) → contain으로 안 잘림.
+   잘림이 사용자 핵심 원칙. 여백은 종이톤 부드럽게 (책 페이지 안 그림 같은 느낌). */
 .scene-screen--pb .pb-illust {
   background: var(--v03-illust-bg);
-  background-size: cover;
+  background-size: contain;
   background-position: center;
   background-repeat: no-repeat;
   border-radius: var(--v03-r-md);
@@ -526,6 +545,8 @@
   min-height: 0;
 }
 .scene-screen--pb .pb-text__title {
+  /* W8 따뜻한 디자인: 본문과 같은 따뜻한 종이책 폰트, bold */
+  font-family: var(--pb-font-family, 'Gowun Batang', 'Nanum Gothic', serif);
   /* 폰트 viewport-반응 — 좁아지면 살짝 작아짐 */
   font-size: clamp(16px, 2.2vw, 22px);
   font-weight: 700;
@@ -534,9 +555,14 @@
   margin: 0 0 10px;
 }
 .scene-screen--pb .pb-text__body {
-  font-size: clamp(13px, 1.5vw, 14.5px);
-  line-height: 1.7;
-  color: var(--v03-fg);
+  /* W8: 그림책 글자 스타일 — CSS 변수로 폰트/크기/색/굵기 오버라이드.
+     W8 따뜻한 디자인: 기본 fallback을 시안의 종이책 폰트(Gowun Batang)로.
+     사용자가 다듬기에서 다른 폰트 고르면 _patchPbStyle이 --pb-font-family 덮음. */
+  font-family: var(--pb-font-family, 'Gowun Batang', 'Nanum Gothic', serif);
+  font-size: var(--pb-fs-body, clamp(14px, 1.6vw, 16px));
+  font-weight: var(--pb-fw-body, 400);
+  line-height: 1.85;  /* 시안의 여백 있는 따뜻한 행간 */
+  color: var(--pb-color-override, var(--v03-fg));
   margin: 0 0 12px;
   flex: 1;
   /* 줄바꿈 정책: 한국어 단어 단위 + 영문/숫자 강제 줄바꿈 */
@@ -602,6 +628,286 @@
   align-items: center;
   justify-content: center;
   text-align: center;
+}
+
+/* ════════════════════════════════════════════════════
+   W8 그림책 따뜻한 디자인 (시안 기준)
+   ─────────────────────────────────────────────────────
+   기존 배치(flex 1·2·3·4+개)는 그대로 유지.
+   내부 시각만 시안 따라: 번호 원 + 라벨 + 화살표 + 선택지마다 색 구별.
+   ════════════════════════════════════════════════════ */
+.choice-v03--picturebook {
+  /* 기본 모양 — 둥근 카드 + 부드러운 보더 + 종이 그림자 */
+  display: flex !important;
+  align-items: center;
+  justify-content: flex-start !important;  /* 시안: 좌측 정렬 (번호→라벨→화살표) */
+  gap: 12px;
+  padding: 11px 14px !important;
+  border-radius: 12px;
+  border: 1.5px solid;
+  background: var(--v03-card-bg);
+  cursor: pointer;
+  text-align: left !important;
+  transition: background 0.15s, transform 0.08s, box-shadow 0.15s;
+  font-family: var(--font-b);
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--v03-fg);
+}
+.choice-v03--picturebook:hover:not(:disabled) {
+  background: var(--v03-btn-hover-bg);
+  box-shadow: 0 1px 2px rgba(120,90,50,0.08), 0 4px 12px rgba(120,90,50,0.10);
+}
+.choice-v03--picturebook:active:not(:disabled) {
+  transform: translateY(1px);
+}
+/* W8: disabled 시각 — 감상 모드에서만 옅게. 다듬기 모드는 작품 만드는 중이라
+   미연결 선택지도 정상 시각 (사용자가 라벨·번호 진하게 보여야 작업 가능).
+   다듬기 진입점: stage에 .edit-mode-on 클래스 박힘 (viewer-render.js). */
+.choice-v03--picturebook:disabled {
+  opacity: 0.65;  /* 50% → 65% — 너무 옅지 않게 */
+  cursor: not-allowed;
+}
+.edit-mode-on .choice-v03--picturebook:disabled,
+.edit-mode-on .choice-v03--picturebook[disabled] {
+  /* 다듬기 모드: disabled 시각 무효 — 모두 진하게 */
+  opacity: 1 !important;
+  cursor: pointer !important;
+}
+
+/* 번호 원 배지 — 좌측 고정, viewport 작아도 항상 보임 */
+.choice-v03--picturebook .pb-choice-num {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  color: #fff;
+  flex: 0 0 26px;
+  background: var(--v03-fg);  /* 색은 data-pb-color로 오버라이드 */
+}
+
+/* 라벨 — 가운데, 줄바꿈 허용 (한국어 단어 단위) */
+.choice-v03--picturebook .pb-choice-label {
+  flex: 1 1 auto;
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+/* 화살표 — 우측 끝, 작게 */
+.choice-v03--picturebook .pb-choice-arrow {
+  flex: 0 0 auto;
+  font-size: 18px;
+  font-weight: 700;
+  color: currentColor;
+  opacity: 0.55;
+  margin-left: auto;
+}
+
+/* W8: 그림책 시안에선 자체 .pb-choice-arrow(›) 자식 있음 → ::after 잔재 제거 */
+.choice-v03--picturebook::after {
+  content: none !important;
+}
+
+/* 색 구별 — data-pb-color 1·2·3 순환 (4번째 = 다시 1번 색)
+   원칙: 보더 + 배경 연하게 + 번호 배지만 색. 라벨 색은 잉크색으로 통일(채도 차이 방지) */
+.choice-v03--picturebook[data-pb-color="1"] {
+  background: rgba(90,138,74,0.06);
+  border-color: rgba(90,138,74,0.32);
+}
+.choice-v03--picturebook[data-pb-color="1"] .pb-choice-num { background: #5a8a4a; }
+.choice-v03--picturebook[data-pb-color="2"] {
+  background: rgba(90,146,194,0.06);
+  border-color: rgba(90,146,194,0.32);
+}
+.choice-v03--picturebook[data-pb-color="2"] .pb-choice-num { background: #5a92c2; }
+.choice-v03--picturebook[data-pb-color="3"] {
+  background: rgba(198,111,74,0.06);
+  border-color: rgba(198,111,74,0.32);
+}
+.choice-v03--picturebook[data-pb-color="3"] .pb-choice-num { background: #c66f4a; }
+
+/* 라벨 색 — 잉크색 통일. 보더 색이 라벨에 영향 안 가게 */
+.choice-v03--picturebook .pb-choice-label {
+  color: var(--v03-fg);
+}
+/* 화살표 색 — 잉크 옅은 톤 통일 */
+.choice-v03--picturebook .pb-choice-arrow {
+  color: var(--v03-fg-muted);
+}
+
+/* ── 배치 규칙 보존: 분할형(split) 안에서 ──
+   부모 flex 룰(line 585 .pb-text__actions)이 row + wrap + flex:1 1 33%.
+   1개 = 100% / 2개 = 50%·50% / 3개 = 33% / 4개+ = wrap 2줄.
+   시안 정렬(좌측)이지만 칸 폭이 좁을 땐 라벨 줄바꿈 처리. */
+.scene-screen--pb.pb--split .pb-text__actions .choice-v03--picturebook {
+  /* split 영역 안 fit 보존 */
+  padding: 9px 12px !important;
+  font-size: 13px;
+  min-width: 110px;
+  max-width: 100%;
+  justify-content: flex-start !important;
+  text-align: left !important;
+}
+.scene-screen--pb.pb--split .pb-text__actions .choice-v03--picturebook .pb-choice-num {
+  width: 22px; height: 22px;
+  flex: 0 0 22px;
+  font-size: 11px;
+}
+.scene-screen--pb.pb--split .pb-text__actions .choice-v03--picturebook .pb-choice-arrow {
+  font-size: 16px;
+}
+
+/* ── 그림 중심형(imageCenter) 영역 — 본문 글상자 위 자리, 배치는 부모에서 결정 ──
+   부모 .pb-text--bottom-only .pb-text__actions가 row+wrap, flex:1
+   좁은 영역이라 padding 더 축소.
+   W8: 기본은 6개 기준 작은 값. data-count별로 1·2·3개일 때 키움. */
+.scene-screen--pb.pb--imagecenter .pb-text--bottom-only .pb-text__actions .choice-v03--picturebook {
+  /* 기본 = 6개 기준. data-count="N" 규칙이 padding/font 모두 오버라이드 */
+  font-size: 12px;
+}
+.scene-screen--pb.pb--imagecenter .pb-text--bottom-only .pb-text__actions .choice-v03--picturebook .pb-choice-num {
+  /* 기본 = 6개 기준 작은 번호. data-count="N" 규칙이 오버라이드 */
+  width: 20px; height: 20px;
+  flex: 0 0 20px;
+  font-size: 10px;
+}
+.scene-screen--pb.pb--imagecenter .pb-text--bottom-only .pb-text__actions .choice-v03--picturebook .pb-choice-arrow {
+  font-size: 14px;
+}
+
+/* ══════════════════════════════════════════════════════
+   W8: 행동 버튼 개수별 layout 매트릭스 (사용자 요청)
+   ─────────────────────────────────────────────────────
+   사용자 핵심: "상자가 꽉 차는 느낌"
+   data-count로 개수 분기. flex-basis 정밀 계산해 빈 공간 없음.
+   gap 6px 고려: 2개=calc((100% - 6px)/2), 3개=calc((100% - 12px)/3)
+
+   매트릭스 (분할형/그림 중심형 동일 규칙):
+   · 1개: 100% (한 줄)
+   · 2개: 50/50  (한 줄, gap만 제외)
+   · 3개: 33/33/33 (한 줄)
+   · 4개: 50/50 + 50/50 (두 줄 = 2x2)
+   · 5개: 50/50 + 3등분 (위 2 + 아래 3)
+   · 6개: 3등분 + 3등분 (3x2)
+
+   W8 fix: !important 추가 — 기존 .pb--split / .pb--imagecenter 규칙과의
+   specificity 충돌 방어. 박스 폭에 자연 fit.
+   ══════════════════════════════════════════════════════ */
+.scene-screen--pb .pb-text__actions[data-count="1"] .choice-v03--picturebook {
+  flex: 1 1 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  padding: 18px 18px !important;
+  font-size: 15px !important;
+}
+.scene-screen--pb .pb-text__actions[data-count="2"] .choice-v03--picturebook {
+  flex: 1 1 calc((100% - 6px) / 2) !important;
+  max-width: calc((100% - 6px) / 2) !important;
+  min-width: 0 !important;
+  padding: 16px 16px !important;
+  font-size: 14px !important;
+}
+.scene-screen--pb .pb-text__actions[data-count="3"] .choice-v03--picturebook {
+  flex: 1 1 calc((100% - 12px) / 3) !important;
+  max-width: calc((100% - 12px) / 3) !important;
+  min-width: 0 !important;
+  padding: 13px 13px !important;
+  font-size: 13px !important;
+}
+/* 4개: 2x2 — 모두 50%. 2줄 다 채우니 padding 중간 */
+.scene-screen--pb .pb-text__actions[data-count="4"] .choice-v03--picturebook {
+  flex: 1 1 calc((100% - 6px) / 2) !important;
+  max-width: calc((100% - 6px) / 2) !important;
+  min-width: 0 !important;
+  padding: 12px 14px !important;
+  font-size: 13px !important;
+}
+/* 5개: 위 2개 50/50 + 아래 3개 33/33/33 */
+.scene-screen--pb .pb-text__actions[data-count="5"] .choice-v03--picturebook:nth-child(1),
+.scene-screen--pb .pb-text__actions[data-count="5"] .choice-v03--picturebook:nth-child(2) {
+  flex: 1 1 calc((100% - 6px) / 2) !important;
+  max-width: calc((100% - 6px) / 2) !important;
+  min-width: 0 !important;
+  padding: 11px 13px !important;
+  font-size: 12.5px !important;
+}
+.scene-screen--pb .pb-text__actions[data-count="5"] .choice-v03--picturebook:nth-child(3),
+.scene-screen--pb .pb-text__actions[data-count="5"] .choice-v03--picturebook:nth-child(4),
+.scene-screen--pb .pb-text__actions[data-count="5"] .choice-v03--picturebook:nth-child(5) {
+  flex: 1 1 calc((100% - 12px) / 3) !important;
+  max-width: calc((100% - 12px) / 3) !important;
+  min-width: 0 !important;
+  padding: 11px 13px !important;
+  font-size: 12.5px !important;
+}
+/* 6개: 3x2 — 작고 알참 (사용자 OK 기준) */
+.scene-screen--pb .pb-text__actions[data-count="6"] .choice-v03--picturebook {
+  flex: 1 1 calc((100% - 12px) / 3) !important;
+  max-width: calc((100% - 12px) / 3) !important;
+  min-width: 0 !important;
+  padding: 9px 12px !important;
+  font-size: 12px !important;
+}
+
+/* ──────────────────────────────────────────────────
+   W8: 번호 배지 + 화살표도 개수별 비율 조정
+   적은 개수일수록 큰 배지/화살표 → 박스에 맞는 시각 균형.
+   사용자 보고: "1~3은 박스만 커지고 글씨는 안 커져서 어색" → 통합 비례 적용.
+   ────────────────────────────────────────────────── */
+.scene-screen--pb .pb-text__actions[data-count="1"] .choice-v03--picturebook .pb-choice-num,
+.scene-screen--pb .pb-text__actions[data-count="2"] .choice-v03--picturebook .pb-choice-num {
+  width: 30px !important; height: 30px !important;
+  flex: 0 0 30px !important;
+  font-size: 14px !important;
+}
+.scene-screen--pb .pb-text__actions[data-count="3"] .choice-v03--picturebook .pb-choice-num {
+  width: 26px !important; height: 26px !important;
+  flex: 0 0 26px !important;
+  font-size: 12px !important;
+}
+.scene-screen--pb .pb-text__actions[data-count="4"] .choice-v03--picturebook .pb-choice-num {
+  width: 24px !important; height: 24px !important;
+  flex: 0 0 24px !important;
+  font-size: 12px !important;
+}
+.scene-screen--pb .pb-text__actions[data-count="5"] .choice-v03--picturebook .pb-choice-num {
+  width: 22px !important; height: 22px !important;
+  flex: 0 0 22px !important;
+  font-size: 11px !important;
+}
+/* 6개는 기본 20px 유지 */
+
+/* 화살표도 개수에 따라 */
+.scene-screen--pb .pb-text__actions[data-count="1"] .choice-v03--picturebook .pb-choice-arrow,
+.scene-screen--pb .pb-text__actions[data-count="2"] .choice-v03--picturebook .pb-choice-arrow {
+  font-size: 22px !important;
+}
+.scene-screen--pb .pb-text__actions[data-count="3"] .choice-v03--picturebook .pb-choice-arrow {
+  font-size: 18px !important;
+}
+
+/* 좁은 viewport에서는 자연 wrap 허용 — 한국어 단어 단위 줄바꿈 */
+@media (max-width: 480px) {
+  .scene-screen--pb .pb-text__actions[data-count] .choice-v03--picturebook {
+    flex: 1 1 100% !important;
+    max-width: 100% !important;
+  }
+  .scene-screen--pb .pb-text__actions[data-count="2"] .choice-v03--picturebook,
+  .scene-screen--pb .pb-text__actions[data-count="4"] .choice-v03--picturebook,
+  .scene-screen--pb .pb-text__actions[data-count="6"] .choice-v03--picturebook {
+    flex: 1 1 calc((100% - 6px) / 2) !important;
+    max-width: calc((100% - 6px) / 2) !important;
+  }
+}
+
+/* ── 빈 버튼 (라벨 없음) — 색 약화 ── */
+.choice-v03--picturebook.choice-v03--empty {
+  opacity: 0.5;
+}
+.choice-v03--picturebook.choice-v03--empty .pb-choice-label {
+  font-style: italic;
 }
 
 /* ╭─────────────────────────────────────────╮
@@ -1607,4 +1913,32 @@
   font-size: 11px;
   color: #8394ad;
   line-height: 1.4;
+}
+
+/* ════════════════════════════════════════════════════
+   W8: contenteditable 본문/제목 — viewer에서 직접 수정
+   ─────────────────────────────────────────────────────
+   placeholder는 :empty + data-placeholder 패턴.
+   다듬기 모드(data-edit-mode="true")에서만 활성.
+   ════════════════════════════════════════════════════ */
+.scene-screen--pb [contenteditable="true"] {
+  outline: none;
+  border-radius: 4px;
+  transition: background 0.15s, box-shadow 0.15s;
+  cursor: text;
+  min-height: 1.5em;
+}
+.scene-screen--pb [contenteditable="true"]:hover {
+  background: rgba(80,50,20,0.04);
+}
+.scene-screen--pb [contenteditable="true"]:focus,
+.scene-screen--pb [contenteditable="true"].is-focused {
+  background: rgba(255,255,255,0.5);
+  box-shadow: 0 0 0 2px rgba(198,111,74,0.32);
+}
+.scene-screen--pb [contenteditable="true"].is-empty::before {
+  content: attr(data-placeholder);
+  color: rgba(80,50,20,0.42);
+  font-style: italic;
+  pointer-events: none;
 }

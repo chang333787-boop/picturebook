@@ -1081,8 +1081,12 @@ body.edit-mode-active .scene-screen {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
+  gap: 6px;
+  flex-wrap: wrap;
   font-size: 12px;
+  padding: 4px 6px;
+  row-gap: 6px;
+  line-height: 1.5;
 }
 .edit-nav-num {
   color: var(--accent);
@@ -1445,13 +1449,27 @@ body.edit-mode-active .scene-screen {
 @keyframes fadeUp  { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:none; } }
 
 /* ================================================================
-   반응형
+   반응형 — W8 태블릿 확장
+   ─────────────────────────────────────────────────────────────
+   · 폰 (≤600px): 모든 영역 풀폭 + 세로 스택
+   · 태블릿 (601~1024px): 다듬기 인스펙터 패널만 하단 시트로
+     (감상 화면은 데스크탑 layout 유지 — 본문/그림/선택지 비율 충분)
    ================================================================ */
+
+/* 폰 — 모든 영역 풀폭 */
 @media (max-width: 600px) {
   .choices-bottom { padding: 12px 16px 20px; gap: 8px; }
   .choice-btn     { font-size: 15px; padding: 12px 16px; }
   .text-box       { padding: 18px 20px; }
-  #edit-panel     { width: 100%; min-width: unset; border-left: none; border-top: 1px solid var(--border); }
+  #edit-panel     { width: 100%; min-width: unset; max-height: 50vh; border-left: none; border-top: 1px solid var(--border); }
+  .player-body    { flex-direction: column; }
+}
+
+/* 태블릿 — 다듬기 인스펙터 패널만 하단 시트.
+   사용자가 "다듬기 칸 못 내림" 보고 → 패널이 우측 고정이라 좁은 화면에서 본문 잘림.
+   하단 시트로 전환하면 본문은 위, 인스펙터는 아래 → 스크롤 가능. */
+@media (min-width: 601px) and (max-width: 1024px) {
+  #edit-panel     { width: 100%; min-width: unset; max-height: 55vh; border-left: none; border-top: 1px solid var(--border); }
   .player-body    { flex-direction: column; }
 }
 
@@ -1981,6 +1999,62 @@ body.edit-mode-active .scene-screen {
   background: var(--border);
   margin: 14px 0;
 }
+
+/* ── W8 Phase D-1: 다듬기 패널 탭 헤더 ──────────────
+   섹션을 탭으로 분리. .is-on이 있는 패널만 보임.
+   데이터 흐름 영향 0 — 시각 토글만. */
+.edit-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  margin: 12px 0 14px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+/* W8: [내용] 탭 안 그림책 글자 스타일 카드.
+   본문 textarea와 시각적으로 분리되되 같은 흐름에 자리. */
+.edit-pb-inline-style {
+  margin: 14px 0 10px;
+  padding: 14px 14px 10px;
+  background: var(--surface2);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+}
+.edit-pb-inline-title {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--text);
+  margin: 0 0 10px;
+  letter-spacing: 0.02em;
+}
+.edit-pb-inline-style .edit-row--compact {
+  margin-bottom: 10px;
+}
+.edit-pb-inline-style .edit-row--compact:last-child {
+  margin-bottom: 0;
+}
+.edit-tab {
+  flex: 1;
+  padding: 7px 10px;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast);
+}
+.edit-tab:hover { color: var(--text); }
+.edit-tab.is-on {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 2px rgba(120,90,50,0.10), 0 2px 6px rgba(120,90,50,0.06);
+}
+.edit-tab-panel { display: none; }
+.edit-tab-panel.is-on { display: block; }
 .edit-section-title {
   font-size: 11px;
   color: var(--text-muted);
@@ -5104,4 +5178,271 @@ body.edit-mode-active .scene-screen {
 .ending-system-icon-small {
   font-size: 13px;
   line-height: 1;
+}
+
+/* ════════════════════════════════════════════════════
+   W8: 바로 그리기 모달
+   ─────────────────────────────────────────────────────
+   캔버스 그리기 — 펜·지우개·색·굵기·undo·전체지우기
+   시안 따뜻한 톤 (종이 베이지 배경, 코랄 액션)
+   ════════════════════════════════════════════════════ */
+.pb-draw-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.pb-draw-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(43, 31, 16, 0.55);
+  backdrop-filter: blur(2px);
+}
+.pb-draw-dialog {
+  position: relative;
+  width: min(1200px, 96vw);
+  height: min(800px, 92vh);
+  background: var(--surface, #fbf6ea);
+  border-radius: 16px;
+  box-shadow:
+    0 4px 16px rgba(120,90,50,0.16),
+    0 24px 64px rgba(120,90,50,0.24);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.pb-draw-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border, rgba(80,50,20,0.10));
+  background: var(--surface2, #f4ecd8);
+}
+.pb-draw-title {
+  font-family: var(--font-ui, 'Jua', sans-serif);
+  font-size: 17px;
+  color: var(--text, #2b1f10);
+  margin: 0;
+}
+.pb-draw-close {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text-muted, #6b5638);
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.pb-draw-close:hover { background: rgba(80,50,20,0.08); }
+
+.pb-draw-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border, rgba(80,50,20,0.10));
+  background: var(--surface, #fbf6ea);
+  align-items: center;
+}
+.pb-draw-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.pb-draw-section-label {
+  font-family: var(--font-ui, 'Jua', sans-serif);
+  font-size: 11px;
+  color: var(--text-muted, #6b5638);
+  letter-spacing: 0.04em;
+}
+.pb-draw-tools {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  background: var(--surface2, #f4ecd8);
+  border-radius: 10px;
+}
+.pb-draw-tool {
+  padding: 6px 12px;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted, #6b5638);
+  font-family: var(--font-ui, 'Jua', sans-serif);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.pb-draw-tool:hover { color: var(--text, #2b1f10); }
+.pb-draw-tool.is-on {
+  background: var(--surface, #fbf6ea);
+  color: var(--text, #2b1f10);
+  box-shadow: 0 1px 2px rgba(120,90,50,0.10);
+}
+.pb-draw-colors {
+  display: flex;
+  gap: 5px;
+}
+.pb-draw-color {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  border: 2px solid rgba(80,50,20,0.10);
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.1s, border-color 0.15s;
+}
+.pb-draw-color:hover { transform: scale(1.1); }
+.pb-draw-color.is-on {
+  border-color: var(--text, #2b1f10);
+  transform: scale(1.15);
+  box-shadow: 0 1px 4px rgba(120,90,50,0.20);
+}
+.pb-draw-sizes {
+  display: flex;
+  gap: 4px;
+}
+.pb-draw-size {
+  width: 34px; height: 34px;
+  border-radius: 8px;
+  border: 1.5px solid var(--border, rgba(80,50,20,0.10));
+  background: var(--surface, #fbf6ea);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: background 0.15s, border-color 0.15s;
+}
+.pb-draw-size:hover { background: var(--surface2, #f4ecd8); }
+.pb-draw-size.is-on {
+  border-color: var(--text, #2b1f10);
+  background: var(--surface2, #f4ecd8);
+}
+.pb-draw-size-dot {
+  background: var(--text, #2b1f10);
+  border-radius: 50%;
+  display: block;
+}
+.pb-draw-actions {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+.pb-draw-action {
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: 1.5px solid var(--border, rgba(80,50,20,0.18));
+  background: var(--surface, #fbf6ea);
+  color: var(--text, #2b1f10);
+  font-family: var(--font-ui, 'Jua', sans-serif);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.pb-draw-action:hover { background: var(--surface2, #f4ecd8); }
+
+.pb-draw-canvas-wrap {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  background: rgba(80,50,20,0.05);
+  padding: 16px;
+  overflow: hidden;
+  min-height: 0;
+}
+#pb-draw-canvas {
+  background: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(120,90,50,0.16);
+  /* W8: 캔버스 display 크기는 JS에서 wrap 측정 후 동적 설정.
+     aspect-ratio 유지하며 wrap 안에서 최대 크기. */
+  display: block;
+}
+
+/* submode hint — 제목 옆 작은 안내 */
+.pb-draw-submode-hint {
+  font-size: 11px;
+  color: var(--text-muted, #6b5638);
+  font-weight: normal;
+  margin-left: 4px;
+}
+
+/* 펜 압력 체크박스 */
+.pb-draw-pressure-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--surface2, #f4ecd8);
+  cursor: pointer;
+  font-family: var(--font-ui, 'Jua', sans-serif);
+  font-size: 12px;
+  color: var(--text, #2b1f10);
+  user-select: none;
+}
+.pb-draw-pressure-label input[type="checkbox"] {
+  margin: 0;
+  cursor: pointer;
+}
+.pb-draw-pressure-label:hover { background: rgba(80,50,20,0.08); }
+
+.pb-draw-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--border, rgba(80,50,20,0.10));
+  background: var(--surface2, #f4ecd8);
+}
+.pb-draw-footer-hint {
+  flex: 1;
+  font-size: 12px;
+  color: #c66f4a;
+  font-family: var(--font-ui, 'Jua', sans-serif);
+}
+.pb-draw-footer-hint:empty { display: none; }
+.pb-draw-footer-btns {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+.pb-draw-cancel {
+  padding: 10px 20px;
+  border-radius: 10px;
+  border: 1.5px solid var(--border, rgba(80,50,20,0.18));
+  background: transparent;
+  color: var(--text-muted, #6b5638);
+  font-family: var(--font-ui, 'Jua', sans-serif);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.pb-draw-cancel:hover { background: rgba(80,50,20,0.06); }
+.pb-draw-save {
+  padding: 10px 22px;
+  border-radius: 10px;
+  border: none;
+  background: #c66f4a;
+  color: #fff;
+  font-family: var(--font-ui, 'Jua', sans-serif);
+  font-size: 14px;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(198,111,74,0.16), 0 3px 8px rgba(198,111,74,0.24);
+  transition: filter 0.15s, transform 0.08s;
+}
+.pb-draw-save:hover { filter: brightness(1.08); }
+.pb-draw-save:active { transform: translateY(1px); }
+
+/* 모바일 — 툴바 더 컴팩트 */
+@media (max-width: 768px) {
+  .pb-draw-toolbar { gap: 10px; padding: 10px 12px; }
+  .pb-draw-section-label { display: none; }
+  .pb-draw-submode-hint { display: none; }
+  .pb-draw-actions { width: 100%; justify-content: space-between; margin-left: 0; }
+  .pb-draw-footer { flex-direction: column; align-items: stretch; }
+  .pb-draw-footer-hint { text-align: center; }
 }

@@ -169,6 +169,13 @@ function renderScene(scene) {
   /* 이벤트 바인딩 — 모드 무관 공통 */
   _bindSceneEvents(stage, scene);
 
+  /* W8: 렌더 후 글자 스타일 CSS 변수 적용 — 첫 진입/장면 전환 시에도 textStyle 반영.
+     사용자가 다듬기에서 바꿀 때는 _patchTextStyle/_patchPbStyle 별도 호출. */
+  try {
+    if (typeof _patchTextStyle === 'function') _patchTextStyle();
+    if (typeof _patchPbStyle   === 'function') _patchPbStyle();
+  } catch (e) { /* noop */ }
+
   /* edit 모드: overlay 드래그 + 선택 테두리 초기화 */
   if (ViewerState.editMode && typeof initEditInteractions === 'function') {
     initEditInteractions();
@@ -282,6 +289,21 @@ function _renderScenePicturebook(stage, scene, submode) {
   const isImageCenter = submode === 'imageCenter';
   const layoutClass = isImageCenter ? 'pb--imagecenter' : 'pb--split';
 
+  /* W8: textStyle 적용 — 그림책에도 글자 스타일 동일.
+     변수는 --pb-* (CSS가 사용하는 변수, _patchPbStyle과 정합).
+     사용자 보고: "굵게는 되는데 폰트·크기 안 됨" → 변수 이름 일치 + fontMap 정의 fix. */
+  const style = (typeof getTextStyle === 'function') ? getTextStyle(scene) : null;
+  const fontMap = (typeof TEXT_FONT_FAMILIES === 'object') ? TEXT_FONT_FAMILIES : {};
+  const cssVars = [];
+  if (style) {
+    if (style.fontFamily && fontMap[style.fontFamily]) cssVars.push(`--pb-font-family: ${fontMap[style.fontFamily]}`);
+    if (style.fontSize)   cssVars.push(`--pb-fs-body: ${style.fontSize}px`);
+    if (style.color)      cssVars.push(`--pb-color-override: ${style.color}`);
+    if (style.weight === 'bold') cssVars.push(`--pb-fw-body: 700`);
+    else if (style.weight) cssVars.push(`--pb-fw-body: 400`);
+  }
+  const styleAttr = cssVars.length > 0 ? ` style="${cssVars.join(';')}"` : '';
+
   /* 그림 영역 — 이미지 있으면 표시, 없으면 placeholder */
   const illustHtml = bgImage
     ? `<div class="pb-illust" style="background-image:url('${bgImage}')"></div>`
@@ -292,11 +314,17 @@ function _renderScenePicturebook(stage, scene, submode) {
   /* 텍스트 영역 — 제목 → 본문 → 버튼 */
   const title = String(scene.title || '').trim();
   const body  = String(scene.body  || '').trim();
-  const titleHtml = title
-    ? `<h3 class="pb-text__title">${escHtml(title)}</h3>` : '';
-  const bodyHtml  = body
-    ? `<p class="pb-text__body">${escHtml(body)}</p>` : '';
-  const btns = _v03FilterChoices(choices).map(c => _v03ChoiceBtnHtml(scene, c, 'picturebook')).join('');
+  /* W8: 다듬기 모드에선 contenteditable — viewer에서 직접 수정 가능 + 다듬기 패널 양방향 동기화 */
+  const isEdit = (typeof ViewerState !== 'undefined' && ViewerState.editMode);
+  const editAttrs = isEdit ? 'contenteditable="true" data-pb-editable="title"' : '';
+  const editAttrsBody = isEdit ? 'contenteditable="true" data-pb-editable="body"' : '';
+  const titleHtml = title || isEdit
+    ? `<h3 class="pb-text__title js-pb-editable-title" ${editAttrs} data-placeholder="(제목을 적어보세요)">${escHtml(title)}</h3>` : '';
+  const bodyHtml  = body || isEdit
+    ? `<p class="pb-text__body js-pb-editable-body" ${editAttrsBody} data-placeholder="(본문을 적어보세요)">${escHtml(body)}</p>` : '';
+  const filteredChoices = _v03FilterChoices(choices);
+  const pbChoiceCount = filteredChoices.length;
+  const btns = filteredChoices.map((c, i) => _v03ChoiceBtnHtml(scene, c, 'picturebook', i)).join('');
 
   /* 그림 중심형: 제목은 그림 위 상단 고정 / 본문은 그림 위 글상자.
      분할형: 제목/본문/선택지 모두 하단 텍스트 영역. */
@@ -316,8 +344,8 @@ function _renderScenePicturebook(stage, scene, submode) {
       : '';
 
     /* 다듬기 모드 — 드래그 핸들(가운데 ✥) + 리사이즈 핸들(4 모서리).
-       감상 모드에서는 노출 X. mockup 기준: 제목은 고정(🔒), 본문 상자만 조절. */
-    const isEdit = !!(ViewerState && ViewerState.editMode);
+       감상 모드에서는 노출 X. mockup 기준: 제목은 고정(🔒), 본문 상자만 조절.
+       isEdit는 위에서 이미 선언됨. */
     const editHandlesHtml = isEdit ? `
       <div class="pb-body-handle pb-body-handle--move js-pb-body-move" title="드래그하여 위치 이동">✥</div>
       <div class="pb-body-handle pb-body-handle--resize-nw js-pb-body-resize" data-corner="nw" title="크기 조절"></div>
@@ -334,19 +362,20 @@ function _renderScenePicturebook(stage, scene, submode) {
         data-scene-num="${escHtml(String(scene.id))}"
         data-presentation-mode="picturebook"
         data-presentation-submode="imageCenter"
-        ${isEdit ? 'data-edit-mode="true"' : ''}>
+        ${isEdit ? 'data-edit-mode="true"' : ''}
+        ${styleAttr}>
         <div class="pb-page">
           <div class="pb-frame">
             <div class="pb-stage">
               ${illustHtml}
-              ${title ? `<div class="pb-stage__title-overlay">${escHtml(title)}</div>` : ''}
-              ${body  ? `<div class="pb-stage__body-overlay js-pb-body-overlay" style="${bodyOverlayStyle}">
-                <p class="pb-text__body">${escHtml(body)}</p>
+              ${title || isEdit ? `<div class="pb-stage__title-overlay js-pb-editable-title" ${isEdit ? 'contenteditable="true" data-pb-editable="title"' : ''} data-placeholder="(제목을 적어보세요)">${escHtml(title)}</div>` : ''}
+              ${body || isEdit ? `<div class="pb-stage__body-overlay js-pb-body-overlay" style="${bodyOverlayStyle || 'left:15%; top:25%; width:55%; background:rgba(255,255,255,0.85);'}">
+                <p class="pb-text__body js-pb-editable-body" ${isEdit ? 'contenteditable="true" data-pb-editable="body"' : ''} data-placeholder="(본문을 적어보세요)">${escHtml(body)}</p>
                 ${editHandlesHtml}
               </div>` : ''}
             </div>
             <div class="pb-text pb-text--bottom-only">
-              <div class="pb-text__actions">${btns}</div>
+              <div class="pb-text__actions" data-count="${pbChoiceCount}">${btns}</div>
             </div>
           </div>
         </div>
@@ -360,14 +389,15 @@ function _renderScenePicturebook(stage, scene, submode) {
       data-display="${scene.displayType}"
       data-scene-num="${escHtml(String(scene.id))}"
       data-presentation-mode="picturebook"
-      data-presentation-submode="split">
+      data-presentation-submode="split"
+      ${styleAttr}>
       <div class="pb-page">
         <div class="pb-frame">
           ${illustHtml}
           <div class="pb-text">
             ${titleHtml}
             ${bodyHtml}
-            <div class="pb-text__actions">${btns}</div>
+            <div class="pb-text__actions" data-count="${pbChoiceCount}">${btns}</div>
           </div>
         </div>
       </div>
@@ -653,6 +683,12 @@ function _renderSceneLegacy(stage, scene, presentationMode, presentationSubmode)
    라벨이 있거나 nextId 연결된 버튼은 표시 (미연결 + 라벨 있음 = 진짜 미연결 경고).  */
 function _v03FilterChoices(choices) {
   if (!Array.isArray(choices)) return [];
+  /* W8: 다듬기 모드 — 빈 선택지도 표시 (사용자 보고: "행동 버튼 추가 누르면 바로 안 나타나").
+     감상 모드 — 라벨/다음 장면 둘 다 없으면 숨김 (실제 작품 흐름). */
+  const isEdit = (typeof ViewerState !== 'undefined' && ViewerState.editMode);
+  if (isEdit) {
+    return choices.filter(c => !!c);
+  }
   return choices.filter(c => {
     if (!c) return false;
     const hasLabel = String(c.label || '').trim().length > 0;
@@ -661,11 +697,30 @@ function _v03FilterChoices(choices) {
   });
 }
 
-function _v03ChoiceBtnHtml(scene, choice, mode) {
+function _v03ChoiceBtnHtml(scene, choice, mode, idx) {
   const disabled = !choice.nextId ? 'disabled' : '';
-  const label    = String(choice.label || '').trim() || '(빈 버튼)';
+  /* W8: 빈 라벨 placeholder — 사용자 보고 "(빈 버튼)" → 더 친절 안내 */
+  const label    = String(choice.label || '').trim() || '(행동 버튼을 적어보세요)';
   const isEmpty  = !String(choice.label || '').trim();
   const emptyClass = isEmpty ? ' choice-v03--empty' : '';
+
+  /* W8 그림책 따뜻한 디자인: 자식 3개 (번호 원 + 라벨 + 화살표).
+     idx는 viewer-render의 map index로 호출 측에서 전달 (0-based → 표시는 +1).
+     라벨 클래스 .pb-choice-label은 _patchChoiceLabel 실시간 반영용 타겟.
+     색은 CSS의 .choice-v03--picturebook[data-pb-color="N"]로 결정 (1=sage, 2=sky, 3=coral, 4+ wrap). */
+  if (mode === 'picturebook') {
+    const colorIdx = ((idx != null ? idx : 0) % 3) + 1;  /* 1·2·3 순환 */
+    return `<button class="choice-v03 choice-v03--picturebook js-choice${emptyClass}"
+      data-choice-id="${escHtml(choice.id)}"
+      data-pb-color="${colorIdx}"
+      ${disabled}>
+      <span class="pb-choice-num">${(idx != null ? idx : 0) + 1}</span>
+      <span class="pb-choice-label">${escHtml(label)}</span>
+      <span class="pb-choice-arrow" aria-hidden="true">›</span>
+    </button>`;
+  }
+
+  /* 다른 모드(text/movie/legacy): 기존 구조 보존 */
   return `<button class="choice-v03 choice-v03--${mode} js-choice${emptyClass}"
     data-choice-id="${escHtml(choice.id)}" ${disabled}>
     ${escHtml(label)}

@@ -237,6 +237,21 @@ function _getSceneScreen() {
   return document.querySelector('#viewer-frame .scene-screen');
 }
 
+/* W8: textStyle.fontFamily ID → CSS font-family 값 매핑.
+     기존엔 TEXT_FONT_FAMILIES 미정의 변수 참조라 fontMap 비어 폰트 적용 실패.
+     사용자 보고: "굵게는 되는데 폰트·크기 안 됨" → 이 매핑 fix.
+     ID는 maker/viewer에서 일관 사용 — gothic/batang/jua/gaegu/pen/galmuri/cormorant. */
+const TEXT_FONT_FAMILIES = {
+  gothic:    "'Nanum Gothic', sans-serif",
+  batang:    "'Gowun Batang', 'Nanum Myeongjo', serif",
+  jua:       "'Jua', sans-serif",
+  gaegu:     "'Gaegu', cursive",
+  pen:       "'Nanum Pen Script', cursive",
+  galmuri:   "'Galmuri', monospace",
+  cormorant: "'Cormorant Garamond', serif",
+  hanna:     "'Black Han Sans', sans-serif",
+};
+
 /* 텍스트형 — CSS 변수/속성만 갱신 */
 function _patchTextStyle() {
   const screen = _getSceneScreen();
@@ -300,18 +315,31 @@ function _patchMovieAttr(kind, value) {
   return true;
 }
 
-/* 본문 텍스트 부분 갱신 — viewer 미리보기에 본문 노드만 갈아끼움 */
+/* 본문 텍스트 부분 갱신 — viewer 미리보기에 본문 노드만 갈아끼움.
+   W8: 체험전시형 본문 노드 (.exp-body-panel p) 추가 — viewer-render.js 정합. */
 function _patchSceneBody(value) {
   const screen = _getSceneScreen();
   if (!screen) return false;
-  /* 모드별 본문 노드 위치 */
+  /* 모드별 본문 노드 위치 — 4모드 모두 커버 */
   const bodyNode =
        screen.querySelector('.text-card__body')
     || screen.querySelector('.pb-text__body')
     || screen.querySelector('.movie-decision__desc')
-    || screen.querySelector('.exp-bottom__body');
-  if (!bodyNode) return false;
+    || screen.querySelector('.exp-body-panel p');
+  if (!bodyNode) {
+    /* 체험전시형은 본문이 비어있다가 입력 시작 시 DOM에 없을 수 있음.
+       이 경우 통째 재렌더 폴백이 필요 (false 반환). */
+    return false;
+  }
+  /* contenteditable element 활성 입력 중이면 textContent 덮어쓰기 skip (커서 위치 보호) */
+  if (bodyNode.isContentEditable && document.activeElement === bodyNode) {
+    return true;   /* 자체 input 이벤트로 이미 동기화 */
+  }
   bodyNode.textContent = value || '';
+  /* placeholder 클래스 갱신 */
+  if (bodyNode.hasAttribute('data-placeholder')) {
+    bodyNode.classList.toggle('is-empty', !(value || '').trim());
+  }
   return true;
 }
 
@@ -321,20 +349,42 @@ function _patchSceneTitle(value) {
   const titleNode =
        screen.querySelector('.text-card__title')
     || screen.querySelector('.pb-text__title')
+    || screen.querySelector('.pb-stage__title-overlay')
     || screen.querySelector('.exp-top__title');
   if (!titleNode) return false;
+  /* contenteditable 활성 입력 중이면 skip */
+  if (titleNode.isContentEditable && document.activeElement === titleNode) {
+    return true;
+  }
   titleNode.textContent = value || '';
+  if (titleNode.hasAttribute('data-placeholder')) {
+    titleNode.classList.toggle('is-empty', !(value || '').trim());
+  }
   return true;
 }
 
-/* 선택지 라벨 부분 갱신 */
+/* 선택지 라벨 부분 갱신 — W8: 체험전시형 .connect-object + 그림책 시안 자식 3개 모두 커버 */
 function _patchChoiceLabel(idx, value) {
   const screen = _getSceneScreen();
   if (!screen) return false;
-  const buttons = screen.querySelectorAll('.choice-v03, .pb-choice, .text-choice');
+  /* 4모드 선택지 클래스 모두 — 체험전시는 connect-object 안 .co-label */
+  const buttons = screen.querySelectorAll('.choice-v03, .pb-choice, .text-choice, .js-connect-object');
   if (!buttons || idx >= buttons.length) return false;
   const btn = buttons[idx];
-  /* 화살표 ::after 분리 — 텍스트 노드만 갱신 */
+  /* 그림책 시안: 자식 3개 (.pb-choice-num + .pb-choice-label + .pb-choice-arrow)
+     textContent로 덮으면 번호·화살표 지워짐. .pb-choice-label만 타겟. */
+  const pbLabel = btn.querySelector('.pb-choice-label');
+  if (pbLabel) {
+    pbLabel.textContent = value || '';
+    return true;
+  }
+  /* 체험전시형: .co-label 내부 텍스트 갱신 */
+  const coLabel = btn.querySelector('.co-label');
+  if (coLabel) {
+    coLabel.textContent = value || '';
+    return true;
+  }
+  /* 그 외(텍스트/무비/legacy): 화살표 ::after 분리 — 텍스트 노드만 갱신 */
   const textNode = Array.from(btn.childNodes).find(n => n.nodeType === Node.TEXT_NODE);
   if (textNode) textNode.nodeValue = value || '';
   else btn.textContent = value || '';
@@ -768,22 +818,33 @@ function renderEditPanel() {
   const scene = ViewerState.scenes[ViewerState.currentSceneId];
   if (!scene) return;
 
+  /* W8 fix #2: 재렌더 전 현재 활성 탭 기억 — 사용자가 [내용]에서 선택지 추가했는데
+     첫 탭(예: 그림책 모드)으로 리셋되는 문제 방지. */
+  const _prevActiveTab = panel.querySelector('.edit-tab.is-on')?.getAttribute('data-tab') || null;
+
   /* ── 선택지 없는 장면(엔딩 등) ── */
   if (scene.choices.length === 0) {
     const _ptype = _resolveViewerProjectType();
+    const tabs = _editTabsForMode(_ptype, /*hasChoice*/ false);
     panel.innerHTML = `
       <div class="edit-panel-inner">
         ${_editActionsHtml()}
         ${_editNavHtml(scene)}
 
-        <!-- 【1】 기본 정보 -->
-        <div class="edit-divider"></div>
-        ${_textEditHtml(scene)}
+        <!-- W8 Phase D-2: 모드별 탭 이름·아이콘·우선순위 -->
+        <div class="edit-tabs" role="tablist">
+          ${tabs.map((t, i) => `
+            <button type="button" class="edit-tab${i===0?' is-on':''}" data-tab="${t.key}" role="tab">${t.label}</button>
+          `).join('')}
+        </div>
 
-        <!-- 【2】 유형별 설정 (3단계: scene 단위 모드 카드 → 작품 유형 분기) -->
-        ${_typeSectionsHtml(scene, _ptype)}
+        ${tabs.map((t, i) => `
+          <div class="edit-tab-panel${i===0?' is-on':''}" data-panel="${t.key}">
+            ${t.html(scene, _ptype)}
+          </div>
+        `).join('')}
 
-        <!-- 엔딩은 선택지 없음 — 【3】 선택지 표현 섹션 자체 생략 -->
+        <!-- 엔딩은 선택지 없음 — 별도 안내 -->
         <div class="edit-divider"></div>
         <p class="edit-empty">이 장면에는 선택지가 없어요. (엔딩 장면)</p>
 
@@ -793,6 +854,8 @@ function renderEditPanel() {
     _bindNavEvents(panel);
     _bindTypeSectionsEvents(panel, scene);
     _bindTextEditEvents(panel, scene);
+    _bindEditTabs(panel);
+    _restoreActiveTab(panel, _prevActiveTab);
     panel.querySelector('.js-edit-save')?.addEventListener('click', () => _doSave(panel));
     _installLockChangeHandlerOnce();
     _ensureEditLockForCurrentScene();
@@ -902,22 +965,27 @@ function renderEditPanel() {
         </div>
       </div>` : '';
 
+  const tabs = _editTabsForMode(_ptypeForLegacy, /*hasChoice*/ !!legacyChoiceSectionHtml);
   panel.innerHTML = `
     <div class="edit-panel-inner">
       <!-- 상단 고정 바 (액션 + 네비) -->
       ${_editActionsHtml()}
       ${_editNavHtml(scene)}
 
-      <!-- 【1】 기본 정보 — 제목 / 본문 / 선택지 문구 -->
-      <div class="edit-divider"></div>
-      ${_textEditHtml(scene)}
+      <!-- W8 Phase D-2: 모드별 탭 이름·아이콘·우선순위 -->
+      <div class="edit-tabs" role="tablist">
+        ${tabs.map((t, i) => `
+          <button type="button" class="edit-tab${i===0?' is-on':''}" data-tab="${t.key}" role="tab">${t.label}</button>
+        `).join('')}
+      </div>
 
-      <!-- 【2】 유형별 설정 (3단계: 작품 유형 분기) -->
-      ${_typeSectionsHtml(scene, _ptypeForLegacy)}
+      ${tabs.map((t, i) => `
+        <div class="edit-tab-panel${i===0?' is-on':''}" data-panel="${t.key}">
+          ${t.key === 'choice' ? legacyChoiceSectionHtml : t.html(scene, _ptypeForLegacy)}
+        </div>
+      `).join('')}
 
-      ${legacyChoiceSectionHtml}
-
-      <!-- 저장 -->
+      <!-- 저장 (탭 무관 항상 보임) -->
       <button class="edit-save-btn js-edit-save">💾 저장</button>
     </div>`;
 
@@ -926,6 +994,8 @@ function renderEditPanel() {
   _bindTypeSectionsEvents(panel, scene);
   _bindEditPanelEvents(panel, scene, choice);
   _bindTextEditEvents(panel, scene);
+  _bindEditTabs(panel);
+  _restoreActiveTab(panel, _prevActiveTab);
   _installLockChangeHandlerOnce();
   _ensureEditLockForCurrentScene();
 }
@@ -1051,6 +1121,87 @@ function initEditInteractions() {
      각 오브젝트에 ✥ 이동 + 4 모서리 리사이즈. W4 패턴 차용. */
   frame.querySelectorAll('.js-connect-object').forEach(el => {
     _attachConnectObjectInteractions(el, frame);
+  });
+
+  /* W8: 그림책 본문/제목 contenteditable — viewer 화면에서 직접 수정.
+     scene 데이터 → debounce 저장 → 다듬기 패널 textarea/input 양방향 동기화. */
+  _attachPbEditableInteractions(frame);
+}
+
+function _attachPbEditableInteractions(frame) {
+  if (!ViewerState.editMode) return;
+  const scene = ViewerState.scenes[ViewerState.currentSceneId];
+  if (!scene) return;
+
+  /* debounce 저장 — 입력 멈춤 300ms 후 저장 */
+  let saveTimer = null;
+  function _queueDebounceSave(field, value) {
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      const patch = {};
+      patch[field] = value;
+      if (typeof _queueSave === 'function') {
+        _queueSave(scene.num || scene.id, patch);
+        if (typeof _flushPendingSave === 'function') _flushPendingSave();
+      }
+    }, 300);
+  }
+
+  frame.querySelectorAll('[data-pb-editable]').forEach(el => {
+    const field = el.dataset.pbEditable;   /* 'title' | 'body' */
+    if (!field) return;
+
+    /* placeholder 표시 — 빈 상태일 때 회색 텍스트 */
+    function _updatePlaceholder() {
+      const isEmpty = el.textContent.trim().length === 0;
+      el.classList.toggle('is-empty', isEmpty);
+    }
+    _updatePlaceholder();
+
+    /* 입력 — scene 메모리 즉시 업데이트 + 다듬기 패널 input 동기화 */
+    el.addEventListener('input', () => {
+      const text = el.textContent;   /* textContent로 plain text */
+      scene[field] = text;
+      _updatePlaceholder();
+      /* 다듬기 패널의 해당 input/textarea 즉시 갱신 (있으면) */
+      const panelInput = document.querySelector(
+        field === 'title'
+          ? '#edit-pane .js-edit-title'
+          : '#edit-pane .js-edit-body'
+      );
+      if (panelInput && panelInput.value !== text) {
+        panelInput.value = text;
+      }
+      _queueDebounceSave(field, text);
+    });
+
+    /* 포커스 시 placeholder 숨김 효과 */
+    el.addEventListener('focus', () => {
+      el.classList.add('is-focused');
+    });
+    el.addEventListener('blur', () => {
+      el.classList.remove('is-focused');
+      _updatePlaceholder();
+      /* blur 시 즉시 저장 (debounce 무시) */
+      if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+      const text = el.textContent;
+      const patch = {};
+      patch[field] = text;
+      if (typeof _queueSave === 'function') {
+        _queueSave(scene.num || scene.id, patch);
+        if (typeof _flushPendingSave === 'function') _flushPendingSave();
+      }
+    });
+
+    /* Enter 키 — title은 줄바꿈 안 됨 (단일 줄), body는 자연 줄바꿈 허용 */
+    if (field === 'title') {
+      el.addEventListener('keydown', e => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          el.blur();
+        }
+      });
+    }
   });
 }
 
@@ -1498,6 +1649,12 @@ function _textEditHtml(scene) {
   /* 엔딩 장면 + 체험전시형은 버튼 편집 UI 없음 */
   const buttonsBlock = (isEnding || isExperience) ? '' : _buttonsEditHtml(choices);
 
+  /* W8: 그림책 모드일 때 [내용] 탭 안에 글자 스타일 UI 통합.
+     사용자 보고: 폰트↔내용 탭 왕복 불편 → 본문 옆에 폰트·크기·색·굵기 항상 보이게.
+     그림책 모드에만 추가 (텍스트형은 별도 처리 — 텍스트형 글자 스타일은 [스타일] 탭 안에 풍부히). */
+  const isPicturebookMode = _ptypeForButtons === 'picturebook';
+  const pbStyleInlineHtml = isPicturebookMode ? _pbInlineStyleHtml(scene) : '';
+
   return `
     <h4 class="edit-section-title edit-section-title--major">① 기본 정보</h4>
     <div class="js-edit-lock-banner edit-lock-banner" style="display:none;"></div>
@@ -1519,6 +1676,8 @@ function _textEditHtml(scene) {
         placeholder="장면에 보여줄 내용을 적어주세요.">${escHtml(bodyVal)}</textarea>
       ${bodyHint}
     </div>
+
+    ${pbStyleInlineHtml}
 
     ${buttonsBlock}
 
@@ -1728,8 +1887,9 @@ function _bindButtonsEditEvents(panel, scene) {
       }
     }
 
-    /* W7 깜빡임 차단: 선택지 라벨 입력은 viewer의 해당 버튼 텍스트만 갱신 */
-    if (!_patchChoiceLabel(idx, val)) _scheduleViewerFrameReRender();
+    /* W7 깜빡임 차단: 선택지 라벨 입력은 viewer의 해당 버튼 텍스트만 갱신.
+       W8 fix: val 변수 정의 안 됨 — value(절단 적용된 실제 입력값) 사용. */
+    if (!_patchChoiceLabel(idx, value)) _scheduleViewerFrameReRender();
     _queueSaveButtons(scene);
   });
 
@@ -2003,10 +2163,6 @@ function _typeSectionPicturebookHtml(scene) {
           class="edit-toggle js-pb-submode ${sub === 'imageCenter' ? 'active' : ''}"
           data-val="imageCenter">🎨 그림 중심형</button>
       </div>
-      <div class="edit-section-hint">
-        분할형: 위 그림 60 / 아래 본문·선택지 40 · A4 페이지 컨테이너 가운데<br>
-        그림 중심형: 그림 80 / 선택지 20 · 본문은 그림 위 글상자
-      </div>
     </div>
 
     <div class="edit-row">
@@ -2014,79 +2170,109 @@ function _typeSectionPicturebookHtml(scene) {
       <div class="edit-pb-image-row">
         <div class="edit-pb-image-status">
           ${hasImage
-            ? `🖼 <strong>그림 있음</strong> — 미리보기에서 확인`
+            ? `🖼 <strong>그림 있음</strong>`
             : `<span class="edit-section-note">아직 그림이 없어요</span>`}
         </div>
         <div class="edit-toggle-group">
-          <button type="button" class="edit-toggle js-pb-image-upload">🖼 이미지 업로드</button>
+          <label class="edit-toggle js-pb-image-upload-label" style="cursor:pointer;">
+            ${hasImage ? '🔄 그림 바꾸기' : '🖼 이미지 업로드'}
+            <input type="file" accept="image/*" class="js-pb-image-upload-input" style="display:none;">
+          </label>
+          ${hasImage ? `<button type="button" class="edit-toggle js-pb-image-remove" style="color:#c66f4a;">🗑 그림 삭제</button>` : ''}
           <button type="button" class="edit-toggle js-pb-image-draw">✏️ 바로 그리기</button>
         </div>
       </div>
       <div class="edit-section-hint">
-        업로드/바로 그리기 정식 진입점은 추후 연결됩니다 (3단계는 진입 구조 분기까지).
+        ${hasImage ? '미리보기에서 확인. 다른 그림으로 바꾸거나 삭제할 수 있어요.' : '그림이 있으면 더 풍부한 그림책이 됩니다. (5MB 이하 권장 — 큰 파일은 자동 압축)'}
       </div>
     </div>
 
     ${isImageCenter ? (() => {
-      /* W4: 본문 글상자 정식 컨트롤 — 슬라이더 5종 (X / Y / W / H / 배경막).
-         viewer 화면에서 직접 드래그/리사이즈로도 조절 가능 (이번 단계 W4 통합). */
+      /* W4: 본문 글상자 — 배경막 강도만. 위치·크기는 viewer 화면에서 드래그/리사이즈로 처리.
+         사용자 결정 (이번 단계): X/Y/W/H 슬라이더 제거 — 어차피 드래그가 더 편함. */
       const bb = (typeof getPicturebookBodyBox === 'function')
         ? getPicturebookBodyBox(scene)
         : { x: 15, y: 25, width: 55, height: null, backdropOpacity: 0.85 };
-      /* 높이 슬라이더 — null이면 'auto' (콘텐츠 자동), 값이 있으면 그 값 */
-      const isHeightAuto = (typeof bb.height !== 'number');
-      const heightVal = isHeightAuto ? 30 : bb.height;
       return `
     <div class="edit-row">
-      <label class="edit-label">본문 글상자 (그림 중심형)</label>
+      <label class="edit-label">본문 글상자 배경막</label>
       <div class="edit-pb-bodybox-grid">
         <div class="edit-pb-bodybox-row">
-          <span class="edit-pb-bodybox-name">가로 위치 (X)</span>
-          <input type="range" class="edit-range js-pb-bb-x"
-            min="0" max="80" step="1" value="${bb.x}">
-          <span class="edit-pb-bodybox-val js-pb-bb-x-val">${bb.x}%</span>
-        </div>
-        <div class="edit-pb-bodybox-row">
-          <span class="edit-pb-bodybox-name">세로 위치 (Y)</span>
-          <input type="range" class="edit-range js-pb-bb-y"
-            min="0" max="80" step="1" value="${bb.y}">
-          <span class="edit-pb-bodybox-val js-pb-bb-y-val">${bb.y}%</span>
-        </div>
-        <div class="edit-pb-bodybox-row">
-          <span class="edit-pb-bodybox-name">글상자 폭 (W)</span>
-          <input type="range" class="edit-range js-pb-bb-w"
-            min="20" max="95" step="1" value="${bb.width}">
-          <span class="edit-pb-bodybox-val js-pb-bb-w-val">${bb.width}%</span>
-        </div>
-        <div class="edit-pb-bodybox-row">
-          <span class="edit-pb-bodybox-name">글상자 높이 (H)</span>
-          <input type="range" class="edit-range js-pb-bb-h"
-            min="12" max="90" step="1" value="${heightVal}"
-            ${isHeightAuto ? 'data-auto="true"' : ''}>
-          <span class="edit-pb-bodybox-val js-pb-bb-h-val">${isHeightAuto ? '자동' : heightVal + '%'}</span>
-        </div>
-        <div class="edit-pb-bodybox-row">
-          <span class="edit-pb-bodybox-name">배경막 강도</span>
+          <span class="edit-pb-bodybox-name">강도</span>
           <input type="range" class="edit-range js-pb-bb-op"
             min="0" max="100" step="5" value="${Math.round(bb.backdropOpacity * 100)}">
           <span class="edit-pb-bodybox-val js-pb-bb-op-val">${Math.round(bb.backdropOpacity * 100)}%</span>
         </div>
       </div>
-      <div class="edit-toggle-group" style="margin-top:6px;">
-        <button type="button" class="edit-toggle js-pb-bb-reset">기본값으로</button>
-        <button type="button" class="edit-toggle js-pb-bb-auto-h" ${isHeightAuto ? 'disabled' : ''}>높이 자동</button>
-      </div>
       <div class="edit-section-hint">
-        본문 글상자가 그림 위에서 어디에 어떤 크기로 떠 있을지 조절합니다.
-        ✥ 가운데 핸들로 위치 이동, 모서리 ⤡로 크기 조절도 가능합니다.
-        "높이 자동"은 본문 길이에 맞춰 자동 조절합니다.
+        본문 글상자의 위치와 크기는 미리보기에서 ✥로 이동, 모서리 ⤡로 크기 조절하세요.
       </div>
     </div>`;
-    })() : ''}
+    })() : ''}`;
+}
 
-    <div class="edit-row edit-row--placeholder">
-      <label class="edit-label">글자 스타일</label>
-      <div class="edit-section-note">🅰 폰트 / 크기 / 색 / 굵기 / 부분 스타일링 — 추후 추가</div>
+/* ────────────────────────────────────────────
+   W8: 그림책 글자 스타일 인라인 HTML — [내용] 탭에서 본문 바로 아래 표시
+   사용자 보고: 폰트↔내용 탭 왕복 불편 → 본문 옆에 글자 스타일 통합.
+   textStyle 데이터 모델 재사용 (한 작품 = 한 모드라 충돌 없음).
+   ──────────────────────────────────────────── */
+function _pbInlineStyleHtml(scene) {
+  const style = (typeof getTextStyle === 'function')
+    ? getTextStyle(scene)
+    : { fontFamily: 'gothic', fontSize: 16, color: '', weight: 'normal' };
+  const FONTS = [
+    { id: 'gothic',    label: '나눔고딕' },
+    { id: 'batang',    label: '고운 바탕' },
+    { id: 'jua',       label: '주아' },
+    { id: 'hanna',     label: '한나' },
+    { id: 'pen',       label: '나눔펜' },
+    { id: 'gaegu',     label: '개구' },
+    { id: 'galmuri',   label: '갈무리' },
+    { id: 'cormorant', label: 'Cormorant' },
+  ];
+  const fontBtns = FONTS.map(f => `
+    <button type="button"
+      class="edit-font-btn js-edit-pb-font ${style.fontFamily === f.id ? 'active' : ''}"
+      data-val="${f.id}"
+      style="font-family:var(--font-${f.id}, var(--font-b))">
+      ${f.label}
+    </button>`).join('');
+  const COLORS = ['', '#1a1a1a', '#3d2914', '#5c2c2c', '#1c4070', '#3a5a40', '#5b2c6f', '#666666'];
+  const colorBtns = COLORS.map(c => {
+    const isActive = (style.color || '') === c;
+    const label = c === '' ? '기본' : '';
+    return `<button type="button"
+      class="edit-color-btn js-edit-pb-color ${isActive ? 'active' : ''}"
+      data-val="${c}"
+      style="${c ? `background:${c};` : 'background:repeating-conic-gradient(#eee 0 25%,#fff 0 50%) 50%/8px 8px;'}"
+      title="${c || '기본 (테마 색)'}"
+      >${label}</button>`;
+  }).join('');
+  return `
+    <div class="edit-pb-inline-style">
+      <h5 class="edit-pb-inline-title">🅰 글자 스타일</h5>
+      <div class="edit-row edit-row--compact">
+        <label class="edit-label">폰트</label>
+        <div class="edit-font-grid">${fontBtns}</div>
+      </div>
+      <div class="edit-row edit-row--compact">
+        <label class="edit-label">글자 크기 <span class="edit-label-note">(${style.fontSize}px)</span></label>
+        <input type="range" class="edit-slider js-edit-pb-size"
+          min="12" max="28" step="1" value="${style.fontSize}">
+      </div>
+      <div class="edit-row edit-row--compact">
+        <label class="edit-label">글자 색</label>
+        <div class="edit-color-row">${colorBtns}</div>
+        <input type="color" class="edit-color-picker js-edit-pb-color-pick"
+          value="${style.color || '#1a1a1a'}" title="자유 색 선택">
+      </div>
+      <div class="edit-row edit-row--compact">
+        <label class="edit-label">굵기</label>
+        <div class="edit-toggle-group">
+          <button type="button" class="edit-toggle js-edit-pb-weight ${style.weight === 'normal' ? 'active' : ''}" data-val="normal">보통</button>
+          <button type="button" class="edit-toggle js-edit-pb-weight ${style.weight === 'bold' ? 'active' : ''}" data-val="bold">굵게</button>
+        </div>
+      </div>
     </div>`;
 }
 
@@ -2382,9 +2568,87 @@ function _bindTypeSectionsEvents(panel, scene) {
         _scheduleViewerFrameReRender();
       });
     });
-    panel.querySelectorAll('.js-pb-image-upload, .js-pb-image-draw').forEach(btn => {
+    /* W8: 그림책 이미지 업로드 정식 흐름 — viewer-edit 안 자체 처리
+       maker의 uploadImage는 scenes/renderCard 사용 (다른 흐름).
+       viewer-edit는 ViewerState.scenes / renderScene / _queueSave 사용. */
+    panel.querySelectorAll('.js-pb-image-upload-input').forEach(input => {
+      input.addEventListener('change', async e => {
+        if (!_editText.editable) return;
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        if (!file.type.startsWith('image/')) {
+          alert('이미지 파일만 업로드할 수 있어요.');
+          e.target.value = '';
+          return;
+        }
+        /* 업로드 중 시각 안내 */
+        const lbl = e.target.closest('.js-pb-image-upload-label');
+        const prevText = lbl ? lbl.firstChild.nodeValue : '';
+        if (lbl && lbl.firstChild) lbl.firstChild.nodeValue = '⏳ 처리 중… ';
+
+        try {
+          /* 파일 → data URL */
+          const dataUrl = await new Promise((resolve, reject) => {
+            const r = new FileReader();
+            r.onload = () => resolve(r.result);
+            r.onerror = () => reject(new Error('파일 읽기 실패'));
+            r.readAsDataURL(file);
+          });
+
+          /* 5MB 초과면 자동 압축. maker의 _compressImageDataURL 전역 함수 활용. */
+          const SOFT_LIMIT = 5 * 1024 * 1024;
+          let finalUrl = dataUrl;
+          if (file.size > SOFT_LIMIT && typeof _compressImageDataURL === 'function') {
+            try {
+              finalUrl = await _compressImageDataURL(dataUrl, {
+                maxDimension: 1600,
+                transparent: file.type === 'image/png' || file.type === 'image/webp',
+                quality: 0.85,
+              });
+            } catch (compressErr) {
+              /* 압축 실패 시 원본으로 시도 */
+              finalUrl = dataUrl;
+            }
+          }
+
+          /* 저장: scene 메모리 박기 + Firebase 큐 + viewer 부분 재렌더 */
+          scene.imageData = finalUrl;
+          if (typeof _queueSave === 'function') {
+            _queueSave(scene.num || scene.id, { imageData: finalUrl });
+            if (typeof _flushPendingSave === 'function') _flushPendingSave();
+          }
+          /* 인스펙터 다시 그려 상태 갱신 (그림 있음 → 바꾸기/삭제 버튼 노출) */
+          renderEditPanel();
+          /* viewer 미리보기 재렌더 — 그림 즉시 반영 */
+          _scheduleViewerFrameReRender();
+        } catch (err) {
+          if (lbl && lbl.firstChild) lbl.firstChild.nodeValue = prevText;
+          alert(`이미지 처리 실패: ${err.message || err}`);
+        }
+        e.target.value = '';  /* 같은 파일 다시 선택 가능하도록 reset */
+      });
+    });
+
+    /* 그림 삭제 */
+    panel.querySelectorAll('.js-pb-image-remove').forEach(btn => {
       btn.addEventListener('click', () => {
-        alert('업로드/바로 그리기 정식 흐름은 다음 단계에서 연결됩니다.');
+        if (!_editText.editable) return;
+        if (!confirm('이 장면의 그림을 삭제할까요?')) return;
+        scene.imageData = null;
+        if (typeof _queueSave === 'function') {
+          _queueSave(scene.num || scene.id, { imageData: null });
+          if (typeof _flushPendingSave === 'function') _flushPendingSave();
+        }
+        renderEditPanel();
+        _scheduleViewerFrameReRender();
+      });
+    });
+
+    /* 바로 그리기 — 추후 별도 구현 */
+    panel.querySelectorAll('.js-pb-image-draw').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (!_editText.editable) return;
+        _openPbDrawModal(scene);
       });
     });
 
@@ -2465,6 +2729,81 @@ function _bindTypeSectionsEvents(panel, scene) {
       _flushPendingSave();
       renderEditPanel();          /* 슬라이더 값 갱신 */
       _scheduleViewerFrameReRender();
+    });
+
+    /* ──────────────────────────────────────────────────
+       W8: 그림책 글자 스타일 (textStyle 데이터 모델 공유)
+       텍스트형과 같은 scene.textStyle. viewer 적용 노드만 다름(.pb-text__body)
+       ────────────────────────────────────────────────── */
+    function _ensurePbTextStyle() {
+      if (!scene.textStyle || typeof scene.textStyle !== 'object') {
+        scene.textStyle = { fontFamily: 'gothic', fontSize: 16, color: '', weight: 'normal' };
+      }
+      return scene.textStyle;
+    }
+    /* 폰트 */
+    panel.querySelectorAll('.js-edit-pb-font').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (!_editText.editable) return;
+        const v = btn.dataset.val || 'gothic';
+        const ts = _ensurePbTextStyle();
+        ts.fontFamily = v;
+        _queueSave(scene.num || scene.id, { textStyle: { ...ts } });
+        _flushPendingSave();
+        panel.querySelectorAll('.js-edit-pb-font').forEach(b => b.classList.toggle('active', b === btn));
+        if (!_patchPbStyle()) _scheduleViewerFrameReRender();
+      });
+    });
+    /* 크기 */
+    panel.querySelector('.js-edit-pb-size')?.addEventListener('input', e => {
+      if (!_editText.editable) return;
+      const v = parseInt(e.target.value, 10);
+      if (isNaN(v)) return;
+      const ts = _ensurePbTextStyle();
+      ts.fontSize = v;
+      _queueSave(scene.num || scene.id, { textStyle: { ...ts } });
+      /* 라벨 옆 (Npx) 텍스트 즉시 업데이트 */
+      const labelNote = e.target.closest('.edit-row')?.querySelector('.edit-label-note');
+      if (labelNote) labelNote.textContent = `(${v}px)`;
+      if (!_patchPbStyle()) _scheduleViewerFrameReRender();
+    });
+    panel.querySelector('.js-edit-pb-size')?.addEventListener('change', () => _flushPendingSave());
+    /* 색 팔레트 */
+    panel.querySelectorAll('.js-edit-pb-color').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (!_editText.editable) return;
+        const v = btn.dataset.val || '';
+        const ts = _ensurePbTextStyle();
+        ts.color = v;
+        _queueSave(scene.num || scene.id, { textStyle: { ...ts } });
+        _flushPendingSave();
+        panel.querySelectorAll('.js-edit-pb-color').forEach(b => b.classList.toggle('active', b === btn));
+        if (!_patchPbStyle()) _scheduleViewerFrameReRender();
+      });
+    });
+    /* 자유 색 */
+    panel.querySelector('.js-edit-pb-color-pick')?.addEventListener('input', e => {
+      if (!_editText.editable) return;
+      const v = e.target.value || '';
+      const ts = _ensurePbTextStyle();
+      ts.color = v;
+      _queueSave(scene.num || scene.id, { textStyle: { ...ts } });
+      panel.querySelectorAll('.js-edit-pb-color').forEach(b => b.classList.remove('active'));
+      if (!_patchPbStyle()) _scheduleViewerFrameReRender();
+    });
+    panel.querySelector('.js-edit-pb-color-pick')?.addEventListener('change', () => _flushPendingSave());
+    /* 굵기 */
+    panel.querySelectorAll('.js-edit-pb-weight').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (!_editText.editable) return;
+        const v = btn.dataset.val === 'bold' ? 'bold' : 'normal';
+        const ts = _ensurePbTextStyle();
+        ts.weight = v;
+        _queueSave(scene.num || scene.id, { textStyle: { ...ts } });
+        _flushPendingSave();
+        panel.querySelectorAll('.js-edit-pb-weight').forEach(b => b.classList.toggle('active', b === btn));
+        if (!_patchPbStyle()) _scheduleViewerFrameReRender();
+      });
     });
   }
 
@@ -3711,5 +4050,494 @@ function renderStructureMap() {
       /* 미니맵 닫기 — 이동 후 편집 화면으로 즉시 전환 */
       document.getElementById('structure-map-overlay')?.remove();
     });
+  });
+}
+
+/* ════════════════════════════════════════════════════
+   W8 Phase D-1: 다듬기 패널 탭 (시각만 — 데이터 흐름 0% 영향)
+   ─────────────────────────────────────────────────────
+   탭 헤더 클릭 시 .edit-tab-panel의 .is-on 토글.
+   모든 섹션은 DOM에 존재 (저장 흐름·input 이벤트 영향 0).
+   ════════════════════════════════════════════════════ */
+function _bindEditTabs(panel) {
+  const tabs = panel.querySelectorAll('.edit-tab');
+  if (!tabs.length) return;
+  tabs.forEach(t => {
+    t.addEventListener('click', () => {
+      const name = t.getAttribute('data-tab');
+      if (!name) return;
+      panel.querySelectorAll('.edit-tab').forEach(o => o.classList.remove('is-on'));
+      t.classList.add('is-on');
+      panel.querySelectorAll('.edit-tab-panel').forEach(p => {
+        if (p.getAttribute('data-panel') === name) p.classList.add('is-on');
+        else p.classList.remove('is-on');
+      });
+    });
+  });
+}
+
+/* ════════════════════════════════════════════════════
+   W8 Phase D-2: 모드별 탭 구성 (이름·아이콘·우선순위)
+   ─────────────────────────────────────────────────────
+   반환: [{ key, label, html(scene, ptype) }, ...]
+   첫 항목이 기본 활성 탭 — 모드별 가장 중요한 영역 먼저.
+
+   · 텍스트형: 📝 내용 → 🎨 스타일·테마·효과 → (선택지)
+   · 그림책형: 🎨 그림 → 📝 내용 → (선택지)
+   · 무비형:   🎬 영상 → 📝 내용 → (선택지)
+   · 체험전시: 🗺️ 배경·연결 → 📝 내용 → (선택지)
+
+   원칙: '내용'은 _textEditHtml, '모드'는 _typeSectionsHtml.
+   같은 함수 두 번 호출 = 같은 input element 두 벌이라 ID 충돌 위험.
+   → '내용'은 항상 _textEditHtml, '모드'는 항상 _typeSectionsHtml.
+     순서만 모드별로 다르게.
+   ════════════════════════════════════════════════════ */
+function _editTabsForMode(ptype, hasChoice) {
+  const contentTab = {
+    key: 'content',
+    label: '📝 내용',
+    html: (s, p) => _textEditHtml(s),
+  };
+  let modeTab;
+  switch (ptype) {
+    case 'picturebook':
+      modeTab = { key: 'mode', label: '🎨 그림책', html: (s, p) => _typeSectionsHtml(s, p) };
+      break;
+    case 'movie':
+      modeTab = { key: 'mode', label: '🎬 무비',   html: (s, p) => _typeSectionsHtml(s, p) };
+      break;
+    case 'experience':
+      modeTab = { key: 'mode', label: '🗺️ 체험', html: (s, p) => _typeSectionsHtml(s, p) };
+      break;
+    case 'text':
+    default:
+      modeTab = { key: 'mode', label: '🎨 스타일', html: (s, p) => _typeSectionsHtml(s, p) };
+      break;
+  }
+  /* 우선순위: 그림책/무비/체험은 모드가 핵심 → 모드 먼저. 텍스트는 내용 먼저. */
+  const tabs = (ptype === 'text')
+    ? [contentTab, modeTab]
+    : [modeTab, contentTab];
+
+  if (hasChoice) {
+    tabs.push({ key: 'choice', label: '🔘 선택지', html: null /* legacyChoiceSectionHtml로 채움 */ });
+  }
+  return tabs;
+}
+
+/* 재렌더 후 활성 탭 복원. 이전 탭이 새 구성에 없으면 그대로(첫 탭 활성). */
+function _restoreActiveTab(panel, prevKey) {
+  if (!prevKey) return;
+  const targetTab = panel.querySelector(`.edit-tab[data-tab="${prevKey}"]`);
+  if (!targetTab) return;  /* 모드 바뀜 등으로 탭이 없으면 그대로 */
+  panel.querySelectorAll('.edit-tab').forEach(t => t.classList.remove('is-on'));
+  targetTab.classList.add('is-on');
+  panel.querySelectorAll('.edit-tab-panel').forEach(p => {
+    if (p.getAttribute('data-panel') === prevKey) p.classList.add('is-on');
+    else p.classList.remove('is-on');
+  });
+}
+
+/* ════════════════════════════════════════════════════
+   W8: 그림책 글자 스타일 부분 패치
+   ─────────────────────────────────────────────────────
+   .scene-screen--pb의 CSS 변수만 갱신. 통째 재렌더 회피 (포커스/이미지 보호).
+   변수 이름: --pb-font-family / --pb-fs-body / --pb-color-override / --pb-fw-body
+   ════════════════════════════════════════════════════ */
+function _patchPbStyle() {
+  const screen = _getSceneScreen();
+  if (!screen || !screen.classList.contains('scene-screen--pb')) return false;
+  const scene = ViewerState.scenes[ViewerState.currentSceneId];
+  if (!scene) return false;
+  const style = (typeof getTextStyle === 'function') ? getTextStyle(scene) : (scene.textStyle || {});
+  const fontMap = (typeof TEXT_FONT_FAMILIES === 'object') ? TEXT_FONT_FAMILIES : {};
+  if (style.fontFamily && fontMap[style.fontFamily]) {
+    screen.style.setProperty('--pb-font-family', fontMap[style.fontFamily]);
+  }
+  if (typeof style.fontSize === 'number') {
+    screen.style.setProperty('--pb-fs-body', style.fontSize + 'px');
+  }
+  if (style.color) {
+    screen.style.setProperty('--pb-color-override', style.color);
+  } else {
+    screen.style.removeProperty('--pb-color-override');
+  }
+  if (style.weight === 'bold') {
+    screen.style.setProperty('--pb-fw-body', '700');
+  } else {
+    screen.style.setProperty('--pb-fw-body', '400');
+  }
+  return true;
+}
+
+/* ════════════════════════════════════════════════════
+   W8 Phase: 바로 그리기 모달
+   ─────────────────────────────────────────────────────
+   캔버스에 직접 그려서 scene.imageData 저장.
+   기능: 펜(굵기·색) / 지우개 / 전체 지우기 / Undo / 저장 / 취소
+   터치 + 마우스 + 펜 모두 지원 (Pointer Events).
+
+   비율: A4 가로 (1600 × 1200) 기본. 충분한 해상도.
+   여백·색 팔레트는 시안 따뜻한 톤.
+   ════════════════════════════════════════════════════ */
+function _openPbDrawModal(scene) {
+  /* 이미 열려있으면 무시 */
+  if (document.getElementById('pb-draw-modal')) return;
+
+  /* W8: picturebookSubmode 따라 캔버스 비율 결정.
+     · 분할형: 2.376:1 (그림 영역)
+     · 그림 중심형: 2.2:1 — viewer 그림 영역 가까이 + 모달 wrap 영역 채움 */
+  const submode = scene.picturebookSubmode === 'imageCenter' ? 'imageCenter' : 'split';
+  let canvasW, canvasH;
+  if (submode === 'imageCenter') {
+    canvasW = 2200; canvasH = 1000;   /* 2.2:1 가로 와이드 */
+  } else {
+    canvasW = 1800; canvasH = Math.round(1800 / 2.376);   /* ≈ 758 — 분할형 그림 영역 */
+  }
+
+  /* 색 팔레트 — 따뜻한 톤 8색 */
+  const COLORS = [
+    '#2b1f10',   /* 검정(잉크) */
+    '#c66f4a',   /* 코랄 */
+    '#c79550',   /* 골드 */
+    '#5a8a4a',   /* sage */
+    '#5a92c2',   /* sky */
+    '#9b6dca',   /* 보라 */
+    '#c0413e',   /* 빨강 */
+    '#666666',   /* 회색 */
+  ];
+  const SIZES = [
+    { id: 'thin',  label: '얇게', px: 2 },
+    { id: 'med',   label: '보통', px: 5 },
+    { id: 'thick', label: '굵게', px: 10 },
+    { id: 'xl',    label: '크게', px: 18 },
+  ];
+
+  /* 기존 이미지 있으면 — 안내 후 배경으로 깔기 (사용자 요청: 덮어쓰기 자연) */
+  const hasExistingImage = !!scene.imageData;
+
+  /* 모달 마크업 */
+  const modal = document.createElement('div');
+  modal.id = 'pb-draw-modal';
+  modal.className = 'pb-draw-modal';
+  modal.innerHTML = `
+    <div class="pb-draw-backdrop"></div>
+    <div class="pb-draw-dialog" data-submode="${submode}">
+      <div class="pb-draw-header">
+        <h3 class="pb-draw-title">✏️ 바로 그리기 <span class="pb-draw-submode-hint">${submode === 'imageCenter' ? '(그림 중심형)' : '(분할형)'}</span></h3>
+        <button type="button" class="pb-draw-close js-pb-draw-cancel" title="취소">✕</button>
+      </div>
+
+      <div class="pb-draw-toolbar">
+        <!-- 도구: 펜 / 지우개 -->
+        <div class="pb-draw-tools">
+          <button type="button" class="pb-draw-tool js-pb-draw-tool is-on" data-tool="pen">✏️ 펜</button>
+          <button type="button" class="pb-draw-tool js-pb-draw-tool" data-tool="eraser">🧽 지우개</button>
+        </div>
+
+        <!-- 색 -->
+        <div class="pb-draw-section">
+          <span class="pb-draw-section-label">색</span>
+          <div class="pb-draw-colors">
+            ${COLORS.map((c, i) => `
+              <button type="button" class="pb-draw-color js-pb-draw-color${i===0?' is-on':''}"
+                data-color="${c}" style="background:${c};" title="${c}"></button>
+            `).join('')}
+          </div>
+        </div>
+
+        <!-- 굵기 -->
+        <div class="pb-draw-section">
+          <span class="pb-draw-section-label">굵기</span>
+          <div class="pb-draw-sizes">
+            ${SIZES.map((s, i) => `
+              <button type="button" class="pb-draw-size js-pb-draw-size${i===1?' is-on':''}"
+                data-size="${s.px}" title="${s.label}">
+                <span class="pb-draw-size-dot" style="width:${s.px}px;height:${s.px}px;"></span>
+              </button>
+            `).join('')}
+          </div>
+        </div>
+
+        <!-- 펜 압력 (태블릿 펜) -->
+        <div class="pb-draw-section">
+          <label class="pb-draw-pressure-label">
+            <input type="checkbox" class="js-pb-draw-pressure" checked>
+            <span>펜 압력</span>
+          </label>
+        </div>
+
+        <!-- 액션 -->
+        <div class="pb-draw-actions">
+          <button type="button" class="pb-draw-action js-pb-draw-undo" title="되돌리기 (Ctrl+Z)">↶ 되돌리기</button>
+          <button type="button" class="pb-draw-action js-pb-draw-redo" title="다시 실행 (Ctrl+Shift+Z)">↷ 다시</button>
+          <button type="button" class="pb-draw-action js-pb-draw-clear" title="전체 지우기">🗑 전체 지우기</button>
+        </div>
+      </div>
+
+      <!-- 캔버스 영역 -->
+      <div class="pb-draw-canvas-wrap">
+        <canvas id="pb-draw-canvas" width="${canvasW}" height="${canvasH}"
+          style="aspect-ratio: ${canvasW} / ${canvasH}; touch-action: none; cursor: crosshair;"></canvas>
+      </div>
+
+      <!-- 푸터 -->
+      <div class="pb-draw-footer">
+        <div class="pb-draw-footer-hint">
+          ${hasExistingImage ? '⚠ 기존 그림 위에 그리고 있어요. 저장하면 새 그림으로 바뀝니다.' : ''}
+        </div>
+        <div class="pb-draw-footer-btns">
+          <button type="button" class="pb-draw-cancel js-pb-draw-cancel">취소</button>
+          <button type="button" class="pb-draw-save js-pb-draw-save">💾 저장하기</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+
+  /* ─── 캔버스 초기화 ─── */
+  const canvas = modal.querySelector('#pb-draw-canvas');
+  const ctx = canvas.getContext('2d');
+  /* 흰 배경으로 시작 */
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  /* W8: 캔버스 display 크기 동적 계산 — wrap 영역 안에서 비율 유지하며 최대 크기.
+     사용자 보고: "그림 중심형 그림판 꽉 안 차는데?" → wrap의 가로/세로에 맞춰 캔버스 채움. */
+  const canvasWrap = modal.querySelector('.pb-draw-canvas-wrap');
+  function _resizeCanvasDisplay() {
+    if (!canvasWrap || !canvas) return;
+    const wrapRect = canvasWrap.getBoundingClientRect();
+    /* padding 16px 양쪽 = 32px */
+    const availW = wrapRect.width - 32;
+    const availH = wrapRect.height - 32;
+    if (availW <= 0 || availH <= 0) return;
+    const ratio = canvas.width / canvas.height;   /* 모드별 비율 (split 2.376, imageCenter 1.414) */
+    let dispW, dispH;
+    if (availW / availH > ratio) {
+      /* wrap이 비율보다 가로로 길어 → 세로 기준 */
+      dispH = availH;
+      dispW = availH * ratio;
+    } else {
+      /* wrap이 비율보다 세로로 길어 → 가로 기준 */
+      dispW = availW;
+      dispH = availW / ratio;
+    }
+    canvas.style.width  = dispW + 'px';
+    canvas.style.height = dispH + 'px';
+  }
+  /* 초기 + 창 크기 변경 시 */
+  requestAnimationFrame(_resizeCanvasDisplay);
+  window.addEventListener('resize', _resizeCanvasDisplay);
+
+  /* 기존 이미지 있으면 배경으로 깔기 (자연 흐름 — 사용자 요청) */
+  if (hasExistingImage) {
+    const img = new Image();
+    img.onload = () => {
+      /* contain 방식으로 캔버스 가운데 fit */
+      const cw = canvas.width, ch = canvas.height;
+      const iw = img.width, ih = img.height;
+      const scale = Math.min(cw / iw, ch / ih);
+      const dw = iw * scale, dh = ih * scale;
+      const dx = (cw - dw) / 2, dy = (ch - dh) / 2;
+      ctx.drawImage(img, dx, dy, dw, dh);
+      /* 배경 깔기 후 다시 snapshot (history 초기 상태 갱신) */
+      try {
+        state.history = [];
+        state.future = [];
+        state.history.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+      } catch (_) {}
+    };
+    img.onerror = () => { /* fail silently */ };
+    img.src = scene.imageData;
+  }
+
+  /* 그리기 상태 */
+  const state = {
+    tool: 'pen',
+    color: COLORS[0],
+    size: 5,
+    drawing: false,
+    pressure: true,   /* 펜 압력 사용 (기본 ON) */
+    history: [],      /* undo용 — stroke 전 스냅샷 */
+    future: [],       /* redo용 — undo 시 옮김 */
+    lastX: 0, lastY: 0,
+  };
+
+  /* 첫 스냅샷 */
+  function _snapshot() {
+    try {
+      state.history.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+      if (state.history.length > 30) state.history.shift();
+      state.future = [];   /* 새 stroke 시 redo 스택 리셋 */
+    } catch (e) { /* 일부 환경 실패 가능 */ }
+  }
+  _snapshot();
+
+  /* 캔버스 좌표 변환 */
+  function _pos(e) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width  / rect.width;
+    const scaleY = canvas.height / rect.height;
+    return {
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top)  * scaleY,
+    };
+  }
+
+  /* 압력 기반 굵기 — pointer.pressure는 0~1, 0이면 일반 마우스 */
+  function _strokeSize(e) {
+    if (!state.pressure || !e.pressure || e.pressure === 0 || e.pressure === 0.5) {
+      /* 압력 없거나 OFF면 고정 size */
+      return state.size;
+    }
+    /* 압력 0~1 → size의 0.3배~1.3배 */
+    return state.size * (0.3 + e.pressure);
+  }
+
+  /* 그리기 이벤트 (Pointer Events) */
+  function _onPointerDown(e) {
+    if (!e.isPrimary) return;
+    e.preventDefault();
+    canvas.setPointerCapture(e.pointerId);
+    _snapshot();
+    const p = _pos(e);
+    state.drawing = true;
+    state.lastX = p.x;
+    state.lastY = p.y;
+    /* 점 하나 (탭) */
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, _strokeSize(e) / 2, 0, Math.PI * 2);
+    ctx.fillStyle = state.tool === 'eraser' ? '#ffffff' : state.color;
+    ctx.fill();
+  }
+  function _onPointerMove(e) {
+    if (!state.drawing || !e.isPrimary) return;
+    const p = _pos(e);
+    ctx.beginPath();
+    ctx.moveTo(state.lastX, state.lastY);
+    ctx.lineTo(p.x, p.y);
+    ctx.lineWidth = _strokeSize(e);
+    ctx.strokeStyle = state.tool === 'eraser' ? '#ffffff' : state.color;
+    ctx.stroke();
+    state.lastX = p.x;
+    state.lastY = p.y;
+  }
+  function _onPointerUp(e) {
+    state.drawing = false;
+    try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
+  }
+
+  canvas.addEventListener('pointerdown', _onPointerDown);
+  canvas.addEventListener('pointermove', _onPointerMove);
+  canvas.addEventListener('pointerup', _onPointerUp);
+  canvas.addEventListener('pointercancel', _onPointerUp);
+
+  /* ─── 툴바 핸들러 ─── */
+  modal.querySelectorAll('.js-pb-draw-tool').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.tool = btn.dataset.tool || 'pen';
+      modal.querySelectorAll('.js-pb-draw-tool').forEach(b =>
+        b.classList.toggle('is-on', b === btn));
+      canvas.style.cursor = state.tool === 'eraser' ? 'grab' : 'crosshair';
+    });
+  });
+  modal.querySelectorAll('.js-pb-draw-color').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.color = btn.dataset.color || '#2b1f10';
+      state.tool = 'pen';
+      modal.querySelectorAll('.js-pb-draw-color').forEach(b =>
+        b.classList.toggle('is-on', b === btn));
+      modal.querySelectorAll('.js-pb-draw-tool').forEach(b =>
+        b.classList.toggle('is-on', b.dataset.tool === 'pen'));
+      canvas.style.cursor = 'crosshair';
+    });
+  });
+  modal.querySelectorAll('.js-pb-draw-size').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.size = parseInt(btn.dataset.size, 10) || 5;
+      modal.querySelectorAll('.js-pb-draw-size').forEach(b =>
+        b.classList.toggle('is-on', b === btn));
+    });
+  });
+  modal.querySelector('.js-pb-draw-pressure')?.addEventListener('change', e => {
+    state.pressure = !!e.target.checked;
+  });
+  /* 되돌리기 */
+  modal.querySelector('.js-pb-draw-undo')?.addEventListener('click', _undo);
+  /* 다시 실행 */
+  modal.querySelector('.js-pb-draw-redo')?.addEventListener('click', _redo);
+  /* 전체 지우기 */
+  modal.querySelector('.js-pb-draw-clear')?.addEventListener('click', () => {
+    if (!confirm('지금까지 그린 그림이 모두 지워집니다. 계속할까요?')) return;
+    _snapshot();
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  });
+
+  function _undo() {
+    if (state.history.length <= 1) return;
+    const cur = state.history.pop();
+    state.future.push(cur);
+    if (state.future.length > 30) state.future.shift();
+    const prev = state.history[state.history.length - 1];
+    if (prev) ctx.putImageData(prev, 0, 0);
+  }
+  function _redo() {
+    if (!state.future.length) return;
+    const next = state.future.pop();
+    state.history.push(next);
+    if (state.history.length > 30) state.history.shift();
+    ctx.putImageData(next, 0, 0);
+  }
+
+  /* 키보드 단축키 — Ctrl+Z / Ctrl+Shift+Z */
+  function _onKey(e) {
+    if (!document.getElementById('pb-draw-modal')) return;   /* 모달 닫힘 */
+    if (e.ctrlKey || e.metaKey) {
+      if (e.key === 'z' && !e.shiftKey) { e.preventDefault(); _undo(); }
+      else if (e.key === 'z' && e.shiftKey) { e.preventDefault(); _redo(); }
+      else if (e.key === 'y') { e.preventDefault(); _redo(); }
+    }
+  }
+  document.addEventListener('keydown', _onKey);
+
+  /* ─── 모달 닫기 / 저장 ─── */
+  function _close() {
+    document.removeEventListener('keydown', _onKey);
+    window.removeEventListener('resize', _resizeCanvasDisplay);
+    modal.remove();
+  }
+  modal.querySelectorAll('.js-pb-draw-cancel').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (state.history.length > 1) {
+        if (!confirm('그린 그림이 저장되지 않습니다. 취소할까요?')) return;
+      }
+      _close();
+    });
+  });
+  modal.querySelector('.pb-draw-backdrop')?.addEventListener('click', () => {
+    if (state.history.length > 1) {
+      if (!confirm('그린 그림이 저장되지 않습니다. 취소할까요?')) return;
+    }
+    _close();
+  });
+
+  /* 저장 — 캔버스 → data URL → scene.imageData. 기존 이미지 있으면 한 번 더 확인 */
+  modal.querySelector('.js-pb-draw-save')?.addEventListener('click', () => {
+    try {
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      scene.imageData = dataUrl;
+      if (typeof _queueSave === 'function') {
+        _queueSave(scene.num || scene.id, { imageData: dataUrl });
+        if (typeof _flushPendingSave === 'function') _flushPendingSave();
+      }
+      renderEditPanel();
+      _scheduleViewerFrameReRender();
+      _close();
+    } catch (err) {
+      alert(`저장 실패: ${err.message || err}`);
+    }
   });
 }

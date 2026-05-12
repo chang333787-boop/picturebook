@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>브랜치 화면 시안 — 가지 branch</title>
+<link href="https://fonts.googleapis.com/css2?family=Jua&family=Nanum+Gothic:wght@400;700&family=Nanum+Pen+Script&display=swap" rel="stylesheet"/>
+<style>
+  /* ────────── 토큰 ────────── */
+  :root {
+    --paper: #fbf6ea;
+    --paper-2: #f4ecd8;
+    --paper-3: #ebe0c6;
+    --cream: #fffaee;
+    --ink: #2b1f10;
+    --ink-2: #4a3820;
+    --ink-3: #6b5638;
+    --pencil: #9a8868;
+    --line: rgba(80,50,20,0.10);
+    --line-2: rgba(80,50,20,0.18);
+    --coral: #c66f4a;
+    --sky: #5a92c2;
+    --sage: #5a8a4a;
+    --gold: #c79550;
+    --lilac: #b87bd6;
+    --shadow-1: 0 1px 2px rgba(120,90,50,0.06), 0 2px 6px rgba(120,90,50,0.06);
+    --shadow-2: 0 4px 12px rgba(120,90,50,0.10), 0 12px 28px rgba(120,90,50,0.10);
+    --font-ui: 'Jua', sans-serif;
+    --font-b: 'Nanum Gothic', sans-serif;
+    --font-hand: 'Nanum Pen Script', cursive;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: var(--font-b);
+    background: #2b1f10;
+    color: var(--ink);
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .doc-title {
+    font-family: var(--font-ui);
+    color: var(--cream);
+    text-align: center;
+    margin-bottom: 8px;
+    font-size: 22px;
+  }
+  .doc-sub {
+    color: var(--paper-3);
+    text-align: center;
+    font-size: 13px;
+    margin-bottom: 24px;
+    font-family: var(--font-hand);
+  }
+
+  /* ────────── 메인 mockup frame ────────── */
+  .mockup {
+    background: var(--paper);
+    border-radius: 14px;
+    overflow: hidden;
+    max-width: 1280px;
+    margin: 0 auto 32px;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.4);
+  }
+
+  /* ───── 상단 바 ───── */
+  .topbar {
+    background: var(--cream);
+    border-bottom: 1px solid var(--line);
+    padding: 10px 18px;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 16px;
+  }
+  .topbar-left {
+    display: flex; align-items: center; gap: 10px; min-width: 0;
+  }
+  .back-btn {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    background: var(--paper-2);
+    border: 1px solid var(--line);
+    display: grid; place-items: center;
+    color: var(--ink-2);
+    font-size: 16px;
+  }
+  .project-info {
+    display: flex; flex-direction: column; min-width: 0;
+  }
+  .project-title {
+    font-family: var(--font-ui); font-size: 16px; color: var(--ink);
+  }
+  .project-meta {
+    font-size: 11px; color: var(--ink-3);
+    display: flex; gap: 6px; align-items: center;
+  }
+  .mode-badge {
+    font-family: var(--font-ui); font-size: 10px;
+    padding: 2px 8px; border-radius: 999px;
+    background: color-mix(in oklch, var(--coral) 14%, var(--cream));
+    color: oklch(0.42 0.12 35);
+    border: 1px solid color-mix(in oklch, var(--coral) 30%, transparent);
+  }
+  .saved-dot::before { content: '●'; color: var(--sage); font-size: 8px; margin-right: 3px; }
+
+  .topbar-center {
+    display: flex; align-items: center;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 4px;
+    gap: 2px;
+    box-shadow: var(--shadow-1);
+  }
+  .tb-action {
+    font-family: var(--font-ui); font-size: 13px;
+    height: 34px; padding: 0 18px;
+    border-radius: 999px;
+    background: transparent;
+    border: none;
+    color: var(--ink-2);
+    display: inline-flex; align-items: center; gap: 6px;
+    cursor: pointer;
+  }
+  .tb-action--primary {
+    background: var(--coral);
+    color: var(--cream);
+    padding: 0 22px;
+    box-shadow: 0 1px 2px rgba(120,90,50,0.10), 0 4px 12px rgba(198,111,74,0.24);
+  }
+  .tb-action--active { background: var(--ink); color: var(--cream); }
+
+  .topbar-right {
+    display: flex; align-items: center; justify-content: flex-end; gap: 6px;
+  }
+  .tool-btn {
+    width: 34px; height: 34px;
+    border-radius: 10px;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--ink-2);
+    cursor: pointer;
+    display: grid; place-items: center;
+    font-size: 14px;
+  }
+  .tool-btn.is-on { background: var(--paper-2); border-color: var(--line-2); color: var(--ink); }
+  .toggle-pill {
+    display: inline-flex; padding: 3px;
+    background: var(--paper-2); border: 1px solid var(--line);
+    border-radius: 999px;
+    margin: 0 4px;
+  }
+  .toggle-pill-item {
+    font-family: var(--font-ui); font-size: 11px;
+    padding: 4px 12px;
+    border-radius: 999px;
+    color: var(--ink-3);
+    cursor: pointer;
+  }
+  .toggle-pill-item.is-on { background: var(--cream); color: var(--ink); box-shadow: var(--shadow-1); }
+  .share-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    height: 34px;
+    padding: 0 14px;
+    border-radius: 999px;
+    background: var(--paper-2);
+    border: 1px solid var(--line);
+    color: var(--ink-2);
+    font-family: var(--font-ui); font-size: 12px;
+    cursor: pointer;
+  }
+
+  /* ───── 본문 3분할 ───── */
+  .body {
+    display: grid;
+    grid-template-columns: 230px 1fr 320px;
+    min-height: 600px;
+  }
+
+  /* 좌측 사이드 */
+  .side {
+    background: var(--paper-2);
+    border-right: 1px solid var(--line);
+    display: flex; flex-direction: column;
+  }
+  .side-head {
+    padding: 14px 16px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--line);
+  }
+  .side-title {
+    font-family: var(--font-ui); font-size: 13px; color: var(--ink-2);
+  }
+  .side-add {
+    font-family: var(--font-ui); font-size: 11px;
+    padding: 4px 10px;
+    background: color-mix(in oklch, var(--coral) 14%, var(--cream));
+    color: var(--coral);
+    border: 1px solid color-mix(in oklch, var(--coral) 30%, transparent);
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .side-list {
+    padding: 8px;
+    overflow-y: auto;
+    flex: 1;
+  }
+  .side-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    margin-bottom: 2px;
+  }
+  .side-item:hover { background: var(--paper-3); }
+  .side-item.is-current {
+    background: var(--cream);
+    border: 1px solid color-mix(in oklch, var(--coral) 35%, transparent);
+  }
+  .side-dot {
+    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+    background: var(--pencil);
+  }
+  .side-dot--entry { background: var(--sage); box-shadow: 0 0 0 3px color-mix(in oklch, var(--sage) 24%, transparent); }
+  .side-dot--end { background: var(--coral); }
+  .side-num {
+    font-family: monospace; font-size: 11px; color: var(--pencil);
+    flex-shrink: 0; width: 18px;
+  }
+  .side-name {
+    flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .side-badge {
+    font-family: var(--font-ui); font-size: 9px;
+    padding: 2px 6px; border-radius: 999px;
+    flex-shrink: 0;
+  }
+  .side-badge--entry { background: color-mix(in oklch, var(--sage) 14%, var(--cream)); color: var(--sage); border: 1px solid color-mix(in oklch, var(--sage) 30%, transparent); }
+  .side-badge--end { background: color-mix(in oklch, var(--coral) 14%, var(--cream)); color: var(--coral); border: 1px solid color-mix(in oklch, var(--coral) 30%, transparent); }
+
+  /* 중앙 캔버스 */
+  .canvas {
+    position: relative;
+    background:
+      radial-gradient(circle at 1px 1px, rgba(80,50,20,0.06) 1px, transparent 0),
+      var(--paper);
+    background-size: 22px 22px;
+    padding: 36px 24px;
+    overflow: hidden;
+  }
+  .canvas-hint {
+    position: absolute;
+    bottom: 18px; left: 50%; transform: translateX(-50%);
+    font-family: var(--font-hand);
+    font-size: 18px;
+    color: var(--ink-3);
+  }
+
+  /* ───── 장면 카드 (요약형) ───── */
+  .card-grid {
+    display: flex; align-items: flex-start; gap: 28px; position: relative;
+  }
+  .card {
+    width: 200px;
+    background: var(--cream);
+    border: 1.5px solid var(--line);
+    border-radius: 14px;
+    box-shadow: var(--shadow-1);
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+  .card.is-selected {
+    border: 2px solid var(--coral);
+    box-shadow: 0 0 0 3px rgba(198,111,74,0.12), var(--shadow-2);
+  }
+  .card.is-entry {
+    border: 2.5px solid var(--sage);
+    box-shadow: 0 0 0 3px rgba(90,138,74,0.10), var(--shadow-1);
+  }
+  .card.is-ending {
+    background: color-mix(in oklch, var(--coral) 5%, var(--cream));
+    border-color: color-mix(in oklch, var(--coral) 28%, transparent);
+  }
+  .card-head {
+    padding: 8px 12px;
+    display: flex; justify-content: space-between; align-items: center;
+    border-bottom: 1px solid var(--line);
+  }
+  .card-role-badge {
+    font-family: var(--font-ui); font-size: 10px;
+    padding: 2px 8px; border-radius: 999px;
+  }
+  .role-badge--start { background: color-mix(in oklch, var(--sage) 14%, var(--cream)); color: var(--sage); }
+  .role-badge--scene { background: var(--paper-2); color: var(--ink-3); }
+  .role-badge--ending { background: color-mix(in oklch, var(--coral) 14%, var(--cream)); color: var(--coral); }
+  .card-num { font-family: monospace; font-size: 11px; color: var(--pencil); }
+  .card-thumb {
+    height: 80px;
+    background:
+      repeating-linear-gradient(135deg, rgba(80,50,20,0.05) 0 8px, rgba(80,50,20,0.03) 8px 16px);
+    display: grid; place-items: center;
+    color: var(--ink-3);
+    font-family: monospace; font-size: 10px;
+    margin: 10px 12px 0;
+    border-radius: 8px;
+  }
+  .card-body {
+    padding: 10px 12px 12px;
+    font-size: 12px;
+    color: var(--ink);
+    line-height: 1.5;
+  }
+  .card-title {
+    font-family: var(--font-ui);
+    font-size: 14px;
+    margin-bottom: 4px;
+  }
+  .card-excerpt {
+    color: var(--ink-2);
+    font-size: 11px;
+    line-height: 1.55;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    margin-bottom: 8px;
+  }
+  .card-choices {
+    border-top: 1px dashed var(--line);
+    padding-top: 8px;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .card-choice {
+    font-family: var(--font-ui); font-size: 11px;
+    color: var(--ink-2);
+    padding: 3px 8px;
+    background: var(--paper-2);
+    border-radius: 6px;
+  }
+
+  /* 우측 다듬기 패널 */
+  .inspect {
+    background: var(--cream);
+    border-left: 1px solid var(--line);
+    display: flex; flex-direction: column;
+    overflow-y: auto;
+  }
+  .inspect-head {
+    padding: 14px 16px;
+    display: flex; justify-content: space-between; align-items: center;
+    border-bottom: 1px solid var(--line);
+  }
+  .inspect-title {
+    font-family: var(--font-ui); font-size: 14px; color: var(--ink);
+  }
+  .inspect-close {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: transparent; border: none;
+    color: var(--ink-3); cursor: pointer;
+    font-size: 14px;
+  }
+  .inspect-tabs {
+    display: flex;
+    padding: 4px;
+    margin: 12px 16px;
+    background: var(--paper-2);
+    border-radius: 10px;
+    gap: 2px;
+  }
+  .inspect-tab {
+    flex: 1;
+    font-family: var(--font-ui); font-size: 12px;
+    padding: 6px 0;
+    background: transparent;
+    border: none;
+    border-radius: 7px;
+    color: var(--ink-3);
+    cursor: pointer;
+  }
+  .inspect-tab.is-on {
+    background: var(--cream);
+    color: var(--ink);
+    box-shadow: var(--shadow-1);
+  }
+  .inspect-body { padding: 0 16px 16px; }
+  .field { margin-bottom: 14px; }
+  .field-label {
+    font-family: var(--font-ui); font-size: 11px; color: var(--ink-3);
+    margin-bottom: 5px;
+    letter-spacing: 0.03em;
+    display: flex; justify-content: space-between;
+  }
+  .field-input {
+    width: 100%; padding: 9px 12px;
+    background: var(--paper);
+    border: 1.5px solid var(--line-2);
+    border-radius: 10px;
+    font-family: var(--font-b); font-size: 13px;
+    color: var(--ink);
+  }
+  .field-ta {
+    width: 100%; padding: 9px 12px;
+    background: var(--paper);
+    border: 1.5px solid var(--line-2);
+    border-radius: 10px;
+    font-family: var(--font-b); font-size: 13px;
+    color: var(--ink);
+    min-height: 70px;
+    resize: vertical;
+  }
+  .field-seg {
+    display: flex; padding: 3px;
+    background: var(--paper-2);
+    border-radius: 10px;
+    border: 1px solid var(--line);
+  }
+  .field-seg-item {
+    flex: 1;
+    font-family: var(--font-ui); font-size: 11px;
+    padding: 6px 0;
+    background: transparent; border: none;
+    border-radius: 7px;
+    color: var(--ink-3);
+    cursor: pointer;
+  }
+  .field-seg-item.is-on {
+    background: var(--cream); color: var(--ink); box-shadow: var(--shadow-1);
+  }
+  .field-slider {
+    width: 100%; accent-color: var(--coral);
+  }
+  .save-btn {
+    width: 100%; padding: 12px;
+    background: var(--coral); color: var(--cream);
+    border: none; border-radius: 999px;
+    font-family: var(--font-ui); font-size: 14px;
+    cursor: pointer;
+    margin-top: 8px;
+    box-shadow: 0 1px 2px rgba(120,90,50,0.10), 0 4px 12px rgba(198,111,74,0.24);
+  }
+
+  /* ────────── 4모드 카드 비교 섹션 ────────── */
+  .modes-compare {
+    max-width: 1280px;
+    margin: 32px auto 0;
+    background: var(--paper);
+    border-radius: 14px;
+    padding: 28px;
+  }
+  .modes-title {
+    font-family: var(--font-ui); font-size: 18px; color: var(--ink);
+    margin-bottom: 4px; text-align: center;
+  }
+  .modes-sub {
+    text-align: center; font-size: 12px; color: var(--ink-3);
+    margin-bottom: 24px;
+  }
+  .modes-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 18px;
+  }
+  .mode-cell {
+    background: var(--cream);
+    border-radius: 14px;
+    padding: 16px;
+    border: 1px solid var(--line);
+  }
+  .mode-cell-title {
+    font-family: var(--font-ui); font-size: 14px;
+    margin-bottom: 8px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .mode-cell-desc {
+    font-size: 11px; color: var(--ink-3);
+    margin-bottom: 14px; line-height: 1.55;
+  }
+
+  /* 모드별 카드 변형 (요약형) */
+  .card--text .card-thumb { display: none; }
+  .card--text .card-excerpt { -webkit-line-clamp: 4; font-size: 12px; }
+
+  .card--pb .card-thumb { height: 100px; }
+
+  .card--movie .card-thumb {
+    background: #1a1d24;
+    color: #ffd76b;
+  }
+  .card--movie .card-thumb::after {
+    content: '🎬';
+    font-size: 24px;
+  }
+  .card--movie .card-thumb-text {
+    position: absolute;
+  }
+
+  .card--exp .card-thumb {
+    background:
+      radial-gradient(circle at 50% 50%, rgba(217,165,80,0.20) 0%, rgba(120,90,50,0.04) 100%),
+      var(--paper-2);
+    position: relative;
+  }
+  .card--exp .exp-hotspot {
+    position: absolute;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--gold);
+    box-shadow: 0 0 0 3px rgba(199,149,80,0.30);
+  }
+
+  /* SVG 화살표 — 카드 사이 연결 */
+  .canvas-svg {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+  .canvas-svg path {
+    stroke: var(--line-2);
+    stroke-width: 2;
+    fill: none;
+  }
+
+  /* 설명 라벨 */
+  .annotation {
+    position: absolute;
+    font-family: var(--font-hand);
+    color: var(--coral);
+    font-size: 14px;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+
+<h1 class="doc-title">브랜치 화면 시안 (Warm Paper)</h1>
+<p class="doc-sub">ㅡ 사용자가 직관적·편하게 작업하는 화면 구성 ㅡ</p>
+
+<!-- ════════════════════════════════════════════════
+     ① 메인 mockup — 텍스트형 작품 기준
+     ════════════════════════════════════════════════ -->
+<div class="mockup">
+
+  <!-- 상단 바 -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <button class="back-btn">←</button>
+      <div class="project-info">
+        <div class="project-title">우주 정원의 비밀</div>
+        <div class="project-meta">
+          <span class="mode-badge">텍스트형</span>
+          <span>5학년 2반 · 별빛모둠</span>
+          <span class="saved-dot">자동 저장됨</span>
+        </div>
+      </div>
+    </div>
+    <div class="topbar-center">
+      <button class="tb-action tb-action--primary">＋ 장면 추가</button>
+      <button class="tb-action">▷ 감상 테스트</button>
+      <button class="tb-action tb-action--active">✎ 다듬기</button>
+    </div>
+    <div class="topbar-right">
+      <button class="tool-btn">↶</button>
+      <button class="tool-btn">↷</button>
+      <div class="toggle-pill">
+        <span class="toggle-pill-item is-on">캔버스</span>
+        <span class="toggle-pill-item">미리보기</span>
+      </div>
+      <button class="share-btn">↗ 공유</button>
+      <button class="tool-btn">⋮</button>
+    </div>
+  </div>
+
+  <!-- 본문 3분할 -->
+  <div class="body">
+
+    <!-- 좌측: 장면 목록 -->
+    <div class="side">
+      <div class="side-head">
+        <div class="side-title">장면 6개</div>
+        <button class="side-add">＋ 새 장면</button>
+      </div>
+      <div class="side-list">
+        <div class="side-item">
+          <span class="side-dot side-dot--entry"></span>
+          <span class="side-num">01</span>
+          <span class="side-name">첫 등장</span>
+          <span class="side-badge side-badge--entry">시작</span>
+        </div>
+        <div class="side-item is-current">
+          <span class="side-dot"></span>
+          <span class="side-num">02</span>
+          <span class="side-name">우주 정원에서</span>
+        </div>
+        <div class="side-item">
+          <span class="side-dot"></span>
+          <span class="side-num">03</span>
+          <span class="side-name">갈림길</span>
+        </div>
+        <div class="side-item">
+          <span class="side-dot side-dot--end"></span>
+          <span class="side-num">04</span>
+          <span class="side-name">따뜻한 결말</span>
+          <span class="side-badge side-badge--end">엔딩</span>
+        </div>
+        <div class="side-item">
+          <span class="side-dot side-dot--end"></span>
+          <span class="side-num">05</span>
+          <span class="side-name">차가운 결말</span>
+          <span class="side-badge side-badge--end">엔딩</span>
+        </div>
+        <div class="side-item">
+          <span class="side-dot side-dot--end"></span>
+          <span class="side-num">06</span>
+          <span class="side-name">진엔딩 — 다시 만…</span>
+          <span class="side-badge side-badge--end">엔딩</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 중앙: 캔버스 -->
+    <div class="canvas">
+      <svg class="canvas-svg" viewBox="0 0 720 540">
+        <path d="M 220 220 C 260 220, 280 280, 320 280"/>
+        <path d="M 520 280 C 560 280, 580 220, 620 220"/>
+      </svg>
+      <div class="card-grid">
+
+        <!-- 카드 1: 시작점 -->
+        <div class="card is-entry">
+          <div class="card-head">
+            <span class="card-role-badge role-badge--start">🚪 시작</span>
+            <span class="card-num">01</span>
+          </div>
+          <div class="card-thumb">배경 이미지</div>
+          <div class="card-body">
+            <div class="card-title">첫 등장</div>
+            <div class="card-excerpt">아침 햇살이 우주 정원에 스며들었다…</div>
+            <div class="card-choices">
+              <span class="card-choice">→ 정원으로 02</span>
+              <span class="card-choice">→ 도시로 03</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 카드 2: 선택됨 -->
+        <div class="card is-selected">
+          <div class="card-head">
+            <span class="card-role-badge role-badge--scene">장면</span>
+            <span class="card-num">02</span>
+          </div>
+          <div class="card-thumb">장면 이미지</div>
+          <div class="card-body">
+            <div class="card-title">우주 정원에서</div>
+            <div class="card-excerpt">반짝이는 식물이 가지를 뻗고 친구는 멈춰서 손을 내밀었다.</div>
+            <div class="card-choices">
+              <span class="card-choice">→ 갈림길 03</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 카드 3: 엔딩 -->
+        <div class="card is-ending">
+          <div class="card-head">
+            <span class="card-role-badge role-badge--ending">🏁 엔딩</span>
+            <span class="card-num">04</span>
+          </div>
+          <div class="card-body" style="padding-top:16px;">
+            <div class="card-title">따뜻한 결말</div>
+            <div class="card-excerpt">정원지기는 다시 미소 지었다.</div>
+          </div>
+        </div>
+
+      </div>
+      <div class="canvas-hint">캔버스를 드래그해서 둘러봐요</div>
+    </div>
+
+    <!-- 우측: 다듬기 패널 -->
+    <div class="inspect">
+      <div class="inspect-head">
+        <div class="inspect-title">장면 02 다듬기</div>
+        <button class="inspect-close">✕</button>
+      </div>
+      <div class="inspect-tabs">
+        <button class="inspect-tab is-on">내용</button>
+        <button class="inspect-tab">배경</button>
+        <button class="inspect-tab">선택지</button>
+      </div>
+      <div class="inspect-body">
+        <div class="field">
+          <div class="field-label"><span>장면 제목</span></div>
+          <input class="field-input" value="우주 정원에서"/>
+        </div>
+        <div class="field">
+          <div class="field-label"><span>본문</span></div>
+          <textarea class="field-ta">반짝이는 식물이 가지를 뻗고
+친구는 멈춰서 손을 내밀었다.</textarea>
+        </div>
+        <div class="field">
+          <div class="field-label"><span>본문 길이감</span></div>
+          <div class="field-seg">
+            <button class="field-seg-item">짧게</button>
+            <button class="field-seg-item is-on">보통</button>
+            <button class="field-seg-item">길게</button>
+          </div>
+        </div>
+        <div class="field">
+          <div class="field-label"><span>본문 크기</span><span>18px</span></div>
+          <input class="field-slider" type="range" min="12" max="28" value="18"/>
+        </div>
+        <button class="save-btn">변경 저장</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     ② 4모드 카드 비교 — 모드마다 다른 부분
+     ════════════════════════════════════════════════ -->
+<div class="modes-compare">
+  <h2 class="modes-title">모드별 장면 카드 — 다른 점만</h2>
+  <p class="modes-sub">상단 바, 좌측 목록, 다듬기 패널은 4모드 공통. 카드 본체만 모드 정체성에 맞게 변형.</p>
+
+  <div class="modes-grid">
+
+    <!-- 텍스트형 -->
+    <div class="mode-cell">
+      <div class="mode-cell-title">📖 텍스트형</div>
+      <div class="mode-cell-desc">본문이 주인공. 그림 없음, 본문 미리보기 큼.</div>
+      <div class="card card--text" style="width:auto;">
+        <div class="card-head">
+          <span class="card-role-badge role-badge--scene">장면</span>
+          <span class="card-num">02</span>
+        </div>
+        <div class="card-body">
+          <div class="card-title">우주 정원에서</div>
+          <div class="card-excerpt">반짝이는 식물이 가지를 뻗고 친구는 멈춰서 손을 내밀었다. 이 별의 모든 생명이 빛으로 인사하는 듯했다.</div>
+          <div class="card-choices">
+            <span class="card-choice">→ 갈림길 03</span>
+            <span class="card-choice">→ 돌아가기 04</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 그림책형 -->
+    <div class="mode-cell">
+      <div class="mode-cell-title">🎨 그림책형</div>
+      <div class="mode-cell-desc">그림과 글 같은 비중. 그림 썸네일 크고 본문 짧게.</div>
+      <div class="card card--pb" style="width:auto;">
+        <div class="card-head">
+          <span class="card-role-badge role-badge--scene">장면</span>
+          <span class="card-num">02</span>
+        </div>
+        <div class="card-thumb">그림 (그림책)</div>
+        <div class="card-body">
+          <div class="card-title">우주 정원</div>
+          <div class="card-excerpt">친구는 손을 내밀었다.</div>
+          <div class="card-choices">
+            <span class="card-choice">→ 갈림길 03</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 무비형 -->
+    <div class="mode-cell">
+      <div class="mode-cell-title">🎬 무비형</div>
+      <div class="mode-cell-desc">미디어 중심. 어두운 영상 썸네일 + 자막 미리보기.</div>
+      <div class="card card--movie" style="width:auto;">
+        <div class="card-head">
+          <span class="card-role-badge role-badge--scene">장면</span>
+          <span class="card-num">02</span>
+        </div>
+        <div class="card-thumb"></div>
+        <div class="card-body">
+          <div class="card-title">우주 정원 영상</div>
+          <div class="card-excerpt">자막: "함께 갈래?"</div>
+          <div class="card-choices">
+            <span class="card-choice">→ 갈림길 03</span>
+            <span class="card-choice">→ 거절 04</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 체험전시형 -->
+    <div class="mode-cell">
+      <div class="mode-cell-title">🗺️ 체험전시형</div>
+      <div class="mode-cell-desc">탐색형. 배경 + 핫스팟 표시 + 연결 N개 요약.</div>
+      <div class="card card--exp" style="width:auto;">
+        <div class="card-head">
+          <span class="card-role-badge role-badge--scene">장면</span>
+          <span class="card-num">02</span>
+        </div>
+        <div class="card-thumb">
+          <span class="exp-hotspot" style="top:25%; left:30%;"></span>
+          <span class="exp-hotspot" style="top:55%; left:65%;"></span>
+          <span class="exp-hotspot" style="top:70%; left:25%;"></span>
+        </div>
+        <div class="card-body">
+          <div class="card-title">우주 정원 전시장</div>
+          <div class="card-excerpt">연결 오브젝트 3개 · 안내문 있음</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>

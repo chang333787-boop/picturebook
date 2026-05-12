@@ -107,6 +107,8 @@ function renderAll() {
   document.querySelectorAll('.scene-card').forEach(el => el.remove());
   Object.values(scenes).forEach(s => renderCard(s));
   drawArrows();
+  /* W8 Phase B-2: 좌측 사이드 동기화 (장면 추가/삭제/변경 시) */
+  if (typeof renderSideList === 'function') renderSideList();
 }
 
 /* ================================================================
@@ -333,8 +335,16 @@ function _buildTextCardContent(s) {
    위계: 그림 썸네일 > 본문 미리보기 > 제목 > 선택지
    특징: 그림 썸네일 가장 위, 본문은 짧게(2줄), 제목은 보조 */
 function _buildPicturebookCardContent(s) {
+  /* W8: 하위 모드 배지 (분할형 / 그림 중심형) — 시안 의도 */
+  const sub = (s.picturebookSubmode === 'imageCenter') ? 'imageCenter' : 'split';
+  const subBadge = (sub === 'imageCenter')
+    ? `<span class="card-meta-badge card-meta-badge--pb-sub card-meta-badge--pb-full">🖼 그림 중심형</span>`
+    : `<span class="card-meta-badge card-meta-badge--pb-sub card-meta-badge--pb-split">🎨 분할형</span>`;
   return `
     ${_buildImageAreaHtml(s)}
+    <div class="card-meta-row card-meta-row--picturebook">
+      ${subBadge}
+    </div>
     <div class="card-body card-body--picturebook">
       <textarea class="card-body-textarea js-body-input"
         placeholder="장면 본문 (짧게)"
@@ -416,8 +426,25 @@ function _buildExperienceCardContent(s) {
     ? `🔗 연결 오브젝트 ${objCount}개`
     : `🔗 연결 오브젝트 0개`;
 
+  /* W8: 핫스팟 overlay — 이미지 있을 때만, connectObjects의 x/y(%) 위치로 dot 표시.
+     viewer에서 실제 보이는 위치 미리보기. */
+  let hotspotHtml = '';
+  if (s.imageData && objects.length > 0) {
+    hotspotHtml = `
+      <div class="card-hotspot-overlay">
+        ${objects.map(o => {
+          const cx = (typeof o.x === 'number' ? o.x : 50) + (typeof o.w === 'number' ? o.w / 2 : 0);
+          const cy = (typeof o.y === 'number' ? o.y : 50) + (typeof o.h === 'number' ? o.h / 2 : 0);
+          return `<span class="card-hotspot" style="left:${cx}%;top:${cy}%;"></span>`;
+        }).join('')}
+      </div>`;
+  }
+
   return `
-    ${_buildImageAreaHtml(s)}
+    <div class="card-image-area-wrap">
+      ${_buildImageAreaHtml(s)}
+      ${hotspotHtml}
+    </div>
     <div class="card-meta-row card-meta-row--experience">
       <span class="card-meta-badge card-meta-badge--connect-summary">${objSummary}</span>
     </div>
@@ -1069,3 +1096,178 @@ function drawArrow(svg, s, port) {
   const label = port === 'A' ? (s.choiceA || '') : (s.choiceB || '');
   drawArrowForIndex(svg, s, idx, String(next), label);
 }
+
+/* ════════════════════════════════════════════════════
+   W8 Phase B-2: 좌측 사이드 — 장면 목록 동기화
+   ────────────────────────────────────────────────────
+   renderAll() hook으로 호출됨.
+   · 목록 항목: 번호 + 제목(미정이면 본문 발췌) + 역할 배지(시작/엔딩)
+   · 클릭 시: 캔버스 해당 카드로 스크롤 + .highlight 토글
+   · 푸터: 시작점 / 다시 시작점 / 엔딩 수 표시
+
+   원칙(사용자 확정): 구조 안전 — Firebase·이벤트 핸들러·4모드 분기 미접촉.
+   DOM 읽기/쓰기만. scenes/projectMeta global 참조.
+   ════════════════════════════════════════════════════ */
+function renderSideList() {
+  const list   = document.getElementById('ss-list');
+  const count  = document.getElementById('ss-count');
+  const fEntry  = document.getElementById('ss-foot-entry');
+  const fReplay = document.getElementById('ss-foot-replay');
+  const fEnding = document.getElementById('ss-foot-endings');
+  if (!list) return;
+
+  const pm = (typeof projectMeta !== 'undefined' && projectMeta) ? projectMeta : {};
+  const all = (typeof scenes !== 'undefined' && scenes) ? Object.values(scenes) : [];
+  /* 번호 순 정렬 */
+  all.sort((a, b) => Number(a.num) - Number(b.num));
+
+  if (count) count.textContent = `장면 ${all.length}개`;
+
+  /* 푸터 */
+  let endingCount = 0;
+  let entryLabel  = '—';
+  let replayLabel = '—';
+  for (const s of all) {
+    if (s.type === 'ending') endingCount++;
+    if (pm.entrySceneId  != null && String(pm.entrySceneId)  === String(s.num)) {
+      entryLabel = `${s.num}번`;
+    }
+    if (pm.replaySceneId != null && String(pm.replaySceneId) === String(s.num)) {
+      replayLabel = `${s.num}번`;
+    }
+  }
+  if (fEntry)  fEntry.textContent  = entryLabel;
+  if (fReplay) fReplay.textContent = replayLabel;
+  if (fEnding) fEnding.textContent = `${endingCount}개`;
+
+  /* 빈 상태 */
+  if (all.length === 0) {
+    list.innerHTML = `
+      <div class="ss-empty">
+        아직 장면이 없어요
+        <div class="ss-empty-hint">＋ 새 장면으로 시작해요</div>
+      </div>`;
+    return;
+  }
+
+  /* 항목 렌더 */
+  list.innerHTML = all.map(s => {
+    const isEntry  = pm.entrySceneId  != null && String(pm.entrySceneId)  === String(s.num);
+    const isReplay = pm.replaySceneId != null && String(pm.replaySceneId) === String(s.num);
+    const isEnd    = s.type === 'ending';
+
+    /* 표시 제목: 본문 첫 줄 또는 '(제목 없음)' */
+    let titleText = '';
+    const titleSrc = s.title || s.body || '';
+    if (titleSrc) {
+      titleText = String(titleSrc).split('\n')[0].trim();
+      if (titleText.length > 24) titleText = titleText.substring(0, 23) + '…';
+    }
+    if (!titleText) titleText = '(제목 없음)';
+
+    const dotClass = isEntry ? 'ss-dot--entry' : (isEnd ? 'ss-dot--ending' : '');
+    let badges = '';
+    if (isEntry)  badges += '<span class="ss-badge ss-badge--entry">시작</span>';
+    if (isReplay) badges += '<span class="ss-badge ss-badge--entry">다시</span>';
+    if (isEnd && !isEntry && !isReplay) badges += '<span class="ss-badge ss-badge--ending">엔딩</span>';
+
+    const num2 = String(s.num).padStart(2, '0');
+    return `
+      <div class="ss-item" data-scene-num="${s.num}">
+        <span class="ss-dot ${dotClass}"></span>
+        <span class="ss-num">${num2}</span>
+        <span class="ss-name">${_escapeHtmlForSide(titleText)}</span>
+        ${badges}
+      </div>`;
+  }).join('');
+
+  /* 클릭 핸들러 — 사이드 항목 → 캔버스 카드 highlight + 스크롤 */
+  list.querySelectorAll('.ss-item').forEach(el => {
+    el.addEventListener('click', () => {
+      const num = el.getAttribute('data-scene-num');
+      _focusSceneInCanvas(num);
+      /* 사이드 강조 토글 */
+      list.querySelectorAll('.ss-item').forEach(o => o.classList.remove('is-current'));
+      el.classList.add('is-current');
+    });
+  });
+}
+
+/* 단순 HTML escape (사이드 전용) */
+function _escapeHtmlForSide(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+/* 캔버스에서 해당 장면 카드로 포커스 — highlight + 가능한 경우 스크롤 */
+function _focusSceneInCanvas(num) {
+  /* 카드 element는 sceneRenderer가 id="card-${num}" 패턴으로 생성 */
+  const card = document.getElementById(`card-${num}`);
+  if (!card) return;
+
+  /* highlight 토글 — 기존 카드 highlight 제거 후 이 카드만 */
+  document.querySelectorAll('.scene-card.highlight').forEach(c => {
+    c.classList.remove('highlight');
+  });
+  card.classList.add('highlight');
+  /* 일정 시간 후 자동 해제 (시안에서 강조는 일시적) */
+  setTimeout(() => card.classList.remove('highlight'), 2400);
+
+  /* 카드를 시야에 들어오게 — canvas-wrap이 overflow:hidden이라
+     scrollIntoView는 무효. canvasInteraction에 centerOnCard 같은 게 있으면 호출.
+     없으면 highlight만으로 알림. 사용자가 카드 못 찾으면 캔버스 드래그로 이동. */
+  try {
+    if (typeof centerOnCard === 'function') {
+      centerOnCard(num);
+    } else if (typeof panToCard === 'function') {
+      panToCard(num);
+    }
+  } catch (e) { /* 안전망 — 시각 강조는 이미 적용됨 */ }
+}
+
+/* ════════════════════════════════════════════════════
+   W8 양방향 동기화: 카드 → 사이드 (focusin 위임)
+   ─────────────────────────────────────────────────────
+   카드 안 input/textarea/button에 focus 들어가면 = 사용자가 그 카드 작업 시작
+   → 사이드의 해당 항목에 .is-current 토글.
+   document에 한 번만 등록 (capture phase로 자식 focus도 잡음).
+   원칙(구조 안전): 기존 카드 이벤트 핸들러 미접촉. listener만 추가.
+   ════════════════════════════════════════════════════ */
+(function initBidirectionalSync() {
+  if (typeof document === 'undefined') return;
+  /* DOMContentLoaded 후 등록 — 본 파일이 head보다 늦게 로드되더라도 안전 */
+  function attach() {
+    document.addEventListener('focusin', function (e) {
+      /* 가장 가까운 .scene-card 찾기 */
+      const card = e.target && e.target.closest && e.target.closest('.scene-card');
+      if (!card) return;
+      /* 카드 id = "card-{num}". data-num은 자식 input에 박힌 것과 충돌 안 함 — 카드 본체 id 사용 */
+      const id = card.id || '';
+      if (!id.startsWith('card-')) return;
+      const num = id.substring(5);
+      /* 사이드 항목 강조 토글 */
+      const list = document.getElementById('ss-list');
+      if (!list) return;
+      const items = list.querySelectorAll('.ss-item');
+      items.forEach(it => {
+        if (it.getAttribute('data-scene-num') === String(num)) {
+          it.classList.add('is-current');
+          /* 보이지 않으면 사이드 안에서 자동 스크롤 */
+          if (it.scrollIntoView) {
+            try { it.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+            catch (_) { /* 일부 환경 옵션 미지원 */ }
+          }
+        } else {
+          it.classList.remove('is-current');
+        }
+      });
+    }, true);  /* capture phase — input focus도 위임 */
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', attach);
+  } else {
+    attach();
+  }
+})();

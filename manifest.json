@@ -1,0 +1,21 @@
+{
+  "name": "가지 branch",
+  "short_name": "가지",
+  "description": "초등 학급 인터랙티브 브랜칭 스토리 — 함께 만들고 함께 감상해요",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#fffaee",
+  "theme_color": "#c66f4a",
+  "lang": "ko",
+  "dir": "ltr",
+  "icons": [
+    {
+      "src": "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='96' fill='%23fffaee'/><text x='256' y='340' text-anchor='middle' font-size='320' font-family='-apple-system,sans-serif'>🌿</text></svg>",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

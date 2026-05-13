@@ -132,5 +132,78 @@
   })();
 </script>
 
+<!-- v36: PWA 홈 화면 추가 안내 박스 (PWA 모드 아닌 때만, 닫음 기록 시 다시 안 나옴) -->
+<div id="pwa-install-hint" class="pwa-install-hint" style="display:none;">
+  <span class="pwa-install-hint__icon">💡</span>
+  <span class="pwa-install-hint__text">
+    <strong>홈 화면에 추가</strong>하면 전체화면으로 더 편하게 사용할 수 있어요.
+  </span>
+  <button type="button" class="pwa-install-hint__close" aria-label="닫기" title="이 안내 끄기">✕</button>
+</div>
+<style>
+  .pwa-install-hint {
+    position: fixed;
+    bottom: 16px;
+    right: 16px;
+    left: 16px;
+    max-width: 360px;
+    margin: 0 auto;
+    background: rgba(255, 250, 238, 0.96);
+    border: 1.5px solid #c66f4a;
+    border-radius: 14px;
+    padding: 12px 10px 12px 16px;
+    font-family: 'Jua', 'Nanum Gothic', sans-serif;
+    font-size: 13px;
+    color: #2b1f10;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 4px 20px rgba(80,50,20,0.18);
+    z-index: 9999;
+    backdrop-filter: blur(8px);
+    animation: pwa-hint-slide-in 0.3s ease-out;
+  }
+  .pwa-install-hint__icon { font-size: 18px; flex-shrink: 0; }
+  .pwa-install-hint__text { flex: 1; line-height: 1.4; }
+  .pwa-install-hint__close {
+    background: none;
+    border: none;
+    font-size: 14px;
+    color: #6b5638;
+    cursor: pointer;
+    padding: 6px 8px;
+    line-height: 1;
+    flex-shrink: 0;
+    border-radius: 6px;
+  }
+  .pwa-install-hint__close:hover { background: rgba(80,50,20,0.08); }
+  @keyframes pwa-hint-slide-in {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  @media (max-width: 480px) {
+    .pwa-install-hint { font-size: 12px; left: 12px; right: 12px; bottom: 12px; }
+  }
+</style>
+<script>
+  (function() {
+    /* PWA standalone(홈 화면 추가됨) 모드면 안내 표시 X */
+    var isStandalone = window.matchMedia('(display-mode: standalone)').matches
+                    || window.matchMedia('(display-mode: fullscreen)').matches
+                    || window.navigator.standalone === true;
+    if (isStandalone) return;
+    /* 사용자가 닫은 적 있으면 표시 X */
+    try { if (localStorage.getItem('pwa-install-hint-dismissed') === '1') return; } catch(_) {}
+    var hint = document.getElementById('pwa-install-hint');
+    if (!hint) return;
+    /* 1.2초 후 부드럽게 등장 (페이지 로드 직후 시각 부담 줄임) */
+    setTimeout(function() { hint.style.display = 'flex'; }, 1200);
+    hint.querySelector('.pwa-install-hint__close').addEventListener('click', function() {
+      hint.style.display = 'none';
+      try { localStorage.setItem('pwa-install-hint-dismissed', '1'); } catch(_) {}
+    });
+  })();
+</script>
+
 </body>
 </html>

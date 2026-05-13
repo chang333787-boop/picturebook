@@ -108,6 +108,14 @@ async function _enterViewer(teamName, editMode = false, fromMaker = false, class
     /* entry 화면 → player 화면 전환 */
     _showPlayerScreen();
 
+    /* v36: 작품 orientation에 맞춰 디바이스 화면 자동 회전 (PWA standalone 모드 한정).
+       세로 작품 → portrait, 가로 작품 → landscape. 일반 브라우저 탭에선 silent fail. */
+    if (screen.orientation && typeof screen.orientation.lock === 'function') {
+      const targetOrient = (ViewerState.project.pageOrientation === 'portrait')
+        ? 'portrait' : 'landscape';
+      screen.orientation.lock(targetOrient).catch(() => { /* tab 모드 등 실패 OK */ });
+    }
+
     /* edit 모드: startViewerEdit (cover 우회) / 감상 모드: startViewer */
     if (editMode) {
       /* 장면 글 수정 / 배치 편집을 위한 잠금 리스너 초기화 ──

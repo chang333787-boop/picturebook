@@ -1191,7 +1191,7 @@ function renderHUD() {
           <button class="maker-return-btn js-edit-return-maker" title="브랜치 화면으로 돌아가기">← 브랜치 화면으로</button>
           <button class="maker-return-btn maker-return-btn--save js-edit-save" title="즉시 저장">💾 저장</button>
         ` : `
-          <button class="maker-return-btn js-return-to-maker">← 작업으로 돌아가기</button>
+          <button class="maker-return-btn js-return-to-maker">← 브랜치 화면으로</button>
           <button class="maker-return-btn maker-return-btn--edit js-go-edit">🎨 감상 화면 다듬기</button>
         `}
       </div>

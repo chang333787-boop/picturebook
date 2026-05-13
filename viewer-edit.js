@@ -4596,7 +4596,9 @@ function _openPbDrawModal(scene) {
 
   /* ─── 캔버스 초기화 ─── */
   const canvas = modal.querySelector('#pb-draw-canvas');
-  const ctx = canvas.getContext('2d');
+  /* v36 태블릿: desynchronized=true — 컴포지팅 비동기, iPad/Android pen 입력 lag 감소.
+     willReadFrequently=true — getImageData(flood fill·도형 preview) 자주 호출되므로 최적화. */
+  const ctx = canvas.getContext('2d', { desynchronized: true, willReadFrequently: true });
   /* 흰 배경으로 시작 */
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -4886,47 +4888,55 @@ function _openPbDrawModal(scene) {
   }
   function _onPointerMove(e) {
     if (!state.drawing || !e.isPrimary) return;
-    /* v36 태블릿: pointermove에 preventDefault 박아 브라우저 scroll/zoom 가로채는 lag 제거. */
     e.preventDefault();
-    const p = _pos(e);
 
-    /* v36: 도형 — base 복원 후 새 도형 그림 (preview). */
+    /* v36: 도형 — base 복원 후 새 도형 그림 (preview). 단일 이벤트만 처리. */
     if (state.tool === 'line' || state.tool === 'rect' || state.tool === 'circle') {
+      const p = _pos(e);
       if (state.shapeBaseImage) ctx.putImageData(state.shapeBaseImage, 0, 0);
       _drawShape(state.startX, state.startY, p.x, p.y);
       return;
     }
 
-    /* 펜·지우개 — 선 그리기 + 펜 종류 스타일 적용 */
+    /* v36 태블릿: getCoalescedEvents() — 한 pointermove 이벤트에 여러 중간 점이 박힘.
+       빠른 펜 이동 시 사이 점들까지 그려 부드러운 선. iPad/Android pen 효과 큼. */
+    const events = (typeof e.getCoalescedEvents === 'function' && e.getCoalescedEvents().length > 0)
+      ? e.getCoalescedEvents() : [e];
     ctx.save();
     _applyPenStyle();
     if (state.tool === 'eraser') ctx.globalAlpha = 1.0;
-    ctx.beginPath();
-    ctx.moveTo(state.lastX, state.lastY);
-    ctx.lineTo(p.x, p.y);
-    ctx.lineWidth = _strokeSize(e);
     ctx.strokeStyle = state.tool === 'eraser' ? '#ffffff' : state.color;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    ctx.stroke();
-    /* v36: 연필·크레용 — 거친 질감 효과 강화. 마커는 효과 없음 (multiply만). */
-    if (state.tool !== 'eraser' && (state.penType === 'pencil' || state.penType === 'crayon')) {
-      const isCrayon = state.penType === 'crayon';
-      const dots = isCrayon ? 7 : 3;
-      const spread = isCrayon ? state.size * 1.4 : state.size * 0.6;
-      const dotSize = isCrayon ? _strokeSize(e) / 3 : _strokeSize(e) / 5;
-      for (let i = 0; i < dots; i++) {
-        const dx = (Math.random() - 0.5) * spread;
-        const dy = (Math.random() - 0.5) * spread;
-        ctx.beginPath();
-        ctx.arc(p.x + dx, p.y + dy, dotSize * (0.5 + Math.random() * 0.5), 0, Math.PI * 2);
-        ctx.fillStyle = state.color;
-        ctx.fill();
+    for (let i = 0; i < events.length; i++) {
+      const ev = events[i];
+      const p = _pos(ev);
+      ctx.beginPath();
+      ctx.moveTo(state.lastX, state.lastY);
+      ctx.lineTo(p.x, p.y);
+      ctx.lineWidth = _strokeSize(ev);
+      ctx.stroke();
+      /* 연필·크레용 거친 질감 — 마지막 점에서만 박음 (성능) */
+      if (i === events.length - 1
+          && state.tool !== 'eraser'
+          && (state.penType === 'pencil' || state.penType === 'crayon')) {
+        const isCrayon = state.penType === 'crayon';
+        const dots = isCrayon ? 7 : 3;
+        const spread = isCrayon ? state.size * 1.4 : state.size * 0.6;
+        const dotSize = isCrayon ? _strokeSize(ev) / 3 : _strokeSize(ev) / 5;
+        for (let j = 0; j < dots; j++) {
+          const dx = (Math.random() - 0.5) * spread;
+          const dy = (Math.random() - 0.5) * spread;
+          ctx.beginPath();
+          ctx.arc(p.x + dx, p.y + dy, dotSize * (0.5 + Math.random() * 0.5), 0, Math.PI * 2);
+          ctx.fillStyle = state.color;
+          ctx.fill();
+        }
       }
+      state.lastX = p.x;
+      state.lastY = p.y;
     }
     ctx.restore();
-    state.lastX = p.x;
-    state.lastY = p.y;
   }
   function _onPointerUp(e) {
     state.drawing = false;

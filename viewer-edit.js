@@ -4440,9 +4440,10 @@ function _openPbDrawModal(scene) {
 
   /* v36: 캔버스 비율을 활성 scene의 실제 그림 영역(.pb-illust)에서 측정.
      4가지 모드(가로/세로 × 분할/그림중심) 모두 자동 일치.
-     이전엔 split 2.376 / imageCenter 2.2 하드코딩 — portrait 작품·grid row 변경 시 어긋남. */
+     해상도 1800 → 1200 (v36 태블릿): 태블릿 CPU에서 putImageData/getImageData/flood fill
+     빠르게. 디테일 충분 + 메모리·성능 균형. */
   const submode = scene.picturebookSubmode === 'imageCenter' ? 'imageCenter' : 'split';
-  let canvasW = 1800, canvasH = 758;   /* fallback — landscape split 근사 */
+  let canvasW = 1200, canvasH = 505;   /* fallback — landscape split 근사 */
   const illustEl = document.querySelector(
     submode === 'imageCenter'
       ? '.scene-screen--pb.pb--imagecenter .pb-illust'
@@ -4452,8 +4453,7 @@ function _openPbDrawModal(scene) {
     const rect = illustEl.getBoundingClientRect();
     if (rect.width > 0 && rect.height > 0) {
       const ratio = rect.width / rect.height;
-      /* 화소 해상도 1800px 가로 기준 — 디테일 충분 + 메모리 적정 */
-      canvasW = 1800;
+      canvasW = 1200;
       canvasH = Math.max(1, Math.round(canvasW / ratio));
     }
   }
@@ -4886,6 +4886,8 @@ function _openPbDrawModal(scene) {
   }
   function _onPointerMove(e) {
     if (!state.drawing || !e.isPrimary) return;
+    /* v36 태블릿: pointermove에 preventDefault 박아 브라우저 scroll/zoom 가로채는 lag 제거. */
+    e.preventDefault();
     const p = _pos(e);
 
     /* v36: 도형 — base 복원 후 새 도형 그림 (preview). */

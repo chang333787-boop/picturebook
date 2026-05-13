@@ -425,6 +425,9 @@ body[data-page-orientation="portrait"] .scene-screen--pb.pb--split .pb-frame {
   display: none;
   user-select: none;
   pointer-events: auto;
+  /* v36 태블릿: 터치 시 브라우저 scroll/zoom 가로채지 못하게.
+     pointer 이벤트가 핸들러로 그대로 전달됨. */
+  touch-action: none;
 }
 .scene-screen--pb.pb--imagecenter[data-edit-mode="true"] .pb-body-handle {
   display: flex;
@@ -2802,6 +2805,14 @@ body.pb-image-editing--crop .pb-illust__photo {
   z-index: 202;
   box-shadow: 0 2px 6px rgba(0,0,0,0.3);
   transition: transform 80ms;
+  /* v36 태블릿: 핸들 터치 시 브라우저 scroll/zoom 가로채지 못하게 */
+  touch-action: none;
+}
+/* v36 태블릿: 사진/크롭 박스 드래그 영역에도 동일 적용 */
+body.pb-image-editing .pb-illust__photo,
+body.pb-image-editing .pb-img-crop-host,
+body.pb-image-editing .js-pb-crop-box {
+  touch-action: none;
 }
 .pb-img-handle:hover {
   transform: scale(1.2);

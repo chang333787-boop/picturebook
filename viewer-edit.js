@@ -4596,9 +4596,13 @@ function _openPbDrawModal(scene) {
 
   /* ─── 캔버스 초기화 ─── */
   const canvas = modal.querySelector('#pb-draw-canvas');
-  /* v36 태블릿: desynchronized=true — 컴포지팅 비동기, iPad/Android pen 입력 lag 감소.
-     willReadFrequently=true — getImageData(flood fill·도형 preview) 자주 호출되므로 최적화. */
-  const ctx = canvas.getContext('2d', { desynchronized: true, willReadFrequently: true });
+  /* v36 태블릿: try desynchronized — 일부 브라우저(iOS Safari 등) 지원 안 함 → 폴백.
+     사용자 보고: "태블릿 그리기 다 안 됨" → 옵션 미지원시 context null 반환 추정. */
+  let ctx = null;
+  try {
+    ctx = canvas.getContext('2d', { desynchronized: true, willReadFrequently: true });
+  } catch (_) { ctx = null; }
+  if (!ctx) ctx = canvas.getContext('2d');
   /* 흰 배경으로 시작 */
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -4898,10 +4902,12 @@ function _openPbDrawModal(scene) {
       return;
     }
 
-    /* v36 태블릿: getCoalescedEvents() — 한 pointermove 이벤트에 여러 중간 점이 박힘.
-       빠른 펜 이동 시 사이 점들까지 그려 부드러운 선. iPad/Android pen 효과 큼. */
-    const events = (typeof e.getCoalescedEvents === 'function' && e.getCoalescedEvents().length > 0)
-      ? e.getCoalescedEvents() : [e];
+    /* v36 태블릿: getCoalescedEvents() — try-catch로 안전하게. 실패시 단일 이벤트 폴백. */
+    let events;
+    try {
+      events = (typeof e.getCoalescedEvents === 'function' && e.getCoalescedEvents().length > 0)
+        ? e.getCoalescedEvents() : [e];
+    } catch (_) { events = [e]; }
     ctx.save();
     _applyPenStyle();
     if (state.tool === 'eraser') ctx.globalAlpha = 1.0;

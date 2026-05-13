@@ -449,22 +449,58 @@
     .tb-group {
       display: flex;
       flex-direction: column;
-      gap: 3px;
+      gap: 4px;
       flex-shrink: 0;
+      /* v36: 그룹 시각 강조 — 넓은 화면에 가로로 늘어선 toolbar에서 그룹 경계 명확.
+         라벨 더 진하게, 그룹 자체에 옅은 배경 + 패딩. */
+      padding: 4px 10px 4px 10px;
+      background: rgba(80,50,20,0.025);
+      border-radius: 10px;
+      border: 1px solid rgba(80,50,20,0.07);
     }
     .tb-group-label {
       font-size: 11px;
       color: var(--muted);
       font-family: var(--font-h);
       letter-spacing: .05em;
-      padding-left: 4px;
-      font-weight: 600;
+      padding-left: 2px;
+      font-weight: 700;
+      text-transform: uppercase;
+      opacity: 0.75;
     }
     .tb-group-btns {
       display: flex;
       align-items: center;
       gap: 6px;
       flex-wrap: wrap;
+    }
+
+    /* v36: 태블릿 가로 (1024~1366px) — toolbar 2줄로 자연 분리.
+       학생 디바이스 = 태블릿이라 핵심 환경. 우측 도구 그룹들이 한 줄에 안 들어가
+       1줄: 좌(정체성) + 중(핵심 행동), 2줄: 우(점검·파일·줌·상태·범례) */
+    @media (max-width: 1366px) {
+      #toolbar {
+        grid-template-columns: auto 1fr;
+        grid-template-rows: auto auto;
+        gap: 10px 16px;
+        padding: 10px 14px;
+      }
+      .tb-section--left   { grid-column: 1; grid-row: 1; }
+      .tb-section--center { grid-column: 2; grid-row: 1; justify-content: flex-end; }
+      .tb-section--right  {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        justify-content: flex-start;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+    }
+
+    /* v36: 작은 태블릿 (1024px 이하) — 라벨 숨겨 더 압축, 줌·도움말도 컴팩트 */
+    @media (max-width: 1024px) {
+      .tb-group-label { display: none; }
+      .tb-group { padding: 4px 8px; }
+      #toolbar { padding: 8px 12px; }
     }
 
     /* ── 다음 단계 패널 ── */

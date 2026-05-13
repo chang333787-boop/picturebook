@@ -26,6 +26,15 @@ const _editText = {
 };
 const EDIT_SAVE_DEBOUNCE_MS = 800;
 
+/* W9 (v3): 양옆 마감 테마 collapsible 상태.
+   null = 자동 (pbTheme === 'classic-book' → 펼침, 다른 거 → 접힘)
+   true = 사용자가 접음 / false = 사용자가 펼침 */
+let _pbThemeCollapsed = null;
+function _getPbThemeCollapsed() {
+  if (_pbThemeCollapsed !== null) return _pbThemeCollapsed;
+  return (ViewerState.project.pbTheme || 'classic-book') !== 'classic-book';
+}
+
 /* ================================================================
    W7-B: 영상 업로드 (viewer 쪽 자체 정의)
    ─────────────────────────────────────────────────────────────
@@ -242,14 +251,25 @@ function _getSceneScreen() {
      사용자 보고: "굵게는 되는데 폰트·크기 안 됨" → 이 매핑 fix.
      ID는 maker/viewer에서 일관 사용 — gothic/batang/jua/gaegu/pen/galmuri/cormorant. */
 const TEXT_FONT_FAMILIES = {
-  gothic:    "'Nanum Gothic', sans-serif",
-  batang:    "'Gowun Batang', 'Nanum Myeongjo', serif",
-  jua:       "'Jua', sans-serif",
-  gaegu:     "'Gaegu', cursive",
-  pen:       "'Nanum Pen Script', cursive",
-  galmuri:   "'Galmuri', monospace",
-  cormorant: "'Cormorant Garamond', serif",
-  hanna:     "'Black Han Sans', sans-serif",
+  gothic:     "'Nanum Gothic', sans-serif",
+  batang:     "'Gowun Batang', 'Nanum Myeongjo', serif",
+  jua:        "'Jua', sans-serif",
+  gaegu:      "'Gaegu', cursive",
+  pen:        "'Nanum Pen Script', cursive",
+  galmuri:    "'Galmuri', monospace",
+  cormorant:  "'Cormorant Garamond', serif",
+  hanna:      "'Black Han Sans', sans-serif",
+  /* W9 확장 10종 */
+  notosans:   "'Noto Sans KR', sans-serif",
+  notoserif:  "'Noto Serif KR', serif",
+  dohyeon:    "'Do Hyeon', sans-serif",
+  dodum:      "'Gowun Dodum', sans-serif",
+  himelody:   "'Hi Melody', cursive",
+  yeonsung:   "'Yeon Sung', cursive",
+  dokdo:      "'East Sea Dokdo', cursive",
+  diphylleia: "'Diphylleia', serif",
+  hahmlet:    "'Hahmlet', serif",
+  stylish:    "'Stylish', serif",
 };
 
 /* 텍스트형 — CSS 변수/속성만 갱신 */
@@ -847,8 +867,6 @@ function renderEditPanel() {
         <!-- 엔딩은 선택지 없음 — 별도 안내 -->
         <div class="edit-divider"></div>
         <p class="edit-empty">이 장면에는 선택지가 없어요. (엔딩 장면)</p>
-
-        <button class="edit-save-btn js-edit-save">💾 저장</button>
       </div>`;
     _bindEditActions(panel);
     _bindNavEvents(panel);
@@ -856,7 +874,6 @@ function renderEditPanel() {
     _bindTextEditEvents(panel, scene);
     _bindEditTabs(panel);
     _restoreActiveTab(panel, _prevActiveTab);
-    panel.querySelector('.js-edit-save')?.addEventListener('click', () => _doSave(panel));
     _installLockChangeHandlerOnce();
     _ensureEditLockForCurrentScene();
     return;
@@ -984,9 +1001,6 @@ function renderEditPanel() {
           ${t.key === 'choice' ? legacyChoiceSectionHtml : t.html(scene, _ptypeForLegacy)}
         </div>
       `).join('')}
-
-      <!-- 저장 (탭 무관 항상 보임) -->
-      <button class="edit-save-btn js-edit-save">💾 저장</button>
     </div>`;
 
   _bindEditActions(panel);
@@ -1656,11 +1670,10 @@ function _textEditHtml(scene) {
   const pbStyleInlineHtml = isPicturebookMode ? _pbInlineStyleHtml(scene) : '';
 
   return `
-    <h4 class="edit-section-title edit-section-title--major">① 기본 정보</h4>
     <div class="js-edit-lock-banner edit-lock-banner" style="display:none;"></div>
 
     <div class="edit-row">
-      <label class="edit-label" for="edit-scene-title">제목 <span class="edit-label-note">(짧은 헤드라인)</span></label>
+      <label class="edit-label" for="edit-scene-title">📝 제목 <span class="edit-label-note">(짧은 헤드라인)</span></label>
       <input id="edit-scene-title" type="text"
         class="edit-text-input edit-text-input--choice js-edit-text-input js-edit-title"
         value="${escHtml(titleVal)}"
@@ -1669,15 +1682,13 @@ function _textEditHtml(scene) {
     </div>
 
     <div class="edit-row">
-      <label class="edit-label" for="edit-scene-body">본문 <span class="edit-label-note">(장면에서 읽을 글)</span></label>
+      <label class="edit-label" for="edit-scene-body">📜 본문 <span class="edit-label-note">(장면에서 읽을 글)</span></label>
       <textarea id="edit-scene-body"
         class="edit-text-input edit-text-input--body js-edit-text-input js-edit-body"
         rows="5"
         placeholder="장면에 보여줄 내용을 적어주세요.">${escHtml(bodyVal)}</textarea>
       ${bodyHint}
     </div>
-
-    ${pbStyleInlineHtml}
 
     ${buttonsBlock}
 
@@ -1708,7 +1719,7 @@ function _buttonsEditHtml(choices) {
   return `
     <div class="edit-row edit-buttons-row">
       <label class="edit-label">
-        행동 버튼
+        🎯 행동 버튼
         <span class="edit-label-note">(${choices.length}개)</span>
       </label>
       ${emptyHint}
@@ -2027,27 +2038,39 @@ function _typeSectionTextHtml(scene) {
   const theme  = (typeof getTextTheme  === 'function') ? getTextTheme(scene)  : 'classic';
   const effect = (typeof getTextEffect === 'function') ? getTextEffect(scene) : { entrance: 'none', body: 'none' };
 
-  /* 폰트 8종 매핑 — UI 표시 + viewer CSS 변수 */
+  /* W9 폰트 18종 + UI select dropdown — 그림책 인라인과 동일 구성 */
   const FONTS = [
-    { id: 'gothic',    label: '나눔고딕',  preview: '본문' },
-    { id: 'batang',    label: '고운 바탕', preview: '본문' },
-    { id: 'jua',       label: '주아',      preview: '본문' },
-    { id: 'hanna',     label: '한나',      preview: '본문' },
-    { id: 'pen',       label: '나눔펜',    preview: '본문' },
-    { id: 'gaegu',     label: '개구',      preview: '본문' },
-    { id: 'galmuri',   label: '갈무리',    preview: '본문' },
-    { id: 'cormorant', label: 'Cormorant', preview: 'Body' },
+    { id: 'gothic',     label: '나눔고딕' },
+    { id: 'notosans',   label: 'Noto Sans (본문)' },
+    { id: 'dodum',      label: '고운돋움' },
+    { id: 'batang',     label: '고운바탕' },
+    { id: 'notoserif',  label: 'Noto Serif (명조)' },
+    { id: 'hahmlet',    label: 'Hahmlet (세련 명조)' },
+    { id: 'stylish',    label: 'Stylish (굵은 명조)' },
+    { id: 'diphylleia', label: 'Diphylleia (우아)' },
+    { id: 'jua',        label: '주아' },
+    { id: 'hanna',      label: '한나 (굵은 헤드라인)' },
+    { id: 'dohyeon',    label: '도현 (꺽임)' },
+    { id: 'pen',        label: '나눔펜' },
+    { id: 'gaegu',      label: '개구' },
+    { id: 'himelody',   label: '하이멜로디 (귀여운)' },
+    { id: 'yeonsung',   label: '연성 (둥글)' },
+    { id: 'dokdo',      label: '동해 독도 (서예)' },
+    { id: 'cormorant',  label: 'Cormorant' },
+    { id: 'galmuri',    label: '갈무리 (픽셀)' },
   ];
-  const fontBtns = FONTS.map(f => `
-    <button type="button"
-      class="edit-font-btn js-edit-text-font ${style.fontFamily === f.id ? 'active' : ''}"
-      data-val="${f.id}"
-      style="font-family:var(--font-${f.id}, var(--font-b))">
-      ${f.label}
-    </button>`).join('');
+  /* v36: var(--font-X) 대신 실제 폰트명 inline 박음 — select option은 CSS 변수
+     cascading이 OS 네이티브 렌더링 때문에 적용 안 되는 경우 있음. 직접 값으로 robust. */
+  const fontOptions = FONTS.map(f => {
+    const ff = (TEXT_FONT_FAMILIES && TEXT_FONT_FAMILIES[f.id]) || 'inherit';
+    return `<option value="${f.id}"
+      style="font-family:${ff}"
+      ${style.fontFamily === f.id ? 'selected' : ''}>${f.label}</option>`;
+  }).join('');
 
   /* 색 팔레트 (8개) — + 자유 입력 */
-  const COLORS = ['', '#1a1a1a', '#3d2914', '#5c2c2c', '#1c4070', '#3a5a40', '#5b2c6f', '#666666'];
+  /* v36: 범용 색 4개 추가 (14개) — 회색·하늘색·연두·살색 */
+  const COLORS = ['', '#1a1a1a', '#d4453d', '#e87a2a', '#f2b417', '#4a7d3a', '#2c6cb4', '#6a3eb0', '#c94785', '#6a3814', '#7a7a7a', '#5cb0d4', '#a8d65c', '#f4cba8'];
   const colorBtns = COLORS.map(c => {
     const isActive = (style.color || '') === c;
     const label = c === '' ? '기본' : '';
@@ -2087,7 +2110,8 @@ function _typeSectionTextHtml(scene) {
 
     <div class="edit-row">
       <label class="edit-label">🅰 폰트</label>
-      <div class="edit-font-grid">${fontBtns}</div>
+      <select class="edit-font-select js-edit-text-font"
+        style="font-family:var(--font-${style.fontFamily || 'gothic'})">${fontOptions}</select>
     </div>
 
     <div class="edit-row">
@@ -2149,53 +2173,89 @@ function _typeSectionPicturebookHtml(scene) {
   const isImageCenter = sub === 'imageCenter';
   const hasImage = !!(scene.imageData || scene.imageUrl);
 
-  return `
-    <div class="edit-divider"></div>
-    <h4 class="edit-section-title edit-section-title--major">② 그림책형 설정</h4>
+  const pbStyleInlineHtml = (typeof _pbInlineStyleHtml === 'function')
+    ? _pbInlineStyleHtml(scene) : '';
 
-    <div class="edit-row">
-      <label class="edit-label">하위 모드</label>
-      <div class="edit-toggle-group">
-        <button type="button"
-          class="edit-toggle js-pb-submode ${sub === 'split' ? 'active' : ''}"
-          data-val="split">📖 분할형</button>
-        <button type="button"
-          class="edit-toggle js-pb-submode ${sub === 'imageCenter' ? 'active' : ''}"
-          data-val="imageCenter">🎨 그림 중심형</button>
+  /* W9 (v5): 사용자 재구성 — 작품 전체 헤더 폐기, sub-divider 폐기.
+     순서: [페이지 방향 | 하위 모드] (한 줄) → 양옆 마감 테마 → 글상자(그림 중심형) → 장면 그림 → 글자 스타일.
+     왼쪽 첫 줄(페이지 방향+하위 모드)이 오른쪽 첫 줄(제목)과 baseline 정렬. */
+  return `
+    <div class="edit-pb-row-pair">
+      <div class="edit-row edit-row--compact edit-row--pair-cell">
+        <label class="edit-label">📖 페이지 방향</label>
+        <div class="edit-toggle-group">
+          <button type="button"
+            class="edit-toggle js-pb-orientation ${(ViewerState.project.pageOrientation === 'portrait') ? '' : 'active'}"
+            data-val="landscape">가로</button>
+          <button type="button"
+            class="edit-toggle js-pb-orientation ${(ViewerState.project.pageOrientation === 'portrait') ? 'active' : ''}"
+            data-val="portrait">세로</button>
+        </div>
+      </div>
+      <div class="edit-row edit-row--compact edit-row--pair-cell">
+        <label class="edit-label">📐 하위 모드</label>
+        <div class="edit-toggle-group">
+          <button type="button"
+            class="edit-toggle js-pb-submode ${sub === 'split' ? 'active' : ''}"
+            data-val="split">📖 분할형</button>
+          <button type="button"
+            class="edit-toggle js-pb-submode ${sub === 'imageCenter' ? 'active' : ''}"
+            data-val="imageCenter">🎨 그림 중심형</button>
+        </div>
       </div>
     </div>
 
     <div class="edit-row">
-      <label class="edit-label">장면 그림</label>
-      <div class="edit-pb-image-row">
-        <div class="edit-pb-image-status">
-          ${hasImage
-            ? `🖼 <strong>그림 있음</strong>`
-            : `<span class="edit-section-note">아직 그림이 없어요</span>`}
-        </div>
-        <div class="edit-toggle-group">
-          <label class="edit-toggle js-pb-image-upload-label" style="cursor:pointer;">
-            ${hasImage ? '🔄 그림 바꾸기' : '🖼 이미지 업로드'}
-            <input type="file" accept="image/*" class="js-pb-image-upload-input" style="display:none;">
-          </label>
-          ${hasImage ? `<button type="button" class="edit-toggle js-pb-image-remove" style="color:#c66f4a;">🗑 그림 삭제</button>` : ''}
-          <button type="button" class="edit-toggle js-pb-image-draw">✏️ 바로 그리기</button>
-        </div>
-      </div>
-      <div class="edit-section-hint">
-        ${hasImage ? '미리보기에서 확인. 다른 그림으로 바꾸거나 삭제할 수 있어요.' : '그림이 있으면 더 풍부한 그림책이 됩니다. (5MB 이하 권장 — 큰 파일은 자동 압축)'}
-      </div>
+      ${(() => {
+        const PB_THEMES = [
+          { id: 'classic-book',  label: '클래식 책',  desc: '책 두께·제본' },
+          { id: 'paper-desk',    label: '책상',       desc: '종이 텍스처' },
+          { id: 'minimal-cream', label: '미니멀',     desc: '단순 종이톤' },
+          { id: 'sketch-note',   label: '손그림 노트', desc: '노트 줄지' },
+          { id: 'library-card',  label: '도서관',     desc: '황색 + 라벨' },
+          { id: 'night-tale',    label: '밤 이야기',   desc: '어두운 별빛' },
+        ];
+        const current  = (ViewerState.project.pbTheme || 'classic-book');
+        const currentT = PB_THEMES.find(t => t.id === current) || PB_THEMES[0];
+        const collapsed = _getPbThemeCollapsed();
+
+        const cardsHtml = PB_THEMES.map(t => `
+          <button type="button"
+            class="edit-pb-theme-card edit-pb-theme-card--${t.id} js-pb-theme ${current === t.id ? 'active' : ''}"
+            data-val="${t.id}">
+            <div class="edit-pb-theme-preview"><div class="edit-pb-theme-preview-page"></div></div>
+            <div class="edit-pb-theme-name">${t.label}</div>
+            <div class="edit-pb-theme-desc">${t.desc}</div>
+          </button>`).join('');
+
+        return `
+          <button type="button"
+            class="edit-pb-theme-toggle js-pb-theme-toggle ${collapsed ? 'is-collapsed' : 'is-expanded'}"
+            aria-expanded="${!collapsed}">
+            <span class="edit-pb-theme-toggle-left">
+              ${collapsed
+                ? `<span class="edit-pb-theme-toggle-mini edit-pb-theme-card--${currentT.id}"></span>`
+                : ''}
+              <span class="edit-pb-theme-toggle-text">
+                🎨 양옆 마감 테마${collapsed ? ` <span class="edit-pb-theme-toggle-current">— ${currentT.label}</span>` : ''}
+              </span>
+            </span>
+            <span class="edit-pb-theme-toggle-chev">${collapsed ? '▼' : '▲'}</span>
+          </button>
+          ${collapsed ? '' : `
+            <div class="edit-pb-theme-body">
+              <div class="edit-pb-theme-grid">${cardsHtml}</div>
+            </div>`}`;
+      })()}
     </div>
 
     ${isImageCenter ? (() => {
-      /* W4: 본문 글상자 — 배경막 강도만. 위치·크기는 viewer 화면에서 드래그/리사이즈로 처리.
-         사용자 결정 (이번 단계): X/Y/W/H 슬라이더 제거 — 어차피 드래그가 더 편함. */
       const bb = (typeof getPicturebookBodyBox === 'function')
         ? getPicturebookBodyBox(scene)
         : { x: 15, y: 25, width: 55, height: null, backdropOpacity: 0.85 };
       return `
     <div class="edit-row">
-      <label class="edit-label">본문 글상자 배경막</label>
+      <label class="edit-label">💬 글상자 진하기</label>
       <div class="edit-pb-bodybox-grid">
         <div class="edit-pb-bodybox-row">
           <span class="edit-pb-bodybox-name">강도</span>
@@ -2208,7 +2268,27 @@ function _typeSectionPicturebookHtml(scene) {
         본문 글상자의 위치와 크기는 미리보기에서 ✥로 이동, 모서리 ⤡로 크기 조절하세요.
       </div>
     </div>`;
-    })() : ''}`;
+    })() : ''}
+
+    <div class="edit-row">
+      <label class="edit-label">🖼 장면 그림 ${hasImage ? '<span class="edit-label-note">(있음)</span>' : '<span class="edit-label-note">(없음)</span>'}</label>
+      <div class="edit-pb-image-actions">
+        <label class="edit-toggle js-pb-image-upload-label" style="cursor:pointer;">
+          ${hasImage ? '🔄 바꾸기' : '🖼 업로드'}
+          <input type="file" accept="image/*" class="js-pb-image-upload-input" style="display:none;">
+        </label>
+        ${hasImage
+          ? `<button type="button" class="edit-toggle js-pb-image-remove" style="color:#c66f4a;">🗑 삭제</button>`
+          : `<button type="button" class="edit-toggle js-pb-image-remove" disabled style="opacity:0.4;">🗑 삭제</button>`}
+        ${hasImage
+          ? `<button type="button" class="edit-toggle js-pb-image-draw" disabled style="opacity:0.4;" title="사진이 있을 땐 그리기를 사용할 수 없어요. 삭제 후 다시 그릴 수 있어요.">✏️ 그리기</button>`
+          : `<button type="button" class="edit-toggle js-pb-image-draw">✏️ 그리기</button>`}
+        <button type="button" class="edit-toggle js-pb-image-transform" ${hasImage ? '' : 'disabled style="opacity:0.4;"'}>✂️ 크기·이동</button>
+        <button type="button" class="edit-toggle js-pb-image-crop" ${hasImage ? '' : 'disabled style="opacity:0.4;"'}>✄ 자르기</button>
+      </div>
+    </div>
+
+    ${pbStyleInlineHtml}`;
 }
 
 /* ────────────────────────────────────────────
@@ -2220,24 +2300,39 @@ function _pbInlineStyleHtml(scene) {
   const style = (typeof getTextStyle === 'function')
     ? getTextStyle(scene)
     : { fontFamily: 'gothic', fontSize: 16, color: '', weight: 'normal' };
+  /* W9: 폰트 18종으로 확장 + UI는 select dropdown (한글 프로그램 스타일).
+     인스펙터 가로폭 절약 + 폰트 많을 때도 깔끔. 각 option의 font-family도 해당 폰트로
+     박아 펼친 dropdown에서 실제 모양 미리 보임 (Chromium/Firefox 지원). */
   const FONTS = [
-    { id: 'gothic',    label: '나눔고딕' },
-    { id: 'batang',    label: '고운 바탕' },
-    { id: 'jua',       label: '주아' },
-    { id: 'hanna',     label: '한나' },
-    { id: 'pen',       label: '나눔펜' },
-    { id: 'gaegu',     label: '개구' },
-    { id: 'galmuri',   label: '갈무리' },
-    { id: 'cormorant', label: 'Cormorant' },
+    { id: 'gothic',     label: '나눔고딕' },
+    { id: 'notosans',   label: 'Noto Sans (본문)' },
+    { id: 'dodum',      label: '고운돋움' },
+    { id: 'batang',     label: '고운바탕' },
+    { id: 'notoserif',  label: 'Noto Serif (명조)' },
+    { id: 'hahmlet',    label: 'Hahmlet (세련 명조)' },
+    { id: 'stylish',    label: 'Stylish (굵은 명조)' },
+    { id: 'diphylleia', label: 'Diphylleia (우아)' },
+    { id: 'jua',        label: '주아' },
+    { id: 'hanna',      label: '한나 (굵은 헤드라인)' },
+    { id: 'dohyeon',    label: '도현 (꺽임)' },
+    { id: 'pen',        label: '나눔펜' },
+    { id: 'gaegu',      label: '개구' },
+    { id: 'himelody',   label: '하이멜로디 (귀여운)' },
+    { id: 'yeonsung',   label: '연성 (둥글)' },
+    { id: 'dokdo',      label: '동해 독도 (서예)' },
+    { id: 'cormorant',  label: 'Cormorant' },
+    { id: 'galmuri',    label: '갈무리 (픽셀)' },
   ];
-  const fontBtns = FONTS.map(f => `
-    <button type="button"
-      class="edit-font-btn js-edit-pb-font ${style.fontFamily === f.id ? 'active' : ''}"
-      data-val="${f.id}"
-      style="font-family:var(--font-${f.id}, var(--font-b))">
-      ${f.label}
-    </button>`).join('');
-  const COLORS = ['', '#1a1a1a', '#3d2914', '#5c2c2c', '#1c4070', '#3a5a40', '#5b2c6f', '#666666'];
+  /* v36: var(--font-X) 대신 실제 폰트명 inline 박음 — select option은 CSS 변수
+     cascading이 OS 네이티브 렌더링 때문에 적용 안 되는 경우 있음. 직접 값으로 robust. */
+  const fontOptions = FONTS.map(f => {
+    const ff = (TEXT_FONT_FAMILIES && TEXT_FONT_FAMILIES[f.id]) || 'inherit';
+    return `<option value="${f.id}"
+      style="font-family:${ff}"
+      ${style.fontFamily === f.id ? 'selected' : ''}>${f.label}</option>`;
+  }).join('');
+  /* v36: 범용 색 4개 추가 (14개) — 회색·하늘색·연두·살색 */
+  const COLORS = ['', '#1a1a1a', '#d4453d', '#e87a2a', '#f2b417', '#4a7d3a', '#2c6cb4', '#6a3eb0', '#c94785', '#6a3814', '#7a7a7a', '#5cb0d4', '#a8d65c', '#f4cba8'];
   const colorBtns = COLORS.map(c => {
     const isActive = (style.color || '') === c;
     const label = c === '' ? '기본' : '';
@@ -2253,20 +2348,23 @@ function _pbInlineStyleHtml(scene) {
       <h5 class="edit-pb-inline-title">🅰 글자 스타일</h5>
       <div class="edit-row edit-row--compact">
         <label class="edit-label">폰트</label>
-        <div class="edit-font-grid">${fontBtns}</div>
+        <select class="edit-font-select js-edit-pb-font"
+          style="font-family:${(TEXT_FONT_FAMILIES && TEXT_FONT_FAMILIES[style.fontFamily || 'gothic']) || 'inherit'}">${fontOptions}</select>
       </div>
-      <div class="edit-row edit-row--compact">
+      <div class="edit-row edit-row--compact edit-row--inline">
         <label class="edit-label">글자 크기 <span class="edit-label-note">(${style.fontSize}px)</span></label>
         <input type="range" class="edit-slider js-edit-pb-size"
           min="12" max="28" step="1" value="${style.fontSize}">
       </div>
       <div class="edit-row edit-row--compact">
         <label class="edit-label">글자 색</label>
-        <div class="edit-color-row">${colorBtns}</div>
-        <input type="color" class="edit-color-picker js-edit-pb-color-pick"
-          value="${style.color || '#1a1a1a'}" title="자유 색 선택">
+        <div class="edit-color-row">
+          ${colorBtns}
+          <input type="color" class="edit-color-picker js-edit-pb-color-pick"
+            value="${style.color || '#1a1a1a'}" title="자유 색 선택">
+        </div>
       </div>
-      <div class="edit-row edit-row--compact">
+      <div class="edit-row edit-row--compact edit-row--inline">
         <label class="edit-label">굵기</label>
         <div class="edit-toggle-group">
           <button type="button" class="edit-toggle js-edit-pb-weight ${style.weight === 'normal' ? 'active' : ''}" data-val="normal">보통</button>
@@ -2557,6 +2655,71 @@ function _bindTypeSectionsEvents(panel, scene) {
   const ptype = _resolveViewerProjectType();
 
   if (ptype === 'picturebook') {
+    /* W9: 페이지 방향 토글 (작품 단위 — viewer-meta에 직접 저장) */
+    panel.querySelectorAll('.js-pb-orientation').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!_editText.editable) return;
+        const val = btn.dataset.val === 'portrait' ? 'portrait' : 'landscape';
+        if (ViewerState.project.pageOrientation === val) return;   // no-op
+        ViewerState.project.pageOrientation = val;
+        if (document.body) document.body.dataset.pageOrientation = val;
+        if (typeof window._applyLetterbox === 'function') window._applyLetterbox();
+        /* 인스펙터 즉시 갱신 (active 상태 반영) + viewer 프레임 재렌더 (페이지 비율/grid 즉시 반영) */
+        renderEditPanel();
+        _scheduleViewerFrameReRender();
+        /* Firebase 저장 — viewer-meta.pageOrientation 직접 update */
+        try {
+          const teamName  = ViewerState.project.teamName;
+          const classId   = ViewerState.project.classId;
+          if (teamName && typeof getViewerDb === 'function') {
+            const encodedName = encodeURIComponent(teamName);
+            const basePath = classId
+              ? `classes/${classId}/teams/${encodedName}`
+              : `teams/${encodedName}`;
+            await getViewerDb().ref(`${basePath}/viewer-meta`).update({ pageOrientation: val });
+          }
+        } catch (e) {
+          console.error('[pageOrientation] 저장 실패:', e);
+        }
+      });
+    });
+
+    /* W9 (v3): 양옆 마감 테마 collapsible 토글 */
+    panel.querySelectorAll('.js-pb-theme-toggle').forEach(btn => {
+      btn.addEventListener('click', () => {
+        _pbThemeCollapsed = !_getPbThemeCollapsed();
+        renderEditPanel();
+      });
+    });
+
+    /* W9: 그림책 양옆 마감 테마 카드 (작품 단위 — viewer-meta 저장) */
+    panel.querySelectorAll('.js-pb-theme').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!_editText.editable) return;
+        const PB_THEMES = ['classic-book', 'paper-desk', 'minimal-cream', 'sketch-note', 'library-card', 'night-tale'];
+        const val = PB_THEMES.includes(btn.dataset.val) ? btn.dataset.val : 'classic-book';
+        if (ViewerState.project.pbTheme === val) return;   // no-op
+        ViewerState.project.pbTheme = val;
+        if (document.body) document.body.dataset.pbTheme = val;
+        /* 카드 active 상태 갱신만 (전체 패널 재렌더 피하기 — 포커스 손실 방지) */
+        panel.querySelectorAll('.js-pb-theme').forEach(b => b.classList.toggle('active', b === btn));
+        /* Firebase 저장 — viewer-meta.pbTheme 직접 update */
+        try {
+          const teamName  = ViewerState.project.teamName;
+          const classId   = ViewerState.project.classId;
+          if (teamName && typeof getViewerDb === 'function') {
+            const encodedName = encodeURIComponent(teamName);
+            const basePath = classId
+              ? `classes/${classId}/teams/${encodedName}`
+              : `teams/${encodedName}`;
+            await getViewerDb().ref(`${basePath}/viewer-meta`).update({ pbTheme: val });
+          }
+        } catch (e) {
+          console.error('[pbTheme] 저장 실패:', e);
+        }
+      });
+    });
+
     panel.querySelectorAll('.js-pb-submode').forEach(btn => {
       btn.addEventListener('click', () => {
         if (!_editText.editable) return;
@@ -2648,7 +2811,30 @@ function _bindTypeSectionsEvents(panel, scene) {
     panel.querySelectorAll('.js-pb-image-draw').forEach(btn => {
       btn.addEventListener('click', () => {
         if (!_editText.editable) return;
+        /* W9 (v13): 그리기는 사진이 없을 때만 사용 가능 (사용자 결정).
+           disabled 상태에선 click 안 들어옴. 방어적으로 hasImage 한 번 더 체크. */
+        if (scene.imageData) return;
         _openPbDrawModal(scene);
+      });
+    });
+
+    /* W9 (v8): ✂️ 크기/위치 — 사진 transform 편집 모드 진입 */
+    panel.querySelectorAll('.js-pb-image-transform').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (!_editText.editable) return;
+        if (typeof enterImageTransformEdit === 'function') {
+          enterImageTransformEdit();
+        }
+      });
+    });
+
+    /* W9 (v9): ✄ 자르기 — 사진 crop 영역 편집 모드 진입 */
+    panel.querySelectorAll('.js-pb-image-crop').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (!_editText.editable) return;
+        if (typeof enterImageCropEdit === 'function') {
+          enterImageCropEdit();
+        }
       });
     });
 
@@ -2741,16 +2927,18 @@ function _bindTypeSectionsEvents(panel, scene) {
       }
       return scene.textStyle;
     }
-    /* 폰트 */
-    panel.querySelectorAll('.js-edit-pb-font').forEach(btn => {
-      btn.addEventListener('click', () => {
+    /* 폰트 (W9: select dropdown) */
+    panel.querySelectorAll('.js-edit-pb-font').forEach(sel => {
+      sel.addEventListener('change', e => {
         if (!_editText.editable) return;
-        const v = btn.dataset.val || 'gothic';
+        const v = e.target.value || 'gothic';
         const ts = _ensurePbTextStyle();
+        if (ts.fontFamily === v) return;
         ts.fontFamily = v;
         _queueSave(scene.num || scene.id, { textStyle: { ...ts } });
         _flushPendingSave();
-        panel.querySelectorAll('.js-edit-pb-font').forEach(b => b.classList.toggle('active', b === btn));
+        /* select 자체 표시 폰트도 즉시 반영 — 선택한 폰트로 라벨 보임 */
+        e.target.style.fontFamily = `var(--font-${v})`;
         if (!_patchPbStyle()) _scheduleViewerFrameReRender();
       });
     });
@@ -3037,17 +3225,18 @@ function _bindTypeSectionsEvents(panel, scene) {
       return scene.textEffect;
     }
 
-    /* 폰트 선택 */
-    panel.querySelectorAll('.js-edit-text-font').forEach(btn => {
-      btn.addEventListener('click', () => {
+    /* 폰트 선택 (W9: select dropdown) */
+    panel.querySelectorAll('.js-edit-text-font').forEach(sel => {
+      sel.addEventListener('change', e => {
         if (!_editText.editable) return;
-        const v = btn.dataset.val || 'gothic';
+        const v = e.target.value || 'gothic';
         const ts = _ensureTextStyle();
+        if (ts.fontFamily === v) return;
         ts.fontFamily = v;
         _queueSave(scene.num || scene.id, { textStyle: { ...ts } });
         _flushPendingSave();
-        /* 활성 클래스만 갱신 — 패널 재렌더 X (포커스 보존) */
-        panel.querySelectorAll('.js-edit-text-font').forEach(b => b.classList.toggle('active', b === btn));
+        /* select 자체 표시 폰트도 즉시 반영 */
+        e.target.style.fontFamily = `var(--font-${v})`;
         /* W7 깜빡임 차단: CSS 변수만 갱신 — 통째 재렌더 안 함.
            실패하면(노드 못 찾음) 통째 재렌더 fallback. */
         if (!_patchTextStyle()) _scheduleViewerFrameReRender();
@@ -3720,30 +3909,90 @@ function _bindTextAnchorEvents(panel, scene) {
 
 /* ================================================================
    edit panel 상단 액션 — 감상 테스트 / 작업으로 돌아가기
+   W9 (v4): 액션 버튼들이 HUD maker-return-bar로 이전 → 인스펙터는 빈 반환.
    ================================================================ */
 function _editActionsHtml() {
-  return `
-    <div class="edit-actions-header">
-      <button class="edit-action-btn edit-action-btn--test js-edit-preview-test">
-        ▶ 감상 테스트
-        <small>실제 관람자 화면 확인</small>
-      </button>
-      <div class="edit-actions-secondary">
-        <button class="edit-action-btn-sub js-edit-open-map" title="장면 연결을 한눈에 확인">
-          🗺 구조 보기
-        </button>
-        ${ViewerState.fromMaker ? `
-        <button class="edit-action-btn-sub edit-action-btn-sub--back js-edit-return-maker" title="내용·구조 수정으로 돌아가기">
-          ← 작업으로
-        </button>` : ''}
-      </div>
-    </div>`;
+  return '';  /* HUD로 이동. _bindHudEditActions에서 박힘 */
 }
 
 function _bindEditActions(panel) {
-  panel.querySelector('.js-edit-preview-test')?.addEventListener('click', async () => {
-    /* 감상 테스트 전환 전에 저장 마무리 + 내 잠금 릴리스 ──
-       테스트 중엔 edit 모드가 꺼져 패널이 사라지므로 pending이 남으면 유실됨. */
+  /* W9 (v4): 인스펙터에 더 이상 액션 버튼 없음 → no-op.
+     실제 핸들러는 _bindHudEditActions에서 박힘. */
+}
+
+/* ================================================================
+   W9 (v12): imageTransform flatten — 변환된 사진을 새 imageData로.
+   ※ (v13에서 폐기) — 사용자 결정: 그리기는 사진 없을 때만. flatten 불필요.
+   다만 향후 다른 용도(예: 작품 export) 가능성 위해 함수는 유지.
+   ================================================================ */
+async function _flattenImageTransform(imageDataUrl, transform) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const nw = img.naturalWidth, nh = img.naturalHeight;
+        const t = transform || {};
+        const cr = t.crop || { x: 0, y: 0, w: 100, h: 100 };
+        const posX = (t.posX != null ? t.posX : 50);
+        const posY = (t.posY != null ? t.posY : 50);
+        const sX = (t.scaleX != null ? t.scaleX : 100) / 100;
+        const sY = (t.scaleY != null ? t.scaleY : 100) / 100;
+
+        /* 캔버스 = 사진 자연 비율. crop 적용된 영역이 캔버스 가득 차지. */
+        const canvas = document.createElement('canvas');
+        canvas.width = nw;
+        canvas.height = nh;
+        const ctx = canvas.getContext('2d');
+
+        /* 1) 캔버스 중심 기준 transform 적용
+           2) crop 영역의 사진을 캔버스 가득 그림 */
+        ctx.translate(canvas.width / 2, canvas.height / 2);
+        const trX = (posX - 50) / 100 * canvas.width;
+        const trY = (posY - 50) / 100 * canvas.height;
+        ctx.translate(trX, trY);
+        ctx.scale(sX, sY);
+        ctx.translate(-canvas.width / 2, -canvas.height / 2);
+
+        const sx = nw * cr.x / 100;
+        const sy = nh * cr.y / 100;
+        const sw = nw * cr.w / 100;
+        const sh = nh * cr.h / 100;
+        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+
+        resolve(canvas.toDataURL('image/png'));
+      } catch (err) {
+        reject(err);
+      }
+    };
+    img.onerror = () => reject(new Error('이미지 로드 실패'));
+    img.src = imageDataUrl;
+  });
+}
+
+async function _saveFlattenedImage(sceneNum, newImageDataUrl) {
+  try {
+    const teamName = ViewerState.project.teamName;
+    const classId  = ViewerState.project.classId;
+    if (!teamName || typeof getViewerDb !== 'function') return;
+    const encodedName = encodeURIComponent(teamName);
+    const basePath = classId
+      ? `classes/${classId}/teams/${encodedName}`
+      : `teams/${encodedName}`;
+    await getViewerDb().ref(`${basePath}/scenes/${sceneNum}`).update({
+      imageData: newImageDataUrl,
+      imageTransform: null,
+    });
+  } catch (err) {
+    console.error('[flatten save] 실패:', err);
+  }
+}
+
+/* W9 (v4): HUD maker-return-bar 액션 버튼 핸들러.
+   renderHud (viewer-render.js)에서 hud.innerHTML 박은 직후 호출.
+   document scope로 검색 — HUD 버튼은 #hud 안에 있음. */
+function _bindHudEditActions() {
+  document.querySelector('.js-edit-preview-test')?.addEventListener('click', async () => {
+    /* 감상 테스트 전환 전에 저장 마무리 + 내 잠금 릴리스 */
     await _flushPendingSave();
     if (_editText.num != null && typeof viewerIsMyLock === 'function' &&
         viewerIsMyLock(_editText.num)) {
@@ -3756,9 +4005,9 @@ function _bindEditActions(panel) {
     renderCurrentScene();
   });
 
-  panel.querySelector('.js-edit-open-map')?.addEventListener('click', openStructureMap);
+  document.querySelector('.js-edit-open-map')?.addEventListener('click', openStructureMap);
 
-  panel.querySelector('.js-edit-return-maker')?.addEventListener('click', async () => {
+  document.querySelector('.js-edit-return-maker')?.addEventListener('click', async () => {
     /* 작업 복귀 전에도 저장 마무리 + 잠금 릴리스 */
     await _flushPendingSave();
     if (_editText.num != null && typeof viewerIsMyLock === 'function' &&
@@ -3770,6 +4019,11 @@ function _bindEditActions(panel) {
     } else {
       window.location.href = 'maker.html';
     }
+  });
+
+  /* 💾 저장 — 명시적 즉시 저장 (자동 저장 외 보조). HUD 안 btn → document scope. */
+  document.querySelector('.js-edit-save')?.addEventListener('click', () => {
+    if (typeof _doSave === 'function') _doSave(document);
   });
 }
 
@@ -4184,15 +4438,24 @@ function _openPbDrawModal(scene) {
   /* 이미 열려있으면 무시 */
   if (document.getElementById('pb-draw-modal')) return;
 
-  /* W8: picturebookSubmode 따라 캔버스 비율 결정.
-     · 분할형: 2.376:1 (그림 영역)
-     · 그림 중심형: 2.2:1 — viewer 그림 영역 가까이 + 모달 wrap 영역 채움 */
+  /* v36: 캔버스 비율을 활성 scene의 실제 그림 영역(.pb-illust)에서 측정.
+     4가지 모드(가로/세로 × 분할/그림중심) 모두 자동 일치.
+     이전엔 split 2.376 / imageCenter 2.2 하드코딩 — portrait 작품·grid row 변경 시 어긋남. */
   const submode = scene.picturebookSubmode === 'imageCenter' ? 'imageCenter' : 'split';
-  let canvasW, canvasH;
-  if (submode === 'imageCenter') {
-    canvasW = 2200; canvasH = 1000;   /* 2.2:1 가로 와이드 */
-  } else {
-    canvasW = 1800; canvasH = Math.round(1800 / 2.376);   /* ≈ 758 — 분할형 그림 영역 */
+  let canvasW = 1800, canvasH = 758;   /* fallback — landscape split 근사 */
+  const illustEl = document.querySelector(
+    submode === 'imageCenter'
+      ? '.scene-screen--pb.pb--imagecenter .pb-illust'
+      : '.scene-screen--pb.pb--split .pb-illust'
+  );
+  if (illustEl) {
+    const rect = illustEl.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) {
+      const ratio = rect.width / rect.height;
+      /* 화소 해상도 1800px 가로 기준 — 디테일 충분 + 메모리 적정 */
+      canvasW = 1800;
+      canvasH = Math.max(1, Math.round(canvasW / ratio));
+    }
   }
 
   /* 색 팔레트 — 따뜻한 톤 8색 */
@@ -4229,13 +4492,37 @@ function _openPbDrawModal(scene) {
       </div>
 
       <div class="pb-draw-toolbar">
-        <!-- 도구: 펜 / 지우개 -->
+        <!-- 도구: 펜 / 지우개 / 직선 / 사각형 / 원 / 페인트 버킷 / 스포이드 / 글자 (v36) -->
         <div class="pb-draw-tools">
-          <button type="button" class="pb-draw-tool js-pb-draw-tool is-on" data-tool="pen">✏️ 펜</button>
-          <button type="button" class="pb-draw-tool js-pb-draw-tool" data-tool="eraser">🧽 지우개</button>
+          <button type="button" class="pb-draw-tool js-pb-draw-tool is-on" data-tool="pen" title="자유롭게 그리기">✏️ 펜</button>
+          <button type="button" class="pb-draw-tool js-pb-draw-tool" data-tool="eraser" title="지우기">🧽 지우개</button>
+          <button type="button" class="pb-draw-tool js-pb-draw-tool" data-tool="line" title="직선">📏 직선</button>
+          <button type="button" class="pb-draw-tool js-pb-draw-tool" data-tool="rect" title="사각형">▭ 사각</button>
+          <button type="button" class="pb-draw-tool js-pb-draw-tool" data-tool="circle" title="원">◯ 원</button>
+          <button type="button" class="pb-draw-tool js-pb-draw-tool" data-tool="bucket" title="영역 채우기">🪣 채우기</button>
+          <button type="button" class="pb-draw-tool js-pb-draw-tool" data-tool="eyedropper" title="캔버스에서 색 가져오기 — 클릭한 점의 색이 펜 색이 됩니다">💧 색 따기</button>
         </div>
 
-        <!-- 색 -->
+        <!-- 펜 종류 (펜 도구일 때만 활성) - v36 -->
+        <div class="pb-draw-section js-pb-draw-pentype-wrap">
+          <span class="pb-draw-section-label">펜 종류</span>
+          <div class="pb-draw-pentypes">
+            <button type="button" class="pb-draw-pentype js-pb-draw-pentype is-on" data-pentype="normal" title="일반 펜">✒️ 일반</button>
+            <button type="button" class="pb-draw-pentype js-pb-draw-pentype" data-pentype="marker" title="마커 (부드럽고 진함)">🖍 마커</button>
+            <button type="button" class="pb-draw-pentype js-pb-draw-pentype" data-pentype="pencil" title="연필 (얇고 거침)">✏️ 연필</button>
+            <button type="button" class="pb-draw-pentype js-pb-draw-pentype" data-pentype="crayon" title="크레용 (거친 질감)">🖌 크레용</button>
+          </div>
+        </div>
+
+        <!-- 채움 토글 (도형 도구일 때만 의미 — UI는 항상 표시) - v36 -->
+        <div class="pb-draw-section">
+          <label class="pb-draw-fill-label">
+            <input type="checkbox" class="js-pb-draw-fill">
+            <span>도형 채움</span>
+          </label>
+        </div>
+
+        <!-- 색 — 8색 + 자유 선택 -->
         <div class="pb-draw-section">
           <span class="pb-draw-section-label">색</span>
           <div class="pb-draw-colors">
@@ -4243,10 +4530,12 @@ function _openPbDrawModal(scene) {
               <button type="button" class="pb-draw-color js-pb-draw-color${i===0?' is-on':''}"
                 data-color="${c}" style="background:${c};" title="${c}"></button>
             `).join('')}
+            <input type="color" class="pb-draw-color-pick js-pb-draw-color-pick"
+              value="${COLORS[0]}" title="자유 색 선택">
           </div>
         </div>
 
-        <!-- 굵기 -->
+        <!-- 굵기 — 4단계 + 슬라이더 -->
         <div class="pb-draw-section">
           <span class="pb-draw-section-label">굵기</span>
           <div class="pb-draw-sizes">
@@ -4256,7 +4545,18 @@ function _openPbDrawModal(scene) {
                 <span class="pb-draw-size-dot" style="width:${s.px}px;height:${s.px}px;"></span>
               </button>
             `).join('')}
+            <input type="range" class="pb-draw-size-slider js-pb-draw-size-slider"
+              min="1" max="30" value="5" title="자유 굵기">
+            <span class="pb-draw-size-val js-pb-draw-size-val">5px</span>
           </div>
+        </div>
+
+        <!-- 불투명도 -->
+        <div class="pb-draw-section">
+          <span class="pb-draw-section-label">투명도</span>
+          <input type="range" class="pb-draw-opacity-slider js-pb-draw-opacity"
+            min="20" max="100" value="100" title="투명도 (낮을수록 부드러움)">
+          <span class="pb-draw-opacity-val js-pb-draw-opacity-val">100%</span>
         </div>
 
         <!-- 펜 압력 (태블릿 펜) -->
@@ -4355,15 +4655,48 @@ function _openPbDrawModal(scene) {
 
   /* 그리기 상태 */
   const state = {
-    tool: 'pen',
+    tool: 'pen',         /* pen | eraser | line | rect | circle | bucket | eyedropper | text */
+    penType: 'normal',   /* v36: normal | marker | pencil | crayon */
+    fillShape: false,    /* v36: 도형 채움 토글 */
     color: COLORS[0],
-    size: 5,
+    size: 5,             /* 펜·도형용 굵기 (1~30px) */
+    eraserSize: 25,      /* v36: 지우개 굵기 별도 (1~60px) — 펜 굵기와 분리 */
+    opacity: 1.0,        /* v36: 불투명도 (20%~100%) */
     drawing: false,
-    pressure: true,   /* 펜 압력 사용 (기본 ON) */
-    history: [],      /* undo용 — stroke 전 스냅샷 */
-    future: [],       /* redo용 — undo 시 옮김 */
+    pressure: true,      /* 펜 압력 사용 (기본 ON) */
+    history: [],         /* undo용 — stroke 전 스냅샷 */
+    future: [],          /* redo용 — undo 시 옮김 */
     lastX: 0, lastY: 0,
+    startX: 0, startY: 0,    /* v36: 도형 시작점 (line/rect/circle) */
+    shapeBaseImage: null,    /* v36: 도형 preview용 시작 시점 캔버스 스냅 */
   };
+
+  /* v36: 펜 종류별 stroke 스타일 — 차이 명확하게.
+     · normal: 단단한 선, opacity 그대로
+     · marker: 형광펜 느낌 — multiply + 살짝 투명 + 굵게 (size×1.3). 색 겹치면 진해짐
+     · pencil: 옅은 연필 — opacity 35% + size×0.6 (얇음). 사선 점 텍스처
+     · crayon: 두꺼운 크레용 — opacity 60% + size×1.5 (굵음). 거친 점 텍스처 강 */
+  function _applyPenStyle() {
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = state.opacity;
+    if (state.tool === 'eraser') return; /* 지우개는 흰색 single, 별도 처리 */
+    if (state.penType === 'marker') {
+      ctx.globalCompositeOperation = 'multiply';
+      ctx.globalAlpha = Math.min(0.65, state.opacity * 0.75);
+    } else if (state.penType === 'pencil') {
+      ctx.globalAlpha = state.opacity * 0.35;
+    } else if (state.penType === 'crayon') {
+      ctx.globalAlpha = state.opacity * 0.60;
+    }
+  }
+  /* v36: 펜 종류별 굵기 배율 — 마커는 굵고, 연필은 얇고, 크레용은 가장 굵음 */
+  function _penSizeMultiplier() {
+    if (state.tool === 'eraser') return 1;
+    if (state.penType === 'marker') return 1.3;
+    if (state.penType === 'pencil') return 0.6;
+    if (state.penType === 'crayon') return 1.5;
+    return 1;
+  }
 
   /* 첫 스냅샷 */
   function _snapshot() {
@@ -4386,14 +4719,117 @@ function _openPbDrawModal(scene) {
     };
   }
 
-  /* 압력 기반 굵기 — pointer.pressure는 0~1, 0이면 일반 마우스 */
+  /* 압력 기반 굵기 — pointer.pressure는 0~1, 0이면 일반 마우스.
+     v36: 도구가 지우개면 별도 eraserSize, 펜 종류 배율 곱함. */
   function _strokeSize(e) {
-    if (!state.pressure || !e.pressure || e.pressure === 0 || e.pressure === 0.5) {
-      /* 압력 없거나 OFF면 고정 size */
-      return state.size;
+    const baseSize = state.tool === 'eraser' ? state.eraserSize : state.size;
+    const mult = _penSizeMultiplier();
+    const pressureMult = (!state.pressure || !e.pressure || e.pressure === 0 || e.pressure === 0.5)
+      ? 1 : (0.3 + e.pressure);
+    return baseSize * mult * pressureMult;
+  }
+
+  /* v36: 도형 그리기 — 시작점·끝점으로 직선/사각형/원 그림.
+     fillShape 켜져 있으면 stroke 후 같은 색 채움. */
+  function _drawShape(sx, sy, ex, ey) {
+    ctx.save();
+    ctx.globalAlpha = state.opacity;
+    ctx.strokeStyle = state.color;
+    ctx.fillStyle = state.color;
+    ctx.lineWidth = state.size;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    let isLine = false;
+    if (state.tool === 'line') {
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(ex, ey);
+      isLine = true;
+    } else if (state.tool === 'rect') {
+      const x = Math.min(sx, ex), y = Math.min(sy, ey);
+      const w = Math.abs(ex - sx), h = Math.abs(ey - sy);
+      ctx.rect(x, y, w, h);
+    } else if (state.tool === 'circle') {
+      const cx = (sx + ex) / 2, cy = (sy + ey) / 2;
+      const rx = Math.abs(ex - sx) / 2, ry = Math.abs(ey - sy) / 2;
+      if (rx > 0 && ry > 0) ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
     }
-    /* 압력 0~1 → size의 0.3배~1.3배 */
-    return state.size * (0.3 + e.pressure);
+    if (state.fillShape && !isLine) ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  /* v36: 스포이드 — 클릭 픽셀 색 추출 → state.color 박음 */
+  function _eyedrop(x, y) {
+    try {
+      const px = ctx.getImageData(Math.round(x), Math.round(y), 1, 1).data;
+      const hex = '#' + [px[0], px[1], px[2]].map(n =>
+        n.toString(16).padStart(2, '0')).join('');
+      state.color = hex;
+      /* UI 동기화 */
+      modal.querySelectorAll('.js-pb-draw-color').forEach(b => b.classList.remove('is-on'));
+      const picker = modal.querySelector('.js-pb-draw-color-pick');
+      if (picker) picker.value = hex;
+      /* 자동으로 펜으로 전환 (스포이드 = 일회성) */
+      state.tool = 'pen';
+      modal.querySelectorAll('.js-pb-draw-tool').forEach(b =>
+        b.classList.toggle('is-on', b.dataset.tool === 'pen'));
+      canvas.style.cursor = 'crosshair';
+    } catch (e) { /* getImageData 실패 (CORS 등) — 무시 */ }
+  }
+
+  /* v36: 글자 박기 — 캔버스 클릭 위치에 prompt로 받은 텍스트 박음 */
+  function _drawText(x, y) {
+    const text = window.prompt('박을 글자를 입력하세요', '');
+    if (!text) return;
+    ctx.save();
+    ctx.globalAlpha = state.opacity;
+    ctx.fillStyle = state.color;
+    /* 굵기에 비례한 폰트 사이즈 (대략 stroke size × 4) */
+    const fontSize = Math.max(12, state.size * 4);
+    ctx.font = `${fontSize}px var(--font-ui, "Jua", sans-serif)`;
+    ctx.textBaseline = 'top';
+    ctx.fillText(text, x, y);
+    ctx.restore();
+  }
+
+  /* v36: 페인트 버킷 — flood fill (4-방향 인접, 스택 기반).
+     클릭 픽셀 색과 같은 인접 픽셀 모두 새 색으로 교체. */
+  function _floodFill(startX, startY) {
+    const x0 = Math.round(startX), y0 = Math.round(startY);
+    const w = canvas.width, h = canvas.height;
+    if (x0 < 0 || x0 >= w || y0 < 0 || y0 >= h) return;
+    const imgData = ctx.getImageData(0, 0, w, h);
+    const data = imgData.data;
+    const idx0 = (y0 * w + x0) * 4;
+    const tR = data[idx0], tG = data[idx0 + 1], tB = data[idx0 + 2], tA = data[idx0 + 3];
+    /* hex → rgb */
+    const hex = state.color.replace('#', '');
+    const fR = parseInt(hex.substring(0, 2), 16);
+    const fG = parseInt(hex.substring(2, 4), 16);
+    const fB = parseInt(hex.substring(4, 6), 16);
+    const fA = Math.round(state.opacity * 255);
+    /* 같은 색이면 종료 — 무한 루프 방지 */
+    if (tR === fR && tG === fG && tB === fB && tA === fA) return;
+    const stack = [[x0, y0]];
+    while (stack.length) {
+      const [cx, cy] = stack.pop();
+      if (cx < 0 || cx >= w || cy < 0 || cy >= h) continue;
+      const i = (cy * w + cx) * 4;
+      if (data[i] !== tR || data[i+1] !== tG || data[i+2] !== tB || data[i+3] !== tA) continue;
+      /* alpha blend — opacity 적용 */
+      if (state.opacity >= 0.99) {
+        data[i] = fR; data[i+1] = fG; data[i+2] = fB; data[i+3] = 255;
+      } else {
+        const a = state.opacity;
+        data[i]   = Math.round(data[i]   * (1 - a) + fR * a);
+        data[i+1] = Math.round(data[i+1] * (1 - a) + fG * a);
+        data[i+2] = Math.round(data[i+2] * (1 - a) + fB * a);
+        data[i+3] = 255;
+      }
+      stack.push([cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]);
+    }
+    ctx.putImageData(imgData, 0, 0);
   }
 
   /* 그리기 이벤트 (Pointer Events) */
@@ -4406,26 +4842,93 @@ function _openPbDrawModal(scene) {
     state.drawing = true;
     state.lastX = p.x;
     state.lastY = p.y;
-    /* 점 하나 (탭) */
+    state.startX = p.x;
+    state.startY = p.y;
+
+    /* v36: 페인트 버킷 — 즉시 채우고 끝 */
+    if (state.tool === 'bucket') {
+      _floodFill(p.x, p.y);
+      state.drawing = false;
+      return;
+    }
+
+    /* v36: 스포이드 — 클릭 픽셀 색 추출 후 펜으로 자동 전환 */
+    if (state.tool === 'eyedropper') {
+      _eyedrop(p.x, p.y);
+      state.drawing = false;
+      return;
+    }
+
+    /* v36: 글자 도구 — prompt로 입력 받아 그 위치에 박음 */
+    if (state.tool === 'text') {
+      _drawText(p.x, p.y);
+      state.drawing = false;
+      return;
+    }
+
+    /* v36: 도형 — preview 위해 시작 시점 캔버스 저장. drag 시 복원 후 도형 다시 그림. */
+    if (state.tool === 'line' || state.tool === 'rect' || state.tool === 'circle') {
+      try {
+        state.shapeBaseImage = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      } catch (_) { state.shapeBaseImage = null; }
+      return;
+    }
+
+    /* 펜·지우개 — 점 하나 찍기 (탭) + 펜 종류 스타일 */
+    ctx.save();
+    _applyPenStyle();
+    if (state.tool === 'eraser') ctx.globalAlpha = 1.0;
     ctx.beginPath();
     ctx.arc(p.x, p.y, _strokeSize(e) / 2, 0, Math.PI * 2);
     ctx.fillStyle = state.tool === 'eraser' ? '#ffffff' : state.color;
     ctx.fill();
+    ctx.restore();
   }
   function _onPointerMove(e) {
     if (!state.drawing || !e.isPrimary) return;
     const p = _pos(e);
+
+    /* v36: 도형 — base 복원 후 새 도형 그림 (preview). */
+    if (state.tool === 'line' || state.tool === 'rect' || state.tool === 'circle') {
+      if (state.shapeBaseImage) ctx.putImageData(state.shapeBaseImage, 0, 0);
+      _drawShape(state.startX, state.startY, p.x, p.y);
+      return;
+    }
+
+    /* 펜·지우개 — 선 그리기 + 펜 종류 스타일 적용 */
+    ctx.save();
+    _applyPenStyle();
+    if (state.tool === 'eraser') ctx.globalAlpha = 1.0;
     ctx.beginPath();
     ctx.moveTo(state.lastX, state.lastY);
     ctx.lineTo(p.x, p.y);
     ctx.lineWidth = _strokeSize(e);
     ctx.strokeStyle = state.tool === 'eraser' ? '#ffffff' : state.color;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
     ctx.stroke();
+    /* v36: 연필·크레용 — 거친 질감 효과 강화. 마커는 효과 없음 (multiply만). */
+    if (state.tool !== 'eraser' && (state.penType === 'pencil' || state.penType === 'crayon')) {
+      const isCrayon = state.penType === 'crayon';
+      const dots = isCrayon ? 7 : 3;
+      const spread = isCrayon ? state.size * 1.4 : state.size * 0.6;
+      const dotSize = isCrayon ? _strokeSize(e) / 3 : _strokeSize(e) / 5;
+      for (let i = 0; i < dots; i++) {
+        const dx = (Math.random() - 0.5) * spread;
+        const dy = (Math.random() - 0.5) * spread;
+        ctx.beginPath();
+        ctx.arc(p.x + dx, p.y + dy, dotSize * (0.5 + Math.random() * 0.5), 0, Math.PI * 2);
+        ctx.fillStyle = state.color;
+        ctx.fill();
+      }
+    }
+    ctx.restore();
     state.lastX = p.x;
     state.lastY = p.y;
   }
   function _onPointerUp(e) {
     state.drawing = false;
+    state.shapeBaseImage = null;
     try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
   }
 
@@ -4435,31 +4938,118 @@ function _openPbDrawModal(scene) {
   canvas.addEventListener('pointercancel', _onPointerUp);
 
   /* ─── 툴바 핸들러 ─── */
+  /* v36: 도구 전환 시 굵기 슬라이더 max·value 동기화 (지우개는 1~60, 그 외 1~30) */
+  function _syncSizeSliderForTool() {
+    const slider = modal.querySelector('.js-pb-draw-size-slider');
+    const valEl = modal.querySelector('.js-pb-draw-size-val');
+    if (!slider) return;
+    if (state.tool === 'eraser') {
+      slider.max = '60';
+      slider.value = String(state.eraserSize);
+      if (valEl) valEl.textContent = `${state.eraserSize}px`;
+    } else {
+      slider.max = '30';
+      slider.value = String(state.size);
+      if (valEl) valEl.textContent = `${state.size}px`;
+    }
+    /* 4단계 버튼 active 갱신 */
+    const activeSize = state.tool === 'eraser' ? state.eraserSize : state.size;
+    modal.querySelectorAll('.js-pb-draw-size').forEach(b =>
+      b.classList.toggle('is-on', parseInt(b.dataset.size, 10) === activeSize));
+  }
+
   modal.querySelectorAll('.js-pb-draw-tool').forEach(btn => {
     btn.addEventListener('click', () => {
       state.tool = btn.dataset.tool || 'pen';
       modal.querySelectorAll('.js-pb-draw-tool').forEach(b =>
         b.classList.toggle('is-on', b === btn));
-      canvas.style.cursor = state.tool === 'eraser' ? 'grab' : 'crosshair';
+      /* v36: 도구별 cursor */
+      if (state.tool === 'eraser') canvas.style.cursor = 'grab';
+      else if (state.tool === 'bucket') canvas.style.cursor = 'cell';
+      else if (state.tool === 'eyedropper') canvas.style.cursor = 'copy';
+      else if (state.tool === 'text') canvas.style.cursor = 'text';
+      else canvas.style.cursor = 'crosshair';
+      _syncSizeSliderForTool();
     });
+  });
+
+  /* v36: 펜 종류 핸들러 */
+  modal.querySelectorAll('.js-pb-draw-pentype').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.penType = btn.dataset.pentype || 'normal';
+      modal.querySelectorAll('.js-pb-draw-pentype').forEach(b =>
+        b.classList.toggle('is-on', b === btn));
+    });
+  });
+
+  /* v36: 도형 채움 토글 */
+  modal.querySelector('.js-pb-draw-fill')?.addEventListener('change', e => {
+    state.fillShape = !!e.target.checked;
   });
   modal.querySelectorAll('.js-pb-draw-color').forEach(btn => {
     btn.addEventListener('click', () => {
       state.color = btn.dataset.color || '#2b1f10';
-      state.tool = 'pen';
       modal.querySelectorAll('.js-pb-draw-color').forEach(b =>
         b.classList.toggle('is-on', b === btn));
-      modal.querySelectorAll('.js-pb-draw-tool').forEach(b =>
-        b.classList.toggle('is-on', b.dataset.tool === 'pen'));
-      canvas.style.cursor = 'crosshair';
+      /* v36: 도형(line/rect/circle)·페인트 버킷 그릴 때도 색만 변경하고 도구 유지.
+         지우개는 사용자가 명시적으로 다시 누를 때만 전환. */
+      if (state.tool === 'eraser') {
+        state.tool = 'pen';
+        modal.querySelectorAll('.js-pb-draw-tool').forEach(b =>
+          b.classList.toggle('is-on', b.dataset.tool === 'pen'));
+        canvas.style.cursor = 'crosshair';
+      }
+      /* 자유 컬러 피커도 시각 동기화 */
+      const picker = modal.querySelector('.js-pb-draw-color-pick');
+      if (picker) picker.value = state.color;
     });
   });
   modal.querySelectorAll('.js-pb-draw-size').forEach(btn => {
     btn.addEventListener('click', () => {
-      state.size = parseInt(btn.dataset.size, 10) || 5;
+      const v = parseInt(btn.dataset.size, 10) || 5;
+      /* v36: 도구에 따라 다른 변수 저장 */
+      if (state.tool === 'eraser') state.eraserSize = v;
+      else state.size = v;
       modal.querySelectorAll('.js-pb-draw-size').forEach(b =>
         b.classList.toggle('is-on', b === btn));
+      /* 슬라이더·값 표시 동기화 */
+      const slider = modal.querySelector('.js-pb-draw-size-slider');
+      const valEl = modal.querySelector('.js-pb-draw-size-val');
+      if (slider) slider.value = String(v);
+      if (valEl) valEl.textContent = `${v}px`;
     });
+  });
+  /* v36: 컬러 피커 (자유 색) — 도구 유지, 색만 변경 */
+  modal.querySelector('.js-pb-draw-color-pick')?.addEventListener('input', e => {
+    state.color = e.target.value;
+    /* 8색 버튼 active 해제 (자유 색 선택 표시) */
+    modal.querySelectorAll('.js-pb-draw-color').forEach(b => b.classList.remove('is-on'));
+    /* 지우개일 땐 색 사용 안 하니 pen으로 전환 */
+    if (state.tool === 'eraser') {
+      state.tool = 'pen';
+      modal.querySelectorAll('.js-pb-draw-tool').forEach(b =>
+        b.classList.toggle('is-on', b.dataset.tool === 'pen'));
+      canvas.style.cursor = 'crosshair';
+    }
+  });
+  /* v36: 굵기 슬라이더 — 도구에 따라 펜 size 또는 지우개 eraserSize에 저장 */
+  modal.querySelector('.js-pb-draw-size-slider')?.addEventListener('input', e => {
+    const v = parseInt(e.target.value, 10) || 5;
+    if (state.tool === 'eraser') state.eraserSize = v;
+    else state.size = v;
+    const valEl = modal.querySelector('.js-pb-draw-size-val');
+    if (valEl) valEl.textContent = `${v}px`;
+    /* 4단계 버튼 active — 일치하는 게 있으면 표시 */
+    modal.querySelectorAll('.js-pb-draw-size').forEach(b => {
+      b.classList.toggle('is-on', parseInt(b.dataset.size, 10) === v);
+    });
+  });
+  /* v36: 불투명도 슬라이더 (20~100%) */
+  modal.querySelector('.js-pb-draw-opacity')?.addEventListener('input', e => {
+    const pct = parseInt(e.target.value, 10) || 100;
+    state.opacity = pct / 100;
+    const valEl = modal.querySelector('.js-pb-draw-opacity-val');
+    if (valEl) valEl.textContent = `${pct}%`;
   });
   modal.querySelector('.js-pb-draw-pressure')?.addEventListener('change', e => {
     state.pressure = !!e.target.checked;

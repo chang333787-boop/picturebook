@@ -243,6 +243,10 @@
   max-width: 100%;
   max-height: 100%;
   box-sizing: border-box;
+  /* v36: 자식(.pb-frame > .pb-text)이 콘텐츠 크기로 페이지 비율을 깨지 못하게.
+     4+개 버튼 wrap 시 박스 늘어나는 문제 root fix. */
+  overflow: hidden;
+  min-height: 0;
   /* W8 따뜻한 디자인 — 책 페이지처럼 떠 있는 종이결 그림자 + 미세 보더 */
   background: var(--v03-card-bg);
   border-radius: 12px;
@@ -272,6 +276,25 @@
   }
 }
 
+/* ── W9: portrait 작품 — 페이지 비율 세로 A4 (210:297) ──
+   body[data-page-orientation="portrait"]면 .pb-page 비율 뒤집고
+   container query 분기점도 0.707 기준으로 다시 잡음. */
+body[data-page-orientation="portrait"] .scene-screen--pb .pb-page {
+  aspect-ratio: 210 / 297;
+}
+@container pbstage (aspect-ratio > 210/297) {
+  body[data-page-orientation="portrait"] .scene-screen--pb .pb-page {
+    width: auto;
+    height: 100%;
+  }
+}
+@container pbstage (aspect-ratio <= 210/297) {
+  body[data-page-orientation="portrait"] .scene-screen--pb .pb-page {
+    width: 100%;
+    height: auto;
+  }
+}
+
 .scene-screen--pb .pb-frame {
   width: 100%;
   height: 100%;
@@ -281,12 +304,32 @@
   border-radius: var(--v03-r-md);
   padding: 8px;
   box-sizing: border-box;
+  /* v36: 자식(텍스트 영역) 콘텐츠가 grid row를 넘지 못하게 — 4+개 버튼 wrap 시
+     박스(.pb-page 큰 네모) 깨지는 문제 방지. 자식은 overflow auto로 자체 스크롤. */
+  overflow: hidden;
+  min-height: 0;
 }
 
-/* 분할형 (split) — 위 그림 60 / 아래 텍스트+선택지 40 */
+/* v36: grid item(.pb-text, .pb-illust)의 min-height auto가 자식 콘텐츠로 row를 늘림.
+   둘 다 0으로 강제 — grid-template-rows fr 비율 정확히 유지. */
+.scene-screen--pb.pb--split .pb-text,
+.scene-screen--pb.pb--imagecenter .pb-stage,
+.scene-screen--pb.pb--imagecenter .pb-text--bottom-only {
+  min-height: 0;
+}
+
+/* 분할형 (split)
+   W9: landscape (기본) = 위 그림 80 / 아래 텍스트+선택지 20 — 그림이 큰 구조.
+   v36: 사용자 결정 — 가로분할형 8:2 → 7:3. 제목 카드 좌상단 + 본문 + 4개까지 버튼이
+   다른 모드(2×2 grid)와 같은 규칙으로 들어가도록 텍스트 영역 50% 확보.
+   portrait는 아래 별도 룰에서 60:40으로 오버라이드. */
 .scene-screen--pb.pb--split .pb-frame {
-  grid-template-rows: minmax(0, 6fr) minmax(0, 4fr);
+  grid-template-rows: minmax(0, 7fr) minmax(0, 3fr);
   grid-template-columns: 1fr;
+}
+body[data-page-orientation="portrait"] .scene-screen--pb.pb--split .pb-frame {
+  /* portrait 작품에선 본문 영역 충분히 (페이지가 세로라 6:4여도 본문 적정) */
+  grid-template-rows: minmax(0, 6fr) minmax(0, 4fr);
 }
 
 /* 그림 중심형 (imageCenter) — 상단 장면(그림+제목+본문) 80 / 하단 선택지 20.
@@ -312,14 +355,14 @@
   inset: 0;
   border: none;
   border-radius: 0;
-  /* 여백 = 종이톤 (그림 좌우 여백) */
-  background-color: var(--v03-illust-bg);
+  /* W9: 그림 영역 = 페이지 색(흰). 학생 흰 종이 그림과 자연스럽게 연결. */
+  background-color: #fffefa;
   background-size: contain;
   background-position: center;
   background-repeat: no-repeat;
   z-index: 0;
 }
-/* 그림 없음 placeholder — empty 상태에서도 영역은 차지 */
+/* 그림 없음 placeholder — empty 상태에서만 베이지 (그림 슬롯 비었음 표시) */
 .scene-screen--pb.pb--imagecenter .pb-stage .pb-illust--empty {
   background-color: var(--v03-illust-bg, #eef2f8);
   display: grid;
@@ -465,10 +508,14 @@
   gap: 6px;
   width: 100%;
   height: 100%;
+  min-height: 0;
   align-items: stretch;
   justify-content: center;
   /* W8: 기본 center — 1행만 있을 땐 박스 가운데. 2행 이상은 아래에서 stretch로 오버라이드 */
   align-content: center;
+  /* v36: 4+개 버튼 wrap 시 자식이 부모 늘리지 못하게 — overflow auto로 자체 스크롤. */
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 /* 4·5·6개일 때만 stretch — 행 자체를 박스 전체로 늘림 */
 .scene-screen--pb.pb--imagecenter .pb-text--bottom-only .pb-text__actions[data-count="4"],
@@ -504,16 +551,58 @@
 }
 
 /* 그림 슬롯 — 학생 그림 비율 다양 (가로/세로/정사각) → contain으로 안 잘림.
-   잘림이 사용자 핵심 원칙. 여백은 종이톤 부드럽게 (책 페이지 안 그림 같은 느낌). */
+   잘림이 사용자 핵심 원칙. W9: 그림 영역 배경을 페이지 색(흰)으로 — 학생 그림이
+   흰 종이에 그려져 있으면 베이지 배경과 부조화 → 회색처럼 보임.
+   placeholder만 별도 베이지 유지 (그림 없음 표시용). */
 .scene-screen--pb .pb-illust {
-  background: var(--v03-illust-bg);
-  background-size: contain;
-  background-position: center;
-  background-repeat: no-repeat;
+  background: #fffefa;
+  /* W9 (v8): 사진 transform 위해 inner 컨테이너 분리.
+     .pb-illust는 viewport 역할 (overflow hidden), .pb-illust__inner이 사진 표시. */
+  position: relative;
+  overflow: hidden;
   border-radius: var(--v03-r-md);
   border: 1px solid var(--v03-card-border);
   min-width: 0;
   min-height: 0;
+}
+.scene-screen--pb .pb-illust__photo {
+  /* W9 (v13): wrapper 사이즈 = 사진 contained 영역. JS가 width/height %로 정확히 박음.
+     fallback: load 전 또는 ResizeObserver 미작동 환경 — height 100% + aspect-ratio 1로 작게라도 보이게. */
+  position: relative;
+  height: 100%;
+  width: auto;
+  max-width: 100%;
+  max-height: 100%;
+  aspect-ratio: 1;
+  overflow: hidden;
+  transform-origin: center;
+  transform:
+    translate(var(--pb-img-x, 0%), var(--pb-img-y, 0%))
+    scale(var(--pb-img-sx, 1), var(--pb-img-sy, 1));
+  transition: transform 80ms;
+}
+.scene-screen--pb .pb-illust__inner {
+  /* W9 (v12): img가 wrapper 100% 채움 (wrapper는 자연 비율이라 사진 그대로).
+     crop은 clip-path로 일부분만 가시 → 영역 사이즈 변경 안 됨. */
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  user-select: none;
+  -webkit-user-drag: none;
+  clip-path: inset(
+    calc(var(--pb-crop-y, 0) * 1%)
+    calc((100 - var(--pb-crop-x, 0) - var(--pb-crop-w, 100)) * 1%)
+    calc((100 - var(--pb-crop-y, 0) - var(--pb-crop-h, 100)) * 1%)
+    calc(var(--pb-crop-x, 0) * 1%)
+  );
+}
+/* .pb-illust는 wrapper가 가운데 정렬 */
+.scene-screen--pb .pb-illust {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .scene-screen--pb .pb-illust--empty {
   display: grid;
@@ -529,6 +618,43 @@
   opacity: 0.3;
   font-weight: 300;
   /* 의도적으로 짧고 중성적 — v0.3 명세: 감성 문구 금지 */
+}
+
+/* v36: 가로분할형 — 제목을 그림 좌상단 오버레이로.
+   하단 텍스트 영역(20%)에 제목·본문·버튼 다 들어가면 본문/버튼 잘려서
+   사용자 보고: "버튼이 안 보임". 가로분할형은 그림 영역이 큰 만큼
+   제목을 그림 위 모서리에 작은 카드로 띄움. portrait split·imageCenter는 영향 없음. */
+.scene-screen--pb.pb--split .pb-illust__title-overlay {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  margin: 0;
+  padding: 6px 12px;
+  background: rgba(255, 250, 238, 0.92);
+  border: 1px solid var(--v03-card-border);
+  border-radius: 10px;
+  font-size: clamp(13px, 1.5vw, 17px);
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--pb-color-override, #2b1f10);
+  font-family: var(--pb-font-family, inherit);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+  z-index: 5;
+  max-width: calc(100% - 24px);
+  /* contenteditable 다듬기 시 outline */
+}
+.scene-screen--pb.pb--split .pb-illust__title-overlay[contenteditable="true"] {
+  cursor: text;
+}
+.scene-screen--pb.pb--split .pb-illust__title-overlay[contenteditable="true"]:focus {
+  outline: 2px solid #c66f4a;
+  outline-offset: 2px;
+}
+/* 빈 상태 placeholder 표시 (다듬기 모드에서만 의미 있음) */
+.scene-screen--pb.pb--split .pb-illust__title-overlay:empty::before {
+  content: attr(data-placeholder);
+  opacity: 0.5;
+  font-weight: 400;
 }
 
 /* 텍스트 영역 — 좁은 환경에서 효율적으로 */
@@ -590,6 +716,10 @@
   /* 부모 grid 영역 안에 fit */
   overflow: hidden;
   padding: 12px 16px;
+  /* W9 본문 빔 fix 2단계: 콘텐츠 가운데 정렬.
+     본문 짧으면 위아래 균등 여백 (책 페이지 자연스러운 흰 여백 느낌),
+     본문 길면 영역 다 채우며 자연스럽게 시작점 위로. */
+  justify-content: center;
 }
 .scene-screen--pb.pb--split .pb-text__title {
   flex: 0 0 auto;
@@ -597,15 +727,23 @@
   margin: 0 0 6px;
 }
 .scene-screen--pb.pb--split .pb-text__body {
-  flex: 1 1 auto;
+  /* W8 분할형 본문 빔 fix: 1 1 auto → 0 1 auto.
+     본문 짧을 때 본문 영역이 4fr 영역을 안 채우고 본문 양만큼만 차지 →
+     선택지가 본문 바로 아래 자연스럽게. 본문 길어지면 shrink + overflow-y: auto로 스크롤.
+     W9 글자 크기 fix: 슬라이더가 --pb-fs-body 변수 박는데 여기서 직접 clamp 박혀 있어 무시됨 → var fallback. */
+  flex: 0 1 auto;
   min-height: 0;
   overflow-y: auto;
   margin: 0 0 8px;
-  font-size: clamp(12px, 1.3vw, 13.5px);
+  font-size: var(--pb-fs-body, clamp(12px, 1.3vw, 13.5px));
   line-height: 1.55;
 }
 .scene-screen--pb.pb--split .pb-text__actions {
-  flex: 0 0 auto;
+  /* v36: 가로분할형(landscape) 기본 — 본문 짧음 의도, 행동 영역 60%.
+     세로분할형은 아래 portrait 룰에서 35%로 오버라이드 (본문 비중 ↑). */
+  flex: 0 0 60%;
+  min-height: 0;
+  margin-top: auto;
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
@@ -613,10 +751,17 @@
   padding-top: 8px;
   align-items: stretch;
   justify-content: center;
-  align-content: flex-start;
-  /* 영역 초과시 잘림 방지 — 끝에 padding으로 안전 마진 */
-  max-height: 50%;
+  align-content: stretch;
   overflow: hidden;
+}
+
+/* v36: 세로분할형 — 본문 비중 ↑. 행동 영역 35% (가로분할형 60%와 분리).
+   사용자 보고: "뭉툭하고 본문이 안 보임" — 가로분할형 비율이 세로에 그대로 적용된 문제.
+   align-content: center = imageCenter처럼 자식이 자연 높이로 박스 가운데 정렬 (stretch X).
+   사용자 보고: "세로 그림중심형처럼 보이면 좋은데 아직 뭉뚝" — 행 stretch가 버튼을 늘리던 문제. */
+body[data-page-orientation="portrait"] .scene-screen--pb.pb--split .pb-text__actions {
+  flex: 0 0 35%;
+  align-content: center;
 }
 .scene-screen--pb.pb--split .pb-text__actions .choice-v03 {
   flex: 1 1 calc(33% - 6px);
@@ -1626,16 +1771,27 @@
    · 사용자 직접 스타일(폰트/크기/색/굵기)이 테마 기본값 위에 덮어씀.
    ================================================================ */
 
-/* 폰트 변수 — 사용자 메모리 기반 */
+/* 폰트 변수 — 사용자 메모리 기반 + W9 확장 (총 18종) */
 :root {
-  --font-gothic:    'Nanum Gothic', 'Apple SD Gothic Neo', sans-serif;
-  --font-batang:    'Gowun Batang', 'Apple SD Gothic Neo', serif;
-  --font-jua:       'Jua', 'Apple SD Gothic Neo', sans-serif;
-  --font-hanna:     'Black Han Sans', 'Jua', sans-serif;
-  --font-pen:       'Nanum Pen Script', 'Gaegu', cursive;
-  --font-gaegu:     'Gaegu', 'Nanum Pen Script', cursive;
-  --font-galmuri:   'Galmuri7', 'Galmuri', monospace;
-  --font-cormorant: 'Cormorant Garamond', 'Gowun Batang', serif;
+  --font-gothic:     'Nanum Gothic', 'Apple SD Gothic Neo', sans-serif;
+  --font-batang:     'Gowun Batang', 'Apple SD Gothic Neo', serif;
+  --font-jua:        'Jua', 'Apple SD Gothic Neo', sans-serif;
+  --font-hanna:      'Black Han Sans', 'Jua', sans-serif;
+  --font-pen:        'Nanum Pen Script', 'Gaegu', cursive;
+  --font-gaegu:      'Gaegu', 'Nanum Pen Script', cursive;
+  --font-galmuri:    'Galmuri7', 'Galmuri', monospace;
+  --font-cormorant:  'Cormorant Garamond', 'Gowun Batang', serif;
+  /* W9 추가 10종 (구글 폰트 OFL) */
+  --font-notosans:   'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif;
+  --font-notoserif:  'Noto Serif KR', 'Apple SD Gothic Neo', serif;
+  --font-dohyeon:    'Do Hyeon', 'Jua', sans-serif;
+  --font-dodum:      'Gowun Dodum', 'Apple SD Gothic Neo', sans-serif;
+  --font-himelody:   'Hi Melody', 'Gaegu', cursive;
+  --font-yeonsung:   'Yeon Sung', 'Gaegu', cursive;
+  --font-dokdo:      'East Sea Dokdo', 'Nanum Pen Script', cursive;
+  --font-diphylleia: 'Diphylleia', 'Cormorant Garamond', serif;
+  --font-hahmlet:    'Hahmlet', 'Gowun Batang', serif;
+  --font-stylish:    'Stylish', 'Gowun Batang', serif;
 }
 
 /* 사용자 스타일 적용 (CSS 변수로 inline 박힘) */
@@ -1835,20 +1991,62 @@
   color: #c8dcf2;
 }
 
+/* W9: 폰트 select dropdown — 한컴/구글 docs 스타일.
+   18종 폰트를 grid 버튼 대신 한 줄 select로 표시 → 인스펙터 세로 절약. */
+.edit-font-select {
+  /* v36: warm paper 인스펙터 톤 — 검은 글씨 + 흰 배경. 회색 톤 폐기. */
+  width: 100%;
+  padding: 9px 10px;
+  background-color: rgba(255,255,255,0.65);
+  border: 1px solid rgba(120,90,50,0.20);
+  border-radius: 6px;
+  color: #1a1a1a;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+  cursor: pointer;
+  transition: background 120ms, border-color 120ms;
+  -webkit-appearance: none;
+     -moz-appearance: none;
+          appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1.5L6 6.5L11 1.5' stroke='%231a1a1a' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 32px;
+}
+.edit-font-select:hover {
+  background-color: rgba(255,255,255,0.85);
+  border-color: rgba(120,90,50,0.35);
+}
+.edit-font-select:focus {
+  outline: none;
+  border-color: rgba(74,144,217,0.7);
+  box-shadow: 0 0 0 2px rgba(74,144,217,0.25);
+}
+/* option 항목 자체 색 — 시스템 드롭다운 (light bg 위에 dark text 가 일반) */
+.edit-font-select option {
+  background: #fff;
+  color: #1a1a1a;
+  padding: 6px 8px;
+  font-size: 14px;
+}
+
+/* W9 (v4): 5×2 grid (10색). 통일성. */
 .edit-color-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
   gap: 6px;
-  flex-wrap: wrap;
+  justify-items: center;
   margin-bottom: 6px;
 }
 .edit-color-btn {
   width: 32px;
   height: 32px;
-  border: 2px solid rgba(255,255,255,0.15);
+  border: 2px solid rgba(120,90,50,0.2);
   border-radius: 50%;
   cursor: pointer;
   font-size: 9px;
-  color: #888;
+  color: #8a6c4a;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1858,19 +2056,24 @@
   transform: scale(1.08);
 }
 .edit-color-btn.active {
-  border-color: #4a90d9;
+  border-color: var(--accent, #c66f4a);
   border-width: 3px;
-  box-shadow: 0 0 0 2px rgba(74,144,217,0.3);
+  box-shadow: 0 0 0 2px rgba(198,111,74,0.3);
 }
+/* v36: grid 안 (살색 옆) 박힘 — 다른 색 버튼과 동일 32×32 동그라미 + 점선(자유 색 표시). */
 .edit-color-picker {
-  width: 40px;
+  width: 32px;
   height: 32px;
   padding: 0;
-  border: 1px solid rgba(255,255,255,0.15);
-  border-radius: 6px;
+  border: 2px dashed rgba(120,90,50,0.45);
+  border-radius: 50%;
   cursor: pointer;
   background: transparent;
+  transition: transform 80ms, border-color 120ms;
 }
+.edit-color-picker:hover { transform: scale(1.08); }
+.edit-color-picker::-webkit-color-swatch { border-radius: 50%; border: none; }
+.edit-color-picker::-moz-color-swatch { border-radius: 50%; border: none; }
 
 .edit-slider {
   width: 100%;
@@ -1941,4 +2144,775 @@
   color: rgba(80,50,20,0.42);
   font-style: italic;
   pointer-events: none;
+}
+
+/* ════════════════════════════════════════════════════════════
+   W9: 그림책 양옆 마감 테마 (6종)
+   ─────────────────────────────────────────────────────────────
+   body[data-pb-theme]로 분기. .scene-screen--pb 배경 변경 ±
+   .pb-page 외곽 살짝. 작품 단위 — viewer-meta.pbTheme.
+   기본값(없거나 잘못된 값) = 'classic-book' (viewer-data.js fallback).
+   ════════════════════════════════════════════════════════════ */
+
+/* 1. classic-book — 클래식 책 두께·제본 (v36 강화: spine 그림자 + 페이지 모서리 굽힘) */
+body[data-pb-theme="classic-book"] .scene-screen--pb {
+  background-color: #e8dcc0;
+  background-image: repeating-linear-gradient(180deg,
+    transparent 0 28px,
+    rgba(120,90,50,0.10) 28px 29px,
+    transparent 29px 30px,
+    rgba(120,90,50,0.06) 30px 31px);
+}
+body[data-pb-theme="classic-book"] .scene-screen--pb .pb-page {
+  border-left: 3px solid #4a3825;
+  border-right: 3px solid #4a3825;
+  border-radius: 2px;
+  /* v36: 책 두께감 — 양 측면에 그림자 + 페이지 내부 살짝 음영 */
+  box-shadow:
+    /* 좌측 spine 그림자 (책 안쪽 굽힘) */
+    inset 12px 0 24px -8px rgba(80,55,25,0.18),
+    /* 우측 spine 그림자 (대칭) */
+    inset -12px 0 24px -8px rgba(80,55,25,0.18),
+    /* 책 두께 그림자 (외부) */
+    0 2px 4px rgba(80,55,25,0.20),
+    0 8px 16px rgba(80,55,25,0.16),
+    0 16px 40px rgba(80,55,25,0.12);
+}
+/* v36: 페이지 가로 중앙 spine 라인 (가로분할형은 책 가운데 접힘 보임) */
+body[data-pb-theme="classic-book"] .scene-screen--pb.pb--split .pb-page::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  background: linear-gradient(to right,
+    transparent,
+    rgba(80,55,25,0.18) 30%,
+    rgba(80,55,25,0.22) 50%,
+    rgba(80,55,25,0.18) 70%,
+    transparent);
+  transform: translateX(-50%);
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.7;
+}
+/* .pb-page는 flex이므로 ::before가 position absolute일 때 부모 relative 필요 */
+body[data-pb-theme="classic-book"] .scene-screen--pb .pb-page {
+  position: relative;
+}
+
+/* 2. paper-desk — 책상 위 종이결 (v36 강화: 노이즈 + 종이 그림자 + 페이지 내부 종이결) */
+body[data-pb-theme="paper-desk"] .scene-screen--pb {
+  background-color: #d9c7a3;
+  background-image:
+    /* 책상 나무결 (cross-hatch) — 기존 */
+    repeating-linear-gradient(45deg, transparent 0 5px, rgba(120,90,50,0.07) 5px 6px),
+    repeating-linear-gradient(-45deg, transparent 0 7px, rgba(80,55,25,0.05) 7px 8px),
+    /* v36: 큰 나무결 (수평) — 책상다움 ↑ */
+    repeating-linear-gradient(90deg,
+      transparent 0 80px,
+      rgba(80,55,25,0.04) 80px 82px,
+      transparent 82px 120px,
+      rgba(120,90,50,0.03) 120px 122px),
+    /* v36: 미세 노이즈 (작은 점들) — 종이 위 먼지 느낌 */
+    radial-gradient(circle at 12% 18%, rgba(80,55,25,0.05) 0, transparent 1.5px),
+    radial-gradient(circle at 68% 42%, rgba(80,55,25,0.04) 0, transparent 1.5px),
+    radial-gradient(circle at 33% 78%, rgba(80,55,25,0.05) 0, transparent 1.5px),
+    radial-gradient(circle at 82% 88%, rgba(80,55,25,0.04) 0, transparent 1.5px);
+}
+body[data-pb-theme="paper-desk"] .scene-screen--pb .pb-page {
+  /* v36 강화: 진짜 종이 그림자 — 책상에 놓인 듯 좌상→우하 비대칭 그림자 */
+  box-shadow:
+    /* 진한 가까운 그림자 (종이 두께) */
+    1px 1px 2px rgba(60,40,15,0.12),
+    /* 중간 그림자 (종이 떠 있는 듯) */
+    2px 6px 16px rgba(60,40,15,0.18),
+    /* 큰 부드러운 그림자 (책상에서 살짝 떠 있음) */
+    4px 16px 48px rgba(60,40,15,0.20),
+    /* 멀고 흐릿한 그림자 (분위기) */
+    8px 32px 64px rgba(60,40,15,0.10);
+  /* v36: 종이 내부에도 미세 종이결 — 표면 질감 ↑ */
+  background-image:
+    repeating-linear-gradient(0deg,
+      transparent 0 3px,
+      rgba(120,90,50,0.025) 3px 4px),
+    var(--v03-card-bg, #fffaee);
+}
+
+/* 3. minimal-cream — 단순 종이톤 */
+body[data-pb-theme="minimal-cream"] .scene-screen--pb {
+  background-color: #f0e6d2;
+}
+
+/* 4. sketch-note — 손그림 노트 줄지 */
+body[data-pb-theme="sketch-note"] .scene-screen--pb {
+  background-color: #fff8e0;
+  background-image: repeating-linear-gradient(180deg,
+    transparent 0 11px, rgba(80,120,180,0.18) 11px 12px);
+  position: relative;
+}
+body[data-pb-theme="sketch-note"] .scene-screen--pb::before {
+  content: '';
+  position: absolute;
+  left: 14%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(220,80,80,0.5);
+  pointer-events: none;
+  z-index: 0;
+}
+body[data-pb-theme="sketch-note"] .scene-screen--pb .pb-page {
+  border: 1px dashed rgba(120,90,50,0.45);
+  position: relative;
+  z-index: 1;
+}
+
+/* 5. library-card — 도서관 황색 + 라벨·도장 디테일 (v36 강화: 바코드 + 도장) */
+body[data-pb-theme="library-card"] .scene-screen--pb {
+  background-color: #f0e0b8;
+  /* v36: 바코드 (좌하단) + 도장 자국 (우상단) — SVG inline */
+  background-image:
+    /* 우상단 빨간 원형 도장 (✓ READ) */
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80'><circle cx='40' cy='40' r='30' fill='none' stroke='%23b8482b' stroke-width='2.5' opacity='0.55'/><text x='40' y='38' text-anchor='middle' font-family='Cormorant Garamond,serif' font-size='11' font-weight='bold' fill='%23b8482b' opacity='0.6' letter-spacing='1.5'>READ</text><text x='40' y='52' text-anchor='middle' font-family='Cormorant Garamond,serif' font-size='8' fill='%23b8482b' opacity='0.55'>2026</text></svg>"),
+    /* 좌하단 바코드 — 가는 세로 줄들 */
+    repeating-linear-gradient(90deg,
+      transparent 0 3px,
+      rgba(60,40,15,0.55) 3px 4px,
+      transparent 4px 5px,
+      rgba(60,40,15,0.55) 5px 7px,
+      transparent 7px 9px,
+      rgba(60,40,15,0.55) 9px 10px);
+  background-repeat: no-repeat;
+  background-position:
+    right 4% top 22px,         /* 도장 */
+    left 4% bottom 18px;       /* 바코드 */
+  background-size:
+    80px 80px,                 /* 도장 크기 */
+    160px 28px;                /* 바코드 크기 */
+  position: relative;
+}
+/* DUE 라벨 + 날짜 라인 (좌상단) */
+body[data-pb-theme="library-card"] .scene-screen--pb::before {
+  content: 'DUE';
+  position: absolute;
+  left: 4%;
+  top: 18px;
+  width: 96px;
+  height: 26px;
+  border: 1px solid rgba(120,80,40,0.45);
+  background: rgba(255,250,235,0.55);
+  font-size: 12px;
+  color: #4a3010;
+  font-family: 'Cormorant Garamond', serif;
+  letter-spacing: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 0;
+}
+/* 우하단 점선 카드 (대출 일자 영역 느낌) */
+body[data-pb-theme="library-card"] .scene-screen--pb::after {
+  content: '';
+  position: absolute;
+  right: 5%;
+  bottom: 56px;
+  width: 72px;
+  height: 32px;
+  border: 1.5px dashed rgba(180,80,40,0.55);
+  transform: rotate(-8deg);
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 0;
+}
+body[data-pb-theme="library-card"] .scene-screen--pb .pb-page {
+  border-color: rgba(120,80,40,0.3);
+  position: relative;
+  z-index: 1;
+}
+
+/* 6. night-tale — 밤 이야기 어두운 + 별빛 (v36 강화: 외곽 분위기 깊게).
+   사용자 결정: 페이지 내부는 종이 톤 유지 (책 페이지 일관성). 외곽 밤 분위기만 강조. */
+body[data-pb-theme="night-tale"] .scene-screen--pb {
+  /* 배경 그라데이션 — 위 깊은 보라, 아래 살짝 푸른 톤 (밤하늘 깊이감) */
+  background:
+    radial-gradient(ellipse at 80% 15%, rgba(80,70,130,0.45) 0%, transparent 50%),
+    radial-gradient(ellipse at 20% 85%, rgba(40,55,95,0.40) 0%, transparent 60%),
+    linear-gradient(180deg, #14102a 0%, #1c1838 50%, #221d3e 100%);
+  background-attachment: fixed;
+  position: relative;
+}
+/* 별빛 layer (작은~큰 별 다양) — ::before로 박아 본 배경과 분리 */
+body[data-pb-theme="night-tale"] .scene-screen--pb::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    /* 큰 별 (밝게 반짝) */
+    radial-gradient(circle at 15% 12%, rgba(255,255,220,0.9) 0, rgba(255,255,220,0.3) 1.5px, transparent 3px),
+    radial-gradient(circle at 88% 75%, rgba(255,250,210,0.85) 0, rgba(255,250,210,0.3) 1.5px, transparent 3px),
+    radial-gradient(circle at 45% 88%, rgba(255,255,220,0.8) 0, rgba(255,255,220,0.25) 1.5px, transparent 3px),
+    /* 중간 별 */
+    radial-gradient(circle at 8% 45%, rgba(255,250,200,0.7) 0, transparent 2px),
+    radial-gradient(circle at 92% 35%, rgba(255,250,200,0.65) 0, transparent 2px),
+    radial-gradient(circle at 70% 18%, rgba(255,250,200,0.75) 0, transparent 2.2px),
+    radial-gradient(circle at 30% 28%, rgba(255,250,200,0.6) 0, transparent 2px),
+    radial-gradient(circle at 95% 58%, rgba(255,250,200,0.65) 0, transparent 2.2px),
+    radial-gradient(circle at 5% 70%, rgba(255,250,200,0.55) 0, transparent 2px),
+    radial-gradient(circle at 55% 50%, rgba(255,250,200,0.50) 0, transparent 2px),
+    /* 작은 별 (점) */
+    radial-gradient(circle at 25% 55%, rgba(255,250,200,0.4) 0, transparent 1.2px),
+    radial-gradient(circle at 78% 22%, rgba(255,250,200,0.45) 0, transparent 1.2px),
+    radial-gradient(circle at 62% 78%, rgba(255,250,200,0.4) 0, transparent 1.2px),
+    radial-gradient(circle at 40% 38%, rgba(255,250,200,0.35) 0, transparent 1.2px),
+    radial-gradient(circle at 85% 92%, rgba(255,250,200,0.42) 0, transparent 1.2px),
+    radial-gradient(circle at 18% 92%, rgba(255,250,200,0.4) 0, transparent 1.2px),
+    radial-gradient(circle at 50% 8%, rgba(255,250,200,0.5) 0, transparent 1.4px),
+    radial-gradient(circle at 32% 68%, rgba(255,250,200,0.38) 0, transparent 1.2px);
+}
+/* 달 — 우상단 작은 초승달 (SVG inline) */
+body[data-pb-theme="night-tale"] .scene-screen--pb::after {
+  content: '';
+  position: absolute;
+  top: 4%;
+  right: 5%;
+  width: 60px;
+  height: 60px;
+  pointer-events: none;
+  z-index: 0;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 60'><circle cx='30' cy='30' r='22' fill='rgba(255,248,210,0.85)'/><circle cx='38' cy='26' r='20' fill='rgba(20,16,42,1)'/><circle cx='30' cy='30' r='22' fill='none' stroke='rgba(255,255,220,0.4)' stroke-width='0.5'/></svg>");
+  background-repeat: no-repeat;
+  background-size: contain;
+  filter: drop-shadow(0 0 10px rgba(255,250,200,0.35));
+}
+body[data-pb-theme="night-tale"] .scene-screen--pb .pb-page {
+  border-color: rgba(220,200,140,0.35);
+  box-shadow:
+    0 4px 12px rgba(0,0,0,0.5),
+    0 16px 40px rgba(0,0,0,0.3);
+  position: relative;
+  z-index: 1;
+}
+
+/* ────────────────────────────────────────────────────────
+   W9 (v3): 양옆 마감 테마 collapsible 토글 헤더.
+   접힌 상태: [mini preview] 🎨 양옆 마감 테마 — 책상  ▼
+   펼친 상태: 🎨 양옆 마감 테마  ▲  + 아래 6 카드 grid
+   ──────────────────────────────────────────────────────── */
+.edit-pb-theme-toggle {
+  width: 100%;
+  padding: 10px 12px;
+  background: rgba(255,255,255,0.7);
+  border: 0.5px solid rgba(120,90,50,0.30);
+  border-radius: 8px;
+  color: #2b1f10;
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  text-align: left;
+  transition: background 120ms, border-color 120ms;
+}
+.edit-pb-theme-toggle:hover {
+  background: rgba(255,255,255,0.95);
+  border-color: rgba(120,90,50,0.45);
+}
+.edit-pb-theme-toggle.is-expanded {
+  background: rgba(198,111,74,0.06);
+  border-color: rgba(198,111,74,0.35);
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  border-bottom: 0;
+}
+.edit-pb-theme-toggle-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+.edit-pb-theme-toggle-text {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.edit-pb-theme-toggle-current {
+  font-weight: 400;
+  color: #8a6c4a;
+}
+.edit-pb-theme-toggle-chev {
+  font-size: 11px;
+  color: #8a6c4a;
+  margin-left: 8px;
+}
+.edit-pb-theme-toggle.is-expanded .edit-pb-theme-toggle-chev { color: #c66f4a; }
+/* 접힌 상태 mini preview — 헤더 좌측에 작은 색·패턴 박스 */
+.edit-pb-theme-toggle-mini {
+  width: 26px;
+  height: 16px;
+  border-radius: 2px;
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+}
+.edit-pb-theme-toggle-mini::after {
+  /* 가운데 페이지 stripe */
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 1px;
+  bottom: 1px;
+  transform: translateX(-50%);
+  width: 30%;
+  background: #fffefa;
+  border-radius: 1px;
+}
+/* mini 배경은 각 테마 색으로 (edit-pb-theme-card--{id} 클래스 재사용) */
+.edit-pb-theme-card--classic-book.edit-pb-theme-toggle-mini { background: #e8dcc0; }
+.edit-pb-theme-card--paper-desk.edit-pb-theme-toggle-mini   { background: #d9c7a3; }
+.edit-pb-theme-card--minimal-cream.edit-pb-theme-toggle-mini{ background: #f0e6d2; }
+.edit-pb-theme-card--sketch-note.edit-pb-theme-toggle-mini  { background: #fff8e0; }
+.edit-pb-theme-card--library-card.edit-pb-theme-toggle-mini { background: #f0e0b8; }
+.edit-pb-theme-card--night-tale.edit-pb-theme-toggle-mini   { background: #1c1830; }
+
+/* 펼친 상태 body — 헤더 바로 아래 같은 배경 영역으로 연결 */
+.edit-pb-theme-body {
+  padding: 10px 12px 12px;
+  background: rgba(198,111,74,0.04);
+  border: 0.5px solid rgba(198,111,74,0.35);
+  border-top: 0;
+  border-radius: 0 0 8px 8px;
+  margin-bottom: 8px;
+}
+
+/* ────────────────────────────────────────────────────────
+   W9: 다듬기 인스펙터 — 그림책 테마 카드 selector UI
+   텍스트 모드의 .edit-theme-card 패턴 따름.
+   ──────────────────────────────────────────────────────── */
+.edit-pb-theme-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.edit-pb-theme-card {
+  padding: 10px 8px;
+  /* W9 (v3): 인스펙터 light 톤(Warm Paper #fffaee)에 맞게 — dark 색은 안 보였음 */
+  background: rgba(255,255,255,0.6);
+  border: 1px solid rgba(120,90,50,0.18);
+  border-radius: 8px;
+  color: var(--text, #2b1f10);
+  text-align: center;
+  cursor: pointer;
+  transition: background 120ms, border-color 120ms, transform 80ms;
+  min-height: 60px;
+}
+.edit-pb-theme-card:hover {
+  transform: translateY(-1px);
+  background: rgba(255,255,255,0.9);
+  border-color: rgba(120,90,50,0.35);
+}
+.edit-pb-theme-card.active {
+  background: rgba(198,111,74,0.10);
+  border-color: var(--accent, #c66f4a);
+  box-shadow: 0 0 0 1px rgba(198,111,74,0.45);
+}
+.edit-pb-theme-name {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 3px;
+  color: #3d2914;
+}
+.edit-pb-theme-desc {
+  font-size: 10px;
+  color: #8a6c4a;
+  line-height: 1.3;
+}
+.edit-pb-theme-card.active .edit-pb-theme-name {
+  color: var(--accent, #c66f4a);
+}
+
+/* W9 후속: 테마 카드 안 mini preview — 각 테마의 핵심 시각 요소 미니어처 */
+.edit-pb-theme-preview {
+  position: relative;
+  height: 34px;
+  border-radius: 4px;
+  margin-bottom: 6px;
+  overflow: hidden;
+  background: #f0e6d2;
+}
+.edit-pb-theme-preview-page {
+  position: absolute;
+  left: 50%;
+  top: 3px;
+  bottom: 3px;
+  transform: translateX(-50%);
+  width: 30%;
+  background: #fffefa;
+  border-radius: 2px;
+  box-sizing: border-box;
+}
+
+/* 1. classic-book mini */
+.edit-pb-theme-card--classic-book .edit-pb-theme-preview {
+  background-color: #e8dcc0;
+  background-image: repeating-linear-gradient(180deg,
+    transparent 0 5px, rgba(120,90,50,0.18) 5px 6px);
+}
+.edit-pb-theme-card--classic-book .edit-pb-theme-preview-page {
+  border-left: 1.5px solid #4a3825;
+  border-right: 1.5px solid #4a3825;
+  border-radius: 0;
+}
+
+/* 2. paper-desk mini */
+.edit-pb-theme-card--paper-desk .edit-pb-theme-preview {
+  background-color: #d9c7a3;
+  background-image: repeating-linear-gradient(45deg,
+    transparent 0 2px, rgba(120,90,50,0.16) 2px 3px);
+}
+
+/* 3. minimal-cream mini */
+.edit-pb-theme-card--minimal-cream .edit-pb-theme-preview {
+  background-color: #f0e6d2;
+}
+
+/* 4. sketch-note mini */
+.edit-pb-theme-card--sketch-note .edit-pb-theme-preview {
+  background-color: #fff8e0;
+  background-image: repeating-linear-gradient(180deg,
+    transparent 0 3px, rgba(80,120,180,0.32) 3px 4px);
+}
+.edit-pb-theme-card--sketch-note .edit-pb-theme-preview::before {
+  content: '';
+  position: absolute;
+  left: 15%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(220,80,80,0.6);
+  z-index: 0;
+}
+.edit-pb-theme-card--sketch-note .edit-pb-theme-preview-page {
+  border: 1px dashed rgba(120,90,50,0.55);
+  z-index: 1;
+}
+
+/* 5. library-card mini */
+.edit-pb-theme-card--library-card .edit-pb-theme-preview {
+  background-color: #f0e0b8;
+}
+.edit-pb-theme-card--library-card .edit-pb-theme-preview::before {
+  content: '';
+  position: absolute;
+  left: 8%;
+  top: 5px;
+  width: 18%;
+  height: 9px;
+  border: 0.5px solid rgba(120,80,40,0.5);
+  background: rgba(255,250,235,0.55);
+  z-index: 0;
+}
+
+/* 6. night-tale mini */
+.edit-pb-theme-card--night-tale .edit-pb-theme-preview {
+  background-color: #1c1830;
+  background-image:
+    radial-gradient(circle at 20% 30%, rgba(255,255,200,0.40) 0, transparent 1.2px),
+    radial-gradient(circle at 70% 50%, rgba(255,255,200,0.35) 0, transparent 1.2px),
+    radial-gradient(circle at 40% 75%, rgba(255,255,200,0.32) 0, transparent 1.2px),
+    radial-gradient(circle at 85% 25%, rgba(255,255,200,0.38) 0, transparent 1.2px);
+}
+.edit-pb-theme-card--night-tale .edit-pb-theme-preview-page {
+  background: #fffefa;
+  border: 0.5px solid rgba(220,200,140,0.5);
+}
+
+/* ════════════════════════════════════════════════════════════
+   W9 (v4): 장면 그림 액션 3개 균등 grid (바꾸기/삭제/그리기)
+   사용자 요청 — 가로 균등 배치로 공간 낭비 제거.
+   ════════════════════════════════════════════════════════════ */
+.edit-pb-image-actions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+}
+.edit-pb-image-actions > .edit-toggle {
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 11px;
+  padding: 7px 4px;
+}
+.edit-pb-image-actions > .edit-toggle:disabled {
+  cursor: not-allowed;
+}
+
+/* ════════════════════════════════════════════════════════════
+   W9 (v4): HUD maker-return-bar 다듬기 모드 액션 통합.
+   사용자 보고 "공간 낭비 — 상단을 마감 편집 중 라인으로 합쳐"
+   → 인스펙터 _editActionsHtml 폐기, 4개 액션 다 이 라인으로.
+   ════════════════════════════════════════════════════════════ */
+.maker-return-bar--editing {
+  background: linear-gradient(180deg, #fff8e6 0%, #fdf2d8 100%);
+  border-bottom: 1px solid rgba(198,111,74,0.3);
+}
+.maker-return-bar--editing .maker-return-label {
+  color: #c66f4a;
+  font-weight: 600;
+}
+.maker-return-bar--editing .maker-return-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.maker-return-bar--editing .maker-return-btn {
+  padding: 6px 12px;
+  font-size: 13px;
+  background: rgba(255,255,255,0.85);
+  border: 0.5px solid rgba(120,90,50,0.3);
+  border-radius: 6px;
+  color: #2b1f10;
+  cursor: pointer;
+  transition: background 120ms, border-color 120ms;
+}
+.maker-return-bar--editing .maker-return-btn:hover {
+  background: #fff;
+  border-color: rgba(120,90,50,0.5);
+}
+.maker-return-bar--editing .maker-return-btn--test {
+  background: #c66f4a;
+  color: #fff;
+  border-color: #c66f4a;
+  font-weight: 500;
+}
+.maker-return-bar--editing .maker-return-btn--test:hover {
+  background: #b65d3a;
+  border-color: #b65d3a;
+}
+.maker-return-bar--editing .maker-return-btn--save {
+  background: rgba(74,144,217,0.12);
+  border-color: rgba(74,144,217,0.5);
+  color: #185fa5;
+  font-weight: 500;
+}
+.maker-return-bar--editing .maker-return-btn--save:hover {
+  background: rgba(74,144,217,0.2);
+}
+.maker-return-bar--editing .maker-return-btn--save:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ════════════════════════════════════════════════════════════
+   W9 (v5): 페이지 방향 + 하위 모드 가로 나란히 (한 줄).
+   사용자 요청 — 두 토글이 같은 행에 들어와 공간 절약.
+   ════════════════════════════════════════════════════════════ */
+.edit-pb-row-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.edit-pb-row-pair > .edit-row--pair-cell {
+  margin-bottom: 0;
+}
+
+/* ════════════════════════════════════════════════════════════
+   W9 (v8): 사진 편집 모드 — 사용자 사진 크기/위치 조정.
+   사용자 결정: 8 handle (모서리 4 + 변 4) + 드래그. 데스크탑 수준.
+   진입: 인스펙터 "✂️ 크기/위치" 버튼.
+   완료: ✓ 완료 = 저장, ✕ 취소 = 변경 무시, ↺ 되돌리기 = 기본값으로.
+   ════════════════════════════════════════════════════════════ */
+
+/* 진입 시 viewer-frame 위 dim overlay (배경 어둡게) */
+.pb-image-editor-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0, 0, 0, 0.55);
+  pointer-events: auto;
+}
+/* 편집 중인 영역 — viewer-frame 위 dim overlay */
+body.pb-image-editing .pb-illust {
+  position: relative;
+  z-index: 201;
+  /* W9 (v17): 편집 중엔 overflow visible — 사진/handle이 영역 밖으로 나가도 보임.
+     dim mask(box-shadow)는 영역 둘레에 있어 영역 밖 사진도 어두워진 채 보임. */
+  overflow: visible;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55);
+}
+/* W9 (v18): 사용자 결정 — 사진/handle이 인스펙터/HUD 위로도 나갈 수 있게.
+   chain 전체 overflow visible + stage-wrap z-index 박음. */
+body.pb-image-editing #stage-wrap,
+body.pb-image-editing #viewer-frame,
+body.pb-image-editing .scene-screen,
+body.pb-image-editing .pb-page,
+body.pb-image-editing .pb-frame {
+  overflow: visible;
+}
+/* stage-wrap이 인스펙터/HUD보다 위 layer로 (편집 중만) */
+body.pb-image-editing #stage-wrap {
+  z-index: 999;
+}
+/* W9 (v10): 모드 A — 점선 박스를 사진 wrapper에 박음 (사진 자체 둘레) */
+body.pb-image-editing--transform .pb-illust__photo {
+  outline: 2px dashed rgba(255, 200, 100, 0.95);
+  outline-offset: -1px;
+  cursor: move;
+  /* W9 (v17): 편집 중 handle이 wrapper 밖으로 나가도 보이게 */
+  overflow: visible;
+}
+/* W9 (v14): crop이 있으면 wrapper outline 끄고 cropHost에 점선 + handle.
+   = 잘린 영역 둘레로 정확. */
+body.pb-image-editing--transform .pb-illust__photo:has(.js-pb-img-crop-host) {
+  outline: none;
+  cursor: default;
+}
+.pb-img-crop-host {
+  outline: 2px dashed rgba(255, 200, 100, 0.95);
+  outline-offset: -1px;
+  cursor: move;
+  /* handle이 박스 밖에 있어도 보이게 */
+  overflow: visible;
+}
+body.pb-image-editing--transform .pb-illust__photo .pb-illust__inner {
+  pointer-events: none;  /* 사용자가 사진 위 어디 클릭해도 wrapper로 이벤트 */
+}
+/* 자르기 모드는 wrapper outline 없음 (crop overlay가 표시) */
+body.pb-image-editing--crop .pb-illust__photo {
+  cursor: default;
+}
+
+/* 8 handles — 모서리 4 + 변 4 */
+.pb-img-handle {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  background: #fff;
+  border: 2px solid #c66f4a;
+  border-radius: 50%;
+  z-index: 202;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  transition: transform 80ms;
+}
+.pb-img-handle:hover {
+  transform: scale(1.2);
+}
+/* 모서리 4개 */
+.pb-img-handle--nw { top: -8px;    left: -8px;    cursor: nwse-resize; }
+.pb-img-handle--ne { top: -8px;    right: -8px;   cursor: nesw-resize; }
+.pb-img-handle--sw { bottom: -8px; left: -8px;    cursor: nesw-resize; }
+.pb-img-handle--se { bottom: -8px; right: -8px;   cursor: nwse-resize; }
+/* 변 4개 */
+.pb-img-handle--n  { top: -8px;    left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+.pb-img-handle--s  { bottom: -8px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+.pb-img-handle--w  { top: 50%; left: -8px;  transform: translateY(-50%); cursor: ew-resize; }
+.pb-img-handle--e  { top: 50%; right: -8px; transform: translateY(-50%); cursor: ew-resize; }
+/* hover scale은 변 handles에선 translate 함께 처리 */
+.pb-img-handle--n:hover, .pb-img-handle--s:hover { transform: translateX(-50%) scale(1.2); }
+.pb-img-handle--w:hover, .pb-img-handle--e:hover { transform: translateY(-50%) scale(1.2); }
+
+/* 컨트롤 바 — viewer-frame 우상단 또는 하단 */
+.pb-img-controls {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 203;
+  display: flex;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(43, 31, 16, 0.92);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+.pb-img-ctrl-btn {
+  padding: 8px 16px;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 6px;
+  background: rgba(255,255,255,0.1);
+  color: #fff;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 120ms, border-color 120ms;
+}
+.pb-img-ctrl-btn:hover {
+  background: rgba(255,255,255,0.2);
+  border-color: rgba(255,255,255,0.4);
+}
+.pb-img-ctrl-btn--primary {
+  background: #c66f4a;
+  border-color: #c66f4a;
+  font-weight: 500;
+}
+.pb-img-ctrl-btn--primary:hover {
+  background: #b65d3a;
+  border-color: #b65d3a;
+}
+.pb-img-ctrl-btn--danger {
+  color: #ff9a9a;
+}
+
+/* ════════════════════════════════════════════════════════════
+   W9 (v9): 사진 자르기 모드 (crop) 오버레이.
+   사진은 전체 보이고, 자르기 영역만 또렷이 + 잘릴 부분은 어둡게 hint.
+   ════════════════════════════════════════════════════════════ */
+.pb-crop-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 201;
+  pointer-events: none;
+}
+/* 4 mask 영역 = 잘릴 부분 어둡게 */
+.pb-crop-mask {
+  position: absolute;
+  background: rgba(0, 0, 0, 0.55);
+  pointer-events: auto;
+}
+/* 자르기 박스 = 또렷이 (점선) + handles */
+.pb-crop-box {
+  position: absolute;
+  border: 2px dashed rgba(255, 200, 100, 0.95);
+  pointer-events: auto;
+  cursor: move;
+  background: transparent;
+}
+.pb-crop-handle {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  background: #fff;
+  border: 2px solid #c66f4a;
+  border-radius: 50%;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  pointer-events: auto;
+  z-index: 1;
+}
+.pb-crop-handle--nw { top: -7px;    left: -7px;    cursor: nwse-resize; }
+.pb-crop-handle--ne { top: -7px;    right: -7px;   cursor: nesw-resize; }
+.pb-crop-handle--sw { bottom: -7px; left: -7px;    cursor: nesw-resize; }
+.pb-crop-handle--se { bottom: -7px; right: -7px;   cursor: nwse-resize; }
+.pb-crop-handle--n  { top: -7px;    left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+.pb-crop-handle--s  { bottom: -7px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+.pb-crop-handle--w  { top: 50%; left: -7px;  transform: translateY(-50%); cursor: ew-resize; }
+.pb-crop-handle--e  { top: 50%; right: -7px; transform: translateY(-50%); cursor: ew-resize; }
+
+/* 컨트롤 바에 모드 라벨 추가 */
+.pb-img-ctrl-mode {
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+  border-right: 1px solid rgba(255,255,255,0.2);
+  margin-right: 4px;
 }

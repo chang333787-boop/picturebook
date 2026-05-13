@@ -238,6 +238,12 @@ html, body {
   padding: 8px 16px 12px;                  /* 10 18 14 → 8 16 12, 행 높이 축소 */
   gap: 10px;
 }
+/* v36: maker에서 진입한 모든 모드(편집·감상 테스트)에서 HUD 하단 줄 숨김.
+   사용자: "X 칸 있는 줄 없애줘. ✕는 안 쓰니까."
+   ✕·뒤로·팀명 모두 maker-return-bar의 액션과 중복. 화면 위 영역 절약. */
+#hud .maker-return-bar + .hud-inner {
+  display: none;
+}
 .hud-center  { flex: 1; text-align: center; }
 .hud-team    {
   font-family: var(--font-ui);
@@ -307,6 +313,13 @@ html, body {
   overflow: hidden;
 }
 
+/* W9 (v5): 다듬기 모드에선 stage 배경 = Warm Paper.
+   사용자 보고 "위아래 검은색 → 구조 깨져 보임" → letterbox 영역이
+   인스펙터와 같은 톤이면 viewer-frame이 자연스럽게 떠 있는 듯 보임. */
+body.edit-mode-active #stage-wrap {
+  background: var(--surface, #fffaee);
+}
+
 /* ── viewer-frame: 16:9 작품 무대 ── */
 #viewer-frame {
   position: relative;
@@ -352,6 +365,30 @@ body.edit-mode-active .scene-screen {
   height: auto;
   max-height: 100%;  /* W7-A 정정 v5: viewport 높이 절대 안 넘어감 — 결정 패널 잘림 방지 */
   aspect-ratio: 16 / 9;
+}
+
+/* ────────────────────────────────────────────────────────
+   W9 (v7): 다듬기 모드 viewer-frame = stage 가득 채움.
+   사용자 보고: landscape 작품 + 정사각 화면 → 16:9 강제로 위아래 큰 회색
+   letterbox 발생 → "구조 깨짐". 해결 = viewer-frame이 stage 가득 +
+   페이지(.pb-page)는 container query로 자체 비율 유지하며 contain.
+   감상 모드(edit-mode-active 없음)에선 기존 16:9 letterbox 유지.
+   ──────────────────────────────────────────────────────── */
+body.edit-mode-active #stage-wrap.letterbox-h #viewer-frame,
+body.edit-mode-active #stage-wrap.letterbox-v #viewer-frame {
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  aspect-ratio: auto;
+}
+
+/* ── W9 (v6): portrait 작품 = 다듬기·감상 모두 viewer-frame 비율 세로 책(210:297).
+   이전엔 다듬기 모드(edit-mode-on)에선 16:9 강제 — 좁은 화면에서 위아래 잘림 발생.
+   사용자 결정: portrait 작품이면 어떤 모드든 portrait 비율 유지. ── */
+body[data-page-orientation="portrait"] #stage-wrap.letterbox-h #viewer-frame,
+body[data-page-orientation="portrait"] #stage-wrap.letterbox-v #viewer-frame {
+  aspect-ratio: 210 / 297;
 }
 
 /* ── safe-area (edit 모드) — 드래그 가능 영역 안내
@@ -406,16 +443,80 @@ body.edit-mode-active .scene-screen {
   border-color: var(--accent);
 }
 
-/* ── edit panel ── */
+/* ── edit panel ──
+   W9 (v2): 사용자 보고 "다듬기에서 그림책 내용 왔다갔다하는데 좀 불편" →
+   인스펙터 너비 340 → 540 (1.6x). 한 화면에 설정들이 다 들어오도록 확장.
+   데스크탑(>=1025px)에서 탭 UI 폐기 + 두 tab-panel을 좌우 grid로 배치.
+   콘텐츠 탭 왼쪽 (자주 쓰는 본문/이미지/선택지), 모드 탭 오른쪽 (작품 단위 설정).
+   태블릿/폰은 어차피 bottom sheet 모드라 영향 없음 — 탭 그대로 유지. */
 #edit-panel {
-  width: 260px;
-  min-width: 240px;
+  width: 540px;
+  min-width: 480px;
   background: var(--surface);
   border-left: 1px solid var(--border);
   overflow-y: auto;
   flex-shrink: 0;
 }
 #edit-panel:empty { display: none; }
+
+/* W9: 데스크탑 — 탭 폐기 + 2컬럼 grid. */
+@media (min-width: 1025px) {
+  #edit-panel .edit-panel-inner {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 18px;
+    row-gap: 14px;
+    align-items: start;
+  }
+  /* 풀폭이어야 할 것들 (액션/네비/저장/안내/구분선) */
+  #edit-panel .edit-panel-inner > .edit-actions,
+  #edit-panel .edit-panel-inner > .edit-nav,
+  #edit-panel .edit-panel-inner > .edit-tabs,
+  #edit-panel .edit-panel-inner > .js-edit-save,
+  #edit-panel .edit-panel-inner > .edit-save-btn,
+  #edit-panel .edit-panel-inner > .edit-empty,
+  #edit-panel .edit-panel-inner > .edit-divider {
+    grid-column: 1 / -1;
+  }
+  /* 탭 button 영역 데스크탑에서 숨김 — 두 패널 항상 펼침 */
+  #edit-panel .edit-panel-inner > .edit-tabs { display: none; }
+  /* 모든 tab-panel 항상 표시 (탭 활성 여부 무관) */
+  #edit-panel .edit-panel-inner > .edit-tab-panel {
+    display: block;
+  }
+  /* 순서: W9 (v4) 사용자 요청 — 모드(설정·스타일) 왼쪽 / 내용 오른쪽.
+     설정 결정 후 콘텐츠 작성 흐름 자연. */
+  #edit-panel .edit-panel-inner > .edit-tab-panel[data-panel="mode"]    { order: 1; }
+  #edit-panel .edit-panel-inner > .edit-tab-panel[data-panel="content"] { order: 2; }
+  #edit-panel .edit-panel-inner > .edit-tab-panel[data-panel="choice"]  {
+    order: 3;
+    grid-column: 1 / -1;  /* 선택지(legacy) 섹션은 풀폭 */
+  }
+
+  /* 효율 배치: 인스펙터 내부 row 간격 축소 (수직 공간 절약) */
+  #edit-panel .edit-row { margin-bottom: 10px; }
+  #edit-panel .edit-row--compact { margin-bottom: 6px; }
+
+  /* W9 (v3): 💾 저장 버튼 작게 — 자동저장 있으니 보조 크기. */
+  #edit-panel .edit-save-btn {
+    width: auto;
+    max-width: 200px;
+    margin: 8px auto 0;
+    padding: 7px 18px;
+    font-size: 13px;
+    display: block;
+  }
+
+  /* W9 (v3): 상단 액션 영역 컴팩트 (감상 테스트/구조 보기/작업으로) */
+  #edit-panel .edit-actions { padding: 8px 0; }
+  #edit-panel .edit-actions .edit-action-primary,
+  #edit-panel .edit-actions button {
+    font-size: 13px;
+    padding: 7px 12px;
+  }
+  /* 장면 네비 (이전/다음 + 장면 dropdown) 컴팩트 */
+  #edit-panel .edit-nav { padding: 6px 0; }
+}
 
 /* ================================================================
    Cover 화면
@@ -1253,16 +1354,19 @@ body.edit-mode-active .scene-screen {
   border-color: var(--accent);
 }
 .edit-row {
-  margin-bottom: 14px;
+  /* W9 v2: 한 화면에 더 많은 설정 들어오게 spacing 14 → 10 축소 */
+  margin-bottom: 10px;
 }
 .edit-row--hidden { display: none; }
 .edit-label {
+  /* v36: 사용자 요청 — 인스펙터 라벨 크기·굵기 통일 (글자 스타일 헤더와 비슷).
+     기존 11px 흐릿한 text-muted → 13px bold + text 톤. 한글 헤더 가독성 ↑. */
   display: block;
-  font-size: 11px;
-  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
   margin-bottom: 6px;
-  text-transform: uppercase;
-  letter-spacing: .08em;
+  letter-spacing: 0.02em;
 }
 .edit-input {
   width: 100%;
@@ -1279,6 +1383,11 @@ body.edit-mode-active .scene-screen {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
+}
+/* v36: 페이지 방향 + 하위 모드 토글 둘 다 위아래(column)로 통일 — 사용자 결정.
+   row pair 안 토글 그룹은 stacked. */
+.edit-pb-row-pair .edit-toggle-group {
+  flex-direction: column;
 }
 .edit-toggle {
   padding: 5px 12px;
@@ -2035,6 +2144,23 @@ body.edit-mode-active .scene-screen {
 .edit-pb-inline-style .edit-row--compact:last-child {
   margin-bottom: 0;
 }
+/* W9 v2: 가로 정렬 row — 인스펙터 540px 넓어진 후 label과 입력 같은 줄에 */
+.edit-pb-inline-style .edit-row--inline {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.edit-pb-inline-style .edit-row--inline .edit-label {
+  margin-bottom: 0;
+  flex: 0 0 80px;
+}
+.edit-pb-inline-style .edit-row--inline .edit-slider {
+  flex: 1;
+}
+.edit-pb-inline-style .edit-row--inline .edit-toggle-group {
+  flex: 1;
+}
 .edit-tab {
   flex: 1;
   padding: 7px 10px;
@@ -2659,8 +2785,26 @@ body.edit-mode-active .scene-screen {
 .edit-section-hint {
   font-size: 11px;
   color: var(--text-muted);
-  margin: -4px 0 8px;
+  /* v36: 위 요소(슬라이더 등)와 살짝 띄움 — 기존 -4px이라 너무 붙어 있었음 */
+  margin: 8px 0 8px;
   line-height: 1.4;
+}
+
+/* W9 (v3): 모드 섹션 안에서 "작품 전체 설정" 시작점 표시 — 작은 헤더 + 옅은 구분선.
+   주요 섹션(--major) 아래 위계라 색·크기 절제. */
+.edit-section-title--minor {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin: 12px 0 6px;
+  letter-spacing: 0.03em;
+  text-transform: none;
+}
+.edit-subdivider {
+  height: 1px;
+  background: rgba(120,90,50,0.18);
+  margin: 14px 0 0;
 }
 
 /* 필드 라벨 보조 텍스트 ((짧은 헤드라인) 등) */
@@ -5388,6 +5532,92 @@ body.edit-mode-active .scene-screen {
   cursor: pointer;
 }
 .pb-draw-pressure-label:hover { background: rgba(80,50,20,0.08); }
+
+/* v36: 자유 컬러 피커 */
+.pb-draw-color-pick {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  border: 2px dashed rgba(80,50,20,0.30);
+  cursor: pointer;
+  padding: 0;
+  background: transparent;
+  margin-left: 2px;
+  transition: transform 0.1s, border-color 0.15s;
+}
+.pb-draw-color-pick:hover {
+  transform: scale(1.1);
+  border-color: var(--text, #2b1f10);
+}
+.pb-draw-color-pick::-webkit-color-swatch { border-radius: 50%; border: none; }
+.pb-draw-color-pick::-moz-color-swatch { border-radius: 50%; border: none; }
+
+/* v36: 굵기 슬라이더 */
+.pb-draw-size-slider {
+  width: 90px;
+  margin-left: 4px;
+  cursor: pointer;
+  accent-color: #c66f4a;
+}
+.pb-draw-size-val {
+  font-size: 11px;
+  color: var(--text-muted, #6b5638);
+  font-family: var(--font-ui, 'Jua', sans-serif);
+  min-width: 32px;
+  text-align: right;
+}
+
+/* v36: 불투명도 슬라이더 */
+.pb-draw-opacity-slider {
+  width: 90px;
+  cursor: pointer;
+  accent-color: #c66f4a;
+}
+.pb-draw-opacity-val {
+  font-size: 11px;
+  color: var(--text-muted, #6b5638);
+  font-family: var(--font-ui, 'Jua', sans-serif);
+  min-width: 36px;
+  text-align: right;
+}
+
+/* v36: 펜 종류 버튼들 (펜 도구일 때 의미 있음) */
+.pb-draw-pentypes {
+  display: flex;
+  gap: 4px;
+}
+.pb-draw-pentype {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1.5px solid var(--border, rgba(80,50,20,0.10));
+  background: var(--surface, #fbf6ea);
+  font-family: var(--font-ui, 'Jua', sans-serif);
+  font-size: 12px;
+  color: var(--text, #2b1f10);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.pb-draw-pentype:hover { background: var(--surface2, #f4ecd8); }
+.pb-draw-pentype.is-on {
+  border-color: var(--text, #2b1f10);
+  background: var(--surface2, #f4ecd8);
+}
+
+/* v36: 도형 채움 토글 */
+.pb-draw-fill-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--surface2, #f4ecd8);
+  cursor: pointer;
+  font-family: var(--font-ui, 'Jua', sans-serif);
+  font-size: 12px;
+  color: var(--text, #2b1f10);
+  user-select: none;
+}
+.pb-draw-fill-label input[type="checkbox"] { margin: 0; cursor: pointer; }
+.pb-draw-fill-label:hover { background: rgba(80,50,20,0.08); }
 
 .pb-draw-footer {
   display: flex;

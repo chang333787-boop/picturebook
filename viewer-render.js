@@ -18,10 +18,15 @@ function renderCurrentScene() {
   const effectiveTemplate = scene.layoutTemplate || ViewerState.project.template;
   stage.dataset.template = effectiveTemplate;
 
-  /* edit 모드: safe-area 힌트 표시 + frame 클래스 */
+  /* edit 모드: safe-area 힌트 표시 + frame 클래스 + body 클래스 (전역 CSS용) */
   const safeHint = document.getElementById('safe-area-hint');
   if (safeHint) safeHint.classList.toggle('hidden', !ViewerState.editMode);
   stage.classList.toggle('edit-mode-on', ViewerState.editMode);
+  document.body.classList.toggle('edit-mode-active', ViewerState.editMode);
+
+  /* W9: 다듬기 모드 ↔ 감상 모드 전환 시 viewer-frame 비율 재계산 필요 (portrait 작품용).
+     · 다듬기: 16:9 / 감상 portrait 작품: 210:297. 그 외: 16:9. */
+  if (typeof window._applyLetterbox === 'function') window._applyLetterbox();
 
   if (scene.isEnding) {
     renderTerminal(scene);
@@ -44,8 +49,10 @@ function renderCurrentScene() {
     if (panel) panel.innerHTML = '';
   }
 
-  /* 감상 테스트 중 배너 — _testingEdit 플래그 기준 */
-  if (typeof renderTestingBanner === 'function') renderTestingBanner();
+  /* v36: 감상 테스트 중 배너 호출 제거 — 사용자 결정.
+     라벨이 이미 maker-return-bar의 "✏️ 제작자 테스트 중"에 있어 중복.
+     기존 어두운 파란 배너가 콘텐츠 위에 겹쳐 가리던 문제 해결. */
+  document.getElementById('edit-test-banner')?.remove();
 }
 
 /* ================================================================
@@ -304,12 +311,29 @@ function _renderScenePicturebook(stage, scene, submode) {
   }
   const styleAttr = cssVars.length > 0 ? ` style="${cssVars.join(';')}"` : '';
 
-  /* 그림 영역 — 이미지 있으면 표시, 없으면 placeholder */
-  const illustHtml = bgImage
-    ? `<div class="pb-illust" style="background-image:url('${bgImage}')"></div>`
-    : `<div class="pb-illust pb-illust--empty">
-         <div class="pb-empty-mark">⌘</div>
-       </div>`;
+  /* 그림 영역 — 이미지 있으면 표시, 없으면 placeholder.
+     W9 (v10): 사용자 보고 "점선이 사진 둘레여야 + 자르기 후도 정확".
+     구조: .pb-illust > .pb-illust__photo (사진 자연 비율 wrapper, JS aspect-ratio set)
+       > <img class="pb-illust__inner">
+     handle은 __photo에 박힘 = 사진 가장자리 정확. */
+  const tr = scene.imageTransform || {};
+  const trX  = (tr.posX   != null ? tr.posX   : 50) - 50;
+  const trY  = (tr.posY   != null ? tr.posY   : 50) - 50;
+  const trSX = (tr.scaleX != null ? tr.scaleX : 100) / 100;
+  const trSY = (tr.scaleY != null ? tr.scaleY : 100) / 100;
+  const cr = tr.crop;
+  /* crop 적용:
+     · 사진 비율은 (cropW/cropH) * naturalRatio로 변경 → JS에서 처리
+     · img는 wrapper 100% 채우되 background-position(또는 transform translate)로 잘린 부분 offset */
+  const cropX = cr ? cr.x : 0;
+  const cropY = cr ? cr.y : 0;
+  const cropW = cr ? cr.w : 100;
+  const cropH = cr ? cr.h : 100;
+  const photoVars =
+    `--pb-img-x:${trX}%; --pb-img-y:${trY}%; ` +
+    `--pb-img-sx:${trSX}; --pb-img-sy:${trSY}; ` +
+    `--pb-crop-x:${cropX}; --pb-crop-y:${cropY}; ` +
+    `--pb-crop-w:${cropW}; --pb-crop-h:${cropH};`;
 
   /* 텍스트 영역 — 제목 → 본문 → 버튼 */
   const title = String(scene.title || '').trim();
@@ -318,8 +342,38 @@ function _renderScenePicturebook(stage, scene, submode) {
   const isEdit = (typeof ViewerState !== 'undefined' && ViewerState.editMode);
   const editAttrs = isEdit ? 'contenteditable="true" data-pb-editable="title"' : '';
   const editAttrsBody = isEdit ? 'contenteditable="true" data-pb-editable="body"' : '';
-  const titleHtml = title || isEdit
-    ? `<h3 class="pb-text__title js-pb-editable-title" ${editAttrs} data-placeholder="(제목을 적어보세요)">${escHtml(title)}</h3>` : '';
+
+  /* v36: 가로분할형은 8:2 비율로 그림 영역이 커서 하단 텍스트 영역에 제목까지 들어가면
+     본문·버튼이 잘림. → 제목을 그림 좌상단 오버레이로 옮기고, 하단은 본문·버튼만.
+     - 가로(landscape) + split 모드만 적용
+     - 가로 imageCenter는 이미 .pb-stage__title-overlay로 잘 잡혀 있어 영향 없음
+     - 세로 split은 6:4라 본문 공간 충분 → 기존 방식 유지 */
+  const orient = (document.body && document.body.dataset.pageOrientation)
+    || (ViewerState && ViewerState.project && ViewerState.project.pageOrientation)
+    || 'landscape';
+  const titleAsIllustOverlay = (orient !== 'portrait') && !isImageCenter;
+
+  const titleOverlayInIllustHtml = (titleAsIllustOverlay && (title || isEdit))
+    ? `<h3 class="pb-illust__title-overlay js-pb-editable-title" ${editAttrs} data-placeholder="(제목을 적어보세요)">${escHtml(title)}</h3>`
+    : '';
+
+  const illustHtml = bgImage
+    ? `<div class="pb-illust" data-pb-illust="1">
+         <div class="pb-illust__photo" style="${photoVars}" data-pb-photo="1">
+           <img class="pb-illust__inner" src="${bgImage}" draggable="false" alt="">
+         </div>
+         ${titleOverlayInIllustHtml}
+       </div>`
+    : `<div class="pb-illust pb-illust--empty">
+         <div class="pb-empty-mark">⌘</div>
+         ${titleOverlayInIllustHtml}
+       </div>`;
+
+  /* 분할형: 가로면 제목은 그림 오버레이로 옮겼으니 텍스트 영역은 본문/버튼만.
+     세로면 기존 방식 (텍스트 영역에 제목). */
+  const titleHtml = (titleAsIllustOverlay || !(title || isEdit))
+    ? ''
+    : `<h3 class="pb-text__title js-pb-editable-title" ${editAttrs} data-placeholder="(제목을 적어보세요)">${escHtml(title)}</h3>`;
   const bodyHtml  = body || isEdit
     ? `<p class="pb-text__body js-pb-editable-body" ${editAttrsBody} data-placeholder="(본문을 적어보세요)">${escHtml(body)}</p>` : '';
   const filteredChoices = _v03FilterChoices(choices);
@@ -380,6 +434,7 @@ function _renderScenePicturebook(stage, scene, submode) {
           </div>
         </div>
       </div>`;
+    _setupPbPhotoWrappers(stage);
     return;
   }
 
@@ -402,6 +457,53 @@ function _renderScenePicturebook(stage, scene, submode) {
         </div>
       </div>
     </div>`;
+
+  /* W9 (v10): img 자연 비율 + crop 반영해 photo wrapper aspect-ratio 박음.
+     handle/outline이 사진 둘레에 정확. */
+  _setupPbPhotoWrappers(stage);
+}
+
+/* picturebook .pb-illust__photo wrapper들에 정확한 사이즈 박음.
+   W9 (v13): wrapper = 사진 표시 영역과 정확히 동일. 점선이 사진 둘레 정확.
+   1) img.onload로 자연 비율 받음
+   2) 영역(.pb-illust) 사이즈와 비교
+   3) wrapper width/height = % 단위로 계산 (영역에 contain된 사진 영역) */
+function _setupPbPhotoWrappers(stage) {
+  const photos = stage.querySelectorAll('.pb-illust__photo[data-pb-photo]');
+  photos.forEach(photo => {
+    const img = photo.querySelector('img.pb-illust__inner');
+    const illust = photo.closest('.pb-illust');
+    if (!img || !illust) return;
+
+    const applySize = () => {
+      const nw = img.naturalWidth, nh = img.naturalHeight;
+      if (!nw || !nh) return;
+      const areaW = illust.clientWidth, areaH = illust.clientHeight;
+      if (!areaW || !areaH) return;
+      const naturalRatio = nw / nh;
+      const areaRatio = areaW / areaH;
+      /* 사진이 영역보다 wide → 영역 width 가득, height 작음
+         사진이 영역보다 narrow → 영역 height 가득, width 작음 */
+      if (naturalRatio >= areaRatio) {
+        photo.style.width = '100%';
+        photo.style.height = (areaRatio / naturalRatio * 100).toFixed(3) + '%';
+      } else {
+        photo.style.height = '100%';
+        photo.style.width = (naturalRatio / areaRatio * 100).toFixed(3) + '%';
+      }
+      /* aspect-ratio도 자연 비율로 (transform이 자연 비율 기준 동작하도록) */
+      photo.style.aspectRatio = String(naturalRatio);
+    };
+    if (img.complete) applySize();
+    else img.addEventListener('load', applySize, { once: true });
+
+    /* 영역 사이즈 변화에 따라 wrapper 사이즈 재계산 */
+    if (typeof ResizeObserver !== 'undefined' && !photo._roAttached) {
+      const ro = new ResizeObserver(() => applySize());
+      ro.observe(illust);
+      photo._roAttached = true;
+    }
+  });
 }
 
 /* ── 모드 3: 무비형 (movie) ──
@@ -1075,18 +1177,27 @@ function renderHUD() {
   const canBack   = ViewerState.historyStack.length > 0;
   const fromMaker = ViewerState.fromMaker;
 
-  /* fromMaker 왕복 액션바 — maker에서 넘어온 경우만 */
+  /* fromMaker 왕복 액션바 — maker에서 넘어온 경우 + editMode 액션 통합.
+     W9 (v4): 사용자 보고 "인스펙터 상단 공간 낭비" → 모든 다듬기 액션을
+     이 라인으로 옮김. 인스펙터 _editActionsHtml은 빈 반환으로. */
+  const isEdit = ViewerState.editMode;
   const makerBarHtml = fromMaker ? `
-    <div class="maker-return-bar">
-      <span class="maker-return-label">✏️ 제작자 테스트 중</span>
+    <div class="maker-return-bar ${isEdit ? 'maker-return-bar--editing' : ''}">
+      <span class="maker-return-label">${isEdit ? '🎨 마감 편집 중' : '✏️ 제작자 테스트 중'}</span>
       <div class="maker-return-actions">
-        <button class="maker-return-btn js-return-to-maker">← 작업으로 돌아가기</button>
-        ${!ViewerState.editMode
-          ? `<button class="maker-return-btn maker-return-btn--edit js-go-edit">🎨 감상 화면 다듬기</button>`
-          : ''}
+        ${isEdit ? `
+          <button class="maker-return-btn maker-return-btn--test js-edit-preview-test" title="실제 관람자 화면으로 확인">▶ 감상 테스트</button>
+          <button class="maker-return-btn js-edit-open-map" title="장면 연결을 한눈에 확인">🗺 구조 보기</button>
+          <button class="maker-return-btn js-edit-return-maker" title="브랜치 화면으로 돌아가기">← 브랜치 화면으로</button>
+          <button class="maker-return-btn maker-return-btn--save js-edit-save" title="즉시 저장">💾 저장</button>
+        ` : `
+          <button class="maker-return-btn js-return-to-maker">← 작업으로 돌아가기</button>
+          <button class="maker-return-btn maker-return-btn--edit js-go-edit">🎨 감상 화면 다듬기</button>
+        `}
       </div>
     </div>` : '';
 
+  /* W9 (v4): hud-edit-badge 제거 — 라벨이 maker-return-bar에 있음 */
   hud.innerHTML = `
     ${makerBarHtml}
     <div class="hud-inner">
@@ -1096,7 +1207,6 @@ function renderHUD() {
       </div>
       <div class="hud-right">
         ${mode === 'explore' ? `<span class="hud-explore-count">${ViewerState.visitedSceneIds.size}곳 방문</span>` : ''}
-        ${ViewerState.editMode ? '<span class="hud-edit-badge">마감 편집 중</span>' : ''}
         <button class="hud-btn hud-btn--exit js-hud-exit" title="나가기">✕</button>
       </div>
     </div>`;
@@ -1143,6 +1253,11 @@ function renderHUD() {
     ViewerState.selectedChoiceId = null;
     renderCurrentScene();
   });
+
+  /* W9 (v4): HUD maker-return-bar에 박힌 다듬기 액션 버튼들 핸들러 (감상 테스트/구조 보기/작업으로/저장) */
+  if (isEdit && typeof _bindHudEditActions === 'function') {
+    _bindHudEditActions();
+  }
 }
 
 /* ================================================================

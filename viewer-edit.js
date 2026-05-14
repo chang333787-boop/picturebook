@@ -4596,13 +4596,9 @@ function _openPbDrawModal(scene) {
 
   /* ─── 캔버스 초기화 ─── */
   const canvas = modal.querySelector('#pb-draw-canvas');
-  /* v36 태블릿: try desynchronized — 일부 브라우저(iOS Safari 등) 지원 안 함 → 폴백.
-     사용자 보고: "태블릿 그리기 다 안 됨" → 옵션 미지원시 context null 반환 추정. */
-  let ctx = null;
-  try {
-    ctx = canvas.getContext('2d', { desynchronized: true, willReadFrequently: true });
-  } catch (_) { ctx = null; }
-  if (!ctx) ctx = canvas.getContext('2d');
+  /* v36 → v37 롤백: desynchronized/willReadFrequently 옵션 일부 태블릿에서 그리기 자체 깨짐.
+     기본 context로 복귀. 매끄러움 < 동작. */
+  const ctx = canvas.getContext('2d');
   /* 흰 배경으로 시작 */
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -4902,47 +4898,38 @@ function _openPbDrawModal(scene) {
       return;
     }
 
-    /* v36 태블릿: getCoalescedEvents() — try-catch로 안전하게. 실패시 단일 이벤트 폴백. */
-    let events;
-    try {
-      events = (typeof e.getCoalescedEvents === 'function' && e.getCoalescedEvents().length > 0)
-        ? e.getCoalescedEvents() : [e];
-    } catch (_) { events = [e]; }
+    /* v37 롤백: getCoalescedEvents 박은 분기가 일부 태블릿에서 그리기 자체 깨뜨림.
+       단일 이벤트 처리로 복귀. 매끄러움 < 동작. */
+    const p = _pos(e);
     ctx.save();
     _applyPenStyle();
     if (state.tool === 'eraser') ctx.globalAlpha = 1.0;
+    ctx.beginPath();
+    ctx.moveTo(state.lastX, state.lastY);
+    ctx.lineTo(p.x, p.y);
+    ctx.lineWidth = _strokeSize(e);
     ctx.strokeStyle = state.tool === 'eraser' ? '#ffffff' : state.color;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    for (let i = 0; i < events.length; i++) {
-      const ev = events[i];
-      const p = _pos(ev);
-      ctx.beginPath();
-      ctx.moveTo(state.lastX, state.lastY);
-      ctx.lineTo(p.x, p.y);
-      ctx.lineWidth = _strokeSize(ev);
-      ctx.stroke();
-      /* 연필·크레용 거친 질감 — 마지막 점에서만 박음 (성능) */
-      if (i === events.length - 1
-          && state.tool !== 'eraser'
-          && (state.penType === 'pencil' || state.penType === 'crayon')) {
-        const isCrayon = state.penType === 'crayon';
-        const dots = isCrayon ? 7 : 3;
-        const spread = isCrayon ? state.size * 1.4 : state.size * 0.6;
-        const dotSize = isCrayon ? _strokeSize(ev) / 3 : _strokeSize(ev) / 5;
-        for (let j = 0; j < dots; j++) {
-          const dx = (Math.random() - 0.5) * spread;
-          const dy = (Math.random() - 0.5) * spread;
-          ctx.beginPath();
-          ctx.arc(p.x + dx, p.y + dy, dotSize * (0.5 + Math.random() * 0.5), 0, Math.PI * 2);
-          ctx.fillStyle = state.color;
-          ctx.fill();
-        }
+    ctx.stroke();
+    /* 연필·크레용 거친 질감 */
+    if (state.tool !== 'eraser' && (state.penType === 'pencil' || state.penType === 'crayon')) {
+      const isCrayon = state.penType === 'crayon';
+      const dots = isCrayon ? 7 : 3;
+      const spread = isCrayon ? state.size * 1.4 : state.size * 0.6;
+      const dotSize = isCrayon ? _strokeSize(e) / 3 : _strokeSize(e) / 5;
+      for (let i = 0; i < dots; i++) {
+        const dx = (Math.random() - 0.5) * spread;
+        const dy = (Math.random() - 0.5) * spread;
+        ctx.beginPath();
+        ctx.arc(p.x + dx, p.y + dy, dotSize * (0.5 + Math.random() * 0.5), 0, Math.PI * 2);
+        ctx.fillStyle = state.color;
+        ctx.fill();
       }
-      state.lastX = p.x;
-      state.lastY = p.y;
     }
     ctx.restore();
+    state.lastX = p.x;
+    state.lastY = p.y;
   }
   function _onPointerUp(e) {
     state.drawing = false;

@@ -5602,6 +5602,45 @@ body[data-page-orientation="portrait"] #stage-wrap.letterbox-v #viewer-frame {
   background: var(--surface2, #f4ecd8);
 }
 
+/* v37: 줌 버튼 그룹 (확대·축소·리셋) */
+.pb-draw-zoom {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.pb-draw-zoom-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1.5px solid var(--border, rgba(80,50,20,0.10));
+  background: var(--surface, #fbf6ea);
+  cursor: pointer;
+  font-family: var(--font-ui, 'Jua', sans-serif);
+  font-size: 14px;
+  font-weight: bold;
+  color: var(--text, #2b1f10);
+  display: grid;
+  place-items: center;
+  transition: background 0.15s, border-color 0.15s;
+}
+.pb-draw-zoom-btn:hover {
+  background: var(--surface2, #f4ecd8);
+  border-color: var(--text, #2b1f10);
+}
+.pb-draw-zoom-val {
+  font-size: 11px;
+  color: var(--text-muted, #6b5638);
+  font-family: var(--font-ui, 'Jua', sans-serif);
+  min-width: 38px;
+  text-align: center;
+  font-weight: 600;
+}
+
+/* v37: 캔버스 wrap — 확대 시 잘림 (overflow hidden). 이동 도구로 다른 영역 보기 */
+.pb-draw-canvas-wrap {
+  overflow: hidden;
+}
+
 /* v36: 도형 채움 토글 */
 .pb-draw-fill-label {
   display: inline-flex;

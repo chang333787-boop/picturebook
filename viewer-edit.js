@@ -4501,6 +4501,18 @@ function _openPbDrawModal(scene) {
           <button type="button" class="pb-draw-tool js-pb-draw-tool" data-tool="circle" title="원">◯ 원</button>
           <button type="button" class="pb-draw-tool js-pb-draw-tool" data-tool="bucket" title="영역 채우기">🪣 채우기</button>
           <button type="button" class="pb-draw-tool js-pb-draw-tool" data-tool="eyedropper" title="캔버스에서 색 가져오기 — 클릭한 점의 색이 펜 색이 됩니다">💧 색 따기</button>
+          <button type="button" class="pb-draw-tool js-pb-draw-tool" data-tool="pan" title="화면 이동 — 확대 후 다른 영역 보기">✋ 이동</button>
+        </div>
+
+        <!-- 확대·축소 (v37): 캔버스 안에서 줌 인/아웃, 이동 도구로 다른 영역 보기 -->
+        <div class="pb-draw-section">
+          <span class="pb-draw-section-label">확대</span>
+          <div class="pb-draw-zoom">
+            <button type="button" class="pb-draw-zoom-btn js-pb-draw-zoom-out" title="축소">−</button>
+            <span class="pb-draw-zoom-val js-pb-draw-zoom-val">100%</span>
+            <button type="button" class="pb-draw-zoom-btn js-pb-draw-zoom-in" title="확대">＋</button>
+            <button type="button" class="pb-draw-zoom-btn js-pb-draw-zoom-reset" title="원래대로">↺</button>
+          </div>
         </div>
 
         <!-- 펜 종류 (펜 도구일 때만 활성) - v36 -->
@@ -4657,7 +4669,7 @@ function _openPbDrawModal(scene) {
 
   /* 그리기 상태 */
   const state = {
-    tool: 'pen',         /* pen | eraser | line | rect | circle | bucket | eyedropper | text */
+    tool: 'pen',         /* pen | eraser | line | rect | circle | bucket | eyedropper | pan */
     penType: 'normal',   /* v36: normal | marker | pencil | crayon */
     fillShape: false,    /* v36: 도형 채움 토글 */
     color: COLORS[0],
@@ -4671,7 +4683,32 @@ function _openPbDrawModal(scene) {
     lastX: 0, lastY: 0,
     startX: 0, startY: 0,    /* v36: 도형 시작점 (line/rect/circle) */
     shapeBaseImage: null,    /* v36: 도형 preview용 시작 시점 캔버스 스냅 */
+    prevMidX: 0, prevMidY: 0,  /* v37: quadraticCurveTo 보간용 이전 중간점 */
+    zoom: 100,                 /* v37: 확대 배율 (50~400%) */
+    panX: 0, panY: 0,          /* v37: 캔버스 이동 (px) */
+    panning: false,            /* v37: 현재 pan 드래그 중 */
+    panStartX: 0, panStartY: 0,
   };
+
+  /* v37: 캔버스 transform 적용 — 확대 + 이동.
+     transform-origin: center라 zoom은 가운데 기준. translate는 zoom 이후 좌표라 보정. */
+  function _applyCanvasTransform() {
+    const scale = state.zoom / 100;
+    canvas.style.transform = `translate(${state.panX}px, ${state.panY}px) scale(${scale})`;
+    canvas.style.transformOrigin = 'center center';
+    const valEl = modal.querySelector('.js-pb-draw-zoom-val');
+    if (valEl) valEl.textContent = state.zoom + '%';
+  }
+  function _setZoom(z) {
+    state.zoom = Math.max(50, Math.min(400, Math.round(z)));
+    _applyCanvasTransform();
+  }
+  function _resetZoom() {
+    state.zoom = 100;
+    state.panX = 0;
+    state.panY = 0;
+    _applyCanvasTransform();
+  }
 
   /* v36: 펜 종류별 stroke 스타일 — 차이 명확하게.
      · normal: 단단한 선, opacity 그대로
@@ -4851,6 +4888,16 @@ function _openPbDrawModal(scene) {
     state.prevMidX = p.x;
     state.prevMidY = p.y;
 
+    /* v37: 이동 도구 — pointerdown 시작 위치 박고 drawing false (그리기 안 함) */
+    if (state.tool === 'pan') {
+      state.drawing = false;
+      state.panning = true;
+      state.panStartX = e.clientX - state.panX;
+      state.panStartY = e.clientY - state.panY;
+      canvas.style.cursor = 'grabbing';
+      return;
+    }
+
     /* v36: 페인트 버킷 — 즉시 채우고 끝 */
     if (state.tool === 'bucket') {
       _floodFill(p.x, p.y);
@@ -4891,6 +4938,14 @@ function _openPbDrawModal(scene) {
     ctx.restore();
   }
   function _onPointerMove(e) {
+    /* v37: 이동 도구 — pan 드래그 처리 (drawing 아니라도 처리) */
+    if (state.panning && state.tool === 'pan' && e.isPrimary) {
+      e.preventDefault();
+      state.panX = e.clientX - state.panStartX;
+      state.panY = e.clientY - state.panStartY;
+      _applyCanvasTransform();
+      return;
+    }
     if (!state.drawing || !e.isPrimary) return;
     e.preventDefault();
 
@@ -4944,6 +4999,11 @@ function _openPbDrawModal(scene) {
   function _onPointerUp(e) {
     state.drawing = false;
     state.shapeBaseImage = null;
+    /* v37: pan 드래그 끝 → cursor 복귀 */
+    if (state.panning) {
+      state.panning = false;
+      canvas.style.cursor = state.tool === 'pan' ? 'grab' : 'crosshair';
+    }
     try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
   }
 
@@ -4978,15 +5038,20 @@ function _openPbDrawModal(scene) {
       state.tool = btn.dataset.tool || 'pen';
       modal.querySelectorAll('.js-pb-draw-tool').forEach(b =>
         b.classList.toggle('is-on', b === btn));
-      /* v36: 도구별 cursor */
+      /* v36/v37: 도구별 cursor */
       if (state.tool === 'eraser') canvas.style.cursor = 'grab';
       else if (state.tool === 'bucket') canvas.style.cursor = 'cell';
       else if (state.tool === 'eyedropper') canvas.style.cursor = 'copy';
-      else if (state.tool === 'text') canvas.style.cursor = 'text';
+      else if (state.tool === 'pan') canvas.style.cursor = 'grab';
       else canvas.style.cursor = 'crosshair';
       _syncSizeSliderForTool();
     });
   });
+
+  /* v37: 줌 버튼 — 25%씩 ± . 50~400% 범위. */
+  modal.querySelector('.js-pb-draw-zoom-in')?.addEventListener('click', () => _setZoom(state.zoom + 25));
+  modal.querySelector('.js-pb-draw-zoom-out')?.addEventListener('click', () => _setZoom(state.zoom - 25));
+  modal.querySelector('.js-pb-draw-zoom-reset')?.addEventListener('click', _resetZoom);
 
   /* v36: 펜 종류 핸들러 */
   modal.querySelectorAll('.js-pb-draw-pentype').forEach(btn => {

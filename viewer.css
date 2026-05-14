@@ -521,20 +521,166 @@ body[data-page-orientation="portrait"] #stage-wrap.letterbox-v #viewer-frame {
 /* ================================================================
    Cover 화면
    ================================================================ */
-/* v37: 표지 화면 재디자인 — warm paper 톤 + 책 표지 분위기.
-   장면 1과 같은 비율·테마·폰트를 따르도록 별도 페이지 카드 안에 박음.
-   기존 어두운 톤(rgba 0,0,0 그림자 등) 폐기. */
-.cover-screen {
-  position: absolute;
-  inset: 0;
+/* v37 (재수정): 표지·엔딩이 메인 장면(picturebook split) 구조 그대로.
+   scene-screen--pb 클래스 재사용해 페이지 비율·테마·grid row 다 자동.
+   여기선 텍스트 영역 안 콘텐츠 톤만 조정. */
+
+/* 표지 텍스트 영역 — 가운데 정렬 + 작품 정보 */
+.pb-text--cover {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 24px;
-  box-sizing: border-box;
-  /* 컨테이너 쿼리 활성화 — .cover-page가 viewer-frame 비율 따라 fit */
-  container-type: size;
-  container-name: coverstage;
+  gap: clamp(8px, 1.5vw, 16px);
+  text-align: center;
+}
+.cover-team-label {
+  font-family: var(--font-ui, 'Jua', sans-serif);
+  font-size: clamp(11px, 1.2vw, 14px);
+  color: var(--text-muted, #6b5638);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+.cover-title-pb {
+  font-family: var(--font-ui, 'Jua', sans-serif);
+  font-size: clamp(20px, 3vw, 32px);
+  color: var(--text, #2b1f10);
+  font-weight: 700;
+  line-height: 1.25;
+  margin: 0;
+  letter-spacing: -0.005em;
+}
+.cover-mode-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-ui, 'Jua', sans-serif);
+  font-size: clamp(10px, 1.1vw, 12px);
+  color: var(--text-muted, #6b5638);
+  background: rgba(255,250,238,0.7);
+  border: 1px solid rgba(80,50,20,0.15);
+  border-radius: 50px;
+  padding: 4px 12px;
+  letter-spacing: 0.05em;
+}
+.cover-start-btn {
+  padding: clamp(10px, 1.6vw, 14px) clamp(24px, 3.5vw, 36px);
+  border: none;
+  background: #c66f4a;
+  color: #fff;
+  font-family: var(--font-ui, 'Jua', sans-serif);
+  font-size: clamp(14px, 1.8vw, 17px);
+  border-radius: 50px;
+  cursor: pointer;
+  box-shadow:
+    0 2px 4px rgba(198,111,74,0.20),
+    0 6px 16px rgba(198,111,74,0.30);
+  transition: filter 0.15s, transform 0.08s;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.cover-start-btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
+.cover-start-btn:active { transform: translateY(0) scale(0.98); }
+
+/* 엔딩 텍스트 영역 — 메인 장면 .pb-text 구조 + 엔딩 전용 콘텐츠 */
+.pb-text--ending {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+  gap: clamp(6px, 1.2vw, 12px);
+  padding: clamp(12px, 2vw, 20px);
+}
+.pb-text--ending .ending-user-title {
+  font-family: var(--font-ui, 'Jua', sans-serif);
+  font-size: clamp(10px, 1.1vw, 12px);
+  color: var(--text-muted, #6b5638);
+  letter-spacing: 0.08em;
+  opacity: 0.7;
+  margin: 0;
+}
+.pb-text--ending .ending-user-body {
+  font-family: var(--font-ui, 'Jua', sans-serif);
+  font-size: clamp(16px, 2.4vw, 24px);
+  color: var(--text, #2b1f10);
+  line-height: 1.4;
+  font-weight: 600;
+  margin: 0;
+}
+.ending-stamps-row {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  align-items: center;
+  margin: 4px 0;
+  flex-wrap: wrap;
+}
+/* "이야기 끝" 도장 */
+.ending-end-stamp {
+  font-family: 'Cormorant Garamond', var(--font-ui, 'Jua', sans-serif);
+  font-size: clamp(11px, 1.3vw, 14px);
+  color: #c66f4a;
+  border: 2px solid #c66f4a;
+  border-radius: 6px;
+  padding: 4px 12px;
+  letter-spacing: 0.12em;
+  transform: rotate(-3deg);
+  display: inline-block;
+  opacity: 0.88;
+  font-weight: 600;
+}
+.pb-text--ending .ending-true-badge {
+  background: linear-gradient(135deg, #d4a017, #f2c43f);
+  color: #3a2810;
+  font-family: var(--font-ui, 'Jua', sans-serif);
+  font-size: clamp(11px, 1.2vw, 13px);
+  border: 1px solid rgba(60,40,15,0.25);
+  border-radius: 50px;
+  padding: 3px 12px;
+}
+.pb-text--ending .ending-mood {
+  font-family: var(--font-ui, 'Jua', sans-serif);
+  font-size: clamp(11px, 1.2vw, 13px);
+  color: var(--text-muted, #6b5638);
+  line-height: 1.5;
+  font-style: italic;
+  margin: 0;
+}
+.pb-text--ending .ending-path-summary {
+  font-family: var(--font-ui, 'Jua', sans-serif);
+  font-size: clamp(10px, 1.1vw, 12px);
+  color: #c66f4a;
+  opacity: 0.85;
+  margin: 0;
+}
+.ending-actions {
+  margin-top: clamp(4px, 1vw, 8px);
+}
+.ending-actions .terminal-btn {
+  padding: clamp(9px, 1.5vw, 12px) clamp(20px, 3vw, 28px);
+  border-radius: 50px;
+  font-family: var(--font-ui, 'Jua', sans-serif);
+  font-size: clamp(12px, 1.4vw, 14px);
+  cursor: pointer;
+  transition: filter 0.15s, transform 0.08s;
+  font-weight: 600;
+}
+.ending-actions .terminal-btn--primary {
+  background: #c66f4a;
+  border: none;
+  color: #fff;
+  box-shadow: 0 2px 4px rgba(198,111,74,0.20), 0 6px 16px rgba(198,111,74,0.30);
+}
+.ending-actions .terminal-btn--primary:hover { filter: brightness(1.08); transform: translateY(-1px); }
+.ending-actions .terminal-btn--ghost {
+  background: transparent;
+  border: 1.5px solid rgba(80,50,20,0.20);
+  color: var(--text-muted, #6b5638);
+}
+.ending-actions .terminal-btn--ghost:hover {
+  background: rgba(80,50,20,0.06);
+  border-color: rgba(80,50,20,0.35);
 }
 /* 페이지 (책 표지) — A4 비율, 장면과 동일 톤 */
 .cover-page {

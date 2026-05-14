@@ -86,21 +86,42 @@ function renderCover() {
   const imageData = p.coverImageData || null;
   const hasImage  = !!imageData;
 
-  /* v37: 책 표지 분위기 — .cover-page 안 가운데 정렬. 장면 1과 같은 비율·테마 적용. */
+  /* v37: 메인 장면(picturebook split)과 동일 구조 — 위 그림 / 아래 텍스트.
+     사용자 결정: "시작·엔딩이 메인 장면과 따로 놀면 안 됨". 페이지 비율·테마 자동 따름.
+     orientation: project.pageOrientation (가로/세로). submode: split 고정 (표지는 split이 자연). */
+  const illustHtml = hasImage
+    ? `<div class="pb-illust" data-pb-illust="1">
+         <div class="pb-illust__photo" data-pb-photo="1">
+           <img class="pb-illust__inner" src="${imageData}" draggable="false" alt="">
+         </div>
+       </div>`
+    : `<div class="pb-illust pb-illust--empty">
+         <div class="pb-empty-mark">📖</div>
+       </div>`;
+
   stage.innerHTML = `
-    <div class="cover-screen">
-      <div class="cover-page">
-        ${hasImage ? `<div class="cover-bg" style="background-image:url('${imageData}')"></div>` : ''}
-        <div class="cover-content">
-          <div class="cover-team">${escHtml(teamName)}</div>
-          <div class="cover-title-decoration">✦</div>
-          <h1 class="cover-title">${escHtml(title)}</h1>
-          <div class="cover-title-decoration">✦</div>
-          <div class="cover-mode-badge">📖 ${modeBadgeLabel(mode)}</div>
-          <button class="cover-start-btn js-cover-start">▶ 시작하기</button>
+    <div class="scene-screen scene-screen--pb pb--split cover-as-pb"
+         data-presentation-mode="picturebook"
+         data-presentation-submode="split">
+      <div class="pb-page">
+        <div class="pb-frame">
+          ${illustHtml}
+          <div class="pb-text pb-text--cover">
+            <div class="cover-team-label">${escHtml(teamName)}</div>
+            <h1 class="cover-title-pb">${escHtml(title)}</h1>
+            <div class="cover-mode-badge">📖 ${modeBadgeLabel(mode)}</div>
+            <div class="pb-text__actions" data-count="1">
+              <button class="cover-start-btn js-cover-start">▶ 시작하기</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>`;
+
+  /* 사진 wrapper 사이즈 — 메인 장면과 동일 자동 fit */
+  if (typeof _setupPbPhotoWrappers === 'function') {
+    _setupPbPhotoWrappers(stage);
+  }
 
   stage.querySelector('.js-cover-start')
     ?.addEventListener('click', () => {
@@ -1086,24 +1107,54 @@ function _renderStoryEnding(stage, scene) {
     ${userTitle ? `<p class="terminal-body">${escHtml(userTitle)}</p>` : ''}
   `;
 
-  /* v37: 책 마지막 페이지 분위기 — .ending-page 안 가운데 정렬. cover와 같은 비율. */
+  /* v37: 메인 장면(picturebook split)과 동일 구조 — 위 그림 / 아래 텍스트.
+     사용자 결정: "엔딩도 그림 있고 본문 아래 + 행동 버튼 자리에 결말 문구".
+     scene.imageData 있으면 위 그림, 없으면 placeholder. 텍스트 영역에 엔딩 콘텐츠. */
+  const endingImage = scene.imageData || null;
+  const endingIllustHtml = endingImage
+    ? `<div class="pb-illust" data-pb-illust="1">
+         <div class="pb-illust__photo" data-pb-photo="1">
+           <img class="pb-illust__inner" src="${endingImage}" draggable="false" alt="">
+         </div>
+       </div>`
+    : `<div class="pb-illust pb-illust--empty">
+         <div class="pb-empty-mark">${systemIcon}</div>
+       </div>`;
+
+  /* 텍스트 영역 — 작품 제목(작게) + 엔딩 본문(메인) + 이야기 끝 스탬프 + 경로 요약 + 버튼 */
+  const endingTextHtml = `
+    <div class="pb-text pb-text--ending">
+      ${userTitle ? `<div class="ending-user-title">${escHtml(userTitle)}</div>` : ''}
+      ${userBody ? `<p class="ending-user-body">${escHtml(userBody)}</p>` : ''}
+      <div class="ending-stamps-row">
+        ${trueEndBadge}
+        <div class="ending-end-stamp">${systemIcon} ${systemLabel}</div>
+      </div>
+      ${pathSummary}
+      <p class="ending-mood">${moodMsg}</p>
+      <div class="pb-text__actions ending-actions" data-count="${ViewerState.historyStack.length > 0 ? 2 : 1}">
+        <button class="terminal-btn terminal-btn--primary js-restart">↺ 다른 결말 찾기</button>
+        ${ViewerState.historyStack.length > 0
+          ? `<button class="terminal-btn terminal-btn--ghost js-back">← 직전 장면으로</button>` : ''}
+      </div>
+    </div>`;
+
   stage.innerHTML = `
-    <div class="terminal-screen terminal-screen--story">
-      <div class="ending-page">
-        ${bgHtml}
-        <div class="terminal-content">
-          ${trueEndBadge}
-          ${userContentHtml}
-          ${pathSummary}
-          <p class="ending-mood">${moodMsg}</p>
-          <div class="terminal-actions">
-            <button class="terminal-btn terminal-btn--primary js-restart">↺ 다른 결말 찾기</button>
-            ${ViewerState.historyStack.length > 0
-              ? `<button class="terminal-btn terminal-btn--ghost js-back">← 직전 장면으로</button>` : ''}
-          </div>
+    <div class="scene-screen scene-screen--pb pb--split ending-as-pb"
+         data-presentation-mode="picturebook"
+         data-presentation-submode="split"
+         data-ending="true">
+      <div class="pb-page">
+        <div class="pb-frame">
+          ${endingIllustHtml}
+          ${endingTextHtml}
         </div>
       </div>
     </div>`;
+
+  if (typeof _setupPbPhotoWrappers === 'function') {
+    _setupPbPhotoWrappers(stage);
+  }
 
   stage.querySelector('.js-restart')?.addEventListener('click', restartStory);
   stage.querySelector('.js-back')   ?.addEventListener('click', navigateBack);

@@ -4846,6 +4846,10 @@ function _openPbDrawModal(scene) {
     state.lastY = p.y;
     state.startX = p.x;
     state.startY = p.y;
+    /* v37: quadraticCurveTo 보간용 — 이전 중간점 초기값은 시작점 자신.
+       각 stroke는 (prevMid → lastX/Y control → newMid) 곡선으로 그려져 부드러움. */
+    state.prevMidX = p.x;
+    state.prevMidY = p.y;
 
     /* v36: 페인트 버킷 — 즉시 채우고 끝 */
     if (state.tool === 'bucket') {
@@ -4898,21 +4902,25 @@ function _openPbDrawModal(scene) {
       return;
     }
 
-    /* v37 롤백: getCoalescedEvents 박은 분기가 일부 태블릿에서 그리기 자체 깨뜨림.
-       단일 이벤트 처리로 복귀. 매끄러움 < 동작. */
+    /* v37 매끄러움: quadraticCurveTo 보간 — 두 점 사이 부드러운 곡선.
+       lastX/Y는 곡선 control point, newMid는 endpoint. 다음 stroke는 newMid에서 시작.
+       이게 mid-point quadratic 기법 — Procreate/메모 앱 부드러움 비슷. */
     const p = _pos(e);
+    const newMidX = (state.lastX + p.x) / 2;
+    const newMidY = (state.lastY + p.y) / 2;
+
     ctx.save();
     _applyPenStyle();
     if (state.tool === 'eraser') ctx.globalAlpha = 1.0;
     ctx.beginPath();
-    ctx.moveTo(state.lastX, state.lastY);
-    ctx.lineTo(p.x, p.y);
+    ctx.moveTo(state.prevMidX, state.prevMidY);
+    ctx.quadraticCurveTo(state.lastX, state.lastY, newMidX, newMidY);
     ctx.lineWidth = _strokeSize(e);
     ctx.strokeStyle = state.tool === 'eraser' ? '#ffffff' : state.color;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.stroke();
-    /* 연필·크레용 거친 질감 */
+    /* 연필·크레용 거친 질감 — endpoint(newMid)에서만 박음 */
     if (state.tool !== 'eraser' && (state.penType === 'pencil' || state.penType === 'crayon')) {
       const isCrayon = state.penType === 'crayon';
       const dots = isCrayon ? 7 : 3;
@@ -4922,12 +4930,14 @@ function _openPbDrawModal(scene) {
         const dx = (Math.random() - 0.5) * spread;
         const dy = (Math.random() - 0.5) * spread;
         ctx.beginPath();
-        ctx.arc(p.x + dx, p.y + dy, dotSize * (0.5 + Math.random() * 0.5), 0, Math.PI * 2);
+        ctx.arc(newMidX + dx, newMidY + dy, dotSize * (0.5 + Math.random() * 0.5), 0, Math.PI * 2);
         ctx.fillStyle = state.color;
         ctx.fill();
       }
     }
     ctx.restore();
+    state.prevMidX = newMidX;
+    state.prevMidY = newMidY;
     state.lastX = p.x;
     state.lastY = p.y;
   }

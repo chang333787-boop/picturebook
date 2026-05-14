@@ -2176,6 +2176,19 @@ function _typeSectionPicturebookHtml(scene) {
   const pbStyleInlineHtml = (typeof _pbInlineStyleHtml === 'function')
     ? _pbInlineStyleHtml(scene) : '';
 
+  /* v37: 페이지 방향·하위 모드는 첫 장면(entrySceneId)에서만 변경 가능.
+     장면 2부터는 토글 비활성 + 안내. "작품 전체 설정"이 한 곳에서만 박힘. */
+  const entryId = ViewerState.project && ViewerState.project.entrySceneId;
+  const isFirstScene = entryId
+    ? String(scene.id) === String(entryId)
+    : (scene.isStart === true);
+  const lockedAttr = isFirstScene ? '' : 'disabled';
+  const lockedClass = isFirstScene ? '' : ' edit-toggle--locked';
+  const lockHint = isFirstScene ? '' : `
+    <div class="edit-section-hint edit-section-hint--lock">
+      🔒 페이지 방향·하위 모드는 첫 장면에서만 바꿀 수 있어요 (작품 전체 설정).
+    </div>`;
+
   /* W9 (v5): 사용자 재구성 — 작품 전체 헤더 폐기, sub-divider 폐기.
      순서: [페이지 방향 | 하위 모드] (한 줄) → 양옆 마감 테마 → 글상자(그림 중심형) → 장면 그림 → 글자 스타일.
      왼쪽 첫 줄(페이지 방향+하위 모드)이 오른쪽 첫 줄(제목)과 baseline 정렬. */
@@ -2184,26 +2197,27 @@ function _typeSectionPicturebookHtml(scene) {
       <div class="edit-row edit-row--compact edit-row--pair-cell">
         <label class="edit-label">📖 페이지 방향</label>
         <div class="edit-toggle-group">
-          <button type="button"
-            class="edit-toggle js-pb-orientation ${(ViewerState.project.pageOrientation === 'portrait') ? '' : 'active'}"
+          <button type="button" ${lockedAttr}
+            class="edit-toggle js-pb-orientation${lockedClass} ${(ViewerState.project.pageOrientation === 'portrait') ? '' : 'active'}"
             data-val="landscape">가로</button>
-          <button type="button"
-            class="edit-toggle js-pb-orientation ${(ViewerState.project.pageOrientation === 'portrait') ? 'active' : ''}"
+          <button type="button" ${lockedAttr}
+            class="edit-toggle js-pb-orientation${lockedClass} ${(ViewerState.project.pageOrientation === 'portrait') ? 'active' : ''}"
             data-val="portrait">세로</button>
         </div>
       </div>
       <div class="edit-row edit-row--compact edit-row--pair-cell">
         <label class="edit-label">📐 하위 모드</label>
         <div class="edit-toggle-group">
-          <button type="button"
-            class="edit-toggle js-pb-submode ${sub === 'split' ? 'active' : ''}"
+          <button type="button" ${lockedAttr}
+            class="edit-toggle js-pb-submode${lockedClass} ${sub === 'split' ? 'active' : ''}"
             data-val="split">📖 분할형</button>
-          <button type="button"
-            class="edit-toggle js-pb-submode ${sub === 'imageCenter' ? 'active' : ''}"
+          <button type="button" ${lockedAttr}
+            class="edit-toggle js-pb-submode${lockedClass} ${sub === 'imageCenter' ? 'active' : ''}"
             data-val="imageCenter">🎨 그림 중심형</button>
         </div>
       </div>
     </div>
+    ${lockHint}
 
     <div class="edit-row">
       ${(() => {

@@ -521,78 +521,156 @@ body[data-page-orientation="portrait"] #stage-wrap.letterbox-v #viewer-frame {
 /* ================================================================
    Cover 화면
    ================================================================ */
+/* v37: 표지 화면 재디자인 — warm paper 톤 + 책 표지 분위기.
+   장면 1과 같은 비율·테마·폰트를 따르도록 별도 페이지 카드 안에 박음.
+   기존 어두운 톤(rgba 0,0,0 그림자 등) 폐기. */
 .cover-screen {
   position: absolute;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 24px;
+  box-sizing: border-box;
+  /* 컨테이너 쿼리 활성화 — .cover-page가 viewer-frame 비율 따라 fit */
+  container-type: size;
+  container-name: coverstage;
 }
+/* 페이지 (책 표지) — A4 비율, 장면과 동일 톤 */
+.cover-page {
+  position: relative;
+  aspect-ratio: 297 / 210;
+  width: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  background: var(--v03-card-bg, #fffaee);
+  border-radius: 14px;
+  border: 1px solid rgba(80,50,20,0.08);
+  box-shadow:
+    0 2px 6px rgba(120,90,50,0.10),
+    0 16px 48px rgba(120,90,50,0.18),
+    0 32px 64px rgba(120,90,50,0.12);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(24px, 4vw, 48px);
+  box-sizing: border-box;
+  overflow: hidden;
+  animation: fadeUp var(--t-slow, 420ms) ease both;
+}
+@container coverstage (aspect-ratio > 297/210) {
+  .cover-page { width: auto; height: 100%; }
+}
+@container coverstage (aspect-ratio <= 297/210) {
+  .cover-page { width: 100%; height: auto; }
+}
+body[data-page-orientation="portrait"] .cover-page {
+  aspect-ratio: 210 / 297;
+}
+@container coverstage (aspect-ratio > 210/297) {
+  body[data-page-orientation="portrait"] .cover-page { width: auto; height: 100%; }
+}
+@container coverstage (aspect-ratio <= 210/297) {
+  body[data-page-orientation="portrait"] .cover-page { width: 100%; height: auto; }
+}
+
+/* 표지 그림 (있으면) — 위쪽 배경 */
 .cover-bg {
   position: absolute;
   inset: 0;
   background-size: cover;
   background-position: center;
-  filter: blur(2px) brightness(0.5);
-  transform: scale(1.05);
+  opacity: 0.18;
+  filter: blur(1px);
 }
-.cover-bg-overlay {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(to bottom, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.7) 100%);
-}
+.cover-bg-overlay { display: none; }   /* 어두운 오버레이 폐기 */
 .cover-bg-solid {
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(ellipse at 50% 30%, var(--surface2), var(--bg));
+  display: none;   /* 별도 solid 배경 안 씀 — .cover-page 자체 색 사용 */
 }
 
+/* 표지 콘텐츠 — 가운데 정렬 */
 .cover-content {
   position: relative;
   z-index: 2;
   text-align: center;
-  padding: 40px 24px;
-  max-width: 600px;
-  animation: fadeUp var(--t-slow) ease both;
+  max-width: 80%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(12px, 2vw, 24px);
 }
 .cover-team {
-  font-size: 13px;
-  color: var(--text-muted);
-  letter-spacing: .12em;
+  font-family: var(--font-ui, 'Jua', sans-serif);
+  font-size: clamp(12px, 1.4vw, 15px);
+  color: var(--text-muted, #6b5638);
+  letter-spacing: 0.15em;
   text-transform: uppercase;
-  margin-bottom: 16px;
+  opacity: 0.7;
 }
 .cover-title {
-  font-family: var(--font-ui);
-  font-size: clamp(24px, 5vw, 48px);
-  color: var(--text);
-  line-height: 1.3;
-  margin-bottom: 20px;
-  text-shadow: 0 2px 16px rgba(0,0,0,0.8);
+  font-family: var(--font-ui, 'Jua', sans-serif);
+  font-size: clamp(28px, 5.5vw, 56px);
+  color: var(--text, #2b1f10);
+  line-height: 1.25;
+  margin: 0;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+/* 책 표지 장식 — 제목 위/아래 가는 선 */
+.cover-title-decoration {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: rgba(80,50,20,0.30);
+  font-size: 12px;
+  margin: 4px 0;
+}
+.cover-title-decoration::before,
+.cover-title-decoration::after {
+  content: '';
+  width: 40px;
+  height: 1px;
+  background: rgba(80,50,20,0.25);
 }
 .cover-mode-badge {
-  display: inline-block;
-  font-size: 13px;
-  color: var(--accent);
-  border: 1px solid var(--accent);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-ui, 'Jua', sans-serif);
+  font-size: 12px;
+  color: var(--text-muted, #6b5638);
+  background: rgba(255,250,238,0.7);
+  border: 1px solid rgba(80,50,20,0.15);
   border-radius: 50px;
-  padding: 4px 14px;
-  margin-bottom: 36px;
+  padding: 5px 14px;
+  letter-spacing: 0.05em;
 }
 .cover-start-btn {
-  padding: 16px 48px;
-  border: 2px solid var(--accent);
-  background: rgba(88,166,255,0.15);
-  color: var(--accent);
-  font-family: var(--font-ui);
-  font-size: 18px;
+  margin-top: clamp(8px, 2vw, 20px);
+  padding: clamp(12px, 1.8vw, 16px) clamp(28px, 4vw, 44px);
+  border: none;
+  background: #c66f4a;
+  color: #fff;
+  font-family: var(--font-ui, 'Jua', sans-serif);
+  font-size: clamp(16px, 2vw, 19px);
   border-radius: 50px;
   cursor: pointer;
-  transition: background var(--t-fast), transform var(--t-fast);
-  backdrop-filter: blur(4px);
+  box-shadow:
+    0 2px 4px rgba(198,111,74,0.20),
+    0 6px 16px rgba(198,111,74,0.30);
+  transition: filter 0.15s, transform 0.08s, box-shadow 0.15s;
+  font-weight: 600;
+  letter-spacing: 0.02em;
 }
-.cover-start-btn:hover  { background: rgba(88,166,255,0.3); transform: translateY(-2px); }
-.cover-start-btn:active { transform: scale(.97); }
+.cover-start-btn:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+  box-shadow:
+    0 4px 8px rgba(198,111,74,0.25),
+    0 10px 24px rgba(198,111,74,0.35);
+}
+.cover-start-btn:active { transform: translateY(0) scale(0.98); }
 
 /* ================================================================
    Scene 화면
@@ -622,7 +700,8 @@ body[data-page-orientation="portrait"] #stage-wrap.letterbox-v #viewer-frame {
   inset: 0;
   background: var(--bg);
 }
-.scene-bg-solid--ending  { background: linear-gradient(135deg, #1a0808, #2d0a0a); }
+/* v37: 어두운 그라데이션 폐기 — warm paper 톤. 엔딩 페이지 카드 안에 박힘. */
+.scene-bg-solid--ending  { background: var(--v03-card-bg, #fffaee); }
 .scene-bg-solid--explore { background: linear-gradient(135deg, #040d1a, #081428); }
 
 .scene-content {
@@ -1404,6 +1483,36 @@ body[data-page-orientation="portrait"] #stage-wrap.letterbox-v #viewer-frame {
   border-color: var(--accent);
   color: #fff;
 }
+/* v37: 잠긴 토글 (장면 2부터 페이지 방향·하위 모드) — 클릭 불가 + 흐림 */
+.edit-toggle--locked,
+.edit-toggle[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.edit-toggle--locked:hover,
+.edit-toggle[disabled]:hover {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--text-muted);
+}
+.edit-toggle--locked.active,
+.edit-toggle[disabled].active {
+  background: rgba(80,50,20,0.10);
+  border-color: rgba(80,50,20,0.20);
+  color: var(--text-muted);
+}
+/* 잠금 안내 박스 — 페이지 방향·하위 모드 row 아래 표시 */
+.edit-section-hint--lock {
+  background: rgba(198,111,74,0.06);
+  border: 1px dashed rgba(198,111,74,0.30);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin: 8px 0 12px;
+  color: #8a4f2f;
+  font-family: var(--font-ui, 'Jua', sans-serif);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
 .edit-range {
   width: 100%;
   accent-color: var(--accent);
@@ -2015,27 +2124,146 @@ body[data-page-orientation="portrait"] #stage-wrap.letterbox-v #viewer-frame {
    Fix 2: story/explore terminal 시각 차이
    ================================================================ */
 
-/* story — 감정선, 어둡고 집중된 톤 */
+/* v37: story 엔딩 — warm paper 톤 + 책 마지막 페이지 분위기.
+   이전 어두운 radial 폐기. 페이지 카드 안 가운데 정렬. */
 .terminal-screen--story {
-  background: radial-gradient(ellipse at 50% 80%, rgba(30,10,10,0.9), var(--bg));
+  background: transparent;
+  padding: 24px;
+  box-sizing: border-box;
+  container-type: size;
+  container-name: endstage;
+}
+/* 엔딩 페이지 카드 — cover와 동일 비율·디자인 */
+.terminal-screen--story .ending-page {
+  position: relative;
+  aspect-ratio: 297 / 210;
+  width: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  background: var(--v03-card-bg, #fffaee);
+  border-radius: 14px;
+  border: 1px solid rgba(80,50,20,0.08);
+  box-shadow:
+    0 2px 6px rgba(120,90,50,0.10),
+    0 16px 48px rgba(120,90,50,0.18),
+    0 32px 64px rgba(120,90,50,0.12);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(24px, 4vw, 48px);
+  box-sizing: border-box;
+  overflow: hidden;
+  animation: fadeUp var(--t-slow, 420ms) ease both;
+}
+@container endstage (aspect-ratio > 297/210) {
+  .terminal-screen--story .ending-page { width: auto; height: 100%; }
+}
+@container endstage (aspect-ratio <= 297/210) {
+  .terminal-screen--story .ending-page { width: 100%; height: auto; }
+}
+body[data-page-orientation="portrait"] .terminal-screen--story .ending-page {
+  aspect-ratio: 210 / 297;
+}
+@container endstage (aspect-ratio > 210/297) {
+  body[data-page-orientation="portrait"] .terminal-screen--story .ending-page { width: auto; height: 100%; }
+}
+@container endstage (aspect-ratio <= 210/297) {
+  body[data-page-orientation="portrait"] .terminal-screen--story .ending-page { width: 100%; height: auto; }
+}
+
+/* story 엔딩 콘텐츠 — 페이지 안 가운데 */
+.terminal-screen--story .terminal-content {
+  position: relative;
+  z-index: 2;
+  max-width: 90%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(12px, 1.6vw, 20px);
 }
 .terminal-icon--story {
-  font-size: 60px;
-  margin-bottom: 12px;
-  filter: drop-shadow(0 0 16px rgba(248,81,73,0.4));
+  font-size: clamp(36px, 5vw, 52px);
+  filter: none;
+  opacity: 0.85;
 }
 .ending-mood {
-  font-size: 13px;
-  color: var(--text-muted);
-  line-height: 1.7;
-  margin-bottom: 24px;
+  font-family: var(--font-ui, 'Jua', sans-serif);
+  font-size: clamp(12px, 1.3vw, 14px);
+  color: var(--text-muted, #6b5638);
+  line-height: 1.6;
   font-style: italic;
+  margin: 0;
 }
 .ending-path-summary {
-  font-size: 12px;
-  color: var(--accent);
-  margin-bottom: 8px;
-  opacity: 0.8;
+  font-family: var(--font-ui, 'Jua', sans-serif);
+  font-size: clamp(11px, 1.2vw, 13px);
+  color: #c66f4a;
+  opacity: 0.85;
+  margin: 0;
+}
+/* "이야기 끝" 스탬프 — 도장 분위기 */
+.terminal-screen--story .terminal-title {
+  font-family: 'Cormorant Garamond', var(--font-ui, 'Jua', sans-serif);
+  font-size: clamp(13px, 1.6vw, 16px);
+  color: #c66f4a;
+  border: 2px solid #c66f4a;
+  border-radius: 8px;
+  padding: 6px 18px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  transform: rotate(-4deg);
+  display: inline-block;
+  margin: 0;
+  opacity: 0.85;
+  box-shadow: 0 1px 0 rgba(198,111,74,0.10);
+}
+.terminal-screen--story .ending-true-badge {
+  background: linear-gradient(135deg, #d4a017, #f2c43f);
+  color: #3a2810;
+  font-family: var(--font-ui, 'Jua', sans-serif);
+  border: 1px solid rgba(60,40,15,0.25);
+  margin: 0;
+}
+/* 사용자 본문 (메인 콘텐츠) */
+.terminal-screen--story .ending-user-title {
+  font-family: var(--font-ui, 'Jua', sans-serif);
+  font-size: clamp(11px, 1.2vw, 13px);
+  color: var(--text-muted, #6b5638);
+  letter-spacing: 0.08em;
+  opacity: 0.7;
+  margin: 0;
+}
+.terminal-screen--story .ending-user-body {
+  font-family: var(--font-ui, 'Jua', sans-serif);
+  font-size: clamp(20px, 3vw, 32px);
+  color: var(--text, #2b1f10);
+  line-height: 1.4;
+  font-weight: 600;
+  margin: 4px 0;
+  letter-spacing: -0.005em;
+}
+
+/* 버튼 — warm paper 톤 */
+.terminal-screen--story .terminal-btn--primary {
+  background: #c66f4a;
+  border: none;
+  color: #fff;
+  box-shadow:
+    0 2px 4px rgba(198,111,74,0.20),
+    0 6px 16px rgba(198,111,74,0.30);
+}
+.terminal-screen--story .terminal-btn--primary:hover {
+  filter: brightness(1.08);
+}
+.terminal-screen--story .terminal-btn--ghost {
+  background: transparent;
+  border: 1.5px solid rgba(80,50,20,0.20);
+  color: var(--text-muted, #6b5638);
+}
+.terminal-screen--story .terminal-btn--ghost:hover {
+  background: rgba(80,50,20,0.06);
+  border-color: rgba(80,50,20,0.35);
 }
 
 /* explore — 방문 진행도, 밝고 활동적인 톤 */

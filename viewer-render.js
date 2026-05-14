@@ -86,17 +86,19 @@ function renderCover() {
   const imageData = p.coverImageData || null;
   const hasImage  = !!imageData;
 
+  /* v37: 책 표지 분위기 — .cover-page 안 가운데 정렬. 장면 1과 같은 비율·테마 적용. */
   stage.innerHTML = `
     <div class="cover-screen">
-      ${hasImage ? `<div class="cover-bg" style="background-image:url('${imageData}')"></div>
-                    <div class="cover-bg-overlay"></div>` : '<div class="cover-bg-solid"></div>'}
-      <div class="cover-content">
-        <div class="cover-team">${escHtml(teamName)}</div>
-        <h1 class="cover-title">${escHtml(title)}</h1>
-        <div class="cover-mode-badge">${modeBadgeLabel(mode)}</div>
-        <button class="cover-start-btn js-cover-start">
-          <span>▶ 시작하기</span>
-        </button>
+      <div class="cover-page">
+        ${hasImage ? `<div class="cover-bg" style="background-image:url('${imageData}')"></div>` : ''}
+        <div class="cover-content">
+          <div class="cover-team">${escHtml(teamName)}</div>
+          <div class="cover-title-decoration">✦</div>
+          <h1 class="cover-title">${escHtml(title)}</h1>
+          <div class="cover-title-decoration">✦</div>
+          <div class="cover-mode-badge">📖 ${modeBadgeLabel(mode)}</div>
+          <button class="cover-start-btn js-cover-start">▶ 시작하기</button>
+        </div>
       </div>
     </div>`;
 
@@ -1084,18 +1086,21 @@ function _renderStoryEnding(stage, scene) {
     ${userTitle ? `<p class="terminal-body">${escHtml(userTitle)}</p>` : ''}
   `;
 
+  /* v37: 책 마지막 페이지 분위기 — .ending-page 안 가운데 정렬. cover와 같은 비율. */
   stage.innerHTML = `
     <div class="terminal-screen terminal-screen--story">
-      ${bgHtml}
-      <div class="terminal-content">
-        ${trueEndBadge}
-        ${userContentHtml}
-        ${pathSummary}
-        <p class="ending-mood">${moodMsg}</p>
-        <div class="terminal-actions">
-          <button class="terminal-btn terminal-btn--primary js-restart">↺ 다른 결말 찾기</button>
-          ${ViewerState.historyStack.length > 0
-            ? `<button class="terminal-btn terminal-btn--ghost js-back">← 직전 장면으로</button>` : ''}
+      <div class="ending-page">
+        ${bgHtml}
+        <div class="terminal-content">
+          ${trueEndBadge}
+          ${userContentHtml}
+          ${pathSummary}
+          <p class="ending-mood">${moodMsg}</p>
+          <div class="terminal-actions">
+            <button class="terminal-btn terminal-btn--primary js-restart">↺ 다른 결말 찾기</button>
+            ${ViewerState.historyStack.length > 0
+              ? `<button class="terminal-btn terminal-btn--ghost js-back">← 직전 장면으로</button>` : ''}
+          </div>
         </div>
       </div>
     </div>`;

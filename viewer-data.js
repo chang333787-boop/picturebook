@@ -123,6 +123,16 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
     if (meta.replaySceneId !== undefined && meta.replaySceneId !== null) {
       ViewerState.project.replaySceneId = String(meta.replaySceneId);
     }
+
+    /* v37 ★ 핵심 fix — 페이지 방향·테마가 meta에 저장되지만 여기서 안 읽어와서
+       maker 진입·감상 테스트 시 ViewerState에 박히지 않고 초기화되던 문제.
+       사용자 보고: "다듬기에서 박은 모드가 브랜치 화면 돌아오면 리셋됨". */
+    if (typeof meta.pageOrientation === 'string') {
+      ViewerState.project.pageOrientation = meta.pageOrientation;
+    }
+    if (typeof meta.pbTheme === 'string') {
+      ViewerState.project.pbTheme = meta.pbTheme;
+    }
   }
 
   /* ================================================================

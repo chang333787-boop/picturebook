@@ -2120,7 +2120,7 @@ function _typeSectionCoverHtml(scene) {
       <div class="edit-section-hint">위쪽(20) ↔ 가운데(50) ↔ 아래쪽(80). 가운데 정렬은 유지.</div>
     </div>
     <div class="edit-section-hint edit-section-hint--lock">
-      📖 표지에는 그림·선택지를 박을 수 없어요. 제목·한 줄 소개·표지 색·높낮이만 다듬을 수 있어요.
+      📖 표지는 작품 입구예요. 제목·한 줄 소개·표지 색·높낮이만 다듬을 수 있어요.
     </div>`;
 }
 

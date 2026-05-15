@@ -845,6 +845,49 @@ body[data-page-orientation="portrait"] .scene-screen--pb.pb--split .pb-frame {
      부모 hidden이면 잘림. 페이지 안 콘텐츠 자유 흐름. */
   .scene-screen--pb.pb--split .pb-text {
     overflow: visible;
+    height: auto;
+    flex: 0 0 auto;
+  }
+
+  /* v58: 페이지 카드 portrait 비율 강제 폐기 (모바일만).
+     v37에서 박은 .pb-page aspect-ratio 210:297 + overflow hidden가
+     모바일에서 actions·라벨이 자유 늘어나도 카드 안 잘림 root.
+     모바일 = 전체 페이지 흐름 + viewport 스크롤. portrait 비율은
+     태블릿/PC에선 그대로 유지. */
+  .scene-screen--pb .pb-page,
+  body[data-page-orientation="portrait"] .scene-screen--pb .pb-page {
+    aspect-ratio: auto;
+    height: auto;
+    max-height: none;
+    overflow: visible;
+  }
+  .scene-screen--pb .pb-frame {
+    overflow: visible;
+    height: auto;
+  }
+  /* 그림 영역 크기 명시 — 풀어버리면 너무 커짐 */
+  .scene-screen--pb.pb--split .pb-illust {
+    max-height: 55vh;
+    flex: 0 0 auto;
+  }
+
+  /* viewer-frame + stage-wrap 모바일 스크롤 활성 */
+  #stage-wrap {
+    overflow-y: auto;
+    align-items: flex-start;
+  }
+  #stage-wrap.letterbox-h #viewer-frame,
+  #stage-wrap.letterbox-v #viewer-frame {
+    height: auto;
+    min-height: 100%;
+    aspect-ratio: auto;
+    max-height: none;
+  }
+  .scene-screen--pb {
+    position: relative;
+    inset: auto;
+    height: auto;
+    min-height: 100%;
   }
 
   /* v56: 엔딩 모바일 — CSS Grid 6 row 명시적 분할.

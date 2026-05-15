@@ -801,46 +801,50 @@ body[data-page-orientation="portrait"] .scene-screen--pb.pb--split .pb-frame {
     50%      { transform: translateY(2px); }
   }
 
-  /* actions — 자체 스크롤 + peek fade + stretch 명시 + 가로 잘림 차단 */
+  /* v57: actions — 자유 흐름 정책으로 전환.
+     v52~v56에서 박은 "max-height + 내부 스크롤 + ellipsis" 룰이
+     사용자 의도(라벨 잘리지 X)와 반대 방향이라 폐기.
+     이제: 영역 자유 늘어남, 라벨 wrap 허용, 페이지 흐름 안에서 자연 표시. */
   .scene-screen--pb.pb--split .pb-text__actions {
     flex: 0 0 auto;
     flex-direction: column;
     flex-wrap: nowrap;
     gap: 8px;
-    max-height: 30vh;
-    overflow-y: auto;
-    overflow-x: hidden;          /* v56: 가로 미세 잘림 차단 */
-    align-items: stretch;        /* v56: column flex 자식 cross-axis stretch 명시 */
-    mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 16px), transparent 100%);
-    -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 16px), transparent 100%);
-    padding-bottom: 4px;
+    overflow-x: hidden;
+    align-items: stretch;
+    /* max-height / overflow-y / mask-image 제거 — 자유 늘어남 */
   }
 
-  /* 박스 — display flex + stretch + nowrap */
+  /* v57: 박스 — wrap 허용, 높이 자동 (라벨 길이에 따라) */
   .scene-screen--pb.pb--split .pb-text__actions .choice-v03 {
-    display: flex;               /* v56: 명시 (자식 flex 계산 안정) */
-    align-items: center;         /* v56 */
-    align-self: stretch;         /* v56: cross-axis stretch */
+    display: flex;
+    align-items: center;
+    align-self: stretch;
     width: 100%;
     max-width: 100%;
     min-width: 0;
     flex: 0 0 auto;
-    padding: 10px 12px;
+    padding: 12px 14px;
     font-size: 13px;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    overflow: hidden;
+    height: auto;
+    /* nowrap / ellipsis / overflow hidden 제거 — 라벨 wrap 허용 */
   }
 
-  /* 라벨 — flex basis 0% 전환이 핵심 (GPT 2번 정석) */
+  /* v57: 라벨 — wrap 허용 (한국어 단어 단위 + 영문 강제 wrap) */
   .scene-screen--pb.pb--split .pb-text__actions .pb-choice-label {
-    flex: 1 1 0%;                /* v56: auto → 0% — 내용 폭 기준 X, 남는 공간 안에서 shrink */
+    flex: 1 1 0%;
     min-width: 0;
-    white-space: nowrap !important;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    word-break: normal;          /* v56: keep-all 해제 */
-    overflow-wrap: normal;       /* v56: anywhere 해제 */
+    white-space: normal;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+    line-height: 1.4;
+    /* nowrap / ellipsis 제거 */
+  }
+
+  /* v57: pb-text overflow visible — actions가 자유 늘어나야 하므로
+     부모 hidden이면 잘림. 페이지 안 콘텐츠 자유 흐름. */
+  .scene-screen--pb.pb--split .pb-text {
+    overflow: visible;
   }
 
   /* v56: 엔딩 모바일 — CSS Grid 6 row 명시적 분할.

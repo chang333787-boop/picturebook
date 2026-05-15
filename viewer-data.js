@@ -135,6 +135,22 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
     }
   }
 
+  /* v37 ★★ 진짜 root fix — body data attribute 박음.
+     CSS 컨테이너 쿼리·페이지 비율·테마 룰 모두 body[data-page-orientation],
+     body[data-pb-theme]에 의존. ViewerState에만 박고 body data 안 박으면
+     모든 후속 렌더가 기본 landscape로 동작 = "감상 테스트가 그냥 가로".
+     loadTeamData 끝나는 시점에 body data 동기화. */
+  if (document.body) {
+    const orient = ViewerState.project.pageOrientation;
+    if (orient === 'portrait' || orient === 'landscape') {
+      document.body.dataset.pageOrientation = orient;
+    }
+    const theme = ViewerState.project.pbTheme;
+    if (typeof theme === 'string' && theme.length > 0) {
+      document.body.dataset.pbTheme = theme;
+    }
+  }
+
   /* ================================================================
      하위 호환 마이그레이션 (in-memory만 — Firebase 저장 X)
      ─────────────────────────────────────────────────────────────

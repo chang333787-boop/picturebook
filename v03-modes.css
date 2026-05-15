@@ -763,9 +763,15 @@ body[data-page-orientation="portrait"] .scene-screen--pb.pb--split .pb-frame {
   display: none;
 }
 
-/* v52: 컨테이너 쿼리 풀고 viewport 미디어 쿼리로 단순화.
-   v53: 모바일 actions 자체 스크롤 + 라벨 + peek fade.
-   "행동 N개 ↓" 라벨 + 마지막 박스 살짝 잘려 보임 → 스크롤 단서. */
+/* v56: 모바일 그림책 안정화.
+   - 1번 (박스 stretch + overflow-x hidden):
+     GPT 진단(content-box 원인) 채택 X — box-sizing: border-box 전역 이미 박혀있음.
+     실제 원인은 .pb-text__actions의 overflow-y 컨텍스트 + stretch/정렬 기본 미확정.
+     fix 코드만 채택 (align-items: stretch + align-self: stretch + overflow-x: hidden).
+   - 2번 (label flex 1 1 0%): GPT 정확. flex-basis auto → 0% 전환이 핵심.
+     nowrap만으로 부족 — flex item base size를 내용 폭이 아닌 0으로 두고 shrink 허용.
+   - 3번 (엔딩 Grid): GPT 정확. 엔딩은 6-row 고정 구조라 flex보다 Grid가 덜 흔들림.
+     본문만 minmax(0,1fr) + overflow-y:auto, 나머지는 auto row. */
 @media (max-width: 600px) {
   /* 본문 상단 정렬 (빈 공간 줄임) */
   .scene-screen--pb.pb--split .pb-text {
@@ -795,7 +801,7 @@ body[data-page-orientation="portrait"] .scene-screen--pb.pb--split .pb-frame {
     50%      { transform: translateY(2px); }
   }
 
-  /* actions — 자체 스크롤 + peek fade (하단 박스 흐려져 "더 있음" 단서) */
+  /* actions — 자체 스크롤 + peek fade + stretch 명시 + 가로 잘림 차단 */
   .scene-screen--pb.pb--split .pb-text__actions {
     flex: 0 0 auto;
     flex-direction: column;
@@ -803,72 +809,107 @@ body[data-page-orientation="portrait"] .scene-screen--pb.pb--split .pb-frame {
     gap: 8px;
     max-height: 30vh;
     overflow-y: auto;
+    overflow-x: hidden;          /* v56: 가로 미세 잘림 차단 */
+    align-items: stretch;        /* v56: column flex 자식 cross-axis stretch 명시 */
     mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 16px), transparent 100%);
     -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 16px), transparent 100%);
     padding-bottom: 4px;
   }
 
-  /* 박스 — 한 줄 + ellipsis (학생 라벨 짧게 권장) */
+  /* 박스 — display flex + stretch + nowrap */
   .scene-screen--pb.pb--split .pb-text__actions .choice-v03 {
+    display: flex;               /* v56: 명시 (자식 flex 계산 안정) */
+    align-items: center;         /* v56 */
+    align-self: stretch;         /* v56: cross-axis stretch */
     width: 100%;
     max-width: 100%;
+    min-width: 0;
     flex: 0 0 auto;
     padding: 10px 12px;
     font-size: 13px;
     white-space: nowrap;
     text-overflow: ellipsis;
     overflow: hidden;
-    min-width: 0;
   }
 
-  /* v54: 라벨이 박스 안에서 wrap 되지 않게 — choice-v03--picturebook의 자식
-     .pb-choice-label에 white-space: normal 박혀있어 박스 nowrap 무효화됨. fix. */
+  /* 라벨 — flex basis 0% 전환이 핵심 (GPT 2번 정석) */
   .scene-screen--pb.pb--split .pb-text__actions .pb-choice-label {
+    flex: 1 1 0%;                /* v56: auto → 0% — 내용 폭 기준 X, 남는 공간 안에서 shrink */
+    min-width: 0;
     white-space: nowrap !important;
     overflow: hidden;
     text-overflow: ellipsis;
-    min-width: 0;
+    word-break: normal;          /* v56: keep-all 해제 */
+    overflow-wrap: normal;       /* v56: anywhere 해제 */
   }
 
-  /* v54: 엔딩 모바일 — 본문 자체 스크롤 + 스탬프·버튼 한 페이지 안 contain */
+  /* v56: 엔딩 모바일 — CSS Grid 6 row 명시적 분할.
+     본문만 minmax(0, 1fr) + overflow-y auto, 나머지는 auto row.
+     flex보다 명시적이라 콘텐츠 양 변화에 덜 흔들림. */
   .ending-as-pb .pb-text--ending {
-    justify-content: flex-start;
-    overflow: hidden;
+    display: grid;
+    grid-template-rows:
+      auto                 /* 1: 작품 제목 */
+      minmax(0, 1fr)       /* 2: 본문 (스크롤) */
+      auto                 /* 3: 스탬프 */
+      auto                 /* 4: 경로 요약 */
+      auto                 /* 5: 결말 메시지 */
+      auto;                /* 6: 두 버튼 */
     gap: 6px;
     padding: 10px 14px;
+    justify-content: stretch;
+    align-content: stretch;
+    min-height: 0;
+    overflow: hidden;
+    height: 100%;
   }
+  .ending-as-pb .pb-text--ending .ending-user-title { grid-row: 1; margin: 0; }
   .ending-as-pb .pb-text--ending .ending-user-body {
-    max-height: 22vh;
+    grid-row: 2;
+    min-height: 0;
+    max-height: none;
     overflow-y: auto;
-    flex: 0 1 auto;
+    overflow-x: hidden;
     font-size: 14px;
     line-height: 1.4;
+    margin: 0;
     -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 12px), transparent 100%);
     mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 12px), transparent 100%);
   }
   .ending-as-pb .ending-stamps-row {
-    margin: 2px 0;
+    grid-row: 3;
+    margin: 0;
+    flex-shrink: 0;
   }
   .ending-as-pb .ending-end-stamp {
     font-size: 11px;
     padding: 3px 10px;
   }
-  .ending-as-pb .pb-text--ending .ending-path-summary,
+  .ending-as-pb .pb-text--ending .ending-path-summary {
+    grid-row: 4;
+    margin: 0;
+    font-size: 11px;
+    line-height: 1.35;
+  }
   .ending-as-pb .pb-text--ending .ending-mood {
+    grid-row: 5;
+    margin: 0;
     font-size: 11px;
     line-height: 1.4;
   }
   .ending-as-pb .ending-actions {
-    display: flex;
-    flex-direction: column;
+    grid-row: 6;
+    display: grid;
+    grid-template-columns: 1fr;
     gap: 6px;
-    margin-top: 4px;
+    margin-top: 0;
     flex-shrink: 0;
   }
   .ending-as-pb .ending-actions .terminal-btn {
+    width: 100%;
+    min-width: 0;
     padding: 9px 18px;
     font-size: 13px;
-    width: 100%;
   }
 }
 

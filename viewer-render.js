@@ -491,6 +491,7 @@ function _renderScenePicturebook(stage, scene, submode) {
               </div>` : ''}
             </div>
             <div class="pb-text pb-text--bottom-only">
+              <div class="pb-text__actions-label" aria-hidden="true">행동 ${pbChoiceCount}개 <span class="pb-text__actions-label-arrow">↓</span></div>
               <div class="pb-text__actions" data-count="${pbChoiceCount}">${btns}</div>
             </div>
           </div>
@@ -514,6 +515,7 @@ function _renderScenePicturebook(stage, scene, submode) {
           <div class="pb-text">
             ${titleHtml}
             ${bodyHtml}
+            <div class="pb-text__actions-label" aria-hidden="true">행동 ${pbChoiceCount}개 <span class="pb-text__actions-label-arrow">↓</span></div>
             <div class="pb-text__actions" data-count="${pbChoiceCount}">${btns}</div>
           </div>
         </div>

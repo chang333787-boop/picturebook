@@ -758,21 +758,56 @@ body[data-page-orientation="portrait"] .scene-screen--pb.pb--split .pb-frame {
   overflow: hidden;
 }
 
-/* v52: 컨테이너 쿼리 다 풀고 단순한 viewport 미디어 쿼리로 재설계.
-   v48~v51 컨테이너 쿼리가 의도와 다른 영역에 박혀 layout 깨짐 보고됨.
-   미디어 쿼리는 viewport 기준이라 예측 쉬움. 600px 이하 = 스마트폰. */
+/* v53: 라벨 "행동 N개 ↓" — 기본 숨김. 모바일에서만 표시. */
+.pb-text__actions-label {
+  display: none;
+}
+
+/* v52: 컨테이너 쿼리 풀고 viewport 미디어 쿼리로 단순화.
+   v53: 모바일 actions 자체 스크롤 + 라벨 + peek fade.
+   "행동 N개 ↓" 라벨 + 마지막 박스 살짝 잘려 보임 → 스크롤 단서. */
 @media (max-width: 600px) {
   /* 본문 상단 정렬 (빈 공간 줄임) */
   .scene-screen--pb.pb--split .pb-text {
     justify-content: flex-start;
   }
-  /* 선택지: 세로 stack + 자동 높이 — 박스가 자식 콘텐츠에 맞춰 늘어남 */
+
+  /* 라벨 — 우측 정렬, 작게, 회색 + ↓ 화살표 약 bounce */
+  .scene-screen--pb.pb--split .pb-text__actions-label {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 4px;
+    font-family: var(--font-ui, 'Jua', sans-serif);
+    font-size: 11px;
+    color: var(--text-muted, #8a7560);
+    padding: 4px 8px 2px;
+    opacity: 0.75;
+    flex-shrink: 0;
+  }
+  .pb-text__actions-label-arrow {
+    font-size: 12px;
+    opacity: 0.7;
+    animation: pb-actions-arrow-bounce 1.8s ease-in-out infinite;
+  }
+  @keyframes pb-actions-arrow-bounce {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(2px); }
+  }
+
+  /* actions — 자체 스크롤 + peek fade (하단 박스 흐려져 "더 있음" 단서) */
   .scene-screen--pb.pb--split .pb-text__actions {
     flex: 0 0 auto;
     flex-direction: column;
     flex-wrap: nowrap;
     gap: 8px;
+    max-height: 30vh;
+    overflow-y: auto;
+    mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 16px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 16px), transparent 100%);
+    padding-bottom: 4px;
   }
+
   /* 박스 — 한 줄 + ellipsis (학생 라벨 짧게 권장) */
   .scene-screen--pb.pb--split .pb-text__actions .choice-v03 {
     width: 100%;

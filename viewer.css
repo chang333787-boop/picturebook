@@ -577,6 +577,24 @@ body[data-page-orientation="portrait"] #stage-wrap.letterbox-v #viewer-frame {
   color: rgba(80,50,20,0.4);
   font-size: clamp(14px, 1.8vw, 18px);
 }
+/* v37: 표지 한 줄 소개 */
+.cover-subtitle-pb {
+  font-family: var(--font-ui, 'Jua', sans-serif);
+  font-size: clamp(13px, 1.6vw, 16px);
+  color: var(--text-muted, #6b5638);
+  font-style: italic;
+  line-height: 1.5;
+  margin: 4px 0 0;
+  max-width: 80%;
+  text-align: center;
+}
+
+/* v37: 표지 테마 (5종) — 배경 색 변경 */
+[data-cover-theme="cream"]  .cover-book { background: #f4ecd8; border-radius: 14px; }
+[data-cover-theme="sage"]   .cover-book { background: #e8efde; border-radius: 14px; }
+[data-cover-theme="sky"]    .cover-book { background: #dde8f2; border-radius: 14px; }
+[data-cover-theme="coral"]  .cover-book { background: #f4dccf; border-radius: 14px; }
+/* default는 종이 톤 그대로 (.pb-page 기본 배경) */
 .cover-book__bottom {
   display: flex;
   align-items: flex-end;

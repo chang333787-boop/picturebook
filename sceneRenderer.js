@@ -18,14 +18,24 @@
    ================================================================ */
 
 /* ── 카드 추가 ── */
-function addScene() {
-  /* W7: 빈 slot 재사용 — 1번부터 차례로 비어있는 번호 찾기.
-     이전엔 nextNum이 module-scoped로 한 방향 증가만 해 1,2,3,4 모두 삭제하면
-     번호 5부터 시작하는 버그.
-     이제: scenes에 없는 가장 작은 번호 자동 채택. 1번 비면 1번, 2번 비면 2번. */
+/* v37: type 인자 받아 표지/장면/엔딩 분기 생성.
+   · 표지(cover): 작품당 1개만. 제목 + 한 줄 소개 + 표지 테마. 그림·선택지 없음.
+   · 장면(normal): 기존 흐름
+   · 엔딩(ending): 기존 흐름 + type='ending' */
+function addScene(type) {
+  type = (type === 'cover' || type === 'ending' || type === 'normal') ? type : 'normal';
+
+  /* 표지는 작품당 1개만 */
+  if (type === 'cover') {
+    const existing = Object.values(scenes).find(s => s.type === 'cover');
+    if (existing) {
+      alert('표지는 작품당 하나만 만들 수 있어요.');
+      return;
+    }
+  }
+
   let num = 1;
   while (scenes[num]) num++;
-  /* nextNum 변수도 동기화 (외부 다른 로직에서 참조하는 경우 정합성 유지) */
   nextNum = num + 1;
 
   const wrap = document.getElementById('canvas-wrap');
@@ -34,23 +44,32 @@ function addScene() {
   const cy   = rect.height / 2 + (Math.random() - 0.5) * 100;
   const cv   = toCanvas(rect.left + cx, rect.top + cy);
 
-  /* 신규 장면 (W2-A 잔여 정리): buttons[] 단일 배열 구조로 시작.
-     · buttons: 빈 배열 [] — 사용자가 input에 입력하면 첫 항목 채워짐
-     · choiceA/B/choiceCount: legacy 호환 동기화 (옵션 2 정책 — 1단계)
-     · body: 신규는 빈 채로 시작. _hasBody=true로 새 구조 명시
-     · presentationMode: 'picturebook' 기본값 — 신규 장면 만들 때 viewer-edit에서
-       legacy UI(이 장면 레이아웃 + 텍스트 위치 9칸)가 처음부터 안 보이게.
-       사용자가 다른 모드(text/movie)로 바꾸면 변경됨. legacy 작품(presentationMode 없음)은
-       그대로 — viewer-edit이 isV03Mode=false로 판정해 legacy UI 노출. */
-  scenes[num] = {
-    num, title: '', body: '', type: 'normal',
-    x: Math.max(20, cv.x), y: Math.max(20, cv.y),
+  /* type별 기본 데이터 */
+  const base = {
+    num,
+    title: '',
+    body: '',
+    type,
+    x: Math.max(20, cv.x),
+    y: Math.max(20, cv.y),
     buttons: [],
-    /* legacy 호환 — viewer-data가 buttons 우선 읽지만 maker 다른 경로/import 호환 */
     choiceA: '', choiceB: '', choiceCount: 2,
     _hasBody: true,
     presentationMode: 'picturebook',
   };
+
+  if (type === 'cover') {
+    /* 표지 전용 필드 */
+    base.subtitle = '';                  // 한 줄 소개
+    base.coverTheme = 'default';         // 표지 테마 (default | cream | sage | sky | coral)
+    base.titleVerticalPosition = 50;     // 제목 높낮이 (0~100, 50=가운데)
+    base.buttons = [];                   // 표지는 선택지 X
+  } else if (type === 'ending') {
+    /* 엔딩 전용 — 기존 흐름. trueEnding은 사용자가 별도 토글 */
+    base.trueEnding = false;
+  }
+
+  scenes[num] = base;
   renderCard(scenes[num]);
   drawArrows();
   pushToFirebase();
@@ -146,6 +165,9 @@ function buildCardHTML(s) {
      · 캔버스 화살표는 connectObjects[].nextId 기반으로 그대로 그려짐 (drawArrows에서 처리)
      · 일반 모드의 6개 제한과 분리 — 체험전시형은 N개 가능. */
   if (_isExperience) {
+    portsHTML = '';
+  } else if (s.type === 'cover') {
+    /* v37: 표지는 선택지·연결 없음. ports 안 그림. 아래 contentHtml에서 표지 전용 본문. */
     portsHTML = '';
   } else if (s.type !== 'ending') {
     /* 모든 N개 버튼을 input + 활성 dot으로 (W2-B-β).
@@ -257,6 +279,8 @@ function _resolveProjectType() {
 
 /* ─── 카드 content 분기 진입 함수 (2단계) ─────────────────────── */
 function _buildCardContentByType(s, ptype) {
+  /* v37: type='cover'면 ptype과 무관하게 표지 카드 */
+  if (s.type === 'cover') return _buildCoverCardContent(s);
   switch (ptype) {
     case 'text':       return _buildTextCardContent(s);
     case 'movie':      return _buildMovieCardContent(s);
@@ -264,6 +288,45 @@ function _buildCardContentByType(s, ptype) {
     case 'picturebook':
     default:           return _buildPicturebookCardContent(s);
   }
+}
+
+/* v37: 표지 카드 — 제목 + 한 줄 소개 + 표지 테마. 그림·선택지 없음.
+   다른 장면 카드와 시각 구분: 보라 톤 + 책 표지 아이콘 + 다른 라벨 */
+function _buildCoverCardContent(s) {
+  const COVER_THEMES = [
+    { id: 'default', label: '기본', bg: '#fffaee' },
+    { id: 'cream',   label: '크림', bg: '#f4ecd8' },
+    { id: 'sage',    label: '연두', bg: '#e8efde' },
+    { id: 'sky',     label: '하늘', bg: '#dde8f2' },
+    { id: 'coral',   label: '코랄', bg: '#f4dccf' },
+  ];
+  const curTheme = (s.coverTheme || 'default');
+  const themePills = COVER_THEMES.map(t => `
+    <button type="button" class="cover-theme-pill js-cover-theme ${curTheme === t.id ? 'active' : ''}"
+      data-num="${s.num}" data-val="${t.id}"
+      style="background:${t.bg};"
+      title="${t.label}"></button>`).join('');
+
+  return `
+    <div class="card-body card-body--cover">
+      <div class="cover-card-label">📖 책 표지</div>
+      <input class="card-title-input card-title-input--cover js-cover-title"
+        placeholder="작품 제목"
+        type="text"
+        value="${_escapeHtml(s.title || '')}"
+        data-num="${s.num}"
+        maxlength="40"/>
+      <input class="card-subtitle-input js-cover-subtitle"
+        placeholder="한 줄 소개 (선택)"
+        type="text"
+        value="${_escapeHtml(s.subtitle || '')}"
+        data-num="${s.num}"
+        maxlength="60"/>
+      <div class="cover-theme-row">
+        <span class="cover-theme-row__label">표지 색</span>
+        <div class="cover-theme-pills">${themePills}</div>
+      </div>
+    </div>`;
 }
 
 /* ─── 카드 공통 부품: 이미지 영역 / 라디오+모드배지 ───────────── */
@@ -566,6 +629,38 @@ function bindCardEvents(el, s) {
   /* 종류 라디오 */
   el.querySelectorAll('.js-type-radio').forEach(radio => {
     radio.addEventListener('change', () => updateType(num, radio.dataset.value));
+  });
+
+  /* v37: 표지 전용 input들 */
+  const coverTitle = el.querySelector('.js-cover-title');
+  if (coverTitle) {
+    coverTitle.addEventListener('focus', () => ensureEditable(num));
+    coverTitle.addEventListener('input', e => {
+      s.title = e.target.value;
+      if (typeof scenes !== 'undefined' && scenes[num]) scenes[num].title = e.target.value;
+      if (typeof pushToFirebaseDebounced === 'function') pushToFirebaseDebounced();
+      else if (typeof pushToFirebase === 'function') pushToFirebase();
+    });
+  }
+  const coverSubtitle = el.querySelector('.js-cover-subtitle');
+  if (coverSubtitle) {
+    coverSubtitle.addEventListener('focus', () => ensureEditable(num));
+    coverSubtitle.addEventListener('input', e => {
+      s.subtitle = e.target.value;
+      if (typeof scenes !== 'undefined' && scenes[num]) scenes[num].subtitle = e.target.value;
+      if (typeof pushToFirebaseDebounced === 'function') pushToFirebaseDebounced();
+      else if (typeof pushToFirebase === 'function') pushToFirebase();
+    });
+  }
+  el.querySelectorAll('.js-cover-theme').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const val = btn.dataset.val || 'default';
+      s.coverTheme = val;
+      if (typeof scenes !== 'undefined' && scenes[num]) scenes[num].coverTheme = val;
+      el.querySelectorAll('.js-cover-theme').forEach(b => b.classList.toggle('active', b === btn));
+      if (typeof pushToFirebase === 'function') pushToFirebase();
+    });
   });
 
   /* 선택지 개수 토글은 W2-A에서 제거됨 — buttons[] 단일 배열 구조로 통일.

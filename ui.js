@@ -626,10 +626,41 @@ window.addEventListener('DOMContentLoaded', () => {
     if (e.key === 'Enter') joinTeam();
   });
 
-  /* 툴바 */
-  document.getElementById('btn-add-scene')  ?.addEventListener('click', addScene);
-  /* W8 Phase B: 좌측 사이드 "＋ 새 장면" 버튼도 같은 동작 */
-  document.getElementById('ss-add-btn')     ?.addEventListener('click', addScene);
+  /* 툴바 — v37: + 장면 추가는 3-way 메뉴 토글 */
+  document.getElementById('btn-add-scene')?.addEventListener('click', e => {
+    e.stopPropagation();
+    const menu = document.getElementById('tb-add-menu');
+    if (!menu) return;
+    const isOpen = menu.style.display !== 'none';
+    menu.style.display = isOpen ? 'none' : 'flex';
+    /* 표지 이미 있으면 disabled */
+    const hasCover = Object.values(scenes).some(s => s.type === 'cover');
+    const coverBtn = menu.querySelector('.js-add-cover');
+    if (coverBtn) {
+      coverBtn.disabled = hasCover;
+      coverBtn.title = hasCover ? '표지는 작품당 하나만 만들 수 있어요' : '책 표지 만들기';
+    }
+  });
+  /* 메뉴 항목 클릭 — type 인자로 addScene 호출 + 메뉴 닫기 */
+  document.querySelectorAll('#tb-add-menu .tb-add-menu__item').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const t = btn.dataset.type || 'normal';
+      addScene(t);
+      const menu = document.getElementById('tb-add-menu');
+      if (menu) menu.style.display = 'none';
+    });
+  });
+  /* 메뉴 외부 클릭 시 닫기 */
+  document.addEventListener('click', e => {
+    const menu = document.getElementById('tb-add-menu');
+    if (!menu || menu.style.display === 'none') return;
+    if (!menu.contains(e.target) && !e.target.closest('#btn-add-scene')) {
+      menu.style.display = 'none';
+    }
+  });
+  /* W8 Phase B: 좌측 사이드 "＋ 새 장면" 버튼 — 기본 일반 장면 */
+  document.getElementById('ss-add-btn')?.addEventListener('click', () => addScene('normal'));
   document.getElementById('btn-check')      ?.addEventListener('click', checkStructure);
   document.getElementById('btn-export')     ?.addEventListener('click', exportJSON);
   document.getElementById('btn-import')     ?.addEventListener('click', () =>

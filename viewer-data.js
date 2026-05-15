@@ -316,6 +316,7 @@ function adaptScenes(rawScenes) {
     /* 시작 장면 감지 */
     const isStart    = raw.type === 'start';
     const isEnding   = raw.type === 'ending';
+    const isCover    = raw.type === 'cover';   // v37: 표지 scene
     const isTrueEnd  = isEnding && !!raw.trueEnding;
 
     /* 선택지 변환: choiceA/B + nextA/B → choices[] */
@@ -339,9 +340,14 @@ function adaptScenes(rawScenes) {
       title:      resolvedTitle,                // 제목 (없으면 빈 문자열)
       body:       resolvedBody,                 // 본문 (fallback: 기존 title)
       _hasBody:   rawHasBody,                   // 원본에 body 필드가 있었는지
-      type:       raw.type  || 'normal',    // 'start' | 'normal' | 'ending'
+      type:       raw.type  || 'normal',    // 'cover' | 'start' | 'normal' | 'ending'
       isStart,
       isEnding,
+      isCover,                                  // v37: 표지 scene 여부
+      subtitle:   raw.subtitle || '',           // v37: 표지 한 줄 소개
+      coverTheme: raw.coverTheme || 'default',  // v37: 표지 테마
+      titleVerticalPosition: typeof raw.titleVerticalPosition === 'number'
+        ? raw.titleVerticalPosition : 50,       // v37: 제목 높낮이 (0~100)
       isTrueEnd,
       imageData:  raw.imageData || null,
       choices,

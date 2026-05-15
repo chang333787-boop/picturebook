@@ -82,8 +82,19 @@ function renderCover() {
   const p         = ViewerState.project;
   const teamName  = p.teamName;
   const mode      = p.mode;
-  const title     = p.coverTitle     || '이야기 시작';
-  const imageData = p.coverImageData || null;
+
+  /* v37: cover scene이 scenes에 있으면 그 데이터 우선. 없으면 project.coverTitle fallback */
+  const coverScene = (ViewerState.scenes && typeof ViewerState.scenes === 'object')
+    ? Object.values(ViewerState.scenes).find(s => s && s.type === 'cover')
+    : null;
+  const title     = (coverScene && coverScene.title)
+    || p.coverTitle || '이야기 시작';
+  const subtitle  = (coverScene && coverScene.subtitle) || '';
+  const coverTheme = (coverScene && coverScene.coverTheme) || 'default';
+  const titleVPos = (coverScene && typeof coverScene.titleVerticalPosition === 'number')
+    ? coverScene.titleVerticalPosition : 50;
+  /* 표지는 그림 없음 정책 (사용자 결정). project.coverImageData fallback만 (옛 작품) */
+  const imageData = (coverScene ? null : p.coverImageData) || null;
   const hasImage  = !!imageData;
 
   /* v37 (재): 표지 두 모드
@@ -111,12 +122,15 @@ function renderCover() {
       </div>`;
     if (typeof _setupPbPhotoWrappers === 'function') _setupPbPhotoWrappers(stage);
   } else {
-    /* 그림 없는 표지 — 책 표지 인쇄 분위기. 빈 그림 영역 폐기. */
+    /* 그림 없는 표지 — 책 표지 인쇄 분위기. 빈 그림 영역 폐기.
+       v37: cover scene 데이터(subtitle, coverTheme, titleVerticalPosition) 반영. */
     stage.innerHTML = `
       <div class="scene-screen scene-screen--pb pb--split cover-as-pb cover-as-pb--text"
            data-presentation-mode="picturebook"
            data-presentation-submode="split"
-           data-cover-mode="text">
+           data-cover-mode="text"
+           data-cover-theme="${escHtml(coverTheme)}"
+           style="--cover-title-y: ${titleVPos}%;">
         <div class="pb-page">
           <div class="cover-book">
             <div class="cover-book__top">
@@ -125,6 +139,7 @@ function renderCover() {
             <div class="cover-book__center">
               <h1 class="cover-title-pb">${escHtml(title)}</h1>
               <div class="cover-book__deco">✦</div>
+              ${subtitle ? `<p class="cover-subtitle-pb">${escHtml(subtitle)}</p>` : ''}
             </div>
             <div class="cover-book__bottom">
               <button class="cover-start-btn js-cover-start">▶ 시작하기</button>
@@ -878,9 +893,13 @@ function _v03ChoiceBtnHtml(scene, choice, mode, idx) {
    clamp 정책: 최소 폭 30%, 최소 높이 25%, 좌상단 5% 이상, 우하단 95% 이하.
    ================================================================ */
 const TEXTBOX_DEFAULTS = {
+  /* v37: 사용자 요청 — 텍스트 모드 기본 박스가 핸드폰/태블릿 세로에 꽉 차게.
+     이전 width 60 → 88 (가로 거의 가득). height 명시 88 (세로도 거의 가득).
+     글자 양에 따라 박스 크기 변하던 문제 해결 — 기본 박스 고정.
+     사용자가 textBox 박은 데이터 있으면 그게 우선. */
   x: 50, y: 50,        // center%, percent
-  width: 60,           // %
-  height: null,        // auto
+  width: 88,           // %
+  height: 88,          // %
 };
 const TEXTBOX_CLAMP = {
   minWidth: 30,        // %

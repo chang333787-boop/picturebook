@@ -344,6 +344,48 @@
       font-size:13px;
       box-shadow:0 1px 2px rgba(120,90,50,0.10), 0 4px 12px rgba(198,111,74,0.24);
     }
+    /* v37: + 장면 추가 3-way 메뉴 (표지/장면/엔딩) */
+    .tb-add-wrap {
+      position: relative;
+      display: inline-block;
+    }
+    .tb-add-menu {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+      background: #fffaee;
+      border: 1.5px solid rgba(120,90,50,0.20);
+      border-radius: 12px;
+      padding: 6px;
+      box-shadow: 0 6px 24px rgba(120,90,50,0.18);
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 140px;
+    }
+    .tb-add-menu__item {
+      padding: 8px 14px;
+      background: transparent;
+      border: none;
+      border-radius: 8px;
+      font-family: 'Jua', sans-serif;
+      font-size: 13px;
+      color: #2b1f10;
+      cursor: pointer;
+      text-align: left;
+      transition: background 0.12s;
+    }
+    .tb-add-menu__item:hover {
+      background: rgba(80,50,20,0.08);
+    }
+    .tb-add-menu__item[disabled] {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+    .tb-add-menu__item.js-add-cover { color: #6a3eb0; }
+    .tb-add-menu__item.js-add-normal { color: #2c6cb4; }
+    .tb-add-menu__item.js-add-ending { color: #c66f4a; }
     /* W8: 다음 단계 — 상단 바 자연 통합 */
     .tb-action-group .tb-btn-test,
     .tb-action-group .tb-btn-viewedit {
@@ -692,6 +734,94 @@
     .scene-card.type-start {border-color:var(--start); box-shadow:0 0 0 3px rgba(90,138,74,0.10), 0 4px 16px var(--shadow);}
     .scene-card.type-ending{border-color:var(--ending); background:#fffaf5;}
     .scene-card.type-normal{border-color:rgba(80,50,20,0.14);}
+    /* v37: 표지 카드 — 보라 톤, 다른 장면과 시각 구분 */
+    .scene-card.type-cover {
+      border-color: #9b6dca;
+      background: #f7f0ff;
+      box-shadow: 0 0 0 3px rgba(155,109,202,0.10), 0 4px 16px var(--shadow);
+    }
+    .type-cover .card-num-badge {
+      background: #9b6dca;
+    }
+    .card-body--cover {
+      padding: 10px 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .cover-card-label {
+      text-align: center;
+      font-size: 12px;
+      color: #6a3eb0;
+      font-family: 'Jua', sans-serif;
+      letter-spacing: 0.04em;
+      margin-bottom: 4px;
+    }
+    .card-title-input--cover {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1.5px solid rgba(120,90,50,0.18);
+      border-radius: 8px;
+      font-family: 'Jua', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      background: #fff;
+      color: var(--text, #2b1f10);
+      text-align: center;
+    }
+    .card-title-input--cover:focus {
+      outline: none;
+      border-color: #9b6dca;
+      box-shadow: 0 0 0 2px rgba(155,109,202,0.20);
+    }
+    .card-subtitle-input {
+      width: 100%;
+      padding: 6px 10px;
+      border: 1px solid rgba(120,90,50,0.14);
+      border-radius: 6px;
+      font-family: 'Nanum Gothic', sans-serif;
+      font-size: 12px;
+      background: #fff;
+      color: var(--muted, #6b5638);
+      text-align: center;
+    }
+    .card-subtitle-input:focus {
+      outline: none;
+      border-color: #9b6dca;
+      box-shadow: 0 0 0 2px rgba(155,109,202,0.15);
+    }
+    .cover-theme-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 4px;
+    }
+    .cover-theme-row__label {
+      font-size: 11px;
+      color: var(--muted, #6b5638);
+      font-family: 'Jua', sans-serif;
+    }
+    .cover-theme-pills {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+    .cover-theme-pill {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: 2px solid rgba(120,90,50,0.20);
+      cursor: pointer;
+      padding: 0;
+      transition: transform 0.1s, border-color 0.15s;
+    }
+    .cover-theme-pill:hover {
+      transform: scale(1.1);
+    }
+    .cover-theme-pill.active {
+      border-color: #6a3eb0;
+      box-shadow: 0 0 0 2px rgba(155,109,202,0.25);
+    }
     .scene-card.highlight{box-shadow:0 0 0 3px rgba(198,111,74,0.32),0 8px 24px var(--shadow); border-color:var(--primary);}
     .scene-card.error-card{border-color:#c79550!important;background:#fdf6e3;}
 
@@ -1366,7 +1496,14 @@
   <!-- ── 중앙: 핵심 행동 (+ 장면 추가 + 감상 테스트) ── -->
   <div class="tb-section tb-section--center">
     <div class="tb-action-group">
-      <button class="tb-btn tb-btn-add" id="btn-add-scene">＋ 장면 추가</button>
+      <div class="tb-add-wrap">
+        <button class="tb-btn tb-btn-add" id="btn-add-scene">＋ 장면 추가 ▾</button>
+        <div class="tb-add-menu" id="tb-add-menu" style="display:none;">
+          <button type="button" class="tb-add-menu__item js-add-cover" data-type="cover">📖 표지</button>
+          <button type="button" class="tb-add-menu__item js-add-normal" data-type="normal">🎬 장면</button>
+          <button type="button" class="tb-add-menu__item js-add-ending" data-type="ending">🏁 엔딩</button>
+        </div>
+      </div>
       <!-- W8: 다음 단계 — 상단 바에 자연스럽게 녹임 (floating 패널 폐기) -->
       <a class="tb-btn tb-btn-test" id="btn-open-viewer" href="#" target="_blank"
          title="실제 관람자 화면 확인">▶ 감상 테스트</a>
@@ -1680,18 +1817,18 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
-<!-- v37 캐시 무력화 — 큰 변경마다 ?v= 숫자 ↑ -->
+<!-- v37d 캐시 — cover scene 시스템 도입 -->
 <script src="state.js?v=37"></script>
 <script src="locks.js?v=37"></script>
 <script src="firebase.js?v=37"></script>
 <script src="canvasInteraction.js?v=37"></script>
-<script src="sceneRenderer.js?v=37"></script>
+<script src="sceneRenderer.js?v=37d"></script>
 <script src="storyAnalyzer.js?v=37"></script>
 <script src="mediaManager.js?v=37"></script>
 <script src="adminConsole.js?v=37"></script>
 <script src="preview.js?v=37"></script>
 <script src="projectSettings.js?v=37"></script>
-<script src="ui.js?v=37"></script>
+<script src="ui.js?v=37d"></script>
 
 </body>
 </html>

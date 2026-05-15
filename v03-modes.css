@@ -1062,7 +1062,12 @@ body[data-page-orientation="portrait"] .scene-screen--pb.pb--split .pb-text__act
   background: var(--v03-card-bg);
   cursor: pointer;
   text-align: left !important;
-  transition: background 0.15s, transform 0.08s, box-shadow 0.15s;
+  /* v62: 입체 음영 — 기본 상태에 그림자 */
+  box-shadow:
+    0 1px 1px rgba(120,90,50,0.06),
+    0 2px 4px rgba(120,90,50,0.10),
+    0 4px 10px rgba(120,90,50,0.08);
+  transition: background 0.15s, transform 0.08s ease-out, box-shadow 0.15s;
   font-family: var(--font-b);
   /* v48: 폰트 cqi 변환 — 페이지 비례. 디바이스 무관 한 줄 글자수 일정 */
   font-size: clamp(12px, 2.3cqi, 18px);
@@ -1071,10 +1076,20 @@ body[data-page-orientation="portrait"] .scene-screen--pb.pb--split .pb-text__act
 }
 .choice-v03--picturebook:hover:not(:disabled) {
   background: var(--v03-btn-hover-bg);
-  box-shadow: 0 1px 2px rgba(120,90,50,0.08), 0 4px 12px rgba(120,90,50,0.10);
+  /* v62: hover 시 살짝 위로 + 그림자 강조 */
+  transform: translateY(-1px);
+  box-shadow:
+    0 2px 3px rgba(120,90,50,0.10),
+    0 4px 8px rgba(120,90,50,0.14),
+    0 8px 18px rgba(120,90,50,0.12);
 }
 .choice-v03--picturebook:active:not(:disabled) {
-  transform: translateY(1px);
+  /* v62: 타격감 — 빠르게 내려가며 그림자 줄어들고 안쪽 음영 */
+  transform: translateY(2px) scale(0.985);
+  box-shadow:
+    inset 0 2px 4px rgba(120,90,50,0.14),
+    0 1px 2px rgba(120,90,50,0.06);
+  transition: transform 0.05s ease-out, box-shadow 0.05s ease-out, background 0.05s;
 }
 /* W8: disabled 시각 — 감상 모드에서만 옅게. 다듬기 모드는 작품 만드는 중이라
    미연결 선택지도 정상 시각 (사용자가 라벨·번호 진하게 보여야 작업 가능).

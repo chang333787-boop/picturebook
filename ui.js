@@ -735,7 +735,18 @@ window.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('#tb-add-menu .tb-add-menu__item').forEach(btn => {
     btn.addEventListener('click', e => {
       e.stopPropagation();
+      if (btn.disabled) return;
       const t = btn.dataset.type || 'normal';
+      /* v69: 표지 중복 안전 검증 — disabled 외에 클릭 핸들러에서도 한 번 더 차단 */
+      if (t === 'cover') {
+        const hasCover = Object.values(scenes).some(s => s.type === 'cover');
+        if (hasCover) {
+          alert('표지는 작품당 하나만 만들 수 있어요.');
+          const menu = document.getElementById('tb-add-menu');
+          if (menu) menu.style.display = 'none';
+          return;
+        }
+      }
       addScene(t);
       const menu = document.getElementById('tb-add-menu');
       if (menu) menu.style.display = 'none';

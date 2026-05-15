@@ -13,7 +13,7 @@
   <title>가지 branch — 작품 만들기</title>
   <link href="https://fonts.googleapis.com/css2?family=Jua&family=Nanum+Gothic:wght@400;700&family=Nanum+Pen+Script&display=swap" rel="stylesheet"/>
   <!-- v0.3 모드별 기본형 (preview에서 viewer와 같은 스타일을 받기 위해) -->
-  <link rel="stylesheet" href="v03-modes.css?v=68"/>
+  <link rel="stylesheet" href="v03-modes.css?v=69"/>
   <style>
     :root {
       /* W8 Step 5-B: --primary 파랑 → 코랄. 제작 영역 메인 액센트 (home 카드 띠와 통일).
@@ -1099,6 +1099,18 @@
       margin-top: 2px;
       padding: 0 8px;
     }
+    /* v69: 표지 시작 버튼 — input 대신 고정 텍스트 (수정 불가) */
+    .port-row--cover-fixed{
+      display:flex;align-items:center;gap:6px;padding:4px 8px;
+    }
+    .port-label-fixed{
+      flex:1;min-width:0;
+      padding:3px 8px;border:1.5px dashed rgba(80,50,20,0.25);
+      border-radius:6px;background:rgba(255,250,238,0.6);
+      color:var(--muted);font-size:11px;font-family:var(--font-b);
+      cursor:not-allowed;
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    }
     .port-readonly-label{
       flex:1; min-width:0;
       padding:3px 7px;
@@ -1932,17 +1944,17 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
 <!-- v37f 캐시 — 표지 사이드/구조 색 -->
-<script src="state.js?v=68"></script>
-<script src="locks.js?v=68"></script>
-<script src="firebase.js?v=68"></script>
-<script src="canvasInteraction.js?v=68"></script>
-<script src="sceneRenderer.js?v=68f"></script>
-<script src="storyAnalyzer.js?v=68"></script>
-<script src="mediaManager.js?v=68"></script>
-<script src="adminConsole.js?v=68"></script>
-<script src="preview.js?v=68"></script>
-<script src="projectSettings.js?v=68"></script>
-<script src="ui.js?v=68d"></script>
+<script src="state.js?v=69"></script>
+<script src="locks.js?v=69"></script>
+<script src="firebase.js?v=69"></script>
+<script src="canvasInteraction.js?v=69"></script>
+<script src="sceneRenderer.js?v=69f"></script>
+<script src="storyAnalyzer.js?v=69"></script>
+<script src="mediaManager.js?v=69"></script>
+<script src="adminConsole.js?v=69"></script>
+<script src="preview.js?v=69"></script>
+<script src="projectSettings.js?v=69"></script>
+<script src="ui.js?v=69d"></script>
 
 </body>
 </html>

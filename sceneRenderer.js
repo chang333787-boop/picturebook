@@ -168,11 +168,14 @@ function buildCardHTML(s) {
   if (_isExperience) {
     portsHTML = '';
   } else if (s.type === 'cover') {
-    /* v37: 표지에 single port — 시작 버튼 누르면 갈 장면으로 연결. 보라 톤 dot. */
-    const startBtn = (Array.isArray(s.buttons) && s.buttons[0]) ? s.buttons[0] : { label: '▶ 시작하기', nextId: null };
+    /* v69: 표지 시작 버튼 — 라벨 "▶ 시작하기" 고정 (사용자 수정 X).
+        input 대신 readonly 텍스트 + 연결 dot만. 사용자 보고: "표지는 시작하기 고정이니까 칸 막아줘". */
     portsHTML = `
       <div class="card-ports card-ports--cover">
-        ${_portRowHtml(s.num, 'A', 0, startBtn.label || '▶ 시작하기')}
+        <div class="port-row port-row--cover-fixed">
+          <span class="port-label-fixed">▶ 시작하기</span>
+          <div class="port-dot port-dot--A" data-num="${s.num}" data-port="A" title="드래그해서 첫 장면 연결"></div>
+        </div>
       </div>`;
   } else if (s.type !== 'ending') {
     /* 모든 N개 버튼을 input + 활성 dot으로 (W2-B-β).
@@ -298,9 +301,8 @@ function _buildCardContentByType(s, ptype) {
 /* v37: 표지 카드 — 제목 + 한 줄 소개 + 표지 테마. 그림·선택지 없음.
    다른 장면 카드와 시각 구분: 보라 톤 + 책 표지 아이콘 + 다른 라벨 */
 function _buildCoverCardContent(s) {
-  /* v67: 브랜치(maker) 표지 카드에서 색 선택 UI 폐기.
-     사용자 보고: "브랜치에서 색 바꿔도 잘 안 바뀜". 다듬기에서만 박을 수 있게 변경.
-     제목 + 한 줄 소개만 박기. 색은 다듬기 표지 인스펙터(10개)에서. */
+  /* v69: 브랜치(maker) 표지 카드 — 제목 + 한 줄 소개만 박기.
+     v67에서 박은 "색은 감상 화면 다듬기에서 박아요" hint 폐기 (사용자 요청). */
   return `
     <div class="card-body card-body--cover">
       <div class="cover-card-label">📖 책 표지</div>
@@ -316,7 +318,6 @@ function _buildCoverCardContent(s) {
         value="${_escapeHtml(s.subtitle || '')}"
         data-num="${s.num}"
         maxlength="60"/>
-      <div class="cover-card-hint">색은 감상 화면 다듬기에서 박아요.</div>
     </div>`;
 }
 

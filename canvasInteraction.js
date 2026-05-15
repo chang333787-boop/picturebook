@@ -245,3 +245,32 @@ window.addEventListener('DOMContentLoaded', () => {
     if (e.touches.length === 0) panState = null;
   }, { passive: false });
 });
+
+/* v69: 사이드 리스트 클릭 시 캔버스를 카드 위치로 이동.
+   사용자: "장면들 누르면 그 장면 브랜치로 화면 이동". sceneRenderer의
+   _focusSceneInCanvas가 호출하는 함수 — 박혀있지 않아 화면 이동 안 됐음. */
+function panToCard(num) {
+  const wrap   = getWrap();
+  const canvas = getCanvas();
+  const card   = document.getElementById(`card-${num}`);
+  if (!wrap || !canvas || !card) return;
+
+  const wrapRect = wrap.getBoundingClientRect();
+  const cardRect = card.getBoundingClientRect();
+
+  /* 카드 가운데와 wrap 가운데의 차이만큼 canvas 이동 */
+  const cardCenterX = cardRect.left + cardRect.width  / 2;
+  const cardCenterY = cardRect.top  + cardRect.height / 2;
+  const wrapCenterX = wrapRect.left + wrapRect.width  / 2;
+  const wrapCenterY = wrapRect.top  + wrapRect.height / 2;
+
+  canvasOffX += (wrapCenterX - cardCenterX);
+  canvasOffY += (wrapCenterY - cardCenterY);
+
+  /* 부드러운 이동 — transition 일시 박고 0.4s 후 해제 */
+  canvas.style.transition = 'transform 0.4s ease-out';
+  applyTransform();
+  setTimeout(() => { canvas.style.transition = ''; }, 450);
+}
+/* centerOnCard alias (sceneRenderer.js가 둘 다 시도) */
+function centerOnCard(num) { panToCard(num); }

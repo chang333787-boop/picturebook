@@ -758,6 +758,21 @@ body[data-page-orientation="portrait"] .scene-screen--pb.pb--split .pb-frame {
   overflow: hidden;
 }
 
+/* v48: 좁은 페이지(스마트폰 등)에선 선택지 세로 stack —
+   가로 분할로 박스 작아져 라벨이 4줄로 깨지던 문제 해소.
+   pbstage container 기준 페이지 가로 < 500px 일 때 stack. */
+@container pbstage (max-width: 500px) {
+  .scene-screen--pb.pb--split .pb-text__actions {
+    flex-direction: column;
+    flex-wrap: nowrap;
+  }
+  .scene-screen--pb.pb--split .pb-text__actions .choice-v03 {
+    flex: 0 0 auto;
+    width: 100%;
+    max-width: 100%;
+  }
+}
+
 /* v36: 세로분할형 — 본문 비중 ↑. 행동 영역 35% (가로분할형 60%와 분리).
    사용자 보고: "뭉툭하고 본문이 안 보임" — 가로분할형 비율이 세로에 그대로 적용된 문제.
    align-content: center = imageCenter처럼 자식이 자연 높이로 박스 가운데 정렬 (stretch X).
@@ -771,7 +786,8 @@ body[data-page-orientation="portrait"] .scene-screen--pb.pb--split .pb-text__act
   min-width: 100px;
   max-width: 100%;
   padding: 6px 10px;
-  font-size: 13px;
+  /* v48: 폰트 cqi 변환 — 페이지 비례. 작은 페이지에서 한 줄 글자수 일정 */
+  font-size: clamp(11px, 2cqi, 16px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -798,7 +814,8 @@ body[data-page-orientation="portrait"] .scene-screen--pb.pb--split .pb-text__act
   text-align: left !important;
   transition: background 0.15s, transform 0.08s, box-shadow 0.15s;
   font-family: var(--font-b);
-  font-size: 14px;
+  /* v48: 폰트 cqi 변환 — 페이지 비례. 디바이스 무관 한 줄 글자수 일정 */
+  font-size: clamp(12px, 2.3cqi, 18px);
   line-height: 1.4;
   color: var(--v03-fg);
 }

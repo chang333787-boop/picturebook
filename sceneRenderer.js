@@ -63,7 +63,8 @@ function addScene(type) {
     base.subtitle = '';                  // 한 줄 소개
     base.coverTheme = 'default';         // 표지 테마 (default | cream | sage | sky | coral)
     base.titleVerticalPosition = 50;     // 제목 높낮이 (0~100, 50=가운데)
-    base.buttons = [];                   // 표지는 선택지 X
+    /* v37: 표지에도 single button — 첫 장면으로 연결되는 시작 port */
+    base.buttons = [{ label: '▶ 시작하기', nextId: null }];
   } else if (type === 'ending') {
     /* 엔딩 전용 — 기존 흐름. trueEnding은 사용자가 별도 토글 */
     base.trueEnding = false;
@@ -167,8 +168,12 @@ function buildCardHTML(s) {
   if (_isExperience) {
     portsHTML = '';
   } else if (s.type === 'cover') {
-    /* v37: 표지는 선택지·연결 없음. ports 안 그림. 아래 contentHtml에서 표지 전용 본문. */
-    portsHTML = '';
+    /* v37: 표지에 single port — 시작 버튼 누르면 갈 장면으로 연결. 보라 톤 dot. */
+    const startBtn = (Array.isArray(s.buttons) && s.buttons[0]) ? s.buttons[0] : { label: '▶ 시작하기', nextId: null };
+    portsHTML = `
+      <div class="card-ports card-ports--cover">
+        ${_portRowHtml(s.num, 'A', 0, startBtn.label || '▶ 시작하기')}
+      </div>`;
   } else if (s.type !== 'ending') {
     /* 모든 N개 버튼을 input + 활성 dot으로 (W2-B-β).
        buttons[] 우선, 없으면 legacy fallback으로 첫 2개 표시. */

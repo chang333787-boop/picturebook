@@ -167,6 +167,12 @@ function renderCover() {
 function renderScene(scene) {
   const stage = document.getElementById('viewer-frame');
 
+  /* v37: 표지 scene이면 renderCover 호출 (다듬기 모드 포함). 일반 장면 분기 안 거침. */
+  if (scene && scene.type === 'cover') {
+    renderCover();
+    return;
+  }
+
   /* 모드 결정 (4단계 갱신) — 작품 단위 projectType이 1단계에서 도입됨.
      우선순위:
        1. ViewerState.project.projectType (작품 단위 type, 1단계 도입)

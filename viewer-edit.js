@@ -1669,6 +1669,30 @@ function _textEditHtml(scene) {
   const isPicturebookMode = _ptypeForButtons === 'picturebook';
   const pbStyleInlineHtml = isPicturebookMode ? _pbInlineStyleHtml(scene) : '';
 
+  /* v37: 표지 scene 콘텐츠 영역 — 제목 + 한 줄 소개만 (본문·행동 버튼 X) */
+  if (scene && scene.type === 'cover') {
+    const subtitleVal = scene.subtitle || '';
+    return `
+      <div class="js-edit-lock-banner edit-lock-banner" style="display:none;"></div>
+      <div class="edit-row">
+        <label class="edit-label" for="edit-scene-title">📖 작품 제목</label>
+        <input id="edit-scene-title" type="text"
+          class="edit-text-input edit-text-input--choice js-edit-text-input js-edit-title"
+          value="${escHtml(titleVal)}"
+          placeholder="작품 제목">
+      </div>
+      <div class="edit-row">
+        <label class="edit-label" for="edit-scene-subtitle">✍ 한 줄 소개 <span class="edit-label-note">(선택)</span></label>
+        <input id="edit-scene-subtitle" type="text"
+          class="edit-text-input edit-text-input--choice js-edit-cover-subtitle"
+          value="${escHtml(subtitleVal)}"
+          placeholder="짧은 한 줄 소개">
+      </div>
+      <div class="edit-text-status-row">
+        <span class="js-edit-text-status edit-text-status" aria-live="polite"></span>
+      </div>`;
+  }
+
   return `
     <div class="js-edit-lock-banner edit-lock-banner" style="display:none;"></div>
 
@@ -1842,8 +1866,22 @@ function _bindTextEditEvents(panel, scene) {
     bodyEl.addEventListener('blur', () => _flushPendingSave());
   }
 
-  /* ── 버튼 N개 (v0.3) ── */
-  _bindButtonsEditEvents(panel, scene);
+  /* v37: 표지 한 줄 소개 input */
+  const subtitleEl = panel.querySelector('.js-edit-cover-subtitle');
+  if (subtitleEl && scene.type === 'cover') {
+    subtitleEl.addEventListener('input', e => {
+      if (!_editText.editable) return;
+      scene.subtitle = e.target.value;
+      _scheduleViewerFrameReRender();
+      _queueSave(scene.id, { subtitle: scene.subtitle });
+    });
+    subtitleEl.addEventListener('blur', () => _flushPendingSave());
+  }
+
+  /* ── 버튼 N개 (v0.3) ── 표지는 행동 버튼 X */
+  if (scene.type !== 'cover') {
+    _bindButtonsEditEvents(panel, scene);
+  }
 }
 
 /* ================================================================
@@ -2017,6 +2055,8 @@ function _queueSaveButtons(scene) {
    · experience: 배경 이미지 + 연결 오브젝트 진입점 (정식 모델 향후)
    ================================================================ */
 function _typeSectionsHtml(scene, ptype) {
+  /* v37: 표지 scene이면 type별 분기 무시하고 표지 전용 인스펙터 */
+  if (scene && scene.type === 'cover') return _typeSectionCoverHtml(scene);
   switch (ptype) {
     case 'text':       return _typeSectionTextHtml(scene);
     case 'picturebook':return _typeSectionPicturebookHtml(scene);
@@ -2024,6 +2064,41 @@ function _typeSectionsHtml(scene, ptype) {
     case 'experience': return _typeSectionExperienceHtml(scene);
     default:           return _typeSectionPicturebookHtml(scene);
   }
+}
+
+/* v37: 표지 전용 인스펙터 — 제목 + 한 줄 소개 + 표지 색 + 제목 높낮이.
+   사용자 결정: 표지는 별도 레이아웃, 그림·선택지 X. 항상 가운데 정렬. */
+function _typeSectionCoverHtml(scene) {
+  const COVER_THEMES = [
+    { id: 'default', label: '기본', color: '#fffaee' },
+    { id: 'cream',   label: '크림', color: '#f4ecd8' },
+    { id: 'sage',    label: '연두', color: '#e8efde' },
+    { id: 'sky',     label: '하늘', color: '#dde8f2' },
+    { id: 'coral',   label: '코랄', color: '#f4dccf' },
+  ];
+  const curTheme = scene.coverTheme || 'default';
+  const titleY = typeof scene.titleVerticalPosition === 'number' ? scene.titleVerticalPosition : 50;
+  const themePills = COVER_THEMES.map(t => `
+    <button type="button"
+      class="edit-cover-theme js-cover-theme ${curTheme === t.id ? 'active' : ''}"
+      data-val="${t.id}"
+      style="background:${t.color};"
+      title="${t.label}"></button>`).join('');
+
+  return `
+    <div class="edit-row">
+      <label class="edit-label">🎨 표지 색</label>
+      <div class="edit-cover-theme-row">${themePills}</div>
+    </div>
+    <div class="edit-row edit-row--compact">
+      <label class="edit-label">↕ 제목 높낮이 <span class="edit-label-note">(${titleY}%)</span></label>
+      <input type="range" class="edit-slider js-cover-title-y"
+        min="20" max="80" step="5" value="${titleY}">
+      <div class="edit-section-hint">위쪽(20) ↔ 가운데(50) ↔ 아래쪽(80). 가운데 정렬은 유지.</div>
+    </div>
+    <div class="edit-section-hint edit-section-hint--lock">
+      📖 표지에는 그림·선택지를 박을 수 없어요. 제목·한 줄 소개·표지 색·높낮이만 다듬을 수 있어요.
+    </div>`;
 }
 
 /* ── 1) 텍스트형 전용 섹션 ─────────────────────────────────────
@@ -2667,6 +2742,40 @@ const _CO_TYPE_ICON_MAP = {
 function _bindTypeSectionsEvents(panel, scene) {
   if (!panel || !scene) return;
   const ptype = _resolveViewerProjectType();
+
+  /* v37: 표지 scene 핸들러 — 표지 색·제목 높낮이 변경 */
+  if (scene.type === 'cover') {
+    panel.querySelectorAll('.js-cover-theme').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const val = btn.dataset.val || 'default';
+        scene.coverTheme = val;
+        panel.querySelectorAll('.js-cover-theme').forEach(b => b.classList.toggle('active', b === btn));
+        if (typeof _queueSave === 'function') {
+          _queueSave(scene.num || scene.id, { coverTheme: val });
+          if (typeof _flushPendingSave === 'function') _flushPendingSave();
+        }
+        _scheduleViewerFrameReRender();
+      });
+    });
+    const yRange = panel.querySelector('.js-cover-title-y');
+    if (yRange) {
+      yRange.addEventListener('input', e => {
+        const val = parseInt(e.target.value, 10) || 50;
+        scene.titleVerticalPosition = val;
+        /* 라벨 텍스트 갱신 */
+        const labelNote = panel.querySelector('.js-cover-title-y')?.previousElementSibling?.querySelector('.edit-label-note');
+        if (labelNote) labelNote.textContent = `(${val}%)`;
+        if (typeof _queueSave === 'function') {
+          _queueSave(scene.num || scene.id, { titleVerticalPosition: val });
+        }
+        _scheduleViewerFrameReRender();
+      });
+      yRange.addEventListener('change', () => {
+        if (typeof _flushPendingSave === 'function') _flushPendingSave();
+      });
+    }
+    return;   // 표지면 picturebook/text/movie 분기 안 들어감
+  }
 
   if (ptype === 'picturebook') {
     /* W9: 페이지 방향 토글 (작품 단위 — viewer-meta에 직접 저장) */

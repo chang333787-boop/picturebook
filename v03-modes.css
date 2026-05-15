@@ -834,25 +834,33 @@ body[data-page-orientation="portrait"] .scene-screen--pb.pb--split .pb-frame {
     background: transparent;
   }
 
-  /* === 5. pb-illust 자연 크기 + 그림 최대 50vh ===
-     grid item에서 flex item으로 바뀌어 이제 flex 룰 작동. */
+  /* === 5. pb-illust — height 명시 (자식 photo가 height:100%라 부모 명시 필수) ===
+     v59에서 max-height만 박았는데 base의 pb-illust__photo가 height:100%라
+     부모 의존 → circular → 둘 다 0 → 그림 사라짐. height 명시로 해결. */
   .scene-screen--pb.pb--split .pb-illust {
-    max-height: 50vh;
+    height: 40vh;
     flex: 0 0 auto;
     width: 100%;
   }
 
-  /* === 6. pb-text — 본문 텍스트 padding 유지(가독성) + flex 작동 ===
-     padding 좌우 16px은 본문 텍스트 가독성용 유지. 박스는 음수 margin으로 무효화. */
+  /* === 6. pb-text — padding 좌우 0 (박스가 그림 우측 끝까지 가야 함) ===
+     본문 텍스트 들여쓰기는 자식 title/body에 별도 padding으로. */
   .scene-screen--pb.pb--split .pb-text {
     height: auto;
     flex: 0 0 auto;
     overflow: visible;
-    padding: 12px 16px;
+    padding: 12px 0 0;
     min-height: auto;
     justify-content: flex-start;
     display: flex;
     flex-direction: column;
+  }
+
+  /* === 6-b. 본문 텍스트 자식만 padding 좌우 16 (가독성 들여쓰기) === */
+  .scene-screen--pb.pb--split .pb-text__title,
+  .scene-screen--pb.pb--split .pb-text__body-wrap {
+    padding-left: 16px;
+    padding-right: 16px;
   }
 
   /* === 7. 본문 body-wrap — actions-label position absolute 기준 === */
@@ -860,14 +868,13 @@ body[data-page-orientation="portrait"] .scene-screen--pb.pb--split .pb-frame {
     position: relative;
   }
 
-  /* === 8. actions-label — 본문 영역 우측 아래 (사용자 의도 정정) ===
-     v53에서 actions의 sibling으로 박았지만 사용자 의도는 본문 안 우측 하단. */
+  /* === 8. actions-label — 본문 영역 우측 아래 (사용자 의도 정정) === */
   .scene-screen--pb.pb--split .pb-text__actions-label {
     display: inline-flex;
     align-items: center;
     gap: 4px;
     position: absolute;
-    right: 0;
+    right: 16px;
     bottom: 0;
     font-family: var(--font-ui, 'Jua', sans-serif);
     font-size: 11px;
@@ -888,11 +895,11 @@ body[data-page-orientation="portrait"] .scene-screen--pb.pb--split .pb-frame {
     50%      { transform: translateY(2px); }
   }
 
-  /* === 9. actions — 음수 margin으로 박스가 pb-text padding 영역 넘어서 그림 우측 끝까지 ===
-     padding 좌우 16 차감으로 박스 좁아 보이던 문제 해소. */
+  /* === 9. actions — padding/margin 0 → 박스가 pb-text 전체 폭 차지 ===
+     pb-text padding 좌우 0이라 actions는 부모 그대로 폭 차지. 박스 = 그림 우측 끝까지. */
   .scene-screen--pb.pb--split .pb-text__actions {
-    margin: 8px -16px 0;
-    padding: 10px 16px 4px;
+    margin: 12px 0 0;
+    padding: 10px 0 4px;
     flex: 0 0 auto;
     flex-direction: column;
     flex-wrap: nowrap;

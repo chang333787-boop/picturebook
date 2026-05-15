@@ -450,20 +450,20 @@ body.edit-mode-active #stage-wrap {
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* 5) flip3d — 책 펴기 3D. v67: 좌측 모서리 수직축 회전 명확.
-   책 표지처럼 좌측 모서리가 고정되고 페이지가 우측에서 펼쳐짐.
-   transform-origin을 모든 keyframe에 명시 (브라우저별 default 차이 방지). */
+/* 5) flip3d — 책 펴기 3D. v68: perspective를 parent로 분리 (안정적 3D).
+   keyframe transform에 perspective() 박으면 element 자체에 적용이라 효과 미묘.
+   parent #viewer-frame에 박아 자식 변환 3D 적용. */
+#viewer-frame[data-transition="flip3d"] {
+  perspective: 1500px;
+  perspective-origin: 50% 50%;
+}
+#viewer-frame[data-transition="flip3d"] .scene-screen {
+  transform-origin: 0% 50%;
+  backface-visibility: hidden;
+}
 @keyframes sceneFlip3d {
-  0% {
-    opacity: 0;
-    transform: perspective(1500px) translateX(0) rotateY(-90deg);
-    transform-origin: 0% 50%;
-  }
-  100% {
-    opacity: 1;
-    transform: perspective(1500px) translateX(0) rotateY(0);
-    transform-origin: 0% 50%;
-  }
+  0%   { opacity: 0; transform: rotateY(-90deg); }
+  100% { opacity: 1; transform: rotateY(0); }
 }
 
 /* v66: 옛 페이지 leaving — 두 layer overlap 효과.
@@ -516,19 +516,11 @@ body.edit-mode-active #stage-wrap {
   to   { opacity: 0; transform: translateY(-50%); }
 }
 
-/* 5) flip3d-out — 옛 페이지 좌측 수직축 3D 회전 (책 펼침 역동작).
-   v67: transform-origin 모든 keyframe에 명시 + 좌측 모서리 0%. */
+/* 5) flip3d-out — 옛 페이지 좌측 수직축 3D 회전.
+   v68: perspective는 parent #viewer-frame[data-transition="flip3d"]에서. */
 @keyframes sceneFlip3dOut {
-  0% {
-    opacity: 1;
-    transform: perspective(1500px) rotateY(0);
-    transform-origin: 0% 50%;
-  }
-  100% {
-    opacity: 0;
-    transform: perspective(1500px) rotateY(-90deg);
-    transform-origin: 0% 50%;
-  }
+  0%   { opacity: 1; transform: rotateY(0); }
+  100% { opacity: 0; transform: rotateY(-90deg); }
 }
 
 /* book-in 키프레임 강화 — 옛 페이지 왼쪽 넘김과 동시 우측에서 진입 */

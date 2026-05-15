@@ -636,7 +636,7 @@ body[data-page-orientation="portrait"] .scene-screen--pb.pb--split .pb-frame {
   background: rgba(255, 250, 238, 0.92);
   border: 1px solid var(--v03-card-border);
   border-radius: 10px;
-  font-size: clamp(13px, 1.5vw, 17px);
+  font-size: clamp(13px, 2.2cqi, 22px);
   font-weight: 700;
   line-height: 1.3;
   color: var(--pb-color-override, #2b1f10);
@@ -676,8 +676,8 @@ body[data-page-orientation="portrait"] .scene-screen--pb.pb--split .pb-frame {
 .scene-screen--pb .pb-text__title {
   /* W8 따뜻한 디자인: 본문과 같은 따뜻한 종이책 폰트, bold */
   font-family: var(--pb-font-family, 'Gowun Batang', 'Nanum Gothic', serif);
-  /* 폰트 viewport-반응 — 좁아지면 살짝 작아짐 */
-  font-size: clamp(16px, 2.2vw, 22px);
+  /* v44: 폰트 단위를 cqi(페이지 가로 1%)로 — 디바이스 무관 한 줄 글자수 동일 */
+  font-size: clamp(16px, 3.2cqi, 28px);
   font-weight: 700;
   line-height: 1.3;
   color: var(--v03-fg);
@@ -688,7 +688,7 @@ body[data-page-orientation="portrait"] .scene-screen--pb.pb--split .pb-frame {
      W8 따뜻한 디자인: 기본 fallback을 시안의 종이책 폰트(Gowun Batang)로.
      사용자가 다듬기에서 다른 폰트 고르면 _patchPbStyle이 --pb-font-family 덮음. */
   font-family: var(--pb-font-family, 'Gowun Batang', 'Nanum Gothic', serif);
-  font-size: var(--pb-fs-body, clamp(14px, 1.6vw, 16px));
+  font-size: var(--pb-fs-body, clamp(14px, 2.3cqi, 20px));
   font-weight: var(--pb-fw-body, 400);
   line-height: 1.85;  /* 시안의 여백 있는 따뜻한 행간 */
   color: var(--pb-color-override, var(--v03-fg));
@@ -726,7 +726,7 @@ body[data-page-orientation="portrait"] .scene-screen--pb.pb--split .pb-frame {
 }
 .scene-screen--pb.pb--split .pb-text__title {
   flex: 0 0 auto;
-  font-size: clamp(15px, 1.8vw, 18px);
+  font-size: clamp(15px, 2.6cqi, 22px);
   margin: 0 0 6px;
 }
 .scene-screen--pb.pb--split .pb-text__body {
@@ -738,7 +738,7 @@ body[data-page-orientation="portrait"] .scene-screen--pb.pb--split .pb-frame {
   min-height: 0;
   overflow-y: auto;
   margin: 0 0 8px;
-  font-size: var(--pb-fs-body, clamp(12px, 1.3vw, 13.5px));
+  font-size: var(--pb-fs-body, clamp(12px, 1.9cqi, 17px));
   line-height: 1.55;
 }
 .scene-screen--pb.pb--split .pb-text__actions {

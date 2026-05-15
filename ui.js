@@ -474,6 +474,9 @@ function showPtypeScreen(existingType) {
     c.classList.toggle('previously-selected',
       _ptypeExistingType && c.dataset.ptype === _ptypeExistingType);
   });
+  /* v40: 받기 카드는 빈 슬롯일 때만 활성 — 기존 작품이면 흐리게 */
+  const receiveCard = document.getElementById('ptype-receive-copy');
+  if (receiveCard) receiveCard.classList.toggle('is-disabled', !!_ptypeExistingType);
   screen.classList.add('show');
 }
 function hidePtypeScreen() {
@@ -540,6 +543,93 @@ async function _enterMakerAfterPtypeSelected(ptype) {
     }
   }
   hidePtypeScreen();
+}
+
+/* ================================================================
+   v40: "다른 모둠 작품 받기" 모달
+   ─────────────────────────────────────────────────────────────
+   · 빈 슬롯 학생이 4자리 복사 코드 입력 → redeemCopyCode 호출
+   · 성공 시 location.reload — viewer-data가 새 작품 로드 + 자연스럽게 maker 진입
+   · classId 없는 v1 환경에선 비활성 (안내 후 종료)
+   ================================================================ */
+function _openReceiveCopyModal() {
+  /* v1 환경 차단 — classId 없으면 redeemCopyCode 동작 안 함 */
+  if (typeof classId !== 'string' || !classId) {
+    alert('이 모둠은 학급 코드로 입장하지 않아 작품을 받을 수 없어요.');
+    return;
+  }
+  if (typeof teamName !== 'string' || !teamName) {
+    alert('모둠 정보가 없어요. 다시 입장해주세요.');
+    return;
+  }
+
+  document.querySelector('.copy-receive-modal')?.remove();
+  const overlay = document.createElement('div');
+  overlay.className = 'copy-code-modal copy-receive-modal';
+  overlay.innerHTML = `
+    <div class="copy-code-panel">
+      <h3 class="copy-code-title">📥 다른 모둠 작품 받기</h3>
+      <p class="copy-code-hint">교사 선생님에게 받은 <strong>4자리 코드</strong>를 입력해주세요.</p>
+      <input type="text" inputmode="numeric" maxlength="4" class="copy-receive-input js-copy-receive-input"
+             placeholder="1234" autocomplete="off"/>
+      <p class="copy-receive-err js-copy-receive-err" style="display:none;"></p>
+      <div class="copy-code-actions">
+        <button class="copy-code-close js-copy-receive-cancel">취소</button>
+        <button class="copy-receive-submit js-copy-receive-submit">받기</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  const input = overlay.querySelector('.js-copy-receive-input');
+  const err   = overlay.querySelector('.js-copy-receive-err');
+  const submitBtn = overlay.querySelector('.js-copy-receive-submit');
+
+  input?.focus();
+  input?.addEventListener('input', () => {
+    input.value = input.value.replace(/\D/g, '').slice(0, 4);
+    err.style.display = 'none';
+  });
+
+  const close = () => overlay.remove();
+  overlay.querySelector('.js-copy-receive-cancel')?.addEventListener('click', close);
+  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+
+  const submit = async () => {
+    const code = (input?.value || '').trim();
+    if (!/^\d{4}$/.test(code)) {
+      err.textContent = '4자리 숫자를 입력해주세요.';
+      err.style.display = 'block';
+      return;
+    }
+    submitBtn.disabled = true;
+    submitBtn.textContent = '받는 중...';
+    try {
+      const encodedName = encodeURIComponent(teamName);
+      const result = await redeemCopyCode(code, classId, encodedName);
+      submitBtn.textContent = '✓ 받았어요! 진입 중...';
+
+      /* v41: reload 없이 직접 maker 진입.
+         scenes/viewer-meta 둘 다 .on('value') listener 박혀있어 자동으로 새 데이터 들어옴.
+         ptype-screen 닫고 maker 화면 노출 + projectType 메모리 동기. */
+      const VALID = ['text', 'picturebook', 'movie', 'experience'];
+      const newPtype = (result && VALID.includes(result.projectType))
+        ? result.projectType : 'picturebook';
+      _ptypeExistingType = newPtype;   /* 받은 작품 = 기존 작품 취급 → 저장 skip */
+      if (typeof selectProjectType === 'function') selectProjectType(newPtype);
+
+      setTimeout(() => {
+        overlay.remove();
+        _enterMakerAfterPtypeSelected(newPtype);   /* hidePtypeScreen + maker 진입 */
+      }, 400);
+    } catch (e) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = '받기';
+      err.textContent = e.message || '받기 실패';
+      err.style.display = 'block';
+    }
+  };
+  submitBtn?.addEventListener('click', submit);
+  input?.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
 }
 function applyTemplate(tpl) {
   if (tpl === 'blank' || Object.keys(scenes).length > 0) return;
@@ -737,11 +827,36 @@ window.addEventListener('DOMContentLoaded', () => {
     btn.addEventListener('click', () => _onPtypeCardClick(btn.dataset.ptype))
   );
 
+  /* v40: "다른 모둠 작품 받기" 카드 — 빈 슬롯일 때만 활성 */
+  document.getElementById('ptype-receive-copy')?.addEventListener('click', () => {
+    if (_ptypeExistingType) {
+      alert('이미 작품이 있는 모둠이에요. 빈 모둠으로만 작품을 받을 수 있어요.');
+      return;
+    }
+    _openReceiveCopyModal();
+  });
+
   /* ESC */
   document.addEventListener('keydown', e => {
     if (e.key !== 'Escape') return;
     if (document.getElementById('img-modal')?.style.display === 'flex') closeImageModal();
     else closePreview();
+  });
+
+  /* v43: 카드 외부 영역에 이미지 드롭 시 브라우저 기본 동작(이미지 새 탭 열기) 차단.
+     카드 이미지 영역(.card-image-area)은 자체 drop 핸들러로 e.preventDefault() 호출 + 처리. */
+  window.addEventListener('dragover', e => {
+    if (e.target.closest && e.target.closest('.card-image-area')) return;
+    if (e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files')) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'none';
+    }
+  });
+  window.addEventListener('drop', e => {
+    if (e.target.closest && e.target.closest('.card-image-area')) return;
+    if (e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files')) {
+      e.preventDefault();
+    }
   });
 
   /* ── 다음 단계 패널 ── */

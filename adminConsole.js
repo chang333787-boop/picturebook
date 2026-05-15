@@ -45,6 +45,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const deleteBtn   = e.target.closest('.js-admin-delete');
     const moreBtn     = e.target.closest('.js-admin-more');
     const publicBtn   = e.target.closest('.js-admin-toggle-public');
+    const issueBtn    = e.target.closest('.js-admin-issue-code');
 
     if (makerBtn)  _openMaker(makerBtn.dataset.name);
     if (viewerBtn) _openViewer(viewerBtn.dataset.name);
@@ -52,6 +53,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (deleteBtn) _deleteTeam(deleteBtn.dataset.encoded, deleteBtn.dataset.name);
     if (moreBtn)   _toggleMoreMenu(moreBtn);
     if (publicBtn) _toggleIsPublic(publicBtn.dataset.encoded, publicBtn.dataset.name, publicBtn.dataset.public === 'true');
+    if (issueBtn)  _issueCopyCodeFlow(issueBtn.dataset.encoded, issueBtn.dataset.name);
   });
 });
 
@@ -472,6 +474,7 @@ function _teamCardHtml(t) {
   const detailBtn = `<button class="admin-action-btn admin-action-btn--detail js-admin-detail" data-encoded="${t.encodedName}" title="상세 보기">상세</button>`;
   const moreBtn   = `<button class="admin-action-btn admin-action-btn--more js-admin-more" title="더 보기">⋯</button>
     <div class="admin-more-menu" style="display:none;">
+      <button class="admin-more-item js-admin-issue-code" data-encoded="${t.encodedName}" data-name="${t.name}">📤 복사 코드 발급</button>
       <button class="admin-more-item js-admin-delete" data-encoded="${t.encodedName}" data-name="${t.name}">🗑 팀 삭제</button>
     </div>`;
 
@@ -572,6 +575,66 @@ function _toggleMoreMenu(btn) {
     const close = () => { menu.style.display = 'none'; document.removeEventListener('click', close); };
     setTimeout(() => document.addEventListener('click', close), 0);
   }
+}
+
+/* ================================================================
+   v40: 복사 코드 발급 흐름 — admin 카드 더보기 메뉴
+   ─────────────────────────────────────────────────────────────
+   · v2(classId 있음)에서만 동작
+   · 발급 성공 시 모달로 코드 표시 + 클립보드 복사 버튼
+   ================================================================ */
+async function _issueCopyCodeFlow(encodedName, teamName) {
+  if (!adminState.verified) return;
+  if (!adminState.adminClassId) {
+    alert('복사 코드는 v2 클래스에서만 발급할 수 있어요.');
+    return;
+  }
+  document.querySelectorAll('.admin-more-menu').forEach(m => { m.style.display = 'none'; });
+
+  try {
+    const { code, expiresAt } = await issueCopyCode(adminState.adminClassId, encodedName);
+    _showCopyCodeModal(teamName, code, expiresAt);
+  } catch (err) {
+    alert(`❌ 코드 발급 실패: ${err.message}`);
+  }
+}
+
+function _showCopyCodeModal(teamName, code, expiresAt) {
+  document.querySelector('.copy-code-modal')?.remove();
+
+  const overlay = document.createElement('div');
+  overlay.className = 'copy-code-modal';
+  const expiresStr = new Date(expiresAt).toLocaleString('ko-KR', {
+    month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit',
+  });
+  overlay.innerHTML = `
+    <div class="copy-code-panel">
+      <h3 class="copy-code-title">📤 복사 코드 발급됨</h3>
+      <p class="copy-code-team">👥 ${teamName}</p>
+      <div class="copy-code-box">
+        <div class="copy-code-digits">${code}</div>
+        <button class="copy-code-copy js-copy-code-clip" title="클립보드에 복사">📋 복사</button>
+      </div>
+      <p class="copy-code-hint">
+        다른 모둠은 빈 모둠으로 로그인 → "어떤 작품을 만들까요?" 화면에서<br>
+        <strong>📥 다른 모둠 작품 받기</strong>를 누르고 이 코드를 입력하면 받아요.
+      </p>
+      <p class="copy-code-expire">만료: ${expiresStr}까지 (24시간) · 다회 사용 가능</p>
+      <div class="copy-code-actions">
+        <button class="copy-code-close js-copy-code-close">닫기</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  overlay.querySelector('.js-copy-code-close')?.addEventListener('click', () => overlay.remove());
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  overlay.querySelector('.js-copy-code-clip')?.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(code);
+      const btn = overlay.querySelector('.js-copy-code-clip');
+      if (btn) { btn.textContent = '✓ 복사됨'; setTimeout(() => { btn.textContent = '📋 복사'; }, 1500); }
+    } catch (e) { /* clipboard 권한 없으면 silent */ }
+  });
 }
 
 /* ================================================================

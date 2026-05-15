@@ -302,23 +302,32 @@ html, body {
   overflow: hidden;
 }
 
-/* ── stage-wrap: 검은 바탕 전체 영역 ── */
+/* ── stage-wrap: letterbox 영역 ──
+   v38: 감상 모드도 warm paper로 통일. 종전엔 #000 검정 →
+   학생 스마트폰/태블릿에서 letterbox가 검정 영역으로 떠서
+   "구조 깨짐"으로 보였음. 페이지(.pb-page)는 box-shadow로 떠 보이므로
+   같은 종이톤이어도 페이지 경계 인식됨. */
 #stage-wrap {
   flex: 1;
   position: relative;
-  background: #000;
+  background: var(--surface, #fffaee);
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
 }
 
-/* W9 (v5): 다듬기 모드에선 stage 배경 = Warm Paper.
-   사용자 보고 "위아래 검은색 → 구조 깨져 보임" → letterbox 영역이
-   인스펙터와 같은 톤이면 viewer-frame이 자연스럽게 떠 있는 듯 보임. */
+/* W9 (v5): 다듬기 모드는 동일 톤 유지 — 인스펙터와 같은 톤. */
 body.edit-mode-active #stage-wrap {
   background: var(--surface, #fffaee);
 }
+
+/* v38: 표지 scene 활성 시 letterbox도 cover-theme 톤으로 동조.
+   default는 그대로 warm paper. :has() 미지원 환경에선 무시되고 기본값 유지. */
+#stage-wrap:has(.scene-screen[data-cover-theme="cream"]) { background: #f4ecd8; }
+#stage-wrap:has(.scene-screen[data-cover-theme="sage"])  { background: #e8efde; }
+#stage-wrap:has(.scene-screen[data-cover-theme="sky"])   { background: #dde8f2; }
+#stage-wrap:has(.scene-screen[data-cover-theme="coral"]) { background: #f4dccf; }
 
 /* ── viewer-frame: 16:9 작품 무대 ── */
 #viewer-frame {
@@ -1538,6 +1547,12 @@ body[data-page-orientation="portrait"] .cover-page {
   background: rgba(248, 81, 73, 0.14);
   color: #f85149;
   border: 1px solid rgba(248, 81, 73, 0.35);
+}
+/* v39: 표지 배지 — 보라 톤 (structure-map-node--cover와 동조) */
+.edit-nav-badge--cover {
+  background: rgba(155, 109, 202, 0.16);
+  color: #b87cd9;
+  border: 1px solid rgba(155, 109, 202, 0.4);
 }
 /* ── 역할 배지 (구조 개편 1차 + UI 언어 정리 1차) ──
    '시작'은 타입이 아니라 역할. 주배지(일반/엔딩) 옆에 보조 표시. */
@@ -2887,6 +2902,7 @@ body[data-page-orientation="portrait"] .terminal-screen--story .ending-page {
   border-radius: 50%;
   display: inline-block;
 }
+.structure-map-dot--cover   { background: rgba(155, 109, 202, 0.5); border: 1px solid rgba(155, 109, 202, 0.8); }
 .structure-map-dot--start   { background: #56d364; }
 .structure-map-dot--normal  { background: rgba(139,148,158,0.7); border: 1px solid rgba(255,255,255,0.18); }
 .structure-map-dot--ending  { background: #f85149; }
@@ -2916,6 +2932,12 @@ body[data-page-orientation="portrait"] .terminal-screen--story .ending-page {
   stroke-width: 1.5;
   marker-end: url(#structure-map-arrow);
   transition: stroke var(--t-fast);
+}
+/* v39: 표지 → 진입 장면 가상 엣지 — 보라 강조 + 굵게 */
+.structure-map-edge--cover {
+  stroke: rgba(155, 109, 202, 0.6);
+  stroke-width: 2;
+  marker-end: url(#structure-map-arrow-cover);
 }
 
 /* ── 노드 ── */

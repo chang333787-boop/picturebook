@@ -13,7 +13,7 @@
   <title>가지 branch — 작품 만들기</title>
   <link href="https://fonts.googleapis.com/css2?family=Jua&family=Nanum+Gothic:wght@400;700&family=Nanum+Pen+Script&display=swap" rel="stylesheet"/>
   <!-- v0.3 모드별 기본형 (preview에서 viewer와 같은 스타일을 받기 위해) -->
-  <link rel="stylesheet" href="v03-modes.css?v=37"/>
+  <link rel="stylesheet" href="v03-modes.css?v=43"/>
   <style>
     :root {
       /* W8 Step 5-B: --primary 파랑 → 코랄. 제작 영역 메인 액센트 (home 카드 띠와 통일).
@@ -298,6 +298,91 @@
       border:1px solid rgba(198,111,74,0.42);
       z-index:2;
       letter-spacing:0.02em;
+    }
+    /* v40: "다른 모둠 작품 받기" 카드 — 보라 톤 (cover 노드와 같은 계열) */
+    .ptype-card--receive::before{
+      background: linear-gradient(135deg, rgba(155,109,202,0.22), rgba(155,109,202,0.05));
+    }
+    .ptype-card--receive .ptype-card-name{ color:#7d4faa; }
+    .ptype-card.is-disabled{
+      opacity:0.45; cursor:not-allowed;
+      filter:grayscale(0.4);
+    }
+    .ptype-card.is-disabled:hover{ transform:none; }
+
+    /* v40: 복사 코드 모달 (발급/받기 공용) */
+    .copy-code-modal{
+      position:fixed; inset:0; z-index:9999;
+      background:rgba(40,28,16,0.55);
+      display:flex; align-items:center; justify-content:center;
+      animation:copy-code-fade 0.18s ease;
+    }
+    @keyframes copy-code-fade{ from{opacity:0;} to{opacity:1;} }
+    .copy-code-panel{
+      background:#fffaee;
+      border:1px solid rgba(120,90,50,0.18);
+      border-radius:16px;
+      box-shadow:0 24px 48px rgba(60,40,20,0.28);
+      padding:28px 32px;
+      width:min(420px, 92vw);
+      font-family:'Jua', 'Nanum Gothic', sans-serif;
+      color:#3a2a1a;
+    }
+    .copy-code-title{
+      margin:0 0 8px; font-size:20px; font-weight:700;
+      color:#5a3a1a;
+    }
+    .copy-code-team{
+      margin:0 0 16px; font-size:14px; color:#7a5a3a;
+    }
+    .copy-code-box{
+      display:flex; align-items:center; gap:12px;
+      background:#fff; border:2px solid rgba(155,109,202,0.4);
+      border-radius:12px; padding:16px 18px;
+      margin:14px 0 18px;
+    }
+    .copy-code-digits{
+      flex:1; font-size:38px; font-weight:700; letter-spacing:8px;
+      text-align:center; color:#7d4faa; font-family:'Nanum Gothic',sans-serif;
+    }
+    .copy-code-copy{
+      background:#fffaee; border:1px solid rgba(155,109,202,0.4);
+      color:#7d4faa; padding:8px 14px; border-radius:8px;
+      font-size:13px; cursor:pointer; font-family:inherit;
+      white-space:nowrap;
+    }
+    .copy-code-copy:hover{ background:rgba(155,109,202,0.08); }
+    .copy-code-hint{
+      margin:8px 0; font-size:13px; color:#5a4030; line-height:1.55;
+    }
+    .copy-code-expire{
+      margin:8px 0 0; font-size:12px; color:#9a7a5a;
+    }
+    .copy-code-actions{
+      display:flex; justify-content:flex-end; gap:8px; margin-top:18px;
+    }
+    .copy-code-close, .copy-receive-submit{
+      padding:9px 18px; border-radius:8px; cursor:pointer;
+      font-family:inherit; font-size:14px;
+      border:1px solid rgba(120,90,50,0.25); background:#fff; color:#5a3a1a;
+    }
+    .copy-receive-submit{
+      background:#c66f4a; color:#fff; border-color:#c66f4a;
+    }
+    .copy-receive-submit:hover{ background:#b35a36; }
+    .copy-receive-submit:disabled{ opacity:0.5; cursor:not-allowed; }
+    .copy-receive-input{
+      width:100%; box-sizing:border-box;
+      padding:14px 18px; font-size:28px; letter-spacing:8px; text-align:center;
+      border:2px solid rgba(120,90,50,0.25); border-radius:12px;
+      font-family:'Nanum Gothic',sans-serif; color:#3a2a1a;
+      background:#fff; margin:12px 0 6px;
+    }
+    .copy-receive-input:focus{
+      outline:none; border-color:#c66f4a;
+    }
+    .copy-receive-err{
+      color:#c8503c; font-size:13px; margin:6px 0 0;
     }
     .ptype-back-row{
       display:flex;justify-content:center;
@@ -1137,7 +1222,25 @@
     body.beginner-mode .adv-only{display:none !important;}
 
     /* 이미지 썸네일 */
-    .card-image-area{padding:0 8px 8px;}
+    .card-image-area{padding:0 8px 8px;position:relative;}
+    /* v43: 파일 drag hover 강조 + "여기에 놓으세요" 오버레이 */
+    .card-image-area.is-drag-over{
+      outline:2px dashed #c66f4a;
+      outline-offset:-3px;
+      background:rgba(198,111,74,0.06);
+      border-radius:8px;
+    }
+    .card-image-area.is-drag-over::after{
+      content:"📥 여기에 놓으세요";
+      position:absolute;inset:0;
+      display:flex;align-items:center;justify-content:center;
+      background:rgba(255,250,238,0.85);
+      color:#c66f4a;font-weight:700;font-size:13px;
+      font-family:var(--font-b);
+      border-radius:8px;
+      pointer-events:none;
+      z-index:5;
+    }
     .card-thumb{width:100%;max-height:90px;object-fit:cover;border-radius:8px;border:1.5px solid rgba(80,50,20,0.14);display:block;cursor:pointer;}
     .card-img-btn{width:100%;padding:5px 0;border:1.5px dashed rgba(80,50,20,0.20);border-radius:8px;background:#f4ecd8;color:var(--muted);font-size:11px;cursor:pointer;font-family:var(--font-b);display:flex;align-items:center;justify-content:center;gap:4px;}
     .card-img-btn:hover{border-color:var(--primary);color:var(--primary);background:#fdf3e8;}
@@ -1468,6 +1571,13 @@
         <div class="ptype-card-body">
           <h2 class="ptype-card-name">체험전시형</h2>
           <p class="ptype-card-desc">이미지 위 탐색형 전시·안내 작품</p>
+        </div>
+      </button>
+      <button class="ptype-card ptype-card--receive" id="ptype-receive-copy" data-action="receive-copy">
+        <span class="ptype-card-icon" aria-hidden="true">📥</span>
+        <div class="ptype-card-body">
+          <h2 class="ptype-card-name">다른 모둠 작품 받기</h2>
+          <p class="ptype-card-desc">복사 코드로 친구 모둠 작품을 우리 모둠으로 가져와요</p>
         </div>
       </button>
     </div>
@@ -1822,17 +1932,17 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
 <!-- v37f 캐시 — 표지 사이드/구조 색 -->
-<script src="state.js?v=37"></script>
-<script src="locks.js?v=37"></script>
-<script src="firebase.js?v=37"></script>
-<script src="canvasInteraction.js?v=37"></script>
-<script src="sceneRenderer.js?v=37f"></script>
-<script src="storyAnalyzer.js?v=37"></script>
-<script src="mediaManager.js?v=37"></script>
-<script src="adminConsole.js?v=37"></script>
-<script src="preview.js?v=37"></script>
-<script src="projectSettings.js?v=37"></script>
-<script src="ui.js?v=37d"></script>
+<script src="state.js?v=43"></script>
+<script src="locks.js?v=43"></script>
+<script src="firebase.js?v=43"></script>
+<script src="canvasInteraction.js?v=43"></script>
+<script src="sceneRenderer.js?v=43f"></script>
+<script src="storyAnalyzer.js?v=43"></script>
+<script src="mediaManager.js?v=43"></script>
+<script src="adminConsole.js?v=43"></script>
+<script src="preview.js?v=43"></script>
+<script src="projectSettings.js?v=43"></script>
+<script src="ui.js?v=43d"></script>
 
 </body>
 </html>

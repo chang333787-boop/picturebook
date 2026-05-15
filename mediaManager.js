@@ -122,22 +122,28 @@ async function compressFileForUpload(file) {
   return finalDataUrl;
 }
 
-/* ── 이미지 업로드 (자동 압축 지원) ── */
+/* ── 이미지 업로드 (자동 압축 지원) ──
+   v43: file 객체와 file input 두 진입점 공용 처리. drag&drop도 같은 파이프라인. */
 async function uploadImage(num, input) {
-  const file = input.files[0];
+  const file = input?.files?.[0];
+  await _uploadImageFile(num, file);
+  if (input) input.value = '';
+}
+
+async function _uploadImageFile(num, file) {
   if (!file) return;
 
   /* 중복 업로드 방지 */
-  if (mediaState.uploading.has(num)) { input.value = ''; return; }
+  if (mediaState.uploading.has(num)) return;
 
   /* 파일 형식 검증 */
-  if (!file.type.startsWith('image/')) {
-    alert('이미지 파일만 업로드할 수 있어요.');
-    input.value = ''; return;
+  if (!file.type || !file.type.startsWith('image/')) {
+    alert('이미지 파일만 올릴 수 있어요.');
+    return;
   }
 
   /* 잠금 확보 */
-  if (!await ensureEditable(num)) { input.value = ''; return; }
+  if (!await ensureEditable(num)) return;
 
   /* 업로드 중 UI */
   mediaState.uploading.add(num);
@@ -207,8 +213,6 @@ async function uploadImage(num, input) {
     alert(`❌ 이미지 처리 실패: ${err.message || err}`);
     if (scenes[num]) renderCard(scenes[num]);
   }
-
-  input.value = '';
 }
 
 function _showUploadingIndicator(num) {

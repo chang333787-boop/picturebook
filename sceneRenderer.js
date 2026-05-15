@@ -727,6 +727,39 @@ function bindCardEvents(el, s) {
   el.querySelector('.js-img-remove')
     ?.addEventListener('click', () => removeImage(num));
 
+  /* v43: 이미지 영역 drag&drop — 사용자가 파일 끌어놓으면 같은 이미지 업로드 파이프라인 호출 */
+  const imgArea = el.querySelector('.card-image-area');
+  if (imgArea) {
+    /* dataTransfer.items 검사 — 이미지 파일만 hover 시각 강조 */
+    const hasImageFile = dt => {
+      if (!dt) return false;
+      if (dt.types && Array.from(dt.types).includes('Files')) return true;
+      return false;
+    };
+    imgArea.addEventListener('dragenter', e => {
+      if (!hasImageFile(e.dataTransfer)) return;
+      e.preventDefault();
+      imgArea.classList.add('is-drag-over');
+    });
+    imgArea.addEventListener('dragover', e => {
+      if (!hasImageFile(e.dataTransfer)) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+    });
+    imgArea.addEventListener('dragleave', e => {
+      /* 자식 요소 사이 이동은 무시 (relatedTarget이 imgArea 내부면) */
+      if (imgArea.contains(e.relatedTarget)) return;
+      imgArea.classList.remove('is-drag-over');
+    });
+    imgArea.addEventListener('drop', e => {
+      e.preventDefault();
+      imgArea.classList.remove('is-drag-over');
+      const file = e.dataTransfer?.files?.[0];
+      if (!file) return;
+      if (typeof _uploadImageFile === 'function') _uploadImageFile(num, file);
+    });
+  }
+
   /* ── 카드 드래그 (개별 / 묶음) ──
      핵심 정책: 이동도 편집. 잠금 확보 전 드래그 시작 금지.
      · 개별: 해당 장면 ensureEditable, 실패 시 드래그 안 함

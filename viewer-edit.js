@@ -760,8 +760,9 @@ function _editNavHtml(scene) {
   const hasPrev = idx > 0;
   const hasNext = idx < total - 1;
 
-  /* 유형별 배지 클래스 — '시작' 종류는 없음 (일반 / 엔딩 2종) */
-  const typeClass = scene.isEnding ? 'edit-nav-badge--ending'
+  /* 유형별 배지 클래스 — 표지/일반/엔딩 3종 */
+  const typeClass = (scene.type === 'cover' || scene.isCover) ? 'edit-nav-badge--cover'
+                  : scene.isEnding ? 'edit-nav-badge--ending'
                                     : 'edit-nav-badge--normal';
 
   /* 역할 배지 HTML — 첫 감상 시작(녹색) / 다시 시작점(파랑) */
@@ -770,8 +771,14 @@ function _editNavHtml(scene) {
     roles.isReplay ? '<span class="edit-nav-role edit-nav-role--replay" title="다른 결말 찾기에서 시작하는 장면">다시 시작점</span>' : '',
   ].join('');
 
-  /* 장면 목록 option — 번호순 정렬, 현재 장면 selected, 역할 표시 포함 */
-  const optionsHtml = list.map(s => {
+  /* 장면 목록 option — v39: 표지 최우선 / 엔딩 마지막 / 그 외 id순.
+     ←/→ 이동은 _editSceneList() 원본(id순) 그대로 사용 — 드롭다운 정렬만 별도. */
+  const optionsHtml = list.slice().sort((a, b) => {
+    const rank = s => ((s.type === 'cover' || s.isCover) ? 0 : s.isEnding ? 2 : 1);
+    const r = rank(a) - rank(b);
+    if (r !== 0) return r;
+    return Number(a.id) - Number(b.id);
+  }).map(s => {
     const t     = _sceneTypeLabel(s);
     const r     = _sceneRoles(s);
     const roleTxt = [
@@ -4198,18 +4205,28 @@ function renderTestingBanner() {
    · 클릭 시 editNavigateTo() — 현재 장면 유지 로직 재사용
    ================================================================ */
 
-/* ── depth 계산: BFS로 시작 장면부터 거리 산출 ── */
+/* ── depth 계산: BFS로 시작 장면부터 거리 산출 ──
+   v39: cover scene이 있으면 그것이 graph root (depth 0). cover → entrySceneId는
+   가상 엣지로 한 단계 밀어줌 (entry → depth 1). cover 없는 옛 작품은 기존 동작 유지. */
 function _computeSceneDepths() {
   const scenes = ViewerState.scenes;
   const depths = {};
+  const coverScene = Object.values(scenes).find(s => s && (s.type === 'cover' || s.isCover));
+  const entryId   = ViewerState.project?.entrySceneId;
   const startScene = Object.values(scenes).find(s => s.isStart);
 
-  /* 시작 장면이 없으면 첫 장면을 depth 0로 */
-  const rootId = startScene?.id || _editSceneList()[0]?.id;
+  /* root 결정: cover 우선 → isStart → 첫 장면 */
+  const rootId = coverScene?.id || startScene?.id || _editSceneList()[0]?.id;
   if (!rootId) return depths;
 
   depths[rootId] = 0;
   const queue = [rootId];
+
+  /* cover가 root면 cover → entry 가상 엣지로 entry를 depth 1에 박음 */
+  if (coverScene && entryId && scenes[entryId] && entryId !== rootId && depths[entryId] == null) {
+    depths[entryId] = 1;
+    queue.push(entryId);
+  }
 
   while (queue.length > 0) {
     const currentId = queue.shift();
@@ -4316,6 +4333,9 @@ function openStructureMap() {
       </div>
       <div class="structure-map-legend">
         <span class="structure-map-legend-item">
+          <span class="structure-map-dot structure-map-dot--cover"></span>표지
+        </span>
+        <span class="structure-map-legend-item">
           <span class="structure-map-dot structure-map-dot--start"></span>시작
         </span>
         <span class="structure-map-legend-item">
@@ -4375,6 +4395,24 @@ function renderStructureMap() {
     });
   });
 
+  /* v39: cover → entrySceneId 가상 엣지 (보라 강조). 본문 흐름 엣지가
+     아니라 "표지에서 작품이 시작된다"는 의미적 연결. */
+  const coverScene = Object.values(scenes).find(s => s && (s.type === 'cover' || s.isCover));
+  const entryId    = ViewerState.project?.entrySceneId;
+  if (coverScene && entryId && scenes[entryId]) {
+    const src = positions[coverScene.id];
+    const dst = positions[entryId];
+    if (src && dst) {
+      const dx = dst.x - src.x;
+      const c1x = src.x + dx * 0.5;
+      const c1y = src.y;
+      const c2x = dst.x - dx * 0.5;
+      const c2y = dst.y;
+      edges.push(`<path d="M${src.x},${src.y} C${c1x},${c1y} ${c2x},${c2y} ${dst.x},${dst.y}"
+        class="structure-map-edge structure-map-edge--cover" />`);
+    }
+  }
+
   /* 노드 렌더 */
   const nodes = Object.values(scenes).map(scene => {
     const pos = positions[scene.id];
@@ -4409,6 +4447,10 @@ function renderStructureMap() {
         <marker id="structure-map-arrow" viewBox="0 0 10 10" refX="9" refY="5"
           markerWidth="6" markerHeight="6" orient="auto-start-reverse">
           <path d="M0,0 L10,5 L0,10 z" fill="rgba(88,166,255,0.55)"/>
+        </marker>
+        <marker id="structure-map-arrow-cover" viewBox="0 0 10 10" refX="9" refY="5"
+          markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="rgba(155,109,202,0.75)"/>
         </marker>
       </defs>
       <g class="structure-map-edges">${edges.join('')}</g>

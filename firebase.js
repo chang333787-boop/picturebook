@@ -821,3 +821,108 @@ function pushProjectMetaToFirebase(partial) {
     .then(() => { setSaveStatus('saved'); })
     .catch(err => { setSaveStatus('error'); throw err; });
 }
+
+/* ================================================================
+   v40: 작품 복사 — 4자리 코드 기반 양방향 공유
+   ─────────────────────────────────────────────────────────────
+   · 발급(교사 admin): issueCopyCode(classId, teamEncoded)
+     → 4자리 숫자 코드(1000~9999) + copyCodes/{code} 노드 박음
+     → 24시간 후 만료 (다회용)
+   · 소환(빈 슬롯 학생): redeemCopyCode(code, dstClassId, dstTeamEncoded)
+     → 검증(코드 유효·만료·src 존재·dst 빈슬롯) → multi-path update
+     → isPublic:false 강제 + copiedFrom 메타 박음
+   · 영상 storagePath는 그대로 공유 (Storage 객체 복사 안 함)
+   · 이미지 imageData는 base64 인라인이라 자동 복사
+   ================================================================ */
+
+const COPY_CODE_TTL_MS = 24 * 60 * 60 * 1000;
+
+/* 4자리 숫자 코드 발급. 충돌 시 재시도 5회. */
+async function issueCopyCode(classId, teamEncoded) {
+  if (!classId || !teamEncoded) throw new Error('classId/teamEncoded 누락');
+
+  /* 원본 존재 확인 — 빈 작품에 코드 박지 않게 */
+  const srcSnap = await db.ref(`classes/${classId}/teams/${teamEncoded}/scenes`).once('value');
+  if (!srcSnap.exists()) throw new Error('원본 작품에 장면이 없어요. 코드를 발급할 수 없어요.');
+
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const code = String(Math.floor(1000 + Math.random() * 9000));   // 1000~9999
+    const ref  = db.ref(`copyCodes/${code}`);
+    const snap = await ref.once('value');
+    /* 만료된 코드 자리는 덮어써도 안전 */
+    if (snap.exists()) {
+      const data = snap.val();
+      if (data && data.expiresAt && data.expiresAt > Date.now()) continue;
+    }
+    const now = Date.now();
+    await ref.set({
+      srcClassId:     classId,
+      srcTeamEncoded: teamEncoded,
+      createdAt:      now,
+      expiresAt:      now + COPY_CODE_TTL_MS,
+    });
+    return { code, expiresAt: now + COPY_CODE_TTL_MS };
+  }
+  throw new Error('코드 발급 실패 — 잠시 후 다시 시도해주세요.');
+}
+
+/* 코드로 작품 받기. dst 빈 슬롯 강제. */
+async function redeemCopyCode(code, dstClassId, dstTeamEncoded) {
+  if (!/^\d{4}$/.test(String(code || ''))) throw new Error('4자리 숫자 코드를 입력해주세요.');
+  if (!dstClassId || !dstTeamEncoded) throw new Error('받는 모둠 정보가 없어요.');
+
+  const codeRef  = db.ref(`copyCodes/${code}`);
+  const codeSnap = await codeRef.once('value');
+  if (!codeSnap.exists()) throw new Error('없는 코드예요. 다시 확인해주세요.');
+  const codeData = codeSnap.val();
+  if (!codeData.expiresAt || codeData.expiresAt < Date.now()) {
+    throw new Error('만료된 코드예요. 다시 발급 받아주세요.');
+  }
+  const { srcClassId, srcTeamEncoded } = codeData;
+  if (!srcClassId || !srcTeamEncoded) throw new Error('잘못된 코드 정보예요.');
+
+  if (srcClassId === dstClassId && srcTeamEncoded === dstTeamEncoded) {
+    throw new Error('같은 모둠으로는 복사할 수 없어요.');
+  }
+
+  /* dst 빈 슬롯 — scenes 노드 없거나 비어있어야 */
+  const dstBase = `classes/${dstClassId}/teams/${dstTeamEncoded}`;
+  const dstScenes = await db.ref(`${dstBase}/scenes`).once('value');
+  if (dstScenes.exists()) {
+    throw new Error('이미 작품이 있는 모둠이에요. 빈 모둠으로만 받을 수 있어요.');
+  }
+
+  /* 원본 통째 로드 */
+  const srcBase = `classes/${srcClassId}/teams/${srcTeamEncoded}`;
+  const [srcScenesSnap, srcMetaSnap] = await Promise.all([
+    db.ref(`${srcBase}/scenes`).once('value'),
+    db.ref(`${srcBase}/viewer-meta`).once('value'),
+  ]);
+  if (!srcScenesSnap.exists()) throw new Error('원본 작품이 없어졌어요.');
+
+  const srcScenes = srcScenesSnap.val();
+  const srcMeta   = srcMetaSnap.val() || {};
+
+  /* viewer-meta 가공 — isPublic:false 강제 + copiedFrom 메타 */
+  const dstMeta = Object.assign({}, srcMeta, {
+    isPublic: false,
+    copiedFrom: {
+      srcClassId,
+      srcTeamEncoded,
+      copyCode: String(code),
+      copiedAt: Date.now(),
+    },
+  });
+
+  /* multi-path atomic update — scenes/viewer-meta 통째 박음 */
+  const updates = {};
+  updates[`${dstBase}/scenes`]        = srcScenes;
+  updates[`${dstBase}/viewer-meta`]   = dstMeta;
+  await db.ref().update(updates);
+
+  /* v41: 자동 진입에 쓸 projectType도 반환 */
+  return {
+    ok: true, srcClassId, srcTeamEncoded,
+    projectType: dstMeta.projectType || null,
+  };
+}

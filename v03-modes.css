@@ -760,8 +760,13 @@ body[data-page-orientation="portrait"] .scene-screen--pb.pb--split .pb-frame {
 
 /* v48: 좁은 페이지(스마트폰 등)에선 선택지 세로 stack —
    가로 분할로 박스 작아져 라벨이 4줄로 깨지던 문제 해소.
-   pbstage container 기준 페이지 가로 < 500px 일 때 stack. */
+   pbstage container 기준 페이지 가로 < 500px 일 때 stack.
+   v49: 본문·선택지 사이 빈 공간 줄임 — 본문 상단 정렬(flex-start).
+   사용자 의도: "본문 짧아도 스크롤로 내릴 수 있으니 선택지 위로 올려도 OK". */
 @container pbstage (max-width: 500px) {
+  .scene-screen--pb.pb--split .pb-text {
+    justify-content: flex-start;
+  }
   .scene-screen--pb.pb--split .pb-text__actions {
     flex-direction: column;
     flex-wrap: nowrap;

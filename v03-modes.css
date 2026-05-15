@@ -762,19 +762,27 @@ body[data-page-orientation="portrait"] .scene-screen--pb.pb--split .pb-frame {
    가로 분할로 박스 작아져 라벨이 4줄로 깨지던 문제 해소.
    pbstage container 기준 페이지 가로 < 500px 일 때 stack.
    v49: 본문·선택지 사이 빈 공간 줄임 — 본문 상단 정렬(flex-start).
+   v51: 라벨 잘림 fix — overflow hidden 해제 + actions 자동 크기.
    사용자 의도: "본문 짧아도 스크롤로 내릴 수 있으니 선택지 위로 올려도 OK". */
 @container pbstage (max-width: 500px) {
   .scene-screen--pb.pb--split .pb-text {
     justify-content: flex-start;
+    overflow: visible;   /* 본문/선택지 잘림 차단 — 페이지 자체에서 스크롤 */
   }
   .scene-screen--pb.pb--split .pb-text__actions {
+    flex: 0 0 auto;       /* 자식 크기에 맞춰 늘어남 (portrait 35% 강제 해제) */
     flex-direction: column;
     flex-wrap: nowrap;
+    overflow: visible;    /* 라벨 길어도 잘림 X */
   }
   .scene-screen--pb.pb--split .pb-text__actions .choice-v03 {
     flex: 0 0 auto;
     width: 100%;
     max-width: 100%;
+    white-space: normal;        /* nowrap 해제 — wrap 허용 */
+    text-overflow: clip;        /* ellipsis 무효 */
+    overflow: visible;
+    height: auto;
   }
 }
 

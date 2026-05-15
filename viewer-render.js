@@ -101,7 +101,7 @@ function renderCover() {
      - 그림 있음: 메인 장면 구조 (위 그림 / 아래 텍스트)
      - 그림 없음: 책 표지 분위기 (페이지 전체에 텍스트만, 위·중간·아래 3분할) */
   if (hasImage) {
-    stage.innerHTML = `
+    _stageReplaceScene(stage, `
       <div class="scene-screen scene-screen--pb pb--split cover-as-pb"
            data-presentation-mode="picturebook"
            data-presentation-submode="split">
@@ -119,7 +119,7 @@ function renderCover() {
             </div>
           </div>
         </div>
-      </div>`;
+      </div>`);
     if (typeof _setupPbPhotoWrappers === 'function') _setupPbPhotoWrappers(stage);
   } else {
     /* v37: 그림 없는 표지 — 책 표지 인쇄 분위기.
@@ -127,7 +127,7 @@ function renderCover() {
     const classId = p.classId || '';
     const topFr = titleVPos / 50;                  // 20→0.4fr, 50→1fr, 80→1.6fr
     const bottomFr = (100 - titleVPos) / 50;       // 20→1.6fr, 50→1fr, 80→0.4fr
-    stage.innerHTML = `
+    _stageReplaceScene(stage, `
       <div class="scene-screen scene-screen--pb pb--split cover-as-pb cover-as-pb--text"
            data-presentation-mode="picturebook"
            data-presentation-submode="split"
@@ -151,7 +151,7 @@ function renderCover() {
             </div>
           </div>
         </div>
-      </div>`;
+      </div>`);
   }
 
   stage.querySelector('.js-cover-start')
@@ -303,7 +303,7 @@ function _renderSceneText(stage, scene) {
 
   /* v37: 텍스트 모드도 페이지 카드 portrait 비율 고정 — 디바이스 무관 동일 보임.
      사용자: "지금 맥북·태블릿에서 다 다르게 나옴. 비율 아예 고정해야". */
-  stage.innerHTML = `
+  _stageReplaceScene(stage, `
     <div class="scene-screen scene-screen--text scene-screen--text-paged"
       data-display="${scene.displayType}"
       data-scene-num="${escHtml(String(scene.id))}"
@@ -318,7 +318,7 @@ function _renderSceneText(stage, scene) {
           ${cardHtml}
         </div>
       </div>
-    </div>`;
+    </div>`);
 }
 
 /* 텍스트 카드 안 내용 — 제목 → 본문 → 버튼 */
@@ -472,7 +472,7 @@ function _renderScenePicturebook(stage, scene, submode) {
 
     /* W4 디버그 정보 — 안정 확인 완료, 제거됨. */
 
-    stage.innerHTML = `
+    _stageReplaceScene(stage, `
       <div class="scene-screen scene-screen--pb ${layoutClass}"
         data-display="${scene.displayType}"
         data-scene-num="${escHtml(String(scene.id))}"
@@ -496,13 +496,13 @@ function _renderScenePicturebook(stage, scene, submode) {
             </div>
           </div>
         </div>
-      </div>`;
+      </div>`);
     _setupPbPhotoWrappers(stage);
     return;
   }
 
   /* 분할형 (기본) — 위 그림 60 / 아래 텍스트+선택지 40 */
-  stage.innerHTML = `
+  _stageReplaceScene(stage, `
     <div class="scene-screen scene-screen--pb ${layoutClass}"
       data-display="${scene.displayType}"
       data-scene-num="${escHtml(String(scene.id))}"
@@ -522,7 +522,7 @@ function _renderScenePicturebook(stage, scene, submode) {
           </div>
         </div>
       </div>
-    </div>`;
+    </div>`);
 
   /* W9 (v10): img 자연 비율 + crop 반영해 photo wrapper aspect-ratio 박음.
      handle/outline이 사진 둘레에 정확. */
@@ -647,7 +647,7 @@ function _renderSceneMovie(stage, scene) {
     ? existingVideo
     : null;
 
-  stage.innerHTML = `
+  _stageReplaceScene(stage, `
     <div class="scene-screen scene-screen--movie"
       data-display="${scene.displayType}"
       data-scene-num="${escHtml(String(scene.id))}"
@@ -661,7 +661,7 @@ function _renderSceneMovie(stage, scene) {
           ${btns}
         </div>
       </div>
-    </div>`;
+    </div>`);
 
   /* 보존한 video 노드를 새 .movie-media 안에 옮겨붙임 (재로드 X) */
   if (reuseVideo) {
@@ -719,7 +719,7 @@ function _renderSceneExperience(stage, scene) {
   /* 각 connectObject DOM 생성 */
   const objectsHtml = connectObjects.map(co => _renderConnectObjectHtml(co, isEdit)).join('');
 
-  stage.innerHTML = `
+  _stageReplaceScene(stage, `
     <div class="scene-screen scene-screen--experience"
       data-display="${scene.displayType}"
       data-scene-num="${escHtml(String(scene.id))}"
@@ -733,7 +733,7 @@ function _renderSceneExperience(stage, scene) {
       <div class="exp-nav exp-nav--top-right">${navHomeBtn}</div>
       ${titleOverlayHtml}
       ${bodyPanelHtml}
-    </div>`;
+    </div>`);
 }
 
 /* connectObject 단일 DOM — 타입별 시각 + 다듬기 모드 핸들 */
@@ -824,7 +824,7 @@ function _renderSceneLegacy(stage, scene, presentationMode, presentationSubmode)
       (md.videoUrl ? ' data-movie-has-video="true"' : '');
   }
 
-  stage.innerHTML = `
+  _stageReplaceScene(stage, `
     <div class="scene-screen"
       data-display="${scene.displayType}"
       data-text-len="${scene.textLength}"
@@ -837,7 +837,7 @@ function _renderSceneLegacy(stage, scene, presentationMode, presentationSubmode)
       </div>
       ${bottomHtml}
       ${audioHtml}
-    </div>`;
+    </div>`);
 }
 
 /* ================================================================
@@ -1188,7 +1188,7 @@ function _renderStoryEnding(stage, scene) {
 
   /* v49: 엔딩 그림 없으면 has-no-image 클래스 → illust 영역 줄이고 text 비중 ↑ */
   const noImageClass = endingImage ? '' : ' ending-as-pb--no-image';
-  stage.innerHTML = `
+  _stageReplaceScene(stage, `
     <div class="scene-screen scene-screen--pb pb--split ending-as-pb${noImageClass}"
          data-presentation-mode="picturebook"
          data-presentation-submode="split"
@@ -1199,7 +1199,7 @@ function _renderStoryEnding(stage, scene) {
           ${endingTextHtml}
         </div>
       </div>
-    </div>`;
+    </div>`);
 
   if (typeof _setupPbPhotoWrappers === 'function') {
     _setupPbPhotoWrappers(stage);
@@ -1235,7 +1235,7 @@ function _renderExploreCompletion(stage, scene) {
         }).join('')}
       </div>` : '';
 
-  stage.innerHTML = `
+  _stageReplaceScene(stage, `
     <div class="terminal-screen terminal-screen--explore">
       ${bgHtml}
       <div class="terminal-content terminal-content--explore">
@@ -1265,7 +1265,7 @@ function _renderExploreCompletion(stage, scene) {
           <button class="terminal-btn terminal-btn--ghost js-restart">↺ 처음부터</button>
         </div>
       </div>
-    </div>`;
+    </div>`);
 
   stage.querySelector('.js-hub')    ?.addEventListener('click', returnToHub);
   stage.querySelector('.js-restart')?.addEventListener('click', restartStory);
@@ -1464,14 +1464,14 @@ function updateAudioButton(playing) {
 function renderError(msg) {
   const stage = document.getElementById('viewer-frame');
   if (!stage) return;
-  stage.innerHTML = `
+  _stageReplaceScene(stage, `
     <div class="error-screen">
       <div class="error-content">
         <div class="error-icon">⚠️</div>
         <p class="error-msg">${escHtml(msg)}</p>
         <button class="terminal-btn terminal-btn--ghost js-err-back">돌아가기</button>
       </div>
-    </div>`;
+    </div>`);
   stage.querySelector('.js-err-back')?.addEventListener('click', showEntryScreen);
 }
 
@@ -1487,4 +1487,44 @@ function escHtml(str) {
 
 function modeBadgeLabel(mode) {
   return { story: '📖 이야기', explore: '🗺 탐색', hybrid: '🔀 혼합' }[mode] || '';
+}
+
+/* v66: 장면 전환 — 옛 .scene-screen에 .is-leaving 클래스 박고 새 콘텐츠 동시 박기.
+   stage.innerHTML 통째 교체 대신 helper 사용 → 두 layer overlap으로 진짜 페이지 넘김 효과. */
+function _stageReplaceScene(stage, newHtml) {
+  if (!stage) return;
+  const oldScene = stage.querySelector('.scene-screen:not(.is-leaving)');
+
+  const tmp = document.createElement('div');
+  tmp.innerHTML = newHtml;
+  const newScene = tmp.querySelector('.scene-screen');
+
+  if (!newScene) {
+    /* fallback: 옛 흐름 (통째 교체) */
+    stage.innerHTML = newHtml;
+    return;
+  }
+
+  /* 옛 scene leaving 시작 (CSS absolute + is-leaving keyframe) */
+  if (oldScene) {
+    oldScene.classList.add('is-leaving');
+  }
+
+  /* 새 scene을 stage의 첫 자식 위치에 박기 (옛 scene이 뒤에 absolute로 떠 있음).
+     이러면 stage.querySelector('.scene-screen:not(.is-leaving)')가 새 scene 매치. */
+  stage.insertBefore(newScene, stage.firstChild);
+
+  /* newHtml에 .scene-screen 외 다른 element 있으면 같이 박기 (보통 없음) */
+  while (tmp.firstChild) {
+    stage.appendChild(tmp.firstChild);
+  }
+
+  /* 옛 scene leaving 애니메이션 시간 후 제거 — viewer-frame data-transition-speed 기준 */
+  if (oldScene && oldScene.parentNode === stage) {
+    const speedAttr = stage.dataset.transitionSpeed || 'normal';
+    const duration = { fast: 800, normal: 1400, slow: 2200 }[speedAttr] || 1400;
+    setTimeout(() => {
+      if (oldScene.parentNode === stage) oldScene.remove();
+    }, duration + 50);
+  }
 }

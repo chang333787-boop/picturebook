@@ -454,13 +454,91 @@ body.edit-mode-active #stage-wrap {
 @keyframes sceneFlip3d {
   from {
     opacity: 0;
-    transform: perspective(900px) rotateY(55deg);
+    transform: perspective(1200px) rotateY(80deg);
     transform-origin: left center;
   }
   to {
     opacity: 1;
-    transform: perspective(900px) rotateY(0);
+    transform: perspective(1200px) rotateY(0);
     transform-origin: left center;
+  }
+}
+
+/* v66: 옛 페이지 leaving — 두 layer overlap 효과.
+   .scene-screen.is-leaving 클래스 박힌 옛 페이지가 absolute로 떠 있고
+   새 페이지가 normal flow로 등장. 효과별 다른 keyframe 적용. */
+.scene-screen.is-leaving {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  animation-fill-mode: forwards !important;
+}
+
+/* 효과별 leaving keyframes 매핑 — 부모 #viewer-frame data-transition 기준 */
+#viewer-frame[data-transition="fade"]     .scene-screen.is-leaving { animation-name: sceneFadeOut !important; }
+#viewer-frame[data-transition="book"]     .scene-screen.is-leaving { animation-name: sceneBookFlipOut !important; }
+#viewer-frame[data-transition="scale"]    .scene-screen.is-leaving { animation-name: sceneScaleOut !important; }
+#viewer-frame[data-transition="slide-up"] .scene-screen.is-leaving { animation-name: sceneSlideUpOut !important; }
+#viewer-frame[data-transition="flip3d"]   .scene-screen.is-leaving { animation-name: sceneFlip3dOut !important; }
+
+/* 1) fade-out — 부드럽게 사라짐 */
+@keyframes sceneFadeOut {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(-12px); }
+}
+
+/* 2) book-out — 책 페이지 우→좌 넘김 (옛 페이지가 왼쪽으로 슬라이드 아웃) */
+@keyframes sceneBookFlipOut {
+  from {
+    opacity: 1;
+    transform: translateX(0) rotateY(0);
+    transform-origin: left center;
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-80%) rotateY(15deg);
+    transform-origin: left center;
+  }
+}
+
+/* 3) scale-out — 줌 아웃 */
+@keyframes sceneScaleOut {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(1.15); }
+}
+
+/* 4) slide-up-out — 위로 사라짐 */
+@keyframes sceneSlideUpOut {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(-50%); }
+}
+
+/* 5) flip3d-out — 옛 페이지 왼쪽으로 3D 회전 + 슬라이드 (진짜 책 페이지 넘김) */
+@keyframes sceneFlip3dOut {
+  from {
+    opacity: 1;
+    transform: perspective(1200px) rotateY(0) translateX(0);
+    transform-origin: left center;
+  }
+  to {
+    opacity: 0;
+    transform: perspective(1200px) rotateY(-80deg) translateX(-30%);
+    transform-origin: left center;
+  }
+}
+
+/* book-in 키프레임 강화 — 옛 페이지 왼쪽 넘김과 동시 우측에서 진입 */
+@keyframes sceneBookFlip {
+  from {
+    opacity: 0;
+    transform: translateX(80%) rotateY(-15deg);
+    transform-origin: right center;
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) rotateY(0);
+    transform-origin: right center;
   }
 }
 /* W7 깜빡임 차단: 다듬기 모드에선 페이드인 끔.

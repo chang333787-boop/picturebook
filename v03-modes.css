@@ -773,6 +773,22 @@ body[data-page-orientation="portrait"] .scene-screen--pb.pb--split .pb-frame {
   }
 }
 
+/* v49: 엔딩 그림 없을 때 — illust placeholder 영역 작게, text 비중 ↑.
+   사용자 보고: "엔딩 그림 없으면 빈 영역이 너무 큼". */
+.ending-as-pb--no-image .pb-illust--empty {
+  flex: 0 0 20%;
+  min-height: 80px;
+  max-height: 180px;
+}
+.ending-as-pb--no-image .pb-illust--empty .pb-empty-mark {
+  font-size: clamp(36px, 8cqi, 64px);
+  opacity: 0.35;
+}
+.ending-as-pb--no-image .pb-text--ending {
+  flex: 1 1 auto;
+  /* 엔딩 본문·스탬프·결말 메시지가 넉넉히 차지 */
+}
+
 /* v36: 세로분할형 — 본문 비중 ↑. 행동 영역 35% (가로분할형 60%와 분리).
    사용자 보고: "뭉툭하고 본문이 안 보임" — 가로분할형 비율이 세로에 그대로 적용된 문제.
    align-content: center = imageCenter처럼 자식이 자연 높이로 박스 가운데 정렬 (stretch X).

@@ -1182,8 +1182,10 @@ function _renderStoryEnding(stage, scene) {
       </div>
     </div>`;
 
+  /* v49: 엔딩 그림 없으면 has-no-image 클래스 → illust 영역 줄이고 text 비중 ↑ */
+  const noImageClass = endingImage ? '' : ' ending-as-pb--no-image';
   stage.innerHTML = `
-    <div class="scene-screen scene-screen--pb pb--split ending-as-pb"
+    <div class="scene-screen scene-screen--pb pb--split ending-as-pb${noImageClass}"
          data-presentation-mode="picturebook"
          data-presentation-submode="split"
          data-ending="true">

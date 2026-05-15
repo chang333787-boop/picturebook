@@ -300,6 +300,23 @@ html, body {
   flex: 1;
   display: flex;
   overflow: hidden;
+  position: relative;   /* v46: 다듬기 모드 edit-panel absolute 기준 */
+}
+
+/* v46: 데스크탑(≥1025px) 다듬기 모드에서 edit-panel을 stage 옆이 아닌
+   우측 absolute overlay로. stage-wrap이 player-body 전체를 차지 →
+   페이지 카드 크기 = 감상 모드와 동일 → 같은 디바이스에서 줄바꿈 일치.
+   (페이지 카드 우측 일부가 인스펙터 뒤로 살짝 가려질 수 있음 — viewport가
+   매우 좁을 때만. 그 외엔 portrait 비율 페이지가 인스펙터 영역 침범 안 함.) */
+@media (min-width: 1025px) {
+  body.edit-mode-active #edit-panel {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 50;
+    box-shadow: -8px 0 24px rgba(80,50,20,0.18);
+  }
 }
 
 /* ── stage-wrap: letterbox 영역 ──

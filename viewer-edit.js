@@ -726,6 +726,7 @@ function _currentSceneIndex() {
    '시작'은 더 이상 장면 '종류'가 아님. 기존 isStart 데이터는 '일반'으로 표시.
    역할(첫 감상 시작 / 다시 시작점)은 _sceneRoles가 별도 계산. */
 function _sceneTypeLabel(scene) {
+  if (scene.isCover || scene.type === 'cover') return '표지';
   if (scene.isEnding) return '엔딩';
   return '일반';
 }
@@ -4382,6 +4383,8 @@ function renderStructureMap() {
     let typeClass = 'structure-map-node--normal';
     if (scene.isStart)  typeClass = 'structure-map-node--start';
     if (scene.isEnding) typeClass = 'structure-map-node--ending';
+    /* v37: 표지 scene — 보라 톤 노드 */
+    if (scene.isCover || scene.type === 'cover') typeClass = 'structure-map-node--cover';
     const isCurrent = scene.id === currentId;
 
     const title = scene.title ? escHtml(scene.title) : `장면 ${scene.id}`;

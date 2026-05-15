@@ -135,11 +135,14 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
     }
   }
 
-  /* v37: 텍스트 모드 기본 = 세로 (스마트폰 공유·export 최적화).
-     사용자 결정: "텍스트는 추후 export·공유 시 스마트폰 최적화". */
-  if (!ViewerState.project.pageOrientation) {
-    const ptype = ViewerState.project.projectType;
-    ViewerState.project.pageOrientation = (ptype === 'text') ? 'portrait' : 'landscape';
+  /* v37: 텍스트 모드는 무조건 세로 (스마트폰 비율, 스마트폰·태블릿·PC 모두 동일).
+     사용자 결정: "텍스트는 스마트폰 화면 최적화 — PC에서도 같은 비율". */
+  const ptype = ViewerState.project.projectType;
+  if (ptype === 'text') {
+    /* 텍스트는 강제 portrait — 이전 박은 데이터 무시 */
+    ViewerState.project.pageOrientation = 'portrait';
+  } else if (!ViewerState.project.pageOrientation) {
+    ViewerState.project.pageOrientation = 'landscape';
   }
 
   /* v37 ★★ 진짜 root fix — body data attribute 박음.

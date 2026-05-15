@@ -122,19 +122,24 @@ function renderCover() {
       </div>`;
     if (typeof _setupPbPhotoWrappers === 'function') _setupPbPhotoWrappers(stage);
   } else {
-    /* 그림 없는 표지 — 책 표지 인쇄 분위기. 빈 그림 영역 폐기.
-       v37: cover scene 데이터(subtitle, coverTheme, titleVerticalPosition) 반영. */
+    /* v37: 그림 없는 표지 — 책 표지 인쇄 분위기.
+       제목 높낮이: titleVPos 20~80 → top/bottom grid 비율 동적. */
+    const classId = p.classId || '';
+    const topFr = titleVPos / 50;                  // 20→0.4fr, 50→1fr, 80→1.6fr
+    const bottomFr = (100 - titleVPos) / 50;       // 20→1.6fr, 50→1fr, 80→0.4fr
     stage.innerHTML = `
       <div class="scene-screen scene-screen--pb pb--split cover-as-pb cover-as-pb--text"
            data-presentation-mode="picturebook"
            data-presentation-submode="split"
            data-cover-mode="text"
-           data-cover-theme="${escHtml(coverTheme)}"
-           style="--cover-title-y: ${titleVPos}%;">
+           data-cover-theme="${escHtml(coverTheme)}">
         <div class="pb-page">
-          <div class="cover-book">
+          <div class="cover-book" style="grid-template-rows: ${topFr}fr 2fr ${bottomFr}fr;">
             <div class="cover-book__top">
-              <div class="cover-team-label">${escHtml(teamName)}</div>
+              <div class="cover-team-label">
+                ${classId ? `<span class="cover-class-code">${escHtml(classId)}</span><span class="cover-sep">·</span>` : ''}
+                <span class="cover-team-name">${escHtml(teamName)}</span>
+              </div>
             </div>
             <div class="cover-book__center">
               <h1 class="cover-title-pb">${escHtml(title)}</h1>

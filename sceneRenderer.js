@@ -1255,19 +1255,25 @@ function renderSideList() {
     const isEntry  = pm.entrySceneId  != null && String(pm.entrySceneId)  === String(s.num);
     const isReplay = pm.replaySceneId != null && String(pm.replaySceneId) === String(s.num);
     const isEnd    = s.type === 'ending';
+    const isCover  = s.type === 'cover';   // v37: 표지 scene
 
     /* 표시 제목: 본문 첫 줄 또는 '(제목 없음)' */
     let titleText = '';
-    const titleSrc = s.title || s.body || '';
+    /* v37: 표지는 title(작품명) 우선 — body 안 보고 */
+    const titleSrc = isCover ? (s.title || '') : (s.title || s.body || '');
     if (titleSrc) {
       titleText = String(titleSrc).split('\n')[0].trim();
       if (titleText.length > 24) titleText = titleText.substring(0, 23) + '…';
     }
-    if (!titleText) titleText = '(제목 없음)';
+    if (!titleText) titleText = isCover ? '(작품 제목 없음)' : '(제목 없음)';
 
-    const dotClass = isEntry ? 'ss-dot--entry' : (isEnd ? 'ss-dot--ending' : '');
+    /* v37: 표지 dot 보라 톤 */
+    const dotClass = isCover ? 'ss-dot--cover'
+                   : isEntry ? 'ss-dot--entry'
+                   : (isEnd ? 'ss-dot--ending' : '');
     let badges = '';
-    if (isEntry)  badges += '<span class="ss-badge ss-badge--entry">시작</span>';
+    if (isCover) badges += '<span class="ss-badge ss-badge--cover">표지</span>';
+    if (isEntry && !isCover)  badges += '<span class="ss-badge ss-badge--entry">시작</span>';
     if (isReplay) badges += '<span class="ss-badge ss-badge--entry">다시</span>';
     if (isEnd && !isEntry && !isReplay) badges += '<span class="ss-badge ss-badge--ending">엔딩</span>';
 

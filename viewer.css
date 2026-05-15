@@ -549,12 +549,24 @@ body[data-page-orientation="portrait"] #stage-wrap.letterbox-v #viewer-frame {
   font-family: var(--font-ui, 'Jua', sans-serif);
   font-size: clamp(11px, 1.3vw, 14px);
   color: var(--text-muted, #6b5638);
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  opacity: 0.7;
+  letter-spacing: 0.15em;
+  opacity: 0.75;
   padding-top: clamp(4px, 1vw, 12px);
   border-bottom: 1.5px solid rgba(80,50,20,0.15);
   padding-bottom: clamp(6px, 1.2vw, 10px);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.cover-class-code {
+  font-weight: 700;
+  color: var(--text, #2b1f10);
+}
+.cover-sep {
+  opacity: 0.4;
+}
+.cover-team-name {
+  font-weight: 500;
 }
 .cover-book__center {
   display: flex;
@@ -2927,6 +2939,11 @@ body[data-page-orientation="portrait"] .terminal-screen--story .ending-page {
 .structure-map-node--normal {
   fill: var(--surface2);
   stroke: rgba(255,255,255,0.22);
+}
+/* v37: 표지 노드 — 보라 톤 */
+.structure-map-node--cover {
+  fill: rgba(155, 109, 202, 0.22);
+  stroke: rgba(155, 109, 202, 0.7);
 }
 .structure-map-node.is-current {
   fill: rgba(88, 166, 255, 0.35);

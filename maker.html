@@ -686,6 +686,8 @@
     }
     .ss-dot--entry  { background: var(--start); box-shadow: 0 0 0 3px rgba(90,138,74,0.24); }
     .ss-dot--ending { background: var(--ending); }
+    /* v37: 표지 scene dot — 보라 톤 */
+    .ss-dot--cover  { background: #9b6dca; box-shadow: 0 0 0 3px rgba(155,109,202,0.20); }
     .ss-num {
       font-family: monospace; font-size: 11px; color: #9a8868;
       flex-shrink: 0; min-width: 18px;
@@ -700,6 +702,8 @@
     }
     .ss-badge--entry  { background: rgba(90,138,74,0.14); color: var(--start); border: 1px solid rgba(90,138,74,0.30); }
     .ss-badge--ending { background: rgba(200,80,60,0.14); color: var(--ending); border: 1px solid rgba(200,80,60,0.30); }
+    /* v37: 표지 badge — 보라 톤 */
+    .ss-badge--cover  { background: rgba(155,109,202,0.14); color: #6a3eb0; border: 1px solid rgba(155,109,202,0.30); }
 
     .ss-footer {
       padding: 10px 14px;
@@ -1817,12 +1821,12 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
-<!-- v37d 캐시 — cover scene 시스템 도입 -->
+<!-- v37f 캐시 — 표지 사이드/구조 색 -->
 <script src="state.js?v=37"></script>
 <script src="locks.js?v=37"></script>
 <script src="firebase.js?v=37"></script>
 <script src="canvasInteraction.js?v=37"></script>
-<script src="sceneRenderer.js?v=37d"></script>
+<script src="sceneRenderer.js?v=37f"></script>
 <script src="storyAnalyzer.js?v=37"></script>
 <script src="mediaManager.js?v=37"></script>
 <script src="adminConsole.js?v=37"></script>

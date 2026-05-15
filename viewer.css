@@ -525,6 +525,67 @@ body[data-page-orientation="portrait"] #stage-wrap.letterbox-v #viewer-frame {
    scene-screen--pb 클래스 재사용해 페이지 비율·테마·grid row 다 자동.
    여기선 텍스트 영역 안 콘텐츠 톤만 조정. */
 
+/* v37: 그림 없는 표지 — 책 표지 인쇄 분위기. 빈 그림 영역 폐기.
+   페이지 전체를 3분할(위 부제 / 가운데 큰 제목 / 아래 시작 버튼)로 채움. */
+.cover-as-pb--text .pb-page {
+  display: flex;
+  flex-direction: column;
+}
+.cover-book {
+  flex: 1;
+  display: grid;
+  grid-template-rows: 1fr 2fr 1fr;
+  padding: clamp(24px, 4vw, 56px);
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+}
+.cover-book__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+.cover-book__top .cover-team-label {
+  font-family: var(--font-ui, 'Jua', sans-serif);
+  font-size: clamp(11px, 1.3vw, 14px);
+  color: var(--text-muted, #6b5638);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  opacity: 0.7;
+  padding-top: clamp(4px, 1vw, 12px);
+  border-bottom: 1.5px solid rgba(80,50,20,0.15);
+  padding-bottom: clamp(6px, 1.2vw, 10px);
+}
+.cover-book__center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(12px, 2vw, 20px);
+  text-align: center;
+}
+.cover-book__center .cover-title-pb {
+  font-family: var(--font-ui, 'Jua', sans-serif);
+  font-size: clamp(28px, 5.5vw, 56px);
+  color: var(--text, #2b1f10);
+  font-weight: 700;
+  line-height: 1.2;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+.cover-book__deco {
+  color: rgba(80,50,20,0.4);
+  font-size: clamp(14px, 1.8vw, 18px);
+}
+.cover-book__bottom {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: clamp(4px, 1vw, 12px);
+  border-top: 1.5px solid rgba(80,50,20,0.15);
+  padding-top: clamp(12px, 2vw, 20px);
+}
+
 /* 표지 텍스트 영역 — 가운데 정렬 + 작품 정보 */
 .pb-text--cover {
   display: flex;
@@ -565,12 +626,13 @@ body[data-page-orientation="portrait"] #stage-wrap.letterbox-v #viewer-frame {
   letter-spacing: 0.05em;
 }
 .cover-start-btn {
-  padding: clamp(10px, 1.6vw, 14px) clamp(24px, 3.5vw, 36px);
+  /* v37 조정: 더 적당한 크기 */
+  padding: clamp(8px, 1.2vw, 11px) clamp(20px, 2.8vw, 30px);
   border: none;
   background: #c66f4a;
   color: #fff;
   font-family: var(--font-ui, 'Jua', sans-serif);
-  font-size: clamp(14px, 1.8vw, 17px);
+  font-size: clamp(13px, 1.5vw, 15px);
   border-radius: 50px;
   cursor: pointer;
   box-shadow:

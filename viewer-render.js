@@ -86,41 +86,52 @@ function renderCover() {
   const imageData = p.coverImageData || null;
   const hasImage  = !!imageData;
 
-  /* v37: 메인 장면(picturebook split)과 동일 구조 — 위 그림 / 아래 텍스트.
-     사용자 결정: "시작·엔딩이 메인 장면과 따로 놀면 안 됨". 페이지 비율·테마 자동 따름.
-     orientation: project.pageOrientation (가로/세로). submode: split 고정 (표지는 split이 자연). */
-  const illustHtml = hasImage
-    ? `<div class="pb-illust" data-pb-illust="1">
-         <div class="pb-illust__photo" data-pb-photo="1">
-           <img class="pb-illust__inner" src="${imageData}" draggable="false" alt="">
-         </div>
-       </div>`
-    : `<div class="pb-illust pb-illust--empty">
-         <div class="pb-empty-mark">📖</div>
-       </div>`;
-
-  stage.innerHTML = `
-    <div class="scene-screen scene-screen--pb pb--split cover-as-pb"
-         data-presentation-mode="picturebook"
-         data-presentation-submode="split">
-      <div class="pb-page">
-        <div class="pb-frame">
-          ${illustHtml}
-          <div class="pb-text pb-text--cover">
-            <div class="cover-team-label">${escHtml(teamName)}</div>
-            <h1 class="cover-title-pb">${escHtml(title)}</h1>
-            <div class="cover-mode-badge">📖 ${modeBadgeLabel(mode)}</div>
-            <div class="pb-text__actions" data-count="1">
+  /* v37 (재): 표지 두 모드
+     - 그림 있음: 메인 장면 구조 (위 그림 / 아래 텍스트)
+     - 그림 없음: 책 표지 분위기 (페이지 전체에 텍스트만, 위·중간·아래 3분할) */
+  if (hasImage) {
+    stage.innerHTML = `
+      <div class="scene-screen scene-screen--pb pb--split cover-as-pb"
+           data-presentation-mode="picturebook"
+           data-presentation-submode="split">
+        <div class="pb-page">
+          <div class="pb-frame">
+            <div class="pb-illust" data-pb-illust="1">
+              <div class="pb-illust__photo" data-pb-photo="1">
+                <img class="pb-illust__inner" src="${imageData}" draggable="false" alt="">
+              </div>
+            </div>
+            <div class="pb-text pb-text--cover">
+              <div class="cover-team-label">${escHtml(teamName)}</div>
+              <h1 class="cover-title-pb">${escHtml(title)}</h1>
               <button class="cover-start-btn js-cover-start">▶ 시작하기</button>
             </div>
           </div>
         </div>
-      </div>
-    </div>`;
-
-  /* 사진 wrapper 사이즈 — 메인 장면과 동일 자동 fit */
-  if (typeof _setupPbPhotoWrappers === 'function') {
-    _setupPbPhotoWrappers(stage);
+      </div>`;
+    if (typeof _setupPbPhotoWrappers === 'function') _setupPbPhotoWrappers(stage);
+  } else {
+    /* 그림 없는 표지 — 책 표지 인쇄 분위기. 빈 그림 영역 폐기. */
+    stage.innerHTML = `
+      <div class="scene-screen scene-screen--pb pb--split cover-as-pb cover-as-pb--text"
+           data-presentation-mode="picturebook"
+           data-presentation-submode="split"
+           data-cover-mode="text">
+        <div class="pb-page">
+          <div class="cover-book">
+            <div class="cover-book__top">
+              <div class="cover-team-label">${escHtml(teamName)}</div>
+            </div>
+            <div class="cover-book__center">
+              <h1 class="cover-title-pb">${escHtml(title)}</h1>
+              <div class="cover-book__deco">✦</div>
+            </div>
+            <div class="cover-book__bottom">
+              <button class="cover-start-btn js-cover-start">▶ 시작하기</button>
+            </div>
+          </div>
+        </div>
+      </div>`;
   }
 
   stage.querySelector('.js-cover-start')

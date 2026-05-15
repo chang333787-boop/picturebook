@@ -135,6 +135,13 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
     }
   }
 
+  /* v37: 텍스트 모드 기본 = 세로 (스마트폰 공유·export 최적화).
+     사용자 결정: "텍스트는 추후 export·공유 시 스마트폰 최적화". */
+  if (!ViewerState.project.pageOrientation) {
+    const ptype = ViewerState.project.projectType;
+    ViewerState.project.pageOrientation = (ptype === 'text') ? 'portrait' : 'landscape';
+  }
+
   /* v37 ★★ 진짜 root fix — body data attribute 박음.
      CSS 컨테이너 쿼리·페이지 비율·테마 룰 모두 body[data-page-orientation],
      body[data-pb-theme]에 의존. ViewerState에만 박고 body data 안 박으면

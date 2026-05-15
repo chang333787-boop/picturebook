@@ -298,20 +298,9 @@ function _buildCardContentByType(s, ptype) {
 /* v37: 표지 카드 — 제목 + 한 줄 소개 + 표지 테마. 그림·선택지 없음.
    다른 장면 카드와 시각 구분: 보라 톤 + 책 표지 아이콘 + 다른 라벨 */
 function _buildCoverCardContent(s) {
-  const COVER_THEMES = [
-    { id: 'default', label: '기본', bg: '#fffaee' },
-    { id: 'cream',   label: '크림', bg: '#f4ecd8' },
-    { id: 'sage',    label: '연두', bg: '#e8efde' },
-    { id: 'sky',     label: '하늘', bg: '#dde8f2' },
-    { id: 'coral',   label: '코랄', bg: '#f4dccf' },
-  ];
-  const curTheme = (s.coverTheme || 'default');
-  const themePills = COVER_THEMES.map(t => `
-    <button type="button" class="cover-theme-pill js-cover-theme ${curTheme === t.id ? 'active' : ''}"
-      data-num="${s.num}" data-val="${t.id}"
-      style="background:${t.bg};"
-      title="${t.label}"></button>`).join('');
-
+  /* v67: 브랜치(maker) 표지 카드에서 색 선택 UI 폐기.
+     사용자 보고: "브랜치에서 색 바꿔도 잘 안 바뀜". 다듬기에서만 박을 수 있게 변경.
+     제목 + 한 줄 소개만 박기. 색은 다듬기 표지 인스펙터(10개)에서. */
   return `
     <div class="card-body card-body--cover">
       <div class="cover-card-label">📖 책 표지</div>
@@ -327,10 +316,7 @@ function _buildCoverCardContent(s) {
         value="${_escapeHtml(s.subtitle || '')}"
         data-num="${s.num}"
         maxlength="60"/>
-      <div class="cover-theme-row">
-        <span class="cover-theme-row__label">표지 색</span>
-        <div class="cover-theme-pills">${themePills}</div>
-      </div>
+      <div class="cover-card-hint">색은 감상 화면 다듬기에서 박아요.</div>
     </div>`;
 }
 

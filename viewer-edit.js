@@ -2196,12 +2196,18 @@ async function _saveProjectMetaField(field, value) {
 /* v37: 표지 전용 인스펙터 — 제목 + 한 줄 소개 + 표지 색 + 제목 높낮이.
    사용자 결정: 표지는 별도 레이아웃, 그림·선택지 X. 항상 가운데 정렬. */
 function _typeSectionCoverHtml(scene) {
+  /* v67: 5 → 10개로 확장. 색 풍부하게. */
   const COVER_THEMES = [
-    { id: 'default', label: '기본', color: '#fffaee' },
-    { id: 'cream',   label: '크림', color: '#f4ecd8' },
-    { id: 'sage',    label: '연두', color: '#e8efde' },
-    { id: 'sky',     label: '하늘', color: '#dde8f2' },
-    { id: 'coral',   label: '코랄', color: '#f4dccf' },
+    { id: 'default', label: '기본',   color: '#fffaee' },
+    { id: 'cream',   label: '크림',   color: '#f4ecd8' },
+    { id: 'sage',    label: '연두',   color: '#e8efde' },
+    { id: 'sky',     label: '하늘',   color: '#dde8f2' },
+    { id: 'coral',   label: '코랄',   color: '#f4dccf' },
+    { id: 'peach',   label: '복숭아', color: '#fce0d6' },
+    { id: 'lilac',   label: '라일락', color: '#e6dcf0' },
+    { id: 'mint',    label: '민트',   color: '#d8ecdf' },
+    { id: 'lemon',   label: '레몬',   color: '#fbf2c4' },
+    { id: 'rose',    label: '장미',   color: '#f5d0d0' },
   ];
   const curTheme = scene.coverTheme || 'default';
   const titleY = typeof scene.titleVerticalPosition === 'number' ? scene.titleVerticalPosition : 50;

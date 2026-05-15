@@ -251,6 +251,10 @@ async function saveSceneText(num, fields) {
     'textTheme',          /* W5: 텍스트형 테마 (8종 중 1) */
     'textEffect',         /* W5: 텍스트형 효과 {entrance, body} */
     'imageData',          /* W7: 무비형 포스터 이미지 (그림책형/체험전시형도 사용 — 다듬기 패널 업로드 저장) */
+    /* v67: 표지 scene 필드 — 다듬기에서 박은 정보 저장 (이전엔 ALLOWED 누락으로 손실) */
+    'subtitle',           /* 표지 한 줄 소개 */
+    'coverTheme',         /* 표지 색 테마 */
+    'titleVerticalPosition', /* 표지 제목 높낮이 */
   ];
   const patch = {};
   ALLOWED.forEach(k => {

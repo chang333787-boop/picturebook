@@ -450,17 +450,19 @@ body.edit-mode-active #stage-wrap {
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* 5) flip3d — 책 펴기 3D */
+/* 5) flip3d — 책 펴기 3D. v67: 좌측 모서리 수직축 회전 명확.
+   책 표지처럼 좌측 모서리가 고정되고 페이지가 우측에서 펼쳐짐.
+   transform-origin을 모든 keyframe에 명시 (브라우저별 default 차이 방지). */
 @keyframes sceneFlip3d {
-  from {
+  0% {
     opacity: 0;
-    transform: perspective(1200px) rotateY(80deg);
-    transform-origin: left center;
+    transform: perspective(1500px) translateX(0) rotateY(-90deg);
+    transform-origin: 0% 50%;
   }
-  to {
+  100% {
     opacity: 1;
-    transform: perspective(1200px) rotateY(0);
-    transform-origin: left center;
+    transform: perspective(1500px) translateX(0) rotateY(0);
+    transform-origin: 0% 50%;
   }
 }
 
@@ -514,17 +516,18 @@ body.edit-mode-active #stage-wrap {
   to   { opacity: 0; transform: translateY(-50%); }
 }
 
-/* 5) flip3d-out — 옛 페이지 왼쪽으로 3D 회전 + 슬라이드 (진짜 책 페이지 넘김) */
+/* 5) flip3d-out — 옛 페이지 좌측 수직축 3D 회전 (책 펼침 역동작).
+   v67: transform-origin 모든 keyframe에 명시 + 좌측 모서리 0%. */
 @keyframes sceneFlip3dOut {
-  from {
+  0% {
     opacity: 1;
-    transform: perspective(1200px) rotateY(0) translateX(0);
-    transform-origin: left center;
+    transform: perspective(1500px) rotateY(0);
+    transform-origin: 0% 50%;
   }
-  to {
+  100% {
     opacity: 0;
-    transform: perspective(1200px) rotateY(-80deg) translateX(-30%);
-    transform-origin: left center;
+    transform: perspective(1500px) rotateY(-90deg);
+    transform-origin: 0% 50%;
   }
 }
 
@@ -1922,6 +1925,45 @@ body[data-page-orientation="portrait"] .cover-page {
   background: var(--accent);
   border-color: var(--accent);
   color: #fff;
+}
+
+/* v67: 표지 색 토글 — 박스 크게 (사용자 보고 "칸 너무 작음"). 10개 색 grid 정렬. */
+.edit-cover-theme-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  margin-top: 6px;
+}
+.edit-cover-theme {
+  width: 100%;
+  aspect-ratio: 1;
+  min-height: 40px;
+  border-radius: 10px;
+  border: 2px solid rgba(80,50,20,0.18);
+  cursor: pointer;
+  padding: 0;
+  transition: transform var(--t-fast), border-color var(--t-fast), box-shadow var(--t-fast);
+  position: relative;
+}
+.edit-cover-theme:hover {
+  transform: scale(1.05);
+  border-color: rgba(80,50,20,0.4);
+}
+.edit-cover-theme.active {
+  border-color: var(--accent, #c66f4a);
+  box-shadow: 0 0 0 3px rgba(198,111,74,0.25);
+  transform: scale(1.03);
+}
+.edit-cover-theme.active::after {
+  content: '✓';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent, #c66f4a);
+  font-weight: 700;
+  font-size: 18px;
 }
 /* v37: 잠긴 토글 (장면 2부터 페이지 방향·하위 모드) — 클릭 불가 + 흐림 */
 .edit-toggle--locked,

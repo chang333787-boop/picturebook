@@ -8,6 +8,20 @@ window.addEventListener('DOMContentLoaded', () => {
   _processQueryParam();
   _initLetterbox();
   window.addEventListener('resize', _applyLetterbox);
+
+  /* v47: 인스펙터 토글 — 다듬기 모드에서 페이지 가려지는 영역 확인용.
+     #edit-panel.is-collapsed 토글 + 버튼 화살표 방향 갱신. */
+  const toggleBtn = document.getElementById('edit-panel-toggle');
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', () => {
+      const panel = document.getElementById('edit-panel');
+      if (!panel) return;
+      const collapsed = panel.classList.toggle('is-collapsed');
+      toggleBtn.classList.toggle('is-panel-collapsed', collapsed);
+      toggleBtn.textContent = collapsed ? '▶' : '◀';
+      toggleBtn.title = collapsed ? '인스펙터 펼치기' : '인스펙터 접기';
+    });
+  }
 });
 
 /* ── 16:9 letterbox 계산 ── */

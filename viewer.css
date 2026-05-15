@@ -306,8 +306,7 @@ html, body {
 /* v46: 데스크탑(≥1025px) 다듬기 모드에서 edit-panel을 stage 옆이 아닌
    우측 absolute overlay로. stage-wrap이 player-body 전체를 차지 →
    페이지 카드 크기 = 감상 모드와 동일 → 같은 디바이스에서 줄바꿈 일치.
-   (페이지 카드 우측 일부가 인스펙터 뒤로 살짝 가려질 수 있음 — viewport가
-   매우 좁을 때만. 그 외엔 portrait 비율 페이지가 인스펙터 영역 침범 안 함.) */
+   v47: 인스펙터 가려지는 영역 문제 — 토글 버튼으로 슬라이드 숨김 가능. */
 @media (min-width: 1025px) {
   body.edit-mode-active #edit-panel {
     position: absolute;
@@ -316,7 +315,45 @@ html, body {
     bottom: 0;
     z-index: 50;
     box-shadow: -8px 0 24px rgba(80,50,20,0.18);
+    transition: transform 0.25s ease;
   }
+  body.edit-mode-active #edit-panel.is-collapsed {
+    transform: translateX(100%);
+  }
+}
+
+/* v47: 인스펙터 토글 버튼 — 다듬기 모드에서만, 우측 끝 중앙. */
+.edit-panel-toggle {
+  display: none;
+}
+body.edit-mode-active .edit-panel-toggle {
+  display: flex;
+  position: absolute;
+  top: 50%;
+  right: 540px;
+  transform: translate(50%, -50%);
+  width: 36px;
+  height: 64px;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface, #fffaee);
+  border: 1px solid var(--border, rgba(80,50,20,0.18));
+  border-radius: 10px 0 0 10px;
+  border-right: none;
+  font-size: 16px;
+  cursor: pointer;
+  z-index: 51;
+  box-shadow: -4px 2px 8px rgba(80,50,20,0.12);
+  color: var(--text, #2b1f10);
+  font-family: var(--font-ui, 'Jua', sans-serif);
+  transition: right 0.25s ease;
+}
+body.edit-mode-active #edit-panel.is-collapsed ~ .edit-panel-toggle,
+body.edit-mode-active .edit-panel-toggle.is-panel-collapsed {
+  right: 0;
+}
+@media (max-width: 1024px) {
+  body.edit-mode-active .edit-panel-toggle { display: none; }
 }
 
 /* ── stage-wrap: letterbox 영역 ──

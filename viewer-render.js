@@ -301,8 +301,10 @@ function _renderSceneText(stage, scene) {
   }
   const styleAttr = cssVars.length > 0 ? ` style="${cssVars.join(';')}"` : '';
 
+  /* v37: 텍스트 모드도 페이지 카드 portrait 비율 고정 — 디바이스 무관 동일 보임.
+     사용자: "지금 맥북·태블릿에서 다 다르게 나옴. 비율 아예 고정해야". */
   stage.innerHTML = `
-    <div class="scene-screen scene-screen--text"
+    <div class="scene-screen scene-screen--text scene-screen--text-paged"
       data-display="${scene.displayType}"
       data-scene-num="${escHtml(String(scene.id))}"
       data-presentation-mode="text"
@@ -311,8 +313,8 @@ function _renderSceneText(stage, scene) {
       ${effect ? `data-text-body="${escHtml(effect.body)}"` : ''}
       ${styleAttr}>
       ${bgHtml}
-      <div class="scene-content scene-content--text">
-        <div class="text-card js-text-card" ${tbStyle ? `style="${tbStyle}"` : ''}>
+      <div class="text-page">
+        <div class="text-card js-text-card">
           ${cardHtml}
         </div>
       </div>

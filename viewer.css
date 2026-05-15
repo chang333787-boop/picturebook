@@ -5198,6 +5198,62 @@ body[data-page-orientation="portrait"] .terminal-screen--story .ending-page {
   height: 100%;
   background: var(--v03-bg);
 }
+
+/* v37: 텍스트 모드 페이지 비율 고정 — 그림책 .pb-page와 동일 패턴.
+   사용자: "디바이스/회전마다 다르게 나옴. 그리기 화면처럼 비율 고정해야".
+   .scene-screen--text-paged > .text-page > .text-card */
+.scene-screen--text-paged {
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  container-type: size;
+  container-name: textpage;
+  box-sizing: border-box;
+}
+.scene-screen--text-paged .text-page {
+  position: relative;
+  /* portrait 기본 (스마트폰 비율) */
+  aspect-ratio: 210 / 297;
+  width: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  background: var(--v03-card-bg, #fffaee);
+  border-radius: 14px;
+  border: 1px solid rgba(80,50,20,0.08);
+  box-shadow:
+    0 2px 6px rgba(120,90,50,0.10),
+    0 16px 48px rgba(120,90,50,0.18);
+  overflow: hidden;
+  box-sizing: border-box;
+}
+@container textpage (aspect-ratio > 210/297) {
+  .scene-screen--text-paged .text-page { width: auto; height: 100%; }
+}
+@container textpage (aspect-ratio <= 210/297) {
+  .scene-screen--text-paged .text-page { width: 100%; height: auto; }
+}
+/* v37: text-card 페이지 가득 박음 — inline style 무시 (사용자 textBox 비활성).
+   다듬기·감상·태블릿·맥북 모두 동일 박스. */
+.scene-screen--text-paged .text-page .text-card {
+  position: relative;
+  inset: auto;
+  transform: none;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  min-width: 0;
+  min-height: 0;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  padding: clamp(24px, 4vw, 40px) clamp(20px, 3.5vw, 36px);
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  background: transparent;
+}
 .scene-screen--text .scene-bg {
   position: absolute; inset: 0;
   background-size: cover; background-position: center;

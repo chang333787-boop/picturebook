@@ -399,14 +399,22 @@ body.edit-mode-active #stage-wrap {
   box-shadow: 0 0 60px rgba(0,0,0,0.8);
 }
 
-/* W7-A 정정 v5: 모드 전환 검은 깜빡임 차단.
-   scene-screen이 들어오는 즉시 페이드인 → 검정 노출 가림. */
+/* v63: 장면 전환 부드럽게 — 100ms → 280ms + transform slide-up + ease-out-expo.
+   사용자 보고: "잠깐 깜빡이고 다음 화면". 100ms fade-in이 너무 짧아
+   paper 배경 잠시 노출 + 새 콘텐츠 instant pop으로 보임. 시간 늘리고
+   살짝 위로 올라오는 효과로 페이지 넘기는 느낌. */
 .scene-screen {
-  animation: sceneFadeIn 100ms ease-out;
+  animation: sceneFadeIn 280ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 @keyframes sceneFadeIn {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 /* W7 깜빡임 차단: 다듬기 모드에선 페이드인 끔.
    부분 패치로 대부분 처리되지만, 통째 재렌더 fallback 시에도 페이드인 안 보이게.

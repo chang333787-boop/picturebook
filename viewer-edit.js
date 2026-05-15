@@ -2080,12 +2080,116 @@ function _queueSaveButtons(scene) {
 function _typeSectionsHtml(scene, ptype) {
   /* v37: 표지 scene이면 type별 분기 무시하고 표지 전용 인스펙터 */
   if (scene && scene.type === 'cover') return _typeSectionCoverHtml(scene);
+
+  /* v64: 첫 장면(표지 없는 작품)에 작품 단위 설정 추가 */
+  const workSettings = _isWorkSettingScene(scene) ? _workSettingsSectionHtml() : '';
+
+  let html = '';
   switch (ptype) {
-    case 'text':       return _typeSectionTextHtml(scene);
-    case 'picturebook':return _typeSectionPicturebookHtml(scene);
-    case 'movie':      return _typeSectionMovieHtml(scene);
-    case 'experience': return _typeSectionExperienceHtml(scene);
-    default:           return _typeSectionPicturebookHtml(scene);
+    case 'text':       html = _typeSectionTextHtml(scene); break;
+    case 'picturebook':html = _typeSectionPicturebookHtml(scene); break;
+    case 'movie':      html = _typeSectionMovieHtml(scene); break;
+    case 'experience': html = _typeSectionExperienceHtml(scene); break;
+    default:           html = _typeSectionPicturebookHtml(scene);
+  }
+  return workSettings + html;
+}
+
+/* v64: 작품 단위 설정 위치 판단 — 표지 없는 작품에선 entry/첫 normal scene에 박음 */
+function _isWorkSettingScene(scene) {
+  const list = (typeof _editSceneList === 'function') ? _editSceneList() : [];
+  const hasCover = list.some(s => s && (s.type === 'cover' || s.isCover));
+  if (hasCover) return false; // 표지 있으면 표지에만
+  const entryId = ViewerState.project && ViewerState.project.entrySceneId;
+  if (entryId) return String(scene.id) === String(entryId);
+  return list.length > 0 && list[0] && String(list[0].id) === String(scene.id);
+}
+
+/* v64: 작품 단위 설정 UI — 장면 전환 효과 5개 + 속도 3단계 */
+function _workSettingsSectionHtml() {
+  const curT = (ViewerState.project && ViewerState.project.sceneTransition) || 'fade';
+  const curS = (ViewerState.project && ViewerState.project.sceneTransitionSpeed) || 'normal';
+  const TRANS = [
+    { id: 'fade',     label: '✨ 부드럽게' },
+    { id: 'book',     label: '📖 책 넘기기' },
+    { id: 'scale',    label: '🔍 확대' },
+    { id: 'slide-up', label: '⬆ 슬라이드' },
+    { id: 'flip3d',   label: '🎴 책 펴기' },
+  ];
+  const SPEEDS = [
+    { id: 'fast',   label: '빠름' },
+    { id: 'normal', label: '보통' },
+    { id: 'slow',   label: '느림' },
+  ];
+  const transPills = TRANS.map(t => `
+    <button type="button" class="edit-toggle js-scene-transition ${curT === t.id ? 'active' : ''}"
+      data-val="${t.id}">${t.label}</button>`).join('');
+  const speedPills = SPEEDS.map(s => `
+    <button type="button" class="edit-toggle js-scene-transition-speed ${curS === s.id ? 'active' : ''}"
+      data-val="${s.id}">${s.label}</button>`).join('');
+  return `
+    <div class="edit-row">
+      <label class="edit-label">🎞 장면 전환 효과 <span class="edit-label-note">(작품 전체)</span></label>
+      <div class="edit-section-hint">scene 진입할 때 들어가는 효과예요. 모든 장면에 적용돼요.</div>
+      <div class="edit-toggle-group" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">
+        ${transPills}
+      </div>
+    </div>
+    <div class="edit-row edit-row--compact">
+      <label class="edit-label">⏱ 전환 속도</label>
+      <div class="edit-toggle-group" style="display:flex;gap:6px;margin-top:6px;">
+        ${speedPills}
+      </div>
+    </div>`;
+}
+
+/* v64: 작품 단위 설정 핸들러 — js-scene-transition / js-scene-transition-speed 클릭 시 저장 */
+function _bindWorkSettingsHandlers(panel) {
+  if (!panel) return;
+  panel.querySelectorAll('.js-scene-transition').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const val = btn.dataset.val || 'fade';
+      panel.querySelectorAll('.js-scene-transition').forEach(b =>
+        b.classList.toggle('active', b === btn));
+      _saveProjectMetaField('sceneTransition', val);
+    });
+  });
+  panel.querySelectorAll('.js-scene-transition-speed').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const val = btn.dataset.val || 'normal';
+      panel.querySelectorAll('.js-scene-transition-speed').forEach(b =>
+        b.classList.toggle('active', b === btn));
+      _saveProjectMetaField('sceneTransitionSpeed', val);
+    });
+  });
+}
+
+/* v64: 작품 단위 메타 저장 (viewer-meta/sceneTransition, sceneTransitionSpeed) */
+async function _saveProjectMetaField(field, value) {
+  if (!ViewerState.project) return;
+  ViewerState.project[field] = value;
+  /* viewer-frame data 즉시 갱신 — 다음 scene 렌더 시 새 효과 */
+  const vf = document.getElementById('viewer-frame');
+  if (vf) {
+    if (field === 'sceneTransition')      vf.dataset.transition      = value;
+    if (field === 'sceneTransitionSpeed') vf.dataset.transitionSpeed = value;
+  }
+  /* Firebase 저장 */
+  const teamName = ViewerState.project.teamName;
+  const classId  = ViewerState.project.classId;
+  if (!teamName) return;
+  const encodedName = encodeURIComponent(teamName);
+  const basePath = classId
+    ? `classes/${classId}/teams/${encodedName}`
+    : `teams/${encodedName}`;
+  try {
+    const db = (typeof getViewerDb === 'function') ? getViewerDb() : null;
+    if (!db) return;
+    const patch = {};
+    patch[field] = value;
+    await db.ref(`${basePath}/viewer-meta`).update(patch);
+  } catch (e) {
+    console.warn('[sceneTransition] save failed', field, e);
   }
 }
 
@@ -2121,7 +2225,8 @@ function _typeSectionCoverHtml(scene) {
     </div>
     <div class="edit-section-hint edit-section-hint--lock">
       📖 표지는 작품 입구예요. 제목·한 줄 소개·표지 색·높낮이만 다듬을 수 있어요.
-    </div>`;
+    </div>
+    ${_workSettingsSectionHtml()}`;
 }
 
 /* ── 1) 텍스트형 전용 섹션 ─────────────────────────────────────
@@ -2765,6 +2870,9 @@ const _CO_TYPE_ICON_MAP = {
 function _bindTypeSectionsEvents(panel, scene) {
   if (!panel || !scene) return;
   const ptype = _resolveViewerProjectType();
+
+  /* v64: 작품 단위 설정 핸들러 (표지/entry scene 어디든) — 장면 전환 효과 + 속도 */
+  _bindWorkSettingsHandlers(panel);
 
   /* v37: 표지 scene 핸들러 — 표지 색·제목 높낮이 변경 */
   if (scene.type === 'cover') {

@@ -133,6 +133,14 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
     if (typeof meta.pbTheme === 'string') {
       ViewerState.project.pbTheme = meta.pbTheme;
     }
+
+    /* v64: 장면 전환 효과 + 속도 (작품 단위 메타) */
+    const VALID_TRANS = ['fade', 'book', 'scale', 'slide-up', 'flip3d'];
+    const VALID_SPEED = ['fast', 'normal', 'slow'];
+    ViewerState.project.sceneTransition = VALID_TRANS.includes(meta.sceneTransition)
+      ? meta.sceneTransition : 'fade';
+    ViewerState.project.sceneTransitionSpeed = VALID_SPEED.includes(meta.sceneTransitionSpeed)
+      ? meta.sceneTransitionSpeed : 'normal';
   }
 
   /* v37: 텍스트 모드는 무조건 세로 (스마트폰 비율, 스마트폰·태블릿·PC 모두 동일).
@@ -159,6 +167,14 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
     if (typeof theme === 'string' && theme.length > 0) {
       document.body.dataset.pbTheme = theme;
     }
+  }
+
+  /* v64: 장면 전환 효과 + 속도를 #viewer-frame data 속성으로.
+     CSS #viewer-frame[data-transition="X"] .scene-screen { animation-name: X } 패턴. */
+  const vf = document.getElementById('viewer-frame');
+  if (vf) {
+    vf.dataset.transition       = ViewerState.project.sceneTransition || 'fade';
+    vf.dataset.transitionSpeed  = ViewerState.project.sceneTransitionSpeed || 'normal';
   }
 
   /* ================================================================

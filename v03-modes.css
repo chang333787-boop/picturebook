@@ -763,115 +763,24 @@ body[data-page-orientation="portrait"] .scene-screen--pb.pb--split .pb-frame {
   display: none;
 }
 
-/* v56: 모바일 그림책 안정화.
-   - 1번 (박스 stretch + overflow-x hidden):
-     GPT 진단(content-box 원인) 채택 X — box-sizing: border-box 전역 이미 박혀있음.
-     실제 원인은 .pb-text__actions의 overflow-y 컨텍스트 + stretch/정렬 기본 미확정.
-     fix 코드만 채택 (align-items: stretch + align-self: stretch + overflow-x: hidden).
-   - 2번 (label flex 1 1 0%): GPT 정확. flex-basis auto → 0% 전환이 핵심.
-     nowrap만으로 부족 — flex item base size를 내용 폭이 아닌 0으로 두고 shrink 허용.
-   - 3번 (엔딩 Grid): GPT 정확. 엔딩은 6-row 고정 구조라 flex보다 Grid가 덜 흔들림.
-     본문만 minmax(0,1fr) + overflow-y:auto, 나머지는 auto row. */
+/* v59: 모바일 그림책 정밀 재설계 — v44~v58 누적 변경 정리.
+   ─────────────────────────────────────────────────────────────────────
+   ROOT 분석 결과:
+   - base의 scene-screen `display: grid + place-items: center`,
+     pb-frame `display: grid + grid-template-rows: 6fr/4fr + background 회색`이
+     v52~v58에서 안 풀려 모든 fix 무효화.
+   - pb-illust/pb-text가 grid item이라 flex 룰 무효.
+   - pb-text padding 16px 좌우로 박스가 그림 우측 끝 안 닿음.
+   - actions-label이 actions sibling이라 행동 영역 위 차지 (사용자: 본문 우측 아래 원함).
+   ─────────────────────────────────────────────────────────────────────
+   사용자 의도:
+   - 다듬기 ↔ 뷰어 동일 디바이스 일치 (WYSIWYG)
+   - 박스 가로 = 그림 우측 끝까지
+   - 라벨 wrap 허용 (잘림 없음)
+   - "행동 N개 ↓" = 본문 영역 우측 아래 (행동 영역 침범 X)
+   - 콘텐츠 양 많으면 viewport(stage-wrap) 스크롤 */
 @media (max-width: 600px) {
-  /* 본문 상단 정렬 (빈 공간 줄임) */
-  .scene-screen--pb.pb--split .pb-text {
-    justify-content: flex-start;
-  }
-
-  /* 라벨 — 우측 정렬, 작게, 회색 + ↓ 화살표 약 bounce */
-  .scene-screen--pb.pb--split .pb-text__actions-label {
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    gap: 4px;
-    font-family: var(--font-ui, 'Jua', sans-serif);
-    font-size: 11px;
-    color: var(--text-muted, #8a7560);
-    padding: 4px 8px 2px;
-    opacity: 0.75;
-    flex-shrink: 0;
-  }
-  .pb-text__actions-label-arrow {
-    font-size: 12px;
-    opacity: 0.7;
-    animation: pb-actions-arrow-bounce 1.8s ease-in-out infinite;
-  }
-  @keyframes pb-actions-arrow-bounce {
-    0%, 100% { transform: translateY(0); }
-    50%      { transform: translateY(2px); }
-  }
-
-  /* v57: actions — 자유 흐름 정책으로 전환.
-     v52~v56에서 박은 "max-height + 내부 스크롤 + ellipsis" 룰이
-     사용자 의도(라벨 잘리지 X)와 반대 방향이라 폐기.
-     이제: 영역 자유 늘어남, 라벨 wrap 허용, 페이지 흐름 안에서 자연 표시. */
-  .scene-screen--pb.pb--split .pb-text__actions {
-    flex: 0 0 auto;
-    flex-direction: column;
-    flex-wrap: nowrap;
-    gap: 8px;
-    overflow-x: hidden;
-    align-items: stretch;
-    /* max-height / overflow-y / mask-image 제거 — 자유 늘어남 */
-  }
-
-  /* v57: 박스 — wrap 허용, 높이 자동 (라벨 길이에 따라) */
-  .scene-screen--pb.pb--split .pb-text__actions .choice-v03 {
-    display: flex;
-    align-items: center;
-    align-self: stretch;
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
-    flex: 0 0 auto;
-    padding: 12px 14px;
-    font-size: 13px;
-    height: auto;
-    /* nowrap / ellipsis / overflow hidden 제거 — 라벨 wrap 허용 */
-  }
-
-  /* v57: 라벨 — wrap 허용 (한국어 단어 단위 + 영문 강제 wrap) */
-  .scene-screen--pb.pb--split .pb-text__actions .pb-choice-label {
-    flex: 1 1 0%;
-    min-width: 0;
-    white-space: normal;
-    word-break: keep-all;
-    overflow-wrap: anywhere;
-    line-height: 1.4;
-    /* nowrap / ellipsis 제거 */
-  }
-
-  /* v57: pb-text overflow visible — actions가 자유 늘어나야 하므로
-     부모 hidden이면 잘림. 페이지 안 콘텐츠 자유 흐름. */
-  .scene-screen--pb.pb--split .pb-text {
-    overflow: visible;
-    height: auto;
-    flex: 0 0 auto;
-  }
-
-  /* v58: 페이지 카드 portrait 비율 강제 폐기 (모바일만).
-     v37에서 박은 .pb-page aspect-ratio 210:297 + overflow hidden가
-     모바일에서 actions·라벨이 자유 늘어나도 카드 안 잘림 root.
-     모바일 = 전체 페이지 흐름 + viewport 스크롤. portrait 비율은
-     태블릿/PC에선 그대로 유지. */
-  .scene-screen--pb .pb-page,
-  body[data-page-orientation="portrait"] .scene-screen--pb .pb-page {
-    aspect-ratio: auto;
-    height: auto;
-    max-height: none;
-    overflow: visible;
-  }
-  .scene-screen--pb .pb-frame {
-    overflow: visible;
-    height: auto;
-  }
-  /* 그림 영역 크기 명시 — 풀어버리면 너무 커짐 */
-  .scene-screen--pb.pb--split .pb-illust {
-    max-height: 55vh;
-    flex: 0 0 auto;
-  }
-
-  /* viewer-frame + stage-wrap 모바일 스크롤 활성 */
+  /* === 1. body·player 흐름 — stage-wrap 자체 스크롤 === */
   #stage-wrap {
     overflow-y: auto;
     align-items: flex-start;
@@ -883,11 +792,139 @@ body[data-page-orientation="portrait"] .scene-screen--pb.pb--split .pb-frame {
     aspect-ratio: auto;
     max-height: none;
   }
+
+  /* === 2. scene-screen GRID → BLOCK ===
+     base의 display:grid + place-items:center가 pb-page를 가운데 정렬해서
+     콘텐츠 적을 때 위·아래 빈 영역 발생. block으로 풀어 normal flow. */
   .scene-screen--pb {
+    display: block;
+    place-items: initial;
     position: relative;
     inset: auto;
     height: auto;
-    min-height: 100%;
+    min-height: auto;
+    padding: 0;
+  }
+
+  /* === 3. pb-page 비율 강제 폐기 ===
+     base 210:297 + overflow:hidden이 자유 흐름을 막음. height/overflow 풀기.
+     단 background(warm paper) + 그림자 + border-radius는 유지 — 카드 정체성. */
+  .scene-screen--pb .pb-page,
+  body[data-page-orientation="portrait"] .scene-screen--pb .pb-page {
+    aspect-ratio: auto;
+    height: auto;
+    max-height: none;
+    overflow: visible;
+    width: 100%;
+  }
+
+  /* === 4. pb-frame GRID → FLEX COLUMN (root fix) ===
+     base의 display:grid + grid-template-rows:6fr/4fr이 자식을 비율 분할 +
+     자체 background:#f4ecd8 회색이 그림·본문 사이 노출. 둘 다 풀어야. */
+  .scene-screen--pb.pb--split .pb-frame,
+  body[data-page-orientation="portrait"] .scene-screen--pb.pb--split .pb-frame {
+    display: flex;
+    flex-direction: column;
+    grid-template-rows: none;
+    grid-template-columns: none;
+    height: auto;
+    overflow: visible;
+    gap: 0;
+    padding: 0;
+    background: transparent;
+  }
+
+  /* === 5. pb-illust 자연 크기 + 그림 최대 50vh ===
+     grid item에서 flex item으로 바뀌어 이제 flex 룰 작동. */
+  .scene-screen--pb.pb--split .pb-illust {
+    max-height: 50vh;
+    flex: 0 0 auto;
+    width: 100%;
+  }
+
+  /* === 6. pb-text — 본문 텍스트 padding 유지(가독성) + flex 작동 ===
+     padding 좌우 16px은 본문 텍스트 가독성용 유지. 박스는 음수 margin으로 무효화. */
+  .scene-screen--pb.pb--split .pb-text {
+    height: auto;
+    flex: 0 0 auto;
+    overflow: visible;
+    padding: 12px 16px;
+    min-height: auto;
+    justify-content: flex-start;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* === 7. 본문 body-wrap — actions-label position absolute 기준 === */
+  .scene-screen--pb.pb--split .pb-text__body-wrap {
+    position: relative;
+  }
+
+  /* === 8. actions-label — 본문 영역 우측 아래 (사용자 의도 정정) ===
+     v53에서 actions의 sibling으로 박았지만 사용자 의도는 본문 안 우측 하단. */
+  .scene-screen--pb.pb--split .pb-text__actions-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    font-family: var(--font-ui, 'Jua', sans-serif);
+    font-size: 11px;
+    color: var(--text-muted, #8a7560);
+    background: var(--v03-card-bg, rgba(255,250,238,0.92));
+    padding: 2px 6px;
+    border-radius: 8px;
+    opacity: 0.78;
+    pointer-events: none;
+  }
+  .pb-text__actions-label-arrow {
+    font-size: 12px;
+    opacity: 0.7;
+    animation: pb-actions-arrow-bounce 1.8s ease-in-out infinite;
+  }
+  @keyframes pb-actions-arrow-bounce {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(2px); }
+  }
+
+  /* === 9. actions — 음수 margin으로 박스가 pb-text padding 영역 넘어서 그림 우측 끝까지 ===
+     padding 좌우 16 차감으로 박스 좁아 보이던 문제 해소. */
+  .scene-screen--pb.pb--split .pb-text__actions {
+    margin: 8px -16px 0;
+    padding: 10px 16px 4px;
+    flex: 0 0 auto;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    gap: 8px;
+    overflow-x: hidden;
+    overflow-y: visible;
+    align-items: stretch;
+    border-top: 1px solid var(--v03-divider, rgba(80,50,20,0.10));
+  }
+
+  /* === 10. 박스 — width 100% + wrap 허용 + height auto === */
+  .scene-screen--pb.pb--split .pb-text__actions .choice-v03 {
+    display: flex;
+    align-items: center;
+    align-self: stretch;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    flex: 0 0 auto;
+    padding: 12px 14px;
+    font-size: 13px;
+    height: auto;
+  }
+
+  /* === 11. 라벨 — wrap 허용 (한국어 단어 단위 + 영문 강제 wrap) === */
+  .scene-screen--pb.pb--split .pb-text__actions .pb-choice-label {
+    flex: 1 1 0%;
+    min-width: 0;
+    white-space: normal;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+    line-height: 1.4;
   }
 
   /* v56: 엔딩 모바일 — CSS Grid 6 row 명시적 분할.

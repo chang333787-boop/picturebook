@@ -514,8 +514,10 @@ function _renderScenePicturebook(stage, scene, submode) {
           ${illustHtml}
           <div class="pb-text">
             ${titleHtml}
-            ${bodyHtml}
-            <div class="pb-text__actions-label" aria-hidden="true">행동 ${pbChoiceCount}개 <span class="pb-text__actions-label-arrow">↓</span></div>
+            <div class="pb-text__body-wrap">
+              ${bodyHtml}
+              <div class="pb-text__actions-label" aria-hidden="true">행동 ${pbChoiceCount}개 <span class="pb-text__actions-label-arrow">↓</span></div>
+            </div>
             <div class="pb-text__actions" data-count="${pbChoiceCount}">${btns}</div>
           </div>
         </div>

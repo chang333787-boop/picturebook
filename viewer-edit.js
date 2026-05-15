@@ -1150,6 +1150,19 @@ function initEditInteractions() {
   _attachPbEditableInteractions(frame);
 }
 
+/* v45: contenteditable의 줄바꿈 보존 추출.
+   브라우저는 Enter를 <br>/<div>로 정규화하는데 textContent로 추출하면 줄바꿈 손실.
+   다듬기에서 박은 본문 \n이 감상 후 사라지던 root 버그 fix. */
+function _extractEditableText(el) {
+  const html = (el.innerHTML || '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(div|p)>/gi, '')
+    .replace(/<(div|p)[^>]*>/gi, '\n');
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  return (tmp.textContent || '').replace(/^\n/, '');
+}
+
 function _attachPbEditableInteractions(frame) {
   if (!ViewerState.editMode) return;
   const scene = ViewerState.scenes[ViewerState.currentSceneId];
@@ -1182,7 +1195,8 @@ function _attachPbEditableInteractions(frame) {
 
     /* 입력 — scene 메모리 즉시 업데이트 + 다듬기 패널 input 동기화 */
     el.addEventListener('input', () => {
-      const text = el.textContent;   /* textContent로 plain text */
+      /* v45: 본문은 줄바꿈 보존(_extractEditableText), 제목은 단일 줄(textContent) */
+      const text = (field === 'body') ? _extractEditableText(el) : el.textContent;
       scene[field] = text;
       _updatePlaceholder();
       /* 다듬기 패널의 해당 input/textarea 즉시 갱신 (있으면) */
@@ -1206,7 +1220,8 @@ function _attachPbEditableInteractions(frame) {
       _updatePlaceholder();
       /* blur 시 즉시 저장 (debounce 무시) */
       if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
-      const text = el.textContent;
+      /* v45: 본문은 줄바꿈 보존 추출 */
+      const text = (field === 'body') ? _extractEditableText(el) : el.textContent;
       const patch = {};
       patch[field] = text;
       if (typeof _queueSave === 'function') {

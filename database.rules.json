@@ -1,0 +1,72 @@
+{
+  "rules": {
+    "admin": {
+      ".read": false,
+      ".write": false
+    },
+    "classCodes": {
+      ".read": true,
+      ".write": false
+    },
+    "teacherClasses": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": false
+      }
+    },
+    "classes": {
+      "$classId": {
+        "meta": {
+          ".read": "auth != null && (auth.token.role === 'super_admin' || auth.token.role === 'teacher')",
+          ".write": "auth != null && auth.token.role === 'super_admin'"
+        },
+        "teams": {
+          ".read": true,
+          "$team": {
+            "pin": {
+              ".read": true,
+              ".write": "auth != null && !data.exists()"
+            },
+            "scenes": {
+              ".read": true,
+              ".write": true
+            },
+            "locks": {
+              ".read": true,
+              ".write": true
+            },
+            "viewer-meta": {
+              ".read": true,
+              ".write": true
+            }
+          }
+        }
+      }
+    },
+    "teams": {
+      ".read": true,
+      "$team": {
+        "pin": {
+          ".read": true,
+          ".write": "!data.exists()"
+        },
+        "scenes": {
+          ".read": true,
+          ".write": true
+        },
+        "locks": {
+          ".read": true,
+          ".write": true
+        },
+        "viewer-meta": {
+          ".read": true,
+          ".write": true
+        }
+      }
+    },
+    "copyCodes": {
+      ".read": true,
+      ".write": true
+    }
+  }
+}

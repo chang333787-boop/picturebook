@@ -818,6 +818,57 @@ body[data-page-orientation="portrait"] .scene-screen--pb.pb--split .pb-frame {
     white-space: nowrap;
     text-overflow: ellipsis;
     overflow: hidden;
+    min-width: 0;
+  }
+
+  /* v54: 라벨이 박스 안에서 wrap 되지 않게 — choice-v03--picturebook의 자식
+     .pb-choice-label에 white-space: normal 박혀있어 박스 nowrap 무효화됨. fix. */
+  .scene-screen--pb.pb--split .pb-text__actions .pb-choice-label {
+    white-space: nowrap !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+  }
+
+  /* v54: 엔딩 모바일 — 본문 자체 스크롤 + 스탬프·버튼 한 페이지 안 contain */
+  .ending-as-pb .pb-text--ending {
+    justify-content: flex-start;
+    overflow: hidden;
+    gap: 6px;
+    padding: 10px 14px;
+  }
+  .ending-as-pb .pb-text--ending .ending-user-body {
+    max-height: 22vh;
+    overflow-y: auto;
+    flex: 0 1 auto;
+    font-size: 14px;
+    line-height: 1.4;
+    -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 12px), transparent 100%);
+    mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 12px), transparent 100%);
+  }
+  .ending-as-pb .ending-stamps-row {
+    margin: 2px 0;
+  }
+  .ending-as-pb .ending-end-stamp {
+    font-size: 11px;
+    padding: 3px 10px;
+  }
+  .ending-as-pb .pb-text--ending .ending-path-summary,
+  .ending-as-pb .pb-text--ending .ending-mood {
+    font-size: 11px;
+    line-height: 1.4;
+  }
+  .ending-as-pb .ending-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 4px;
+    flex-shrink: 0;
+  }
+  .ending-as-pb .ending-actions .terminal-btn {
+    padding: 9px 18px;
+    font-size: 13px;
+    width: 100%;
   }
 }
 

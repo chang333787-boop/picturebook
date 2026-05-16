@@ -1106,11 +1106,11 @@ body[data-page-orientation="portrait"] #stage-wrap.letterbox-v #viewer-frame {
   margin-top: clamp(4px, 1vw, 8px);
 }
 .ending-actions .terminal-btn {
-  /* v85: 사용자 보고 "엔딩 버튼 좀만 작게하고 너무 뭉툭해"
-     padding clamp(9~12 / 20~28) → (7~10 / 16~22) — 좀 작게.
-     border-radius 50px → 22px — 뭉툭함(완전 알약) 줄임. */
-  padding: clamp(7px, 1.3vw, 10px) clamp(16px, 2.5vw, 22px);
-  border-radius: 22px;
+  /* v85: 작게 + 덜 뭉툭하게 (사용자 "별로 체감 안 됨" 보고 후 v86 박음).
+     padding clamp(9~12 / 20~28) → (5~7 / 12~16) 더 줄임.
+     border-radius 50px(완전 알약) → 10px (각진 카드 느낌). */
+  padding: clamp(5px, 1.0vw, 7px) clamp(12px, 2.0vw, 16px);
+  border-radius: 10px;
   font-family: var(--font-ui, 'Jua', sans-serif);
   font-size: clamp(12px, 1.4vw, 14px);
   cursor: pointer;

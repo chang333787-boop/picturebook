@@ -401,9 +401,12 @@ body:not(.edit-mode-active)[data-cover-theme="rose"]  #stage-wrap { background: 
      stage.innerHTML 통째 교체 → 빈 검정 stage 잠깐 노출 = 깜빡임.
      배경을 transparent로 두면 새 scene-screen이 들어오기 전 한 프레임 배경이
      비어 보일 수 있지만, 이전 scene-screen이 사라지기 전 새 scene이 그려지면
-     깜빡임 안 보임. */
+     깜빡임 안 보임.
+     v80: box-shadow 진한 검정(0 0 60px rgba(0,0,0,0.8)) → 부드러운 그림자.
+     세로 작품을 가로 화면에서 볼 때 진한 검정 글로우가 표지 색 letterbox
+     위에 어두운 박스로 보이던 문제. 책 카드 떠 보이는 효과는 유지하되 약하게. */
   background: transparent;
-  box-shadow: 0 0 60px rgba(0,0,0,0.8);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.15);
 }
 
 /* v63/v64: 장면 전환 — 5개 효과 + 작품 단위 viewer-meta.sceneTransition.

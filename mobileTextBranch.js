@@ -752,6 +752,271 @@ window.addEventListener('DOMContentLoaded', () => {
   });
 });
 
+/* ================================================================
+   v100: 핀치 줌 + pan — 캔버스 안 #mtb-stage에 transform
+   ─────────────────────────────────────────────────────────────────
+   · 두 손가락 핀치 → scale
+   · 한 손가락 드래그 (노드 X) → pan
+   · 줌 버튼 + / − / ⊙
+   · 노드 클릭 vs pan 구분: 5px 이상 움직이면 pan
+   ──────────────────────────────────────────────────────────────── */
+const MTB_VIEW = {
+  scale: 1, x: 0, y: 0,
+  minScale: 0.4, maxScale: 2.5,
+};
+
+function _mtbApplyTransform() {
+  const stage = document.getElementById('mtb-stage');
+  if (!stage) return;
+  stage.style.transform = `translate(${MTB_VIEW.x}px, ${MTB_VIEW.y}px) scale(${MTB_VIEW.scale})`;
+}
+
+function _mtbZoom(delta, anchorX, anchorY) {
+  const oldScale = MTB_VIEW.scale;
+  const newScale = Math.max(MTB_VIEW.minScale, Math.min(MTB_VIEW.maxScale, oldScale + delta));
+  if (newScale === oldScale) return;
+  /* anchor 박은 위치 기준 줌 — 그 위치가 동일하게 보이게 x/y 조정 */
+  if (typeof anchorX === 'number' && typeof anchorY === 'number') {
+    const canvas = document.getElementById('mtb-canvas');
+    const rect = canvas.getBoundingClientRect();
+    const cx = anchorX - rect.left;
+    const cy = anchorY - rect.top;
+    MTB_VIEW.x = cx - (cx - MTB_VIEW.x) * (newScale / oldScale);
+    MTB_VIEW.y = cy - (cy - MTB_VIEW.y) * (newScale / oldScale);
+  }
+  MTB_VIEW.scale = newScale;
+  _mtbApplyTransform();
+}
+
+function _mtbResetView() {
+  MTB_VIEW.scale = 1; MTB_VIEW.x = 0; MTB_VIEW.y = 0;
+  _mtbApplyTransform();
+}
+
+function _mtbInitZoomPan() {
+  /* 줌 버튼 */
+  document.getElementById('mtb-zoom-in')?.addEventListener('click', () => {
+    const canvas = document.getElementById('mtb-canvas');
+    const r = canvas.getBoundingClientRect();
+    _mtbZoom(0.2, r.left + r.width / 2, r.top + r.height / 2);
+  });
+  document.getElementById('mtb-zoom-out')?.addEventListener('click', () => {
+    const canvas = document.getElementById('mtb-canvas');
+    const r = canvas.getBoundingClientRect();
+    _mtbZoom(-0.2, r.left + r.width / 2, r.top + r.height / 2);
+  });
+  document.getElementById('mtb-zoom-reset')?.addEventListener('click', _mtbResetView);
+
+  const canvas = document.getElementById('mtb-canvas');
+  if (!canvas) return;
+
+  /* wheel 줌 (데스크탑 narrow viewport 박을 때) */
+  canvas.addEventListener('wheel', e => {
+    if (!e.ctrlKey && !e.metaKey) return; /* cmd/ctrl + wheel만 — 일반 스크롤 X */
+    e.preventDefault();
+    _mtbZoom(-e.deltaY * 0.005, e.clientX, e.clientY);
+  }, { passive: false });
+
+  /* pointer 기반 pan + pinch */
+  const pointers = new Map();
+  let pinchDist = 0;
+  let panMoved = false;
+
+  canvas.addEventListener('pointerdown', e => {
+    /* 노드 위면 pan/zoom 박지 않음 — 노드 자체 핸들러로 */
+    if (e.target.closest('.mtb-node')) return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    panMoved = false;
+    if (pointers.size === 2) {
+      const pts = [...pointers.values()];
+      pinchDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+    }
+    canvas.setPointerCapture(e.pointerId);
+  });
+
+  canvas.addEventListener('pointermove', e => {
+    if (!pointers.has(e.pointerId)) return;
+    const prev = pointers.get(e.pointerId);
+    const dx = e.clientX - prev.x;
+    const dy = e.clientY - prev.y;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (pointers.size === 2) {
+      /* 핀치 — 두 손가락 거리 변화로 scale */
+      const pts = [...pointers.values()];
+      const newDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      const midX = (pts[0].x + pts[1].x) / 2;
+      const midY = (pts[0].y + pts[1].y) / 2;
+      const delta = (newDist - pinchDist) * 0.005;
+      _mtbZoom(delta, midX, midY);
+      pinchDist = newDist;
+    } else if (pointers.size === 1) {
+      /* 한 손가락 — pan */
+      if (Math.abs(dx) > 1 || Math.abs(dy) > 1) panMoved = true;
+      MTB_VIEW.x += dx;
+      MTB_VIEW.y += dy;
+      _mtbApplyTransform();
+    }
+  });
+
+  function endPointer(e) {
+    pointers.delete(e.pointerId);
+    if (pointers.size < 2) pinchDist = 0;
+  }
+  canvas.addEventListener('pointerup', endPointer);
+  canvas.addEventListener('pointercancel', endPointer);
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', _mtbInitZoomPan);
+} else {
+  _mtbInitZoomPan();
+}
+
+/* ================================================================
+   v100: 장면 편집 화면 — 글자 설정 토글 (폰트/크기/색/굵기)
+   ─────────────────────────────────────────────────────────────────
+   사용자 박은 textStyle 데이터 모델 (scenes[id].textStyle) 그대로.
+   변경 시 _mtbQueueSave 호출 → pushToFirebase.
+   ──────────────────────────────────────────────────────────────── */
+const MTB_FONTS = [
+  { id: 'gothic', label: '나눔고딕' },
+  { id: 'batang', label: '고운바탕' },
+  { id: 'jua',    label: '주아' },
+  { id: 'hanna',  label: '한나 (굵음)' },
+  { id: 'pen',    label: '나눔펜' },
+  { id: 'gaegu',  label: '개구' },
+  { id: 'dohyeon',label: '도현' },
+  { id: 'galmuri',label: '갈무리 (픽셀)' },
+];
+const MTB_COLORS = [
+  '', '#1a1a1a', '#d4453d', '#e87a2a', '#f2b417',
+  '#4a7d3a', '#2c6cb4', '#6a3eb0', '#c94785', '#6a3814',
+];
+
+function _mtbInitSettings() {
+  /* 폰트 select 채움 */
+  const sel = document.getElementById('mtb-edit-font');
+  if (sel) {
+    sel.innerHTML = MTB_FONTS.map(f => `<option value="${f.id}">${f.label}</option>`).join('');
+    sel.addEventListener('change', e => _mtbUpdateStyle('fontFamily', e.target.value));
+  }
+  /* 크기 슬라이더 */
+  const sizeIn = document.getElementById('mtb-edit-size');
+  const sizeVal = document.getElementById('mtb-edit-size-val');
+  if (sizeIn) {
+    sizeIn.addEventListener('input', e => {
+      const v = parseInt(e.target.value, 10) || 18;
+      if (sizeVal) sizeVal.textContent = v + 'px';
+      _mtbUpdateStyle('fontSize', v);
+    });
+  }
+  /* 색 박스 */
+  const colorRow = document.getElementById('mtb-edit-color-row');
+  if (colorRow) {
+    colorRow.innerHTML = MTB_COLORS.map(c => {
+      const bg = c
+        ? `background:${c};`
+        : 'background:repeating-conic-gradient(#eee 0 25%,#fff 0 50%) 50%/6px 6px;';
+      return `<button class="mtb-edit-color-btn" data-val="${c}" style="${bg}" title="${c || '기본'}"></button>`;
+    }).join('');
+    colorRow.querySelectorAll('.mtb-edit-color-btn').forEach(btn => {
+      btn.addEventListener('click', () => _mtbUpdateStyle('color', btn.dataset.val));
+    });
+  }
+  /* 굵기 */
+  document.querySelectorAll('.mtb-edit-weight-btn').forEach(btn => {
+    btn.addEventListener('click', () => _mtbUpdateStyle('weight', btn.dataset.val));
+  });
+  /* 토글 */
+  const toggle = document.getElementById('mtb-edit-settings-toggle');
+  const panel = document.getElementById('mtb-edit-settings-panel');
+  const arrow = document.getElementById('mtb-edit-settings-arrow');
+  if (toggle && panel) {
+    toggle.addEventListener('click', () => {
+      const open = panel.classList.toggle('is-open');
+      toggle.classList.toggle('is-open', open);
+      if (arrow) arrow.textContent = open ? '▲' : '▼';
+    });
+  }
+}
+
+function _mtbUpdateStyle(field, value) {
+  const id = MTB_EDIT.currentId;
+  if (id === null) return;
+  const sc = scenes[id];
+  if (!sc) return;
+  if (!sc.textStyle || typeof sc.textStyle !== 'object') sc.textStyle = {};
+  sc.textStyle[field] = value;
+  _mtbReflectStyleToUI(sc.textStyle);
+  _mtbReflectStyleToCard(sc.textStyle);
+  _mtbQueueSave();
+}
+
+function _mtbReflectStyleToUI(style) {
+  const sel = document.getElementById('mtb-edit-font');
+  if (sel && style.fontFamily) sel.value = style.fontFamily;
+  const sizeIn = document.getElementById('mtb-edit-size');
+  const sizeVal = document.getElementById('mtb-edit-size-val');
+  if (sizeIn && typeof style.fontSize === 'number') {
+    sizeIn.value = style.fontSize;
+    if (sizeVal) sizeVal.textContent = style.fontSize + 'px';
+  }
+  document.querySelectorAll('.mtb-edit-color-btn').forEach(btn => {
+    btn.classList.toggle('is-active', (style.color || '') === btn.dataset.val);
+  });
+  document.querySelectorAll('.mtb-edit-weight-btn').forEach(btn => {
+    btn.classList.toggle('is-active', (style.weight || 'normal') === btn.dataset.val);
+  });
+}
+
+const MTB_FONT_FAMILIES = {
+  gothic:  "'Nanum Gothic', sans-serif",
+  batang:  "'Gowun Batang', serif",
+  jua:     "'Jua', sans-serif",
+  hanna:   "'Black Han Sans', sans-serif",
+  pen:     "'Nanum Pen Script', cursive",
+  gaegu:   "'Gaegu', cursive",
+  dohyeon: "'Do Hyeon', sans-serif",
+  galmuri: "'Galmuri11', monospace",
+};
+
+function _mtbReflectStyleToCard(style) {
+  /* 편집 카드에 WYSIWYG 적용 (제목/본문) */
+  const titleIn = document.getElementById('mtb-edit-scene-title');
+  const bodyIn  = document.getElementById('mtb-edit-scene-body');
+  const ff = MTB_FONT_FAMILIES[style.fontFamily] || '';
+  const color = style.color || '';
+  const weight = style.weight === 'bold' ? '700' : '400';
+  if (titleIn) {
+    if (ff) titleIn.style.fontFamily = ff;
+    if (color) titleIn.style.color = color;
+  }
+  if (bodyIn) {
+    if (ff) bodyIn.style.fontFamily = ff;
+    if (typeof style.fontSize === 'number') bodyIn.style.fontSize = style.fontSize + 'px';
+    if (color) bodyIn.style.color = color;
+    bodyIn.style.fontWeight = weight;
+  }
+}
+
+/* _mtbEditPopulate 끝에 style 반영 박음 */
+const _mtbEditPopulateOrig = _mtbEditPopulate;
+_mtbEditPopulate = function(sc) {
+  _mtbEditPopulateOrig(sc);
+  const style = (sc.textStyle && typeof sc.textStyle === 'object')
+    ? sc.textStyle
+    : { fontFamily: 'gothic', fontSize: 18, color: '', weight: 'normal' };
+  _mtbReflectStyleToUI(style);
+  _mtbReflectStyleToCard(style);
+};
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', _mtbInitSettings);
+} else {
+  _mtbInitSettings();
+}
+
 function _mtbDeactivate() {
   const root = document.getElementById('mobile-text-branch');
   const canvasWrap = document.getElementById('canvas-wrap');

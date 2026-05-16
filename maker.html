@@ -1727,6 +1727,79 @@
       0%,100% { box-shadow:0 2px 8px rgba(120,90,50,.20); }
       50%     { box-shadow:0 0 0 6px rgba(199,149,80,0.20), 0 2px 8px rgba(120,90,50,.20); }
     }
+    /* v100: 핀치 줌 + pan — 캔버스 안 stage에 transform */
+    .mtb-stage {
+      position:absolute;inset:0;
+      transform-origin:0 0;
+      will-change:transform;
+    }
+    .mtb-zoom-controls {
+      position:absolute;bottom:24px;left:18px;
+      display:flex;flex-direction:column;gap:6px;z-index:3;
+    }
+    .mtb-zoom-btn {
+      width:34px;height:34px;border-radius:50%;
+      background:#fffaee;border:1px solid rgba(80,50,20,0.15);
+      color:#2b1f10;font-size:15px;font-weight:bold;cursor:pointer;
+      box-shadow:0 2px 6px rgba(120,90,50,.15);
+      display:flex;align-items:center;justify-content:center;
+      user-select:none;
+    }
+    .mtb-zoom-btn:hover { background:#f4ecd8; }
+    .mtb-zoom-btn:active { transform:scale(0.94); }
+    /* 장면 편집 — 설정 토글 패널 */
+    .mtb-edit-settings-toggle {
+      width:100%;text-align:left;
+      background:#fffaee;border:1px solid rgba(80,50,20,0.12);
+      padding:12px 14px;border-radius:10px;cursor:pointer;
+      font-size:13px;color:#6b5638;font-weight:600;
+      display:flex;align-items:center;justify-content:space-between;
+      margin-top:16px;transition:background 0.15s;
+    }
+    .mtb-edit-settings-toggle:hover { background:#f4ecd8; }
+    .mtb-edit-settings-toggle.is-open {
+      border-bottom-left-radius:0;border-bottom-right-radius:0;
+      border-bottom-color:transparent;
+    }
+    .mtb-edit-settings-panel {
+      display:none;
+      background:#fffaee;border:1px solid rgba(80,50,20,0.12);border-top:none;
+      border-radius:0 0 10px 10px;padding:14px;
+    }
+    .mtb-edit-settings-panel.is-open { display:block; }
+    .mtb-edit-settings-row { margin-bottom:14px; }
+    .mtb-edit-settings-row:last-child { margin-bottom:0; }
+    .mtb-edit-settings-label {
+      font-size:12px;color:#6b5638;margin-bottom:6px;font-weight:600;
+      display:flex;align-items:center;justify-content:space-between;
+    }
+    .mtb-edit-settings-label-note { color:#9a8868;font-weight:normal;font-size:11px; }
+    .mtb-edit-settings-row select,
+    .mtb-edit-settings-row input[type="range"] {
+      width:100%;
+    }
+    .mtb-edit-settings-row select {
+      padding:8px 10px;border:1px solid rgba(80,50,20,0.20);border-radius:6px;
+      background:#fbf6ea;font-size:13px;color:#2b1f10;
+    }
+    .mtb-edit-color-row { display:flex;gap:6px;flex-wrap:wrap; }
+    .mtb-edit-color-btn {
+      width:26px;height:26px;border-radius:50%;border:2px solid rgba(80,50,20,0.15);
+      cursor:pointer;flex-shrink:0;
+    }
+    .mtb-edit-color-btn.is-active {
+      border-color:#c66f4a;
+      box-shadow:0 0 0 2px rgba(198,111,74,0.30);
+    }
+    .mtb-edit-weight-row { display:flex;gap:6px; }
+    .mtb-edit-weight-btn {
+      flex:1;padding:8px;border:1px solid rgba(80,50,20,0.20);
+      background:#fbf6ea;color:#2b1f10;cursor:pointer;
+      border-radius:6px;font-size:13px;
+    }
+    .mtb-edit-weight-btn.is-active {
+      background:#c79550;color:#fffaee;border-color:#c79550;
+    }
   </style>
 </head>
 <body>
@@ -1744,15 +1817,23 @@
     </div>
   </div>
   <div class="mtb-canvas" id="mtb-canvas">
-    <!-- Step 2에서 SVG + 노드 박힘 -->
-    <svg id="mtb-svg" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;"></svg>
-    <div id="mtb-nodes" style="position:absolute;inset:0;"></div>
+    <!-- v100: stage div — 노드 + SVG 같이 transform (핀치 줌 + pan) -->
+    <div class="mtb-stage" id="mtb-stage">
+      <svg id="mtb-svg" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;"></svg>
+      <div id="mtb-nodes" style="position:absolute;inset:0;"></div>
+    </div>
     <div class="mtb-canvas-empty" id="mtb-empty">
       <div class="mtb-canvas-empty-icon">🌱</div>
       <div class="mtb-canvas-empty-title">아직 장면이 없어요</div>
       <div class="mtb-canvas-empty-text">
         오른쪽 아래 <strong>+</strong> 버튼을 눌러 첫 장면을 만들어요.
       </div>
+    </div>
+    <!-- v100: 줌 컨트롤 (핀치 없는 환경 대비) -->
+    <div class="mtb-zoom-controls">
+      <button class="mtb-zoom-btn" id="mtb-zoom-in" title="줌 인">+</button>
+      <button class="mtb-zoom-btn" id="mtb-zoom-out" title="줌 아웃">−</button>
+      <button class="mtb-zoom-btn" id="mtb-zoom-reset" title="원래 크기" style="font-size:13px;">⊙</button>
     </div>
   </div>
   <button class="mtb-fab" id="mtb-add-scene" title="장면 추가">+</button>
@@ -1780,6 +1861,36 @@
       <div class="mtb-edit-actions-label">🎯 행동 버튼 <span id="mtb-edit-actions-count" style="color:#9a8868;font-weight:normal;"></span></div>
       <div id="mtb-edit-actions-list"></div>
       <button class="mtb-edit-add-action" id="mtb-edit-add-action">+ 행동 버튼 추가</button>
+
+      <!-- v100: 설정 토글 (폰트/크기/색/굵기) -->
+      <button class="mtb-edit-settings-toggle" id="mtb-edit-settings-toggle">
+        <span>⚙ 글자 설정</span>
+        <span id="mtb-edit-settings-arrow">▼</span>
+      </button>
+      <div class="mtb-edit-settings-panel" id="mtb-edit-settings-panel">
+        <div class="mtb-edit-settings-row">
+          <div class="mtb-edit-settings-label">폰트</div>
+          <select id="mtb-edit-font"></select>
+        </div>
+        <div class="mtb-edit-settings-row">
+          <div class="mtb-edit-settings-label">
+            <span>글자 크기</span>
+            <span class="mtb-edit-settings-label-note" id="mtb-edit-size-val">18px</span>
+          </div>
+          <input type="range" id="mtb-edit-size" min="12" max="28" step="1" value="18"/>
+        </div>
+        <div class="mtb-edit-settings-row">
+          <div class="mtb-edit-settings-label">글자 색</div>
+          <div class="mtb-edit-color-row" id="mtb-edit-color-row"></div>
+        </div>
+        <div class="mtb-edit-settings-row">
+          <div class="mtb-edit-settings-label">굵기</div>
+          <div class="mtb-edit-weight-row">
+            <button class="mtb-edit-weight-btn" data-val="normal">보통</button>
+            <button class="mtb-edit-weight-btn" data-val="bold">굵게</button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -2332,7 +2443,7 @@
 <script src="projectSettings.js?v=96"></script>
 <script src="ui.js?v=96"></script>
 <!-- v95: 모바일 텍스트형 브랜치 전용 (텍스트 작품 + 모바일에서만 활성) -->
-<script src="mobileTextBranch.js?v=99"></script>
+<script src="mobileTextBranch.js?v=100"></script>
 
 </body>
 </html>

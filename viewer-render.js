@@ -140,7 +140,7 @@ function renderCover() {
           <div class="cover-book" style="grid-template-rows: ${topFr}fr 2fr ${bottomFr}fr;">
             <div class="cover-book__top">
               <div class="cover-team-label">
-                ${classId ? `<span class="cover-class-code">${escHtml(classId)}</span><span class="cover-sep">·</span>` : ''}
+                <!-- v91: classId 노출 폐기 — 사용자 결정. 표지엔 모둠명만. -->
                 <span class="cover-team-name">${escHtml(teamName)}</span>
               </div>
             </div>

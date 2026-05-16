@@ -177,12 +177,16 @@ async function _loadAdminDataV2() {
   /* adminState에 보관 — _openMaker/_openViewer에서 재사용 */
   adminState.adminClassId = resolvedClassId;
 
+  /* v94: 클래스 메타 조회 후 헤더 바 박음 (반 이름 + 코드 + 복사 버튼) */
+  _renderClassBar(resolvedClassId);
+
   list.innerHTML = '<div class="admin-loading">팀 목록을 불러오는 중...</div>';
 
   db.ref(`classes/${resolvedClassId}/teams`).once('value').then(snapshot => {
     const raw = snapshot.val();
     if (!raw) {
-      list.innerHTML = '<div class="admin-empty">이 클래스에 등록된 팀이 없어요.</div>';
+      /* v94: 빈 상태 — 학생 안내 (코드 + 접속 URL) */
+      _renderEmptyGuide();
       _renderSummaryBar([]);
       _renderFilterBar([]);
       return;
@@ -199,6 +203,81 @@ async function _loadAdminDataV2() {
   }).catch(err => {
     list.innerHTML = `<div class="admin-error">오류: ${err.message}</div>`;
   });
+}
+
+/* v94: 클래스 정보 바 — 반 이름 + 코드 + 복사 버튼 */
+async function _renderClassBar(classId) {
+  const bar = document.getElementById('admin-class-bar');
+  if (!bar) return;
+  let meta = {};
+  try {
+    const snap = await db.ref(`classes/${classId}/meta`).once('value');
+    meta = snap.val() || {};
+  } catch (e) { /* meta 없으면 빈 객체 */ }
+  /* v94 meta(v92)이 새 형식. 옛 클래스(class_2026_junglim_1)는 meta 다를 수 있음. */
+  const code = meta.code || meta.classCode || '';
+  const name = meta.name || meta.className || '';
+  if (!code && !name) {
+    bar.style.display = 'none';
+    return;
+  }
+  adminState.adminClassCode = code;
+  adminState.adminClassName = name;
+  bar.style.display = 'flex';
+  bar.innerHTML = `
+    ${name ? `<div class="admin-class-name">📚 ${_escHtml(name)}</div>` : ''}
+    ${code ? `
+      <div class="admin-class-code-wrap">
+        <span class="admin-class-code-label">학생 입력 코드</span>
+        <span class="admin-class-code">${_escHtml(code)}</span>
+        <button class="admin-class-code-copy" id="btn-copy-class-code">📋 복사</button>
+      </div>` : ''}
+  `;
+  /* 복사 버튼 */
+  const copyBtn = document.getElementById('btn-copy-class-code');
+  if (copyBtn) {
+    copyBtn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(code);
+        copyBtn.textContent = '✓ 복사됨';
+        copyBtn.classList.add('copied');
+        setTimeout(() => {
+          copyBtn.textContent = '📋 복사';
+          copyBtn.classList.remove('copied');
+        }, 1800);
+      } catch (e) {
+        alert('복사 실패. 직접 적어주세요: ' + code);
+      }
+    });
+  }
+}
+
+/* v94: 빈 상태 — 작품 없을 때 학생 안내 */
+function _renderEmptyGuide() {
+  const list = document.getElementById('admin-team-list');
+  if (!list) return;
+  const code = adminState.adminClassCode || '';
+  const baseUrl = location.origin + location.pathname.replace(/maker\.html.*$/, '');
+  list.innerHTML = `
+    <div class="admin-empty-guide">
+      <div class="admin-empty-guide-icon">🎒</div>
+      <div class="admin-empty-guide-title">아직 작품이 없어요</div>
+      <div class="admin-empty-guide-text">
+        학생들에게 아래 정보를 알려주세요.<br>
+        학생이 모둠을 만들고 작품을 시작하면 여기에 나타나요.
+      </div>
+      ${code ? `<div class="admin-empty-guide-code">${_escHtml(code)}</div>` : ''}
+      <div style="margin-top:6px;font-size:12px;color:#9a8868;">↑ 클래스 코드</div>
+      <div class="admin-empty-guide-url">${_escHtml(baseUrl)}</div>
+      <div style="margin-top:4px;font-size:12px;color:#9a8868;">↑ 접속 주소</div>
+    </div>
+  `;
+}
+
+function _escHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
 }
 
 /* ================================================================

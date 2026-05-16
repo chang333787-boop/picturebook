@@ -13,7 +13,7 @@
   <title>가지 branch — 작품 만들기</title>
   <link href="https://fonts.googleapis.com/css2?family=Jua&family=Nanum+Gothic:wght@400;700&family=Nanum+Pen+Script&display=swap" rel="stylesheet"/>
   <!-- v0.3 모드별 기본형 (preview에서 viewer와 같은 스타일을 받기 위해) -->
-  <link rel="stylesheet" href="v03-modes.css?v=93"/>
+  <link rel="stylesheet" href="v03-modes.css?v=94"/>
   <style>
     :root {
       /* W8 Step 5-B: --primary 파랑 → 코랄. 제작 영역 메인 액센트 (home 카드 띠와 통일).
@@ -1276,6 +1276,50 @@
     }
     .admin-header-title { font-family:var(--font-h);font-size:19px;color:#fffaee; }
     .admin-header-sub   { font-size:11px;color:rgba(255,250,238,.80);margin-top:2px; }
+    /* v94: 헤더에 클래스 이름 + 코드 + 복사 버튼 */
+    .admin-class-bar {
+      background:#fffaee;border-bottom:1px solid rgba(80,50,20,0.10);
+      padding:12px 22px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+    }
+    .admin-class-name {
+      font-family:var(--font-h);font-size:16px;color:#2b1f10;
+      display:flex;align-items:center;gap:6px;
+    }
+    .admin-class-code-wrap {
+      display:flex;align-items:center;gap:8px;
+      background:#f4ecd8;border:1px solid rgba(80,50,20,0.15);
+      border-radius:8px;padding:6px 10px;
+    }
+    .admin-class-code-label { font-size:11px;color:#6b5638; }
+    .admin-class-code {
+      font-family:'Courier New',monospace;font-size:15px;font-weight:bold;
+      color:#c79550;letter-spacing:0.1em;
+    }
+    .admin-class-code-copy {
+      background:#c79550;border:none;color:#fffaee;
+      padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;
+      transition:filter 0.15s;
+    }
+    .admin-class-code-copy:hover { filter:brightness(1.10); }
+    .admin-class-code-copy.copied { background:#5a8a4a; }
+    /* v94: 빈 상태 — 작품 없을 때 학생 안내 */
+    .admin-empty-guide {
+      padding:40px 24px;text-align:center;color:#6b5638;background:#fffaee;
+    }
+    .admin-empty-guide-icon { font-size:48px;margin-bottom:12px; }
+    .admin-empty-guide-title { font-family:var(--font-h);font-size:18px;color:#2b1f10;margin-bottom:8px; }
+    .admin-empty-guide-text { font-size:14px;line-height:1.6;margin-bottom:18px; }
+    .admin-empty-guide-code {
+      display:inline-block;background:#f4ecd8;border:1.5px dashed rgba(80,50,20,0.30);
+      border-radius:10px;padding:14px 28px;
+      font-family:'Courier New',monospace;font-size:24px;font-weight:bold;
+      color:#c79550;letter-spacing:0.15em;margin:8px 0;
+    }
+    .admin-empty-guide-url {
+      display:inline-block;margin-top:14px;font-size:12px;color:#6b5638;
+      background:#fffaee;border:1px solid rgba(80,50,20,0.15);
+      padding:6px 12px;border-radius:6px;word-break:break-all;
+    }
     .admin-refresh-btn,.admin-close-btn {
       background:rgba(255,250,238,.20);border:none;color:#fffaee;
       width:30px;height:30px;border-radius:50%;font-size:15px;cursor:pointer;
@@ -1918,6 +1962,9 @@
       </div>
     </div>
 
+    <!-- v94: 클래스 정보 바 (반 이름 + 코드 + 복사) -->
+    <div id="admin-class-bar" class="admin-class-bar" style="display:none;"></div>
+
     <!-- 운영 요약 바 -->
     <div id="admin-summary-bar" class="admin-summary-bar"></div>
 
@@ -1944,17 +1991,17 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
 <!-- v37f 캐시 — 표지 사이드/구조 색 -->
-<script src="state.js?v=93"></script>
-<script src="locks.js?v=93"></script>
-<script src="firebase.js?v=93"></script>
-<script src="canvasInteraction.js?v=93"></script>
-<script src="sceneRenderer.js?v=93"></script>
-<script src="storyAnalyzer.js?v=93"></script>
-<script src="mediaManager.js?v=93"></script>
-<script src="adminConsole.js?v=93"></script>
-<script src="preview.js?v=93"></script>
-<script src="projectSettings.js?v=93"></script>
-<script src="ui.js?v=93"></script>
+<script src="state.js?v=94"></script>
+<script src="locks.js?v=94"></script>
+<script src="firebase.js?v=94"></script>
+<script src="canvasInteraction.js?v=94"></script>
+<script src="sceneRenderer.js?v=94"></script>
+<script src="storyAnalyzer.js?v=94"></script>
+<script src="mediaManager.js?v=94"></script>
+<script src="adminConsole.js?v=94"></script>
+<script src="preview.js?v=94"></script>
+<script src="projectSettings.js?v=94"></script>
+<script src="ui.js?v=94"></script>
 
 </body>
 </html>

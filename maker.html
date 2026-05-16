@@ -1767,6 +1767,13 @@
       background:rgba(255,250,238,.20);border:none;color:#fffaee;
       padding:4px 10px;border-radius:5px;font-size:11px;cursor:pointer;
     }
+    /* v106: 묶음 이동 토글 */
+    .mtb-place-banner-options { display:flex;align-items:center;gap:6px; }
+    .mtb-place-banner-descendants {
+      background:rgba(255,250,238,.15);border:none;color:#fffaee;
+      padding:4px 8px;border-radius:5px;font-size:11px;cursor:pointer;
+    }
+    .mtb-place-banner-descendants.is-active { background:#fffaee;color:#c66f4a;font-weight:600; }
     /* v100: 핀치 줌 + pan — 캔버스 안 stage에 transform */
     .mtb-stage {
       position:absolute;inset:0;
@@ -2488,7 +2495,7 @@
 <script src="projectSettings.js?v=96"></script>
 <script src="ui.js?v=96"></script>
 <!-- v95: 모바일 텍스트형 브랜치 전용 (텍스트 작품 + 모바일에서만 활성) -->
-<script src="mobileTextBranch.js?v=105"></script>
+<script src="mobileTextBranch.js?v=106"></script>
 
 </body>
 </html>

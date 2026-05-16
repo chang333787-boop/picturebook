@@ -16,6 +16,7 @@ const MTB = {
   pcOverride: false,     /* 사용자가 "🖥 PC" 토글했는지 */
   enabled: true,         /* 초기화 박혔는지 */
   placeMode: false,      /* v104: 노드 배치 이동 모드 박힌 상태 */
+  placeDescendants: false, /* v106: 자손까지 묶음 이동 토글 */
   _autoOpenedOnce: false,
 };
 
@@ -372,7 +373,7 @@ function _mtbNewSceneAndConnect(fromSceneId, btnIdx) {
     if (btnIdx >= 0 && btnIdx < sc.buttons.length) {
       sc.buttons[btnIdx].nextId = String(newId);
     }
-    sc.choiceCount = sc.buttons.length === 1 ? 1 : 2;
+    _mtbSyncChoiceLabels(sc); /* v106 */
     if (typeof pushToFirebase === 'function') {
       pushToFirebase(fromSceneId);
       pushToFirebase(newId);
@@ -472,6 +473,7 @@ function _mtbEditRenderActions(sc) {
     const labelIn = row.querySelector('.mtb-edit-action-label-input');
     labelIn.addEventListener('input', e => {
       buttons[idx].label = e.target.value;
+      _mtbSyncChoiceLabels(sc); /* v106: choiceA/B 동기화 — 감상 라벨 손실 fix */
       _mtbQueueSave();
     });
     /* 박힌 연결 탭 → 그 장면 편집으로 이동 (앞뒤 이동 단축) */
@@ -487,7 +489,7 @@ function _mtbEditRenderActions(sc) {
     row.querySelector('.mtb-edit-action-del').addEventListener('click', () => {
       if (!confirm(`행동 ${idx + 1} 삭제할까요?`)) return;
       buttons.splice(idx, 1);
-      sc.choiceCount = buttons.length === 1 ? 1 : 2;
+      _mtbSyncChoiceLabels(sc); /* v106 */
       _mtbQueueSave();
       _mtbEditRenderActions(sc);
     });
@@ -526,6 +528,19 @@ function _mtbEsc(s) {
   }[c]));
 }
 
+/* v106: buttons[] ↔ choiceA/B/nextA/B 동기화.
+   viewer-data.js의 adaptChoices가 choiceA/B를 우선하므로, buttons[].label만 박으면
+   감상 화면에서 라벨 손실. 사용자 박은 모든 흐름에서 호출해서 동기화. */
+function _mtbSyncChoiceLabels(sc) {
+  if (!sc) return;
+  const buttons = Array.isArray(sc.buttons) ? sc.buttons : [];
+  sc.choiceA = (buttons[0] && typeof buttons[0].label === 'string') ? buttons[0].label : '';
+  sc.choiceB = (buttons[1] && typeof buttons[1].label === 'string') ? buttons[1].label : '';
+  sc.nextA = (buttons[0] && buttons[0].nextId) ? String(buttons[0].nextId) : '';
+  sc.nextB = (buttons[1] && buttons[1].nextId) ? String(buttons[1].nextId) : '';
+  sc.choiceCount = buttons.length === 1 ? 1 : (buttons.length === 0 ? 0 : 2);
+}
+
 /* 편집 화면 핸들러 박기 */
 function _mtbInitEditView() {
   document.getElementById('mtb-edit-close')?.addEventListener('click', _mtbCloseEditScene);
@@ -555,7 +570,7 @@ function _mtbInitEditView() {
     if (!Array.isArray(sc.buttons)) sc.buttons = [];
     if (sc.buttons.length >= 6) return;
     sc.buttons.push({ label: '', nextId: null });
-    sc.choiceCount = sc.buttons.length === 1 ? 1 : 2;
+    _mtbSyncChoiceLabels(sc); /* v106 */
     _mtbQueueSave();
     _mtbEditRenderActions(sc);
     /* v105: 새로 박힌 라벨 input 자동 focus — 사용자가 바로 박을 수 있게 */
@@ -574,7 +589,7 @@ function _mtbInitEditView() {
     if (!Array.isArray(sc.buttons)) sc.buttons = [];
     if (sc.buttons.length >= 6) return;
     sc.buttons.push({ label: '', nextId: null });
-    sc.choiceCount = sc.buttons.length === 1 ? 1 : 2;
+    _mtbSyncChoiceLabels(sc); /* v106 */
     const newBtnIdx = sc.buttons.length - 1;
     _mtbNewSceneAndConnect(MTB_EDIT.currentId, newBtnIdx);
   });
@@ -834,8 +849,8 @@ function _mtbConnectFinish(toId) {
     sc.buttons[idx].nextId = String(toId);
   } else if (idx >= sc.buttons.length && sc.buttons.length < 6) {
     sc.buttons.push({ label: '', nextId: String(toId) });
-    sc.choiceCount = sc.buttons.length === 1 ? 1 : 2;
   }
+  _mtbSyncChoiceLabels(sc); /* v106 */
 
   if (typeof pushToFirebase === 'function') pushToFirebase(fromId);
   _mtbConnectCancel();
@@ -895,21 +910,31 @@ function _mtbShowPlaceBanner() {
   banner.id = 'mtb-place-banner';
   banner.className = 'mtb-place-banner';
   banner.innerHTML = `
-    <span>📍 노드를 드래그해서 위치를 박아요. 박은 즉시 저장돼요.</span>
-    <button class="mtb-place-banner-cancel" id="mtb-place-banner-cancel">완료</button>
+    <span>📍 노드 드래그로 위치 박음</span>
+    <div class="mtb-place-banner-options">
+      <button class="mtb-place-banner-descendants ${MTB.placeDescendants ? 'is-active' : ''}"
+        id="mtb-place-descendants" title="자손 노드도 같이 박음">📦 자손까지</button>
+      <button class="mtb-place-banner-cancel" id="mtb-place-banner-cancel">완료</button>
+    </div>
   `;
   document.getElementById('mtb-canvas')?.appendChild(banner);
   document.getElementById('mtb-place-banner-cancel').addEventListener('click', _mtbTogglePlaceMode);
+  document.getElementById('mtb-place-descendants').addEventListener('click', e => {
+    MTB.placeDescendants = !MTB.placeDescendants;
+    e.target.classList.toggle('is-active', MTB.placeDescendants);
+  });
 }
 function _mtbHidePlaceBanner() {
   document.getElementById('mtb-place-banner')?.remove();
 }
 
-/* v104: 노드 드래그 핸들러 — placeMode 시만 활성. 박은 위치 즉시 scenes에 박음 + push. */
+/* v104: 노드 드래그 핸들러 — placeMode 시만 활성. 박은 위치 즉시 scenes에 박음 + push.
+   v106: placeDescendants 박힌 상태면 BFS 자손도 같이 박힘 (묶음 이동). */
 function _mtbAttachPlaceDrag(node, sceneId) {
   let dragging = false;
   let startX = 0, startY = 0;
-  let nodeStartX = 0, nodeStartY = 0;
+  let groupStart = null; /* { id → {x, y} } 박는 노드들 시작 위치 */
+  let groupNodes = null; /* { id → DOM } */
   let moved = false;
 
   node.addEventListener('pointerdown', e => {
@@ -919,26 +944,44 @@ function _mtbAttachPlaceDrag(node, sceneId) {
     moved = false;
     startX = e.clientX;
     startY = e.clientY;
-    /* 현재 박힌 위치 (스타일에서 추출) — left: calc(50% + Xpx) 형식 */
-    const sc = scenes[sceneId];
-    nodeStartX = (sc && typeof sc.mtbX === 'number') ? sc.mtbX : _mtbReadNodeX(node);
-    nodeStartY = (sc && typeof sc.mtbY === 'number') ? sc.mtbY : node.offsetTop;
+
+    /* v106: 자손까지 박힘 모드면 BFS 자손 다 묶음 */
+    const ids = MTB.placeDescendants
+      ? _mtbCollectDescendants(sceneId)
+      : [sceneId];
+
+    groupStart = {};
+    groupNodes = {};
+    ids.forEach(id => {
+      const sc = scenes[id];
+      if (!sc) return;
+      const dom = document.querySelector(`.mtb-node[data-scene-id="${CSS.escape(String(id))}"]`);
+      if (!dom) return;
+      groupStart[id] = {
+        x: (typeof sc.mtbX === 'number') ? sc.mtbX : _mtbReadNodeX(dom),
+        y: (typeof sc.mtbY === 'number') ? sc.mtbY : dom.offsetTop,
+      };
+      groupNodes[id] = dom;
+    });
     node.setPointerCapture(e.pointerId);
   });
 
   node.addEventListener('pointermove', e => {
-    if (!dragging) return;
+    if (!dragging || !groupStart) return;
     const dx = (e.clientX - startX) / MTB_VIEW.scale;
     const dy = (e.clientY - startY) / MTB_VIEW.scale;
     if (Math.abs(dx) > 3 || Math.abs(dy) > 3) moved = true;
-    const sc = scenes[sceneId];
-    if (!sc) return;
-    sc.mtbX = nodeStartX + dx;
-    sc.mtbY = nodeStartY + dy;
-    /* 노드 위치 즉시 박음 (실시간) */
-    node.style.left = `calc(50% + ${sc.mtbX}px)`;
-    node.style.top  = sc.mtbY + 'px';
-    /* 연결선 다시 그림 */
+    Object.entries(groupStart).forEach(([id, start]) => {
+      const sc = scenes[id];
+      if (!sc) return;
+      sc.mtbX = start.x + dx;
+      sc.mtbY = start.y + dy;
+      const dom = groupNodes[id];
+      if (dom) {
+        dom.style.left = `calc(50% + ${sc.mtbX}px)`;
+        dom.style.top  = sc.mtbY + 'px';
+      }
+    });
     _mtbRedrawEdges();
   });
 
@@ -946,11 +989,35 @@ function _mtbAttachPlaceDrag(node, sceneId) {
     if (!dragging) return;
     dragging = false;
     if (moved && typeof pushToFirebase === 'function') {
-      pushToFirebase(sceneId);
+      Object.keys(groupStart || {}).forEach(id => pushToFirebase(id));
     }
+    groupStart = null;
+    groupNodes = null;
   }
   node.addEventListener('pointerup', endDrag);
   node.addEventListener('pointercancel', endDrag);
+}
+
+/* v106: BFS로 자손 노드 모두 박음 (자기 + 박힌 모든 후손). 무한 루프 차단. */
+function _mtbCollectDescendants(rootId) {
+  const result = [String(rootId)];
+  const visited = new Set([String(rootId)]);
+  const queue = [String(rootId)];
+  while (queue.length) {
+    const id = queue.shift();
+    const sc = scenes[id];
+    if (!sc) continue;
+    const buttons = Array.isArray(sc.buttons) ? sc.buttons : [];
+    buttons.forEach(btn => {
+      if (!btn || !btn.nextId) return;
+      const nid = String(btn.nextId);
+      if (visited.has(nid)) return;
+      visited.add(nid);
+      result.push(nid);
+      queue.push(nid);
+    });
+  }
+  return result;
 }
 
 function _mtbReadNodeX(node) {

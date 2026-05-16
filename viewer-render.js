@@ -1388,6 +1388,22 @@ function renderHUD() {
   hud.querySelector('.js-return-to-maker')?.addEventListener('click', _returnToMaker);
 
   hud.querySelector('.js-go-edit')?.addEventListener('click', () => {
+    /* v106: 모바일 + 텍스트형 작품이면 viewer 다듬기 모드 박지 말고 maker.html로.
+       maker.html에서 mobileTextBranch.js가 자동 활성 → 모바일 텍스트 편집 UI.
+       옛 흐름 (PC 다듬기 모드)는 다른 모드/데스크탑 그대로. */
+    const isMobile = /Mobi|Android|iPhone|iPod/i.test(navigator.userAgent) || window.innerWidth < 768;
+    const isText = ViewerState.project && ViewerState.project.projectType === 'text';
+    if (isMobile && isText) {
+      const p = new URLSearchParams();
+      const teamName = ViewerState.project.teamName || '';
+      const classId  = ViewerState.project.classId  || '';
+      if (teamName) p.set('team', teamName);
+      p.set('from', 'maker');
+      if (classId) p.set('classId', classId);
+      p.set('ptype', 'text');
+      window.location.href = `maker.html?${p.toString()}`;
+      return;
+    }
     ViewerState.editMode = true;
     ViewerState.selectedChoiceId = null;
     renderCurrentScene();
@@ -1471,7 +1487,23 @@ async function _returnToMaker() {
 
 /* context.source에 따라 적절한 복귀 URL 결정 */
 function _resolveFallbackUrl(ctx) {
-  if (!ctx || !ctx.url) return 'maker.html';
+  /* v106: ctx 박지 못해도 URL params (team/classId/from) 박혀있으면 그것 우선.
+     모바일 텍스트형 흐름에선 ctx 박지 않을 때가 있어 maker가 진입 화면 박음 → 로그인 튐. */
+  if (!ctx || !ctx.url) {
+    const params = new URLSearchParams(location.search);
+    const team    = params.get('team');
+    const classId = params.get('classId');
+    const ptype   = params.get('ptype');
+    if (team) {
+      const p = new URLSearchParams();
+      p.set('team', team);
+      p.set('from', 'maker');
+      if (classId) p.set('classId', classId);
+      if (ptype)   p.set('ptype', ptype);
+      return `maker.html?${p.toString()}`;
+    }
+    return 'maker.html';
+  }
 
   if (ctx.source === 'admin') {
     /* admin URL을 그대로 사용 — ?admin=1 포함된 상태로 teacher-auth 체크 거침.

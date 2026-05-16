@@ -778,6 +778,13 @@ function removeSceneFromFirebase(num) {
 }
 
 function setSaveStatus(s) {
+  /* v99: 모바일 텍스트형 status element도 동기화 — 진짜 저장 완료 시에만 박음 */
+  const mtbStatus = document.getElementById('mtb-edit-status');
+  if (mtbStatus) {
+    if (s === 'saved')       mtbStatus.textContent = '✓ 저장됨';
+    else if (s === 'changed') mtbStatus.textContent = '저장 중...';
+    else if (s === 'error')   mtbStatus.textContent = '✗ 오류';
+  }
   const dot = document.getElementById('save-dot');
   const lbl = document.getElementById('save-label');
   if (!dot || !lbl) return;

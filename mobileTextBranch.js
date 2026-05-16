@@ -350,7 +350,9 @@ function _mtbEditRenderActions(sc) {
   if (!list) return;
   list.innerHTML = '';
 
-  const buttons = Array.isArray(sc.buttons) ? sc.buttons : [];
+  /* v99 fix: sc.buttons가 undefined면 sc 자체에 박음. closure만 변경되면 저장 시 손실. */
+  if (!Array.isArray(sc.buttons)) sc.buttons = [];
+  const buttons = sc.buttons;
   const isEnding = (sc.type === 'ending' || sc.isEnding);
 
   if (count) count.textContent = isEnding ? '(엔딩 — 행동 없음)' : `(${buttons.length}/6)`;
@@ -410,22 +412,17 @@ function _mtbEditUpdateNav() {
 }
 
 function _mtbQueueSave() {
+  /* v99 fix: status 직접 박지 말고 pushToFirebase만 호출.
+     setSaveStatus가 실제 저장 완료 시점에 모바일 status도 박음 (firebase.js 수정).
+     기존: setTimeout 안 박은 "✓ 저장됨"은 isRemote 박혀있을 때 거짓 = 손실. */
   const id = MTB_EDIT.currentId;
   if (id === null) return;
-  _mtbSetStatus('저장 중...');
   if (MTB_EDIT.saveTimers.has(id)) clearTimeout(MTB_EDIT.saveTimers.get(id));
   const t = setTimeout(() => {
     if (typeof pushToFirebase === 'function') pushToFirebase(id);
-    _mtbSetStatus('✓ 저장됨');
     MTB_EDIT.saveTimers.delete(id);
-    setTimeout(() => _mtbSetStatus(''), 1200);
   }, 500);
   MTB_EDIT.saveTimers.set(id, t);
-}
-
-function _mtbSetStatus(msg) {
-  const el = document.getElementById('mtb-edit-status');
-  if (el) el.textContent = msg;
 }
 
 function _mtbEsc(s) {

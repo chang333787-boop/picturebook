@@ -161,7 +161,14 @@ function renderCover() {
          이 시점부터 이후 재시작에서는 cover 건너뜀 (_coverShown=true) */
       ViewerState._coverShown = true;
       ViewerState.historyStack = [];
-      /* 현재 currentSceneId = entrySceneId 이미 세팅됨 → 그냥 렌더 */
+      /* v74: 다듬기 감상 테스트 진입 시 currentSceneId가 표지 id 그대로 박혀있던 문제 fix.
+         일반 감상에선 currentSceneId가 entrySceneId로 박혀있지만 다듬기 → 감상 테스트로 오면
+         다듬기 중이던 표지 id가 그대로 박혀서 "시작하기" 누를 때마다 표지 다시 렌더 = 무한.
+         entrySceneId 있고 표지와 다르면 강제로 entry로 박음. */
+      const eid = ViewerState.project && ViewerState.project.entrySceneId;
+      if (eid && String(eid) !== String(ViewerState.currentSceneId)) {
+        ViewerState.currentSceneId = eid;
+      }
       renderCurrentScene();
     });
 }

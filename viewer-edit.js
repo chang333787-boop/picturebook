@@ -3046,12 +3046,7 @@ function _bindTypeSectionsEvents(panel, scene) {
         const val = btn.dataset.val || 'default';
         scene.coverTheme = val;
         panel.querySelectorAll('.js-cover-theme').forEach(b => b.classList.toggle('active', b === btn));
-        /* v79: body.dataset.coverTheme도 갱신 — 다음 감상 테스트 진입 시 letterbox 즉시 반영.
-           loadTeamData는 viewer 진입 시점에만 호출되니 인스펙터에서 박는 흐름에서 직접 박아야. */
-        if (document.body) {
-          if (val && val !== 'default') document.body.dataset.coverTheme = val;
-          else delete document.body.dataset.coverTheme;
-        }
+        /* v82: v79 박은 body.dataset.coverTheme 갱신 폐기 — letterbox는 pb-theme 따라감 */
         if (typeof _queueSave === 'function') {
           _queueSave(scene.num || scene.id, { coverTheme: val });
           if (typeof _flushPendingSave === 'function') _flushPendingSave();

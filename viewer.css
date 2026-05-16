@@ -376,31 +376,22 @@ body.edit-mode-active #stage-wrap {
   background: var(--surface, #fffaee);
 }
 
-/* v79: 표지 cover-theme이 작품 단위 분위기 색 — body[data-cover-theme]로 박혀서
-   모든 장면(표지/일반/엔딩)에서 stage-wrap letterbox가 표지 색으로 둘러쌈.
-   세로 작품을 가로 화면에서 볼 때 letterbox 영역이 어두운 색 대신 표지 톤.
-   :not(.edit-mode-active)로 specificity 높여서 다듬기 모드에선 warm paper 유지. */
-body:not(.edit-mode-active)[data-cover-theme="cream"] #stage-wrap { background: #f4ecd8; }
-body:not(.edit-mode-active)[data-cover-theme="sage"]  #stage-wrap { background: #e8efde; }
-body:not(.edit-mode-active)[data-cover-theme="sky"]   #stage-wrap { background: #dde8f2; }
-body:not(.edit-mode-active)[data-cover-theme="coral"] #stage-wrap { background: #f4dccf; }
-body:not(.edit-mode-active)[data-cover-theme="peach"] #stage-wrap { background: #fce0d6; }
-body:not(.edit-mode-active)[data-cover-theme="lilac"] #stage-wrap { background: #e6dcf0; }
-body:not(.edit-mode-active)[data-cover-theme="mint"]  #stage-wrap { background: #d8ecdf; }
-body:not(.edit-mode-active)[data-cover-theme="lemon"] #stage-wrap { background: #fbf2c4; }
-body:not(.edit-mode-active)[data-cover-theme="rose"]  #stage-wrap { background: #f5d0d0; }
-
-/* v81: 표지 색(cover-theme)이 박힌 작품은 양옆 마감 테마(pb-theme)의 외곽 배경 무시.
-   사용자 의도: "모든 장면에서 표지 색으로 둘러쌈". night-tale 등 pb-theme의
-   .scene-screen--pb 배경/별빛 효과가 stage-wrap letterbox 색을 덮어쓰던 문제 fix.
-   .pb-page 자체 효과(box-shadow 등)는 그대로 유지 — 페이지 카드 느낌만 살림.
-   다듬기 모드는 영향 없음 (cover-theme letterbox 룰 자체가 :not(.edit-mode-active)). */
-body:not(.edit-mode-active)[data-cover-theme] .scene-screen--pb {
-  background: transparent !important;
-}
-body:not(.edit-mode-active)[data-cover-theme] .scene-screen--pb::before,
-body:not(.edit-mode-active)[data-cover-theme] .scene-screen--pb::after {
-  display: none !important;
+/* v82: 양옆 마감 테마(pb-theme)가 stage-wrap letterbox까지 둘러쌈.
+   사용자 의도 정정: 표지 색이 아니라 테마 색이 letterbox 전체 + 페이지 외곽까지.
+   기존엔 scene-screen--pb 배경만 pb-theme 색이고 stage-wrap은 warm paper라
+   세로 작품 가로 화면 letterbox에 테마 색 + warm paper 분리되어 보였음.
+   각 theme 색을 stage-wrap에도 박아 scene-screen 외곽과 letterbox가 동일 톤.
+   :not(.edit-mode-active)로 specificity 높여 다듬기 모드는 warm paper 유지. */
+body:not(.edit-mode-active)[data-pb-theme="classic-book"]  #stage-wrap { background: #e8dcc0; }
+body:not(.edit-mode-active)[data-pb-theme="paper-desk"]    #stage-wrap { background: #d9c7a3; }
+body:not(.edit-mode-active)[data-pb-theme="minimal-cream"] #stage-wrap { background: #f0e6d2; }
+body:not(.edit-mode-active)[data-pb-theme="sketch-note"]   #stage-wrap { background: #fff8e0; }
+body:not(.edit-mode-active)[data-pb-theme="library-card"]  #stage-wrap { background: #f0e0b8; }
+body:not(.edit-mode-active)[data-pb-theme="night-tale"]    #stage-wrap {
+  background:
+    radial-gradient(ellipse at 80% 15%, rgba(80,70,130,0.45) 0%, transparent 50%),
+    radial-gradient(ellipse at 20% 85%, rgba(40,55,95,0.40) 0%, transparent 60%),
+    linear-gradient(180deg, #14102a 0%, #1c1838 50%, #221d3e 100%);
 }
 
 /* ── viewer-frame: 16:9 작품 무대 ── */

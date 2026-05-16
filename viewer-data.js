@@ -185,16 +185,9 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
     if (typeof theme === 'string' && theme.length > 0) {
       document.body.dataset.pbTheme = theme;
     }
-    /* v79: 표지 cover-theme을 작품 단위 body 속성으로. CSS가 모든 장면에서
-       stage-wrap letterbox 배경을 표지 색으로 동조 — 세로 작품을 가로 화면에서
-       볼 때 letterbox 영역이 어두운 색 대신 표지 분위기 색으로 둘러쌈. */
-    const coverScene = Object.values(ViewerState.scenes || {})
-      .find(s => s && (s.type === 'cover' || s.isCover));
-    if (coverScene && typeof coverScene.coverTheme === 'string' && coverScene.coverTheme) {
-      document.body.dataset.coverTheme = coverScene.coverTheme;
-    } else {
-      delete document.body.dataset.coverTheme;
-    }
+    /* v82: v79 박은 body.dataset.coverTheme 폐기 — 사용자 의도는 표지 색이 아닌
+       pb-theme(양옆 마감 테마)이 letterbox 전체 둘러쌈. body.dataset.pbTheme이 이미
+       박혀있으니 CSS body[data-pb-theme] #stage-wrap 룰만 박으면 됨. */
   }
 
   /* v64: 장면 전환 효과 (작품 단위) — #viewer-frame data 속성으로.

@@ -340,12 +340,13 @@ function _patchMovieAttr(kind, value) {
 function _patchSceneBody(value) {
   const screen = _getSceneScreen();
   if (!screen) return false;
-  /* 모드별 본문 노드 위치 — 4모드 모두 커버 */
+  /* 모드별 본문 노드 위치 — 4모드 모두 커버 (+ v78: 엔딩 .ending-user-body 추가) */
   const bodyNode =
        screen.querySelector('.text-card__body')
     || screen.querySelector('.pb-text__body')
     || screen.querySelector('.movie-decision__desc')
-    || screen.querySelector('.exp-body-panel p');
+    || screen.querySelector('.exp-body-panel p')
+    || screen.querySelector('.ending-user-body');
   if (!bodyNode) {
     /* 체험전시형은 본문이 비어있다가 입력 시작 시 DOM에 없을 수 있음.
        이 경우 통째 재렌더 폴백이 필요 (false 반환). */

@@ -185,6 +185,15 @@ function renderScene(scene) {
     return;
   }
 
+  /* v78: 엔딩 분기 — 상위 renderViewer는 isEnding 체크해서 renderTerminal 호출하지만,
+     다듬기 모드에서 본문 입력 시 _scheduleViewerFrameReRender가 renderScene을 직접 호출
+     해서 엔딩 layout 박히지 않고 일반 그림책 layout으로 박이던 버그 fix.
+     사용자 보고: 엔딩 본문 다듬는 동안 "이야기 끝" 스탬프/행동버튼 사라짐. */
+  if (scene && (scene.isEnding || scene.type === 'ending')) {
+    renderTerminal(scene);
+    return;
+  }
+
   /* 모드 결정 (4단계 갱신) — 작품 단위 projectType이 1단계에서 도입됨.
      우선순위:
        1. ViewerState.project.projectType (작품 단위 type, 1단계 도입)

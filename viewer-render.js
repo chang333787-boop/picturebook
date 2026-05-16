@@ -1534,10 +1534,11 @@ function _stageReplaceScene(stage, newHtml) {
     stage.appendChild(tmp.firstChild);
   }
 
-  /* 옛 scene leaving 애니메이션 시간 후 제거 — viewer-frame data-transition-speed 기준 */
+  /* 옛 scene leaving 애니메이션 시간 후 제거.
+     v73: 속도는 dataset.sceneSpeedPct(0~100) → _sceneTransMs로 매핑. */
   if (oldScene && oldScene.parentNode === stage) {
-    const speedAttr = stage.dataset.transitionSpeed || 'normal';
-    const duration = { fast: 800, normal: 1400, slow: 2200 }[speedAttr] || 1400;
+    const sPct = parseInt(stage.dataset.sceneSpeedPct, 10);
+    const duration = _sceneTransMs(isNaN(sPct) ? 50 : sPct);
     setTimeout(() => {
       if (oldScene.parentNode === stage) oldScene.remove();
     }, duration + 50);
@@ -1547,10 +1548,39 @@ function _stageReplaceScene(stage, newHtml) {
   _applyTextEntranceTypewriter(stage, newScene);
 }
 
-/* v72: 표지 인스펙터에서 효과 버튼 클릭 시 옆 viewer-frame에 1회 미리보기 재생.
-   field = 'sceneTransition' | 'sceneTransitionSpeed' → 표지 카드(.scene-screen) animation restart
-   field = 'textEntrance' | 'textEntranceSpeed'      → 표지 제목/소개 animation restart (+ typewriter span)
-   다듬기 차단 룰은 viewer.css에서 :not(.preview-once)/:not(.preview-text-once)로 해제됨. */
+/* v73: 슬라이더 0~100 → ms 매핑.
+   장면 전환: 400ms(0) ~ 3500ms(100), linear.
+   텍스트 등장 CSS 효과:  200ms(0) ~ 3000ms(100), linear.
+   텍스트 등장 타자기 step: 20ms(0) ~ 300ms(100), linear (글자당).
+   viewer-frame style.setProperty로 CSS 변수 박음 — 모든 룰이 변수 참조. */
+function _sceneTransMs(pct) { return Math.round(400 + (pct / 100) * 3100); }
+function _textEntDurMs(pct)  { return Math.round(200 + (pct / 100) * 2800); }
+function _textTwStepMs(pct)  { return Math.round(20  + (pct / 100) * 280); }
+
+function applyWorkEffectVars(vf, sceneSpeed, textSpeed, textEntrance) {
+  if (!vf) return;
+  const sPct = typeof sceneSpeed === 'number' ? sceneSpeed : 50;
+  const tPct = typeof textSpeed  === 'number' ? textSpeed  : 50;
+  vf.style.setProperty('--scene-trans-duration', _sceneTransMs(sPct) + 'ms');
+  vf.style.setProperty('--text-ent-duration',    _textEntDurMs(tPct) + 'ms');
+  vf.style.setProperty('--text-tw-step',         _textTwStepMs(tPct) + 'ms');
+  /* --text-ent-total 기본값: 효과 'none'이면 0, CSS 효과면 duration, typewriter는 일단 duration
+     (실제 typewriter는 _applyTextEntranceTypewriter에서 글자수 보고 다시 박음) */
+  if (textEntrance === 'none' || !textEntrance) {
+    vf.style.setProperty('--text-ent-total', '0ms');
+  } else {
+    vf.style.setProperty('--text-ent-total', _textEntDurMs(tPct) + 'ms');
+  }
+  /* viewer-frame data attr — slider value 그대로 (스타일 변수 외에 JS 참조용) */
+  vf.dataset.sceneSpeedPct = sPct;
+  vf.dataset.textSpeedPct  = tPct;
+}
+
+/* v72: 표지 인스펙터에서 효과 버튼/슬라이더 변경 시 옆 viewer-frame에 1회 미리보기 재생.
+   v73: slider value(0~100) 기반. body.preview-active 박아 다듬기 차단 룰 일시 해제.
+   미리보기 element는 .preview-text-once 박혀 animation-delay 0 강제(CSS 룰).
+   field = 'sceneTransition' | 'sceneTransitionSpeed' → 표지 카드 1회
+   field = 'textEntrance' | 'textEntranceSpeed'      → 표지 제목/소개 1회 (typewriter는 span) */
 let _previewTimers = { scene: null, text: null };
 function previewWorkEffect(field) {
   const stage = document.getElementById('viewer-frame');
@@ -1558,61 +1588,63 @@ function previewWorkEffect(field) {
   const scene = stage.querySelector('.scene-screen:not(.is-leaving)');
   if (!scene) return;
 
+  /* body.preview-active 박아 .tw-char 차단 해제 (미리보기 끝나면 해제). */
+  if (document.body) document.body.classList.add('preview-active');
+
   if (field === 'sceneTransition' || field === 'sceneTransitionSpeed') {
-    /* 옛 미리보기 진행 중이면 cancel */
     if (_previewTimers.scene) {
       clearTimeout(_previewTimers.scene);
       scene.classList.remove('preview-once');
     }
-    scene.classList.remove('preview-once');
     /* reflow 강제 — animation restart */
     void scene.offsetWidth;
     scene.classList.add('preview-once');
 
-    const speed = stage.dataset.transitionSpeed || 'normal';
-    const dur = { fast: 800, normal: 1400, slow: 2200 }[speed] || 1400;
+    const sPct = parseInt(stage.dataset.sceneSpeedPct, 10);
+    const dur  = _sceneTransMs(isNaN(sPct) ? 50 : sPct);
     _previewTimers.scene = setTimeout(() => {
       scene.classList.remove('preview-once');
       _previewTimers.scene = null;
-    }, dur + 100);
+      _maybeDropPreviewActive();
+    }, dur + 120);
     return;
   }
 
   if (field === 'textEntrance' || field === 'textEntranceSpeed') {
-    if (_previewTimers.text) {
-      clearTimeout(_previewTimers.text);
-    }
+    if (_previewTimers.text) clearTimeout(_previewTimers.text);
+
     const targets = scene.querySelectorAll('.cover-title-pb, .cover-subtitle-pb, .pb-text__body');
-    if (!targets.length) return;
+    if (!targets.length) { _maybeDropPreviewActive(); return; }
 
-    const mode  = stage.dataset.textEntrance || 'none';
-    const speed = stage.dataset.textEntranceSpeed || 'normal';
-    const dur   = { fast: 350, normal: 700, slow: 1100 }[speed] || 700;
+    const mode = stage.dataset.textEntrance || 'none';
+    const tPct = parseInt(stage.dataset.textSpeedPct, 10);
+    const dur  = _textEntDurMs(isNaN(tPct) ? 50 : tPct);
 
-    /* 옛 typewriter span 복원 (textContent로) — 새 미리보기 시작 전 */
+    /* 옛 typewriter span 복원 — 새 미리보기 시작 전 */
     targets.forEach(el => {
       el.classList.remove('preview-text-once');
-      if (el.dataset.twProcessed === '1') {
+      if (el.dataset.twProcessed === '1' || el.dataset.twPreview === '1') {
         const plain = el.textContent || '';
         el.innerHTML = '';
         el.textContent = plain;
         delete el.dataset.twProcessed;
+        delete el.dataset.twPreview;
       }
     });
 
     if (mode === 'none') {
-      /* 효과 없음 — 미리보기도 안 함. opacity 정상 유지 */
+      /* 효과 없음 — 미리보기도 안 함 */
+      _maybeDropPreviewActive();
       return;
     }
 
     if (mode === 'typewriter') {
-      /* span 변환 + reveal — 다듬기 차단 일시 해제 위해 .preview-text-once 박음 */
-      const stepMs = { fast: 25, normal: 50, slow: 80 }[speed] || 50;
+      const stepMs = _textTwStepMs(isNaN(tPct) ? 50 : tPct);
       let maxDelay = 0;
       targets.forEach(el => {
+        if (el.getAttribute('contenteditable') === 'true') return;
         const text = el.textContent || '';
         if (!text.trim()) return;
-        if (el.getAttribute('contenteditable') === 'true') return;
 
         el.dataset.twPreview = '1';
         el.innerHTML = '';
@@ -1621,7 +1653,8 @@ function previewWorkEffect(field) {
           const sp = document.createElement('span');
           sp.className = 'tw-char';
           sp.textContent = ch;
-          sp.style.animationDelay = (i * stepMs) + 'ms';
+          /* !important 박아 CSS shorthand 충돌 회피 (다듬기 룰 풀린 후에도 안전) */
+          sp.style.setProperty('animation-delay', (i * stepMs) + 'ms', 'important');
           frag.appendChild(sp);
         });
         el.appendChild(frag);
@@ -1639,11 +1672,12 @@ function previewWorkEffect(field) {
           }
         });
         _previewTimers.text = null;
-      }, maxDelay + 200);
+        _maybeDropPreviewActive();
+      }, maxDelay + 300);
       return;
     }
 
-    /* CSS 효과 (fade/slide-up/blur-in/pop) — animation restart */
+    /* CSS 효과 (fade/slide-up/blur-in/pop) */
     targets.forEach(el => {
       void el.offsetWidth;
       el.classList.add('preview-text-once');
@@ -1651,33 +1685,44 @@ function previewWorkEffect(field) {
     _previewTimers.text = setTimeout(() => {
       targets.forEach(el => el.classList.remove('preview-text-once'));
       _previewTimers.text = null;
-    }, dur + 100);
+      _maybeDropPreviewActive();
+    }, dur + 120);
   }
+}
+function _maybeDropPreviewActive() {
+  if (_previewTimers.scene || _previewTimers.text) return;
+  if (document.body) document.body.classList.remove('preview-active');
 }
 
 /* v71: typewriter 효과 — 본문·표지 제목/소개의 textContent를 글자 단위 span으로 변환.
    각 span에 inline animation-delay 박아 stagger 등장.
+   v73: animation-delay에 장면 전환 duration 더해서 박음 (장면 끝난 후 시작).
+        animation-delay 정확도 위해 setProperty('important') 사용.
+        --text-ent-total CSS 변수에 실제 typewriter 총 시간 박음 (행동버튼 delay 위해).
    다듬기 모드에선 skip (입력 충돌). CSS 효과(fade/slide-up/blur-in/pop)는 css만으로 동작. */
 function _applyTextEntranceTypewriter(stage, newScene) {
   if (!stage || !newScene) return;
   const mode = stage.dataset.textEntrance || 'none';
-  if (mode !== 'typewriter') return;
 
   /* 다듬기 모드면 skip (contenteditable 충돌 + 깜빡임 차단) */
   const isEdit =
     stage.classList.contains('edit-mode-on') ||
     (document.body && document.body.classList.contains('edit-mode-active'));
-  if (isEdit) return;
 
-  const speed = stage.dataset.textEntranceSpeed || 'normal';
-  const stepMs = { fast: 25, normal: 50, slow: 80 }[speed] || 50;
+  /* 기본: --text-ent-total = duration (CSS 효과 시간) — applyWorkEffectVars에서 박은 값 유지 */
+  if (mode !== 'typewriter' || isEdit) return;
+
+  const tPct = parseInt(stage.dataset.textSpeedPct, 10);
+  const stepMs = _textTwStepMs(isNaN(tPct) ? 50 : tPct);
+  const sPct = parseInt(stage.dataset.sceneSpeedPct, 10);
+  const sceneDur = _sceneTransMs(isNaN(sPct) ? 50 : sPct);
 
   const targets = newScene.querySelectorAll(
     '.pb-text__body, .cover-title-pb, .cover-subtitle-pb'
   );
 
+  let maxTotal = 0;
   targets.forEach(el => {
-    /* contenteditable이거나 이미 처리된 element는 skip */
     if (el.getAttribute('contenteditable') === 'true') return;
     if (el.dataset.twProcessed === '1') return;
 
@@ -1685,17 +1730,23 @@ function _applyTextEntranceTypewriter(stage, newScene) {
     if (!text.trim()) return;
 
     el.dataset.twProcessed = '1';
-    el.innerHTML = ''; /* 옛 텍스트 비우고 span으로 재구성 */
+    el.innerHTML = '';
 
     const frag = document.createDocumentFragment();
     Array.from(text).forEach((ch, i) => {
-      /* 공백/줄바꿈은 span으로 감싸지만 delay는 동일 — 시각적 자연스러움 */
       const sp = document.createElement('span');
       sp.className = 'tw-char';
       sp.textContent = ch;
-      sp.style.animationDelay = (i * stepMs) + 'ms';
+      /* 장면 전환 끝난 후 stagger 시작 */
+      sp.style.setProperty('animation-delay', (sceneDur + i * stepMs) + 'ms', 'important');
       frag.appendChild(sp);
     });
     el.appendChild(frag);
+    maxTotal = Math.max(maxTotal, text.length * stepMs);
   });
+
+  /* --text-ent-total 갱신 — typewriter 실제 시간 (행동버튼 페이드 delay 위해) */
+  if (maxTotal > 0) {
+    stage.style.setProperty('--text-ent-total', maxTotal + 'ms');
+  }
 }

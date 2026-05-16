@@ -134,21 +134,31 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
       ViewerState.project.pbTheme = meta.pbTheme;
     }
 
-    /* v64: 장면 전환 효과 + 속도 (작품 단위 메타) */
+    /* v64: 장면 전환 효과 (작품 단위 메타)
+       v73: 속도는 string('fast'/'normal'/'slow')에서 number(0~100)로 마이그레이션.
+       옛 string 그대로 박혀있으면 자동 변환 (fast=0, normal=50, slow=100). */
     const VALID_TRANS = ['fade', 'book', 'scale', 'slide-up', 'flip3d'];
-    const VALID_SPEED = ['fast', 'normal', 'slow'];
+    const LEGACY_SPEED_MAP = { fast: 0, normal: 50, slow: 100 };
     ViewerState.project.sceneTransition = VALID_TRANS.includes(meta.sceneTransition)
       ? meta.sceneTransition : 'fade';
-    ViewerState.project.sceneTransitionSpeed = VALID_SPEED.includes(meta.sceneTransitionSpeed)
-      ? meta.sceneTransitionSpeed : 'normal';
+    let _stSpeed = meta.sceneTransitionSpeed;
+    if (typeof _stSpeed === 'string' && _stSpeed in LEGACY_SPEED_MAP) {
+      _stSpeed = LEGACY_SPEED_MAP[_stSpeed];
+    }
+    _stSpeed = typeof _stSpeed === 'number' ? _stSpeed : 50;
+    ViewerState.project.sceneTransitionSpeed = Math.max(0, Math.min(100, Math.round(_stSpeed)));
 
-    /* v71: 텍스트 등장 애니메이션 (작품 단위 메타) — 그림책 모드 본문 + 표지 제목/소개 */
+    /* v71: 텍스트 등장 애니메이션 (작품 단위 메타) — 그림책 모드 본문 + 표지 제목/소개
+       v73: 속도 number(0~100)로. 옛 string 마이그레이션. */
     const VALID_TEXT_ENTRANCE = ['none', 'fade', 'slide-up', 'blur-in', 'pop', 'typewriter'];
-    const VALID_TEXT_SPEED    = ['fast', 'normal', 'slow'];
     ViewerState.project.textEntrance = VALID_TEXT_ENTRANCE.includes(meta.textEntrance)
       ? meta.textEntrance : 'none';
-    ViewerState.project.textEntranceSpeed = VALID_TEXT_SPEED.includes(meta.textEntranceSpeed)
-      ? meta.textEntranceSpeed : 'normal';
+    let _teSpeed = meta.textEntranceSpeed;
+    if (typeof _teSpeed === 'string' && _teSpeed in LEGACY_SPEED_MAP) {
+      _teSpeed = LEGACY_SPEED_MAP[_teSpeed];
+    }
+    _teSpeed = typeof _teSpeed === 'number' ? _teSpeed : 50;
+    ViewerState.project.textEntranceSpeed = Math.max(0, Math.min(100, Math.round(_teSpeed)));
   }
 
   /* v37: 텍스트 모드는 무조건 세로 (스마트폰 비율, 스마트폰·태블릿·PC 모두 동일).
@@ -177,15 +187,19 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
     }
   }
 
-  /* v64: 장면 전환 효과 + 속도를 #viewer-frame data 속성으로.
-     CSS #viewer-frame[data-transition="X"] .scene-screen { animation-name: X } 패턴. */
+  /* v64: 장면 전환 효과 (작품 단위) — #viewer-frame data 속성으로.
+     v73: 속도는 CSS 변수 --scene-trans-duration, --text-ent-duration, --text-tw-step (ms).
+     applyWorkEffectVars 헬퍼가 슬라이더 0~100 → ms로 매핑 + viewer-frame style에 박음. */
   const vf = document.getElementById('viewer-frame');
   if (vf) {
-    vf.dataset.transition       = ViewerState.project.sceneTransition || 'fade';
-    vf.dataset.transitionSpeed  = ViewerState.project.sceneTransitionSpeed || 'normal';
-    /* v71: 텍스트 등장 효과·속도 */
-    vf.dataset.textEntrance      = ViewerState.project.textEntrance || 'none';
-    vf.dataset.textEntranceSpeed = ViewerState.project.textEntranceSpeed || 'normal';
+    vf.dataset.transition   = ViewerState.project.sceneTransition || 'fade';
+    vf.dataset.textEntrance = ViewerState.project.textEntrance || 'none';
+    if (typeof applyWorkEffectVars === 'function') {
+      applyWorkEffectVars(vf,
+        ViewerState.project.sceneTransitionSpeed,
+        ViewerState.project.textEntranceSpeed,
+        ViewerState.project.textEntrance);
+    }
   }
 
   /* ================================================================

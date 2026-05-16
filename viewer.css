@@ -404,24 +404,26 @@ body.edit-mode-active #stage-wrap {
   box-shadow: 0 0 60px rgba(0,0,0,0.8);
 }
 
-/* v63/v64: 장면 전환 — 5개 효과 + 3단계 속도, 작품 단위 viewer-meta.sceneTransition으로.
+/* v63/v64: 장면 전환 — 5개 효과 + 작품 단위 viewer-meta.sceneTransition.
+   v73: 속도는 CSS 변수 --scene-trans-duration (ms, JS에서 0~100 → 400~3500ms 매핑).
    기본 = fade (살짝 slide-up). 표지 → 첫 장면 등 모든 scene 진입 시 적용. */
+#viewer-frame {
+  --scene-trans-duration: 1400ms;
+  --text-ent-duration:    700ms;
+  --text-tw-step:         50ms;
+  --text-ent-total:       700ms;
+}
 .scene-screen {
-  animation: sceneFadeIn 1400ms cubic-bezier(0.16, 1, 0.3, 1);
+  animation: sceneFadeIn var(--scene-trans-duration, 1400ms) cubic-bezier(0.16, 1, 0.3, 1);
   transform-origin: center center;
 }
 
-/* 5개 효과별 animation-name — 부모 #viewer-frame data 속성 기준 (한 번 박으면 모든 scene 적용) */
+/* 5개 효과별 animation-name — 부모 #viewer-frame data 속성 기준 */
 #viewer-frame[data-transition="fade"]     .scene-screen { animation-name: sceneFadeIn; }
 #viewer-frame[data-transition="book"]     .scene-screen { animation-name: sceneBookFlip; }
 #viewer-frame[data-transition="scale"]    .scene-screen { animation-name: sceneScaleIn; }
 #viewer-frame[data-transition="slide-up"] .scene-screen { animation-name: sceneSlideUp; }
 #viewer-frame[data-transition="flip3d"]   .scene-screen { animation-name: sceneFlip3d; }
-
-/* 3단계 속도 — v65: 사용자 보고 너무 빠름. 옛 800ms를 빠름 기준으로 재조정. */
-#viewer-frame[data-transition-speed="fast"]   .scene-screen { animation-duration: 800ms; }
-#viewer-frame[data-transition-speed="normal"] .scene-screen { animation-duration: 1400ms; }
-#viewer-frame[data-transition-speed="slow"]   .scene-screen { animation-duration: 2200ms; }
 
 /* 1) fade — 기본 부드럽게 (v63 유지) */
 @keyframes sceneFadeIn {
@@ -537,25 +539,17 @@ body.edit-mode-active #stage-wrap {
    속도 3종: fast 350ms / normal 700ms / slow 1100ms
    다듬기 모드에선 끔 (입력 깜빡임 차단) */
 
-/* 적용 selector 묶음 — 그림책 모드 본문 + 표지 제목/소개 */
+/* v73: 속도는 CSS 변수 --text-ent-duration / --text-tw-step (JS가 slider 0~100 → ms 매핑).
+   delay = var(--scene-trans-duration) — 장면 전환 끝난 후 텍스트 등장 시작.
+   미리보기에선 .preview-text-once 박은 element에 delay 0 강제 (별도 룰). */
 #viewer-frame[data-text-entrance]:not([data-text-entrance="none"]) .scene-screen--pb .pb-text__body,
 #viewer-frame[data-text-entrance]:not([data-text-entrance="none"]) .scene-screen--pb .cover-title-pb,
 #viewer-frame[data-text-entrance]:not([data-text-entrance="none"]) .scene-screen--pb .cover-subtitle-pb {
-  animation-duration: 700ms;
+  animation-duration: var(--text-ent-duration, 700ms);
   animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
   animation-fill-mode: both;
+  animation-delay: var(--scene-trans-duration, 1400ms);
 }
-
-/* 속도 3단계 */
-#viewer-frame[data-text-entrance-speed="fast"]   .scene-screen--pb .pb-text__body,
-#viewer-frame[data-text-entrance-speed="fast"]   .scene-screen--pb .cover-title-pb,
-#viewer-frame[data-text-entrance-speed="fast"]   .scene-screen--pb .cover-subtitle-pb { animation-duration: 350ms; }
-#viewer-frame[data-text-entrance-speed="normal"] .scene-screen--pb .pb-text__body,
-#viewer-frame[data-text-entrance-speed="normal"] .scene-screen--pb .cover-title-pb,
-#viewer-frame[data-text-entrance-speed="normal"] .scene-screen--pb .cover-subtitle-pb { animation-duration: 700ms; }
-#viewer-frame[data-text-entrance-speed="slow"]   .scene-screen--pb .pb-text__body,
-#viewer-frame[data-text-entrance-speed="slow"]   .scene-screen--pb .cover-title-pb,
-#viewer-frame[data-text-entrance-speed="slow"]   .scene-screen--pb .cover-subtitle-pb { animation-duration: 1100ms; }
 
 /* 1) fade — opacity 0 → 1 */
 #viewer-frame[data-text-entrance="fade"] .scene-screen--pb .pb-text__body,
@@ -620,7 +614,8 @@ body.edit-mode-active #stage-wrap {
 }
 
 /* 다듬기 모드에선 텍스트 등장 효과 끔 — 입력 깜빡임 차단 (v07 동일 정책)
-   v72: .preview-text-once 박힌 element만 예외 — 표지 인스펙터에서 효과 미리보기. */
+   v72: .preview-text-once 박힌 element만 예외 — 표지 인스펙터에서 효과 미리보기.
+   v73: body.preview-active 박혔을 때만 .tw-char 차단 해제 (미리보기 1회 재생). */
 #viewer-frame.edit-mode-on .scene-screen--pb .pb-text__body:not(.preview-text-once),
 #viewer-frame.edit-mode-on .scene-screen--pb .cover-title-pb:not(.preview-text-once),
 #viewer-frame.edit-mode-on .scene-screen--pb .cover-subtitle-pb:not(.preview-text-once),
@@ -632,22 +627,32 @@ body.edit-mode-active .scene-screen--pb .cover-subtitle-pb:not(.preview-text-onc
   filter: none !important;
   transform: none !important;
 }
-body.edit-mode-active .tw-char {
+body.edit-mode-active:not(.preview-active) .tw-char {
   animation: none !important;
   opacity: 1 !important;
 }
-/* v72: 미리보기 중 typewriter span은 정상 stagger */
-body.edit-mode-active .preview-text-once .tw-char {
-  animation: textTwChar 1ms linear forwards !important;
+/* v73: typewriter span 룰 — animation은 shorthand 풀어서 inline animation-delay 보존 */
+.tw-char {
   opacity: 0;
+  animation-name: textTwChar;
+  animation-duration: 1ms;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+  /* animation-delay는 inline style로 박힘 (JS가 글자별 stagger) */
+}
+
+/* v73: 미리보기 element는 장면 전환 delay 무시 — 즉시 효과 재생.
+   .preview-text-once 박은 .pb-text__body, .cover-title-pb, .cover-subtitle-pb는 delay 0. */
+.preview-text-once {
+  animation-delay: 0ms !important;
 }
 
 /* v72: 표지 인스펙터 미리보기 — 다듬기 차단 룰 일시 해제.
-   장면 전환 효과 미리보기: .scene-screen에 .preview-once 박으면 animation 1회 재생. */
+   장면 전환 효과 미리보기: .scene-screen에 .preview-once 박으면 animation 1회 재생.
+   v73: 속도는 var(--scene-trans-duration) 상속. */
 #viewer-frame.edit-mode-on .scene-screen.preview-once,
 body.edit-mode-active .scene-screen.preview-once {
-  animation-name: sceneFadeIn;
-  animation-duration: 1400ms;
+  animation-duration: var(--scene-trans-duration, 1400ms);
   animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
   animation-fill-mode: both;
 }
@@ -656,9 +661,27 @@ body.edit-mode-active .scene-screen.preview-once {
 #viewer-frame[data-transition="scale"]    .scene-screen.preview-once { animation-name: sceneScaleIn !important; }
 #viewer-frame[data-transition="slide-up"] .scene-screen.preview-once { animation-name: sceneSlideUp !important; }
 #viewer-frame[data-transition="flip3d"]   .scene-screen.preview-once { animation-name: sceneFlip3d !important; }
-#viewer-frame[data-transition-speed="fast"]   .scene-screen.preview-once { animation-duration: 800ms !important; }
-#viewer-frame[data-transition-speed="normal"] .scene-screen.preview-once { animation-duration: 1400ms !important; }
-#viewer-frame[data-transition-speed="slow"]   .scene-screen.preview-once { animation-duration: 2200ms !important; }
+
+/* ──────────────────────────────────────────────────────────────────
+   v73: 행동 버튼(.pb-text__actions) 자동 페이드인
+   ──────────────────────────────────────────────────────────────────
+   사용자 결정: 행동 버튼 등장 효과는 설정 없음. 항상 텍스트 등장 끝난 후
+   1500ms 부드러운 페이드인. 다듬기/감상 모두 적용 (다만 다듬기 모드에선 차단).
+   delay = var(--scene-trans-duration) + var(--text-ent-total) — JS가 박음. */
+.scene-screen--pb .pb-text__actions {
+  animation: actionsFadeIn 1500ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(var(--scene-trans-duration, 1400ms) + var(--text-ent-total, 0ms));
+}
+@keyframes actionsFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+/* 다듬기 모드에선 행동 버튼 페이드 끔 (입력 깜빡임 차단). 미리보기 예외 X — 행동 버튼은 설정 없음. */
+body.edit-mode-active .scene-screen--pb .pb-text__actions {
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+}
 
 /* book-in 키프레임 강화 — 옛 페이지 왼쪽 넘김과 동시 우측에서 진입 */
 @keyframes sceneBookFlip {

@@ -13,7 +13,7 @@
   <title>가지 branch — 작품 만들기</title>
   <link href="https://fonts.googleapis.com/css2?family=Jua&family=Nanum+Gothic:wght@400;700&family=Nanum+Pen+Script&display=swap" rel="stylesheet"/>
   <!-- v0.3 모드별 기본형 (preview에서 viewer와 같은 스타일을 받기 위해) -->
-  <link rel="stylesheet" href="v03-modes.css?v=95"/>
+  <link rel="stylesheet" href="v03-modes.css?v=96"/>
   <style>
     :root {
       /* W8 Step 5-B: --primary 파랑 → 코랄. 제작 영역 메인 액센트 (home 카드 띠와 통일).
@@ -1504,6 +1504,69 @@
     }
     .mtb-fab:hover { filter:brightness(1.08); }
     .mtb-fab:active { transform:scale(0.95); }
+    /* v96: 노드 디자인 — 동그라미 숫자 + 상태별 시각 */
+    .mtb-node {
+      position:absolute;
+      width:48px;height:48px;
+      border-radius:50%;
+      background:#fffaee;
+      border:2.5px solid #c79550;
+      display:flex;align-items:center;justify-content:center;
+      font-family:'Jua',sans-serif;font-size:16px;font-weight:bold;
+      color:#2b1f10;cursor:pointer;
+      box-shadow:0 2px 8px rgba(120,90,50,.20);
+      user-select:none;
+      transform:translate(-50%, -50%); /* 좌표 = 노드 중심 */
+      transition:transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+      z-index:2;
+    }
+    .mtb-node:active { transform:translate(-50%, -50%) scale(0.92); }
+    .mtb-node--entry {
+      border-color:#c66f4a;
+      box-shadow:0 0 0 3px rgba(198,111,74,.20), 0 2px 8px rgba(198,111,74,.30);
+    }
+    .mtb-node--entry::after {
+      content:'▶';
+      position:absolute;top:-10px;right:-10px;
+      font-size:11px;color:#c66f4a;
+      background:#fffaee;width:18px;height:18px;
+      border-radius:50%;display:flex;align-items:center;justify-content:center;
+      box-shadow:0 1px 4px rgba(120,90,50,.20);
+    }
+    .mtb-node--ending {
+      background:#f4ecd8;
+      border-color:#9a8868;
+    }
+    .mtb-node--ending::after {
+      content:'🏁';font-size:11px;
+      position:absolute;top:-8px;right:-8px;
+    }
+    .mtb-node--true-ending::after { content:'⭐'; }
+    .mtb-node--isolated {
+      border-style:dashed;
+      opacity:0.55;
+    }
+    .mtb-node--selected {
+      box-shadow:0 0 0 4px rgba(199,149,80,.45), 0 4px 12px rgba(120,90,50,.30);
+    }
+    /* SVG 연결선 + 화살표 + 행동버튼 번호 라벨 */
+    .mtb-edge {
+      fill:none;
+      stroke:rgba(80,50,20,0.35);
+      stroke-width:1.5;
+    }
+    .mtb-edge-label-bg {
+      fill:#fbf6ea;
+      stroke:rgba(80,50,20,0.20);
+      stroke-width:1;
+    }
+    .mtb-edge-label {
+      fill:#6b5638;
+      font-family:'Nanum Gothic',sans-serif;
+      font-size:10px;font-weight:bold;
+      text-anchor:middle;
+      dominant-baseline:central;
+    }
   </style>
 </head>
 <body>
@@ -2071,19 +2134,19 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
 <!-- v37f 캐시 — 표지 사이드/구조 색 -->
-<script src="state.js?v=95"></script>
-<script src="locks.js?v=95"></script>
-<script src="firebase.js?v=95"></script>
-<script src="canvasInteraction.js?v=95"></script>
-<script src="sceneRenderer.js?v=95"></script>
-<script src="storyAnalyzer.js?v=95"></script>
-<script src="mediaManager.js?v=95"></script>
-<script src="adminConsole.js?v=95"></script>
-<script src="preview.js?v=95"></script>
-<script src="projectSettings.js?v=95"></script>
-<script src="ui.js?v=95"></script>
+<script src="state.js?v=96"></script>
+<script src="locks.js?v=96"></script>
+<script src="firebase.js?v=96"></script>
+<script src="canvasInteraction.js?v=96"></script>
+<script src="sceneRenderer.js?v=96"></script>
+<script src="storyAnalyzer.js?v=96"></script>
+<script src="mediaManager.js?v=96"></script>
+<script src="adminConsole.js?v=96"></script>
+<script src="preview.js?v=96"></script>
+<script src="projectSettings.js?v=96"></script>
+<script src="ui.js?v=96"></script>
 <!-- v95: 모바일 텍스트형 브랜치 전용 (텍스트 작품 + 모바일에서만 활성) -->
-<script src="mobileTextBranch.js?v=95"></script>
+<script src="mobileTextBranch.js?v=96"></script>
 
 </body>
 </html>

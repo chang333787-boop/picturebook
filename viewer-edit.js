@@ -2105,6 +2105,35 @@ function _isWorkSettingScene(scene) {
   return list.length > 0 && list[0] && String(list[0].id) === String(scene.id);
 }
 
+/* v75: 첫 일반 장면 판단 (cover/ending 제외) — 글자 스타일 "모든 장면에 적용" 버튼 위치.
+   entrySceneId 있으면 그것 기준, 없으면 정렬된 normal scene 중 첫 것. */
+function _isFirstNormalScene(scene) {
+  if (!scene || scene.type === 'cover' || scene.type === 'ending') return false;
+  const entryId = ViewerState.project && ViewerState.project.entrySceneId;
+  if (entryId) return String(scene.id) === String(entryId);
+  const list = (typeof _editSceneList === 'function') ? _editSceneList() : [];
+  const normals = list.filter(s => s && s.type !== 'cover' && s.type !== 'ending');
+  return normals.length > 0 && String(normals[0].id) === String(scene.id);
+}
+
+/* v75: "이 글자 스타일을 모든 장면에 적용" 버튼 HTML — 첫 일반 장면 인스펙터에만 박힘.
+   누르면 현재 scene의 textStyle을 다른 모든 normal scene에 복사 (Firebase update).
+   표지/엔딩 제외. 한 번 누르면 한 번 push — 그 후 장면별 따로 박는 건 독립. */
+function _applyStyleAllButtonHtml(scene) {
+  if (!_isFirstNormalScene(scene)) return '';
+  return `
+    <div class="edit-row edit-row--compact" style="margin-top:8px;">
+      <button type="button" class="js-apply-style-all edit-apply-all-btn"
+        data-scene-id="${scene.id}"
+        style="width:100%;padding:9px 12px;border:1.5px solid #c66f4a;background:#fffaee;color:#c66f4a;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">
+        📋 이 글자 스타일을 모든 장면에 적용
+      </button>
+      <div class="edit-section-hint" style="margin-top:6px;">
+        한 번에 통일해요. 이후 다른 장면에서 따로 박으면 그 장면만 변경돼요.
+      </div>
+    </div>`;
+}
+
 /* v64: 작품 단위 설정 UI — 장면 전환 효과 5개 + 텍스트 등장 6개
    v73: 속도를 pill(3단계)에서 슬라이더(0~100%)로. 더 정밀한 조정 + 더 느린 범위 가능. */
 function _workSettingsSectionHtml() {
@@ -2220,6 +2249,60 @@ function _bindSpeedSlider(panel, selector, field) {
   slider.addEventListener('change', async () => {
     const pct = Math.max(0, Math.min(100, parseInt(slider.value, 10) || 0));
     await _saveProjectMetaField(field, pct);
+  });
+}
+
+/* v75: "이 글자 스타일을 모든 장면에 적용" 버튼 핸들러.
+   첫 일반 장면 인스펙터에만 박힌 버튼. 클릭 시 현재 scene의 textStyle을 다른
+   모든 normal scene에 push (Firebase update). 표지/엔딩 제외. */
+function _bindApplyStyleAllHandlers(panel, scene) {
+  if (!panel || !scene) return;
+  const btn = panel.querySelector('.js-apply-style-all');
+  if (!btn) return;
+
+  btn.addEventListener('click', async () => {
+    if (btn.disabled) return;
+    const style = (typeof getTextStyle === 'function') ? getTextStyle(scene) : null;
+    if (!style) return;
+
+    const list = (typeof _editSceneList === 'function') ? _editSceneList() : [];
+    const targets = list.filter(s =>
+      s && s.type !== 'cover' && s.type !== 'ending' &&
+      String(s.id) !== String(scene.id) &&
+      typeof s.num !== 'undefined'
+    );
+    if (!targets.length) {
+      const orig = btn.textContent;
+      btn.textContent = '다른 장면이 없어요';
+      setTimeout(() => { btn.textContent = orig; }, 1500);
+      return;
+    }
+
+    const orig = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '⏳ 적용 중...';
+
+    let okCount = 0;
+    let failCount = 0;
+    for (const s of targets) {
+      try {
+        await saveSceneText(s.num, { textStyle: { ...style } });
+        /* in-memory scene 데이터도 즉시 갱신 — 다음 인스펙터 박힐 때 반영 */
+        s.textStyle = { ...style };
+        okCount++;
+      } catch (e) {
+        console.warn('[applyStyleAll] failed scene', s.num, e);
+        failCount++;
+      }
+    }
+
+    btn.textContent = failCount > 0
+      ? `✓ ${okCount}개 적용 / ${failCount}개 실패`
+      : `✓ ${okCount}개 장면에 적용됐어요`;
+    setTimeout(() => {
+      btn.disabled = false;
+      btn.textContent = orig;
+    }, 2400);
   });
 }
 
@@ -2409,6 +2492,8 @@ function _typeSectionTextHtml(scene) {
         <button type="button" class="edit-toggle js-edit-text-weight ${style.weight === 'bold' ? 'active' : ''}" data-val="bold">굵게</button>
       </div>
     </div>
+
+    ${_applyStyleAllButtonHtml(scene)}
 
     <div class="edit-divider"></div>
 
@@ -2660,6 +2745,7 @@ function _pbInlineStyleHtml(scene) {
           <button type="button" class="edit-toggle js-edit-pb-weight ${style.weight === 'bold' ? 'active' : ''}" data-val="bold">굵게</button>
         </div>
       </div>
+      ${_applyStyleAllButtonHtml(scene)}
     </div>`;
 }
 
@@ -2945,6 +3031,9 @@ function _bindTypeSectionsEvents(panel, scene) {
 
   /* v64: 작품 단위 설정 핸들러 (표지/entry scene 어디든) — 장면 전환 효과 + 속도 */
   _bindWorkSettingsHandlers(panel);
+
+  /* v75: 글자 스타일 "모든 장면에 적용" 버튼 핸들러 — 첫 일반 장면 인스펙터 */
+  _bindApplyStyleAllHandlers(panel, scene);
 
   /* v37: 표지 scene 핸들러 — 표지 색·제목 높낮이 변경 */
   if (scene.type === 'cover') {

@@ -340,7 +340,16 @@ function _mtbEditPopulate(sc) {
   if (bodyIn)  bodyIn.value  = sc.body || '';
 
   _mtbEditRenderActions(sc);
-  _mtbSetStatus('');
+
+  /* v100/v101: textStyle 반영 — _mtbReflectStyleToUI/Card는 아래(v100)에서 박힘.
+     아직 박지 않았으면 skip (Step 5 박힌 후엔 정상). */
+  if (typeof _mtbReflectStyleToUI === 'function') {
+    const style = (sc.textStyle && typeof sc.textStyle === 'object')
+      ? sc.textStyle
+      : { fontFamily: 'gothic', fontSize: 18, color: '', weight: 'normal' };
+    _mtbReflectStyleToUI(style);
+    _mtbReflectStyleToCard(style);
+  }
 }
 
 function _mtbEditRenderActions(sc) {
@@ -1000,16 +1009,8 @@ function _mtbReflectStyleToCard(style) {
   }
 }
 
-/* _mtbEditPopulate 끝에 style 반영 박음 */
-const _mtbEditPopulateOrig = _mtbEditPopulate;
-_mtbEditPopulate = function(sc) {
-  _mtbEditPopulateOrig(sc);
-  const style = (sc.textStyle && typeof sc.textStyle === 'object')
-    ? sc.textStyle
-    : { fontFamily: 'gothic', fontSize: 18, color: '', weight: 'normal' };
-  _mtbReflectStyleToUI(style);
-  _mtbReflectStyleToCard(style);
-};
+/* v101: _mtbEditPopulate reassignment 패턴 폐기. _mtbEditPopulate 내부에서
+   직접 _mtbReflectStyleToUI/Card 호출하는 식으로 박힘 (위 함수 정의 참고). */
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', _mtbInitSettings);

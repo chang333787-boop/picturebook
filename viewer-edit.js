@@ -2183,6 +2183,8 @@ function _bindWorkSettingsHandlers(panel) {
       panel.querySelectorAll('.js-scene-transition').forEach(b =>
         b.classList.toggle('active', b === btn));
       _saveProjectMetaField('sceneTransition', val);
+      /* v72: 옆 표지 카드에서 즉시 미리보기 */
+      if (typeof previewWorkEffect === 'function') previewWorkEffect('sceneTransition');
     });
   });
   panel.querySelectorAll('.js-scene-transition-speed').forEach(btn => {
@@ -2191,6 +2193,7 @@ function _bindWorkSettingsHandlers(panel) {
       panel.querySelectorAll('.js-scene-transition-speed').forEach(b =>
         b.classList.toggle('active', b === btn));
       _saveProjectMetaField('sceneTransitionSpeed', val);
+      if (typeof previewWorkEffect === 'function') previewWorkEffect('sceneTransitionSpeed');
     });
   });
   panel.querySelectorAll('.js-text-entrance').forEach(btn => {
@@ -2199,6 +2202,7 @@ function _bindWorkSettingsHandlers(panel) {
       panel.querySelectorAll('.js-text-entrance').forEach(b =>
         b.classList.toggle('active', b === btn));
       _saveProjectMetaField('textEntrance', val);
+      if (typeof previewWorkEffect === 'function') previewWorkEffect('textEntrance');
     });
   });
   panel.querySelectorAll('.js-text-entrance-speed').forEach(btn => {
@@ -2207,6 +2211,7 @@ function _bindWorkSettingsHandlers(panel) {
       panel.querySelectorAll('.js-text-entrance-speed').forEach(b =>
         b.classList.toggle('active', b === btn));
       _saveProjectMetaField('textEntranceSpeed', val);
+      if (typeof previewWorkEffect === 'function') previewWorkEffect('textEntranceSpeed');
     });
   });
 }

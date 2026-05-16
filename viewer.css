@@ -619,13 +619,14 @@ body.edit-mode-active #stage-wrap {
   to { opacity: 1; }
 }
 
-/* 다듬기 모드에선 텍스트 등장 효과 끔 — 입력 깜빡임 차단 (v07 동일 정책) */
-#viewer-frame.edit-mode-on .scene-screen--pb .pb-text__body,
-#viewer-frame.edit-mode-on .scene-screen--pb .cover-title-pb,
-#viewer-frame.edit-mode-on .scene-screen--pb .cover-subtitle-pb,
-body.edit-mode-active .scene-screen--pb .pb-text__body,
-body.edit-mode-active .scene-screen--pb .cover-title-pb,
-body.edit-mode-active .scene-screen--pb .cover-subtitle-pb {
+/* 다듬기 모드에선 텍스트 등장 효과 끔 — 입력 깜빡임 차단 (v07 동일 정책)
+   v72: .preview-text-once 박힌 element만 예외 — 표지 인스펙터에서 효과 미리보기. */
+#viewer-frame.edit-mode-on .scene-screen--pb .pb-text__body:not(.preview-text-once),
+#viewer-frame.edit-mode-on .scene-screen--pb .cover-title-pb:not(.preview-text-once),
+#viewer-frame.edit-mode-on .scene-screen--pb .cover-subtitle-pb:not(.preview-text-once),
+body.edit-mode-active .scene-screen--pb .pb-text__body:not(.preview-text-once),
+body.edit-mode-active .scene-screen--pb .cover-title-pb:not(.preview-text-once),
+body.edit-mode-active .scene-screen--pb .cover-subtitle-pb:not(.preview-text-once) {
   animation: none !important;
   opacity: 1 !important;
   filter: none !important;
@@ -635,6 +636,29 @@ body.edit-mode-active .tw-char {
   animation: none !important;
   opacity: 1 !important;
 }
+/* v72: 미리보기 중 typewriter span은 정상 stagger */
+body.edit-mode-active .preview-text-once .tw-char {
+  animation: textTwChar 1ms linear forwards !important;
+  opacity: 0;
+}
+
+/* v72: 표지 인스펙터 미리보기 — 다듬기 차단 룰 일시 해제.
+   장면 전환 효과 미리보기: .scene-screen에 .preview-once 박으면 animation 1회 재생. */
+#viewer-frame.edit-mode-on .scene-screen.preview-once,
+body.edit-mode-active .scene-screen.preview-once {
+  animation-name: sceneFadeIn;
+  animation-duration: 1400ms;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  animation-fill-mode: both;
+}
+#viewer-frame[data-transition="fade"]     .scene-screen.preview-once { animation-name: sceneFadeIn !important; }
+#viewer-frame[data-transition="book"]     .scene-screen.preview-once { animation-name: sceneBookFlip !important; }
+#viewer-frame[data-transition="scale"]    .scene-screen.preview-once { animation-name: sceneScaleIn !important; }
+#viewer-frame[data-transition="slide-up"] .scene-screen.preview-once { animation-name: sceneSlideUp !important; }
+#viewer-frame[data-transition="flip3d"]   .scene-screen.preview-once { animation-name: sceneFlip3d !important; }
+#viewer-frame[data-transition-speed="fast"]   .scene-screen.preview-once { animation-duration: 800ms !important; }
+#viewer-frame[data-transition-speed="normal"] .scene-screen.preview-once { animation-duration: 1400ms !important; }
+#viewer-frame[data-transition-speed="slow"]   .scene-screen.preview-once { animation-duration: 2200ms !important; }
 
 /* book-in 키프레임 강화 — 옛 페이지 왼쪽 넘김과 동시 우측에서 진입 */
 @keyframes sceneBookFlip {
@@ -651,9 +675,10 @@ body.edit-mode-active .tw-char {
 }
 /* W7 깜빡임 차단: 다듬기 모드에선 페이드인 끔.
    부분 패치로 대부분 처리되지만, 통째 재렌더 fallback 시에도 페이드인 안 보이게.
-   다듬기는 입력이 잦은 상황이라 매번 fade-in이 깜빡임으로 체감됨. */
-#viewer-frame.edit-mode-on .scene-screen,
-body.edit-mode-active .scene-screen {
+   다듬기는 입력이 잦은 상황이라 매번 fade-in이 깜빡임으로 체감됨.
+   v72: .preview-once 박힌 scene은 예외 — 표지 인스펙터 미리보기 1회 재생. */
+#viewer-frame.edit-mode-on .scene-screen:not(.preview-once),
+body.edit-mode-active .scene-screen:not(.preview-once) {
   animation: none;
 }
 /* 화면이 16:9보다 넓을 때: 좌우 레터박스 */

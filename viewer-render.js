@@ -1547,6 +1547,114 @@ function _stageReplaceScene(stage, newHtml) {
   _applyTextEntranceTypewriter(stage, newScene);
 }
 
+/* v72: 표지 인스펙터에서 효과 버튼 클릭 시 옆 viewer-frame에 1회 미리보기 재생.
+   field = 'sceneTransition' | 'sceneTransitionSpeed' → 표지 카드(.scene-screen) animation restart
+   field = 'textEntrance' | 'textEntranceSpeed'      → 표지 제목/소개 animation restart (+ typewriter span)
+   다듬기 차단 룰은 viewer.css에서 :not(.preview-once)/:not(.preview-text-once)로 해제됨. */
+let _previewTimers = { scene: null, text: null };
+function previewWorkEffect(field) {
+  const stage = document.getElementById('viewer-frame');
+  if (!stage) return;
+  const scene = stage.querySelector('.scene-screen:not(.is-leaving)');
+  if (!scene) return;
+
+  if (field === 'sceneTransition' || field === 'sceneTransitionSpeed') {
+    /* 옛 미리보기 진행 중이면 cancel */
+    if (_previewTimers.scene) {
+      clearTimeout(_previewTimers.scene);
+      scene.classList.remove('preview-once');
+    }
+    scene.classList.remove('preview-once');
+    /* reflow 강제 — animation restart */
+    void scene.offsetWidth;
+    scene.classList.add('preview-once');
+
+    const speed = stage.dataset.transitionSpeed || 'normal';
+    const dur = { fast: 800, normal: 1400, slow: 2200 }[speed] || 1400;
+    _previewTimers.scene = setTimeout(() => {
+      scene.classList.remove('preview-once');
+      _previewTimers.scene = null;
+    }, dur + 100);
+    return;
+  }
+
+  if (field === 'textEntrance' || field === 'textEntranceSpeed') {
+    if (_previewTimers.text) {
+      clearTimeout(_previewTimers.text);
+    }
+    const targets = scene.querySelectorAll('.cover-title-pb, .cover-subtitle-pb, .pb-text__body');
+    if (!targets.length) return;
+
+    const mode  = stage.dataset.textEntrance || 'none';
+    const speed = stage.dataset.textEntranceSpeed || 'normal';
+    const dur   = { fast: 350, normal: 700, slow: 1100 }[speed] || 700;
+
+    /* 옛 typewriter span 복원 (textContent로) — 새 미리보기 시작 전 */
+    targets.forEach(el => {
+      el.classList.remove('preview-text-once');
+      if (el.dataset.twProcessed === '1') {
+        const plain = el.textContent || '';
+        el.innerHTML = '';
+        el.textContent = plain;
+        delete el.dataset.twProcessed;
+      }
+    });
+
+    if (mode === 'none') {
+      /* 효과 없음 — 미리보기도 안 함. opacity 정상 유지 */
+      return;
+    }
+
+    if (mode === 'typewriter') {
+      /* span 변환 + reveal — 다듬기 차단 일시 해제 위해 .preview-text-once 박음 */
+      const stepMs = { fast: 25, normal: 50, slow: 80 }[speed] || 50;
+      let maxDelay = 0;
+      targets.forEach(el => {
+        const text = el.textContent || '';
+        if (!text.trim()) return;
+        if (el.getAttribute('contenteditable') === 'true') return;
+
+        el.dataset.twPreview = '1';
+        el.innerHTML = '';
+        const frag = document.createDocumentFragment();
+        Array.from(text).forEach((ch, i) => {
+          const sp = document.createElement('span');
+          sp.className = 'tw-char';
+          sp.textContent = ch;
+          sp.style.animationDelay = (i * stepMs) + 'ms';
+          frag.appendChild(sp);
+        });
+        el.appendChild(frag);
+        el.classList.add('preview-text-once');
+        maxDelay = Math.max(maxDelay, text.length * stepMs);
+      });
+      _previewTimers.text = setTimeout(() => {
+        targets.forEach(el => {
+          el.classList.remove('preview-text-once');
+          if (el.dataset.twPreview === '1') {
+            const plain = el.textContent || '';
+            el.innerHTML = '';
+            el.textContent = plain;
+            delete el.dataset.twPreview;
+          }
+        });
+        _previewTimers.text = null;
+      }, maxDelay + 200);
+      return;
+    }
+
+    /* CSS 효과 (fade/slide-up/blur-in/pop) — animation restart */
+    targets.forEach(el => {
+      void el.offsetWidth;
+      el.classList.add('preview-text-once');
+    });
+    _previewTimers.text = setTimeout(() => {
+      targets.forEach(el => el.classList.remove('preview-text-once'));
+      _previewTimers.text = null;
+    }, dur + 100);
+  }
+}
+
 /* v71: typewriter 효과 — 본문·표지 제목/소개의 textContent를 글자 단위 span으로 변환.
    각 span에 inline animation-delay 박아 stagger 등장.
    다듬기 모드에선 skip (입력 충돌). CSS 효과(fade/slide-up/blur-in/pop)는 css만으로 동작. */

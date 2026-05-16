@@ -390,6 +390,19 @@ body:not(.edit-mode-active)[data-cover-theme="mint"]  #stage-wrap { background: 
 body:not(.edit-mode-active)[data-cover-theme="lemon"] #stage-wrap { background: #fbf2c4; }
 body:not(.edit-mode-active)[data-cover-theme="rose"]  #stage-wrap { background: #f5d0d0; }
 
+/* v81: 표지 색(cover-theme)이 박힌 작품은 양옆 마감 테마(pb-theme)의 외곽 배경 무시.
+   사용자 의도: "모든 장면에서 표지 색으로 둘러쌈". night-tale 등 pb-theme의
+   .scene-screen--pb 배경/별빛 효과가 stage-wrap letterbox 색을 덮어쓰던 문제 fix.
+   .pb-page 자체 효과(box-shadow 등)는 그대로 유지 — 페이지 카드 느낌만 살림.
+   다듬기 모드는 영향 없음 (cover-theme letterbox 룰 자체가 :not(.edit-mode-active)). */
+body:not(.edit-mode-active)[data-cover-theme] .scene-screen--pb {
+  background: transparent !important;
+}
+body:not(.edit-mode-active)[data-cover-theme] .scene-screen--pb::before,
+body:not(.edit-mode-active)[data-cover-theme] .scene-screen--pb::after {
+  display: none !important;
+}
+
 /* ── viewer-frame: 16:9 작품 무대 ── */
 #viewer-frame {
   position: relative;

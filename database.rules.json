@@ -6,12 +6,14 @@
     },
     "classCodes": {
       ".read": true,
-      ".write": false
+      "$code": {
+        ".write": "auth != null && !data.exists() && newData.isString() && $code.matches(/^[A-Z0-9]{4,6}$/) && root.child('classes/' + newData.val() + '/meta/teacher_uid').val() === auth.uid"
+      }
     },
     "teacherClasses": {
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
-        ".write": false
+        ".write": "auth != null && auth.uid === $uid && !data.exists() && newData.isString() && root.child('classes/' + newData.val() + '/meta/teacher_uid').val() === auth.uid"
       }
     },
     "teachers": {
@@ -23,8 +25,8 @@
     "classes": {
       "$classId": {
         "meta": {
-          ".read": "auth != null && (auth.token.role === 'super_admin' || auth.token.role === 'teacher')",
-          ".write": "auth != null && auth.token.role === 'super_admin'"
+          ".read": "auth != null && (auth.token.role === 'super_admin' || auth.token.role === 'teacher' || data.child('teacher_uid').val() === auth.uid)",
+          ".write": "auth != null && ((!data.exists() && newData.child('teacher_uid').val() === auth.uid) || data.child('teacher_uid').val() === auth.uid || auth.token.role === 'super_admin')"
         },
         "teams": {
           ".read": true,

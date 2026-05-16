@@ -279,12 +279,42 @@
       <div class="auth-logged-in-icon">✅</div>
       <div id="logged-in-name" class="auth-logged-in-name">-</div>
       <div id="logged-in-role" class="auth-logged-in-role">-</div>
+      <div id="logged-in-class" class="auth-logged-in-role" style="margin-top:6px;color:var(--ink-3);font-size:13px;"></div>
       <button id="btn-enter-admin" class="auth-btn auth-btn--enter">
         관리 화면으로 →
       </button>
       <button id="btn-logout" class="auth-btn auth-btn--logout">
         로그아웃
       </button>
+    </div>
+
+    <!-- v92: 클래스 만들기 화면 — 가입 후 자기 클래스 없으면 박힘 -->
+    <div id="create-class-view" style="display:none;">
+      <div class="auth-card-title">🎒 우리반 클래스를 만들어요</div>
+      <p style="color:var(--ink-3);font-size:13px;line-height:1.5;margin-bottom:18px;">
+        한 번만 만들면 돼요. 학생들이 클래스 코드를 입력해서 작품을 만들 수 있어요.
+      </p>
+      <div class="auth-field">
+        <label class="auth-label" for="class-name">반 이름 <span style="color:var(--pencil);font-weight:normal;">(자유)</span></label>
+        <input id="class-name" class="auth-input" type="text"
+          placeholder="예: 송파초 3-2반" maxlength="40"/>
+      </div>
+      <div class="auth-field">
+        <label class="auth-label" for="class-code">클래스 코드 <span style="color:var(--pencil);font-weight:normal;">(학생이 입력)</span></label>
+        <input id="class-code" class="auth-input" type="text"
+          placeholder="예: JL26A" maxlength="6" autocapitalize="characters"
+          style="text-transform:uppercase;letter-spacing:0.1em;"/>
+        <div id="class-code-status" style="margin-top:6px;font-size:12px;color:var(--ink-3);min-height:16px;">
+          영문 + 숫자 4~6자 (대소문자 구분 X)
+        </div>
+      </div>
+      <button id="btn-create-class" class="auth-btn">만들기 →</button>
+      <div id="create-class-error" class="auth-error"></div>
+      <p class="auth-notice" style="margin-top:14px;">
+        <a href="#" id="btn-create-class-logout" style="color:var(--ink-3);text-decoration:underline;cursor:pointer;font-size:12px;">
+          다른 계정으로 다시 로그인
+        </a>
+      </p>
     </div>
 
   </div>
@@ -346,7 +376,8 @@ const ROLE_LABEL = {
 
 /* ── 인증 상태 감지 ──
    v90: Custom Claim 외에 teachers/{uid} 노드도 확인. 신규 가입자는
-   가입 직후 teachers 노드에 박힘 (Cloud Functions 없이 클라이언트가 직접). */
+   가입 직후 teachers 노드에 박힘 (Cloud Functions 없이 클라이언트가 직접).
+   v92: 인증 후 teacherClasses/{uid} 조회 — 없으면 클래스 만들기 화면. */
 auth.onAuthStateChanged(async user => {
   if (!user) {
     _showLoginForm();
@@ -373,6 +404,20 @@ auth.onAuthStateChanged(async user => {
     setError('이 계정에는 교사 권한이 없어요. 관리자에게 문의해주세요.');
     await auth.signOut();
     return;
+  }
+
+  /* v92: super_admin은 클래스 없어도 OK (옛 흐름). 일반 teacher만 클래스 검증. */
+  if (role === 'teacher') {
+    let classId = null;
+    try {
+      const snap = await db.ref('teacherClasses/' + user.uid).once('value');
+      classId = snap.val();
+    } catch (e) { /* 룰 거부면 null 유지 */ }
+
+    if (!classId) {
+      _showCreateClass(user);
+      return;
+    }
   }
 
   _showLoggedIn(user, role);
@@ -508,17 +553,143 @@ btnLogout.addEventListener('click', async () => {
 function _showLoginForm() {
   loginForm.style.display    = '';
   loggedInView.style.display = 'none';
+  document.getElementById('create-class-view').style.display = 'none';
   btnLogin.disabled    = false;
-  btnLogin.textContent = '로그인 →';
+  btnLogin.textContent = _signupMode ? '가입하기 →' : '로그인 →';
 }
 
-function _showLoggedIn(user, role) {
+async function _showLoggedIn(user, role) {
   loginForm.style.display    = 'none';
   loggedInView.style.display = 'block';
+  document.getElementById('create-class-view').style.display = 'none';
   loggedInName.textContent   = user.email;
   loggedInRole.textContent   = ROLE_LABEL[role] ?? role;
+  /* v92: 클래스 정보 표시 (teacher만) */
+  const classEl = document.getElementById('logged-in-class');
+  if (classEl) classEl.textContent = '';
+  if (role === 'teacher') {
+    try {
+      const classId = (await db.ref('teacherClasses/' + user.uid).once('value')).val();
+      if (classId) {
+        const meta = (await db.ref('classes/' + classId + '/meta').once('value')).val() || {};
+        const code = meta.code || '';
+        const name = meta.name || '';
+        if (classEl && code) classEl.textContent = `${name ? name + ' · ' : ''}코드: ${code}`;
+      }
+    } catch (e) { /* skip */ }
+  }
   setError('');
 }
+
+/* v92: 클래스 만들기 화면 박기 */
+function _showCreateClass(user) {
+  loginForm.style.display    = 'none';
+  loggedInView.style.display = 'none';
+  document.getElementById('create-class-view').style.display = 'block';
+  document.getElementById('class-name').value = '';
+  document.getElementById('class-code').value = '';
+  document.getElementById('class-code-status').textContent = '영문 + 숫자 4~6자 (대소문자 구분 X)';
+  document.getElementById('class-code-status').style.color = 'var(--ink-3)';
+  document.getElementById('create-class-error').textContent = '';
+  _currentUserForCreate = user;
+}
+let _currentUserForCreate = null;
+
+/* v92: 클래스 코드 실시간 중복 검증 (입력 박힌 후 300ms 디바운스) */
+let _codeCheckTimer = null;
+let _codeAvailable = false;
+document.getElementById('class-code').addEventListener('input', e => {
+  const raw = e.target.value.trim().toUpperCase();
+  e.target.value = raw;
+  const status = document.getElementById('class-code-status');
+  _codeAvailable = false;
+
+  if (!raw) {
+    status.textContent = '영문 + 숫자 4~6자 (대소문자 구분 X)';
+    status.style.color = 'var(--ink-3)';
+    return;
+  }
+  if (!/^[A-Z0-9]{4,6}$/.test(raw)) {
+    status.textContent = '⚠ 영문 대문자 + 숫자 4~6자만 가능';
+    status.style.color = 'var(--error)';
+    return;
+  }
+
+  status.textContent = '⏳ 확인 중...';
+  status.style.color = 'var(--ink-3)';
+  if (_codeCheckTimer) clearTimeout(_codeCheckTimer);
+  _codeCheckTimer = setTimeout(async () => {
+    try {
+      const snap = await db.ref('classCodes/' + raw).once('value');
+      if (snap.exists()) {
+        status.textContent = '✗ 이미 다른 반이 쓰고 있어요. 다른 코드로 박아주세요.';
+        status.style.color = 'var(--error)';
+        _codeAvailable = false;
+      } else {
+        status.textContent = '✓ 사용 가능';
+        status.style.color = 'var(--success)';
+        _codeAvailable = true;
+      }
+    } catch (e) {
+      status.textContent = '확인 실패. 다시 시도해주세요.';
+      status.style.color = 'var(--error)';
+    }
+  }, 300);
+});
+
+/* v92: 클래스 만들기 — 3개 노드 atomic update.
+   classId = cls_${timestamp36}_${uid 앞 6글자}. 사람이 읽을 일 없는 내부 식별자. */
+document.getElementById('btn-create-class').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-create-class');
+  const errEl = document.getElementById('create-class-error');
+  const name = document.getElementById('class-name').value.trim();
+  const code = document.getElementById('class-code').value.trim().toUpperCase();
+  const user = _currentUserForCreate || auth.currentUser;
+
+  errEl.textContent = '';
+  if (!user) { errEl.textContent = '로그인이 필요해요.'; return; }
+  if (!/^[A-Z0-9]{4,6}$/.test(code)) { errEl.textContent = '클래스 코드는 영문 대문자 + 숫자 4~6자여야 해요.'; return; }
+  if (!_codeAvailable) { errEl.textContent = '코드 중복 확인이 끝난 후 박아주세요.'; return; }
+
+  btn.disabled = true;
+  btn.textContent = '만드는 중...';
+
+  const classId = `cls_${Date.now().toString(36)}_${user.uid.slice(0, 6)}`;
+  const meta = {
+    teacher_uid: user.uid,
+    teacher_email: user.email || '',
+    code: code,
+    name: name || '',
+    createdAt: firebase.database.ServerValue.TIMESTAMP,
+  };
+
+  /* v92: 2단계 update — Firebase rules가 root 참조해서 검증하므로 한 번 atomic
+     update로는 classCodes/teacherClasses 룰이 classes/.../meta 못 봄.
+     1단계: classes/{classId}/meta 박음 (룰: 자기 uid).
+     2단계: classCodes + teacherClasses 박음 (룰: root.classes 검증, 1단계 박혀있음). */
+  try {
+    /* 1단계 */
+    await db.ref(`classes/${classId}/meta`).set(meta);
+    /* 2단계 */
+    await db.ref().update({
+      [`classCodes/${code}`]:         classId,
+      [`teacherClasses/${user.uid}`]: classId,
+    });
+    /* 성공 → 인증 화면 */
+    await _showLoggedIn(user, 'teacher');
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = '만들기 →';
+    errEl.textContent = '만들기 실패: ' + (e.message || e.code || '알 수 없는 오류');
+    console.warn('[create class]', e);
+  }
+});
+
+/* v92: 클래스 만들기 화면에서 로그아웃 */
+document.getElementById('btn-create-class-logout').addEventListener('click', async e => {
+  e.preventDefault();
+  await auth.signOut();
+});
 
 function setError(msg) {
   authError.textContent = msg;

@@ -1378,7 +1378,22 @@ function renderHUD() {
    4. close 실패 또는 opener 없음 → context.url로 이동 (source별로 정리)
    5. context 전혀 없음 → source fallback 없이 maker.html 기본 입장
    ─────────────────────────────────────────────────────────────*/
-function _returnToMaker() {
+async function _returnToMaker() {
+  /* v70: 튕김 버그 추적 — 감상 테스트 → 브랜치로 돌아가기 시 가끔 꺼짐.
+     원인 추정: pending save + close 타이밍 race. 호출 진입에 안전 cleanup 박음. */
+  try {
+    if (typeof _flushPendingSave === 'function') {
+      await _flushPendingSave();
+    }
+  } catch (e) { /* save 실패해도 navigate는 계속 */ }
+  /* SPA 상태 정리 — testingEdit/editMode 잔재 */
+  try {
+    if (typeof ViewerState !== 'undefined' && ViewerState) {
+      ViewerState._testingEdit = false;
+      ViewerState.editMode = false;
+    }
+  } catch (e) { /* noop */ }
+
   const CTX_KEY  = 'branchReturnContext';
   const MAX_AGE  = 60 * 60 * 1000; // 1시간
 

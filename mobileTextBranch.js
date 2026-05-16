@@ -61,6 +61,20 @@ function _mtbActivate() {
   MTB.active = true;
   /* v96: 진입 시 노드 렌더 */
   _mtbRender();
+  /* v103: 작품 진입 시 첫 장면 편집 화면 자동 열림 — 사용자 박은 의도:
+     "기본은 장면 편집 중심, 브랜치는 구조 정리할 때만". 한 번만 박음 (재진입 시 X). */
+  if (!MTB._autoOpenedOnce) {
+    MTB._autoOpenedOnce = true;
+    setTimeout(() => {
+      if (!MTB.active) return;
+      const ids = (typeof scenes === 'object' && scenes) ? Object.keys(scenes) : [];
+      if (!ids.length) return;
+      const entryId = (typeof projectMeta !== 'undefined' && projectMeta && projectMeta.entrySceneId)
+        ? String(projectMeta.entrySceneId)
+        : ids.sort((a, b) => Number(a) - Number(b))[0];
+      if (entryId && scenes[entryId]) _mtbOpenEditScene(entryId);
+    }, 200);
+  }
 }
 
 /* ── v96: BFS 자동 배치 + 노드/SVG 렌더 ──
@@ -309,6 +323,35 @@ function _mtbOpenEditScene(sceneId) {
   _mtbEditUpdateNav();
 }
 
+/* v103: 새 장면 박음 + 행동버튼 연결 + 새 장면 편집 자동 진입.
+   사용자 박은 연속 제작 흐름 (행동버튼 추가 → 새 장면 → 이어서 작성) 핵심. */
+function _mtbNewSceneAndConnect(fromSceneId, btnIdx) {
+  const sc = scenes[fromSceneId];
+  if (!sc) return;
+  if (typeof addScene !== 'function') {
+    alert('장면 추가 함수가 박혀있지 않아요.');
+    return;
+  }
+  const beforeIds = new Set(Object.keys(scenes));
+  addScene();
+  setTimeout(() => {
+    const newId = Object.keys(scenes).find(id => !beforeIds.has(id));
+    if (!newId) return;
+    /* 이 행동버튼 nextId 박음 */
+    if (!Array.isArray(sc.buttons)) sc.buttons = [];
+    if (btnIdx >= 0 && btnIdx < sc.buttons.length) {
+      sc.buttons[btnIdx].nextId = String(newId);
+    }
+    sc.choiceCount = sc.buttons.length === 1 ? 1 : 2;
+    if (typeof pushToFirebase === 'function') {
+      pushToFirebase(fromSceneId);
+      pushToFirebase(newId);
+    }
+    /* 새 장면 편집 자동 진입 — 연속 제작 흐름 */
+    _mtbOpenEditScene(newId);
+  }, 200);
+}
+
 function _mtbCloseEditScene() {
   /* 저장 마무리 — 진행 중인 debounce flush */
   MTB_EDIT.saveTimers.forEach(t => clearTimeout(t));
@@ -381,14 +424,16 @@ function _mtbEditRenderActions(sc) {
   buttons.forEach((btn, idx) => {
     const row = document.createElement('div');
     row.className = 'mtb-edit-action';
-    const nextLabel = btn.nextId ? `→ 장면 ${btn.nextId}` : '연결 없음';
-    const nextClass = btn.nextId ? '' : 'mtb-edit-action-next--empty';
+    /* v103: 연결 없으면 "+ 새 장면" 박음, 연결 있으면 "→ 장면 N" 박음 (탭 시 그 장면 편집 진입) */
+    const nextHtml = btn.nextId
+      ? `<span class="mtb-edit-action-next" data-idx="${idx}" title="장면 ${btn.nextId} 편집으로 이동">→ 장면 ${btn.nextId}</span>`
+      : `<button class="mtb-edit-action-new" data-idx="${idx}" title="새 장면 만들고 이어서 작성">+ 새 장면</button>`;
     row.innerHTML = `
       <div class="mtb-edit-action-num">${idx + 1}</div>
       <input class="mtb-edit-action-label-input" type="text"
         value="${_mtbEsc(btn.label || '')}"
         placeholder="(행동 라벨)" data-idx="${idx}"/>
-      <span class="mtb-edit-action-next ${nextClass}" data-idx="${idx}">${nextLabel}</span>
+      ${nextHtml}
       <button class="mtb-edit-action-del" data-idx="${idx}" title="삭제">✕</button>
     `;
     list.appendChild(row);
@@ -399,9 +444,14 @@ function _mtbEditRenderActions(sc) {
       buttons[idx].label = e.target.value;
       _mtbQueueSave();
     });
-    /* 연결 — Step 4에서 박을 거. 지금은 안내 */
-    row.querySelector('.mtb-edit-action-next').addEventListener('click', () => {
-      alert('연결 변경은 다음 단계에서 박을 거예요.\n(브랜치 화면에서 노드 길게 누르기로 박을 수 있어요)');
+    /* 박힌 연결 탭 → 그 장면 편집으로 이동 (앞뒤 이동 단축) */
+    row.querySelector('.mtb-edit-action-next')?.addEventListener('click', () => {
+      if (btn.nextId && scenes[btn.nextId]) _mtbOpenEditScene(btn.nextId);
+    });
+    /* v103: "+ 새 장면" — 새 scene 박음 + 이 행동버튼 nextId 박음 + 새 장면 편집 자동 진입.
+       연속 제작 흐름의 핵심. */
+    row.querySelector('.mtb-edit-action-new')?.addEventListener('click', () => {
+      _mtbNewSceneAndConnect(MTB_EDIT.currentId, idx);
     });
     /* 삭제 */
     row.querySelector('.mtb-edit-action-del').addEventListener('click', () => {

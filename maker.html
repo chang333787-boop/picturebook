@@ -1567,6 +1567,101 @@
       text-anchor:middle;
       dominant-baseline:central;
     }
+    /* v97: 모바일 장면 편집 화면 */
+    #mtb-edit-view {
+      display:none;
+      position:fixed;inset:0;z-index:60;
+      flex-direction:column;
+      background:#fbf6ea;
+    }
+    #mtb-edit-view.is-open { display:flex; animation:mtbEditSlideIn 0.25s ease-out; }
+    @keyframes mtbEditSlideIn {
+      from { transform:translateX(100%); }
+      to   { transform:translateX(0); }
+    }
+    .mtb-edit-header {
+      display:flex;align-items:center;justify-content:space-between;gap:8px;
+      padding:10px 14px;background:#c79550;color:#fffaee;
+      box-shadow:0 2px 8px rgba(120,90,50,.20);z-index:2;
+    }
+    .mtb-edit-title { font-family:'Jua',sans-serif;font-size:15px; }
+    .mtb-edit-nav { display:flex;align-items:center;gap:4px; }
+    .mtb-edit-nav-btn {
+      background:rgba(255,250,238,.20);border:none;color:#fffaee;
+      width:34px;height:34px;border-radius:50%;
+      font-size:14px;cursor:pointer;
+      display:flex;align-items:center;justify-content:center;
+    }
+    .mtb-edit-nav-btn:hover { background:rgba(255,250,238,.30); }
+    .mtb-edit-nav-btn:disabled { opacity:0.30;cursor:not-allowed; }
+    .mtb-edit-save-status {
+      font-size:11px;color:rgba(255,250,238,.85);
+      min-width:46px;text-align:center;
+    }
+    .mtb-edit-body { flex:1;overflow-y:auto;padding:20px 16px; }
+    .mtb-edit-card {
+      background:#fffaee;border:1px solid rgba(80,50,20,0.12);
+      border-radius:14px;padding:24px 20px;
+      box-shadow:0 4px 16px rgba(120,90,50,.10);
+      max-width:560px;margin:0 auto;
+    }
+    .mtb-edit-card-type {
+      display:inline-block;font-size:11px;color:#6b5638;
+      background:#f4ecd8;padding:3px 8px;border-radius:6px;margin-bottom:12px;
+    }
+    .mtb-edit-card-type--cover  { background:rgba(198,111,74,0.15);color:#c66f4a; }
+    .mtb-edit-card-type--ending { background:rgba(154,136,104,0.15);color:#4a3820; }
+    .mtb-edit-title-input {
+      width:100%;border:none;outline:none;background:transparent;
+      font-family:'Jua',sans-serif;font-size:22px;color:#2b1f10;
+      padding:6px 0;margin-bottom:10px;
+      border-bottom:1.5px dashed transparent;transition:border-color 0.15s;
+    }
+    .mtb-edit-title-input:focus { border-bottom-color:rgba(80,50,20,0.20); }
+    .mtb-edit-title-input::placeholder { color:#c4b59a; }
+    .mtb-edit-body-input {
+      width:100%;border:none;outline:none;background:transparent;
+      font-family:'Nanum Gothic',sans-serif;font-size:15px;line-height:1.7;color:#2b1f10;
+      padding:8px 0;min-height:140px;resize:vertical;
+      border-bottom:1.5px dashed transparent;transition:border-color 0.15s;
+    }
+    .mtb-edit-body-input:focus { border-bottom-color:rgba(80,50,20,0.20); }
+    .mtb-edit-body-input::placeholder { color:#c4b59a; }
+    .mtb-edit-divider { border:none;border-top:1px solid rgba(80,50,20,0.10);margin:20px 0 16px; }
+    .mtb-edit-actions-label {
+      font-size:12px;color:#6b5638;margin-bottom:8px;font-weight:600;
+    }
+    .mtb-edit-action {
+      display:flex;align-items:center;gap:10px;
+      background:#fbf6ea;border:1.5px solid rgba(80,50,20,0.15);
+      border-radius:10px;padding:10px 12px;margin-bottom:8px;
+    }
+    .mtb-edit-action-num {
+      width:24px;height:24px;border-radius:50%;
+      background:#c79550;color:#fffaee;
+      display:flex;align-items:center;justify-content:center;
+      font-size:12px;font-weight:bold;flex-shrink:0;
+    }
+    .mtb-edit-action-label-input {
+      flex:1;border:none;outline:none;background:transparent;
+      font-size:14px;color:#2b1f10;
+    }
+    .mtb-edit-action-next {
+      font-size:11px;color:#6b5638;
+      background:#f4ecd8;padding:3px 8px;border-radius:6px;cursor:pointer;
+    }
+    .mtb-edit-action-next--empty { background:#fbeae3;color:#c8503c; }
+    .mtb-edit-action-del {
+      background:transparent;border:none;color:#c8503c;
+      font-size:16px;cursor:pointer;padding:4px;
+    }
+    .mtb-edit-add-action {
+      width:100%;background:transparent;border:1.5px dashed rgba(80,50,20,0.25);
+      color:#6b5638;padding:10px;border-radius:10px;font-size:13px;cursor:pointer;
+      margin-top:4px;
+    }
+    .mtb-edit-add-action:hover { border-color:#c79550;color:#c79550; }
+    .mtb-edit-add-action:disabled { opacity:0.4;cursor:not-allowed; }
   </style>
 </head>
 <body>
@@ -1596,6 +1691,32 @@
     </div>
   </div>
   <button class="mtb-fab" id="mtb-add-scene" title="장면 추가">+</button>
+</div>
+
+<!-- v97: 모바일 장면 편집 화면 (노드 탭 시 슬라이드 인) -->
+<div id="mtb-edit-view">
+  <div class="mtb-edit-header">
+    <button class="mtb-edit-nav-btn" id="mtb-edit-close" title="닫기">←</button>
+    <div class="mtb-edit-title" id="mtb-edit-title">장면 -</div>
+    <div class="mtb-edit-nav">
+      <button class="mtb-edit-nav-btn" id="mtb-edit-prev" title="이전 장면">◀</button>
+      <div class="mtb-edit-save-status" id="mtb-edit-status"></div>
+      <button class="mtb-edit-nav-btn" id="mtb-edit-next" title="다음 장면">▶</button>
+    </div>
+  </div>
+  <div class="mtb-edit-body">
+    <div class="mtb-edit-card" id="mtb-edit-card">
+      <span class="mtb-edit-card-type" id="mtb-edit-card-type">일반</span>
+      <input class="mtb-edit-title-input" id="mtb-edit-scene-title"
+        type="text" placeholder="(제목 — 비워도 돼요)" maxlength="80"/>
+      <textarea class="mtb-edit-body-input" id="mtb-edit-scene-body"
+        placeholder="장면에서 읽을 글이에요. 이야기를 적어보세요."></textarea>
+      <hr class="mtb-edit-divider"/>
+      <div class="mtb-edit-actions-label">🎯 행동 버튼 <span id="mtb-edit-actions-count" style="color:#9a8868;font-weight:normal;"></span></div>
+      <div id="mtb-edit-actions-list"></div>
+      <button class="mtb-edit-add-action" id="mtb-edit-add-action">+ 행동 버튼 추가</button>
+    </div>
+  </div>
 </div>
 
 <!-- legacy 마이그레이션 토스트 (A-1) — 옛 작품 발견 시 한 번 알림.
@@ -2146,7 +2267,7 @@
 <script src="projectSettings.js?v=96"></script>
 <script src="ui.js?v=96"></script>
 <!-- v95: 모바일 텍스트형 브랜치 전용 (텍스트 작품 + 모바일에서만 활성) -->
-<script src="mobileTextBranch.js?v=96"></script>
+<script src="mobileTextBranch.js?v=97"></script>
 
 </body>
 </html>

@@ -256,15 +256,214 @@ function _mtbRender() {
     if (isolatedSet.has(id)) node.classList.add('mtb-node--isolated');
     /* 숫자 (num 또는 id) */
     node.textContent = sc.num || id;
-    /* 탭 핸들러 — Step 3에서 편집 화면 열기. 지금은 임시 */
+    /* v97: 노드 탭 → 모바일 장면 편집 화면 열기 */
     node.addEventListener('click', () => {
-      alert(`장면 ${sc.num || id} 탭됨\n(Step 3에서 편집 화면 박을 거예요)`);
+      _mtbOpenEditScene(id);
     });
     nodesEl.appendChild(node);
   });
 }
 
 window.mtbRender = _mtbRender; /* 외부 호출 (저장 후 새로 그릴 때) */
+
+/* ================================================================
+   v97: 모바일 장면 편집 화면 (WYSIWYG)
+   ─────────────────────────────────────────────────────────────────
+   사용자 설계:
+   · 노드 탭 → 슬라이드 인
+   · 감상 카드 톤 + inline edit
+   · 상단 이전/다음 빠른 이동 + 저장 상태
+   · 저장 = scenes[num] 박은 후 pushToFirebase (사용자 박은 흐름)
+   ──────────────────────────────────────────────────────────────── */
+
+const MTB_EDIT = {
+  currentId: null,
+  saveTimers: new Map(),
+};
+
+function _mtbOpenEditScene(sceneId) {
+  const sc = scenes[sceneId];
+  if (!sc) return;
+  MTB_EDIT.currentId = String(sceneId);
+  const view = document.getElementById('mtb-edit-view');
+  if (!view) return;
+  view.classList.add('is-open');
+  _mtbEditPopulate(sc);
+  _mtbEditUpdateNav();
+}
+
+function _mtbCloseEditScene() {
+  /* 저장 마무리 — 진행 중인 debounce flush */
+  MTB_EDIT.saveTimers.forEach(t => clearTimeout(t));
+  MTB_EDIT.saveTimers.clear();
+  if (MTB_EDIT.currentId !== null && typeof pushToFirebase === 'function') {
+    pushToFirebase(MTB_EDIT.currentId);
+  }
+  MTB_EDIT.currentId = null;
+  const view = document.getElementById('mtb-edit-view');
+  if (view) view.classList.remove('is-open');
+  /* 노드 화면 다시 그리기 — 본문/제목 변경 반영 안 됐지만 구조(연결)는 동일 */
+  _mtbRender();
+}
+
+function _mtbEditPopulate(sc) {
+  const titleEl  = document.getElementById('mtb-edit-title');
+  const cardType = document.getElementById('mtb-edit-card-type');
+  const titleIn  = document.getElementById('mtb-edit-scene-title');
+  const bodyIn   = document.getElementById('mtb-edit-scene-body');
+
+  if (titleEl) titleEl.textContent = `장면 ${sc.num || sc.id}`;
+  if (cardType) {
+    cardType.className = 'mtb-edit-card-type';
+    if (sc.type === 'cover' || sc.isCover) {
+      cardType.textContent = '표지';
+      cardType.classList.add('mtb-edit-card-type--cover');
+    } else if (sc.type === 'ending' || sc.isEnding) {
+      cardType.textContent = sc.trueEnding ? '진엔딩 ⭐' : '엔딩';
+      cardType.classList.add('mtb-edit-card-type--ending');
+    } else {
+      cardType.textContent = '일반';
+    }
+  }
+  if (titleIn) titleIn.value = sc.title || '';
+  if (bodyIn)  bodyIn.value  = sc.body || '';
+
+  _mtbEditRenderActions(sc);
+  _mtbSetStatus('');
+}
+
+function _mtbEditRenderActions(sc) {
+  const list = document.getElementById('mtb-edit-actions-list');
+  const count = document.getElementById('mtb-edit-actions-count');
+  const addBtn = document.getElementById('mtb-edit-add-action');
+  if (!list) return;
+  list.innerHTML = '';
+
+  const buttons = Array.isArray(sc.buttons) ? sc.buttons : [];
+  const isEnding = (sc.type === 'ending' || sc.isEnding);
+
+  if (count) count.textContent = isEnding ? '(엔딩 — 행동 없음)' : `(${buttons.length}/6)`;
+  if (addBtn) addBtn.disabled = isEnding || buttons.length >= 6;
+
+  if (isEnding) {
+    list.innerHTML = '<div style="font-size:13px;color:#9a8868;text-align:center;padding:10px;">엔딩에는 행동 버튼이 없어요.</div>';
+    return;
+  }
+
+  buttons.forEach((btn, idx) => {
+    const row = document.createElement('div');
+    row.className = 'mtb-edit-action';
+    const nextLabel = btn.nextId ? `→ 장면 ${btn.nextId}` : '연결 없음';
+    const nextClass = btn.nextId ? '' : 'mtb-edit-action-next--empty';
+    row.innerHTML = `
+      <div class="mtb-edit-action-num">${idx + 1}</div>
+      <input class="mtb-edit-action-label-input" type="text"
+        value="${_mtbEsc(btn.label || '')}"
+        placeholder="(행동 라벨)" data-idx="${idx}"/>
+      <span class="mtb-edit-action-next ${nextClass}" data-idx="${idx}">${nextLabel}</span>
+      <button class="mtb-edit-action-del" data-idx="${idx}" title="삭제">✕</button>
+    `;
+    list.appendChild(row);
+
+    /* 라벨 입력 */
+    const labelIn = row.querySelector('.mtb-edit-action-label-input');
+    labelIn.addEventListener('input', e => {
+      buttons[idx].label = e.target.value;
+      _mtbQueueSave();
+    });
+    /* 연결 — Step 4에서 박을 거. 지금은 안내 */
+    row.querySelector('.mtb-edit-action-next').addEventListener('click', () => {
+      alert('연결 변경은 다음 단계에서 박을 거예요.\n(브랜치 화면에서 노드 길게 누르기로 박을 수 있어요)');
+    });
+    /* 삭제 */
+    row.querySelector('.mtb-edit-action-del').addEventListener('click', () => {
+      if (!confirm(`행동 ${idx + 1} 삭제할까요?`)) return;
+      buttons.splice(idx, 1);
+      sc.choiceCount = buttons.length === 1 ? 1 : 2;
+      _mtbQueueSave();
+      _mtbEditRenderActions(sc);
+    });
+  });
+}
+
+function _mtbEditUpdateNav() {
+  const prev = document.getElementById('mtb-edit-prev');
+  const next = document.getElementById('mtb-edit-next');
+  if (!prev || !next) return;
+  const ids = Object.keys(scenes).sort((a, b) => Number(a) - Number(b));
+  const idx = ids.indexOf(String(MTB_EDIT.currentId));
+  prev.disabled = (idx <= 0);
+  next.disabled = (idx < 0 || idx >= ids.length - 1);
+  prev.onclick = () => idx > 0 && _mtbOpenEditScene(ids[idx - 1]);
+  next.onclick = () => idx < ids.length - 1 && _mtbOpenEditScene(ids[idx + 1]);
+}
+
+function _mtbQueueSave() {
+  const id = MTB_EDIT.currentId;
+  if (id === null) return;
+  _mtbSetStatus('저장 중...');
+  if (MTB_EDIT.saveTimers.has(id)) clearTimeout(MTB_EDIT.saveTimers.get(id));
+  const t = setTimeout(() => {
+    if (typeof pushToFirebase === 'function') pushToFirebase(id);
+    _mtbSetStatus('✓ 저장됨');
+    MTB_EDIT.saveTimers.delete(id);
+    setTimeout(() => _mtbSetStatus(''), 1200);
+  }, 500);
+  MTB_EDIT.saveTimers.set(id, t);
+}
+
+function _mtbSetStatus(msg) {
+  const el = document.getElementById('mtb-edit-status');
+  if (el) el.textContent = msg;
+}
+
+function _mtbEsc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+}
+
+/* 편집 화면 핸들러 박기 */
+function _mtbInitEditView() {
+  document.getElementById('mtb-edit-close')?.addEventListener('click', _mtbCloseEditScene);
+
+  const titleIn = document.getElementById('mtb-edit-scene-title');
+  if (titleIn) titleIn.addEventListener('input', e => {
+    if (MTB_EDIT.currentId === null) return;
+    const sc = scenes[MTB_EDIT.currentId];
+    if (!sc) return;
+    sc.title = e.target.value;
+    _mtbQueueSave();
+  });
+
+  const bodyIn = document.getElementById('mtb-edit-scene-body');
+  if (bodyIn) bodyIn.addEventListener('input', e => {
+    if (MTB_EDIT.currentId === null) return;
+    const sc = scenes[MTB_EDIT.currentId];
+    if (!sc) return;
+    sc.body = e.target.value;
+    _mtbQueueSave();
+  });
+
+  document.getElementById('mtb-edit-add-action')?.addEventListener('click', () => {
+    if (MTB_EDIT.currentId === null) return;
+    const sc = scenes[MTB_EDIT.currentId];
+    if (!sc || sc.type === 'ending' || sc.isEnding) return;
+    if (!Array.isArray(sc.buttons)) sc.buttons = [];
+    if (sc.buttons.length >= 6) return;
+    sc.buttons.push({ label: '', nextId: null });
+    sc.choiceCount = sc.buttons.length === 1 ? 1 : 2;
+    _mtbQueueSave();
+    _mtbEditRenderActions(sc);
+  });
+}
+
+/* 기존 _mtbInit 직후에 박음 — DOM 박혔으면 즉시 */
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', _mtbInitEditView);
+} else {
+  _mtbInitEditView();
+}
 
 function _mtbDeactivate() {
   const root = document.getElementById('mobile-text-branch');

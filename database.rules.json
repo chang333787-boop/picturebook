@@ -14,6 +14,12 @@
         ".write": false
       }
     },
+    "teachers": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid && (!data.exists() || data.child('createdAt').val() === newData.child('createdAt').val())"
+      }
+    },
     "classes": {
       "$classId": {
         "meta": {

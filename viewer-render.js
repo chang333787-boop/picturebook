@@ -54,33 +54,16 @@ function renderCurrentScene() {
      기존 어두운 파란 배너가 콘텐츠 위에 겹쳐 가리던 문제 해결. */
   document.getElementById('edit-test-banner')?.remove();
 
-  /* v83 진단: 매 장면 진입 시 body.dataset.pbTheme 안전 재박음 + 화면 상단 디버그 표시
-     사용자 보고: 다음 장면 가면 letterbox 색이 바뀜. 진단 박스에서 값 확인. */
+  /* v84: 매 장면 진입 시 body.dataset.pbTheme 안전 재박음.
+     loadTeamData는 진입 시 1회 호출이지만, 어떤 흐름에서 dataset이 풀릴 경우
+     대비. v83 진단 박스는 사용자 의도 확인 후 제거. */
   if (document.body && ViewerState.project) {
     const pbT = ViewerState.project.pbTheme;
     if (typeof pbT === 'string' && pbT.length > 0) {
       document.body.dataset.pbTheme = pbT;
     }
-    /* 진단 박스 표시 (감상 모드만, 다듬기 X) */
-    if (!ViewerState.editMode) {
-      let dbg = document.getElementById('debug-theme-box');
-      if (!dbg) {
-        dbg = document.createElement('div');
-        dbg.id = 'debug-theme-box';
-        dbg.style.cssText = 'position:fixed;top:8px;left:8px;z-index:99999;background:rgba(0,0,0,0.85);color:#fff;padding:6px 10px;font-size:11px;font-family:monospace;border-radius:6px;pointer-events:none;line-height:1.5;';
-        document.body.appendChild(dbg);
-      }
-      const sceneType = ViewerState.scenes?.[ViewerState.currentSceneId]?.type || '?';
-      dbg.innerHTML =
-        `scene=${sceneType} (${ViewerState.currentSceneId})<br>` +
-        `body[data-pb-theme]=${document.body.dataset.pbTheme || '(none)'}<br>` +
-        `body[data-cover-theme]=${document.body.dataset.coverTheme || '(none)'}<br>` +
-        `project.theme=${ViewerState.project?.theme || '(none)'}<br>` +
-        `project.pbTheme=${ViewerState.project?.pbTheme || '(none)'}`;
-    } else {
-      document.getElementById('debug-theme-box')?.remove();
-    }
   }
+  document.getElementById('debug-theme-box')?.remove();
 }
 
 /* ================================================================

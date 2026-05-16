@@ -2105,10 +2105,13 @@ function _isWorkSettingScene(scene) {
   return list.length > 0 && list[0] && String(list[0].id) === String(scene.id);
 }
 
-/* v64: 작품 단위 설정 UI — 장면 전환 효과 5개 + 속도 3단계 */
+/* v64: 작품 단위 설정 UI — 장면 전환 효과 5개 + 속도 3단계
+   v71: 텍스트 등장 애니메이션 6종 + 속도 3단계 추가 */
 function _workSettingsSectionHtml() {
   const curT = (ViewerState.project && ViewerState.project.sceneTransition) || 'fade';
   const curS = (ViewerState.project && ViewerState.project.sceneTransitionSpeed) || 'normal';
+  const curTE = (ViewerState.project && ViewerState.project.textEntrance) || 'none';
+  const curTES = (ViewerState.project && ViewerState.project.textEntranceSpeed) || 'normal';
   const TRANS = [
     { id: 'fade',     label: '✨ 부드럽게' },
     { id: 'book',     label: '📖 책 넘기기' },
@@ -2121,11 +2124,25 @@ function _workSettingsSectionHtml() {
     { id: 'normal', label: '보통' },
     { id: 'slow',   label: '느림' },
   ];
+  const TEXT_ENT = [
+    { id: 'none',       label: '✨ 없음' },
+    { id: 'fade',       label: '🌫 페이드' },
+    { id: 'slide-up',   label: '⬆ 슬라이드' },
+    { id: 'blur-in',    label: '🔮 또렷' },
+    { id: 'pop',        label: '🎈 팝' },
+    { id: 'typewriter', label: '⌨ 타자기' },
+  ];
   const transPills = TRANS.map(t => `
     <button type="button" class="edit-toggle js-scene-transition ${curT === t.id ? 'active' : ''}"
       data-val="${t.id}">${t.label}</button>`).join('');
   const speedPills = SPEEDS.map(s => `
     <button type="button" class="edit-toggle js-scene-transition-speed ${curS === s.id ? 'active' : ''}"
+      data-val="${s.id}">${s.label}</button>`).join('');
+  const textEntPills = TEXT_ENT.map(t => `
+    <button type="button" class="edit-toggle js-text-entrance ${curTE === t.id ? 'active' : ''}"
+      data-val="${t.id}">${t.label}</button>`).join('');
+  const textEntSpeedPills = SPEEDS.map(s => `
+    <button type="button" class="edit-toggle js-text-entrance-speed ${curTES === s.id ? 'active' : ''}"
       data-val="${s.id}">${s.label}</button>`).join('');
   return `
     <div class="edit-row">
@@ -2140,10 +2157,24 @@ function _workSettingsSectionHtml() {
       <div class="edit-toggle-group" style="display:flex;gap:6px;margin-top:6px;">
         ${speedPills}
       </div>
+    </div>
+    <div class="edit-row">
+      <label class="edit-label">📝 텍스트 등장 효과 <span class="edit-label-note">(작품 전체)</span></label>
+      <div class="edit-section-hint">본문·표지 제목이 한 글자/한 덩어리씩 등장하는 효과예요.</div>
+      <div class="edit-toggle-group" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">
+        ${textEntPills}
+      </div>
+    </div>
+    <div class="edit-row edit-row--compact">
+      <label class="edit-label">⏱ 텍스트 속도</label>
+      <div class="edit-toggle-group" style="display:flex;gap:6px;margin-top:6px;">
+        ${textEntSpeedPills}
+      </div>
     </div>`;
 }
 
-/* v64: 작품 단위 설정 핸들러 — js-scene-transition / js-scene-transition-speed 클릭 시 저장 */
+/* v64: 작품 단위 설정 핸들러 — js-scene-transition / js-scene-transition-speed 클릭 시 저장
+   v71: 텍스트 등장 효과/속도 핸들러 추가 */
 function _bindWorkSettingsHandlers(panel) {
   if (!panel) return;
   panel.querySelectorAll('.js-scene-transition').forEach(btn => {
@@ -2162,6 +2193,22 @@ function _bindWorkSettingsHandlers(panel) {
       _saveProjectMetaField('sceneTransitionSpeed', val);
     });
   });
+  panel.querySelectorAll('.js-text-entrance').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const val = btn.dataset.val || 'none';
+      panel.querySelectorAll('.js-text-entrance').forEach(b =>
+        b.classList.toggle('active', b === btn));
+      _saveProjectMetaField('textEntrance', val);
+    });
+  });
+  panel.querySelectorAll('.js-text-entrance-speed').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const val = btn.dataset.val || 'normal';
+      panel.querySelectorAll('.js-text-entrance-speed').forEach(b =>
+        b.classList.toggle('active', b === btn));
+      _saveProjectMetaField('textEntranceSpeed', val);
+    });
+  });
 }
 
 /* v64: 작품 단위 메타 저장 (viewer-meta/sceneTransition, sceneTransitionSpeed) */
@@ -2171,8 +2218,11 @@ async function _saveProjectMetaField(field, value) {
   /* viewer-frame data 즉시 갱신 — 다음 scene 렌더 시 새 효과 */
   const vf = document.getElementById('viewer-frame');
   if (vf) {
-    if (field === 'sceneTransition')      vf.dataset.transition      = value;
-    if (field === 'sceneTransitionSpeed') vf.dataset.transitionSpeed = value;
+    if (field === 'sceneTransition')      vf.dataset.transition       = value;
+    if (field === 'sceneTransitionSpeed') vf.dataset.transitionSpeed  = value;
+    /* v71: 텍스트 등장 효과/속도 즉시 반영 */
+    if (field === 'textEntrance')         vf.dataset.textEntrance      = value;
+    if (field === 'textEntranceSpeed')    vf.dataset.textEntranceSpeed = value;
   }
   /* Firebase 저장 */
   const teamName = ViewerState.project.teamName;

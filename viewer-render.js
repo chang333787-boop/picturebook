@@ -1542,4 +1542,52 @@ function _stageReplaceScene(stage, newHtml) {
       if (oldScene.parentNode === stage) oldScene.remove();
     }, duration + 50);
   }
+
+  /* v71: 텍스트 등장 효과 적용 — typewriter이면 글자 단위 span reveal */
+  _applyTextEntranceTypewriter(stage, newScene);
+}
+
+/* v71: typewriter 효과 — 본문·표지 제목/소개의 textContent를 글자 단위 span으로 변환.
+   각 span에 inline animation-delay 박아 stagger 등장.
+   다듬기 모드에선 skip (입력 충돌). CSS 효과(fade/slide-up/blur-in/pop)는 css만으로 동작. */
+function _applyTextEntranceTypewriter(stage, newScene) {
+  if (!stage || !newScene) return;
+  const mode = stage.dataset.textEntrance || 'none';
+  if (mode !== 'typewriter') return;
+
+  /* 다듬기 모드면 skip (contenteditable 충돌 + 깜빡임 차단) */
+  const isEdit =
+    stage.classList.contains('edit-mode-on') ||
+    (document.body && document.body.classList.contains('edit-mode-active'));
+  if (isEdit) return;
+
+  const speed = stage.dataset.textEntranceSpeed || 'normal';
+  const stepMs = { fast: 25, normal: 50, slow: 80 }[speed] || 50;
+
+  const targets = newScene.querySelectorAll(
+    '.pb-text__body, .cover-title-pb, .cover-subtitle-pb'
+  );
+
+  targets.forEach(el => {
+    /* contenteditable이거나 이미 처리된 element는 skip */
+    if (el.getAttribute('contenteditable') === 'true') return;
+    if (el.dataset.twProcessed === '1') return;
+
+    const text = el.textContent || '';
+    if (!text.trim()) return;
+
+    el.dataset.twProcessed = '1';
+    el.innerHTML = ''; /* 옛 텍스트 비우고 span으로 재구성 */
+
+    const frag = document.createDocumentFragment();
+    Array.from(text).forEach((ch, i) => {
+      /* 공백/줄바꿈은 span으로 감싸지만 delay는 동일 — 시각적 자연스러움 */
+      const sp = document.createElement('span');
+      sp.className = 'tw-char';
+      sp.textContent = ch;
+      sp.style.animationDelay = (i * stepMs) + 'ms';
+      frag.appendChild(sp);
+    });
+    el.appendChild(frag);
+  });
 }

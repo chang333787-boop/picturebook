@@ -141,6 +141,14 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
       ? meta.sceneTransition : 'fade';
     ViewerState.project.sceneTransitionSpeed = VALID_SPEED.includes(meta.sceneTransitionSpeed)
       ? meta.sceneTransitionSpeed : 'normal';
+
+    /* v71: 텍스트 등장 애니메이션 (작품 단위 메타) — 그림책 모드 본문 + 표지 제목/소개 */
+    const VALID_TEXT_ENTRANCE = ['none', 'fade', 'slide-up', 'blur-in', 'pop', 'typewriter'];
+    const VALID_TEXT_SPEED    = ['fast', 'normal', 'slow'];
+    ViewerState.project.textEntrance = VALID_TEXT_ENTRANCE.includes(meta.textEntrance)
+      ? meta.textEntrance : 'none';
+    ViewerState.project.textEntranceSpeed = VALID_TEXT_SPEED.includes(meta.textEntranceSpeed)
+      ? meta.textEntranceSpeed : 'normal';
   }
 
   /* v37: 텍스트 모드는 무조건 세로 (스마트폰 비율, 스마트폰·태블릿·PC 모두 동일).
@@ -175,6 +183,9 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
   if (vf) {
     vf.dataset.transition       = ViewerState.project.sceneTransition || 'fade';
     vf.dataset.transitionSpeed  = ViewerState.project.sceneTransitionSpeed || 'normal';
+    /* v71: 텍스트 등장 효과·속도 */
+    vf.dataset.textEntrance      = ViewerState.project.textEntrance || 'none';
+    vf.dataset.textEntranceSpeed = ViewerState.project.textEntranceSpeed || 'normal';
   }
 
   /* ================================================================

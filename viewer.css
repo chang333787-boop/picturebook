@@ -528,6 +528,114 @@ body.edit-mode-active #stage-wrap {
   100% { opacity: 0; transform: rotateY(-90deg); }
 }
 
+/* ──────────────────────────────────────────────────────────────────
+   v71: 텍스트 등장 애니메이션 (작품 단위 viewer-meta.textEntrance)
+   ──────────────────────────────────────────────────────────────────
+   적용 대상: 그림책 모드 본문 + 표지 제목/소개
+   효과 6종: none / fade / slide-up / blur-in / pop / typewriter
+   typewriter는 JS로 글자 단위 reveal (.pb-text-typing span stagger)
+   속도 3종: fast 350ms / normal 700ms / slow 1100ms
+   다듬기 모드에선 끔 (입력 깜빡임 차단) */
+
+/* 적용 selector 묶음 — 그림책 모드 본문 + 표지 제목/소개 */
+#viewer-frame[data-text-entrance]:not([data-text-entrance="none"]) .scene-screen--pb .pb-text__body,
+#viewer-frame[data-text-entrance]:not([data-text-entrance="none"]) .scene-screen--pb .cover-title-pb,
+#viewer-frame[data-text-entrance]:not([data-text-entrance="none"]) .scene-screen--pb .cover-subtitle-pb {
+  animation-duration: 700ms;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  animation-fill-mode: both;
+}
+
+/* 속도 3단계 */
+#viewer-frame[data-text-entrance-speed="fast"]   .scene-screen--pb .pb-text__body,
+#viewer-frame[data-text-entrance-speed="fast"]   .scene-screen--pb .cover-title-pb,
+#viewer-frame[data-text-entrance-speed="fast"]   .scene-screen--pb .cover-subtitle-pb { animation-duration: 350ms; }
+#viewer-frame[data-text-entrance-speed="normal"] .scene-screen--pb .pb-text__body,
+#viewer-frame[data-text-entrance-speed="normal"] .scene-screen--pb .cover-title-pb,
+#viewer-frame[data-text-entrance-speed="normal"] .scene-screen--pb .cover-subtitle-pb { animation-duration: 700ms; }
+#viewer-frame[data-text-entrance-speed="slow"]   .scene-screen--pb .pb-text__body,
+#viewer-frame[data-text-entrance-speed="slow"]   .scene-screen--pb .cover-title-pb,
+#viewer-frame[data-text-entrance-speed="slow"]   .scene-screen--pb .cover-subtitle-pb { animation-duration: 1100ms; }
+
+/* 1) fade — opacity 0 → 1 */
+#viewer-frame[data-text-entrance="fade"] .scene-screen--pb .pb-text__body,
+#viewer-frame[data-text-entrance="fade"] .scene-screen--pb .cover-title-pb,
+#viewer-frame[data-text-entrance="fade"] .scene-screen--pb .cover-subtitle-pb {
+  animation-name: textFadeIn;
+}
+@keyframes textFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* 2) slide-up — translateY(14px) + fade */
+#viewer-frame[data-text-entrance="slide-up"] .scene-screen--pb .pb-text__body,
+#viewer-frame[data-text-entrance="slide-up"] .scene-screen--pb .cover-title-pb,
+#viewer-frame[data-text-entrance="slide-up"] .scene-screen--pb .cover-subtitle-pb {
+  animation-name: textSlideUp;
+}
+@keyframes textSlideUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* 3) blur-in — blur(8px) → 0 + fade */
+#viewer-frame[data-text-entrance="blur-in"] .scene-screen--pb .pb-text__body,
+#viewer-frame[data-text-entrance="blur-in"] .scene-screen--pb .cover-title-pb,
+#viewer-frame[data-text-entrance="blur-in"] .scene-screen--pb .cover-subtitle-pb {
+  animation-name: textBlurIn;
+}
+@keyframes textBlurIn {
+  from { opacity: 0; filter: blur(8px); }
+  to   { opacity: 1; filter: blur(0); }
+}
+
+/* 4) pop — scale(0.7) → 1 살짝 overshoot + fade */
+#viewer-frame[data-text-entrance="pop"] .scene-screen--pb .pb-text__body,
+#viewer-frame[data-text-entrance="pop"] .scene-screen--pb .cover-title-pb,
+#viewer-frame[data-text-entrance="pop"] .scene-screen--pb .cover-subtitle-pb {
+  animation-name: textPop;
+  animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes textPop {
+  0%   { opacity: 0; transform: scale(0.7); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* 5) typewriter — JS가 .pb-text-typing 클래스 박고 글자 단위 <span class="tw-char"> 생성.
+   각 span은 inline opacity 0 → 1 stagger. animation-delay는 JS가 inline style로 박음.
+   본문 한 줄 전체에 효과 적용 (한 글자씩 등장). */
+#viewer-frame[data-text-entrance="typewriter"] .scene-screen--pb .pb-text__body,
+#viewer-frame[data-text-entrance="typewriter"] .scene-screen--pb .cover-title-pb,
+#viewer-frame[data-text-entrance="typewriter"] .scene-screen--pb .cover-subtitle-pb {
+  animation: none; /* CSS animation 없음 — JS reveal */
+}
+.tw-char {
+  opacity: 0;
+  animation: textTwChar 1ms linear forwards;
+  animation-delay: inherit; /* JS가 inline style로 박음 (per-span) */
+}
+@keyframes textTwChar {
+  to { opacity: 1; }
+}
+
+/* 다듬기 모드에선 텍스트 등장 효과 끔 — 입력 깜빡임 차단 (v07 동일 정책) */
+#viewer-frame.edit-mode-on .scene-screen--pb .pb-text__body,
+#viewer-frame.edit-mode-on .scene-screen--pb .cover-title-pb,
+#viewer-frame.edit-mode-on .scene-screen--pb .cover-subtitle-pb,
+body.edit-mode-active .scene-screen--pb .pb-text__body,
+body.edit-mode-active .scene-screen--pb .cover-title-pb,
+body.edit-mode-active .scene-screen--pb .cover-subtitle-pb {
+  animation: none !important;
+  opacity: 1 !important;
+  filter: none !important;
+  transform: none !important;
+}
+body.edit-mode-active .tw-char {
+  animation: none !important;
+  opacity: 1 !important;
+}
+
 /* book-in 키프레임 강화 — 옛 페이지 왼쪽 넘김과 동시 우측에서 진입 */
 @keyframes sceneBookFlip {
   from {

@@ -1106,13 +1106,13 @@ body[data-page-orientation="portrait"] #stage-wrap.letterbox-v #viewer-frame {
   margin-top: clamp(4px, 1vw, 8px);
 }
 .ending-actions .terminal-btn {
-  /* v85: 작게 + 덜 뭉툭하게 (사용자 "별로 체감 안 됨" 보고 후 v86 박음).
-     padding clamp(9~12 / 20~28) → (5~7 / 12~16) 더 줄임.
-     border-radius 50px(완전 알약) → 10px (각진 카드 느낌). */
-  padding: clamp(5px, 1.0vw, 7px) clamp(12px, 2.0vw, 16px);
-  border-radius: 10px;
+  /* v87: 사용자 "세로 박스 크기 작게" — clamp 폐기 + 고정값으로 진짜 작게.
+     세로 padding 5~7 → 3px 고정. 가로 12~16 → 10px. font-size 14 → 12.
+     border-radius 10 → 7. */
+  padding: 3px 10px !important;
+  border-radius: 7px !important;
   font-family: var(--font-ui, 'Jua', sans-serif);
-  font-size: clamp(12px, 1.4vw, 14px);
+  font-size: 12px !important;
   cursor: pointer;
   transition: filter 0.15s, transform 0.08s;
   font-weight: 600;

@@ -1193,10 +1193,25 @@ function _renderStoryEnding(stage, scene) {
       </div>
     </div>`;
 
-  /* v49: 엔딩 그림 없으면 has-no-image 클래스 → illust 영역 줄이고 text 비중 ↑ */
+  /* v49: 엔딩 그림 없으면 has-no-image 클래스 → illust 영역 줄이고 text 비중 ↑
+     v77: textStyle 적용 — 엔딩 인스펙터에서 박은 글자 스타일을 --pb-* 변수로.
+     사용자 박은 게 없으면 getTextStyle이 ENDING default(주아/20/#2b1f10/굵게) 반환.
+     CSS .ending-user-body가 var() fallback으로 받음. */
+  const endStyle = (typeof getTextStyle === 'function') ? getTextStyle(scene) : null;
+  const endFontMap = (typeof TEXT_FONT_FAMILIES === 'object') ? TEXT_FONT_FAMILIES : {};
+  const endCssVars = [];
+  if (endStyle) {
+    if (endStyle.fontFamily && endFontMap[endStyle.fontFamily]) endCssVars.push(`--pb-font-family: ${endFontMap[endStyle.fontFamily]}`);
+    if (endStyle.fontSize) endCssVars.push(`--pb-fs-body: ${endStyle.fontSize}px`);
+    if (endStyle.color)    endCssVars.push(`--pb-color-override: ${endStyle.color}`);
+    if (endStyle.weight === 'bold') endCssVars.push(`--pb-fw-body: 700`);
+    else if (endStyle.weight) endCssVars.push(`--pb-fw-body: 400`);
+  }
+  const endStyleAttr = endCssVars.length > 0 ? ` style="${endCssVars.join(';')}"` : '';
   const noImageClass = endingImage ? '' : ' ending-as-pb--no-image';
   _stageReplaceScene(stage, `
     <div class="scene-screen scene-screen--pb pb--split ending-as-pb${noImageClass}"
+         ${endStyleAttr}
          data-presentation-mode="picturebook"
          data-presentation-submode="split"
          data-ending="true">

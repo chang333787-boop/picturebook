@@ -929,6 +929,15 @@ const TEXT_STYLE_DEFAULTS = {
   color:      '',        /* 빈 문자열이면 테마 기본 색 사용 */
   weight:     'normal',  /* normal | bold */
 };
+/* v77: 엔딩 scene 전용 default — 지금 CSS에 박힌 룰을 그대로 모델로 옮김.
+   엔딩 인스펙터에서 사용자가 박으면 scene.textStyle 박히고 override.
+   장면 1 "모든 장면 적용" 버튼은 엔딩 제외 정책 유지(v75) — 엔딩 독립. */
+const ENDING_TEXT_STYLE_DEFAULTS = {
+  fontFamily: 'jua',
+  fontSize:   20,        /* CSS clamp 16~24의 중간 — 일반 화면에서 비슷 */
+  color:      '#2b1f10',
+  weight:     'bold',
+};
 const VALID_TEXT_EFFECTS = {
   entrance: ['none', 'fade', 'slide'],
   body:     ['none', 'typewriter'],
@@ -962,6 +971,10 @@ function _normalizeTextEffect(raw) {
 function getTextStyle(scene) {
   const v = scene && scene.textStyle;
   if (v && typeof v === 'object') return v;
+  /* v77: 엔딩 default 분기 — textStyle 박혀있지 않은 엔딩은 별도 default (jua/20/...) */
+  if (scene && (scene.type === 'ending' || scene.isEnding)) {
+    return { ...ENDING_TEXT_STYLE_DEFAULTS };
+  }
   return { ...TEXT_STYLE_DEFAULTS };
 }
 function getTextTheme(scene) {

@@ -1049,12 +1049,14 @@ body[data-page-orientation="portrait"] #stage-wrap.letterbox-v #viewer-frame {
   opacity: 0.7;
   margin: 0;
 }
+/* v77: textStyle CSS 변수(--pb-*) fallback으로 박음 — 사용자가 엔딩 인스펙터에서
+   글자 스타일 박으면 그것 우선, 박지 않으면 기존 default (Jua 등) 유지. */
 .pb-text--ending .ending-user-body {
-  font-family: var(--font-ui, 'Jua', sans-serif);
-  font-size: clamp(16px, 2.4vw, 24px);
-  color: var(--text, #2b1f10);
+  font-family: var(--pb-font-family, var(--font-ui, 'Jua', sans-serif));
+  font-size: var(--pb-fs-body, clamp(16px, 2.4vw, 24px));
+  color: var(--pb-color-override, var(--text, #2b1f10));
   line-height: 1.4;
-  font-weight: 600;
+  font-weight: var(--pb-fw-body, 600);
   margin: 0;
 }
 .ending-stamps-row {

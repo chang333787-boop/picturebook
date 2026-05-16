@@ -15,6 +15,8 @@ const MTB = {
   active: false,         /* 현재 모바일 UI 활성인지 */
   pcOverride: false,     /* 사용자가 "🖥 PC" 토글했는지 */
   enabled: true,         /* 초기화 박혔는지 */
+  placeMode: false,      /* v104: 노드 배치 이동 모드 박힌 상태 */
+  _autoOpenedOnce: false,
 };
 
 /* ── 모바일 감지 ──
@@ -146,17 +148,25 @@ function _mtbBuildLayout() {
   /* 각 depth 안에서 num 순 정렬 (안정적 박치기) */
   byDepth.forEach(arr => arr.sort((a, b) => Number(a) - Number(b)));
 
-  /* 좌표 계산 — x는 0 중심 기준 (캔버스 50%에 박힘) */
+  /* 좌표 계산 — x는 0 중심 기준 (캔버스 50%에 박힘).
+     v104: scenes[id].mtbX/mtbY 박혀있으면 그것 우선 (사용자 박은 위치).
+     박지 않은 노드는 BFS 자동. */
   const layout = {};
   byDepth.forEach((ids, d) => {
     const n = ids.length;
     const startX = -((n - 1) * MTB_GAP_X) / 2;
     ids.forEach((id, i) => {
-      layout[id] = {
-        x: startX + i * MTB_GAP_X,
-        y: MTB_TOP_PAD + d * MTB_GAP_Y,
-        depth: d,
-      };
+      const sc = scenes[id];
+      if (sc && typeof sc.mtbX === 'number' && typeof sc.mtbY === 'number') {
+        /* 사용자 박은 위치 우선 */
+        layout[id] = { x: sc.mtbX, y: sc.mtbY, depth: d };
+      } else {
+        layout[id] = {
+          x: startX + i * MTB_GAP_X,
+          y: MTB_TOP_PAD + d * MTB_GAP_Y,
+          depth: d,
+        };
+      }
     });
   });
 
@@ -271,8 +281,9 @@ function _mtbRender() {
     if (isolatedSet.has(id)) node.classList.add('mtb-node--isolated');
     /* 숫자 (num 또는 id) */
     node.textContent = sc.num || id;
-    /* v97: 노드 탭 → 편집 화면 / v98: 연결 모드면 연결 박음 */
+    /* v97: 노드 탭 → 편집 화면 / v98: 연결 모드면 연결 박음 / v104: placeMode면 둘 다 차단 */
     node.addEventListener('click', e => {
+      if (MTB.placeMode) { e.stopPropagation(); return; }
       if (MTB_CONNECT.active) {
         e.stopPropagation();
         _mtbConnectFinish(id);
@@ -280,8 +291,10 @@ function _mtbRender() {
       }
       _mtbOpenEditScene(id);
     });
-    /* v98: 길게 누르기 — pointer/touch 둘 다 지원 */
-    _mtbAttachLongPress(node, id);
+    /* v98: 길게 누르기 (placeMode면 안 박음) */
+    if (!MTB.placeMode) _mtbAttachLongPress(node, id);
+    /* v104: placeMode 박힌 상태면 드래그 박음 */
+    if (MTB.placeMode) _mtbAttachPlaceDrag(node, id);
     /* v98: 연결 모드 시 source 노드 강조 */
     if (MTB_CONNECT.active && String(MTB_CONNECT.fromId) === String(id)) {
       node.classList.add('mtb-node--connect-source');
@@ -818,6 +831,157 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 /* ================================================================
+   v104: 배치 모드 — 노드 드래그로 위치 박음
+   ─────────────────────────────────────────────────────────────────
+   토글 박힌 상태에서:
+   · 노드 = 드래그 박음 (메뉴/편집 진입 안 박힘)
+   · 박은 위치 = scenes[id].mtbX / mtbY 박힘
+   · 박힌 위치 있으면 _mtbBuildLayout BFS보다 우선
+   · 박지 않은 노드는 BFS 자동
+   · 캔버스 pan/zoom은 박지 않음 (모드 전용)
+   ──────────────────────────────────────────────────────────────── */
+
+function _mtbTogglePlaceMode() {
+  MTB.placeMode = !MTB.placeMode;
+  const root = document.getElementById('mobile-text-branch');
+  const btn = document.getElementById('mtb-place-toggle');
+  if (!root) return;
+  root.classList.toggle('is-place-mode', MTB.placeMode);
+  if (btn) btn.classList.toggle('is-active', MTB.placeMode);
+  if (MTB.placeMode) _mtbShowPlaceBanner();
+  else _mtbHidePlaceBanner();
+  _mtbRender();
+}
+
+function _mtbShowPlaceBanner() {
+  document.getElementById('mtb-place-banner')?.remove();
+  const banner = document.createElement('div');
+  banner.id = 'mtb-place-banner';
+  banner.className = 'mtb-place-banner';
+  banner.innerHTML = `
+    <span>📍 노드를 드래그해서 위치를 박아요. 박은 즉시 저장돼요.</span>
+    <button class="mtb-place-banner-cancel" id="mtb-place-banner-cancel">완료</button>
+  `;
+  document.getElementById('mtb-canvas')?.appendChild(banner);
+  document.getElementById('mtb-place-banner-cancel').addEventListener('click', _mtbTogglePlaceMode);
+}
+function _mtbHidePlaceBanner() {
+  document.getElementById('mtb-place-banner')?.remove();
+}
+
+/* v104: 노드 드래그 핸들러 — placeMode 시만 활성. 박은 위치 즉시 scenes에 박음 + push. */
+function _mtbAttachPlaceDrag(node, sceneId) {
+  let dragging = false;
+  let startX = 0, startY = 0;
+  let nodeStartX = 0, nodeStartY = 0;
+  let moved = false;
+
+  node.addEventListener('pointerdown', e => {
+    if (!MTB.placeMode) return;
+    e.stopPropagation();
+    dragging = true;
+    moved = false;
+    startX = e.clientX;
+    startY = e.clientY;
+    /* 현재 박힌 위치 (스타일에서 추출) — left: calc(50% + Xpx) 형식 */
+    const sc = scenes[sceneId];
+    nodeStartX = (sc && typeof sc.mtbX === 'number') ? sc.mtbX : _mtbReadNodeX(node);
+    nodeStartY = (sc && typeof sc.mtbY === 'number') ? sc.mtbY : node.offsetTop;
+    node.setPointerCapture(e.pointerId);
+  });
+
+  node.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    const dx = (e.clientX - startX) / MTB_VIEW.scale;
+    const dy = (e.clientY - startY) / MTB_VIEW.scale;
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) moved = true;
+    const sc = scenes[sceneId];
+    if (!sc) return;
+    sc.mtbX = nodeStartX + dx;
+    sc.mtbY = nodeStartY + dy;
+    /* 노드 위치 즉시 박음 (실시간) */
+    node.style.left = `calc(50% + ${sc.mtbX}px)`;
+    node.style.top  = sc.mtbY + 'px';
+    /* 연결선 다시 그림 */
+    _mtbRedrawEdges();
+  });
+
+  function endDrag(e) {
+    if (!dragging) return;
+    dragging = false;
+    if (moved && typeof pushToFirebase === 'function') {
+      pushToFirebase(sceneId);
+    }
+  }
+  node.addEventListener('pointerup', endDrag);
+  node.addEventListener('pointercancel', endDrag);
+}
+
+function _mtbReadNodeX(node) {
+  /* "calc(50% + Xpx)" 또는 "calc(50% + -Xpx)" 식 박힌 거에서 X 추출. 박지 못하면 0. */
+  const m = node.style.left.match(/calc\(50%\s*\+\s*(-?\d+(?:\.\d+)?)px\)/);
+  return m ? parseFloat(m[1]) : 0;
+}
+
+/* v104: 연결선만 다시 그리기 (노드는 그대로) — 드래그 중 빠른 갱신 */
+function _mtbRedrawEdges() {
+  const svg = document.getElementById('mtb-svg');
+  const nodesEl = document.getElementById('mtb-nodes');
+  if (!svg || !nodesEl) return;
+  const built = _mtbBuildLayout();
+  if (!built) return;
+  const { layout } = built;
+  const canvasW = nodesEl.clientWidth || 360;
+  const halfW = canvasW / 2;
+  /* svg defs 유지 + path만 다시 박음 */
+  const defs = svg.querySelector('defs');
+  svg.innerHTML = '';
+  if (defs) svg.appendChild(defs);
+  else svg.innerHTML = `
+    <defs>
+      <marker id="mtb-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M 0 0 L 8 4 L 0 8 z" fill="rgba(80,50,20,0.45)"/>
+      </marker>
+    </defs>
+  `;
+  Object.entries(layout).forEach(([fromId, fromPos]) => {
+    const sc = scenes[fromId];
+    if (!sc) return;
+    const buttons = Array.isArray(sc.buttons) ? sc.buttons : [];
+    buttons.forEach((btn, idx) => {
+      if (!btn || !btn.nextId) return;
+      const toPos = layout[String(btn.nextId)];
+      if (!toPos) return;
+      const x1 = halfW + fromPos.x;
+      const y1 = fromPos.y + MTB_NODE_W / 2;
+      const x2 = halfW + toPos.x;
+      const y2 = toPos.y - MTB_NODE_W / 2 - 4;
+      const midY = (y1 + y2) / 2;
+      const d = `M ${x1},${y1} C ${x1},${midY} ${x2},${midY} ${x2},${y2}`;
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', d);
+      path.setAttribute('class', 'mtb-edge');
+      path.setAttribute('marker-end', 'url(#mtb-arrow)');
+      svg.appendChild(path);
+      const labelX = (x1 + x2) / 2;
+      const labelY = midY;
+      const labelBg = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      labelBg.setAttribute('cx', labelX);
+      labelBg.setAttribute('cy', labelY);
+      labelBg.setAttribute('r', 9);
+      labelBg.setAttribute('class', 'mtb-edge-label-bg');
+      svg.appendChild(labelBg);
+      const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      label.setAttribute('x', labelX);
+      label.setAttribute('y', labelY);
+      label.setAttribute('class', 'mtb-edge-label');
+      label.textContent = (idx + 1);
+      svg.appendChild(label);
+    });
+  });
+}
+
+/* ================================================================
    v100: 핀치 줌 + pan — 캔버스 안 #mtb-stage에 transform
    ─────────────────────────────────────────────────────────────────
    · 두 손가락 핀치 → scale
@@ -1153,6 +1317,12 @@ function _mtbInit() {
       window.location.href = 'index.html';
     });
   }
+  /* v104: 배치 모드 토글 — 박힌 상태에서 노드 드래그로 위치 박음 */
+  const placeBtn = document.getElementById('mtb-place-toggle');
+  if (placeBtn) {
+    placeBtn.addEventListener('click', () => _mtbTogglePlaceMode());
+  }
+
   /* v102: 감상 테스트 → viewer.html?team=...&from=maker 진입.
      teamName/classId는 state.js의 전역 변수. */
   const playBtn = document.getElementById('mtb-play-test');

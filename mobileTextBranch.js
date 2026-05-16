@@ -84,10 +84,12 @@ function mtbRefresh() {
 
 /* ── 초기화 ── */
 function _mtbInit() {
-  /* PC 토글 */
+  /* PC 토글 — 모바일로 돌아가려면 새로고침 안내 */
   const pcBtn = document.getElementById('mtb-pc-toggle');
   if (pcBtn) {
     pcBtn.addEventListener('click', () => {
+      const ok = confirm('PC 버전으로 전환할까요?\n\n모바일로 다시 돌아가려면 페이지를 새로고침해주세요 (Cmd+R 또는 Ctrl+R).');
+      if (!ok) return;
       MTB.pcOverride = true;
       mtbRefresh();
     });

@@ -234,6 +234,7 @@ function _mtbRender() {
   });
 
   /* 노드 박기 */
+  const firstRender = !nodesEl.querySelector('.mtb-node');
   nodesEl.innerHTML = '';
   nodesEl.style.height = canvasH + 'px';
   Object.entries(layout).forEach(([id, pos]) => {
@@ -273,6 +274,11 @@ function _mtbRender() {
     }
     nodesEl.appendChild(node);
   });
+
+  /* v102: 첫 렌더 또는 노드 변경 후 자동 fit — 줌 아웃해도 노드 안 보이는 문제 해결. */
+  if (firstRender) {
+    setTimeout(_mtbFitAll, 50);
+  }
 }
 
 window.mtbRender = _mtbRender; /* 외부 호출 (저장 후 새로 그릴 때) */
@@ -798,7 +804,46 @@ function _mtbZoom(delta, anchorX, anchorY) {
 }
 
 function _mtbResetView() {
-  MTB_VIEW.scale = 1; MTB_VIEW.x = 0; MTB_VIEW.y = 0;
+  /* v102: ⊙ 클릭 시 자동 fit — 모든 노드가 캔버스 안에 박히게 scale + 가운데. */
+  _mtbFitAll();
+}
+
+/* v102: 모든 노드 박힌 범위 보고 scale + center 박음 — 줌 아웃해도 안 접힘 */
+function _mtbFitAll() {
+  const stage = document.getElementById('mtb-stage');
+  const canvas = document.getElementById('mtb-canvas');
+  const nodes = document.querySelectorAll('#mtb-nodes .mtb-node');
+  if (!stage || !canvas || !nodes.length) {
+    MTB_VIEW.scale = 1; MTB_VIEW.x = 0; MTB_VIEW.y = 0;
+    _mtbApplyTransform();
+    return;
+  }
+  /* 노드 박힌 범위 계산 — stage 좌표 기준 (transform 박지 않은 자연 위치) */
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  nodes.forEach(n => {
+    /* offsetLeft/Top은 transform 박지 않은 박힌 자리. 단 left:calc(50%+Xpx) 박힘 → offsetLeft = 캔버스 절반 + X */
+    const cx = n.offsetLeft;
+    const cy = n.offsetTop;
+    minX = Math.min(minX, cx); maxX = Math.max(maxX, cx);
+    minY = Math.min(minY, cy); maxY = Math.max(maxY, cy);
+  });
+  /* 노드 크기 박힘 — 박힌 좌우/상하 여유 */
+  const PAD = 60;
+  const contentW = (maxX - minX) + PAD * 2;
+  const contentH = (maxY - minY) + PAD * 2;
+  const canvasW = canvas.clientWidth;
+  const canvasH = canvas.clientHeight;
+  /* scale — 캔버스 안에 박히게 + 1보다 크지 않게 */
+  const scaleX = canvasW / contentW;
+  const scaleY = canvasH / contentH;
+  const fitScale = Math.min(1, scaleX, scaleY);
+  /* 노드 박힌 가운데 (stage 좌표) */
+  const centerX = (minX + maxX) / 2;
+  const centerY = (minY + maxY) / 2;
+  /* transform 박힌 후 노드 가운데가 캔버스 가운데에 박히게 */
+  MTB_VIEW.scale = Math.max(MTB_VIEW.minScale, fitScale);
+  MTB_VIEW.x = canvasW / 2 - centerX * MTB_VIEW.scale;
+  MTB_VIEW.y = canvasH / 2 - centerY * MTB_VIEW.scale;
   _mtbApplyTransform();
 }
 
@@ -1056,6 +1101,27 @@ function _mtbInit() {
   if (backBtn) {
     backBtn.addEventListener('click', () => {
       window.location.href = 'index.html';
+    });
+  }
+  /* v102: 감상 테스트 → viewer.html?team=...&from=maker 진입.
+     teamName/classId는 state.js의 전역 변수. */
+  const playBtn = document.getElementById('mtb-play-test');
+  if (playBtn) {
+    playBtn.addEventListener('click', () => {
+      const tn = (typeof teamName === 'string') ? teamName : '';
+      const cid = (typeof classId === 'string') ? classId : '';
+      if (!tn) {
+        alert('팀 정보가 없어요. 작품 진입 후 다시 시도해주세요.');
+        return;
+      }
+      /* 박힌 변경 강제 push (debounce 흐름 우회) */
+      if (typeof _flushPushToFirebaseNow === 'function') _flushPushToFirebaseNow();
+      const params = new URLSearchParams();
+      params.set('team', tn);
+      params.set('from', 'maker');
+      if (cid) params.set('classId', cid);
+      params.set('ptype', 'text');
+      window.location.href = `viewer.html?${params.toString()}`;
     });
   }
   /* + 추가 — 사용자 박은 신규 scene 추가 함수 (sceneRenderer.js) 호출.

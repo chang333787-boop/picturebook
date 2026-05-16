@@ -1056,9 +1056,8 @@ body[data-page-orientation="portrait"] .scene-screen--pb.pb--split .pb-text__act
   align-items: center;
   justify-content: flex-start !important;  /* 시안: 좌측 정렬 (번호→라벨→화살표) */
   gap: 10px;
-  /* v85: padding 11/14 → 8/12 (버튼 작게) + font-size clamp 12~18 → 14~22 (글자 키움).
-     사용자 보고: 가로 화면에서 버튼 대비 글씨가 어색 — 밸런스 맞춤. */
-  padding: 8px 12px !important;
+  /* v89: 사용자 보고 "가로 화면 행동 버튼 글자 작음, 더 키워". font 14~22 → 17~28. */
+  padding: 8px 14px !important;
   border-radius: 10px;
   border: 1.5px solid;
   background: var(--v03-card-bg);
@@ -1071,7 +1070,7 @@ body[data-page-orientation="portrait"] .scene-screen--pb.pb--split .pb-text__act
     0 4px 10px rgba(120,90,50,0.08);
   transition: background 0.15s, transform 0.08s ease-out, box-shadow 0.15s;
   font-family: var(--font-b);
-  font-size: clamp(14px, 2.7cqi, 22px);
+  font-size: clamp(17px, 3.2cqi, 28px);
   line-height: 1.35;
   color: var(--v03-fg);
 }

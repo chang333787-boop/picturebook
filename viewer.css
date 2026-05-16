@@ -1105,14 +1105,25 @@ body[data-page-orientation="portrait"] #stage-wrap.letterbox-v #viewer-frame {
 .ending-actions {
   margin-top: clamp(4px, 1vw, 8px);
 }
+/* v88: 엔딩 행동 버튼이 세로로 길쭉하게 stretch되던 문제 fix.
+   원인: v03-modes.css line 744 `.scene-screen--pb.pb--split .pb-text__actions`가
+   flex: 0 0 60% + align-items: stretch 박아서 일반 그림책 행동 버튼처럼 영역
+   60% 차지 + 버튼 cross-axis stretch. 엔딩은 행동 버튼이 자체 크기만 차지해야. */
+.scene-screen--pb.pb--split.ending-as-pb .pb-text__actions,
+.scene-screen--pb.pb--split.ending-as-pb .ending-actions {
+  flex: 0 0 auto !important;
+  align-items: center !important;
+  align-content: center !important;
+  justify-content: center !important;
+  overflow: visible !important;
+}
 .ending-actions .terminal-btn {
-  /* v87: 사용자 "세로 박스 크기 작게" — clamp 폐기 + 고정값으로 진짜 작게.
-     세로 padding 5~7 → 3px 고정. 가로 12~16 → 10px. font-size 14 → 12.
-     border-radius 10 → 7. */
-  padding: 3px 10px !important;
+  /* v89: v87 모양 좋다, height만 두 배. padding 3→8, font 12→14.
+     height 약 22px → 약 38px (1.7배). */
+  padding: 8px 14px !important;
   border-radius: 7px !important;
   font-family: var(--font-ui, 'Jua', sans-serif);
-  font-size: 12px !important;
+  font-size: 14px !important;
   cursor: pointer;
   transition: filter 0.15s, transform 0.08s;
   font-weight: 600;

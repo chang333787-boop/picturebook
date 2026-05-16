@@ -2266,11 +2266,14 @@ function _bindApplyStyleAllHandlers(panel, scene) {
     if (!style) return;
 
     const list = (typeof _editSceneList === 'function') ? _editSceneList() : [];
+    /* v75 fix: ViewerState.scenes는 num 필드 없고 id만 박힘 (adaptScenes에서 id = String(raw.num)).
+       Firebase 노드 키도 num 값과 동일하니 s.id 그대로 saveSceneText(id) 호출 OK. */
     const targets = list.filter(s =>
       s && s.type !== 'cover' && s.type !== 'ending' &&
       String(s.id) !== String(scene.id) &&
-      typeof s.num !== 'undefined'
+      typeof s.id !== 'undefined' && s.id !== null
     );
+    console.log('[applyStyleAll]', { sourceSceneId: scene.id, targetCount: targets.length, targets: targets.map(s => s.id) });
     if (!targets.length) {
       const orig = btn.textContent;
       btn.textContent = '다른 장면이 없어요';
@@ -2286,12 +2289,12 @@ function _bindApplyStyleAllHandlers(panel, scene) {
     let failCount = 0;
     for (const s of targets) {
       try {
-        await saveSceneText(s.num, { textStyle: { ...style } });
+        await saveSceneText(s.id, { textStyle: { ...style } });
         /* in-memory scene 데이터도 즉시 갱신 — 다음 인스펙터 박힐 때 반영 */
         s.textStyle = { ...style };
         okCount++;
       } catch (e) {
-        console.warn('[applyStyleAll] failed scene', s.num, e);
+        console.warn('[applyStyleAll] failed scene', s.id, e);
         failCount++;
       }
     }

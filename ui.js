@@ -964,8 +964,20 @@ window.addEventListener('DOMContentLoaded', () => {
       unsubscribe();  // 1회만 실행
 
       if (user) {
-        const tokenResult = await user.getIdTokenResult();
-        const role = tokenResult.claims.role ?? null;
+        /* v93: Custom Claim 외에 teachers/{uid} 노드도 확인 — 신규 가입자
+           (v90~v92로 박힘) 통과시키기. teacher-auth.html과 같은 로직. */
+        const tokenResult = await user.getIdTokenResult(/* forceRefresh */ true);
+        const claim = tokenResult.claims.role ?? null;
+
+        let teacherViaNode = false;
+        if (!claim) {
+          try {
+            const snap = await firebase.database().ref('teachers/' + user.uid).once('value');
+            teacherViaNode = snap.exists();
+          } catch (e) { /* 룰 거부면 false 유지 */ }
+        }
+
+        const role = claim || (teacherViaNode ? 'teacher' : null);
         if (role === 'teacher' || role === 'super_admin') {
           _enterAdminDirect();
           return;

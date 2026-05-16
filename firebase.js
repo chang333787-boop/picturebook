@@ -226,7 +226,7 @@ auth.onAuthStateChanged(async user => {
   if (!user) { authState.user = null; authState.role = null; return; }
   const tokenResult = await user.getIdTokenResult();
   authState.user = user;
-  authState.role = tokenResult.claims.role ?? null;
+  authState.role = await _resolveRole(user, tokenResult);
 });
 
 function getCurrentUser()  { return authState.user; }
@@ -236,7 +236,21 @@ async function refreshAuthClaims() {
   const user = auth.currentUser;
   if (!user) return;
   const tokenResult = await user.getIdTokenResult(true);
-  authState.role = tokenResult.claims.role ?? null;
+  authState.role = await _resolveRole(user, tokenResult);
+}
+
+/* v93: role 해석 helper — Custom Claim 우선, 없으면 teachers/{uid} 노드 확인.
+   신규 가입자(v90~v92)는 claim 없고 teachers 노드만 박혀있어 이걸 통과시켜야
+   isTeacher()가 true. teacher-auth.html / ui.js와 같은 로직. */
+async function _resolveRole(user, tokenResult) {
+  const claim = tokenResult.claims.role ?? null;
+  if (claim) return claim;
+  try {
+    const snap = await firebase.database().ref('teachers/' + user.uid).once('value');
+    return snap.exists() ? 'teacher' : null;
+  } catch (e) {
+    return null;
+  }
 }
 
 /* ================================================================

@@ -256,10 +256,21 @@ function _mtbRender() {
     if (isolatedSet.has(id)) node.classList.add('mtb-node--isolated');
     /* 숫자 (num 또는 id) */
     node.textContent = sc.num || id;
-    /* v97: 노드 탭 → 모바일 장면 편집 화면 열기 */
-    node.addEventListener('click', () => {
+    /* v97: 노드 탭 → 편집 화면 / v98: 연결 모드면 연결 박음 */
+    node.addEventListener('click', e => {
+      if (MTB_CONNECT.active) {
+        e.stopPropagation();
+        _mtbConnectFinish(id);
+        return;
+      }
       _mtbOpenEditScene(id);
     });
+    /* v98: 길게 누르기 — pointer/touch 둘 다 지원 */
+    _mtbAttachLongPress(node, id);
+    /* v98: 연결 모드 시 source 노드 강조 */
+    if (MTB_CONNECT.active && String(MTB_CONNECT.fromId) === String(id)) {
+      node.classList.add('mtb-node--connect-source');
+    }
     nodesEl.appendChild(node);
   });
 }
@@ -464,6 +475,285 @@ if (document.readyState === 'loading') {
 } else {
   _mtbInitEditView();
 }
+
+/* ================================================================
+   v98: 노드 길게 누르기 → 컨텍스트 메뉴 + 연결 흐름
+   ─────────────────────────────────────────────────────────────────
+   사용자 설계:
+   1. 노드 길게 누름 (0.5초)
+   2. 메뉴 박힘 — 행동버튼 ① 연결, ②, ..., 편집, 새장면+연결, 삭제
+   3. "행동버튼 N 연결" 클릭 → 연결 모드 박힘 + 다른 노드 탭 안내
+   4. 대상 노드 탭 → 연결 박힘 → 모드 해제
+   ──────────────────────────────────────────────────────────────── */
+
+const MTB_LP = { timer: null, startX: 0, startY: 0, fired: false };
+const MTB_CONNECT = { active: false, fromId: null, btnIdx: -1 };
+
+function _mtbAttachLongPress(node, sceneId) {
+  function start(x, y) {
+    MTB_LP.fired = false;
+    MTB_LP.startX = x;
+    MTB_LP.startY = y;
+    clearTimeout(MTB_LP.timer);
+    MTB_LP.timer = setTimeout(() => {
+      MTB_LP.fired = true;
+      _mtbShowContextMenu(sceneId, x, y);
+      if (navigator.vibrate) navigator.vibrate(20);
+    }, 500);
+  }
+  function move(x, y) {
+    /* 8px 이상 움직이면 long press 취소 */
+    const dx = Math.abs(x - MTB_LP.startX);
+    const dy = Math.abs(y - MTB_LP.startY);
+    if (dx > 8 || dy > 8) {
+      clearTimeout(MTB_LP.timer);
+      MTB_LP.timer = null;
+    }
+  }
+  function end() {
+    clearTimeout(MTB_LP.timer);
+    MTB_LP.timer = null;
+  }
+
+  node.addEventListener('pointerdown', e => start(e.clientX, e.clientY));
+  node.addEventListener('pointermove', e => move(e.clientX, e.clientY));
+  node.addEventListener('pointerup',   end);
+  node.addEventListener('pointercancel', end);
+  /* 길게 눌렀으면 click 차단 (편집 화면 안 열리게) */
+  node.addEventListener('click', e => {
+    if (MTB_LP.fired) {
+      e.preventDefault();
+      e.stopPropagation();
+      MTB_LP.fired = false;
+    }
+  }, true);
+}
+
+function _mtbShowContextMenu(sceneId, x, y) {
+  _mtbHideContextMenu();
+  const sc = scenes[sceneId];
+  if (!sc) return;
+
+  const isEnding = (sc.type === 'ending' || sc.isEnding);
+  const buttons = Array.isArray(sc.buttons) ? sc.buttons : [];
+
+  const menu = document.createElement('div');
+  menu.className = 'mtb-context-menu';
+  menu.id = 'mtb-context-menu';
+
+  /* 메뉴 항목 박기 */
+  let html = '';
+  if (!isEnding) {
+    if (buttons.length === 0) {
+      html += `<div class="mtb-context-menu-item mtb-context-menu-item--disabled">
+        🔗 연결할 행동 버튼이 없어요
+      </div>`;
+    } else {
+      buttons.forEach((btn, idx) => {
+        const label = btn.label?.trim() || '(라벨 없음)';
+        const cur = btn.nextId ? `→ ${btn.nextId}` : '';
+        html += `
+          <div class="mtb-context-menu-item" data-action="connect" data-idx="${idx}">
+            <span class="mtb-context-menu-num">${idx + 1}</span>
+            <span>"${_mtbEsc(label).slice(0, 14)}" 연결 ${cur}</span>
+          </div>`;
+      });
+    }
+    html += '<div class="mtb-context-menu-divider"></div>';
+  }
+  html += `
+    <div class="mtb-context-menu-item" data-action="edit">
+      ✏️ 장면 편집 열기
+    </div>`;
+  if (!isEnding) {
+    html += `
+      <div class="mtb-context-menu-item" data-action="new-and-connect">
+        ✨ 새 장면 + 연결
+      </div>`;
+  }
+  html += `
+    <div class="mtb-context-menu-divider"></div>
+    <div class="mtb-context-menu-item mtb-context-menu-item--danger" data-action="delete">
+      🗑 장면 삭제
+    </div>`;
+
+  menu.innerHTML = html;
+  document.body.appendChild(menu);
+
+  /* 위치 — 화면 경계 내 */
+  const rect = menu.getBoundingClientRect();
+  const vw = window.innerWidth, vh = window.innerHeight;
+  let left = x;
+  let top = y + 10;
+  if (left + rect.width > vw - 8)  left = vw - rect.width - 8;
+  if (top + rect.height > vh - 8)  top = y - rect.height - 10;
+  if (left < 8) left = 8;
+  if (top < 8)  top = 8;
+  menu.style.left = left + 'px';
+  menu.style.top  = top + 'px';
+
+  /* 항목 클릭 */
+  menu.querySelectorAll('.mtb-context-menu-item').forEach(el => {
+    el.addEventListener('click', () => {
+      const action = el.dataset.action;
+      const idx = parseInt(el.dataset.idx, 10);
+      _mtbHideContextMenu();
+      _mtbHandleMenuAction(sceneId, action, idx);
+    });
+  });
+
+  /* 빈 영역 탭 → 메뉴 닫힘 */
+  setTimeout(() => {
+    document.addEventListener('click', _mtbHideContextMenuOnce, { once: true });
+  }, 0);
+}
+
+function _mtbHideContextMenu() {
+  document.getElementById('mtb-context-menu')?.remove();
+}
+function _mtbHideContextMenuOnce(e) {
+  if (!e.target.closest('#mtb-context-menu')) _mtbHideContextMenu();
+}
+
+function _mtbHandleMenuAction(sceneId, action, idx) {
+  const sc = scenes[sceneId];
+  if (!sc) return;
+
+  if (action === 'edit') {
+    _mtbOpenEditScene(sceneId);
+    return;
+  }
+
+  if (action === 'connect') {
+    _mtbConnectStart(sceneId, idx);
+    return;
+  }
+
+  if (action === 'new-and-connect') {
+    if (typeof addScene !== 'function') {
+      alert('장면 추가 함수가 박혀있지 않아요.');
+      return;
+    }
+    /* 새 scene 박음 — 박힌 후 num 추정 */
+    const beforeIds = new Set(Object.keys(scenes));
+    addScene();
+    setTimeout(() => {
+      const newId = Object.keys(scenes).find(id => !beforeIds.has(id));
+      if (!newId) { _mtbRender(); return; }
+      /* 현재 scene의 빈 행동 버튼 자리에 박음 (없으면 새로 추가) */
+      if (!Array.isArray(sc.buttons)) sc.buttons = [];
+      let slot = sc.buttons.findIndex(b => !b.nextId);
+      if (slot < 0 && sc.buttons.length < 6) {
+        sc.buttons.push({ label: '', nextId: null });
+        slot = sc.buttons.length - 1;
+      }
+      if (slot >= 0) {
+        sc.buttons[slot].nextId = String(newId);
+        sc.choiceCount = sc.buttons.length === 1 ? 1 : 2;
+        if (typeof pushToFirebase === 'function') {
+          pushToFirebase(sceneId);
+          pushToFirebase(newId);
+        }
+      }
+      _mtbRender();
+    }, 200);
+    return;
+  }
+
+  if (action === 'delete') {
+    if (!confirm(`장면 ${sc.num || sceneId} 삭제할까요?\n다른 장면에서 이 장면으로 연결된 게 끊어져요.`)) return;
+    if (typeof removeScene === 'function') {
+      removeScene(sceneId);
+    } else if (typeof deleteScene === 'function') {
+      deleteScene(sceneId);
+    } else {
+      /* fallback — 직접 박음 */
+      delete scenes[sceneId];
+      /* 다른 scene의 nextId가 이 scene 가리키면 null로 */
+      Object.values(scenes).forEach(other => {
+        if (Array.isArray(other.buttons)) {
+          other.buttons.forEach(b => {
+            if (b && String(b.nextId) === String(sceneId)) b.nextId = null;
+          });
+        }
+      });
+      if (typeof pushToFirebase === 'function') pushToFirebase();
+    }
+    setTimeout(_mtbRender, 200);
+    return;
+  }
+}
+
+function _mtbConnectStart(fromId, btnIdx) {
+  MTB_CONNECT.active = true;
+  MTB_CONNECT.fromId = fromId;
+  MTB_CONNECT.btnIdx = btnIdx;
+
+  document.getElementById('mobile-text-branch')?.classList.add('is-connecting');
+  _mtbShowConnectBanner(fromId, btnIdx);
+  _mtbRender(); /* 다시 그려서 source 노드 강조 */
+}
+
+function _mtbConnectCancel() {
+  MTB_CONNECT.active = false;
+  MTB_CONNECT.fromId = null;
+  MTB_CONNECT.btnIdx = -1;
+  document.getElementById('mobile-text-branch')?.classList.remove('is-connecting');
+  document.getElementById('mtb-connect-banner')?.remove();
+  _mtbRender();
+}
+
+function _mtbConnectFinish(toId) {
+  if (!MTB_CONNECT.active) return;
+  const fromId = MTB_CONNECT.fromId;
+  const idx    = MTB_CONNECT.btnIdx;
+  const sc = scenes[fromId];
+  if (!sc) { _mtbConnectCancel(); return; }
+
+  /* 자기 자신 연결 차단 — 사용자가 의도일 수도 있지만 보통 실수 */
+  if (String(toId) === String(fromId)) {
+    if (!confirm('같은 장면으로 연결할까요? (자기 자신 루프)')) {
+      _mtbConnectCancel();
+      return;
+    }
+  }
+
+  if (!Array.isArray(sc.buttons)) sc.buttons = [];
+  if (idx >= 0 && idx < sc.buttons.length) {
+    sc.buttons[idx].nextId = String(toId);
+  } else if (idx >= sc.buttons.length && sc.buttons.length < 6) {
+    sc.buttons.push({ label: '', nextId: String(toId) });
+    sc.choiceCount = sc.buttons.length === 1 ? 1 : 2;
+  }
+
+  if (typeof pushToFirebase === 'function') pushToFirebase(fromId);
+  _mtbConnectCancel();
+}
+
+function _mtbShowConnectBanner(fromId, btnIdx) {
+  document.getElementById('mtb-connect-banner')?.remove();
+  const banner = document.createElement('div');
+  banner.id = 'mtb-connect-banner';
+  banner.className = 'mtb-connect-banner';
+  banner.innerHTML = `
+    <div class="mtb-connect-banner-text">
+      <span style="font-weight:600;">장면 ${fromId} 행동 ${btnIdx + 1}</span>
+      <span>→ 연결할 장면을 탭하세요</span>
+    </div>
+    <button class="mtb-connect-banner-cancel" id="mtb-connect-cancel">취소</button>
+  `;
+  document.body.appendChild(banner);
+  document.getElementById('mtb-connect-cancel').addEventListener('click', _mtbConnectCancel);
+}
+
+/* 빈 캔버스 탭 → 메뉴/연결 모드 닫힘 */
+window.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('mtb-canvas')?.addEventListener('click', e => {
+    if (e.target.closest('.mtb-node')) return; /* 노드 클릭은 별도 처리 */
+    if (MTB_CONNECT.active) _mtbConnectCancel();
+    _mtbHideContextMenu();
+  });
+});
 
 function _mtbDeactivate() {
   const root = document.getElementById('mobile-text-branch');

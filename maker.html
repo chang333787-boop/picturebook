@@ -1662,6 +1662,71 @@
     }
     .mtb-edit-add-action:hover { border-color:#c79550;color:#c79550; }
     .mtb-edit-add-action:disabled { opacity:0.4;cursor:not-allowed; }
+    /* v98: 노드 길게 누르기 컨텍스트 메뉴 + 연결 모드 */
+    .mtb-context-menu {
+      position:fixed;z-index:70;
+      background:#fffaee;border:1px solid rgba(80,50,20,0.20);
+      border-radius:10px;
+      box-shadow:0 8px 24px rgba(120,90,50,.25);
+      min-width:180px;max-width:260px;padding:6px 0;
+      animation:mtbMenuPop 0.12s ease-out;
+    }
+    @keyframes mtbMenuPop {
+      from { opacity:0;transform:scale(0.9); }
+      to   { opacity:1;transform:scale(1); }
+    }
+    .mtb-context-menu-item {
+      padding:10px 16px;font-size:14px;color:#2b1f10;
+      cursor:pointer;display:flex;align-items:center;gap:8px;
+      transition:background 0.10s;
+    }
+    .mtb-context-menu-item:hover { background:rgba(199,149,80,0.12); }
+    .mtb-context-menu-item--danger { color:#c8503c; }
+    .mtb-context-menu-item--danger:hover { background:rgba(200,80,60,0.10); }
+    .mtb-context-menu-item--disabled { opacity:0.4;cursor:not-allowed; }
+    .mtb-context-menu-item--disabled:hover { background:transparent; }
+    .mtb-context-menu-divider {
+      height:1px;background:rgba(80,50,20,0.10);margin:4px 0;
+    }
+    .mtb-context-menu-num {
+      display:inline-flex;align-items:center;justify-content:center;
+      width:20px;height:20px;border-radius:50%;
+      background:#c79550;color:#fffaee;
+      font-size:11px;font-weight:bold;
+    }
+    /* 연결 모드 상단 배너 */
+    .mtb-connect-banner {
+      position:fixed;top:0;left:0;right:0;
+      background:#c66f4a;color:#fffaee;
+      padding:10px 14px;z-index:65;
+      display:flex;align-items:center;justify-content:space-between;
+      box-shadow:0 2px 12px rgba(198,111,74,.40);
+      font-size:13px;
+      animation:mtbBannerSlide 0.20s ease-out;
+    }
+    @keyframes mtbBannerSlide {
+      from { transform:translateY(-100%); }
+      to   { transform:translateY(0); }
+    }
+    .mtb-connect-banner-text { display:flex;align-items:center;gap:8px; }
+    .mtb-connect-banner-cancel {
+      background:rgba(255,250,238,.20);border:none;color:#fffaee;
+      padding:6px 12px;border-radius:6px;font-size:12px;cursor:pointer;
+    }
+    .mtb-connect-banner-cancel:hover { background:rgba(255,250,238,.30); }
+    /* 연결 모드 시 시작 노드 강조 + 다른 노드 펄스 */
+    #mobile-text-branch.is-connecting .mtb-node { cursor:crosshair; }
+    #mobile-text-branch.is-connecting .mtb-node--connect-source {
+      box-shadow:0 0 0 4px rgba(198,111,74,0.55), 0 4px 12px rgba(198,111,74,0.40);
+      border-color:#c66f4a;
+    }
+    #mobile-text-branch.is-connecting .mtb-node:not(.mtb-node--connect-source) {
+      animation:mtbNodePulse 1.4s ease-in-out infinite;
+    }
+    @keyframes mtbNodePulse {
+      0%,100% { box-shadow:0 2px 8px rgba(120,90,50,.20); }
+      50%     { box-shadow:0 0 0 6px rgba(199,149,80,0.20), 0 2px 8px rgba(120,90,50,.20); }
+    }
   </style>
 </head>
 <body>
@@ -2267,7 +2332,7 @@
 <script src="projectSettings.js?v=96"></script>
 <script src="ui.js?v=96"></script>
 <!-- v95: 모바일 텍스트형 브랜치 전용 (텍스트 작품 + 모바일에서만 활성) -->
-<script src="mobileTextBranch.js?v=97"></script>
+<script src="mobileTextBranch.js?v=98"></script>
 
 </body>
 </html>

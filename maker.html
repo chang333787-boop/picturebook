@@ -1579,6 +1579,16 @@
       from { transform:translateX(100%); }
       to   { transform:translateX(0); }
     }
+    /* v105: 장면 ↔ 장면 이동 시 fade transition — "앞뒤" 시각 */
+    #mtb-edit-view.is-transitioning .mtb-edit-body {
+      animation:mtbEditFadeBody 0.18s ease-out;
+    }
+    @keyframes mtbEditFadeBody {
+      from { opacity:0;transform:translateX(10px); }
+      to   { opacity:1;transform:translateX(0); }
+    }
+    /* v105: + 분기 추가 강조 (코랄) */
+    .mtb-edit-add-branch:hover { background:rgba(198,111,74,0.08); }
     .mtb-edit-header {
       display:flex;align-items:center;justify-content:space-between;gap:8px;
       padding:10px 14px;background:#c79550;color:#fffaee;
@@ -1892,7 +1902,10 @@
       <hr class="mtb-edit-divider"/>
       <div class="mtb-edit-actions-label">🎯 행동 버튼 <span id="mtb-edit-actions-count" style="color:#9a8868;font-weight:normal;"></span></div>
       <div id="mtb-edit-actions-list"></div>
-      <button class="mtb-edit-add-action" id="mtb-edit-add-action">+ 행동 버튼 추가</button>
+      <div style="display:flex;gap:6px;">
+        <button class="mtb-edit-add-action" id="mtb-edit-add-action" style="flex:1;">+ 행동 버튼</button>
+        <button class="mtb-edit-add-action mtb-edit-add-branch" id="mtb-edit-add-branch" title="행동 버튼 + 새 장면 같이 박음" style="flex:1.4;border-color:#c66f4a;color:#c66f4a;">✨ + 분기 추가 (새 장면)</button>
+      </div>
 
       <!-- v100: 설정 토글 (폰트/크기/색/굵기) -->
       <button class="mtb-edit-settings-toggle" id="mtb-edit-settings-toggle">
@@ -2475,7 +2488,7 @@
 <script src="projectSettings.js?v=96"></script>
 <script src="ui.js?v=96"></script>
 <!-- v95: 모바일 텍스트형 브랜치 전용 (텍스트 작품 + 모바일에서만 활성) -->
-<script src="mobileTextBranch.js?v=104"></script>
+<script src="mobileTextBranch.js?v=105"></script>
 
 </body>
 </html>

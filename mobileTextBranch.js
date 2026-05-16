@@ -328,16 +328,33 @@ const MTB_EDIT = {
 function _mtbOpenEditScene(sceneId) {
   const sc = scenes[sceneId];
   if (!sc) return;
+  const wasOpen = MTB_EDIT.currentId !== null;
+  const prevId = MTB_EDIT.currentId;
   MTB_EDIT.currentId = String(sceneId);
   const view = document.getElementById('mtb-edit-view');
   if (!view) return;
+  /* v105: 이미 열린 상태(다른 장면 이동)면 fade transition, 첫 열림은 slide */
+  if (wasOpen && prevId !== String(sceneId)) {
+    view.classList.add('is-transitioning');
+    setTimeout(() => view.classList.remove('is-transitioning'), 200);
+  }
   view.classList.add('is-open');
   _mtbEditPopulate(sc);
   _mtbEditUpdateNav();
+
+  /* v105: 본문 비어있으면 자동 focus — "이야기를 앞으로 박는" 흐름.
+     animation 박힌 후 (300ms) focus. */
+  const bodyIn = document.getElementById('mtb-edit-scene-body');
+  if (bodyIn && !sc.body && !sc.title) {
+    setTimeout(() => {
+      if (MTB_EDIT.currentId === String(sceneId)) bodyIn.focus();
+    }, 300);
+  }
 }
 
 /* v103: 새 장면 박음 + 행동버튼 연결 + 새 장면 편집 자동 진입.
-   사용자 박은 연속 제작 흐름 (행동버튼 추가 → 새 장면 → 이어서 작성) 핵심. */
+   사용자 박은 연속 제작 흐름 (행동버튼 추가 → 새 장면 → 이어서 작성) 핵심.
+   v105: setTimeout 200 → 50ms 박음 (부드러운 이동). */
 function _mtbNewSceneAndConnect(fromSceneId, btnIdx) {
   const sc = scenes[fromSceneId];
   if (!sc) return;
@@ -362,7 +379,7 @@ function _mtbNewSceneAndConnect(fromSceneId, btnIdx) {
     }
     /* 새 장면 편집 자동 진입 — 연속 제작 흐름 */
     _mtbOpenEditScene(newId);
-  }, 200);
+  }, 50);
 }
 
 function _mtbCloseEditScene() {
@@ -541,6 +558,25 @@ function _mtbInitEditView() {
     sc.choiceCount = sc.buttons.length === 1 ? 1 : 2;
     _mtbQueueSave();
     _mtbEditRenderActions(sc);
+    /* v105: 새로 박힌 라벨 input 자동 focus — 사용자가 바로 박을 수 있게 */
+    setTimeout(() => {
+      const inputs = document.querySelectorAll('.mtb-edit-action-label-input');
+      if (inputs.length) inputs[inputs.length - 1].focus();
+    }, 50);
+  });
+
+  /* v105: "+ 분기 추가" — 행동버튼 박음 + 새 장면 박음 + 자동 연결 + 새 장면 진입.
+     사용자 박은 핵심 흐름 한 번에. */
+  document.getElementById('mtb-edit-add-branch')?.addEventListener('click', () => {
+    if (MTB_EDIT.currentId === null) return;
+    const sc = scenes[MTB_EDIT.currentId];
+    if (!sc || sc.type === 'ending' || sc.isEnding) return;
+    if (!Array.isArray(sc.buttons)) sc.buttons = [];
+    if (sc.buttons.length >= 6) return;
+    sc.buttons.push({ label: '', nextId: null });
+    sc.choiceCount = sc.buttons.length === 1 ? 1 : 2;
+    const newBtnIdx = sc.buttons.length - 1;
+    _mtbNewSceneAndConnect(MTB_EDIT.currentId, newBtnIdx);
   });
 }
 

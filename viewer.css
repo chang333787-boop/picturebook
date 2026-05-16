@@ -376,17 +376,19 @@ body.edit-mode-active #stage-wrap {
   background: var(--surface, #fffaee);
 }
 
-/* v38: 표지 scene 활성 시 letterbox도 cover-theme 톤으로 동조.
-   default는 그대로 warm paper. :has() 미지원 환경에선 무시되고 기본값 유지. */
-#stage-wrap:has(.scene-screen[data-cover-theme="cream"]) { background: #f4ecd8; }
-#stage-wrap:has(.scene-screen[data-cover-theme="sage"])  { background: #e8efde; }
-#stage-wrap:has(.scene-screen[data-cover-theme="sky"])   { background: #dde8f2; }
-#stage-wrap:has(.scene-screen[data-cover-theme="coral"]) { background: #f4dccf; }
-#stage-wrap:has(.scene-screen[data-cover-theme="peach"]) { background: #fce0d6; }
-#stage-wrap:has(.scene-screen[data-cover-theme="lilac"]) { background: #e6dcf0; }
-#stage-wrap:has(.scene-screen[data-cover-theme="mint"])  { background: #d8ecdf; }
-#stage-wrap:has(.scene-screen[data-cover-theme="lemon"]) { background: #fbf2c4; }
-#stage-wrap:has(.scene-screen[data-cover-theme="rose"])  { background: #f5d0d0; }
+/* v79: 표지 cover-theme이 작품 단위 분위기 색 — body[data-cover-theme]로 박혀서
+   모든 장면(표지/일반/엔딩)에서 stage-wrap letterbox가 표지 색으로 둘러쌈.
+   세로 작품을 가로 화면에서 볼 때 letterbox 영역이 어두운 색 대신 표지 톤.
+   :not(.edit-mode-active)로 specificity 높여서 다듬기 모드에선 warm paper 유지. */
+body:not(.edit-mode-active)[data-cover-theme="cream"] #stage-wrap { background: #f4ecd8; }
+body:not(.edit-mode-active)[data-cover-theme="sage"]  #stage-wrap { background: #e8efde; }
+body:not(.edit-mode-active)[data-cover-theme="sky"]   #stage-wrap { background: #dde8f2; }
+body:not(.edit-mode-active)[data-cover-theme="coral"] #stage-wrap { background: #f4dccf; }
+body:not(.edit-mode-active)[data-cover-theme="peach"] #stage-wrap { background: #fce0d6; }
+body:not(.edit-mode-active)[data-cover-theme="lilac"] #stage-wrap { background: #e6dcf0; }
+body:not(.edit-mode-active)[data-cover-theme="mint"]  #stage-wrap { background: #d8ecdf; }
+body:not(.edit-mode-active)[data-cover-theme="lemon"] #stage-wrap { background: #fbf2c4; }
+body:not(.edit-mode-active)[data-cover-theme="rose"]  #stage-wrap { background: #f5d0d0; }
 
 /* ── viewer-frame: 16:9 작품 무대 ── */
 #viewer-frame {

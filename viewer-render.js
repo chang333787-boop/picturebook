@@ -54,15 +54,7 @@ function renderCurrentScene() {
      기존 어두운 파란 배너가 콘텐츠 위에 겹쳐 가리던 문제 해결. */
   document.getElementById('edit-test-banner')?.remove();
 
-  /* v84: 매 장면 진입 시 body.dataset.pbTheme 안전 재박음.
-     loadTeamData는 진입 시 1회 호출이지만, 어떤 흐름에서 dataset이 풀릴 경우
-     대비. v83 진단 박스는 사용자 의도 확인 후 제거. */
-  if (document.body && ViewerState.project) {
-    const pbT = ViewerState.project.pbTheme;
-    if (typeof pbT === 'string' && pbT.length > 0) {
-      document.body.dataset.pbTheme = pbT;
-    }
-  }
+  /* v85: v83 안전 재박음 + v82 letterbox 룰 폐기 — 사용자 의도 정정. */
   document.getElementById('debug-theme-box')?.remove();
 }
 

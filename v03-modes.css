@@ -1055,9 +1055,11 @@ body[data-page-orientation="portrait"] .scene-screen--pb.pb--split .pb-text__act
   display: flex !important;
   align-items: center;
   justify-content: flex-start !important;  /* 시안: 좌측 정렬 (번호→라벨→화살표) */
-  gap: 12px;
-  padding: 11px 14px !important;
-  border-radius: 12px;
+  gap: 10px;
+  /* v85: padding 11/14 → 8/12 (버튼 작게) + font-size clamp 12~18 → 14~22 (글자 키움).
+     사용자 보고: 가로 화면에서 버튼 대비 글씨가 어색 — 밸런스 맞춤. */
+  padding: 8px 12px !important;
+  border-radius: 10px;
   border: 1.5px solid;
   background: var(--v03-card-bg);
   cursor: pointer;
@@ -1069,9 +1071,8 @@ body[data-page-orientation="portrait"] .scene-screen--pb.pb--split .pb-text__act
     0 4px 10px rgba(120,90,50,0.08);
   transition: background 0.15s, transform 0.08s ease-out, box-shadow 0.15s;
   font-family: var(--font-b);
-  /* v48: 폰트 cqi 변환 — 페이지 비례. 디바이스 무관 한 줄 글자수 일정 */
-  font-size: clamp(12px, 2.3cqi, 18px);
-  line-height: 1.4;
+  font-size: clamp(14px, 2.7cqi, 22px);
+  line-height: 1.35;
   color: var(--v03-fg);
 }
 .choice-v03--picturebook:hover:not(:disabled) {
@@ -1105,15 +1106,15 @@ body[data-page-orientation="portrait"] .scene-screen--pb.pb--split .pb-text__act
   cursor: pointer !important;
 }
 
-/* 번호 원 배지 — 좌측 고정, viewport 작아도 항상 보임 */
+/* 번호 원 배지 — 좌측 고정, viewport 작아도 항상 보임 (v85: 26→22) */
 .choice-v03--picturebook .pb-choice-num {
-  width: 26px; height: 26px;
+  width: 22px; height: 22px;
   border-radius: 50%;
   display: grid; place-items: center;
   font-family: var(--font-ui);
-  font-size: 12px;
+  font-size: 11px;
   color: #fff;
-  flex: 0 0 26px;
+  flex: 0 0 22px;
   background: var(--v03-fg);  /* 색은 data-pb-color로 오버라이드 */
 }
 

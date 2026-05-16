@@ -376,23 +376,11 @@ body.edit-mode-active #stage-wrap {
   background: var(--surface, #fffaee);
 }
 
-/* v82: 양옆 마감 테마(pb-theme)가 stage-wrap letterbox까지 둘러쌈.
-   사용자 의도 정정: 표지 색이 아니라 테마 색이 letterbox 전체 + 페이지 외곽까지.
-   기존엔 scene-screen--pb 배경만 pb-theme 색이고 stage-wrap은 warm paper라
-   세로 작품 가로 화면 letterbox에 테마 색 + warm paper 분리되어 보였음.
-   각 theme 색을 stage-wrap에도 박아 scene-screen 외곽과 letterbox가 동일 톤.
-   :not(.edit-mode-active)로 specificity 높여 다듬기 모드는 warm paper 유지. */
-body:not(.edit-mode-active)[data-pb-theme="classic-book"]  #stage-wrap { background: #e8dcc0; }
-body:not(.edit-mode-active)[data-pb-theme="paper-desk"]    #stage-wrap { background: #d9c7a3; }
-body:not(.edit-mode-active)[data-pb-theme="minimal-cream"] #stage-wrap { background: #f0e6d2; }
-body:not(.edit-mode-active)[data-pb-theme="sketch-note"]   #stage-wrap { background: #fff8e0; }
-body:not(.edit-mode-active)[data-pb-theme="library-card"]  #stage-wrap { background: #f0e0b8; }
-body:not(.edit-mode-active)[data-pb-theme="night-tale"]    #stage-wrap {
-  background:
-    radial-gradient(ellipse at 80% 15%, rgba(80,70,130,0.45) 0%, transparent 50%),
-    radial-gradient(ellipse at 20% 85%, rgba(40,55,95,0.40) 0%, transparent 60%),
-    linear-gradient(180deg, #14102a 0%, #1c1838 50%, #221d3e 100%);
-}
+/* v85: v82 박은 body[data-pb-theme] #stage-wrap 룰 폐기.
+   사용자 의도 재정정: letterbox(stage-wrap)는 warm paper(default), scene-screen만
+   테마 색. 즉 페이지 카드 둘레 좁은 영역만 테마, 그 바깥 letterbox는 베이지.
+   사용자 캡처 비교: 1번(원함) = letterbox warm paper, 2번(원치 X) = letterbox 테마.
+   v82~v84 박은 거 정정. */
 
 /* ── viewer-frame: 16:9 작품 무대 ── */
 #viewer-frame {
@@ -1118,8 +1106,11 @@ body[data-page-orientation="portrait"] #stage-wrap.letterbox-v #viewer-frame {
   margin-top: clamp(4px, 1vw, 8px);
 }
 .ending-actions .terminal-btn {
-  padding: clamp(9px, 1.5vw, 12px) clamp(20px, 3vw, 28px);
-  border-radius: 50px;
+  /* v85: 사용자 보고 "엔딩 버튼 좀만 작게하고 너무 뭉툭해"
+     padding clamp(9~12 / 20~28) → (7~10 / 16~22) — 좀 작게.
+     border-radius 50px → 22px — 뭉툭함(완전 알약) 줄임. */
+  padding: clamp(7px, 1.3vw, 10px) clamp(16px, 2.5vw, 22px);
+  border-radius: 22px;
   font-family: var(--font-ui, 'Jua', sans-serif);
   font-size: clamp(12px, 1.4vw, 14px);
   cursor: pointer;

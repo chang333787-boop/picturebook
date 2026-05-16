@@ -533,6 +533,8 @@ function _enterTeam(val, teamRef) {
       entrySceneId:   (meta.entrySceneId  !== undefined && meta.entrySceneId  !== null) ? String(meta.entrySceneId)  : null,
       replaySceneId:  (meta.replaySceneId !== undefined && meta.replaySceneId !== null) ? String(meta.replaySceneId) : null,
     };
+    /* v95: 모바일 텍스트형 브랜치 활성화 트리거 — projectType 박힌 후 알림 */
+    window.dispatchEvent(new CustomEvent('mtb-project-ready'));
     /* ★ 역할 배지([첫 감상 시작]/[다시 시작점])가 영향받는 카드만 재렌더 —
        entry/replay가 바뀐 이전/현재 num 모두 커버. 편집 중 카드는 스킵하여
        textarea 포커스 유실 방지. */

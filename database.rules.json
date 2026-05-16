@@ -29,15 +29,15 @@
             },
             "scenes": {
               ".read": true,
-              ".write": true
+              ".write": "auth != null"
             },
             "locks": {
               ".read": true,
-              ".write": true
+              ".write": "auth != null"
             },
             "viewer-meta": {
               ".read": true,
-              ".write": true
+              ".write": "auth != null"
             }
           }
         }
@@ -48,25 +48,25 @@
       "$team": {
         "pin": {
           ".read": true,
-          ".write": "!data.exists()"
+          ".write": "auth != null && !data.exists()"
         },
         "scenes": {
           ".read": true,
-          ".write": true
+          ".write": "auth != null"
         },
         "locks": {
           ".read": true,
-          ".write": true
+          ".write": "auth != null"
         },
         "viewer-meta": {
           ".read": true,
-          ".write": true
+          ".write": "auth != null"
         }
       }
     },
     "copyCodes": {
       ".read": true,
-      ".write": true
+      ".write": "auth != null"
     }
   }
 }

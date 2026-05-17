@@ -73,7 +73,16 @@ function _shouldShowCover() {
   if (ViewerState.historyStack.length !== 0) return false;
   /* _coverShown 플래그 — restartStory 시 cover 생략하고 replay 장면으로 바로 가기 위함 */
   if (ViewerState._coverShown === true) return false;
-  /* entry = 현재 scene이 맞아야 cover 조건 성립 */
+  /* v112: cover scene이 존재하면 첫 진입에 무조건 표시.
+     옛 조건(currentSceneId === entrySceneId)은 모바일에서 entrySceneId 명시 박지 않은
+     작품(p.entrySceneId=null)에선 false가 되어 cover가 안 박혔음. 그게 v111 표지 감상 버그.
+     cover scene 자체가 진실의 원천이므로 cover 있으면 첫 진입엔 박음. */
+  const hasCoverScene = ViewerState.scenes && Object.values(ViewerState.scenes).some(
+    s => s && (s.type === 'cover' || s.isCover)
+  );
+  if (hasCoverScene) return true;
+  /* cover scene 없는 옛 작품 — p.coverTitle/coverImageData만 박힌 경우.
+     이땐 currentSceneId === entrySceneId일 때만 cover 박음 (옛 동작 유지). */
   const cur = ViewerState.currentSceneId;
   const eid = ViewerState.project.entrySceneId;
   return !!cur && !!eid && String(cur) === String(eid);
@@ -164,13 +173,21 @@ function renderCover() {
          이 시점부터 이후 재시작에서는 cover 건너뜀 (_coverShown=true) */
       ViewerState._coverShown = true;
       ViewerState.historyStack = [];
-      /* v74: 다듬기 감상 테스트 진입 시 currentSceneId가 표지 id 그대로 박혀있던 문제 fix.
-         일반 감상에선 currentSceneId가 entrySceneId로 박혀있지만 다듬기 → 감상 테스트로 오면
-         다듬기 중이던 표지 id가 그대로 박혀서 "시작하기" 누를 때마다 표지 다시 렌더 = 무한.
-         entrySceneId 있고 표지와 다르면 강제로 entry로 박음. */
-      const eid = ViewerState.project && ViewerState.project.entrySceneId;
-      if (eid && String(eid) !== String(ViewerState.currentSceneId)) {
-        ViewerState.currentSceneId = eid;
+      /* v112: entry 결정 fallback 강화. 모바일에서 entrySceneId 명시 안 박은 작품 대응.
+         · p.entrySceneId가 있고 cover scene 아니면 그것
+         · 없거나 cover를 가리키면 getEntryScene() 호출 (cover 제외 첫 normal 반환, v111 박힘)
+         · 그래도 없으면 currentSceneId 그대로 (renderCurrentScene 자체가 cover 무한 박힘 차단) */
+      let nextId = ViewerState.project && ViewerState.project.entrySceneId;
+      const isCoverId = (id) => {
+        const s = ViewerState.scenes && ViewerState.scenes[id];
+        return s && (s.type === 'cover' || s.isCover);
+      };
+      if (!nextId || isCoverId(nextId)) {
+        const entry = (typeof getEntryScene === 'function') ? getEntryScene() : null;
+        if (entry && !isCoverId(entry.id)) nextId = entry.id;
+      }
+      if (nextId && String(nextId) !== String(ViewerState.currentSceneId)) {
+        ViewerState.currentSceneId = nextId;
       }
       renderCurrentScene();
     });

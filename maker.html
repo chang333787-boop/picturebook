@@ -1912,6 +1912,44 @@
     .mtb-edit-settings-panel.is-open { display:block; }
     .mtb-edit-settings-row { margin-bottom:14px; }
     .mtb-edit-settings-row:last-child { margin-bottom:0; }
+    /* v115: 표현 설정 — 테마 카드, "모든 장면에 적용" 버튼 */
+    .mtb-edit-apply-all-btn {
+      width:100%;
+      background:rgba(198,111,74,0.10);border:1.5px dashed #c66f4a;
+      color:#a05633;padding:10px 12px;border-radius:8px;
+      font-size:13px;font-weight:600;cursor:pointer;
+      transition:background 0.15s;
+    }
+    .mtb-edit-apply-all-btn:hover,.mtb-edit-apply-all-btn:active {
+      background:rgba(198,111,74,0.18);
+    }
+    .mtb-edit-vis-row {
+      display:grid;grid-template-columns:repeat(4, 1fr);gap:6px;
+    }
+    .mtb-edit-theme-btn {
+      padding:8px 4px;border-radius:8px;
+      border:1.5px solid rgba(80,50,20,0.15);
+      background:#fffaee;color:#6b5638;
+      font-size:11px;font-weight:600;cursor:pointer;
+      text-align:center;
+      transition:all 0.12s;
+      min-height:44px;
+      touch-action:manipulation;
+    }
+    .mtb-edit-theme-btn:hover,.mtb-edit-theme-btn:active {
+      border-color:#c79550;
+    }
+    .mtb-edit-theme-btn.is-active {
+      border-color:#c66f4a;background:#fff5e6;color:#c66f4a;
+      box-shadow:0 0 0 2px rgba(198,111,74,.20);
+    }
+    #mtb-edit-text-entrance,
+    #mtb-edit-scene-transition {
+      width:100%;padding:8px 10px;border-radius:8px;
+      border:1.5px solid rgba(80,50,20,0.15);
+      background:#fffaee;color:#2b1f10;
+      font-size:14px;
+    }
     .mtb-edit-settings-label {
       font-size:12px;color:#6b5638;margin-bottom:6px;font-weight:600;
       display:flex;align-items:center;justify-content:space-between;
@@ -2082,10 +2120,10 @@
         <button class="mtb-edit-add-action" id="mtb-edit-add-action" style="flex:1;">+ 행동 버튼</button>
         <button class="mtb-edit-add-action mtb-edit-add-branch" id="mtb-edit-add-branch" title="행동 버튼 + 새 장면 같이 박음" style="flex:1.4;border-color:#c66f4a;color:#c66f4a;">✨ + 분기 추가 (새 장면)</button>
       </div>
-      <!-- v110: PC 안내 (표지 편집 시에만 표시) -->
+      <!-- v115: 표현 설정 안내 (표지 편집 시에만 표시) -->
       <div class="mtb-pc-hint mtb-cover-only" id="mtb-pc-hint" style="display:none;">
         <div style="font-size:12px;color:#9a8868;line-height:1.55;padding:10px 12px;background:#fffaee;border:1px dashed #e8dfc8;border-radius:8px;margin-top:14px;">
-          💡 더 자세한 표현 옵션(테마·텍스트 등장 효과·장면 전환 등)은 PC 또는 태블릿 가로 모드에서 박을 수 있어요. 헤더의 <strong>🖥 PC</strong>를 누르거나, PC에서 같은 작품을 열어주세요.
+          🎨 작품 분위기(테마·텍스트 등장 효과·장면 전환)는 <strong>🎨 표현 설정</strong>에서 박을 수 있어요. 아래 ⚙ 글자 설정 옆에 박혀있어요.
         </div>
       </div>
 
@@ -2116,6 +2154,53 @@
             <button class="mtb-edit-weight-btn" data-val="normal">보통</button>
             <button class="mtb-edit-weight-btn" data-val="bold">굵게</button>
           </div>
+        </div>
+        <!-- v115: 모든 이야기 장면에 적용 (cover/ending 제외) -->
+        <div class="mtb-edit-settings-row" style="flex-direction:column;align-items:stretch;gap:6px;">
+          <button class="mtb-edit-apply-all-btn" id="mtb-edit-apply-all" type="button">
+            📋 이 글자 스타일을 모든 이야기 장면에 적용
+          </button>
+        </div>
+      </div>
+
+      <!-- v115: 🎨 표현 설정 토글 (작품 단위 — 테마/등장/장면 전환) -->
+      <button class="mtb-edit-settings-toggle" id="mtb-edit-vis-toggle">
+        <span>🎨 표현 설정</span>
+        <span id="mtb-edit-vis-arrow">▼</span>
+      </button>
+      <div class="mtb-edit-settings-panel" id="mtb-edit-vis-panel">
+        <div class="mtb-edit-settings-row" style="flex-direction:column;align-items:stretch;gap:6px;">
+          <div class="mtb-edit-settings-label">
+            <span>🎨 테마</span>
+            <span class="mtb-edit-settings-label-note">모든 장면에 같이 박힘</span>
+          </div>
+          <div class="mtb-edit-vis-row" id="mtb-edit-theme-row"></div>
+        </div>
+        <div class="mtb-edit-settings-row" style="flex-direction:column;align-items:stretch;gap:6px;">
+          <div class="mtb-edit-settings-label">
+            <span>✨ 텍스트 등장 효과</span>
+          </div>
+          <select id="mtb-edit-text-entrance"></select>
+        </div>
+        <div class="mtb-edit-settings-row">
+          <div class="mtb-edit-settings-label">
+            <span>등장 속도</span>
+            <span class="mtb-edit-settings-label-note" id="mtb-edit-text-entrance-speed-val">50</span>
+          </div>
+          <input type="range" id="mtb-edit-text-entrance-speed" min="0" max="100" step="10" value="50"/>
+        </div>
+        <div class="mtb-edit-settings-row" style="flex-direction:column;align-items:stretch;gap:6px;">
+          <div class="mtb-edit-settings-label">
+            <span>🎬 장면 전환 효과</span>
+          </div>
+          <select id="mtb-edit-scene-transition"></select>
+        </div>
+        <div class="mtb-edit-settings-row">
+          <div class="mtb-edit-settings-label">
+            <span>전환 속도</span>
+            <span class="mtb-edit-settings-label-note" id="mtb-edit-scene-transition-speed-val">50</span>
+          </div>
+          <input type="range" id="mtb-edit-scene-transition-speed" min="0" max="100" step="10" value="50"/>
         </div>
       </div>
     </div>
@@ -2670,7 +2755,7 @@
 <script src="projectSettings.js?v=114"></script>
 <script src="ui.js?v=109"></script>
 <!-- v95: 모바일 텍스트형 브랜치 전용 (텍스트 작품 + 모바일에서만 활성) -->
-<script src="mobileTextBranch.js?v=111"></script>
+<script src="mobileTextBranch.js?v=115"></script>
 
 </body>
 </html>

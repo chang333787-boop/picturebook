@@ -1529,6 +1529,213 @@ function _mtbInitSettings() {
       if (arrow) arrow.textContent = open ? '▲' : '▼';
     });
   }
+
+  /* v115: "모든 이야기 장면에 적용" 버튼 — cover/ending 제외하고 textStyle 일괄 박음 */
+  const applyAllBtn = document.getElementById('mtb-edit-apply-all');
+  if (applyAllBtn) {
+    applyAllBtn.addEventListener('click', _mtbApplyTextStyleToAll);
+  }
+
+  /* v115: 표현 설정 초기화 — 토글 / 테마 / 등장 / 장면 전환 */
+  _mtbInitVisPanel();
+}
+
+/* ================================================================
+   v115: 표현 설정 패널 — 모바일 텍스트형에서 작품 단위 표현 박음
+   ─────────────────────────────────────────────────────────────────
+   기존 PC 텍스트형이 박는 필드 그대로 재사용 (사용자 박은 명):
+   · textTheme (scene 단위) — 모바일에선 모든 scene에 같이 박음 (작품 단위 효과)
+   · projectMeta.textEntrance / textEntranceSpeed
+   · projectMeta.sceneTransition / sceneTransitionSpeed
+   viewer-render는 이미 이 필드들 박음 → 코드 변경 X
+   ──────────────────────────────────────────────────────────────── */
+
+/* PC 텍스트형이 박는 거 그대로 (viewer-data.js의 VALID_TEXT_THEMES 등과 일치) */
+const MTB_THEMES = [
+  { id: 'classic',     label: '기본' },
+  { id: 'novel',       label: '소설' },
+  { id: 'paperbook',   label: '종이책' },
+  { id: 'note',        label: '노트' },
+  { id: 'magazine',    label: '잡지' },
+  { id: 'handwriting', label: '손글씨' },
+  { id: 'retro',       label: '레트로' },
+  { id: 'dark',        label: '밤하늘' },
+];
+const MTB_TEXT_ENTRANCES = [
+  { id: 'none',       label: '없음' },
+  { id: 'fade',       label: '서서히 (fade)' },
+  { id: 'slide-up',   label: '위로 올라옴 (slide-up)' },
+  { id: 'blur-in',    label: '흐릿하다 또렷이 (blur-in)' },
+  { id: 'pop',        label: '튕김 (pop)' },
+  { id: 'typewriter', label: '타자기 (typewriter)' },
+];
+const MTB_SCENE_TRANSITIONS = [
+  { id: 'fade',     label: '기본 (fade)' },
+  { id: 'book',     label: '책 넘김 (book)' },
+  { id: 'scale',    label: '확대 (scale)' },
+  { id: 'slide-up', label: '위로 슬라이드 (slide-up)' },
+  { id: 'flip3d',   label: '3D 뒤집기 (flip3d)' },
+];
+
+function _mtbInitVisPanel() {
+  /* 토글 */
+  const toggle = document.getElementById('mtb-edit-vis-toggle');
+  const panel = document.getElementById('mtb-edit-vis-panel');
+  const arrow = document.getElementById('mtb-edit-vis-arrow');
+  if (toggle && panel) {
+    toggle.addEventListener('click', () => {
+      const open = panel.classList.toggle('is-open');
+      toggle.classList.toggle('is-open', open);
+      if (arrow) arrow.textContent = open ? '▲' : '▼';
+    });
+  }
+
+  /* 테마 카드 */
+  const themeRow = document.getElementById('mtb-edit-theme-row');
+  if (themeRow) {
+    themeRow.innerHTML = MTB_THEMES.map(t =>
+      `<button class="mtb-edit-theme-btn" data-val="${t.id}" type="button">${t.label}</button>`
+    ).join('');
+    themeRow.querySelectorAll('.mtb-edit-theme-btn').forEach(btn => {
+      btn.addEventListener('click', () => _mtbApplyThemeToAll(btn.dataset.val));
+    });
+  }
+
+  /* 텍스트 등장 효과 */
+  const teSel = document.getElementById('mtb-edit-text-entrance');
+  if (teSel) {
+    teSel.innerHTML = MTB_TEXT_ENTRANCES.map(e =>
+      `<option value="${e.id}">${e.label}</option>`).join('');
+    teSel.addEventListener('change', e => _mtbSaveProjectMeta('textEntrance', e.target.value));
+  }
+  const teSpeed = document.getElementById('mtb-edit-text-entrance-speed');
+  const teSpeedVal = document.getElementById('mtb-edit-text-entrance-speed-val');
+  if (teSpeed) {
+    teSpeed.addEventListener('input', e => {
+      const v = parseInt(e.target.value, 10);
+      if (teSpeedVal) teSpeedVal.textContent = v;
+      _mtbSaveProjectMeta('textEntranceSpeed', v);
+    });
+  }
+
+  /* 장면 전환 */
+  const stSel = document.getElementById('mtb-edit-scene-transition');
+  if (stSel) {
+    stSel.innerHTML = MTB_SCENE_TRANSITIONS.map(t =>
+      `<option value="${t.id}">${t.label}</option>`).join('');
+    stSel.addEventListener('change', e => _mtbSaveProjectMeta('sceneTransition', e.target.value));
+  }
+  const stSpeed = document.getElementById('mtb-edit-scene-transition-speed');
+  const stSpeedVal = document.getElementById('mtb-edit-scene-transition-speed-val');
+  if (stSpeed) {
+    stSpeed.addEventListener('input', e => {
+      const v = parseInt(e.target.value, 10);
+      if (stSpeedVal) stSpeedVal.textContent = v;
+      _mtbSaveProjectMeta('sceneTransitionSpeed', v);
+    });
+  }
+
+  /* 초기 값 박힘 — projectMeta 박은 후 박음 */
+  _mtbReflectVisPanel();
+  window.addEventListener('mtb-project-ready', _mtbReflectVisPanel);
+}
+
+/* projectMeta 박힌 값을 패널에 반영 — 진입 시 + 다른 사람 저장 후 */
+function _mtbReflectVisPanel() {
+  if (typeof projectMeta !== 'object' || !projectMeta) return;
+  const teSel = document.getElementById('mtb-edit-text-entrance');
+  if (teSel && projectMeta.textEntrance) teSel.value = projectMeta.textEntrance;
+  const teSpeed = document.getElementById('mtb-edit-text-entrance-speed');
+  const teSpeedVal = document.getElementById('mtb-edit-text-entrance-speed-val');
+  if (teSpeed && typeof projectMeta.textEntranceSpeed === 'number') {
+    teSpeed.value = projectMeta.textEntranceSpeed;
+    if (teSpeedVal) teSpeedVal.textContent = projectMeta.textEntranceSpeed;
+  }
+  const stSel = document.getElementById('mtb-edit-scene-transition');
+  if (stSel && projectMeta.sceneTransition) stSel.value = projectMeta.sceneTransition;
+  const stSpeed = document.getElementById('mtb-edit-scene-transition-speed');
+  const stSpeedVal = document.getElementById('mtb-edit-scene-transition-speed-val');
+  if (stSpeed && typeof projectMeta.sceneTransitionSpeed === 'number') {
+    stSpeed.value = projectMeta.sceneTransitionSpeed;
+    if (stSpeedVal) stSpeedVal.textContent = projectMeta.sceneTransitionSpeed;
+  }
+  /* 활성 테마 강조 — 현재 장면 textTheme 기준 (모바일에선 모든 scene 동일 박음) */
+  const id = MTB_EDIT.currentId;
+  const sc = (id !== null && scenes && scenes[id]) ? scenes[id] : null;
+  const curTheme = (sc && sc.textTheme) || 'classic';
+  document.querySelectorAll('.mtb-edit-theme-btn').forEach(btn => {
+    btn.classList.toggle('is-active', btn.dataset.val === curTheme);
+  });
+}
+
+/* projectMeta 박은 필드 저장 — viewer-meta에 박음 */
+function _mtbSaveProjectMeta(field, value) {
+  if (typeof projectMeta !== 'object' || !projectMeta) return;
+  projectMeta[field] = value;
+  /* pushProjectMetaToFirebase는 firebase.js가 박은 wrapper */
+  if (typeof pushProjectMetaToFirebase === 'function') {
+    const patch = {}; patch[field] = value;
+    pushProjectMetaToFirebase(patch);
+  }
+}
+
+/* 테마 박음 — 모든 scene에 같은 textTheme 박음 (cover/ending 포함, 작품 단위 효과).
+   viewer-data.js는 scene 단위로 박는데, 모바일은 작품 단위로 박는 게 사용자 의도.
+   모든 scene에 박으면 PC 다듬기에서도 같은 테마 보임 (호환). */
+function _mtbApplyThemeToAll(themeId) {
+  if (typeof scenes !== 'object' || !scenes) return;
+  const ids = Object.keys(scenes);
+  if (!ids.length) return;
+  let changed = 0;
+  ids.forEach(id => {
+    const sc = scenes[id];
+    if (!sc) return;
+    if (sc.textTheme !== themeId) {
+      sc.textTheme = themeId;
+      changed++;
+      if (typeof pushToFirebase === 'function') pushToFirebase(id);
+    }
+  });
+  /* UI 즉시 반영 — 카드 글자 표현 박힘 */
+  document.querySelectorAll('.mtb-edit-theme-btn').forEach(btn => {
+    btn.classList.toggle('is-active', btn.dataset.val === themeId);
+  });
+  if (typeof _mtbRender === 'function') setTimeout(_mtbRender, 100);
+}
+
+/* "모든 이야기 장면에 적용" — 현재 장면의 textStyle을 cover/ending 제외하고 박음 */
+function _mtbApplyTextStyleToAll() {
+  if (typeof scenes !== 'object' || !scenes) return;
+  const curId = MTB_EDIT.currentId;
+  if (curId === null) return;
+  const cur = scenes[curId];
+  if (!cur || !cur.textStyle) {
+    alert('현재 장면에 박힌 글자 스타일이 없어요.');
+    return;
+  }
+  const style = { ...cur.textStyle };
+
+  /* cover/ending 제외하고 일반 장면만 박음 (사용자 박은 명) */
+  const targets = Object.keys(scenes).filter(id => {
+    const s = scenes[id];
+    if (!s) return false;
+    if (id === String(curId)) return false; /* 자기 자신 스킵 */
+    if (s.type === 'cover' || s.isCover) return false;
+    if (s.type === 'ending' || s.isEnding) return false;
+    return true;
+  });
+
+  if (!targets.length) {
+    alert('적용할 다른 이야기 장면이 없어요.');
+    return;
+  }
+  if (!confirm(`현재 글자 스타일을 ${targets.length}개의 다른 이야기 장면에 적용할까요?\n(표지·엔딩은 제외)`)) return;
+
+  targets.forEach(id => {
+    scenes[id].textStyle = { ...style };
+    if (typeof pushToFirebase === 'function') pushToFirebase(id);
+  });
+  alert(`✅ ${targets.length}개 장면에 박혔어요.`);
 }
 
 function _mtbUpdateStyle(field, value) {

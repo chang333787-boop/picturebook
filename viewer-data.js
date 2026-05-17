@@ -649,11 +649,17 @@ function getStartScene() {
 function getEntryScene() {
   const scenes = ViewerState.scenes;
   const eid    = ViewerState.project.entrySceneId;
-  if (eid && scenes[eid]) return scenes[eid];
+  /* v111: entrySceneId가 cover scene을 가리키면 무시 — "시작하기 → 표지 → 시작하기" 무한 루프 차단.
+     사용자가 명시 박은 잘못된 entry라도 cover는 entry가 될 수 없음. */
+  if (eid && scenes[eid] && scenes[eid].type !== 'cover' && !scenes[eid].isCover) return scenes[eid];
   const start = getStartScene();
   if (start) return start;
-  /* 마지막 fallback: 첫 번째 scene (id 오름차순) */
-  const first = Object.values(scenes).sort((a, b) => Number(a.id) - Number(b.id))[0];
+  /* 마지막 fallback: cover 제외하고 첫 번째 scene (id 오름차순).
+     모바일 텍스트형에서 표지 만들고 entrySceneId 명시 박지 않은 경우, cover scene이
+     첫 번호일 가능성. 그것을 entry로 잡으면 무한 루프 → cover 제외 박음. */
+  const first = Object.values(scenes)
+    .filter(s => s && s.type !== 'cover' && !s.isCover)
+    .sort((a, b) => Number(a.id) - Number(b.id))[0];
   return first || null;
 }
 

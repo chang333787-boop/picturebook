@@ -199,10 +199,27 @@ function _mtbBuildLayout() {
   sceneIds.forEach(id => {
     const sc = scenes[id];
     if (!sc) { nodeStats[id] = { branchCount:0, incomplete:false }; return; }
+    const isCover  = (sc.type === 'cover' || sc.isCover);
     const isEnding = (sc.type === 'ending' || sc.isEnding);
     if (isEnding) endingCount++;
     const buttons = Array.isArray(sc.buttons) ? sc.buttons : [];
     const stat = { branchCount: buttons.length, incomplete: false, reasons: [] };
+
+    /* v111: cover scene 완성 기준은 별도 — 제목 또는 한 줄 소개 중 하나라도 박혀있으면 완성.
+       cover의 buttons[0]은 "▶ 시작하기" 자동 박힘 (nextId는 entrySceneId가 흡수). body/buttons
+       검사 안 함. branchCount도 0으로 박아 노드에 분기수 배지 안 박힘 (cover는 분기 X). */
+    if (isCover) {
+      stat.branchCount = 0;
+      const title = (sc.title || '').trim();
+      const subtitle = (sc.subtitle || '').trim();
+      if (!title && !subtitle) {
+        stat.incomplete = true; stat.reasons.push('cover-empty');
+      }
+      if (stat.incomplete && !isolatedSet.has(id)) incompleteCount++;
+      nodeStats[id] = stat;
+      return;
+    }
+
     const body = (sc.body || '').trim();
     if (!body) { stat.incomplete = true; stat.reasons.push('body'); }
     if (!isEnding) {
@@ -358,6 +375,7 @@ function _mtbRender() {
         const reasons = (stat.reasons || []).map(r => ({
           'body':'본문 비었음','no-buttons':'엔딩이 아닌데 행동버튼이 없음',
           'label':'행동버튼 라벨이 비었음','next':'다음 장면이 연결 안 박힘',
+          'cover-empty':'표지 제목과 한 줄 소개가 모두 비었음',
         }[r] || r)).join(' · ');
         w.title = '미완성: ' + reasons;
         node.appendChild(w);
@@ -1636,6 +1654,18 @@ function _mtbOpenCoverScene() {
   setTimeout(() => {
     const newId = findCover();
     if (newId) {
+      /* v111: PC에서 만든 옛 작품이 p.coverTitle만 박혀있고 cover scene은 없는 경우,
+         모바일에서 새 cover scene 만들면 sc.title이 빈 채라 옛 제목이 시각적으로 사라짐.
+         일회 마이그: 새 cover scene의 title/subtitle이 비어있을 때만 p.coverTitle을 sc.title로
+         박음. p.coverTitle 자체는 안 박음 (PC 흐름 손대지 X). 사용자가 박은 "PC 설정 안 깨기" 충족. */
+      try {
+        const sc = scenes[newId];
+        const p = (typeof projectMeta === 'object' && projectMeta) ? projectMeta : null;
+        if (sc && p && p.coverTitle && !sc.title && !sc.subtitle) {
+          sc.title = String(p.coverTitle);
+          if (typeof pushToFirebase === 'function') pushToFirebase(newId);
+        }
+      } catch (e) { /* 마이그 실패해도 진입은 계속 */ }
       _mtbRender();
       _mtbOpenEditScene(newId);
     } else {
@@ -1685,6 +1715,21 @@ function _mtbInit() {
         alert('팀 정보가 없어요. 작품 진입 후 다시 시도해주세요.');
         return;
       }
+      /* v111: 표지만 있고 일반 장면이 하나도 없으면 감상 진입 차단.
+         시작하기 누를 거리가 없어 감상이 멎음. 사용자가 박은 안 = 안내만, 자동 장면 생성 X. */
+      try {
+        const ids = (typeof scenes === 'object' && scenes) ? Object.keys(scenes) : [];
+        if (ids.length) {
+          const hasNonCover = ids.some(id => {
+            const s = scenes[id];
+            return s && s.type !== 'cover' && !s.isCover;
+          });
+          if (!hasNonCover) {
+            alert('이야기 첫 장면도 만들어주세요.\n\n표지만 있으면 감상이 시작 장면으로 넘어갈 수 없어요.\n+ 버튼으로 첫 이야기 장면을 만들어보세요.');
+            return;
+          }
+        }
+      } catch (e) { /* 검사 실패해도 진입은 계속 */ }
       /* 박힌 변경 강제 push (debounce 흐름 우회) */
       if (typeof _flushPushToFirebaseNow === 'function') _flushPushToFirebaseNow();
       const params = new URLSearchParams();

@@ -1399,6 +1399,7 @@ function renderHUD() {
       const classId  = ViewerState.project.classId  || '';
       if (teamName) p.set('team', teamName);
       p.set('from', 'maker');
+      p.set('resume', '1'); /* v108: sessionStorage.makerSession 있으면 입장 화면 건너뜀 */
       if (classId) p.set('classId', classId);
       p.set('ptype', 'text');
       window.location.href = `maker.html?${p.toString()}`;
@@ -1498,11 +1499,12 @@ function _resolveFallbackUrl(ctx) {
       const p = new URLSearchParams();
       p.set('team', team);
       p.set('from', 'maker');
+      p.set('resume', '1'); /* v108: sessionStorage.makerSession 있으면 자동 입장 */
       if (classId) p.set('classId', classId);
       if (ptype)   p.set('ptype', ptype);
       return `maker.html?${p.toString()}`;
     }
-    return 'maker.html';
+    return 'maker.html?resume=1'; /* v108: 최소한 resume 신호는 박음 */
   }
 
   if (ctx.source === 'admin') {

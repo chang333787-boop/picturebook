@@ -1073,7 +1073,7 @@ function _mtbShowPlaceBanner() {
     <span>📍 노드 드래그로 위치 박음</span>
     <div class="mtb-place-banner-options">
       <button class="mtb-place-banner-descendants ${MTB.placeDescendants ? 'is-active' : ''}"
-        id="mtb-place-descendants" title="자손 노드도 같이 박음">📦 자손까지</button>
+        id="mtb-place-descendants" title="이 장면에서 이어지는 장면들도 함께 옮겨요">📦 이어진 장면도 같이</button>
       <button class="mtb-place-banner-cancel" id="mtb-place-banner-cancel">완료</button>
     </div>
   `;
@@ -1611,6 +1611,23 @@ function _mtbInit() {
       params.set('from', 'maker');
       if (cid) params.set('classId', cid);
       params.set('ptype', 'text');
+      /* v108: 감상에서 돌아올 때 입장 화면 떨어지는 문제 fix.
+         viewer-render의 _resolveFallbackUrl(ctx)이 ctx 없으면 resume=1 안 박힌 URL 반환했음.
+         여기서 모바일 텍스트형 복귀 URL을 ctx에 명시 박음 (team/classId/ptype/resume=1 다 포함).
+         ui.js _saveReturnContext는 location.href 그대로 박아서 모바일 정보 손실 가능 — 직접 박음. */
+      try {
+        const backParams = new URLSearchParams();
+        backParams.set('team', tn);
+        backParams.set('from', 'maker');
+        backParams.set('resume', '1');
+        if (cid) backParams.set('classId', cid);
+        backParams.set('ptype', 'text');
+        localStorage.setItem('branchReturnContext', JSON.stringify({
+          source: 'maker',
+          url: 'maker.html?' + backParams.toString(),
+          savedAt: Date.now(),
+        }));
+      } catch (e) { /* localStorage 막혀도 진입은 계속 */ }
       window.location.href = `viewer.html?${params.toString()}`;
     });
   }

@@ -1916,6 +1916,58 @@
 </head>
 <body>
 
+<!-- v109: 복귀 로딩 화면 — URL에 복귀 신호 있으면 inline script가 즉시 표시.
+     PC UI 깜빡임 + 모드 선택 화면 잘못 노출 방지. _enterTeam 콜백에서 _maker_hideLoading() 호출. -->
+<style>
+  #maker-loading {
+    position:fixed;inset:0;z-index:9999;
+    background:#fbf6ea;
+    display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;
+    font-family:'Jua','Nanum Gothic',sans-serif;
+    color:#6b5638;
+  }
+  #maker-loading.show { display:flex; }
+  #maker-loading .spinner {
+    width:36px;height:36px;border-radius:50%;
+    border:3px solid #e8dfc8;border-top-color:#c66f4a;
+    animation:makerLoadSpin 0.9s linear infinite;
+  }
+  #maker-loading .msg { font-size:15px; }
+  #maker-loading .sub { font-size:12px;color:#9a8868; }
+  @keyframes makerLoadSpin { to { transform:rotate(360deg); } }
+</style>
+<div id="maker-loading" aria-live="polite">
+  <div class="spinner"></div>
+  <div class="msg">작품을 불러오는 중이에요…</div>
+  <div class="sub">잠시만 기다려 주세요</div>
+</div>
+<script>
+  /* URL에 복귀 신호 있으면 즉시 로딩 화면 박음. JS 본체 로드 전에 박혀야 깜빡임 없음. */
+  (function () {
+    try {
+      var p = new URLSearchParams(location.search);
+      var hasResume = p.get('resume') === '1';
+      var hasTeam   = !!p.get('team');
+      var hasFrom   = p.get('from') === 'maker';
+      var hasSess   = false;
+      try { hasSess = !!sessionStorage.getItem('makerSession'); } catch (e) {}
+      if (hasResume || (hasTeam && (hasFrom || hasSess))) {
+        var el = document.getElementById('maker-loading');
+        if (el) el.classList.add('show');
+      }
+    } catch (e) { /* noop */ }
+  })();
+  /* 전역 헬퍼 — _enterTeam 등에서 호출. 누락된 채 호출돼도 안전. */
+  window._maker_hideLoading = function () {
+    var el = document.getElementById('maker-loading');
+    if (el) el.classList.remove('show');
+  };
+  /* 안전망 — 10초 이상 로딩 표시되면 강제 숨김 (resume 실패 시 기존 화면 노출) */
+  setTimeout(function () {
+    if (window._maker_hideLoading) window._maker_hideLoading();
+  }, 10000);
+</script>
+
 <!-- v95: 모바일 텍스트형 브랜치 전용 UI (Step 1 — 진입 + 빈 화면).
      mobileTextBranch.js가 모바일 + projectType === 'text' 감지 시 display:flex. -->
 <div id="mobile-text-branch">
@@ -2560,7 +2612,7 @@
 <!-- v37f 캐시 — 표지 사이드/구조 색 -->
 <script src="state.js?v=96"></script>
 <script src="locks.js?v=96"></script>
-<script src="firebase.js?v=96"></script>
+<script src="firebase.js?v=109"></script>
 <script src="canvasInteraction.js?v=96"></script>
 <script src="sceneRenderer.js?v=96"></script>
 <script src="storyAnalyzer.js?v=96"></script>
@@ -2568,9 +2620,9 @@
 <script src="adminConsole.js?v=96"></script>
 <script src="preview.js?v=96"></script>
 <script src="projectSettings.js?v=96"></script>
-<script src="ui.js?v=96"></script>
+<script src="ui.js?v=109"></script>
 <!-- v95: 모바일 텍스트형 브랜치 전용 (텍스트 작품 + 모바일에서만 활성) -->
-<script src="mobileTextBranch.js?v=108"></script>
+<script src="mobileTextBranch.js?v=109"></script>
 
 </body>
 </html>

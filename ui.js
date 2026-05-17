@@ -1031,7 +1031,10 @@ window.addEventListener('DOMContentLoaded', () => {
               /* 실패 시 원복 — 사용자가 수동 재입장 */
               joinScreen.classList.remove('hidden');
               sessionStorage.removeItem('makerSession');
+              /* v109: 로딩 화면 즉시 숨김 — 입장 화면 노출 */
+              if (typeof _maker_hideLoading === 'function') _maker_hideLoading();
             }
+            /* 성공 시 _enterTeam → viewer-meta 콜백에서 _maker_hideLoading 박음 */
           });
         }
       }

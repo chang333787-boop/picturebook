@@ -20,14 +20,29 @@ const MTB = {
   _autoOpenedOnce: false,
 };
 
-/* ── 모바일 감지 ──
-   UA 또는 viewport width < 768px. 데스크탑 가로 모드 태블릿은 포함 X. */
+/* ── 모바일 감지 (v109 강화) ──
+   사용자 박은 원칙: "폰만 모바일 텍스트형 UI. 태블릿(iPad, Android tablet, 학교 태블릿
+   가로)은 PC와 같은 maker canvas".
+
+   v108까지: /Mobi|Android|iPhone|iPod/i — Android 태블릿(UA에 Mobi 없음, Android만 박힘)이
+   잘못 모바일로 잡힘. viewport < 768도 너무 넓어 일부 작은 데스크탑 창까지 잡힘.
+
+   v109 박은 기준:
+   1. iPhone/iPod = 무조건 폰
+   2. Android = "Mobile"이 같이 박혀있어야 폰 (태블릿은 Mobile 안 박힘)
+   3. viewport <= 767px + pointer:coarse = 폰 (작은 데스크탑 창 차단)
+   4. iPad는 무조건 PC UI — iPad는 768px 이상 (mini도 768) + UA에 iPhone/Mobi 없음 */
 function _mtbIsMobile() {
   if (MTB.pcOverride) return false;
   const ua = navigator.userAgent || '';
-  if (/Mobi|Android|iPhone|iPod/i.test(ua)) return true;
-  /* iPad는 ua가 데스크탑처럼 박힘 — viewport 검사 */
-  if (window.innerWidth < 768) return true;
+  /* 1. 명백한 폰 — iPhone/iPod */
+  if (/iPhone|iPod/i.test(ua)) return true;
+  /* 2. Android 폰만 — Android + Mobile 동시 박힘. 태블릿은 Android만 박힘. */
+  if (/Android/i.test(ua) && /Mobile/i.test(ua)) return true;
+  /* 3. 작은 viewport + 터치 입력 = 폰 환경. 데스크탑 작은 창(마우스)은 제외. */
+  if (window.innerWidth <= 767
+      && window.matchMedia
+      && window.matchMedia('(pointer: coarse)').matches) return true;
   return false;
 }
 

@@ -377,16 +377,23 @@ async function _resumeTeamFromSession(ctx) {
       return false;
     }
 
-    /* W6: _enterTeam이 자체 viewer-meta 조회 + ptype-screen 노출 처리 */
-    _enterTeam(ctx.teamName, teamRef);
+    /* W6: _enterTeam이 자체 viewer-meta 조회 + ptype-screen 노출 처리.
+       v109: resume 흐름이면 기존 작품 모드 선택 화면 안 띄움 — 사용자는
+       "기존 작품으로 바로 복귀"를 원함. 신규 작품(projectType 없음)이면
+       _enterTeam이 알아서 ptype-screen 박음. */
+    _enterTeam(ctx.teamName, teamRef, { skipPtypeScreenIfExisting: true });
     return true;
   } catch (e) {
     return false;
   }
 }
 
-/* ── 공통 입장 처리 — v1/v2 공유 ── */
-function _enterTeam(val, teamRef) {
+/* ── 공통 입장 처리 — v1/v2 공유 ──
+   v109: opts.skipPtypeScreenIfExisting (default false)
+   = true면 viewer-meta/projectType 박혀있는 기존 작품일 때 ptype-screen 안 띄움.
+   resume 흐름에서만 박음. 일반 새 로그인은 false (기존 흐름 유지). */
+function _enterTeam(val, teamRef, opts) {
+  opts = opts || {};
   teamName = val;
   document.getElementById('team-label').textContent = teamName;
   document.getElementById('join-screen').classList.add('hidden');
@@ -424,10 +431,17 @@ function _enterTeam(val, teamRef) {
     if (existing && typeof selectProjectType === 'function') {
       selectProjectType(existing);   /* 메모리 변수 동기 */
     }
-    /* projectType 누락된 옛 작품도 ptype 화면 강제 표시 → 사용자가 선택해야 maker 진입 */
+    /* v109: resume 흐름 + 기존 작품 = ptype-screen 건너뜀. 사용자는 곧장 maker 진입.
+       projectType 누락된 옛 작품 또는 신규 작품은 기존대로 ptype-screen 노출. */
+    if (opts.skipPtypeScreenIfExisting && existing) {
+      if (typeof _maker_hideLoading === 'function') _maker_hideLoading();
+      return;
+    }
     if (typeof showPtypeScreen === 'function') showPtypeScreen(existing);
+    if (typeof _maker_hideLoading === 'function') _maker_hideLoading();
   }).catch(() => {
     if (typeof showPtypeScreen === 'function') showPtypeScreen(null);
+    if (typeof _maker_hideLoading === 'function') _maker_hideLoading();
   });
 
   dbRef.on('value', snapshot => {

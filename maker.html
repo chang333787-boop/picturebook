@@ -1549,6 +1549,71 @@
     .mtb-node--selected {
       box-shadow:0 0 0 4px rgba(199,149,80,.45), 0 4px 12px rgba(120,90,50,.30);
     }
+    /* v107: 노드 배지 — 분기수 (좌상단) + 미완성 ⚠ (좌하단) */
+    .mtb-node-badge {
+      position:absolute;
+      width:18px;height:18px;
+      border-radius:50%;
+      display:flex;align-items:center;justify-content:center;
+      font-family:'Nanum Gothic',sans-serif;
+      font-size:10px;font-weight:bold;
+      box-shadow:0 1px 4px rgba(120,90,50,.20);
+      pointer-events:none;
+    }
+    .mtb-node-badge--branch {
+      top:-10px;left:-10px;
+      background:#fffaee;color:#6b5638;
+      border:1.5px solid #c79550;
+    }
+    .mtb-node-badge--warn {
+      bottom:-8px;left:-8px;
+      background:#fff5d8;color:#a66a1a;
+      border:1.5px solid #e8a93a;
+      font-size:11px;
+    }
+    /* v107: 점프 강조 애니메이션 — 1.2초 노란 펄스 */
+    .mtb-node--flash {
+      animation:mtbNodeFlash 1.2s ease-out;
+    }
+    @keyframes mtbNodeFlash {
+      0%   { box-shadow:0 2px 8px rgba(120,90,50,.20); }
+      25%  { box-shadow:0 0 0 8px rgba(232,169,58,.55), 0 4px 14px rgba(232,169,58,.45); }
+      60%  { box-shadow:0 0 0 8px rgba(232,169,58,.25), 0 4px 14px rgba(232,169,58,.20); }
+      100% { box-shadow:0 2px 8px rgba(120,90,50,.20); }
+    }
+    /* v107: 상단 요약 바 — 헤더 아래 한 줄 */
+    .mtb-summary {
+      display:flex;align-items:center;gap:2px;
+      padding:5px 12px;
+      background:#fbf6ea;
+      border-bottom:1px solid #e8dfc8;
+      font-family:'Nanum Gothic',sans-serif;
+      font-size:11.5px;color:#6b5638;
+      overflow-x:auto;-webkit-overflow-scrolling:touch;
+      white-space:nowrap;
+      flex-shrink:0;
+    }
+    .mtb-summary-chip {
+      display:inline-flex;align-items:center;gap:3px;
+      padding:3px 8px;
+      background:transparent;border:none;
+      font:inherit;color:inherit;
+      border-radius:10px;white-space:nowrap;
+      cursor:pointer;
+      transition:background 0.12s;
+    }
+    .mtb-summary-chip:disabled { cursor:default; }
+    .mtb-summary-chip:not(:disabled):hover,
+    .mtb-summary-chip:not(:disabled):active {
+      background:rgba(198,111,74,0.10);
+    }
+    .mtb-summary-chip[data-kind="incomplete"]:not(:disabled) { color:#a66a1a; font-weight:bold; }
+    .mtb-summary-chip[data-kind="isolated"]:not(:disabled)   { color:#8a5a2a; font-weight:bold; }
+    .mtb-summary-chip.is-zero { opacity:0.45; }
+    .mtb-summary-chip.is-zero:not(:disabled) { cursor:default; }
+    .mtb-summary-chip.is-zero:not(:disabled):hover { background:transparent; }
+    .mtb-summary-num { font-weight:bold; }
+    .mtb-summary-sep { color:#c9bfa6; padding:0 2px; }
     /* SVG 연결선 + 화살표 + 행동버튼 번호 라벨 */
     .mtb-edge {
       fill:none;
@@ -1864,6 +1929,16 @@
       <button class="mtb-header-btn" id="mtb-play-test" title="실제 감상 화면으로 확인">▶ 감상</button>
       <button class="mtb-header-btn" id="mtb-pc-toggle">🖥 PC</button>
     </div>
+  </div>
+  <!-- v107: 상단 요약 바 — 한눈에 상태 파악 + ⚠/🔌 칩 탭 → 다음 문제 노드 점프 -->
+  <div class="mtb-summary" id="mtb-summary" style="display:none;">
+    <button type="button" class="mtb-summary-chip" data-kind="total" disabled>📊 장면 <span class="mtb-summary-num" data-num="total">0</span></button>
+    <span class="mtb-summary-sep">·</span>
+    <button type="button" class="mtb-summary-chip" data-kind="ending" disabled>🏁 엔딩 <span class="mtb-summary-num" data-num="ending">0</span></button>
+    <span class="mtb-summary-sep">·</span>
+    <button type="button" class="mtb-summary-chip" data-kind="incomplete" title="탭하면 다음 미완성 장면으로 이동">⚠ 미완성 <span class="mtb-summary-num" data-num="incomplete">0</span></button>
+    <span class="mtb-summary-sep">·</span>
+    <button type="button" class="mtb-summary-chip" data-kind="isolated" title="탭하면 다음 미연결 장면으로 이동">🔌 미연결 <span class="mtb-summary-num" data-num="isolated">0</span></button>
   </div>
   <div class="mtb-canvas" id="mtb-canvas">
     <!-- v100: stage div — 노드 + SVG 같이 transform (핀치 줌 + pan) -->
@@ -2495,7 +2570,7 @@
 <script src="projectSettings.js?v=96"></script>
 <script src="ui.js?v=96"></script>
 <!-- v95: 모바일 텍스트형 브랜치 전용 (텍스트 작품 + 모바일에서만 활성) -->
-<script src="mobileTextBranch.js?v=106"></script>
+<script src="mobileTextBranch.js?v=107"></script>
 
 </body>
 </html>

@@ -171,7 +171,53 @@ function _mtbBuildLayout() {
     });
   });
 
-  return { layout, entryId, depths, sceneIds, isolated: sceneIds.filter(id => !visited.has(id)) };
+  const isolated = sceneIds.filter(id => !visited.has(id));
+
+  /* v107: 노드별 상태 + 전체 통계 — 구조 화면 = 정리용 대시보드.
+     · branchCount: 행동버튼 슬롯 수 (0~6)
+     · incomplete : 본문 빔 OR 라벨 빔 OR 연결 안 박힘 (엔딩은 본문만)
+     · 미연결 노드는 incomplete 카운트엔 들어가지만 노드 ⚠ 배지 박지 X (점선과 시각 중복 회피) */
+  const isolatedSet = new Set(isolated);
+  const nodeStats = {};
+  let endingCount = 0;
+  let incompleteCount = 0;
+  sceneIds.forEach(id => {
+    const sc = scenes[id];
+    if (!sc) { nodeStats[id] = { branchCount:0, incomplete:false }; return; }
+    const isEnding = (sc.type === 'ending' || sc.isEnding);
+    if (isEnding) endingCount++;
+    const buttons = Array.isArray(sc.buttons) ? sc.buttons : [];
+    const stat = { branchCount: buttons.length, incomplete: false, reasons: [] };
+    const body = (sc.body || '').trim();
+    if (!body) { stat.incomplete = true; stat.reasons.push('body'); }
+    if (!isEnding) {
+      if (!buttons.length) {
+        /* 엔딩 아닌데 행동버튼 0개 = 막다른 골목 */
+        stat.incomplete = true; stat.reasons.push('no-buttons');
+      } else {
+        for (const btn of buttons) {
+          if (!btn) continue;
+          const label = (btn.label || '').trim();
+          if (!label) { stat.incomplete = true; stat.reasons.push('label'); break; }
+          if (!btn.nextId || !scenes[String(btn.nextId)]) {
+            stat.incomplete = true; stat.reasons.push('next'); break;
+          }
+        }
+      }
+    }
+    /* 미연결 노드는 미완성 카운트에서 제외 — 점선 + 미연결 칩이 우선 신호 (시각/카운트 중복 회피) */
+    if (stat.incomplete && !isolatedSet.has(id)) incompleteCount++;
+    nodeStats[id] = stat;
+  });
+
+  const totals = {
+    total: sceneIds.length,
+    ending: endingCount,
+    incomplete: incompleteCount,
+    isolated: isolated.length,
+  };
+
+  return { layout, entryId, depths, sceneIds, isolated, isolatedSet, nodeStats, totals };
 }
 
 function _mtbRender() {
@@ -191,8 +237,7 @@ function _mtbRender() {
   }
   if (empty) empty.style.display = 'none';
 
-  const { layout, isolated } = built;
-  const isolatedSet = new Set(isolated);
+  const { layout, isolated, isolatedSet, nodeStats } = built;
 
   /* 캔버스 크기 — 컨테이너 width 박힘. 노드는 캔버스 가로 중앙(50%) 기준 박음 */
   /* SVG viewBox — 노드 좌표 그대로 박음 (translate(-50%) 처리는 노드 div가 함) */
@@ -282,6 +327,27 @@ function _mtbRender() {
     if (isolatedSet.has(id)) node.classList.add('mtb-node--isolated');
     /* 숫자 (num 또는 id) */
     node.textContent = sc.num || id;
+    /* v107: 노드 배지 — 분기수 (2~6) + 미완성 ⚠ (단 미연결 노드는 점선과 시각 중복 피해 ⚠ 박지 X) */
+    const stat = nodeStats && nodeStats[id];
+    if (stat) {
+      if (stat.branchCount >= 2 && stat.branchCount <= 6) {
+        const b = document.createElement('div');
+        b.className = 'mtb-node-badge mtb-node-badge--branch';
+        b.textContent = stat.branchCount;
+        node.appendChild(b);
+      }
+      if (stat.incomplete && !isolatedSet.has(id)) {
+        const w = document.createElement('div');
+        w.className = 'mtb-node-badge mtb-node-badge--warn';
+        w.textContent = '⚠';
+        const reasons = (stat.reasons || []).map(r => ({
+          'body':'본문 비었음','no-buttons':'엔딩이 아닌데 행동버튼이 없음',
+          'label':'행동버튼 라벨이 비었음','next':'다음 장면이 연결 안 박힘',
+        }[r] || r)).join(' · ');
+        w.title = '미완성: ' + reasons;
+        node.appendChild(w);
+      }
+    }
     /* v97: 노드 탭 → 편집 화면 / v98: 연결 모드면 연결 박음 / v104: placeMode면 둘 다 차단 */
     node.addEventListener('click', e => {
       if (MTB.placeMode) { e.stopPropagation(); return; }
@@ -303,10 +369,104 @@ function _mtbRender() {
     nodesEl.appendChild(node);
   });
 
+  /* v107: 상단 요약 바 업데이트 */
+  _mtbRenderSummary(built);
+
   /* v102: 첫 렌더 또는 노드 변경 후 자동 fit — 줌 아웃해도 노드 안 보이는 문제 해결. */
   if (firstRender) {
     setTimeout(_mtbFitAll, 50);
   }
+}
+
+/* ================================================================
+   v107: 상단 요약 바 + 문제 노드 점프
+   ─────────────────────────────────────────────────────────────────
+   · 칩 4개 — 전체 장면 / 엔딩 / 미완성 / 미연결
+   · 0인 칩은 흐리게 + 비활성
+   · ⚠/🔌 칩 탭 → 다음 문제 노드로 자동 포커스 + 깜빡임 (반복 탭 시 다음 거)
+   ──────────────────────────────────────────────────────────────── */
+const MTB_JUMP = { incomplete: 0, isolated: 0 };
+
+function _mtbRenderSummary(built) {
+  const bar = document.getElementById('mtb-summary');
+  if (!bar) return;
+  const totals = (built && built.totals) || { total:0, ending:0, incomplete:0, isolated:0 };
+  /* 작품이 비어있으면 바도 숨김 */
+  if (!totals.total) { bar.style.display = 'none'; return; }
+  bar.style.display = 'flex';
+  /* 숫자 박기 */
+  bar.querySelectorAll('.mtb-summary-num').forEach(el => {
+    const k = el.dataset.num;
+    el.textContent = totals[k] != null ? totals[k] : 0;
+  });
+  /* is-zero 토글 (⚠/🔌만 — total/ending은 disabled, 0이어도 정보 가치 있음) */
+  bar.querySelectorAll('.mtb-summary-chip').forEach(chip => {
+    const k = chip.dataset.kind;
+    if (k === 'incomplete' || k === 'isolated') {
+      chip.classList.toggle('is-zero', !totals[k]);
+    }
+  });
+}
+
+/* 노드 포커스 — _mtbFitAll 패턴 차용. transform을 그 노드 중심으로 박음. */
+function _mtbFocusNode(sceneId, flash) {
+  const node = document.querySelector('#mtb-nodes .mtb-node[data-scene-id="' + sceneId + '"]');
+  const canvas = document.getElementById('mtb-canvas');
+  if (!node || !canvas) return;
+  /* stage 좌표 (transform 박지 않은 자연 위치) */
+  const cx = node.offsetLeft;
+  const cy = node.offsetTop;
+  const canvasW = canvas.clientWidth;
+  const canvasH = canvas.clientHeight;
+  /* 현 scale 유지하되 최소 0.85 이상으로 살짝 키움 (너무 작으면 노드 안 보임) */
+  if (MTB_VIEW.scale < 0.85) MTB_VIEW.scale = 0.85;
+  MTB_VIEW.x = canvasW / 2 - cx * MTB_VIEW.scale;
+  MTB_VIEW.y = canvasH / 2 - cy * MTB_VIEW.scale;
+  _mtbApplyTransform();
+  if (flash) {
+    node.classList.remove('mtb-node--flash');
+    /* reflow → 애니메이션 재시작 */
+    void node.offsetWidth;
+    node.classList.add('mtb-node--flash');
+    setTimeout(() => node.classList.remove('mtb-node--flash'), 1300);
+  }
+}
+
+/* 칩 탭 → 다음 문제 노드 점프. 반복 탭 시 순환. */
+function _mtbJumpToProblem(kind) {
+  const built = _mtbBuildLayout();
+  if (!built) return;
+  let pool = [];
+  if (kind === 'incomplete') {
+    /* 미연결 제외하고 미완성만 — 미연결은 별도 칩에서 점프 */
+    pool = built.sceneIds.filter(id =>
+      built.nodeStats[id] && built.nodeStats[id].incomplete && !built.isolatedSet.has(id)
+    );
+    /* 미연결인데 미완성인 노드도 미완성 칩 카운트엔 들어가있음 — 미연결 칩으로 가게 함 */
+  } else if (kind === 'isolated') {
+    pool = Array.from(built.isolated);
+  }
+  if (!pool.length) return;
+  /* num 순 정렬 (안정적) */
+  pool.sort((a, b) => Number(a) - Number(b));
+  const idx = MTB_JUMP[kind] % pool.length;
+  MTB_JUMP[kind] = (MTB_JUMP[kind] + 1) % pool.length;
+  _mtbFocusNode(pool[idx], true);
+}
+
+/* 요약 바 칩에 점프 동작 박음 — 한 번만 (DOMContentLoaded 후 _mtbInitAll에서 호출) */
+function _mtbInitSummary() {
+  const bar = document.getElementById('mtb-summary');
+  if (!bar || bar.dataset.bound === '1') return;
+  bar.dataset.bound = '1';
+  bar.querySelectorAll('.mtb-summary-chip').forEach(chip => {
+    const k = chip.dataset.kind;
+    if (k !== 'incomplete' && k !== 'isolated') return;
+    chip.addEventListener('click', () => {
+      if (chip.classList.contains('is-zero')) return;
+      _mtbJumpToProblem(k);
+    });
+  });
 }
 
 window.mtbRender = _mtbRender; /* 외부 호출 (저장 후 새로 그릴 때) */
@@ -1378,6 +1538,13 @@ if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', _mtbInitSettings);
 } else {
   _mtbInitSettings();
+}
+
+/* v107: 요약 바 칩 동작 박음 — DOM 박힐 때 한 번 */
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', _mtbInitSummary);
+} else {
+  _mtbInitSummary();
 }
 
 function _mtbDeactivate() {

@@ -1,0 +1,11 @@
+# Firebase service account — 절대 commit 박지 말 것
+*adminsdk*.json
+*-firebase-adminsdk-*.json
+serviceAccountKey*.json
+
+# Node
+node_modules/
+*.log
+
+# OS
+.DS_Store

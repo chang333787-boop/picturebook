@@ -155,6 +155,106 @@ async function deleteVideoFromStorage(storagePath) {
 }
 
 /* ================================================================
+   v114: 이미지 업로드 헬퍼 (Firebase Storage)
+   ─────────────────────────────────────────────────────────────
+   배경:
+   · v113까지 그림책 이미지는 base64 → RTDB scenes/{num}/imageData 박힘
+   · 사용자 사진 4MB × 20장 = 80MB RTDB 박힘 → 감상자 1명당 80MB egress
+   · 만원 결제 사건 (2026-05-17) 박힘 → v113에 옛 작품 마이그
+   · v114부터 신규 이미지도 Storage 박음 — 같은 폭탄 재발 차단
+
+   정책:
+   · 입력 = base64 data URL (mediaManager가 압축 박은 후 박는 거)
+   · Storage 경로: images/{classId|'_legacy'}/{encodedTeamName}/scene_{num}.{ext}
+   · 같은 경로에 덮어쓰기 — 한 장면 = 한 이미지
+   · public, max-age=1년 — CDN 캐시 영구
+   · 반환 = public URL (token 없이 박을 수 있는 GCS public URL)
+   · viewer-render는 imageData || imageUrl 둘 다 <img src>에 박음 — 변경 X
+   ──────────────────────────────────────────────────────────────── */
+const IMAGE_STORAGE_MAX_BYTES = 6 * 1024 * 1024;   /* 6MB — mediaManager 5MB + 여유 1MB */
+const IMAGE_ALLOWED_MIME_PREFIX = 'image/';
+
+function _imageStoragePath(sceneNum, ctx, ext) {
+  const cid = (ctx && ctx.classId) || (typeof classId !== 'undefined' && classId) || '_legacy';
+  const tn  = (ctx && ctx.teamName) || (typeof teamName !== 'undefined' && teamName) || 'unknown';
+  const encodedName = encodeURIComponent(tn);
+  return `images/${cid}/${encodedName}/scene_${sceneNum}.${ext || 'jpg'}`;
+}
+
+function _extFromMime(mime) {
+  return ({ 'image/png':'png','image/jpeg':'jpg','image/jpg':'jpg','image/gif':'gif','image/webp':'webp' })[mime] || 'jpg';
+}
+
+/* base64 data URL → Blob 변환 */
+function _dataUrlToBlob(dataUrl) {
+  const m = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+  if (!m) throw new Error('data URL 형식이 아니에요.');
+  const mime = m[1];
+  const bin = atob(m[2]);
+  const buf = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+  return new Blob([buf], { type: mime });
+}
+
+/* 이미지 업로드 — dataUrl 또는 Blob/File 둘 다 박음 */
+async function uploadImageToStorage(input, sceneNum, opts) {
+  if (!storage) throw new Error('Storage가 초기화되지 않았어요. 페이지를 새로고침해주세요.');
+  if (!input) throw new Error('이미지가 없어요.');
+
+  /* dataUrl 또는 Blob 판정 */
+  let blob;
+  if (typeof input === 'string' && input.startsWith('data:')) {
+    blob = _dataUrlToBlob(input);
+  } else if (input instanceof Blob) {
+    blob = input;
+  } else {
+    throw new Error('지원하지 않는 이미지 형식이에요.');
+  }
+
+  if (!blob.type || !blob.type.startsWith(IMAGE_ALLOWED_MIME_PREFIX)) {
+    throw new Error('이미지 파일이 아니에요.');
+  }
+  if (blob.size > IMAGE_STORAGE_MAX_BYTES) {
+    const mb = (blob.size / 1024 / 1024).toFixed(1);
+    throw new Error(`이미지가 너무 커요 (${mb}MB). 6MB 이내만 가능해요.`);
+  }
+
+  /* anonymous auth 보장 — Storage 규칙의 auth != null 충족 */
+  if (!auth.currentUser) {
+    try { await auth.signInAnonymously(); }
+    catch (e) { /* 인증 실패해도 일단 시도 */ }
+  }
+
+  const ext = _extFromMime(blob.type);
+  const storagePath = _imageStoragePath(sceneNum, opts || {}, ext);
+  const ref = storage.ref(storagePath);
+
+  /* put — 진행률 안 박음 (이미지는 작아서 불필요) */
+  await ref.put(blob, {
+    contentType: blob.type,
+    cacheControl: 'public, max-age=31536000',  /* 1년 */
+  });
+
+  /* public URL 박음 — v113 마이그와 같은 형식. 토큰 없는 GCS public URL.
+     storage rules의 allow read: if true 덕분에 토큰 없이 박힘. */
+  const bucket = storage.app.options.storageBucket || `${storage.app.options.projectId}.firebasestorage.app`;
+  return {
+    downloadURL: `https://storage.googleapis.com/${bucket}/${storagePath}`,
+    storagePath,
+  };
+}
+
+async function deleteImageFromStorage(storagePath) {
+  if (!storage || !storagePath) return false;
+  try {
+    await storage.ref(storagePath).delete();
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+/* ================================================================
    Step 3: 경로 전략 feature flag
    ================================================================ */
 

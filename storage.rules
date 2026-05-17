@@ -1,0 +1,29 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // 이미지 — 누구나 읽음 (감상), auth 박힌 사용자만 박음 (anonymous OK)
+    // 6MB 미만 + image MIME만 (mediaManager가 5MB로 압축한 후 박으므로 여유 1MB)
+    match /images/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && (request.resource == null || (
+                        request.resource.size < 6 * 1024 * 1024
+                        && request.resource.contentType.matches('image/.*')
+                      ));
+    }
+    // 영상 — firebase.js의 uploadVideoToStorage가 박는 위치
+    // 60초 영상 + 50MB 정책. rules는 60MB 박음 (여유)
+    match /videos/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && (request.resource == null || (
+                        request.resource.size < 60 * 1024 * 1024
+                        && request.resource.contentType.matches('video/.*')
+                      ));
+    }
+    // 그 외 모든 경로 — 차단
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

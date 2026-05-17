@@ -166,6 +166,103 @@ async function viewerUploadVideoToStorage(file, sceneNum, opts) {
   });
 }
 
+/* ================================================================
+   v114: 이미지 업로드 (viewer 쪽 자체 정의)
+   ─────────────────────────────────────────────────────────────
+   배경: 다듬기 모드에서 박는 이미지 업로드 흐름 (그림책 그림 / 무비 포스터 /
+   그림 그리기 캔버스 저장)이 옛엔 base64 → RTDB 박음. v114부터 Storage 박음.
+   firebase.js의 uploadImageToStorage와 같은 패턴 — viewer named app 사용.
+   값 일치 유지 책임: firebase.js _imageStoragePath / uploadImageToStorage와 동기.
+   ──────────────────────────────────────────────────────────────── */
+const _VIEWER_IMAGE_MAX_BYTES = 6 * 1024 * 1024;
+
+function _viewerImageStoragePath(sceneNum, ctx, ext) {
+  const cid = (ctx && ctx.classId)
+    || (typeof ViewerState !== 'undefined' && ViewerState.classId)
+    || (typeof classId !== 'undefined' && classId)
+    || '_legacy';
+  const tn  = (ctx && ctx.teamName)
+    || (typeof ViewerState !== 'undefined' && ViewerState.teamName)
+    || (typeof teamName !== 'undefined' && teamName)
+    || 'unknown';
+  const encodedName = encodeURIComponent(tn);
+  return `images/${cid}/${encodedName}/scene_${sceneNum}.${ext || 'jpg'}`;
+}
+
+function _viewerExtFromMime(mime) {
+  return ({ 'image/png':'png','image/jpeg':'jpg','image/jpg':'jpg','image/gif':'gif','image/webp':'webp' })[mime] || 'jpg';
+}
+
+function _viewerDataUrlToBlob(dataUrl) {
+  const m = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+  if (!m) throw new Error('data URL 형식이 아니에요.');
+  const mime = m[1];
+  const bin = atob(m[2]);
+  const buf = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+  return new Blob([buf], { type: mime });
+}
+
+async function viewerUploadImageToStorage(input, sceneNum, opts) {
+  if (typeof firebase === 'undefined' || typeof firebase.app !== 'function') {
+    throw new Error('Storage SDK가 로드되지 않았어요. 페이지를 새로고침해주세요.');
+  }
+  let viewerApp;
+  try {
+    viewerApp = firebase.app('viewer');
+  } catch (e) {
+    if (typeof getViewerDb === 'function') {
+      try { getViewerDb(); viewerApp = firebase.app('viewer'); }
+      catch (e2) { throw new Error('Firebase 앱이 초기화되지 않았어요.'); }
+    } else { throw new Error('Firebase 앱이 초기화되지 않았어요.'); }
+  }
+  if (typeof viewerApp.storage !== 'function') {
+    throw new Error('Storage SDK가 로드되지 않았어요.');
+  }
+  const storage = viewerApp.storage();
+
+  /* dataUrl 또는 Blob 받음 */
+  let blob;
+  if (typeof input === 'string' && input.startsWith('data:')) {
+    blob = _viewerDataUrlToBlob(input);
+  } else if (input instanceof Blob) {
+    blob = input;
+  } else {
+    throw new Error('지원하지 않는 이미지 형식이에요.');
+  }
+  if (!blob.type || !blob.type.startsWith('image/')) {
+    throw new Error('이미지 파일이 아니에요.');
+  }
+  if (blob.size > _VIEWER_IMAGE_MAX_BYTES) {
+    const mb = (blob.size / 1024 / 1024).toFixed(1);
+    throw new Error(`이미지가 너무 커요 (${mb}MB). 6MB 이내만 가능해요.`);
+  }
+
+  /* anonymous auth — viewer named app */
+  try {
+    if (typeof viewerApp.auth === 'function') {
+      const auth = viewerApp.auth();
+      if (!auth.currentUser) {
+        try { await auth.signInAnonymously(); } catch (e) {}
+      }
+    }
+  } catch (e) {}
+
+  const ext = _viewerExtFromMime(blob.type);
+  const storagePath = _viewerImageStoragePath(sceneNum, opts || {}, ext);
+  const ref = storage.ref(storagePath);
+  await ref.put(blob, {
+    contentType: blob.type,
+    cacheControl: 'public, max-age=31536000',
+  });
+
+  const bucket = storage.app.options.storageBucket || `${storage.app.options.projectId}.firebasestorage.app`;
+  return {
+    downloadURL: `https://storage.googleapis.com/${bucket}/${storagePath}`,
+    storagePath,
+  };
+}
+
 async function viewerDeleteVideoFromStorage(storagePath) {
   if (typeof firebase === 'undefined' || typeof firebase.app !== 'function') return false;
   if (!storagePath) return false;
@@ -3194,10 +3291,21 @@ function _bindTypeSectionsEvents(panel, scene) {
             }
           }
 
+          /* v114: base64 → Storage 업로드 + URL 박음 (RTDB 폭탄 차단) */
+          let storageUrl;
+          try {
+            const r = await viewerUploadImageToStorage(finalUrl, scene.num || scene.id);
+            storageUrl = r.downloadURL;
+          } catch (e) {
+            if (lbl && lbl.firstChild) lbl.firstChild.nodeValue = prevText;
+            alert(`❌ 이미지 업로드 실패: ${e.message || e}\n\n잠시 후 다시 시도해주세요.`);
+            e.target.value = '';
+            return;
+          }
           /* 저장: scene 메모리 박기 + Firebase 큐 + viewer 부분 재렌더 */
-          scene.imageData = finalUrl;
+          scene.imageData = storageUrl;
           if (typeof _queueSave === 'function') {
-            _queueSave(scene.num || scene.id, { imageData: finalUrl });
+            _queueSave(scene.num || scene.id, { imageData: storageUrl });
             if (typeof _flushPendingSave === 'function') _flushPendingSave();
           }
           /* 인스펙터 다시 그려 상태 갱신 (그림 있음 → 바꾸기/삭제 버튼 노출) */
@@ -3568,11 +3676,20 @@ function _bindTypeSectionsEvents(panel, scene) {
           const file = e.target.files && e.target.files[0];
           if (!file) return;
           const reader = new FileReader();
-          reader.onload = ev => {
+          reader.onload = async ev => {
             const dataUrl = ev.target && ev.target.result;
             if (typeof dataUrl !== 'string') return;
-            scene.imageData = dataUrl;
-            _queueSave(scene.num || scene.id, { imageData: dataUrl });
+            /* v114: 포스터도 Storage 업로드 후 URL 박음 (base64 RTDB 폭탄 차단) */
+            let storageUrl;
+            try {
+              const r = await viewerUploadImageToStorage(dataUrl, scene.num || scene.id);
+              storageUrl = r.downloadURL;
+            } catch (err) {
+              alert(`❌ 포스터 업로드 실패: ${err.message || err}\n\n잠시 후 다시 시도해주세요.`);
+              return;
+            }
+            scene.imageData = storageUrl;
+            _queueSave(scene.num || scene.id, { imageData: storageUrl });
             _flushPendingSave();
             renderEditPanel();
             _scheduleViewerFrameReRender();
@@ -5651,13 +5768,22 @@ function _openPbDrawModal(scene) {
     _close();
   });
 
-  /* 저장 — 캔버스 → data URL → scene.imageData. 기존 이미지 있으면 한 번 더 확인 */
-  modal.querySelector('.js-pb-draw-save')?.addEventListener('click', () => {
+  /* 저장 — 캔버스 → data URL → Storage 업로드 → URL을 scene.imageData에 박음.
+     v114: base64 RTDB 폭탄 차단. 그림 그리기도 Storage 박음. */
+  modal.querySelector('.js-pb-draw-save')?.addEventListener('click', async () => {
     try {
       const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-      scene.imageData = dataUrl;
+      let storageUrl;
+      try {
+        const r = await viewerUploadImageToStorage(dataUrl, scene.num || scene.id);
+        storageUrl = r.downloadURL;
+      } catch (e) {
+        alert(`❌ 그림 업로드 실패: ${e.message || e}\n\n잠시 후 다시 시도해주세요.`);
+        return;
+      }
+      scene.imageData = storageUrl;
       if (typeof _queueSave === 'function') {
-        _queueSave(scene.num || scene.id, { imageData: dataUrl });
+        _queueSave(scene.num || scene.id, { imageData: storageUrl });
         if (typeof _flushPendingSave === 'function') _flushPendingSave();
       }
       renderEditPanel();

@@ -201,10 +201,28 @@ async function _uploadImageFile(num, file) {
       }
     }
 
+    /* v114: base64 → Firebase Storage 업로드 후 URL 박음.
+       옛 흐름: scenes[num].imageData = base64 (RTDB에 통째 박힘 → 폭탄)
+       신규: Storage 업로드 후 URL만 RTDB에 박음. v113 마이그와 같은 흐름.
+       Storage 실패 시 alert + 진행 중단 (옛 base64 박지 X — 폭탄 재발 차단). */
+    let imageUrl;
+    try {
+      if (typeof uploadImageToStorage !== 'function') {
+        throw new Error('이미지 업로드 함수를 박을 수 없어요. 새로고침 후 다시 시도해주세요.');
+      }
+      const r = await uploadImageToStorage(finalDataUrl, num);
+      imageUrl = r.downloadURL;
+    } catch (e) {
+      mediaState.uploading.delete(num);
+      alert(`❌ 이미지 업로드 실패: ${e.message || e}\n\n잠시 후 다시 시도해주세요.`);
+      if (scenes[num]) renderCard(scenes[num]);
+      return;
+    }
+
     /* 저장 */
     mediaState.uploading.delete(num);
     if (!scenes[num]) return;   // 업로드 중 장면 삭제된 경우
-    scenes[num].imageData = finalDataUrl;
+    scenes[num].imageData = imageUrl;
     renderCard(scenes[num]);
     drawArrows();
     pushToFirebase(num);

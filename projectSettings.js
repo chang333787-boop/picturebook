@@ -120,16 +120,25 @@ async function handleCoverImageUpload(input) {
       throw new Error('업로드 유틸을 사용할 수 없어요');
     }
     const dataUrl = await compressFileForUpload(file);
+    /* v114: 표지도 Storage 업로드 후 URL 박음. base64로 viewer-meta에 박으면 폭탄.
+       sceneNum 대신 '_cover'로 박음 — _imageStoragePath가 그대로 박힘. */
+    let coverUrl;
+    try {
+      const r = await uploadImageToStorage(dataUrl, '_cover');
+      coverUrl = r.downloadURL;
+    } catch (e) {
+      throw new Error(`표지 업로드 실패: ${e.message || e}`);
+    }
     /* 미리보기 즉시 갱신 (로컬 projectMeta는 저장 버튼 누를 때 확정) */
-    projectMeta.coverImageData = dataUrl;
+    projectMeta.coverImageData = coverUrl;
     if (preview) {
-      preview.src = dataUrl;
+      preview.src = coverUrl;
       preview.style.display = 'block';
     }
     if (empty) { empty.style.display = 'none'; }
     if (removeBtn) removeBtn.style.display = 'inline-block';
     /* 즉시 저장 — 이미지는 양이 크고, 업로드 후 잃으면 곤란 */
-    await pushProjectMetaToFirebase({ coverImageData: dataUrl });
+    await pushProjectMetaToFirebase({ coverImageData: coverUrl });
   } catch (err) {
     alert(`❌ 이미지 업로드 실패: ${err.message || err}`);
     if (empty) { empty.style.display = 'flex'; empty.textContent = '표지 이미지 없음'; }

@@ -577,11 +577,13 @@ function _mtbEditPopulate(sc) {
   const cardType = document.getElementById('mtb-edit-card-type');
   const titleIn  = document.getElementById('mtb-edit-scene-title');
   const bodyIn   = document.getElementById('mtb-edit-scene-body');
+  const subtitleIn = document.getElementById('mtb-edit-scene-subtitle');
 
-  if (titleEl) titleEl.textContent = `장면 ${sc.num || sc.id}`;
+  const isCover = (sc.type === 'cover' || sc.isCover);
+  if (titleEl) titleEl.textContent = isCover ? '표지' : `장면 ${sc.num || sc.id}`;
   if (cardType) {
     cardType.className = 'mtb-edit-card-type';
-    if (sc.type === 'cover' || sc.isCover) {
+    if (isCover) {
       cardType.textContent = '표지';
       cardType.classList.add('mtb-edit-card-type--cover');
     } else if (sc.type === 'ending' || sc.isEnding) {
@@ -591,8 +593,22 @@ function _mtbEditPopulate(sc) {
       cardType.textContent = '일반';
     }
   }
-  if (titleIn) titleIn.value = sc.title || '';
+  if (titleIn) {
+    titleIn.value = sc.title || '';
+    titleIn.placeholder = isCover ? '작품 제목을 적어보세요' : '(제목 — 비워도 돼요)';
+  }
   if (bodyIn)  bodyIn.value  = sc.body || '';
+  if (subtitleIn) subtitleIn.value = sc.subtitle || '';
+
+  /* v110: 표지 / 일반 분기 — cover면 본문·행동버튼 가림, 한 줄 소개·안내 표시 */
+  const card = document.getElementById('mtb-edit-card');
+  if (card) card.classList.toggle('is-cover-edit', isCover);
+  document.querySelectorAll('.mtb-cover-only').forEach(el => {
+    el.style.display = isCover ? '' : 'none';
+  });
+  document.querySelectorAll('.mtb-noncover-only').forEach(el => {
+    el.style.display = isCover ? 'none' : '';
+  });
 
   _mtbEditRenderActions(sc);
 
@@ -735,6 +751,16 @@ function _mtbInitEditView() {
     const sc = scenes[MTB_EDIT.currentId];
     if (!sc) return;
     sc.body = e.target.value;
+    _mtbQueueSave();
+  });
+
+  /* v110: 표지 한 줄 소개 (cover scene 전용) */
+  const subtitleIn = document.getElementById('mtb-edit-scene-subtitle');
+  if (subtitleIn) subtitleIn.addEventListener('input', e => {
+    if (MTB_EDIT.currentId === null) return;
+    const sc = scenes[MTB_EDIT.currentId];
+    if (!sc) return;
+    sc.subtitle = e.target.value;
     _mtbQueueSave();
   });
 
@@ -1583,6 +1609,41 @@ function mtbRefresh() {
   }
 }
 
+/* ── v110: 표지 cover scene 열기 / 만들기 ──
+   사용자 박은 "옵션 2": 모바일 텍스트형 제작에선 표지(cover scene) 박는 길만 박음.
+   이미 표지 있으면 그 편집 화면으로, 없으면 addScene('cover') 호출 후 편집.
+   sceneRenderer.js의 addScene('cover')는 중복 차단 박혀있음. */
+function _mtbOpenCoverScene() {
+  if (typeof scenes !== 'object' || !scenes) return;
+  const findCover = () => {
+    for (const id of Object.keys(scenes)) {
+      const s = scenes[id];
+      if (s && (s.type === 'cover' || s.isCover)) return id;
+    }
+    return null;
+  };
+  const existing = findCover();
+  if (existing) {
+    _mtbOpenEditScene(existing);
+    return;
+  }
+  if (typeof addScene !== 'function') {
+    alert('표지 만들기 기능을 박을 수 없어요.');
+    return;
+  }
+  addScene('cover');
+  /* addScene이 비동기일 수 있어 잠깐 박은 후 새 cover scene 찾음 */
+  setTimeout(() => {
+    const newId = findCover();
+    if (newId) {
+      _mtbRender();
+      _mtbOpenEditScene(newId);
+    } else {
+      alert('표지 만들기에 실패했어요.');
+    }
+  }, 120);
+}
+
 /* ── 초기화 ── */
 function _mtbInit() {
   /* PC 토글 — 모바일로 돌아가려면 새로고침 안내 */
@@ -1594,6 +1655,11 @@ function _mtbInit() {
       MTB.pcOverride = true;
       mtbRefresh();
     });
+  }
+  /* v110: 📖 표지 버튼 */
+  const coverBtn = document.getElementById('mtb-cover-toggle');
+  if (coverBtn) {
+    coverBtn.addEventListener('click', _mtbOpenCoverScene);
   }
   /* 나가기 — branch.html 또는 메인으로 */
   const backBtn = document.getElementById('mtb-back');

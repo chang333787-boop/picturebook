@@ -1977,6 +1977,7 @@
     </div>
     <div class="mtb-header-title">📖 텍스트형 브랜치</div>
     <div class="mtb-header-right">
+      <button class="mtb-header-btn" id="mtb-cover-toggle" title="작품 표지(제목·소개)를 만들거나 편집">📖 표지</button>
       <button class="mtb-header-btn" id="mtb-place-toggle" title="노드 드래그로 위치 박기">📍 배치</button>
       <button class="mtb-header-btn" id="mtb-play-test" title="실제 감상 화면으로 확인">▶ 감상</button>
       <button class="mtb-header-btn" id="mtb-pc-toggle">🖥 PC</button>
@@ -2031,14 +2032,30 @@
       <span class="mtb-edit-card-type" id="mtb-edit-card-type">일반</span>
       <input class="mtb-edit-title-input" id="mtb-edit-scene-title"
         type="text" placeholder="(제목 — 비워도 돼요)" maxlength="80"/>
-      <textarea class="mtb-edit-body-input" id="mtb-edit-scene-body"
+      <!-- v110: 표지 cover scene 전용 — 평소 숨김. cover일 때 표시 -->
+      <input class="mtb-edit-title-input mtb-cover-only" id="mtb-edit-scene-subtitle"
+        type="text" placeholder="한 줄 소개를 적어보세요" maxlength="100"
+        style="font-size:14px;color:#6b5638;display:none;"/>
+      <textarea class="mtb-edit-body-input mtb-noncover-only" id="mtb-edit-scene-body"
         placeholder="장면에서 읽을 글이에요. 이야기를 적어보세요."></textarea>
-      <hr class="mtb-edit-divider"/>
-      <div class="mtb-edit-actions-label">🎯 행동 버튼 <span id="mtb-edit-actions-count" style="color:#9a8868;font-weight:normal;"></span></div>
-      <div id="mtb-edit-actions-list"></div>
-      <div style="display:flex;gap:6px;">
+      <!-- v110: 표지 안내 박스 (cover일 때만) -->
+      <div class="mtb-cover-info mtb-cover-only" id="mtb-cover-info" style="display:none;">
+        <div style="font-size:13px;color:#6b5638;line-height:1.6;">
+          📖 <strong>표지</strong>는 작품의 첫 화면이에요. 감상자가 "이야기 시작" 버튼을 누르면 첫 장면으로 이동해요. 행동 버튼은 박지 않아도 돼요.
+        </div>
+      </div>
+      <hr class="mtb-edit-divider mtb-noncover-only"/>
+      <div class="mtb-edit-actions-label mtb-noncover-only">🎯 행동 버튼 <span id="mtb-edit-actions-count" style="color:#9a8868;font-weight:normal;"></span></div>
+      <div id="mtb-edit-actions-list" class="mtb-noncover-only"></div>
+      <div class="mtb-noncover-only" style="display:flex;gap:6px;">
         <button class="mtb-edit-add-action" id="mtb-edit-add-action" style="flex:1;">+ 행동 버튼</button>
         <button class="mtb-edit-add-action mtb-edit-add-branch" id="mtb-edit-add-branch" title="행동 버튼 + 새 장면 같이 박음" style="flex:1.4;border-color:#c66f4a;color:#c66f4a;">✨ + 분기 추가 (새 장면)</button>
+      </div>
+      <!-- v110: PC 안내 (표지 편집 시에만 표시) -->
+      <div class="mtb-pc-hint mtb-cover-only" id="mtb-pc-hint" style="display:none;">
+        <div style="font-size:12px;color:#9a8868;line-height:1.55;padding:10px 12px;background:#fffaee;border:1px dashed #e8dfc8;border-radius:8px;margin-top:14px;">
+          💡 더 자세한 표현 옵션(테마·텍스트 등장 효과·장면 전환 등)은 PC 또는 태블릿 가로 모드에서 박을 수 있어요. 헤더의 <strong>🖥 PC</strong>를 누르거나, PC에서 같은 작품을 열어주세요.
+        </div>
       </div>
 
       <!-- v100: 설정 토글 (폰트/크기/색/굵기) -->
@@ -2622,7 +2639,7 @@
 <script src="projectSettings.js?v=96"></script>
 <script src="ui.js?v=109"></script>
 <!-- v95: 모바일 텍스트형 브랜치 전용 (텍스트 작품 + 모바일에서만 활성) -->
-<script src="mobileTextBranch.js?v=109"></script>
+<script src="mobileTextBranch.js?v=110"></script>
 
 </body>
 </html>

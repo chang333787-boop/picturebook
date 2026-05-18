@@ -629,6 +629,13 @@ function _showSaveStatus(text, autoClearMs = 0) {
 function _applyEditLockUI() {
   const panel = document.getElementById('edit-panel');
   if (!panel) return;
+  /* v129: 읽기전용 상태 body class 토글 — CSS가 모든 수정 컨트롤 차단.
+     editable=false면 인스펙터/표지/본문 contenteditable/이미지 핸들·HUD 저장 다 차단.
+     허용: 잠금 배너 액션(다시확인/내가수정하기), HUD 액션(감상테스트/루트/구조/브랜치),
+           장면 이동, 단순 스크롤·확대. */
+  if (document.body) {
+    document.body.classList.toggle('viewer-edit-readonly', !_editText.editable);
+  }
   const banner = panel.querySelector('.js-edit-lock-banner');
   const inputs = panel.querySelectorAll('.js-edit-text-input');
   /* 분류 기반 배너 문구/동작 일치 (1-1 정책 마감) ──
@@ -1244,6 +1251,9 @@ function _bindEditPanelEvents(panel, scene, choice) {
 
 /* ── 저장 공통 ── */
 async function _doSave(panel) {
+  /* v129: 읽기전용(잠금) 상태에선 저장 박지 X — 안전망 (CSS pointer-events:none과 별개로
+     키보드/스크립트 우회 차단). */
+  if (!_editText.editable) return;
   const btn = panel.querySelector('.js-edit-save');
   if (!btn) return;
   btn.disabled    = true;
@@ -1857,11 +1867,23 @@ function _textEditHtml(scene) {
   const isPicturebookMode = _ptypeForButtons === 'picturebook';
   const pbStyleInlineHtml = isPicturebookMode ? _pbInlineStyleHtml(scene) : '';
 
-  /* v37: 표지 scene 콘텐츠 영역 — 제목 + 한 줄 소개만 (본문·행동 버튼 X) */
+  /* v37: 표지 scene 콘텐츠 영역 — 제목 + 한 줄 소개만 (본문·행동 버튼 X)
+     v129: 표지 상단 문구(kicker) input 추가. 옛엔 팀 이름 자동 표시였음 → 사용자가 직접 박는 값.
+           비우면 표지 상단에 아무것도 표시 안 됨. */
   if (scene && scene.type === 'cover') {
     const subtitleVal = scene.subtitle || '';
+    const kickerVal   = scene.kicker   || '';
     return `
       <div class="js-edit-lock-banner edit-lock-banner" style="display:none;"></div>
+      <div class="edit-row">
+        <label class="edit-label" for="edit-cover-kicker">🏷 표지 상단 문구 <span class="edit-label-note">(선택)</span></label>
+        <input id="edit-cover-kicker" type="text"
+          class="edit-text-input edit-text-input--choice js-edit-text-input js-edit-cover-kicker"
+          value="${escHtml(kickerVal)}"
+          placeholder="예: 4학년 1반 작품 (비우면 표시 안 됨)"
+          maxlength="30">
+        <div class="edit-field-hint">작품 제목 위에 작게 보이는 문구예요. 비워두면 표시되지 않아요.</div>
+      </div>
       <div class="edit-row">
         <label class="edit-label" for="edit-scene-title">📖 작품 제목</label>
         <input id="edit-scene-title" type="text"
@@ -1872,7 +1894,7 @@ function _textEditHtml(scene) {
       <div class="edit-row">
         <label class="edit-label" for="edit-scene-subtitle">✍ 한 줄 소개 <span class="edit-label-note">(선택)</span></label>
         <input id="edit-scene-subtitle" type="text"
-          class="edit-text-input edit-text-input--choice js-edit-cover-subtitle"
+          class="edit-text-input edit-text-input--choice js-edit-text-input js-edit-cover-subtitle"
           value="${escHtml(subtitleVal)}"
           placeholder="짧은 한 줄 소개">
       </div>
@@ -2064,6 +2086,19 @@ function _bindTextEditEvents(panel, scene) {
       _queueSave(scene.id, { subtitle: scene.subtitle });
     });
     subtitleEl.addEventListener('blur', () => _flushPendingSave());
+  }
+
+  /* v129: 표지 상단 문구(kicker) input — 작품 제목 위 작은 문구.
+     입력 시 viewer 즉시 갱신 + debounce 저장. 비우면 표지에 안 보임. */
+  const kickerEl = panel.querySelector('.js-edit-cover-kicker');
+  if (kickerEl && scene.type === 'cover') {
+    kickerEl.addEventListener('input', e => {
+      if (!_editText.editable) return;
+      scene.kicker = e.target.value;
+      _scheduleViewerFrameReRender();
+      _queueSave(scene.id, { kicker: scene.kicker });
+    });
+    kickerEl.addEventListener('blur', () => _flushPendingSave());
   }
 
   /* ── 버튼 N개 (v0.3) ── 표지는 행동 버튼 X */

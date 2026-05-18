@@ -356,6 +356,50 @@ body.edit-mode-active .edit-panel-toggle.is-panel-collapsed {
   body.edit-mode-active .edit-panel-toggle { display: none; }
 }
 
+/* ── v129: 읽기전용 상태 — 잠금 박은 거 박혀있는데 "내가 수정하기" 누르기 전 상태 ──
+   원인 사건: 다른 친구가 수정 중이라 잠금 박혔는데 인스펙터 버튼/표지 입력칸이 눌리던 문제.
+   허용: 잠금 배너 액션 / 장면 이동 nav / HUD 액션(감상테스트·루트·구조·브랜치로) / 단순 보기·확대·스크롤.
+   차단: 인스펙터 모든 입력/버튼 / 표지·본문 contenteditable / 이미지 핸들 / HUD 저장. */
+body.viewer-edit-readonly #edit-panel input:not([type=button]):not([type=submit]),
+body.viewer-edit-readonly #edit-panel textarea,
+body.viewer-edit-readonly #edit-panel select,
+body.viewer-edit-readonly #edit-panel button {
+  pointer-events: none !important;
+  opacity: 0.55 !important;
+  cursor: not-allowed !important;
+  filter: grayscale(0.25);
+}
+/* 예외: 잠금 배너 액션 + 장면 이동 nav + 탭 (장면 안 행동버튼 분기 미리보기) — 살림 */
+body.viewer-edit-readonly #edit-panel .js-edit-lock-recheck,
+body.viewer-edit-readonly #edit-panel .js-edit-lock-takeover,
+body.viewer-edit-readonly #edit-panel .js-edit-lock-force-takeover,
+body.viewer-edit-readonly #edit-panel .js-edit-nav-prev,
+body.viewer-edit-readonly #edit-panel .js-edit-nav-next,
+body.viewer-edit-readonly #edit-panel .js-edit-nav-jump,
+body.viewer-edit-readonly #edit-panel .js-edit-tab {
+  pointer-events: auto !important;
+  opacity: 1 !important;
+  cursor: pointer !important;
+  filter: none !important;
+}
+/* 표지/본문 contenteditable — 인스펙터 X, viewer-frame 직접 수정도 차단 */
+body.viewer-edit-readonly #viewer-frame [contenteditable] {
+  pointer-events: none !important;
+  user-select: none !important;
+  caret-color: transparent;
+}
+/* 이미지 wrapper drag/resize 핸들 차단 (이미지 자체는 보임). */
+body.viewer-edit-readonly #viewer-frame .pb-illust__photo,
+body.viewer-edit-readonly #viewer-frame .pb-illust__wrapper {
+  pointer-events: none !important;
+}
+/* HUD 저장 버튼만 차단 — 다른 HUD 액션(▶ 감상 테스트, 🛤 루트, 🗺 구조, ← 브랜치) 살림 */
+body.viewer-edit-readonly .js-edit-save {
+  pointer-events: none !important;
+  opacity: 0.55 !important;
+  cursor: not-allowed !important;
+}
+
 /* ── stage-wrap: letterbox 영역 ──
    v38: 감상 모드도 warm paper로 통일. 종전엔 #000 검정 →
    학생 스마트폰/태블릿에서 letterbox가 검정 영역으로 떠서
@@ -911,7 +955,8 @@ body[data-page-orientation="portrait"] #stage-wrap.letterbox-v #viewer-frame {
   align-items: flex-start;
   justify-content: center;
 }
-.cover-book__top .cover-team-label {
+.cover-book__top .cover-team-label,
+.cover-book__top .cover-kicker {
   font-family: var(--font-ui, 'Jua', sans-serif);
   font-size: clamp(11px, 1.3vw, 14px);
   color: var(--text-muted, #6b5638);
@@ -923,6 +968,13 @@ body[data-page-orientation="portrait"] #stage-wrap.letterbox-v #viewer-frame {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+}
+/* v129: kicker 비어있으면 border-bottom·padding 다 없애 layout 깔끔하게 */
+.cover-book__top .cover-kicker--empty {
+  border-bottom: none;
+  padding-top: 0;
+  padding-bottom: 0;
+  visibility: hidden;
 }
 .cover-class-code {
   font-weight: 700;
@@ -996,13 +1048,19 @@ body[data-page-orientation="portrait"] #stage-wrap.letterbox-v #viewer-frame {
   gap: clamp(8px, 1.5vw, 16px);
   text-align: center;
 }
-.cover-team-label {
+.cover-team-label,
+.cover-kicker {
   font-family: var(--font-ui, 'Jua', sans-serif);
   font-size: clamp(11px, 1.2vw, 14px);
   color: var(--text-muted, #6b5638);
   letter-spacing: 0.15em;
   text-transform: uppercase;
   opacity: 0.7;
+}
+/* v129: kicker 비어있으면 그림 표지에서도 layout 자리만 차지 + 안 보이게 */
+.pb-text--cover .cover-kicker--empty {
+  visibility: hidden;
+  min-height: 1em;
 }
 .cover-title-pb {
   font-family: var(--font-ui, 'Jua', sans-serif);

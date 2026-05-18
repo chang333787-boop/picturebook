@@ -283,6 +283,7 @@ async function saveSceneText(num, fields) {
     'subtitle',           /* 표지 한 줄 소개 */
     'coverTheme',         /* 표지 색 테마 */
     'titleVerticalPosition', /* 표지 제목 높낮이 */
+    'kicker',             /* v129: 표지 상단 문구 — 작품 제목 위 작은 문구. 비우면 표시 안 됨 */
   ];
   const patch = {};
   ALLOWED.forEach(k => {
@@ -396,6 +397,7 @@ function adaptScenes(rawScenes) {
       isEnding,
       isCover,                                  // v37: 표지 scene 여부
       subtitle:   raw.subtitle || '',           // v37: 표지 한 줄 소개
+      kicker:     raw.kicker   || '',           // v129: 표지 상단 문구 (작품 제목 위)
       coverTheme: raw.coverTheme || 'default',  // v37: 표지 테마
       titleVerticalPosition: typeof raw.titleVerticalPosition === 'number'
         ? raw.titleVerticalPosition : 50,       // v37: 제목 높낮이 (0~100)

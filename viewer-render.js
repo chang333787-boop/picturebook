@@ -130,7 +130,6 @@ function renderCover() {
   const stage = document.getElementById('viewer-frame');
 
   const p         = ViewerState.project;
-  const teamName  = p.teamName;
   const mode      = p.mode;
 
   /* v37: cover scene이 scenes에 있으면 그 데이터 우선. 없으면 project.coverTitle fallback */
@@ -140,6 +139,10 @@ function renderCover() {
   const title     = (coverScene && coverScene.title)
     || p.coverTitle || '이야기 시작';
   const subtitle  = (coverScene && coverScene.subtitle) || '';
+  /* v129: 표지 상단 문구 — 사용자가 직접 박는 값. 옛엔 teamName(예: "0000") 자동 표시였음.
+     비우면 표지 상단에 아무것도 안 보임 (DOM은 박혀 있되 빈 텍스트). */
+  const kicker    = (coverScene && typeof coverScene.kicker === 'string')
+    ? coverScene.kicker : '';
   const coverTheme = (coverScene && coverScene.coverTheme) || 'default';
   const titleVPos = (coverScene && typeof coverScene.titleVerticalPosition === 'number')
     ? coverScene.titleVerticalPosition : 50;
@@ -163,7 +166,7 @@ function renderCover() {
               </div>
             </div>
             <div class="pb-text pb-text--cover">
-              <div class="cover-team-label">${escHtml(teamName)}</div>
+              <div class="cover-kicker${kicker ? '' : ' cover-kicker--empty'}">${escHtml(kicker)}</div>
               <h1 class="cover-title-pb">${escHtml(title)}</h1>
               <button class="cover-start-btn js-cover-start">▶ 시작하기</button>
             </div>
@@ -186,10 +189,9 @@ function renderCover() {
         <div class="pb-page">
           <div class="cover-book" style="grid-template-rows: ${topFr}fr 2fr ${bottomFr}fr;">
             <div class="cover-book__top">
-              <div class="cover-team-label">
-                <!-- v91: classId 노출 폐기 — 사용자 결정. 표지엔 모둠명만. -->
-                <span class="cover-team-name">${escHtml(teamName)}</span>
-              </div>
+              <!-- v129: 표지 상단 = 사용자가 박는 kicker. 옛 팀 이름 자동 표시 폐기.
+                   비우면 빈 영역 (layout 유지). -->
+              <div class="cover-kicker${kicker ? '' : ' cover-kicker--empty'}">${escHtml(kicker)}</div>
             </div>
             <div class="cover-book__center">
               <h1 class="cover-title-pb">${escHtml(title)}</h1>
@@ -1677,12 +1679,20 @@ function _stageReplaceScene(stage, newHtml) {
 }
 
 /* v73: 슬라이더 0~100 → ms 매핑.
-   v128: 장면 전환 220~1300ms로 단축 (옛 400~3500ms). 사용자 사건: 3500ms는 너무 길어
-         "빠르게 넘어가는 인상"으로 느껴짐 + 본문 시작 delay와 충돌. 1300ms도 충분히 느림 체감.
+   v129: 그림책 호흡 위해 느림 영역 확장 — piecewise. (v128 220~1300ms는 너무 짧아서
+         느림 체감이 부족했음.)
+         · 0~50%(빠름~보통): 300~1200ms (옛 v128 빠름 영역과 유사한 호흡)
+         · 50~100%(보통~느림): 1200~3500ms (느림은 진짜 느리게 — 그림책 여운)
+         본문 시작 delay는 applyWorkEffectVars에서 min(sceneMs, 2000) clamp 유지 — 본문은
+         최대 2초 후 등장 → 빈 화면 5초 멍하니 X.
    텍스트 등장 CSS 효과:  200ms(0) ~ 3000ms(100), linear.
    텍스트 등장 타자기 step: 20ms(0) ~ 300ms(100), linear (글자당).
    viewer-frame style.setProperty로 CSS 변수 박음 — 모든 룰이 변수 참조. */
-function _sceneTransMs(pct) { return Math.round(220 + (pct / 100) * 1080); }
+function _sceneTransMs(pct) {
+  const p = Math.max(0, Math.min(100, typeof pct === 'number' ? pct : 50));
+  if (p < 50) return Math.round(300 + (p / 50) * 900);            /* 0~50 → 300~1200 */
+  return Math.round(1200 + ((p - 50) / 50) * 2300);                /* 50~100 → 1200~3500 */
+}
 function _textEntDurMs(pct)  { return Math.round(200 + (pct / 100) * 2800); }
 function _textTwStepMs(pct)  { return Math.round(20  + (pct / 100) * 280); }
 

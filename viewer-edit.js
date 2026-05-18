@@ -4569,12 +4569,29 @@ async function _saveFlattenedImage(sceneNum, newImageDataUrl) {
     const teamName = ViewerState.project.teamName;
     const classId  = ViewerState.project.classId;
     if (!teamName || typeof getViewerDb !== 'function') return;
+
+    /* v122-fix: 이미지 평탄화 결과도 Storage 업로드 후 URL만 RTDB에 저장.
+       옛엔 canvas.toDataURL() 결과(base64)를 imageData 필드에 직접 update —
+       v113~v114 마이그/신규 흐름 우회 경로였음. base64 폭탄 재발 차단. */
+    let storageUrl;
+    try {
+      if (typeof viewerUploadImageToStorage !== 'function') {
+        throw new Error('Storage 업로드 함수를 찾을 수 없어요.');
+      }
+      const r = await viewerUploadImageToStorage(newImageDataUrl, sceneNum);
+      storageUrl = r.downloadURL;
+    } catch (e) {
+      console.error('[flatten save] Storage 업로드 실패:', e);
+      alert(`이미지 저장 실패: ${e.message || e}\n잠시 후 다시 시도해주세요.`);
+      return;
+    }
+
     const encodedName = encodeURIComponent(teamName);
     const basePath = classId
       ? `classes/${classId}/teams/${encodedName}`
       : `teams/${encodedName}`;
     await getViewerDb().ref(`${basePath}/scenes/${sceneNum}`).update({
-      imageData: newImageDataUrl,
+      imageData: storageUrl,
       imageTransform: null,
     });
   } catch (err) {

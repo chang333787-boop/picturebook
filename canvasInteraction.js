@@ -234,8 +234,15 @@ window.addEventListener('DOMContentLoaded', () => {
     e.preventDefault();
     if (e.touches.length === 2 && pinchState) {
       const newDist = getTouchDist(e.touches);
+      /* v120-lite: 빠른 pinch에서 한 frame 박힌 zoom 변화 너무 큼 → 튐. 두 가지 박음:
+         1. pinchState.zoom/dist 박은 거 = 시작 시점 박지 X, 매 frame 박은 거로 갱신 →
+            ratio 박은 거 = 직전 frame 기준 (옛엔 시작 frame 기준 → 빠른 박은 거에서 누적).
+         2. ratio clamp 0.92~1.08 — frame당 zoom 변화 최대 8%. 빠른 박은 거에서도
+            점진적으로 박힘 (사용자 박은 A안). */
+      const rawRatio = newDist / pinchState.dist;
+      const ratio = Math.max(0.92, Math.min(1.08, rawRatio));
       const newZoom = Math.round(
-        Math.min(2.0, Math.max(0.3, pinchState.zoom * newDist / pinchState.dist)) * 100) / 100;
+        Math.min(2.0, Math.max(0.3, pinchState.zoom * ratio)) * 100) / 100;
       /* v117: 매 frame 핀치 중심 다시 박음 — 옛엔 시작 시점 mid만 박혀 손가락 움직이면
          박은 mid 옛 위치라 zoom-to-point 박지 X. 매번 두 손가락 중간을 박아 그
          지점 기준으로 zoom + pan 박음 (두 손가락 같이 움직이면 자연스럽게 pan). */
@@ -256,6 +263,9 @@ window.addEventListener('DOMContentLoaded', () => {
       canvasOffY += (curMidY - pinchState.lastMidY);
       pinchState.lastMidX = curMidX;
       pinchState.lastMidY = curMidY;
+      /* v120-lite: pinchState 박은 거 갱신 — 다음 frame ratio 박은 거 = 직전 박은 거 기준 */
+      pinchState.dist = newDist;
+      pinchState.zoom = newZoom;
       applyTransform();
       return;
     }

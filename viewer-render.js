@@ -1251,11 +1251,16 @@ function _renderStoryEnding(stage, scene) {
   }
   const endStyleAttr = endCssVars.length > 0 ? ` style="${endCssVars.join(';')}"` : '';
   const noImageClass = endingImage ? '' : ' ending-as-pb--no-image';
+  /* v124c: 엔딩도 일반 그림책 장면처럼 picturebookSubmode 박음.
+     옛엔 무조건 'split' 박혀서 일반 장면에서 그림 중심형 박아도 엔딩만 분할형 박힘.
+     사용자 사건: "엔딩에서 그림 중심형이 분할형처럼 보임". */
+  const endSubmode = (scene.picturebookSubmode === 'imageCenter') ? 'imageCenter' : 'split';
+  const endLayoutClass = endSubmode === 'imageCenter' ? 'pb--imagecenter' : 'pb--split';
   _stageReplaceScene(stage, `
-    <div class="scene-screen scene-screen--pb pb--split ending-as-pb${noImageClass}"
+    <div class="scene-screen scene-screen--pb ${endLayoutClass} ending-as-pb${noImageClass}"
          ${endStyleAttr}
          data-presentation-mode="picturebook"
-         data-presentation-submode="split"
+         data-presentation-submode="${endSubmode}"
          data-ending="true">
       <div class="pb-page">
         <div class="pb-frame">

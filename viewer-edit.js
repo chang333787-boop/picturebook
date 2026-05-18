@@ -2361,6 +2361,23 @@ function _bindWorkSettingsHandlers(panel) {
 }
 
 /* v73: 속도 슬라이더 헬퍼 — input 즉시 반영(미리보기), change(드래그 끝)에 Firebase 저장. */
+/* v121: previewWorkEffect throttle — 슬라이더 input 박을 때마다 박지 X.
+   previewWorkEffect는 scene.offsetWidth 강제 reflow + typewriter span 재생성 박힘.
+   슬라이더 박을 때 매 input마다 박으면 태블릿/저성능 PC 박지 X. 150ms throttle 박음.
+   저장은 change에 박힌 거 옛 그대로. */
+let _previewWorkTimer = null;
+let _previewWorkLastField = null;
+function _schedulePreviewWorkEffect(field) {
+  _previewWorkLastField = field;
+  if (_previewWorkTimer) return;
+  _previewWorkTimer = setTimeout(() => {
+    _previewWorkTimer = null;
+    if (typeof previewWorkEffect === 'function' && _previewWorkLastField) {
+      previewWorkEffect(_previewWorkLastField);
+    }
+  }, 150);
+}
+
 function _bindSpeedSlider(panel, selector, field) {
   const slider = panel.querySelector(selector);
   if (!slider) return;
@@ -2382,8 +2399,8 @@ function _bindSpeedSlider(panel, selector, field) {
     if (label) {
       label.textContent = `(빠름 ◀ ${pct}% ▶ 느림)`;
     }
-    /* 미리보기 */
-    if (typeof previewWorkEffect === 'function') previewWorkEffect(field);
+    /* v121: 미리보기 throttle (옛엔 매 input마다 박음 → 태블릿 부담) */
+    _schedulePreviewWorkEffect(field);
   });
   slider.addEventListener('change', async () => {
     const pct = Math.max(0, Math.min(100, parseInt(slider.value, 10) || 0));

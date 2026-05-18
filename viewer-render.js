@@ -121,7 +121,7 @@ function renderCover() {
           <div class="pb-frame">
             <div class="pb-illust" data-pb-illust="1">
               <div class="pb-illust__photo" data-pb-photo="1">
-                <img class="pb-illust__inner" src="${imageData}" draggable="false" alt="">
+                <img class="pb-illust__inner" src="${imageData}" draggable="false" alt="" decoding="async">
               </div>
             </div>
             <div class="pb-text pb-text--cover">
@@ -458,7 +458,7 @@ function _renderScenePicturebook(stage, scene, submode) {
   const illustHtml = bgImage
     ? `<div class="pb-illust" data-pb-illust="1">
          <div class="pb-illust__photo" style="${photoVars}" data-pb-photo="1">
-           <img class="pb-illust__inner" src="${bgImage}" draggable="false" alt="">
+           <img class="pb-illust__inner" src="${bgImage}" draggable="false" alt="" decoding="async">
          </div>
          ${titleOverlayInIllustHtml}
        </div>`
@@ -1197,7 +1197,7 @@ function _renderStoryEnding(stage, scene) {
   const endingIllustHtml = endingImage
     ? `<div class="pb-illust" data-pb-illust="1">
          <div class="pb-illust__photo" data-pb-photo="1">
-           <img class="pb-illust__inner" src="${endingImage}" draggable="false" alt="">
+           <img class="pb-illust__inner" src="${endingImage}" draggable="false" alt="" decoding="async">
          </div>
        </div>`
     : `<div class="pb-illust pb-illust--empty">
@@ -1724,6 +1724,25 @@ function previewWorkEffect(field) {
     }
 
     if (mode === 'typewriter') {
+      /* v121: 긴 본문(400자+) typewriter 박지 X — fade로 fallback. _applyTextEntranceTypewriter와 동일 정책. */
+      let _totalChars = 0;
+      targets.forEach(el => {
+        if (el.getAttribute('contenteditable') === 'true') return;
+        _totalChars += (el.textContent || '').length;
+      });
+      if (_totalChars > 400) {
+        /* CSS fade fallback 박음 */
+        targets.forEach(el => {
+          void el.offsetWidth;
+          el.classList.add('preview-text-once');
+        });
+        _previewTimers.text = setTimeout(() => {
+          targets.forEach(el => el.classList.remove('preview-text-once'));
+          _previewTimers.text = null;
+          _maybeDropPreviewActive();
+        }, dur + 120);
+        return;
+      }
       const stepMs = _textTwStepMs(isNaN(tPct) ? 50 : tPct);
       let maxDelay = 0;
       targets.forEach(el => {
@@ -1785,6 +1804,11 @@ function _maybeDropPreviewActive() {
         animation-delay 정확도 위해 setProperty('important') 사용.
         --text-ent-total CSS 변수에 실제 typewriter 총 시간 박음 (행동버튼 delay 위해).
    다듬기 모드에선 skip (입력 충돌). CSS 효과(fade/slide-up/blur-in/pop)는 css만으로 동작. */
+/* v121: typewriter 긴 본문 fallback 한도 — 이 이상은 글자별 span 박지 X.
+   본문이 길수록 span DOM 박은 거가 박지 X 박는 부담 박힘. 사용자 설정(textEntrance=typewriter)은
+   박지 X — 렌더링 시에만 fallback. CSS 효과(fade 등)는 typewriter 박지 X 박혀있음. */
+const TYPEWRITER_MAX_CHARS = 400;
+
 function _applyTextEntranceTypewriter(stage, newScene) {
   if (!stage || !newScene) return;
   const mode = stage.dataset.textEntrance || 'none';
@@ -1796,6 +1820,21 @@ function _applyTextEntranceTypewriter(stage, newScene) {
 
   /* 기본: --text-ent-total = duration (CSS 효과 시간) — applyWorkEffectVars에서 박은 값 유지 */
   if (mode !== 'typewriter' || isEdit) return;
+
+  /* v121: 긴 본문 fallback — 400자 초과면 typewriter 박지 X. dataset만 박은 거 박음
+     → CSS 효과 박지 X (none 효과로 박힘). 사용자 설정은 박지 X. */
+  const targetsCheck = newScene.querySelectorAll(
+    '.pb-text__body, .cover-title-pb, .cover-subtitle-pb'
+  );
+  let totalChars = 0;
+  targetsCheck.forEach(el => {
+    if (el.getAttribute('contenteditable') === 'true') return;
+    totalChars += (el.textContent || '').length;
+  });
+  if (totalChars > TYPEWRITER_MAX_CHARS) {
+    /* dataset 박지 X — DOM에 typewriter 박지 X (span 박지 X) */
+    return;
+  }
 
   const tPct = parseInt(stage.dataset.textSpeedPct, 10);
   const stepMs = _textTwStepMs(isNaN(tPct) ? 50 : tPct);

@@ -180,25 +180,87 @@ function viewerTakeoverLock(num) {
   });
 }
 
-/* ── v116: 강제 인수 — "내가 수정하기" 박힐 때만 호출 ──
+/* ── v116~v117: 강제 인수 — "내가 수정하기" 박힐 때만 호출 ──
    policy: viewerTakeoverLock은 same-device만 박음 (정상). v116엔 'other'
    분류(진짜 다른 사용자)도 사용자가 명시 confirm 박은 후 박을 수 있게 박음.
    호출자(viewer-edit)가 박기 전 사용자에게 "다른 친구가 박는 중일 수 있어요"
-   안내 박은 후 호출. transaction으로 무조건 덮어쓰기 박음. */
-function viewerForceTakeoverLock(num) {
-  return new Promise(resolve => {
-    if (!viewerLockRef) { resolve(false); return; }
-    viewerLockRef.child(num).transaction(() => {
-      return {
-        editorId:   V_DEVICE_ID,
-        instanceId: V_INSTANCE_ID,
-        lockedAt:   Date.now(),
-      };
-    }, (err, committed) => {
-      if (err || !committed) resolve(false);
-      else { startViewerEditSession(num); resolve(true); }
-    });
+   안내 박은 후 호출.
+
+   v117 강화 (학생들 "잠금 가져오기 실패" 박힘 사건 fix):
+   1. transaction 박기 전 anonymous auth 보장 — auth 없으면 Storage/RTDB write 거부
+   2. transaction 박지 X 박힌 경우 .set으로 직접 덮어쓰기 (한 번만) — 사용자가
+      confirm 박은 후라 race condition 위험 감수. transaction 박지 X 박는 흔한
+      원인 = concurrent write/retry 한도/네트워크 timeout
+   3. 모든 단계 console.warn 상세 로그 — 다음 진단에 박을 수 있게 */
+async function viewerForceTakeoverLock(num) {
+  const ctx = {
+    num,
+    lockPath: viewerLockRef ? viewerLockRef.toString() + '/' + num : null,
+    currentLock: viewerRemoteLocks ? viewerRemoteLocks[num] : null,
+    deviceId: V_DEVICE_ID,
+    instanceId: V_INSTANCE_ID,
+  };
+
+  if (!viewerLockRef) {
+    console.warn('[viewerForceTakeoverLock] viewerLockRef 박혀있지 X', ctx);
+    return false;
+  }
+
+  /* 1단계: anonymous auth 보장 — viewer named app 사용 */
+  try {
+    if (typeof firebase !== 'undefined' && typeof firebase.app === 'function') {
+      const viewerApp = firebase.app('viewer');
+      if (viewerApp && typeof viewerApp.auth === 'function') {
+        const auth = viewerApp.auth();
+        if (!auth.currentUser) {
+          await auth.signInAnonymously();
+        }
+        ctx.authUid = auth.currentUser ? auth.currentUser.uid : null;
+      }
+    }
+  } catch (e) {
+    console.warn('[viewerForceTakeoverLock] auth 박지 못함', ctx, e);
+    /* auth 박지 못해도 일단 박음 — Firebase rules가 막으면 transaction에서 reject */
+  }
+
+  const lockValue = {
+    editorId:   V_DEVICE_ID,
+    instanceId: V_INSTANCE_ID,
+    lockedAt:   Date.now(),
+  };
+
+  /* 2단계: transaction 박음 */
+  const txOk = await new Promise(resolve => {
+    let committed = false;
+    let txError = null;
+    viewerLockRef.child(num).transaction(
+      () => lockValue,
+      (err, c) => {
+        committed = !!c;
+        txError = err;
+        if (err) console.warn('[viewerForceTakeoverLock] transaction err', ctx, err);
+        if (!committed && !err) console.warn('[viewerForceTakeoverLock] transaction not committed', ctx);
+        resolve(!err && committed);
+      }
+    );
   });
+
+  if (txOk) {
+    startViewerEditSession(num);
+    return true;
+  }
+
+  /* 3단계: transaction 박지 X → .set으로 직접 덮어쓰기 (한 번만, fallback) */
+  console.warn('[viewerForceTakeoverLock] transaction 박지 X → .set fallback 시도', ctx);
+  try {
+    await viewerLockRef.child(num).set(lockValue);
+    startViewerEditSession(num);
+    console.warn('[viewerForceTakeoverLock] .set fallback 성공', ctx);
+    return true;
+  } catch (e) {
+    console.warn('[viewerForceTakeoverLock] .set fallback도 박지 X', ctx, e);
+    return false;
+  }
 }
 
 /* ── 편집 세션 시작: heartbeat + idle 타이머 ── */

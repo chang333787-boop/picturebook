@@ -699,7 +699,10 @@ function _applyEditLockUI() {
               _editText.editable = true;
               _applyEditLockUI();
             } else {
-              alert('잠금 가져오기에 실패했어요. 잠시 후 다시 시도해주세요.');
+              /* v117: 자세한 에러 메시지 — 사용자가 박을 거 알 수 있게.
+                 transaction 실패 + .set fallback 실패도 박힘. 보통 = 익명 auth
+                 박지 X 또는 네트워크 박지 X. 새로고침이 가장 흔한 fix. */
+              alert('잠금을 가져오지 못했어요.\n\n• 네트워크를 확인해주세요\n• 페이지를 새로고침한 후 다시 시도해주세요\n\n계속 박지 못하면 다른 브라우저에서 박아보세요.');
             }
           });
       }

@@ -10,8 +10,11 @@ function getWrap()   { return document.getElementById('canvas-wrap'); }
 
 function applyTransform() {
   const canvas = getCanvas();
-  canvas.style.zoom      = zoom;
-  canvas.style.transform = `translate(${canvasOffX}px,${canvasOffY}px)`;
+  /* v117: CSS `zoom` 비표준 박지 X — iPad Safari에서 매번 reflow 박혀 렉 박힘.
+     `transform: translate() scale()`로 박음 → GPU 가속 + 부드러운 zoom.
+     transform-origin: 0 0 박혀있어야 (CSS에 박음) — pan offset 계산이 origin-0
+     기준이라. 박지 못하면 zoom 박은 위치 박힘. */
+  canvas.style.transform = `translate(${canvasOffX}px, ${canvasOffY}px) scale(${zoom})`;
   document.getElementById('zoom-label').textContent = Math.round(zoom * 100) + '%';
 }
 
@@ -201,11 +204,14 @@ window.addEventListener('DOMContentLoaded', () => {
     if (e.touches.length === 2) {
       e.preventDefault();
       panState   = null;
+      const startMidX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+      const startMidY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
       pinchState = {
         dist: getTouchDist(e.touches), zoom,
         offX: canvasOffX, offY: canvasOffY,
-        midX: (e.touches[0].clientX + e.touches[1].clientX) / 2,
-        midY: (e.touches[0].clientY + e.touches[1].clientY) / 2
+        midX: startMidX, midY: startMidY,
+        /* v117: 매 frame mid 변화량으로 pan 같이 박음 (두 손가락 같이 움직이면 자연 pan) */
+        lastMidX: startMidX, lastMidY: startMidY
       };
     } else if (e.touches.length === 1) {
       const t  = e.touches[0];
@@ -221,12 +227,28 @@ window.addEventListener('DOMContentLoaded', () => {
     e.preventDefault();
     if (e.touches.length === 2 && pinchState) {
       const newDist = getTouchDist(e.touches);
-      zoom = Math.round(
+      const newZoom = Math.round(
         Math.min(2.0, Math.max(0.3, pinchState.zoom * newDist / pinchState.dist)) * 100) / 100;
+      /* v117: 매 frame 핀치 중심 다시 박음 — 옛엔 시작 시점 mid만 박혀 손가락 움직이면
+         박은 mid 옛 위치라 zoom-to-point 박지 X. 매번 두 손가락 중간을 박아 그
+         지점 기준으로 zoom + pan 박음 (두 손가락 같이 움직이면 자연스럽게 pan). */
       const rect = wrap.getBoundingClientRect();
-      const mx = pinchState.midX - rect.left, my = pinchState.midY - rect.top;
-      canvasOffX = mx - (mx - pinchState.offX) * (zoom / pinchState.zoom);
-      canvasOffY = my - (my - pinchState.offY) * (zoom / pinchState.zoom);
+      const curMidX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+      const curMidY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+      const mx = curMidX - rect.left;
+      const my = curMidY - rect.top;
+      /* zoom-to-point: 현재 mid가 박은 world 좌표 박은 후 새 zoom 박은 후 같은
+         screen point에 박히게 pan 조정 */
+      const worldX = (mx - canvasOffX) / zoom;
+      const worldY = (my - canvasOffY) / zoom;
+      zoom = newZoom;
+      canvasOffX = mx - worldX * zoom;
+      canvasOffY = my - worldY * zoom;
+      /* pan: 박은 mid가 옛 mid에서 박은 거 박은 만큼 pan (두 손가락 같이 박은 거) */
+      canvasOffX += (curMidX - pinchState.lastMidX);
+      canvasOffY += (curMidY - pinchState.lastMidY);
+      pinchState.lastMidX = curMidX;
+      pinchState.lastMidY = curMidY;
       applyTransform();
       return;
     }

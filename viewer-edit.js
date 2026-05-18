@@ -3299,8 +3299,31 @@ function _bindTypeSectionsEvents(panel, scene) {
       btn.addEventListener('click', () => {
         if (!_editText.editable) return;
         const val = btn.dataset.val === 'imageCenter' ? 'imageCenter' : 'split';
-        scene.picturebookSubmode = val;
-        _queueSave(scene.num || scene.id, { picturebookSubmode: val });
+
+        /* v122-fix3: UI 안내 "🔒 작품 전체 설정"과 일치하게 모든 장면에 일괄 적용.
+           옛엔 현재 장면 하나만 저장 → 장면 2 이상에선 옛 모드 그대로 → 안내문과 동작 불일치.
+           이 핸들러는 첫 장면에서만 실행됨(다른 장면은 disabled). 안전. */
+        const curId = scene.num || scene.id;
+        let failCount = 0;
+        Object.values(ViewerState.scenes).forEach(s => {
+          if (!s) return;
+          const id = s.num || s.id;
+          if (id == null) return;
+          s.picturebookSubmode = val; /* 메모리 즉시 반영 */
+          if (String(id) === String(curId)) {
+            /* 현재 장면 = 옛 흐름 (debounce → flush) */
+            _queueSave(id, { picturebookSubmode: val });
+          } else {
+            /* 다른 장면 = saveSceneText 직접 호출 (편집 잠금 없이 patch).
+               picturebookSubmode는 작품 단위 설정이라 충돌 거의 없음. */
+            if (typeof saveSceneText === 'function') {
+              saveSceneText(id, { picturebookSubmode: val }).catch(e => {
+                failCount++;
+                console.warn('[pb-submode 일괄] 장면', id, '저장 실패:', e);
+              });
+            }
+          }
+        });
         _flushPendingSave();
         renderEditPanel();
         _scheduleViewerFrameReRender();

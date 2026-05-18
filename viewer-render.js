@@ -1188,12 +1188,8 @@ function _renderStoryEnding(stage, scene) {
        <div class="scene-bg-overlay scene-bg-overlay--dark"></div>`
     : `<div class="scene-bg-solid scene-bg-solid--ending"></div>`;
 
-  /* 엔딩별 감정 메시지 */
-  const moodMsg = isTrueEnd
-    ? '이야기의 진짜 결말에 도달했어요.'
-    : stats.remaining > 0
-      ? `다른 선택을 했다면 어땠을까요? ${stats.remaining}개의 결말이 더 있어요.`
-      : '모든 결말을 찾았어요!';
+  /* v133: 엔딩에서 mood 메시지("다른 선택을 했다면…") 제거 — 사용자 명시.
+     순차 등장으로 호흡을 만들고, 안내 문구 없이 본문/스탬프/경로/버튼만 차례로. */
 
   const trueEndBadge = isTrueEnd
     ? `<div class="ending-true-badge">⭐ 진엔딩</div>` : '';
@@ -1244,21 +1240,74 @@ function _renderStoryEnding(stage, scene) {
          <div class="pb-empty-mark">${systemIcon}</div>
        </div>`;
 
-  /* 텍스트 영역 — 작품 제목(작게) + 엔딩 본문(메인) + 이야기 끝 스탬프 + 경로 요약 + 버튼 */
+  /* v133: 엔딩 순차 등장 — terminal-step 박혀 CSS variable로 delay 제어.
+     사용자 명령서 delay 계산식 그대로:
+     · bodyDelay   = clamp(250 + textSpeed * 3.5,  250, 600)
+     · badgeDelay  = clamp(750 + textSpeed * 12.5, 750, 2000)
+     · statsDelay  = clamp(1100+ textSpeed * 18,  1100, 2900)
+     · actionsDelay= clamp(1500+ textSpeed * 23,  1500, 3800)
+     · itemDuration= clamp(300 + textSpeed * 4,    300, 700)
+     장면 전환 느림 보정: bodyDelay ≥ sceneMs * 0.45 (max 1000ms — v127 정책 유지) */
+  const _textSpeed = (ViewerState && ViewerState.project &&
+    typeof ViewerState.project.textEntranceSpeed === 'number')
+    ? Math.max(0, Math.min(100, ViewerState.project.textEntranceSpeed)) : 50;
+  const _sceneSpeed = (ViewerState && ViewerState.project &&
+    typeof ViewerState.project.sceneTransitionSpeed === 'number')
+    ? Math.max(0, Math.min(100, ViewerState.project.sceneTransitionSpeed)) : 50;
+  const _sceneMs = (typeof _sceneTransMs === 'function') ? _sceneTransMs(_sceneSpeed) : 1200;
+  const _clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+  let _bodyDelay    = _clamp(250  + _textSpeed * 3.5,  250,  600);
+  const _badgeDelay = _clamp(750  + _textSpeed * 12.5, 750,  2000);
+  const _statsDelay = _clamp(1100 + _textSpeed * 18,   1100, 2900);
+  let _actionsDelay = _clamp(1500 + _textSpeed * 23,   1500, 3800);
+  const _itemDur    = _clamp(300  + _textSpeed * 4,    300,  700);
+
+  /* 장면 전환 느림 보정 — sceneMs * 0.45 까지 본문 시작 미룸 (max 1000ms 상한, v127 정책) */
+  const _safeSceneDelay = _clamp(_sceneMs * 0.45, 0, 1000);
+  _bodyDelay = Math.max(_bodyDelay, _safeSceneDelay);
+
+  /* typewriter 보정 — bodyTypeMs 추정 후 actionsDelay 끌어올림. 단 4500ms 상한 */
+  const _isTw = (typeof stage !== 'undefined') && stage.dataset &&
+                stage.dataset.textEntrance === 'typewriter';
+  if (_isTw) {
+    const _bodyLen = (userBody || '').length;
+    const _twStep = (typeof _textTwStepMs === 'function') ? _textTwStepMs(_textSpeed) : 80;
+    const _bodyTypeMs = _clamp(_bodyLen * _twStep, 0, 2200);
+    _actionsDelay = Math.min(Math.max(_actionsDelay, _bodyDelay + _bodyTypeMs + 700), 4500);
+  }
+
+  /* terminal-step CSS variables — pb-text--ending에 inline style로 박음 */
+  const _seqStyle =
+    `--terminal-body-delay:${Math.round(_bodyDelay)}ms;` +
+    `--terminal-badge-delay:${Math.round(_badgeDelay)}ms;` +
+    `--terminal-stats-delay:${Math.round(_statsDelay)}ms;` +
+    `--terminal-actions-delay:${Math.round(_actionsDelay)}ms;` +
+    `--terminal-item-duration:${Math.round(_itemDur)}ms;`;
+
+  /* 다듬기 모드에서는 순차 등장 박지 X — 인스펙터로 박을 때 깜빡임 차단.
+     edit-mode-active body class 박힘 + viewer-test-active 박지 X면 정적 표시. */
+  const _isEdit = !!(ViewerState && ViewerState.editMode);
+
+  /* 텍스트 영역 — 작품 제목(작게) + 엔딩 본문(메인) + 이야기 끝 스탬프 + 경로 요약 + 버튼
+     v133: 각 요소에 terminal-step + 종류별 modifier. CSS animation-delay 변수로 순차. */
   const endingTextHtml = `
-    <div class="pb-text pb-text--ending">
-      ${userTitle ? `<div class="ending-user-title">${escHtml(userTitle)}</div>` : ''}
-      ${userBody ? `<p class="ending-user-body">${escHtml(userBody)}</p>` : ''}
-      <div class="ending-stamps-row">
+    <div class="pb-text pb-text--ending ${_isEdit ? 'is-edit-static' : ''}"
+         style="${_seqStyle}">
+      ${userTitle ? `<div class="ending-user-title terminal-step terminal-step--title">${escHtml(userTitle)}</div>` : ''}
+      ${userBody ? `<p class="ending-user-body terminal-step terminal-step--body">${escHtml(userBody)}</p>` : ''}
+      <div class="ending-stamps-row terminal-step terminal-step--badge">
         ${trueEndBadge}
         <div class="ending-end-stamp">${systemIcon} ${systemLabel}</div>
       </div>
-      ${pathSummary}
-      <p class="ending-mood">${moodMsg}</p>
-      <div class="pb-text__actions ending-actions" data-count="${ViewerState.historyStack.length > 0 ? 2 : 1}">
-        <button class="terminal-btn terminal-btn--primary js-restart">↺ 다른 결말 찾기</button>
+      ${pathSummary
+        ? `<div class="ending-path-summary-wrap terminal-step terminal-step--stats">${pathSummary.replace('<div class="ending-path-summary">', '<div class="ending-path-summary-inner">')}</div>`
+        : ''}
+      <div class="pb-text__actions ending-actions terminal-step terminal-step--actions is-locked"
+           data-count="${ViewerState.historyStack.length > 0 ? 2 : 1}">
+        <button class="terminal-btn terminal-btn--primary js-restart" disabled aria-disabled="true">↺ 다른 결말 찾기</button>
         ${ViewerState.historyStack.length > 0
-          ? `<button class="terminal-btn terminal-btn--ghost js-back">← 직전 장면으로</button>` : ''}
+          ? `<button class="terminal-btn terminal-btn--ghost js-back" disabled aria-disabled="true">← 직전 장면으로</button>` : ''}
       </div>
     </div>`;
 
@@ -1300,8 +1349,48 @@ function _renderStoryEnding(stage, scene) {
     _setupPbPhotoWrappers(stage);
   }
 
-  stage.querySelector('.js-restart')?.addEventListener('click', restartStory);
-  stage.querySelector('.js-back')   ?.addEventListener('click', navigateBack);
+  /* v133: 엔딩 버튼은 등장 애니메이션 끝난 뒤에만 활성화.
+     enableAt = actionsDelay + itemDuration. 다듬기 모드면 즉시 활성. */
+  const _restartBtn = stage.querySelector('.js-restart');
+  const _backBtn    = stage.querySelector('.js-back');
+  const _enableButtons = () => {
+    const actions = stage.querySelector('.ending-actions');
+    if (actions) {
+      actions.classList.remove('is-locked');
+      actions.classList.add('is-ready');
+    }
+    if (_restartBtn) {
+      _restartBtn.disabled = false;
+      _restartBtn.setAttribute('aria-disabled', 'false');
+    }
+    if (_backBtn) {
+      _backBtn.disabled = false;
+      _backBtn.setAttribute('aria-disabled', 'false');
+    }
+  };
+  if (_isEdit) {
+    /* 다듬기 모드 — 즉시 활성 (인스펙터로 박을 때 클릭 박지 X 박는 게 어색) */
+    _enableButtons();
+  } else {
+    const _enableAt = Math.round(_actionsDelay + _itemDur);
+    setTimeout(_enableButtons, _enableAt);
+  }
+
+  /* 클릭 가드 — 등장 전엔 disabled, 등장 후도 transitioning 중이면 한 번만 */
+  let _restartFired = false;
+  let _backFired = false;
+  _restartBtn?.addEventListener('click', (e) => {
+    if (_restartBtn.disabled) { e.preventDefault(); return; }
+    if (_restartFired) return;
+    _restartFired = true;
+    restartStory();
+  });
+  _backBtn?.addEventListener('click', (e) => {
+    if (_backBtn.disabled) { e.preventDefault(); return; }
+    if (_backFired) return;
+    _backFired = true;
+    navigateBack();
+  });
 }
 
 function _renderExploreCompletion(stage, scene) {
@@ -1635,7 +1724,9 @@ function modeBadgeLabel(mode) {
 }
 
 /* v66: 장면 전환 — 옛 .scene-screen에 .is-leaving 클래스 박고 새 콘텐츠 동시 박기.
-   stage.innerHTML 통째 교체 대신 helper 사용 → 두 layer overlap으로 진짜 페이지 넘김 효과. */
+   stage.innerHTML 통째 교체 대신 helper 사용 → 두 layer overlap으로 진짜 페이지 넘김 효과.
+   v133: inline animation-duration 명시 박음 (안전망) — CSS 변수 적용이 어떤 이유로 안 들어가도
+         실제 duration이 정확히 적용되도록. 계측 결과 박을 때 inlineDuration으로 확인 가능. */
 function _stageReplaceScene(stage, newHtml) {
   if (!stage) return;
   const oldScene = stage.querySelector('.scene-screen:not(.is-leaving)');
@@ -1650,9 +1741,18 @@ function _stageReplaceScene(stage, newHtml) {
     return;
   }
 
+  /* v133: 실제 duration 계산 — sceneSpeedPct가 없으면 50 fallback */
+  const sPct = parseInt(stage.dataset.sceneSpeedPct, 10);
+  const duration = _sceneTransMs(isNaN(sPct) ? 50 : sPct);
+
+  /* v133: 새 scene과 leaving scene 둘 다 inline animation-duration 박음.
+     CSS 변수가 적용되더라도 inline이 우선 — 안전망. */
+  newScene.style.animationDuration = duration + 'ms';
+
   /* 옛 scene leaving 시작 (CSS absolute + is-leaving keyframe) */
   if (oldScene) {
     oldScene.classList.add('is-leaving');
+    oldScene.style.animationDuration = duration + 'ms';
   }
 
   /* 새 scene을 stage의 첫 자식 위치에 박기 (옛 scene이 뒤에 absolute로 떠 있음).
@@ -1664,11 +1764,8 @@ function _stageReplaceScene(stage, newHtml) {
     stage.appendChild(tmp.firstChild);
   }
 
-  /* 옛 scene leaving 애니메이션 시간 후 제거.
-     v73: 속도는 dataset.sceneSpeedPct(0~100) → _sceneTransMs로 매핑. */
+  /* 옛 scene leaving 애니메이션 시간 후 제거. v73: 속도는 _sceneTransMs로 매핑. */
   if (oldScene && oldScene.parentNode === stage) {
-    const sPct = parseInt(stage.dataset.sceneSpeedPct, 10);
-    const duration = _sceneTransMs(isNaN(sPct) ? 50 : sPct);
     setTimeout(() => {
       if (oldScene.parentNode === stage) oldScene.remove();
     }, duration + 50);
@@ -1676,6 +1773,53 @@ function _stageReplaceScene(stage, newHtml) {
 
   /* v71: 텍스트 등장 효과 적용 — typewriter이면 글자 단위 span reveal */
   _applyTextEntranceTypewriter(stage, newScene);
+}
+
+/* v133: 장면 전환 계측 헬퍼 — console에서 window.__measureTransition() 호출.
+   sceneTransitionSpeed가 실제 어떤 값으로 들어가고 computed animation-duration이
+   몇 ms인지 즉시 확인. 표지 다듬기 미리보기·감상 테스트·실제 감상 세 환경 다 동일하게 측정. */
+if (typeof window !== 'undefined') {
+  window.__measureTransition = function () {
+    const vf = document.getElementById('viewer-frame');
+    if (!vf) return console.warn('[measure] viewer-frame 없음');
+    const current = vf.querySelector('.scene-screen:not(.is-leaving)');
+    const leaving = vf.querySelector('.scene-screen.is-leaving');
+    const computed = current ? getComputedStyle(current) : null;
+    const computedLeave = leaving ? getComputedStyle(leaving) : null;
+    const result = {
+      /* 1) 데이터 흐름 — 가능성 1 (저장값/로드값) 진단 */
+      projectTransition:    ViewerState && ViewerState.project ? ViewerState.project.sceneTransition : null,
+      projectSpeed:         ViewerState && ViewerState.project ? ViewerState.project.sceneTransitionSpeed : null,
+      projectTextSpeed:     ViewerState && ViewerState.project ? ViewerState.project.textEntranceSpeed : null,
+      frameTransition:      vf.dataset.transition,
+      frameSpeed:           vf.dataset.sceneSpeedPct,
+      frameTextSpeed:       vf.dataset.textSpeedPct,
+      /* 2) CSS 변수 — 가능성 2 (CSS 적용/덮어쓰기) 진단 */
+      cssVarSceneDur:       getComputedStyle(vf).getPropertyValue('--scene-trans-duration').trim(),
+      cssVarTextDur:        getComputedStyle(vf).getPropertyValue('--text-ent-duration').trim(),
+      cssVarTextStart:      getComputedStyle(vf).getPropertyValue('--text-ent-start-delay').trim(),
+      /* 3) 실제 computed animation — 가능성 3 (easing/keyframe) 진단 */
+      bodyClass:            document.body.className,
+      frameClass:           vf.className,
+      currentAnimName:      computed ? computed.animationName : null,
+      currentAnimDuration:  computed ? computed.animationDuration : null,
+      currentAnimTiming:    computed ? computed.animationTimingFunction : null,
+      currentAnimFillMode:  computed ? computed.animationFillMode : null,
+      currentInlineDur:     current ? current.style.animationDuration : null,
+      leavingAnimName:      computedLeave ? computedLeave.animationName : null,
+      leavingAnimDuration:  computedLeave ? computedLeave.animationDuration : null,
+      leavingInlineDur:     leaving ? leaving.style.animationDuration : null,
+      /* 4) 컨텍스트 */
+      editMode:             !!(ViewerState && ViewerState.editMode),
+      testingEdit:          !!(ViewerState && ViewerState._testingEdit),
+    };
+    /* eslint-disable no-console */
+    console.group('[__measureTransition] 장면 전환 계측');
+    console.table(result);
+    console.log('계측 시점 안내: 실제 전환 직후(2~3초 안) 호출해야 leaving scene이 잡힘');
+    console.groupEnd();
+    return result;
+  };
 }
 
 /* v73: 슬라이더 0~100 → ms 매핑.

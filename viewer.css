@@ -464,7 +464,13 @@ body.edit-mode-active #stage-wrap {
   --text-ent-total:       700ms;
 }
 .scene-screen {
-  animation: sceneFadeIn var(--scene-trans-duration, 1400ms) cubic-bezier(0.16, 1, 0.3, 1);
+  /* v133: easing을 더 균등하게.
+     옛 cubic-bezier(0.16, 1, 0.3, 1)은 강한 ease-out — 시간의 16~30% 구간에서
+     진행률 100%에 도달. 사용자가 "느림 박아도 처음에 휙 지나간다"고 느낀 정확한 원인.
+     cubic-bezier(0.4, 0.0, 0.2, 1)은 Material Design standard easing — 시작·중간·끝
+     진행률이 균등하게 분포. 3500ms 박을 때 후반까지 천천히 진행되는 느낌 살아남.
+     fill-mode: both 박은 거 = 시작 전 from-state 박힘 + 끝난 후 to-state 머무름 (안전망). */
+  animation: sceneFadeIn var(--scene-trans-duration, 1400ms) cubic-bezier(0.4, 0.0, 0.2, 1) both;
   transform-origin: center center;
 }
 
@@ -1229,6 +1235,67 @@ body[data-page-orientation="portrait"] #stage-wrap.letterbox-v #viewer-frame {
   background: rgba(80,50,20,0.06);
   border-color: rgba(80,50,20,0.35);
 }
+
+/* ─────────────────────────────────────────────────────────────
+   v133: 엔딩 순차 등장 — terminal-step CSS variable 기반
+   ─────────────────────────────────────────────────────────────
+   pb-text--ending에 inline style로 박힌 delay/duration 변수:
+   --terminal-body-delay / --terminal-badge-delay / --terminal-stats-delay
+   --terminal-actions-delay / --terminal-item-duration
+
+   각 .terminal-step--* 요소는 opacity 0 + translateY(8px)로 시작하고
+   지정된 delay 후 fade + slide-up으로 등장.
+   다듬기 모드(.is-edit-static)에서는 즉시 정적 표시 — 깜빡임 차단.
+   ───────────────────────────────────────────────────────────── */
+.pb-text--ending .terminal-step {
+  opacity: 0;
+  transform: translateY(8px);
+  animation-name: terminalStepIn;
+  animation-duration: var(--terminal-item-duration, 500ms);
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  animation-fill-mode: both;
+}
+.pb-text--ending .terminal-step--title {
+  animation-delay: var(--terminal-body-delay, 250ms);
+}
+.pb-text--ending .terminal-step--body {
+  animation-delay: var(--terminal-body-delay, 250ms);
+}
+.pb-text--ending .terminal-step--badge {
+  animation-delay: var(--terminal-badge-delay, 750ms);
+}
+.pb-text--ending .terminal-step--stats {
+  animation-delay: var(--terminal-stats-delay, 1100ms);
+}
+.pb-text--ending .terminal-step--actions {
+  animation-delay: var(--terminal-actions-delay, 1500ms);
+}
+
+@keyframes terminalStepIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* 다듬기 모드 — 순차 등장 박지 X (인스펙터 박을 때 깜빡임 차단).
+   v128 viewer-test-active 박힌 경우(감상 테스트)는 정상 재생. */
+body.edit-mode-active:not(.viewer-test-active) .pb-text--ending.is-edit-static .terminal-step {
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+/* 버튼 등장 전 클릭 차단 — is-locked 박힌 동안 pointer-events:none.
+   다듬기 모드 박힌 거(viewer-edit-readonly 박힌 거 박지 X)에선 즉시 클릭 가능. */
+.pb-text--ending .ending-actions.is-locked {
+  pointer-events: none;
+}
+.pb-text--ending .ending-actions.is-ready {
+  pointer-events: auto;
+}
+body.edit-mode-active:not(.viewer-test-active) .pb-text--ending .ending-actions {
+  pointer-events: auto;
+}
+
 /* 페이지 (책 표지) — A4 비율, 장면과 동일 톤 */
 .cover-page {
   position: relative;

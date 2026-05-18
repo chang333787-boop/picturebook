@@ -893,8 +893,15 @@ function _flushPushToFirebaseNow() {
 /* 페이지 이탈 시 강제 push — 600ms debounce 중인 변경 손실 방지.
    ui.js의 flushTitleSaves/flushBodySaves가 먼저 실행되어 dirtyScenes에
    변경을 적재하면, 여기서 즉시 DB로 push. */
-window.addEventListener('beforeunload', () => {
+window.addEventListener('beforeunload', (e) => {
   if (pushTimer || dirtyScenes.size > 0) _flushPushToFirebaseNow();
+  /* v122b: 저장 실패 banner 표시 중에 페이지 떠나려 하면 한 번 더 확인 */
+  const errBanner = document.getElementById('global-save-error-banner');
+  if (errBanner && errBanner.style.display !== 'none') {
+    e.preventDefault();
+    e.returnValue = '아직 저장되지 않은 변경이 있어요. 정말 떠나시겠어요?';
+    return e.returnValue;
+  }
 });
 window.addEventListener('pagehide', () => {
   if (pushTimer || dirtyScenes.size > 0) _flushPushToFirebaseNow();
@@ -906,6 +913,29 @@ function removeSceneFromFirebase(num) {
   dbRef.child(String(num)).remove();
 }
 
+/* v122b: 저장 실패 시 화면 가운데 고정 banner — 학생/교사가 못 보고 지나치는 사건 차단.
+   기존 작은 save-dot/save-label만으로 부족 (사건: 30분 작업 전체 실패해도 silent).
+   banner는 한 번만 동적 생성 + 표시/숨김 토글. */
+function _ensureSaveErrorBanner() {
+  let el = document.getElementById('global-save-error-banner');
+  if (el) return el;
+  el = document.createElement('div');
+  el.id = 'global-save-error-banner';
+  el.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;'
+    + 'background:#ef476f;color:#fff;padding:12px 16px;text-align:center;'
+    + 'font-family:"Jua","Nanum Gothic",sans-serif;font-size:14px;font-weight:600;'
+    + 'box-shadow:0 4px 14px rgba(0,0,0,.18);cursor:pointer;display:none;'
+    + 'line-height:1.45;';
+  el.innerHTML = '⚠️ <strong>저장 실패</strong> — 네트워크를 확인해주세요. '
+    + '<u>여기를 눌러 다시 시도</u>';
+  el.addEventListener('click', () => {
+    el.style.display = 'none';
+    if (typeof _flushPushToFirebaseNow === 'function') _flushPushToFirebaseNow();
+  });
+  document.body.appendChild(el);
+  return el;
+}
+
 function setSaveStatus(s) {
   /* v99: 모바일 텍스트형 status element도 동기화 — 진짜 저장 완료 시에만 박음 */
   const mtbStatus = document.getElementById('mtb-edit-status');
@@ -913,6 +943,14 @@ function setSaveStatus(s) {
     if (s === 'saved')       mtbStatus.textContent = '✓ 저장됨';
     else if (s === 'changed') mtbStatus.textContent = '저장 중...';
     else if (s === 'error')   mtbStatus.textContent = '✗ 오류';
+  }
+  /* v122b: 화면 고정 banner — error면 표시, saved/changed면 숨김. console.error도. */
+  if (s === 'error') {
+    try { _ensureSaveErrorBanner().style.display = 'block'; } catch (e) {}
+    console.error('[setSaveStatus] 저장 실패 — Firebase write 거부 또는 네트워크 오류');
+  } else if (s === 'saved') {
+    const b = document.getElementById('global-save-error-banner');
+    if (b) b.style.display = 'none';
   }
   const dot = document.getElementById('save-dot');
   const lbl = document.getElementById('save-label');

@@ -661,9 +661,47 @@ function _applyEditLockUI() {
                다음 snapshot 콜백에서 상태 재평가 */
           });
       } else {
-        /* 'other' — 진짜 다른 사용자: 인수 버튼 없음, 읽기 전용 */
+        /* v116: 'other' 분류에도 "다시 확인" + "내가 수정하기" 박음.
+           옛엔 인수 버튼 없어 사용자가 정말 막혔는데, stale lock(다른 사용자 폰
+           꺼지면 TTL 20초 동안 박힘) 또는 옛 잠금 박은 경우 풀 길 없었음.
+           정책: 다시 확인 = 잠금 다시 읽음. 박지 못한 stale 박은 경우 자동 박음.
+           내가 수정하기 = confirm 박은 후 무조건 인수 (transaction 덮어쓰기). */
         banner.classList.remove('edit-lock-banner--mild');
-        banner.innerHTML = `<div class="edit-lock-banner-msg">🔒 다른 사람이 이 장면을 편집 중이에요. 지금은 읽기만 할 수 있어요.</div>`;
+        banner.innerHTML = `
+          <div class="edit-lock-banner-msg">🔒 다른 친구가 이 장면을 수정 중일 수 있어요. 지금은 읽기만 할 수 있어요.</div>
+          <div class="edit-lock-banner-actions">
+            <button class="edit-lock-recheck-btn js-edit-lock-recheck" type="button">다시 확인</button>
+            <button class="edit-lock-takeover-btn js-edit-lock-force-takeover" type="button">내가 수정하기</button>
+          </div>`;
+        /* 다시 확인 — viewerEnsureEditable 다시 박음. stale 박혀있던 잠금이 풀린 경우 자동 박힘. */
+        banner.querySelector('.js-edit-lock-recheck')
+          ?.addEventListener('click', async () => {
+            if (_editText.num == null) return;
+            const ok = (typeof viewerEnsureEditable === 'function')
+              ? await viewerEnsureEditable(_editText.num) : false;
+            if (ok) {
+              _editText.editable = true;
+              _applyEditLockUI();
+            } else {
+              /* 박지 못한 경우 분류 다시 박음 — 'other' 그대로 또는 박힌 거 변경 박힘 */
+              _applyEditLockUI();
+            }
+          });
+        /* 내가 수정하기 — 사용자가 confirm 박은 후 무조건 인수 */
+        banner.querySelector('.js-edit-lock-force-takeover')
+          ?.addEventListener('click', async () => {
+            if (_editText.num == null) return;
+            const ok = confirm('다른 친구가 이 장면을 수정 중일 수 있어요.\n그래도 내가 수정할까요?');
+            if (!ok) return;
+            const taken = (typeof viewerForceTakeoverLock === 'function')
+              ? await viewerForceTakeoverLock(_editText.num) : false;
+            if (taken) {
+              _editText.editable = true;
+              _applyEditLockUI();
+            } else {
+              alert('잠금 가져오기에 실패했어요. 잠시 후 다시 시도해주세요.');
+            }
+          });
       }
       banner.style.display = '';
     }

@@ -180,6 +180,27 @@ function viewerTakeoverLock(num) {
   });
 }
 
+/* ── v116: 강제 인수 — "내가 수정하기" 박힐 때만 호출 ──
+   policy: viewerTakeoverLock은 same-device만 박음 (정상). v116엔 'other'
+   분류(진짜 다른 사용자)도 사용자가 명시 confirm 박은 후 박을 수 있게 박음.
+   호출자(viewer-edit)가 박기 전 사용자에게 "다른 친구가 박는 중일 수 있어요"
+   안내 박은 후 호출. transaction으로 무조건 덮어쓰기 박음. */
+function viewerForceTakeoverLock(num) {
+  return new Promise(resolve => {
+    if (!viewerLockRef) { resolve(false); return; }
+    viewerLockRef.child(num).transaction(() => {
+      return {
+        editorId:   V_DEVICE_ID,
+        instanceId: V_INSTANCE_ID,
+        lockedAt:   Date.now(),
+      };
+    }, (err, committed) => {
+      if (err || !committed) resolve(false);
+      else { startViewerEditSession(num); resolve(true); }
+    });
+  });
+}
+
 /* ── 편집 세션 시작: heartbeat + idle 타이머 ── */
 function startViewerEditSession(num) {
   stopViewerEditSession(num);

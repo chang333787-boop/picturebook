@@ -621,6 +621,14 @@ function _enterTeam(val, teamRef, opts) {
     if (!isTypingCard) {
       renderAll();
     }
+    /* v116: 모바일 텍스트형이 박힌 상태면 노드 구조 화면도 같이 박음.
+       옛엔 renderAll(PC sceneRenderer)만 호출 → 모바일 _mtbRender 박지 X →
+       사용자가 편집한 본문/라벨이 구조 화면 노드 상태(branchCount, ⚠) 박지 못함.
+       박는 조건: MTB 박혀있고 active. 편집 화면 안의 textarea/input은 손 안 댐
+       (_mtbRender는 #mtb-nodes 영역만 박음, #mtb-edit-view는 별도). */
+    if (typeof MTB !== 'undefined' && MTB && MTB.active && typeof window.mtbRender === 'function') {
+      window.mtbRender();
+    }
     isRemote = false;
     setSaveStatus('saved');
   });

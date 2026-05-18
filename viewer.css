@@ -3737,7 +3737,38 @@ body[data-page-orientation="portrait"] .terminal-screen--story .ending-page {
   background: rgba(88,166,255,0.28);
   border-color: rgba(88,166,255,0.6);
 }
-/* 강한 경고(other) 상태에서는 takeover 버튼 없음 — 배너 자체만 보임 */
+/* v116: 강한 경고(other) 상태에도 두 버튼 박음 — 다시 확인 + 내가 수정하기 */
+.edit-lock-banner-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+.edit-lock-recheck-btn {
+  display: inline-block;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-family: var(--font-ui);
+  background: rgba(120,90,50,0.10);
+  color: #6b5638;
+  border: 1px solid rgba(120,90,50,0.25);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background var(--t-fast), border-color var(--t-fast);
+}
+.edit-lock-recheck-btn:hover {
+  background: rgba(120,90,50,0.18);
+  border-color: rgba(120,90,50,0.40);
+}
+.edit-lock-banner-actions .edit-lock-takeover-btn {
+  background: rgba(198,111,74,0.15);
+  color: #c66f4a;
+  border-color: rgba(198,111,74,0.40);
+}
+.edit-lock-banner-actions .edit-lock-takeover-btn:hover {
+  background: rgba(198,111,74,0.25);
+  border-color: rgba(198,111,74,0.55);
+}
 
 /* ================================================================
    모드 시스템 뼈대 1차 — 편집 패널 모드 카드 + 무대 최소 차이

@@ -618,7 +618,14 @@ function _enterTeam(val, teamRef, opts) {
           focused.classList.contains('js-body-input')   ||
           focused.classList.contains('js-choice-label'));
 
-    if (!isTypingCard) {
+    /* v118: pan/drag/pinch 중엔 renderAll 박지 X — Firebase echo로 박혀있는 사용자 조작
+       방해 박힘. 조작 박지 X 박힌 후 사용자가 카드 박은 거 박지 X면 다음 박은 거에
+       자동 동기 박힘. 안전 — scenes 메모리는 박혀있음. */
+    const isInteracting = (typeof panState !== 'undefined' && panState)
+                       || (typeof dragState !== 'undefined' && dragState)
+                       || (typeof pinchState !== 'undefined' && pinchState);
+
+    if (!isTypingCard && !isInteracting) {
       renderAll();
     }
     /* v116: 모바일 텍스트형이 박힌 상태면 노드 구조 화면도 같이 박음.

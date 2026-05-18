@@ -305,9 +305,21 @@ function _rtEsc(s) {
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-/* ── 장면 한 줄 미리보기 텍스트 (제목 우선, 없으면 본문 앞부분) ── */
+/* ── 장면 한 줄 미리보기 텍스트 (v118: 본문 우선, title은 fallback) ──
+   사용자 박은 명: 루트보기에 보이는 거 = 본문(body) 요약이어야. 옛엔 title만 박음
+   → 학생들이 body 박은 후에도 '(내용 없음)' 박혀있었음.
+   분기:
+   · 표지(cover): title 또는 subtitle 박음 (cover엔 body 없음)
+   · 일반/엔딩: body 우선, body 박지 X면 title (legacy 호환 — 옛 작품 title에 본문 박힌 경우) */
 function _rtPreviewText(scene) {
-  const raw = String(scene.title || '').trim();
+  if (!scene) return '(내용 없음)';
+  const isCover = (scene.type === 'cover' || scene.isCover);
+  let raw;
+  if (isCover) {
+    raw = String(scene.title || scene.subtitle || '').trim();
+  } else {
+    raw = String(scene.body || scene.title || '').trim();
+  }
   if (!raw) return '(내용 없음)';
   /* 줄바꿈은 공백으로 합치고 앞 80자까지 */
   const oneLine = raw.replace(/\s+/g, ' ');

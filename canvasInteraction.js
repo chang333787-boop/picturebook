@@ -8,14 +8,21 @@
 function getCanvas() { return document.getElementById('canvas'); }
 function getWrap()   { return document.getElementById('canvas-wrap'); }
 
+/* v118: RAF로 묶음 + translate3d 박음 — iPad/Android tablet 부드러움.
+   옛엔 매 touchmove마다 style.transform 직접 박음 → 60+ frame/초 부담.
+   RAF 박으면 한 frame에 한 번만 박음. translate3d 박으면 GPU layer 강제 박힘. */
+let _xfPending = false;
 function applyTransform() {
-  const canvas = getCanvas();
-  /* v117: CSS `zoom` 비표준 박지 X — iPad Safari에서 매번 reflow 박혀 렉 박힘.
-     `transform: translate() scale()`로 박음 → GPU 가속 + 부드러운 zoom.
-     transform-origin: 0 0 박혀있어야 (CSS에 박음) — pan offset 계산이 origin-0
-     기준이라. 박지 못하면 zoom 박은 위치 박힘. */
-  canvas.style.transform = `translate(${canvasOffX}px, ${canvasOffY}px) scale(${zoom})`;
-  document.getElementById('zoom-label').textContent = Math.round(zoom * 100) + '%';
+  if (_xfPending) return;
+  _xfPending = true;
+  requestAnimationFrame(() => {
+    _xfPending = false;
+    const canvas = getCanvas();
+    /* translate3d 박음 (translateZ(0) 효과로 GPU 박힘). transform-origin: 0 0 박혀있음. */
+    canvas.style.transform = `translate3d(${canvasOffX}px, ${canvasOffY}px, 0) scale(${zoom})`;
+    const label = document.getElementById('zoom-label');
+    if (label) label.textContent = Math.round(zoom * 100) + '%';
+  });
 }
 
 function getTouchDist(t) {

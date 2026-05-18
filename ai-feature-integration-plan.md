@@ -1,71 +1,127 @@
-# 가지(branch) AI 기능 통합 설계 문서
+# 가지(branch) AI 기능 통합 설계 문서 — **v2 (제품 기능 기준)**
 
-> **이 문서의 목적**: 향후 AI 기능을 가지(branch) 프로젝트에 박을 때 사용할 통합 프롬프트, 입출력 JSON 구조, Firebase 흐름, 저장/수락/되돌리기 설계, 비용/보안 위험, 구현 우선순위를 박은 사전 설계.
+> **이 문서의 목적**: 가지(branch) 제품 안에 들어갈 AI 다듬기 기능의 정체성·정책·프롬프트·입출력 구조·저장 흐름·비용·구현 우선순위를 정의한 사전 설계 문서.
 >
-> **현재 단계**: **설계 문서화만**. 실제 AI API 연결·Cloud Functions·DB 필드·UI 버튼·rules 변경은 박지 X.
+> **현재 단계**: 설계 문서화만. 실제 AI API 연결·Cloud Functions·DB 필드·UI 버튼·rules 변경은 진행하지 않는다.
+>
+> **v2 갱신 이유 (2026-05-18)**:
+> - v1은 수업자료/공개수업 맥락이 섞여서 1단계와 2단계의 정체성이 흔들렸음
+> - v1 기준으로 만든 결과물에서 1단계와 2단계 차이가 너무 작게 나타남
+> - 본 v2는 **제품 기능 기준만** 사용 — 수업 맥락 완전 제거
+> - 변화 폭 % 수치 대신 **허용 행동/금지 행동 체크리스트** 도입
+> - 이미지는 모델/파라미터 선택이 설계의 일부임을 명시
+> - quota를 베타 → 안정화 두 단계로 분리
 >
 > **출처**:
 > - 사용자 v106 세션 (2026-05-16) AI 기능 설계 원본 — `project_branch_ai_design.md` 메모리
-> - 사용자 v130 직후 박은 GPT 통합 프롬프트 초안 (텍스트 강도 1·2, 이미지 강도 1·2, 입출력 JSON, HTML 비교, 시스템 프롬프트)
-> - 가지 v130까지 실제 코드 구조 (viewer-data.js, viewer-locks.js, storyAnalyzer.js, viewer-edit.js)
+> - GPT 재설계안 (2026-05-18) — 수업 맥락 배제, 제품 기능 기준
+> - Claude 검토 답변 (2026-05-18) — 변화 폭 측정 문제, 모델 선택, 출력 JSON 구조 보완
+> - 가지 v130 시점 실제 코드 구조
 
 ---
 
 ## 목차
 
-0. [큰 원칙 (사용자 박은 정책 정합)](#0-큰-원칙)
-1. [텍스트 AI 강도 1/2 프롬프트](#1-텍스트-ai-프롬프트)
-2. [이미지 AI 강도 1/2 프롬프트](#2-이미지-ai-프롬프트)
-3. [AI 입력 JSON 구조 (가지 scene 모델 매핑)](#3-ai-입력-json-구조)
-4. [AI 출력 JSON 구조](#4-ai-출력-json-구조)
-5. [HTML 비교 미리보기 구조](#5-html-비교-미리보기)
-6. [Firebase 읽기 경로 — 실제 path](#6-firebase-읽기-경로)
-7. [저장/수락/되돌리기 설계](#7-저장수락되돌리기-설계)
-8. [비용/보안/API key/Cloud Functions/quota 위험](#8-비용보안-위험)
+0. [기능의 정체성과 큰 원칙](#0-기능의-정체성과-큰-원칙)
+1. [텍스트 AI 1단계/2단계 — 체크리스트 정의](#1-텍스트-ai-1단계2단계--체크리스트-정의)
+2. [이미지 AI 1단계/2단계 — 모델·파라미터 기반](#2-이미지-ai-1단계2단계--모델파라미터-기반)
+3. [AI 입력 JSON 구조](#3-ai-입력-json-구조)
+4. [AI 출력 JSON 구조 (safeAddition / creativeAddition)](#4-ai-출력-json-구조)
+5. [사용자에게 보여주는 비교 화면 구조](#5-사용자에게-보여주는-비교-화면-구조)
+6. [Firebase 읽기 경로](#6-firebase-읽기-경로)
+7. [원본 보존 / 적용 / 되돌리기 설계](#7-원본-보존--적용--되돌리기-설계)
+8. [비용·quota — 단계별 정책](#8-비용quota--단계별-정책)
 9. [구현 시 필요한 파일 후보](#9-구현-파일-후보)
 10. [구현 우선순위](#10-구현-우선순위)
-11. [Phase 0 결정문 (구현 전 사용자 결정 박을 자리)](#11-phase-0-결정문)
+11. [Phase 0 결정문](#11-phase-0-결정문)
 
 ---
 
-## 0. 큰 원칙
+## 0. 기능의 정체성과 큰 원칙
 
-### 0-1. 사용자 박은 원본 정책 (v106 세션, 절대 변경 X)
+### 0-1. AI 다듬기 기능의 정체성
 
-- 작품의 주인은 **학생**. AI는 보조자.
-- **즉시 자동 적용 X** — 항상 학생/교사 확인 단계 거침
-- 원작의 핵심 의미 변경 X
-- **장면 수**, **선택지 의미**, **분기 흐름** 변경 X
-- 학생 문체와 의도 최대한 유지
-- 강도 1 = "살짝 다듬어준 느낌". 강도 2 = "장면 발전" (다른 작품 박지 X)
-- 이미지 AI = 그림책 모드 전용. 강도 1 = 정돈. 강도 2 = 발전 (교체 X)
-- **장면 간 시각적 일관성** 매우 중요 (이미지)
+가지의 AI 다듬기는 **학생 작품을 대신 만들지 않는다**. 또한 **단순 맞춤법 검사기**도 아니다.
 
-### 0-2. 가지 프로젝트 정합 정책
+정체성은 다음 한 줄로 요약된다.
 
-- **본문 줄바꿈 유지** (v127 정책) — `\n\n` 절대 trim X. AI 결과도 줄바꿈 그대로 보존
-- **buttons + choiceA/B 호환** — AI가 라벨 수정 시 두 필드 모두 동기화 (viewer-data.js ALLOWED 기준)
-- **잠금 박은 상태에서만 적용** — 다른 친구 잠금 박혀있으면 AI 결과 적용 차단
-- **Storage 경유** (v113 만원 사건 이후) — 이미지 큰 base64 RTDB 박지 X. Storage URL만 박음
-- **공개수업 정책 박을 거** (사용자 명시 박은 거 있음, 메모리 박지 X) — 학생이 직접 박는지 교사 승인인지 결정 필요
-- **모바일 텍스트형 통합** — `mobileTextBranch.js` 박힌 모바일 UI에도 AI 진입점 박혀야 함
+> **사용자가 만든 분기형 이야기와 그림책 장면을 바탕으로, 원본 구조를 지키면서 표현의 완성도를 높이는 보조 기능.**
+
+두 단계의 한 줄 정의:
+
+- **1단계 = 안심하고 받을 수 있는 정돈**
+- **2단계 = 매력적이지만 판단이 필요한 발전**
+
+### 0-2. 핵심 원칙 (변경 불가)
+
+**브랜치 구조는 절대 바꾸지 않는다**
+
+AI가 손댈 수 없는 항목:
+- 장면 수
+- sceneId
+- nextId
+- 선택지 연결
+- 엔딩 위치 / 진엔딩 여부
+- 분기 흐름
+- 장면 순서
+- 원본 이미지 파일 자체
+- 원본 데이터 (저장 전 상태)
+
+AI가 손댈 수 있는 항목:
+- 장면 제목
+- 장면 본문
+- 선택지 라벨
+- 그림 표현 결과물 제안
+- 이미지 다듬기 결과물 제안
+
+즉, AI는 **내용 표현을 제안**할 수 있지만 **구조는 건드리지 않는다**.
+
+**원본은 반드시 보존한다**
+
+- AI 결과는 원본을 자동으로 대체하지 않는다
+- 1단계 결과 / 2단계 결과 / 원본은 별도로 저장된다
+- 사용자가 명시적으로 적용하기 전까지 원본은 그대로 유지된다
+- 적용 후에도 되돌리기가 가능하다
+
+**AI는 장면 하나만 보지 않는다 (특히 2단계)**
+
+텍스트 AI는 다음 정보를 함께 본다:
+- 전체 장면 목록
+- 각 장면의 본문과 선택지
+- 선택지별 nextId
+- 시작 장면 / 엔딩 장면 / 진엔딩
+- 이 장면으로 들어오는 선택지
+- 이 장면에서 나가는 선택지
+- 루트보기/경로 분석 결과
+- 반복 등장하는 캐릭터·설정
+
+2단계는 이 맥락 분석 없이 진행하지 않는다.
+
+### 0-3. 가지 프로젝트 정합 정책
+
+- **본문 줄바꿈 유지** (v127 정책) — `\n\n` 절대 trim 하지 않음. AI 결과도 줄바꿈 그대로 보존
+- **buttons + choiceA/B 호환** — AI가 라벨을 수정하면 두 필드 모두 동기화 (viewer-data.js ALLOWED 기준)
+- **잠금 상태 준수** (v129 정책) — "내가 수정하기" 전에는 AI 적용도 불가능
+- **Storage 경유** (v113 만원 사건 이후) — 이미지 결과는 Storage URL만 RTDB에 저장. base64 금지
+- **모바일 텍스트형 통합** — `mobileTextBranch.js` 모바일 UI에도 AI 진입점이 들어가야 함
 
 ---
 
-## 1. 텍스트 AI 프롬프트
+## 1. 텍스트 AI 1단계/2단계 — 체크리스트 정의
 
 ### 1-1. 공통 시스템 프롬프트
 
-GPT 박은 원본 그대로. 가지 컨텍스트 박은 거 두 줄 추가.
+모든 텍스트 AI 호출에 공통으로 들어가는 베이스.
 
 ```text
-당신은 초등학생이 만든 분기형 이야기 작품을 도와주는 AI 보조자입니다.
+당신은 초등학생이 만든 분기형 이야기를 도와주는 AI 보조자입니다.
 
-이 작품은 일반적인 일직선 글이 아니라, 여러 장면과 선택지가 연결된 "분기형 이야기"입니다.
-따라서 한 장면만 보고 고치면 안 됩니다.
+이 작품은 일반적인 일직선 글이 아니라, 여러 장면과 선택지가 연결된 
+"분기형 이야기"입니다. 따라서 한 장면만 보고 고치면 안 됩니다.
 반드시 전체 장면 구조, 선택지 흐름, 엔딩, 앞뒤 맥락을 함께 고려해야 합니다.
 
-당신의 역할은 학생 작품을 대신 만드는 것이 아니라, 학생이 만든 작품을 더 잘 보이도록 도와주는 것입니다.
+당신의 역할은 학생 작품을 대신 만드는 것이 아니라, 학생이 만든 작품을 
+더 잘 보이도록 도와주는 것입니다.
 
 가장 중요한 원칙:
 
@@ -74,260 +130,348 @@ GPT 박은 원본 그대로. 가지 컨텍스트 박은 거 두 줄 추가.
 3. 원작의 핵심 의미를 바꾸면 안 됩니다.
 4. 장면 수를 바꾸면 안 됩니다.
 5. 선택지의 의미를 바꾸면 안 됩니다.
-6. 분기 흐름을 바꾸면 안 됩니다.
+6. nextId, 분기 흐름을 바꾸면 안 됩니다.
 7. 원래 없던 사건, 설정, 캐릭터를 마음대로 추가하면 안 됩니다.
 8. 학생의 문체와 의도를 최대한 유지해야 합니다.
-9. 수정한 경우, 무엇을 왜 바꾸었는지 설명해야 합니다.
-10. 확신이 없으면 크게 바꾸지 말고 "수정 제안"으로만 남겨야 합니다.
 
-입력으로 제공되는 정보:
-- 작품 제목 / 작품 설명
-- 전체 장면 목록 (id, title, body, choices, isEnding, isTrueEnd)
-- 시작 장면(entrySceneId) / 다시 시작점(replaySceneId)
-- 루트 분석 결과 (엔딩별 경로)
-- 현재 수정 대상 장면(targetSceneId) 또는 작품 전체(scope=wholeProject)
+수정 가능 영역: 장면 본문(body), 장면 제목(title), 선택지 라벨(label).
+수정 금지 영역: 장면 수, sceneId, nextId, 선택지 연결, 엔딩 위치.
 
-출력:
-- 반드시 구조화된 JSON (스키마는 별도 명시)
-- 원본 장면 수 / 장면 ID 절대 변경 금지
-- 선택지 nextId 변경 금지
-- 수정 가능 영역: 장면 본문(body), 장면 제목(title), 선택지 라벨(label)만
+본문의 줄바꿈(\n, \n\n)은 학생이 의도적으로 넣은 호흡일 수 있습니다.
+절대 trim하지 마세요.
 
-가지 프로젝트 추가 정책:
-- 본문의 줄바꿈(\n, \n\n)은 학생이 의도적으로 박은 호흡일 수 있습니다. 절대 trim하지 마세요.
-- 한 장면이 여러 경로에 반복 등장할 수 있습니다. 같은 sceneId의 수정은 모든 경로에 동일하게 적용됩니다.
+한 장면이 여러 경로에 반복 등장할 수 있습니다. 같은 sceneId의 수정은 
+모든 경로에 동일하게 적용됩니다.
+
+출력은 반드시 구조화된 JSON으로 작성합니다 (별도 스키마 참조).
 ```
 
-### 1-2. 강도 1 — "살짝 다듬어준 느낌"
+### 1-2. 1단계 — 안심하고 받을 수 있는 정돈
+
+**한 줄 정의**: 기존 문장을 읽기 좋게 정리하되, 새 정보는 거의 넣지 않는다.
+
+**허용 행동 체크리스트** (이것만 한다)
+
+- [ ] 맞춤법 수정
+- [ ] 띄어쓰기 수정
+- [ ] 조사 자연스럽게 수정
+- [ ] 너무 끊긴 문장을 자연스럽게 연결
+- [ ] 어색한 표현 정리
+- [ ] 생략된 주어/대상의 최소 보충 (이해 안 되는 경우만)
+- [ ] 선택지 라벨 표현 정돈
+- [ ] 문장을 읽기 좋게 재배열 (의미 변경 없이)
+
+**금지 행동 체크리스트** (이것은 하지 않는다)
+
+- [ ] 새 문장 여러 개 추가
+- [ ] 새 대사 추가
+- [ ] 배경 묘사 추가
+- [ ] 감정 표현 크게 추가
+- [ ] 사건 확대
+- [ ] 새로운 설정 추가
+- [ ] 캐릭터 성격 추가
+- [ ] 장면 분위기 변경
+- [ ] 결말 의미 변경
+- [ ] 선택지 의미 변경
+
+**검증 조건** (후처리)
+
+- 원문 글자 수 대비 결과 글자 수 비율이 0.8 ~ 1.3 사이여야 한다 (벗어나면 재시도)
+- 새 문장(원문에 없는 의미 단위)을 추가했으면 재시도
+- 출력 JSON의 `structureCheck` 필드가 모두 `true`여야 한다
+
+**프롬프트 지시문 (1단계)**
 
 ```text
-당신은 초등학생이 만든 분기형 이야기의 문장을 "살짝 다듬는" 역할입니다.
+이번 작업은 "1단계 정돈"입니다.
 
-수정 강도는 1단계입니다.
+해야 할 것:
+- 맞춤법, 띄어쓰기, 조사를 자연스럽게 정리
+- 너무 끊긴 문장을 부드럽게 연결
+- 어색한 표현 정돈
+- 이해 안 되는 부분에서 주어/대상 최소 보충
 
-목표:
-AI가 다시 쓴 것처럼 보이면 안 됩니다.
-학생이 쓴 글의 느낌을 유지하면서, 맞춤법·띄어쓰기·문장 연결만 조금 정리합니다.
+하지 말 것:
+- 새 문장 추가 금지
+- 새 대사 추가 금지
+- 배경 묘사 추가 금지
+- 감정 표현 추가 금지
+- 사건이나 설정 추가 금지
 
-해야 할 일:
-1. 맞춤법을 고칩니다.
-2. 띄어쓰기를 고칩니다.
-3. 너무 어색한 문장 연결을 자연스럽게 정리합니다.
-4. 앞뒤 장면과 흐름이 아주 어색한 경우에만 소폭 수정합니다.
-5. 선택지 라벨이 장면 내용과 살짝 어긋나면 자연스럽게 다듬습니다.
-6. 학생이 쓴 표현과 분위기는 최대한 유지합니다.
-
-하면 안 되는 일:
-1. 문체를 크게 바꾸지 마세요.
-2. 문장 수를 크게 늘리지 마세요.
-3. 새로운 사건을 추가하지 마세요.
-4. 새로운 캐릭터나 설정을 추가하지 마세요.
-5. 장면의 의미를 바꾸지 마세요.
-6. 선택지의 의미를 바꾸지 마세요.
-7. 엔딩의 방향을 바꾸지 마세요.
-8. 학생 작품이 AI 글처럼 보이게 만들지 마세요.
-
-수정 기준:
-- 원문이 어색해도 학생다운 표현이면 최대한 유지합니다.
-- 명백한 오타, 맞춤법, 띄어쓰기만 우선 고칩니다.
-- 문장이 너무 길거나 의미가 끊길 때만 가볍게 정리합니다.
-- 장면의 분위기와 사건은 그대로 둡니다.
-
-출력 형식:
-반드시 아래 [4. AI 출력 JSON 구조] 스키마를 따르세요.
-mode="text", level=1.
-
-중요:
-- 수정하지 않아도 되는 장면은 sceneEdits에 넣지 않아도 됩니다.
-- 단, 수정 대상 장면이 주어졌다면 그 장면은 반드시 검토해야 합니다.
-- 본문의 줄바꿈(\n, \n\n)은 원문 그대로 유지하세요. trim 금지.
+규칙: 결과의 글자 수는 원문의 0.8 ~ 1.3배 안에 있어야 합니다.
+규칙: 학생이 쓴 문장의 느낌이 남아야 합니다.
+규칙: 새 정보를 넣지 마세요. 기존 문장만 다듬으세요.
 ```
 
-### 1-3. 강도 2 — "장면 발전"
+**좋은 1단계 예시**
+
+```
+원문:
+마루, 하루가 길을 가다 멧돼지에 쫓긴다. 도망가고 있는데 숲속에서 소리가 난다.
+
+1단계:
+마루와 하루는 길을 가다가 갑자기 멧돼지에게 쫓기게 되었다. 
+도망치는 중에 숲속 어딘가에서 이상한 소리가 들려왔다.
+```
+
+원문 사건/캐릭터/분기 구조 그대로. 표현만 정돈.
+
+### 1-3. 2단계 — 매력적이지만 판단이 필요한 발전
+
+**한 줄 정의**: 원래 사건과 분기 구조는 유지하되, 장면의 배경·행동·대사·감정·인과를 보충하여 더 완성도 있는 장면으로 발전시킨다.
+
+**허용 행동 체크리스트** (이것을 할 수 있다)
+
+- [ ] 1단계 정돈 모두 포함
+- [ ] 배경 묘사 추가
+- [ ] 인물 행동 묘사 추가
+- [ ] 짧은 대사 추가
+- [ ] 감정 반응 추가
+- [ ] 장면 분위기 강화
+- [ ] 들어오는 선택지의 결과를 도입에 반영
+- [ ] 나가는 선택지로 이어질 기대감 만들기
+- [ ] 생략된 인과 보충
+- [ ] 분기별 일관성 점검
+- [ ] 두 선택지가 같은 장면으로 향하는 경우 의미 차이를 본문에서 살리기
+
+**금지 행동 체크리스트** (이것은 하지 않는다)
+
+- [ ] 장면 수 변경
+- [ ] nextId 변경
+- [ ] 선택지 의미 변경
+- [ ] 결말 방향 변경
+- [ ] 캐릭터 정체성 변경
+- [ ] 원작에 없는 큰 사건 추가
+- [ ] 고유명사 삭제 또는 일반화 ("뇨뇨" → "엘프" 같은 변환 금지)
+- [ ] 학생 작품의 핵심 설정 변경
+- [ ] 장르 변경
+- [ ] 너무 어른스럽고 매끈한 문체로 변환
+
+**검증 조건** (후처리)
+
+- 결과 글자 수가 원문의 1.5배 이상이어야 한다 (그 미만이면 1단계와 차이가 부족하니 재시도)
+- 결과 글자 수가 원문의 4배를 넘으면 재시도 (과도)
+- 캐릭터 이름이 모두 보존되었는지 확인
+- 출력 JSON의 `structureCheck`, `preservedCheck` 필드가 모두 `true`
+
+**2단계가 반드시 거치는 분석 절차**
+
+장면만 다시 쓰면 안 된다. 다음 절차를 거친 뒤에야 본문을 작성한다.
+
+1. 전체 장면 구조 파악 (분기 그래프)
+2. 이 장면으로 들어오는 선택지 확인
+3. 이 장면에서 나가는 선택지 확인
+4. 약한 연결 식별 (인과가 자연스럽지 않은 분기)
+5. 생략된 설명 식별
+6. 위 분석을 반영하여 본문 발전
+
+이 절차는 입력 JSON에 분석 결과를 함께 넣음으로써 강제한다 (3장 참조).
+
+**프롬프트 지시문 (2단계)**
 
 ```text
-당신은 초등학생이 만든 분기형 이야기의 장면을 더 살아 있게 발전시키는 역할입니다.
+이번 작업은 "2단계 발전"입니다.
 
-수정 강도는 2단계입니다.
+먼저 분석:
+1. 입력 JSON의 routes를 보고 이 장면의 위치를 파악
+2. 들어오는 선택지(들)의 의미를 본문에 자연스럽게 반영
+3. 나가는 선택지(들)의 의미가 본문 끝에서 자연스럽게 이어지도록
+4. 입력 JSON의 weakConnections에 이 장면이 있으면 그 보충을 우선
 
-목표:
-학생의 원래 이야기를 바탕으로 장면을 더 구체적이고 생생하게 만듭니다.
-하지만 완전히 다른 작품으로 바꾸면 안 됩니다.
+해야 할 것:
+- 1단계 정돈 모두 포함
+- 배경, 시간, 장소 느낌 보충
+- 인물의 행동, 짧은 말, 반응 추가
+- 장면 분위기 강화 (긴장감/따뜻함/슬픔 등 원작 톤 살리기)
+- 앞뒤 장면과의 연결이 자연스럽도록 보충
 
-해야 할 일:
-1. 강도 1의 맞춤법·띄어쓰기·문장 연결 정리를 포함합니다.
-2. 짧은 장면을 조금 더 구체적으로 만듭니다.
-3. 배경, 시간, 장소 느낌을 자연스럽게 살립니다.
-4. 인물의 행동, 짧은 말, 반응을 추가해 장면을 더 잘 보이게 합니다.
-5. 앞뒤 장면과 자연스럽게 이어지도록 흐름을 점검합니다.
-6. 선택지가 다음 장면과 자연스럽게 이어지는지 확인합니다.
-7. 분기별 설정이 서로 충돌하지 않는지 확인합니다.
+하지 말 것:
+- 장면 수, nextId, 선택지 의미 변경 금지
+- 캐릭터 정체성 변경 금지
+- 원작에 없는 큰 사건 추가 금지
+- 학생이 쓴 고유명사(뇨뇨, 시민, 막대자 등) 변경 금지
+- 너무 어른스럽고 매끈한 문체로 변환 금지
 
-하면 안 되는 일:
-1. 장면의 핵심 의미를 바꾸지 마세요.
-2. 결말 방향을 바꾸지 마세요.
-3. 선택지 의미를 바꾸지 마세요.
-4. 장면 수를 늘리거나 줄이지 마세요.
-5. nextId를 바꾸지 마세요.
-6. 원래 없던 큰 사건을 추가하지 마세요.
-7. 학생이 의도하지 않은 장르나 분위기로 바꾸지 마세요.
-8. 너무 어른스러운 문장으로 바꾸지 마세요.
-9. 학생 작품이 AI가 대신 쓴 것처럼 보이면 안 됩니다.
-
-수정 기준:
-- "더 잘 쓴 글"보다 "학생 작품이 더 잘 보이는 글"을 목표로 합니다.
-- 초등학생 작품의 자연스러운 표현을 완전히 없애지 않습니다.
-- 장면의 핵심 행동과 결과는 그대로 유지합니다.
-- 추가하는 묘사는 원문에서 자연스럽게 추론 가능한 범위로 제한합니다.
-
-출력 형식:
-반드시 [4. AI 출력 JSON 구조] 스키마를 따르세요.
-mode="text", level=2.
-globalConsistencyCheck 필드를 반드시 채우세요.
-AI가 자신 있게 고칠 수 없는 부분은 riskNotes에 적으세요.
-
-중요:
-- 본문 줄바꿈(\n, \n\n) 원문 그대로 유지. trim 금지.
-- 같은 sceneId가 여러 경로에 등장하면 수정은 한 번만 (모든 경로에 동일 반영됨).
+규칙: 결과 글자 수는 원문의 1.5 ~ 4배 안에 있어야 합니다.
+규칙: 새로 넣은 묘사/대사 중 원문에서 추론 불가능한 것은 
+      creativeAddition으로 표시해주세요.
+규칙: 원문에서 자연스럽게 추론 가능한 것은 safeAddition으로 표시해주세요.
 ```
+
+**좋은 2단계 예시**
+
+```
+원문:
+마루, 하루가 길을 가다 멧돼지에 쫓긴다. 도망가고 있는데 숲속에서 소리가 난다.
+
+2단계:
+마루와 하루는 조용한 숲길을 나란히 걷고 있었다. 그때 뒤쪽 풀숲에서 
+"부스럭" 하는 소리가 들렸다. 두 친구가 고개를 돌리는 순간, 커다란 
+멧돼지가 씩씩거리며 달려왔다.
+
+"도망쳐!"
+
+마루가 외치자, 둘은 정신없이 숲길을 따라 뛰기 시작했다. 한참을 달리다 
+보니, 이번에는 깊은 숲속 어딘가에서 처음 듣는 이상한 소리가 들려왔다.
+```
+
+원문 사건/캐릭터/분기 그대로. 배경·대사·움직임이 추가됨.
+
+### 1-4. 1단계 vs 2단계 — 한눈 비교
+
+| 항목 | 1단계 정돈 | 2단계 발전 |
+|---|---|---|
+| 목적 | 읽기 좋게 정리 | 장면을 살아 있게 발전 |
+| 원문 유지 | 매우 강함 | 핵심만 유지 |
+| 분량 변화 | 0.8 ~ 1.3배 | 1.5 ~ 4배 |
+| 새 문장 추가 | 금지 | 가능 |
+| 대사 추가 | 금지 | 가능 |
+| 배경 묘사 | 금지 | 가능 |
+| 감정 표현 | 최소 (기존만 다듬기) | 추가 가능 |
+| 장면 간 연결 보충 | 매우 약하게 | 적극적 |
+| AI 해석 개입 | 거의 없음 | 중간 |
+| 구조 분석 필요 | 선택 | **필수** |
+| 적용 안정성 | 높음 (자동 적용도 가능한 수준) | 사용자 검토 필요 |
 
 ---
 
-## 2. 이미지 AI 프롬프트
+## 2. 이미지 AI 1단계/2단계 — 모델·파라미터 기반
 
-### 2-1. 강도 1 — 정돈
+이미지는 텍스트와 달리 **프롬프트만으로는 1단계와 2단계 차이를 안정적으로 통제할 수 없다.** 따라서 모델 선택과 파라미터(특히 denoising strength)가 설계의 핵심이다.
 
-```text
-이 이미지는 초등학생이 직접 그린 그림책 장면입니다.
+### 2-1. 이미지 1단계 — 손그림 정돈
 
-당신의 역할은 이 그림을 새로 그리는 것이 아니라, 학생 그림의 느낌을 유지하면서 선과 색을 조금 정돈하는 것입니다.
+**한 줄 정의**: 학생 그림의 구도와 캐릭터는 그대로 두고, 선·색·스캔 상태만 조금 정리한다.
 
-수정 강도는 1단계입니다.
+**기술 사양**
 
-반드시 유지할 것:
-1. 원래 캐릭터의 위치
-2. 원래 캐릭터의 생김새
-3. 원래 배경 배치
-4. 원래 장면 구도
-5. 원래 색감의 분위기
-6. 학생 손그림 느낌
-7. 장면의 핵심 의미
+- 권장 모델: SDXL img2img (Replicate) 또는 Imagen Edit
+- denoising strength: **0.20 ~ 0.30** (낮게)
+- ControlNet (선택): canny edge — 원본 윤곽 강제 유지
+- 입력: 원본 학생 이미지 + 짧은 프롬프트 (상세 묘사 X)
 
-해도 되는 것:
-1. 선을 조금 더 깔끔하게 정리
-2. 색칠이 비어 있거나 삐져나간 부분을 약간 정돈
-3. 흐릿한 부분을 조금 선명하게
-4. 전체적으로 보기 좋게 정리
-5. 종이 스캔 느낌이나 조명 차이를 약간 보정
+**허용 행동 체크리스트**
 
-하면 안 되는 것:
-1. 캐릭터 위치를 바꾸지 마세요.
-2. 캐릭터를 다른 모습으로 바꾸지 마세요.
-3. 배경을 새로 만들지 마세요.
-4. 구도를 바꾸지 마세요.
-5. 학생 그림을 전문 일러스트처럼 완전히 바꾸지 마세요.
-6. 새로운 물건이나 인물을 추가하지 마세요.
-7. 원래 장면에 없는 사건을 그리지 마세요.
-8. 다른 장면과 스타일이 튀게 만들지 마세요.
+- [ ] 흐릿한 선을 조금 또렷하게
+- [ ] 색칠이 비어 있거나 삐져나간 부분을 살짝 정돈
+- [ ] 색감 균형 조정
+- [ ] 종이 스캔 얼룩이나 조명 차이를 약간 보정
+- [ ] 손그림 질감 유지
 
-스타일:
-- 따뜻한 어린이 그림책 느낌
-- 손그림 질감 유지
-- 과하게 완벽한 디지털 일러스트 금지
-- 학생 그림을 깨끗하게 보정한 느낌
+**금지 행동 체크리스트**
 
-출력 목표:
-원본을 아는 사람이 봤을 때 "같은 그림인데 더 깔끔해졌다"고 느껴야 합니다.
-"AI가 새로 그렸다"고 느끼면 실패입니다.
-```
+- [ ] 캐릭터 위치 변경
+- [ ] 캐릭터 얼굴/외형 변경
+- [ ] 구도 변경
+- [ ] 배경 새로 만들기
+- [ ] 새 인물/사물 추가
+- [ ] 장면 의미 변경
+- [ ] 디지털 일러스트 톤으로 매끈하게 변환
+- [ ] 손그림 낙서 느낌 제거
 
-### 2-2. 강도 2 — 발전
+**검증 조건**
+
+- 사람이 봤을 때 "내 그림이 조금 더 깨끗해졌다" 정도면 성공
+- "AI가 새로 그렸다"고 느껴지면 실패
+
+**프롬프트 예시**
 
 ```text
-이 이미지는 초등학생이 직접 그린 그림책 장면입니다.
+Edit this children's storybook scene drawn by an elementary student.
+Keep all character positions, faces, composition, and background EXACTLY 
+as drawn. Only smooth rough pencil marks, fill small color gaps, and 
+slightly clean up paper scan artifacts. Maintain the hand-drawn warmth 
+and crayon texture. Do not redraw, do not change anything structural.
 
-당신의 역할은 학생 그림을 완전히 새 그림으로 바꾸는 것이 아니라, 원본 그림의 핵심을 유지하면서 그림책 장면처럼 더 완성도 있게 발전시키는 것입니다.
-
-수정 강도는 2단계입니다.
-
-반드시 유지할 것:
-1. 원래 장면의 핵심 의미
-2. 주요 캐릭터의 정체성
-3. 캐릭터 간 관계
-4. 원래 그림의 큰 구도
-5. 중요한 사물의 위치
-6. 작품 전체의 색감과 분위기
-7. 다른 장면과 어울리는 스타일
-
-해도 되는 것:
-1. 캐릭터 특징을 조금 더 분명하게 표현
-2. 배경을 조금 더 풍부하게 표현
-3. 화면 구성을 조금 정리
-4. 색을 더 보기 좋게 조정
-5. 장면의 분위기를 살리는 작은 디테일 추가
-6. 그림책 장면처럼 완성도 높이기
-
-하면 안 되는 것:
-1. 완전히 다른 장면으로 바꾸지 마세요.
-2. 캐릭터 정체성을 바꾸지 마세요.
-3. 핵심 구도를 완전히 바꾸지 마세요.
-4. 원래 없는 큰 사건을 추가하지 마세요.
-5. 장면의 의미를 바꾸지 마세요.
-6. 학생 그림의 개성을 완전히 없애지 마세요.
-7. 다른 장면과 스타일이 튀게 만들지 마세요.
-8. 과도하게 화려하거나 상업 일러스트처럼 만들지 마세요.
-
-스타일:
-- 어린이 그림책 느낌
-- 원본 학생 그림을 존중한 발전
-- 따뜻하고 부드러운 분위기
-- 장면 간 일관된 색감과 선 분위기
-- 너무 사실적이지 않게
-- 너무 AI 일러스트처럼 매끈하지 않게
-
-출력 목표:
-"학생이 그린 장면이 더 풍부하게 발전했다"고 느껴야 합니다.
-"완전히 다른 그림으로 바뀌었다"고 느끼면 실패입니다.
+Result should feel like the same drawing, just slightly neater.
 ```
 
-### 2-3. 작품 단위 일관성 보조 프롬프트
+### 2-2. 이미지 2단계 — 그림책 장면화
 
-```text
-이 작품은 여러 장면이 이어지는 하나의 그림책입니다.
-각 장면은 서로 같은 작품처럼 보여야 합니다.
+**한 줄 정의**: 학생 그림의 핵심 구도와 캐릭터를 유지하면서, 빛·표정·배경·움직임·분위기를 더해 그림책 장면처럼 발전시킨다.
 
-장면별 이미지를 수정할 때 다음 일관성을 유지하세요.
+**기술 사양**
 
-1. 같은 캐릭터는 장면마다 같은 캐릭터처럼 보여야 합니다.
-2. 캐릭터의 얼굴, 몸 색, 옷, 주요 특징을 유지하세요.
-3. 배경의 색감과 분위기를 유지하세요.
-4. 선의 굵기와 질감을 비슷하게 유지하세요.
-5. 너무 다른 그림체로 바꾸지 마세요.
-6. 한 장면만 지나치게 화려하게 만들지 마세요.
-7. 원본 학생 그림의 손그림 느낌을 작품 전체에 유지하세요.
+- 권장 모델: SDXL img2img + ControlNet (Replicate) 또는 Imagen 3 + style reference
+- denoising strength: **0.45 ~ 0.55** (중간)
+- ControlNet: canny edge 또는 lineart — 구도/캐릭터 위치 유지
+- Style reference (작품 단위): 첫 번째 2단계 결과 또는 작품 대표 장면을 reference로 사용 → 21장 사이 일관성 강제
+- 입력: 원본 이미지 + 상세 프롬프트 + style reference (선택)
 
-작품 전체 컨텍스트 (런타임에 채워짐):
-- 제목: {{project.title}}
-- 소개: {{project.subtitle}}
-- 주요 캐릭터: {{characters}}      ← 별도 추출 단계 필요 (강도 2 1회 분석)
-- 주요 배경: {{settings}}
-- 전체 분위기: {{mood}}
-- 현재 장면 본문: {{scene.body}}
-- 앞 장면 요약: {{prevScene.summary}}
-- 다음 장면 요약: {{nextScene.summary}}
+**허용 행동 체크리스트**
 
-현재 장면만 예쁘게 만드는 것보다, 전체 그림책 안에서 자연스럽게 이어지는 것이 더 중요합니다.
-```
+- [ ] 캐릭터 표정을 더 또렷하게
+- [ ] 몸짓을 분명하게
+- [ ] 배경에 깊이감 추가
+- [ ] 빛과 그림자 추가
+- [ ] 움직임 표현 (모션 라인, 흙먼지 등)
+- [ ] 중요한 소품 강조
+- [ ] 장면 의미가 잘 보이게 화면 구성 정리
+- [ ] 그림책 페이지 같은 화면 보강
 
-**가지 추가 검토**: 캐릭터/배경/분위기 추출은 별도 사전 분석 단계로 박아야. 작품 등록 시 1회 또는 변경 시점에 텍스트 AI로 추출 → `projectMeta.aiContext` 같은 노드에 캐시.
+**금지 행동 체크리스트**
+
+- [ ] 캐릭터를 다른 인물처럼 변경
+- [ ] 얼굴/머리/옷 정체성 변경
+- [ ] 구도 완전 변경
+- [ ] 원작에 없는 큰 배경 추가
+- [ ] 상업 일러스트처럼 매끈하게 변환
+- [ ] 장면 의미 변경
+- [ ] 다른 장면과 스타일이 튀게 만들기
+
+**검증 조건**
+
+다음 세 질문에 모두 "예"여야 한다:
+- 원본을 알아볼 수 있는가?
+- 같은 작품의 장면인가?
+- 학생 그림에서 출발했다는 느낌이 남아 있는가?
+
+**작품 단위 일관성 — 21장 시퀀스에서 가장 중요**
+
+2단계는 한 장만 발전시키는 게 아니라 21장 전체가 같은 그림체로 보여야 한다.
+
+전략:
+1. **Style anchor 장면 1장 먼저 작업** — 그 결과를 style reference로 박음 (예: 가장 도입 장면 또는 가장 자주 등장하는 장면)
+2. **나머지 장면들은 style reference 강제 적용** — Imagen 3의 style reference 기능 또는 SDXL의 IP-Adapter
+3. **캐릭터 일관성** — 캐릭터별 LoRA 학습은 운영 규모상 과함. 대신 style reference + 상세 프롬프트로 처리
+4. **품질 편차 발생 시** — 같은 장면 1~2회 재생성 허용
+
+### 2-3. 이미지 1단계 vs 2단계 — 한눈 비교
+
+| 항목 | 1단계 정돈 | 2단계 발전 |
+|---|---|---|
+| 목적 | 그림을 깨끗하게 | 장면을 그림책 페이지처럼 |
+| 구도 | 그대로 | 큰 틀 유지 |
+| 캐릭터 | 그대로 | 정체성 유지하면서 또렷하게 |
+| 배경 | 거의 그대로 | 깊이감/분위기 추가 |
+| 색감 | 살짝 정리 | 더 풍부하게 |
+| 움직임 표현 | 거의 없음 | 추가 가능 |
+| denoising strength | 0.20 ~ 0.30 | 0.45 ~ 0.55 |
+| ControlNet | 권장 | 거의 필수 |
+| Style reference | 불필요 | 작품 일관성 위해 권장 |
+| AI 해석 개입 | 낮음 | 중간 |
+| 적용 안정성 | 높음 | 사용자 검토 필요 |
+
+### 2-4. 모델별 비교 (운영 시 선택)
+
+| 모델 | 1단계 적합성 | 2단계 적합성 | 손그림 톤 | 캐릭터 일관성 | 비용/이미지 |
+|---|---|---|---|---|---|
+| DALL-E 3 (OpenAI) | 약함 (원본 보존 약함) | 약함 (1.5단계 수준이 한계) | 약함 | 약함 | $0.04 |
+| Imagen 3 (Google) | 좋음 | 좋음 (style reference 강함) | 중간 | 중간 | 약 $0.04 |
+| **SDXL img2img + ControlNet (Replicate)** | **매우 좋음** | **매우 좋음** | **강함** | 중간 (IP-Adapter 필요) | $0.01 ~ 0.03 |
+| Flux img2img (Replicate) | 좋음 | 좋음 (최신, 품질 ↑) | 강함 | 중간 | $0.03 ~ 0.05 |
+
+**추천 조합**: 1단계 = SDXL img2img low strength + ControlNet canny / 2단계 = SDXL img2img medium strength + ControlNet canny + IP-Adapter style reference.
+
+ChatGPT/DALL-E는 수업 자료용으로는 실험 가능하지만 **제품 운영용으로는 부적합**. 원본 보존이 약하기 때문.
 
 ---
 
 ## 3. AI 입력 JSON 구조
 
-가지 프로젝트의 실제 scene 모델에 맞춰 박은 입력 스키마. `viewer-data.js adaptScenes` 결과와 `storyAnalyzer.js findAllRoutes` 결과를 그대로 활용.
+가지 프로젝트의 실제 scene 모델에 맞춘 입력 스키마. `viewer-data.js adaptScenes` 결과와 `storyAnalyzer.js findAllRoutes` 결과를 그대로 활용한다.
 
-### 3-1. 단일 장면 수정 (singleScene)
+### 3-1. 텍스트 AI 입력 (singleScene 단위)
 
 ```json
 {
@@ -345,37 +489,23 @@ AI가 자신 있게 고칠 수 없는 부분은 riskNotes에 적으세요.
   "target": {
     "sceneId": "3",
     "scope": "singleScene",
-    "level": 1
+    "level": 2
   },
   "scenes": [
     {
-      "id": "1",
-      "num": 1,
-      "type": "cover",
+      "id": "1", "num": 1, "type": "cover",
       "title": "숲속 이야기",
       "subtitle": "숲속에서 일어나는 동물들의 이야기",
       "kicker": "4학년 1반 작품"
     },
     {
-      "id": "2",
-      "num": 2,
-      "type": "normal",
+      "id": "2", "num": 2, "type": "normal",
       "title": "",
-      "body": "마루와 하루는 길을 가다 멧돼지에게 쫓겼다.\n\n점점 더 빨라지는 발소리...",
+      "body": "마루와 하루는 길을 가다 멧돼지에게 쫓겼다.",
       "isStart": true,
       "buttons": [
         { "label": "도망간다",     "nextId": "3" },
         { "label": "나무로 숨는다", "nextId": "4" }
-      ]
-    },
-    {
-      "id": "3",
-      "num": 3,
-      "type": "normal",
-      "body": "둘은 숨을 곳도 없이 계속 뛰었다.",
-      "buttons": [
-        { "label": "강을 건넌다",   "nextId": "5" },
-        { "label": "동굴에 들어간다", "nextId": "6" }
       ]
     }
   ],
@@ -387,70 +517,66 @@ AI가 자신 있게 고칠 수 없는 부분은 riskNotes에 적으세요.
         { "sceneId": "2" },
         { "fromSceneNum": 2, "choiceIndex": 0, "choiceLabel": "도망간다" },
         { "sceneId": "3" },
-        { "fromSceneNum": 3, "choiceIndex": 0, "choiceLabel": "강을 건넌다" },
         { "sceneId": "5", "ending": true }
       ]
+    }
+  ],
+  "context": {
+    "previousSceneIds": ["2"],
+    "nextSceneIds": ["5", "6"],
+    "sceneRoleInRoute": "middle",
+    "incomingChoices": [
+      { "fromSceneId": "2", "choiceLabel": "도망간다" }
+    ],
+    "outgoingChoices": [
+      { "label": "강을 건넌다", "nextSceneId": "5" },
+      { "label": "동굴에 들어간다", "nextSceneId": "6" }
+    ]
+  },
+  "weakConnections": [
+    {
+      "edge": "2-B → 5",
+      "issue": "안 도와줬는데 본인도 잡힘",
+      "applyTo": "sceneId 5"
     }
   ],
   "constraints": {
     "doNotChangeSceneCount": true,
     "doNotChangeNextId": true,
     "doNotChangeBranchMeaning": true,
-    "doNotChangeStructure": true,
     "preserveStudentVoice": true,
-    "preserveLineBreaks": true
-  },
-  "context": {
-    "previousSceneId": "2",
-    "nextSceneIds": ["5", "6"],
-    "sceneRoleInRoute": "middle"
+    "preserveLineBreaks": true,
+    "preserveProperNouns": ["뇨뇨", "시민", "막대자", "마루", "하루"]
   }
 }
 ```
 
-### 3-2. 작품 전체 수정 (wholeProject)
-
-`target.scope = "wholeProject"` 박고 `target.sceneId` 박지 X. `scenes`는 전체 박음. AI는 routes 박힌 경로별로 일관성 검증 후 수정 제안.
-
-### 3-3. 가지 scene 모델 ↔ AI 입력 매핑
+### 3-2. 가지 scene 모델 ↔ AI 입력 매핑
 
 | 가지 필드 | AI 입력 필드 | 출처 |
 |---|---|---|
 | `ViewerState.scenes[id]` | `scenes[]` | viewer-data.js adaptScenes |
-| `scene.id` (= String(num)) | `id` | adaptScenes line ~395 |
-| `scene.num` | `num` | maker 호환 |
-| `scene.body` | `body` | adaptScenes |
-| `scene.title` | `title` | adaptScenes |
-| `scene.choices[i]` | `buttons[i]` (maker 형식) | adaptScenes choices ↔ buttons |
-| `scene.choices[i].label` | `buttons[i].label` | |
-| `scene.choices[i].nextId` | `buttons[i].nextId` | |
-| `scene.isEnding` | `isEnding` | |
-| `scene.isTrueEnd` | `isTrueEnd` | |
-| `scene.type` (cover/normal/ending) | `type` | |
-| `scene.subtitle` (cover only) | `subtitle` | |
-| `scene.kicker` (cover only, v129) | `kicker` | adaptScenes line ~400 |
-| `ViewerState.project.classId` | `project.classId` | viewer-data.js |
-| `ViewerState.project.teamName` | `project.teamName` | |
-| `ViewerState.project.entrySceneId` | `project.entrySceneId` | |
-| `ViewerState.project.replaySceneId` | `project.replaySceneId` | |
+| `scene.id` (= String(num)) | `id` | adaptScenes |
+| `scene.body / title / choices` | 동일 | adaptScenes |
 | `storyAnalyzer.findAllRoutes()` | `routes[]` | storyAnalyzer.js |
+| `_rtPathHtml` weakConnections (v130) | `weakConnections[]` | storyAnalyzer.js (사전 분석) |
 
 ---
 
 ## 4. AI 출력 JSON 구조
 
-GPT 박은 최종안 그대로 + 가지 적용/되돌리기 흐름 박은 거 추가.
+GPT 재설계안과 Claude 검토 답변을 통합한 최종 스키마.
 
-### 4-1. 텍스트 AI 출력 스키마
+### 4-1. 텍스트 출력 스키마
 
 ```json
 {
   "mode": "text",
-  "level": 1,
+  "level": 2,
   "targetScope": "singleScene",
   "safeToApply": true,
 
-  "summary": "맞춤법과 문장 흐름을 조금 정리했습니다.",
+  "summary": "들어오는 선택지 '도망간다'의 결과를 도입에 반영하고, 다음 분기로 이어질 긴장감을 추가했습니다.",
 
   "structureCheck": {
     "sceneCountChanged": false,
@@ -458,7 +584,15 @@ GPT 박은 최종안 그대로 + 가지 적용/되돌리기 흐름 박은 거 �
     "choiceMeaningChanged": false,
     "newEventAdded": false,
     "coreMeaningChanged": false,
-    "lineBreaksPreserved": true
+    "lineBreaksPreserved": true,
+    "properNounsPreserved": true
+  },
+
+  "preservedCheck": {
+    "charactersUnchanged": true,
+    "plotPointsUnchanged": true,
+    "endingDirectionUnchanged": true,
+    "branchStructureUnchanged": true
   },
 
   "sceneEdits": [
@@ -466,10 +600,20 @@ GPT 박은 최종안 그대로 + 가지 적용/되돌리기 흐름 박은 거 �
       "sceneId": "3",
       "field": "body",
       "original": "둘은 숨을 곳도 없이 계속 뛰었다.",
-      "revised":  "둘은 숨을 곳도 없이 계속 뛰었습니다.",
-      "changeLevel": "small",
-      "reason": "문장을 학생 작품 분위기에 맞춰 자연스럽게 다듬었습니다.",
-      "preservedCore": "둘이 도망치는 핵심 상황은 그대로 유지"
+      "revised": "...",
+      "lengthRatio": 2.4,
+      "changeLevel": "medium",
+      "reason": "들어오는 선택지 '도망간다'의 결과를 도입에 박았고, 추격 상황을 시각화함",
+      "preservedCore": "둘이 도망치는 핵심 상황 그대로",
+
+      "additions": {
+        "safeAddition": [
+          "추격 상황의 시각적 묘사 — 원문 '계속 뛰었다'에서 자연스럽게 추론 가능"
+        ],
+        "creativeAddition": [
+          "마루의 짧은 대사 — 원문에는 없는 AI 해석. 학생 톤에 맞는지 확인 필요"
+        ]
+      }
     }
   ],
 
@@ -478,44 +622,62 @@ GPT 박은 최종안 그대로 + 가지 적용/되돌리기 흐름 박은 거 �
       "sceneId": "3",
       "choiceIndex": 0,
       "original": "강을 건넌다",
-      "revised":  "강을 헤엄쳐 건넌다",
+      "revised": "강을 헤엄쳐 건넌다",
       "changeLevel": "small",
-      "reason": "다음 장면(강 한가운데)과 자연스럽게 이어지도록 표현만 보완"
+      "reason": "다음 장면(강 한가운데)과 자연스럽게 이어지도록"
     }
   ],
 
   "warnings": [],
-  "riskNotes": [],
-
-  "studentCheckQuestions": [
-    "이 수정이 우리 작품 느낌을 유지하나요?",
-    "AI가 바꾸면 안 되는 부분을 바꾸지는 않았나요?"
+  "riskNotes": [
+    "마루의 대사가 학생 작품 톤보다 살짝 직접적일 수 있음 — 1단계로 대체 가능"
   ],
 
   "doNotAutoApply": true,
   "modelInfo": {
-    "model": "claude-haiku-4-5",
-    "tokensUsed": 1843,
-    "latencyMs": 2104
+    "model": "claude-sonnet-4-6",
+    "tokensUsed": 2840,
+    "latencyMs": 6204
   }
 }
 ```
 
-### 4-2. 이미지 AI 출력 스키마
+### 4-2. 핵심 — safeAddition vs creativeAddition
 
-이미지 결과 자체는 binary/URL이라 JSON엔 메타만:
+이 두 필드는 **2단계 결과의 신뢰도를 구분**하기 위한 핵심 메커니즘이다.
+
+- **safeAddition**: 원문에서 자연스럽게 추론 가능한 보충. UI에서 일반 색으로 표시.
+- **creativeAddition**: AI가 해석/추측해서 추가한 내용. UI에서 다른 색(예: 노란 강조)으로 표시 → 사용자에게 "이 부분은 AI 해석"임을 알림.
+
+**예시**
+
+| 원문 | 보충 | 분류 |
+|---|---|---|
+| "둘은 숨을 곳도 없이 계속 뛰었다" | "숨을 헐떡이며" | safeAddition (자연스러운 추론) |
+| "토토와 모찌를 만났다" | "토토는 작은 동물이었고" | creativeAddition (원문에 명시 X — AI 추측) |
+| "도와주지 않는다" → 잡혀감 | "밀렵꾼이 길 아는 시민도 노렸다" | safeAddition (인과 보충) |
+| "착해졌다" | "밀렵꾼도 마음 깊은 곳에서는 외로웠던 것일지도 모른다" | creativeAddition (감정/내면 해석) |
+
+### 4-3. 이미지 출력 스키마
 
 ```json
 {
   "mode": "image",
-  "level": 1,
+  "level": 2,
   "targetSceneId": "3",
   "safeToApply": true,
 
-  "originalImageUrl": "https://firebasestorage.googleapis.com/.../scenes/3/original.png",
-  "revisedImageUrl":  "https://firebasestorage.googleapis.com/.../scenes/3/ai-v1-1737224400.png",
+  "originalImageUrl": "https://storage.googleapis.com/.../scene_3.png",
+  "revisedImageUrl": "https://storage.googleapis.com/.../ai-v1-1737224400.png",
 
-  "comparison": {
+  "modelConfig": {
+    "model": "sdxl-img2img",
+    "denoisingStrength": 0.5,
+    "controlnet": "canny",
+    "styleReference": "scene_1_ai_level2.png"
+  },
+
+  "preservedCheck": {
     "characterPositionPreserved": true,
     "compositionPreserved": true,
     "colorMoodPreserved": true,
@@ -524,521 +686,400 @@ GPT 박은 최종안 그대로 + 가지 적용/되돌리기 흐름 박은 거 �
   },
 
   "warnings": [],
-  "riskNotes": [],
-
-  "doNotAutoApply": true,
-  "modelInfo": {
-    "model": "imagen-4-edit",
-    "latencyMs": 18402
-  }
+  "doNotAutoApply": true
 }
 ```
 
-### 4-3. 출력 검증 (런타임 차단 조건)
+### 4-4. 클라이언트 측 검증 (안전망)
 
-AI 결과가 박은 거여도 다음은 **클라이언트에서 차단**해야 (AI가 박지 X 했다고 박혀있어도 실제 박힌 거 검증):
+AI가 self-report를 정직하게 못 할 수 있으므로, 다음은 **클라이언트에서 강제 검증**한다.
 
-- `structureCheck.sceneCountChanged === true` → 박지 X
-- `structureCheck.nextIdChanged === true` → 박지 X
-- `structureCheck.lineBreaksPreserved === false` → 경고
-- `safeToApply === false` → 자동 적용 차단, 학생 확인 필수
-- `sceneEdits[].sceneId` 박지 X 박힌 거(존재 X) → 박지 X
-- `choiceEdits[].choiceIndex` 박은 buttons[] 범위 초과 → 박지 X
+- `lengthRatio`가 정책 범위 벗어나면 → 재시도
+- `sceneEdits[].sceneId`가 존재하지 않는 sceneId면 → 거부
+- `choiceEdits[].choiceIndex`가 buttons 범위 초과면 → 거부
+- 원본 본문에서 사라진 고유명사(`preserveProperNouns`)가 있으면 → 경고
+- `structureCheck` 또는 `preservedCheck` 중 하나라도 false면 → 사용자에게 명시적으로 알림
 
 ---
 
-## 5. HTML 비교 미리보기
+## 5. 사용자에게 보여주는 비교 화면 구조
 
-GPT 박은 구조 그대로. 가지 프로젝트 폰트/색감 박은 거 정합.
+자세한 HTML 구조는 v1 문서와 동일하므로 핵심만 명시.
 
-### 5-1. 미리보기 화면 구조
+- 3열 비교: 원본 / 1단계 / 2단계
+- 각 결과 아래: 변경 요약 + safeAddition/creativeAddition 메모
+- 액션 버튼: `이 수정 적용` / `적용하지 않기` / `원본 보기`
+- 이미지 결과: 동일 구조 (3열 이미지)
+- creativeAddition은 본문 내에서 살짝 다른 색으로 inline highlight (선택 사항)
 
-```html
-<section class="ai-compare">
-  <header>
-    <p class="eyebrow">AI 다듬기 결과 · 강도 1</p>
-    <h1>우리 작품을 AI가 이렇게 다듬었어요</h1>
-    <p>AI 결과를 바로 적용하지 말고, 원본과 비교해 보세요.</p>
-  </header>
-
-  <div class="notice">
-    AI는 작품을 더 보기 좋게 도울 수 있지만, 작품의 중심은 내가 정해야 합니다.
-  </div>
-
-  <article class="scene-card" data-scene-id="3">
-    <h2>장면 3</h2>
-
-    <div class="compare-grid">
-      <div class="original">
-        <h3>원본</h3>
-        <p>둘은 숨을 곳도 없이 계속 뛰었다.</p>
-      </div>
-      <div class="revised">
-        <h3>AI 다듬기</h3>
-        <p>둘은 숨을 곳도 없이 계속 뛰었습니다.</p>
-      </div>
-    </div>
-
-    <div class="reason">
-      <strong>바뀐 점</strong>
-      <p>문장을 학생 작품 분위기에 맞춰 자연스럽게 다듬었습니다.</p>
-    </div>
-
-    <div class="preserved">
-      <strong>AI가 건드리지 않은 것</strong>
-      <p>둘이 도망치는 핵심 상황은 그대로 유지</p>
-    </div>
-
-    <div class="student-check">
-      <strong>생각해 보기</strong>
-      <ul>
-        <li>이 문장이 우리 작품 느낌을 유지하나요?</li>
-        <li>AI가 바꾸면서 사라진 느낌은 없나요?</li>
-      </ul>
-    </div>
-
-    <div class="actions" data-scene-id="3" data-field="body">
-      <button class="js-ai-accept">이 수정 적용하기</button>
-      <button class="js-ai-reject">적용하지 않기</button>
-      <button class="js-ai-preview-orig">원본 보기</button>
-    </div>
-  </article>
-
-  <!-- choice 비교 카드도 동일 구조, data-scene-id + data-choice-index -->
-</section>
-```
-
-### 5-2. 가지 UI 정합
-
-- 폰트: `'Jua', sans-serif` (v37 정책)
-- 보라 톤: `#9b4dca` / `#7030b0` (storyAnalyzer rt-* 같은 톤)
-- 본문 표시: `white-space: pre-wrap` (v127 줄바꿈 정책)
-- 외부 라이브러리 X — inline CSS
-
-### 5-3. 진입점 (실제 구현 시)
-
-- 인스펙터 (viewer-edit.js `_textEditHtml`) — 본문 옆에 `🤖 AI 다듬기 (강도 1)` / `🤖 AI 발전시키기 (강도 2)` 버튼
-- 루트보기 (storyAnalyzer.js) — 루트 단위 일괄 다듬기 (작품 전체 분기 일관성 검증용)
-- 모바일 텍스트형 (mobileTextBranch.js) — 장면 편집 화면 하단 토글
-- 표지 (renderCover) — 표지 인스펙터에 별도 (단순 다듬기만)
+가지 UI 정합: 폰트 `'Jua', sans-serif`, 보라 톤 `#9b4dca`, `white-space: pre-wrap` (v127).
 
 ---
 
 ## 6. Firebase 읽기 경로
 
-가지 v2 구조 기준. v1 (legacy `teams/${name}`) 호환은 viewer-data.js `basePath` 로직 그대로 따름.
+가지 v2 구조 기준. v1 (legacy `teams/${name}`) 호환은 viewer-data.js `basePath` 로직 그대로.
 
 ### 6-1. 읽기 (AI 입력 구성용)
 
 ```
 classes/${classId}/teams/${encodedTeamName}/
   ├─ meta/
-  │   ├─ classId, teacher_uid, teacher_email
-  │   ├─ isPublic                              # 비공개 작품도 AI 박을 수 있음 (fromMaker 또는 본인 편집)
-  │   └─ ...
+  │   └─ isPublic                              # 비공개도 fromMaker/본인 편집은 AI 가능
   ├─ scenes/${num}/
-  │   ├─ title
-  │   ├─ body
-  │   ├─ buttons[]                             # AI 입력의 buttons
-  │   ├─ choiceA, choiceB, choiceCount         # legacy 호환
-  │   ├─ nextA, nextB                          # AI 절대 변경 X
-  │   ├─ type, isEnding, trueEnding
-  │   ├─ subtitle, kicker                      # cover only
-  │   ├─ imageData OR imageStorageUrl          # 이미지 AI 입력 (v113 마이그 후 Storage URL 박힘)
-  │   └─ ...
+  │   ├─ title / body / buttons / choiceA/B/Count
+  │   ├─ nextA / nextB                          # AI 절대 변경 X
+  │   ├─ type / isEnding / trueEnding
+  │   ├─ subtitle / kicker                      # cover only
+  │   └─ imageData OR imageStorageUrl
   ├─ viewer-meta/
-  │   ├─ entrySceneId, replaySceneId           # AI 입력의 routes 시작점
-  │   ├─ sceneTransition, sceneTransitionSpeed
-  │   ├─ textEntrance, textEntranceSpeed
-  │   └─ ...
-  └─ locks/${num}/                             # AI 적용 시 잠금 확인 (다른 친구 박혀있으면 X)
+  │   └─ entrySceneId / replaySceneId
+  └─ locks/${num}/                              # AI 적용 시 잠금 확인
 ```
 
-### 6-2. 추가 노드 — **설계 후보** (지금 박지 X)
+### 6-2. 추가 노드 — **설계 후보** (지금 만들지 않음)
 
-> ⚠️ **중요**: 아래 노드는 **설계 후보**일 뿐입니다. 실제 Firebase에 박는 건
-> Phase A 구현 단계에서 사용자가 박은 정책 결정 후 다시 확정. 지금 박지 X.
-> 필드명·구조는 검토 단계에서 변경될 수 있음.
+> ⚠️ 아래 노드는 **설계 후보**일 뿐이다. 실제 Firebase에 만드는 건 Phase A 구현 단계에서 사용자가 정책 결정 후 다시 확정. 필드명·구조는 변경될 수 있다.
 
 ```
 classes/${classId}/teams/${encodedTeamName}/
-  ├─ ai-suggestions/${suggestionId}/            # AI 결과 저장 (적용 전)
-  │   ├─ mode, level
-  │   ├─ targetSceneId, targetScope
+  ├─ ai-suggestions/${suggestionId}/            # AI 결과 (적용 전)
+  │   ├─ mode / level / targetSceneId
   │   ├─ requestedBy: {uid, role, requestedAt}
   │   ├─ result: { ...output JSON... }
   │   ├─ status: "pending" | "accepted" | "rejected" | "expired"
-  │   ├─ acceptedAt, acceptedBy
   │   └─ ttl: timestamp                          # 24시간 후 자동 만료
   │
   ├─ ai-history/${sceneId}/${historyId}/         # 원본 백업 (수락 직전 스냅샷)
-  │   ├─ before: { title, body, buttons }
-  │   ├─ after:  { title, body, buttons }
-  │   ├─ suggestionId
-  │   ├─ acceptedAt
-  │   └─ revertedAt                              # 되돌리기 박힌 시점
+  │   ├─ before / after
+  │   ├─ suggestionId / acceptedAt / revertedAt
   │
-  └─ ai-context/                                 # 작품 단위 캐시 (이미지 일관성용)
-      ├─ characters: ["하루", "마루"]
-      ├─ settings:   ["숲", "동굴", "강"]
-      ├─ mood:        "따뜻하고 모험적인"
-      └─ lastAnalyzedAt
+  └─ ai-context/                                 # 작품 단위 캐시 (이미지 일관성)
+      ├─ characters / settings / mood
+      └─ styleAnchorImageUrl
 ```
 
 ### 6-3. Storage 경로 (이미지 AI 결과) — **설계 후보**
 
 ```
-ai-results/
-  ├─ classes/${classId}/
-  │   └─ teams/${teamName}/
-  │       └─ scenes/${num}/
-  │           ├─ ai-v${version}-${timestamp}.png
-  │           └─ original-${timestamp}.png      # 백업
+ai-results/classes/${classId}/teams/${teamName}/scenes/${num}/
+  ├─ ai-v${version}-${timestamp}.png
+  └─ original-${timestamp}.png      # 적용 시 백업
 ```
 
-v113 마이그 정책 그대로 — base64 절대 RTDB 박지 X. AI 결과 이미지도 Storage URL만 박음.
+base64 절대 RTDB에 박지 않는다 (v113 정책).
 
 ---
 
-## 7. 저장/수락/되돌리기 설계
+## 7. 원본 보존 / 적용 / 되돌리기 설계
 
-### 7-1. 흐름 (텍스트)
+### 7-1. 전체 흐름 (텍스트)
 
 ```
-1. 학생/교사가 인스펙터에서 [🤖 AI 다듬기 (강도 1)] 클릭
-2. 클라이언트가 입력 JSON 구성 (ViewerState + adaptScenes + findAllRoutes)
+1. 사용자가 인스펙터에서 [🤖 AI 다듬기 (강도 1)] 클릭
+2. 클라이언트가 입력 JSON 구성
+   - ViewerState.scenes → adaptScenes
+   - storyAnalyzer.findAllRoutes
+   - 사전 약한 연결 분석
 3. Cloud Functions로 요청 → Claude API 호출
-4. 결과 JSON 받음 → 클라이언트 검증 (4-3 차단 조건)
+4. 결과 JSON 받음 → 클라이언트 검증 (4-4 차단 조건)
 5. ai-suggestions/${suggestionId} 노드에 저장 (status: "pending", ttl: +24h)
-6. HTML 비교 미리보기 열림
-7. 학생이 [적용]:
+6. 비교 미리보기 열림
+7. 사용자가 [적용]:
    a. 잠금 확인 (viewerEnsureEditable)
    b. ai-history/${sceneId}/${historyId} 박음 (before/after 스냅샷)
    c. saveSceneText(num, { body, title, buttons, choiceA, choiceB }) 호출
    d. ai-suggestions status: "accepted"
-   e. _patchSceneBody/_scheduleViewerFrameReRender 호출 (v130 동기 흐름 그대로)
-8. 학생이 [되돌리기] (역사 화면에서):
-   a. ai-history에서 before 박은 거 읽음
-   b. saveSceneText(num, before) 호출
-   c. ai-history revertedAt 박음
+   e. _patchSceneBody / _scheduleViewerFrameReRender (v130 동기 흐름)
+8. 사용자가 [되돌리기] (history 화면에서):
+   a. ai-history에서 before 읽음
+   b. saveSceneText(num, before)
+   c. ai-history revertedAt 기록
 ```
 
 ### 7-2. 핵심 원칙
 
-- **원본 절대 덮어쓰기 X** — ai-history에 before 스냅샷 항상 박음
-- **수락 시점에만 saveSceneText 호출** — 그 전엔 ai-suggestions 노드에만 박음
-- **잠금 박은 상태에서만 수락 가능** — v129 readonly 정책과 정합
-- **suggestionId TTL 24시간** — 미수락 결과 자동 정리 (RTDB 비용 절감, v113 사건 교훈)
-- **본문 줄바꿈 그대로** — v127 정책 (trim 박지 X, white-space: pre-wrap)
-- **buttons + choiceA/B 동시 저장** — viewer-data.js ALLOWED 그대로 (v130 _rtSaveChoiceLabel 패턴)
+- 원본 절대 자동 덮어쓰기 X — ai-history에 before 스냅샷 필수
+- 수락 시점에만 saveSceneText 호출
+- 잠금 박힌 상태에서만 수락 가능 (v129 readonly 정책)
+- suggestionId TTL 24시간 — 미수락 결과 자동 정리 (RTDB 비용 보호)
+- 본문 줄바꿈 보존 (v127)
+- buttons + choiceA/B 동시 저장 (v130 _rtSaveChoiceLabel 패턴)
 
 ### 7-3. 재사용할 가지 함수
 
-이미 박혀있는 함수 그대로 활용 (새 저장 흐름 박지 X):
+새 저장 함수를 만들지 않는다. 기존 함수를 그대로 활용한다.
 
-- `viewer-data.js saveSceneText(num, fields)` — RTDB patch (ALLOWED 화이트리스트)
+- `viewer-data.js saveSceneText(num, fields)` — RTDB patch (ALLOWED)
 - `viewer-edit.js _queueSave(num, fields)` — debounce + 잠금 heartbeat
-- `viewer-edit.js _patchSceneBody(value)` — viewer-frame 부분 patch (깜빡임 차단)
+- `viewer-edit.js _patchSceneBody(value)` — viewer-frame 부분 patch
 - `viewer-edit.js _scheduleViewerFrameReRender()` — 통째 재렌더
 - `viewer-locks.js viewerEnsureEditable(num)` — 잠금 확보
-- `viewer-locks.js viewerIsMyLock(num)` — 자기 잠금 확인
-- `storyAnalyzer.js _rtSyncSceneField(num, field, value)` — 메모리 동기 (v130 박은 거)
+- `storyAnalyzer.js _rtSyncSceneField(num, field, value)` — 메모리 동기 (v130)
 
-→ AI 적용 함수 = 위 함수들을 묶은 wrapper (`_aiApplySuggestion(suggestionId)`). 새 저장 경로 박지 X.
+AI 적용 함수 = 위 함수들을 묶은 wrapper (`_aiApplySuggestion(suggestionId)`).
 
-### 7-4. Firebase Rules (참고용 — 박을 때 결정)
+---
 
-```json
-{
-  "rules": {
-    "classes": {
-      "$classId": {
-        "teams": {
-          "$teamName": {
-            "ai-suggestions": {
-              "$suggestionId": {
-                ".read":  "auth != null",
-                ".write": "auth != null && (data.child('requestedBy/uid').val() === auth.uid || root.child('teachers').child(auth.uid).exists())"
-              }
-            },
-            "ai-history": {
-              "$sceneId": {
-                ".read":  "auth != null",
-                ".write": "auth != null"
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-}
+## 8. 비용·quota — 단계별 정책
+
+### 8-1. 비용 추정
+
+| 구분 | 모델 | 비용/요청 | 한국어 환산 |
+|---|---|---|---|
+| 텍스트 1단계 | Claude Haiku 4.5 | ~$0.001 | 약 1원 |
+| 텍스트 2단계 | Claude Sonnet 4.6 | ~$0.005 | 약 7원 |
+| 이미지 1단계 | SDXL img2img | ~$0.01 ~ $0.03 | 약 15~40원 |
+| 이미지 2단계 | SDXL img2img + ControlNet | ~$0.02 ~ $0.04 | 약 30~55원 |
+| 작품 자동 생성 | Sonnet 4.6 | ~$0.25 | 약 300원 |
+
+### 8-2. quota 정책 — **단계별로 다르게 적용**
+
+**Phase 1 — 베타/초기 운영 (가장 엄격)**
+
+```
+텍스트
+- 작품(팀)당 1단계 1회
+- 작품(팀)당 2단계 1회
+- 동일 장면 재생성 X
+
+이미지
+- 작품당 1단계 1회 (장면 자유 선택)
+- 작품당 2단계 1회 (장면 자유 선택)
+- 또는 1차 베타에서는 이미지 자체 비활성
+
+클래스 단위
+- 일일 텍스트 100회 한도
+- 일일 이미지 30회 한도
+
+전체 운영 단위
+- 일일 텍스트 5,000회
+- 일일 이미지 500회
+- 비상 차단 스위치 (Cloud Functions 한 줄로 강제 종료)
 ```
 
-→ rules는 박을 때 다시 검토 필수. 학생 익명 박은 거 박혀있다면 teacher만 ai-history 박을 수 있게 박을지 결정.
+이유:
+- 비용 위험 최소
+- 학생이 신중하게 선택
+- AI 의존 차단
+- 운영자가 패턴 관찰 가능
+
+**Phase 2 — 안정화 이후 (확장)**
+
+```
+텍스트
+- 작품 총량: 1단계 5회, 2단계 5회
+- 동일 장면당 강도별 1회 제한
+- 재생성은 1회 추가만 허용
+
+이미지
+- 장면당 1단계 1회, 2단계 1회
+- 작품 총량 이미지 10장 제한
+- 재생성은 교사 승인 또는 별도 권한
+
+학생/교사 권한 분리
+- 학생 자율 = 텍스트 강도 1만
+- 텍스트 강도 2 = 학생 신청 → 교사 승인
+- 이미지 = 교사 승인 후만
+```
+
+이유:
+- 운영 데이터 축적 후 합리적 확장
+- 학생 학습 자율성 확장
+- 비용은 여전히 통제 가능
+
+### 8-3. 3단 방어 (모든 단계 공통)
+
+quota 강제는 세 곳에서 동시에 한다.
+
+1. **클라이언트 단**: 횟수 카운터 표시 ("강도 1 남음: 0회")
+2. **Functions 단**: RTDB 카운터로 강제 차단 (클라이언트 조작 방지)
+3. **API 단**: Anthropic console / Replicate에서 월 한도 설정 ($50 도달 시 자동 차단)
+
+### 8-4. v113 만원 사건 교훈 반영
+
+- AI 이미지 결과 = Storage URL만 RTDB 저장. base64 절대 금지
+- AI suggestion 결과 = 텍스트만 RTDB. 큰 결과(>10KB)는 Storage로
+- ai-history before/after = 본문만 (텍스트 KB 단위)
+- TTL 24시간 — 미수락 결과 자동 정리
+
+### 8-5. 보안
+
+- Claude API key 클라이언트 절대 노출 X
+- Cloud Functions 서버사이드만 사용 — 환경변수 또는 Secret Manager
+- Functions endpoint 인증 — Firebase ID token 검증 + role 검사
+- 학생당 분당 1회, 30초 쿨다운 (클릭 연타 차단)
 
 ---
 
-## 8. 비용/보안 위험
-
-### 8-1. v113 만원 사건 교훈
-
-가지 프로젝트는 2026-05-17 RTDB Storage 마이그(v113)에서 base64 이미지를 RTDB에 박아 만원 정도 비용 발생한 사건 있음. AI 기능 박을 때 같은 실수 반복 박지 X:
-
-- **AI 이미지 결과 = Storage URL만** RTDB 박음. base64 절대 박지 X.
-- **AI suggestion 결과 = 텍스트만** RTDB 박음. 큰 결과(>10KB)는 Storage로.
-- **ai-history before/after** = 본문만 박음 (텍스트 KB 단위). 이미지 백업은 Storage 경유.
-- **TTL** = 24시간. 미수락 결과 자동 정리.
-
-### 8-2. API key 보안
-
-- **Claude API key 클라이언트 박지 X** — 절대 노출 안 됨
-- **Cloud Functions 서버사이드만 박음** — Functions 환경변수 또는 Secret Manager
-- **Functions endpoint 인증 박음** — Firebase ID token 검증 + 학생/교사 role 검사
-- **Functions 호출 quota** — 학생당 분당 1회, 일 5회 등 ratelimit (Functions code 안에서 RTDB counter)
-
-### 8-3. quota 설계
-
-| 단위 | 제한 | 이유 |
-|---|---|---|
-| **학생 1명** | 일 5회 (텍스트), 일 2회 (이미지) | 과도 사용 차단 |
-| **클래스 1개** | 일 100회 (텍스트), 일 30회 (이미지) | 한 교사 책임 비용 한도 |
-| **전체 (앱 단위)** | 일 5000회 (텍스트), 일 500회 (이미지) | 글로벌 비용 상한 (긴급 차단 스위치) |
-| **단일 요청** | 텍스트 max 8K input + 4K output / 이미지 max 1024x1024 | 단일 요청 비용 보호 |
-| **연속 요청 간격** | 학생당 30초 쿨다운 | 클릭 연타 차단 |
-
-### 8-4. 비용 책임
-
-- **교사 결제**: 클래스 단위 비용은 교사 계정 박음 → 교사가 quota 박은 거 인지 + 동의
-- **사용량 대시보드**: admin 화면에 클래스별 AI 호출 횟수 표시
-- **자동 차단**: quota 도달 시 클라이언트에 안내 메시지 ("오늘 AI 다듬기 사용량을 다 썼어요. 내일 다시 박아주세요.")
-- **빌링 알람**: Firebase 결제 알람 + Functions 로그 → 비정상 패턴 감지
-
-### 8-5. 보안 (학생 데이터)
-
-- **공개수업 환경**: 학생 작품이 외부 AI 모델로 전송됨 — 학부모/학교 동의 필요
-- **PII 제거**: 학생 이름·실명 박지 X (작품엔 캐릭터 이름만)
-- **응답 캐싱 X**: AI 응답은 학생별 격리. 다른 학생 결과 박지 X
-- **로그 보관**: AI 요청·응답 로그 30일 보관 후 자동 삭제 (감사용)
-- **Claude API 약관**: zero retention 옵션 박혀있다면 활성화
-
-### 8-6. 공개수업 정책 (사용자 박은 거 미확정)
-
-사용자가 이전 세션에서 박은 적 있다고 했지만 메모리 박지 X. **결정 필요**:
-
-- 학생이 직접 AI 박는지 vs 교사 승인 거치는지?
-- 강도 1만 학생 자율 허용, 강도 2는 교사 승인 박는지?
-- AI 결과 적용은 학생 본인 박는지 교사도 박을 수 있는지?
-
-→ 박을 때 사용자에게 다시 확인 박아야.
-
----
-
-## 9. 구현 파일 후보
+## 9. 구현 시 필요한 파일 후보
 
 ### 9-1. 신규 파일
 
 | 파일 | 역할 | 우선순위 |
 |---|---|---|
-| `functions/index.js` | Cloud Functions entry — `aiTextSuggest`, `aiImageSuggest`, quota 검증, ratelimit | 1순위 (없으면 API 호출 박지 X) |
-| `functions/lib/claudePrompts.js` | 시스템 + 강도별 프롬프트 (이 문서 1·2장 내용) | 1순위 |
-| `functions/lib/quota.js` | RTDB counter ratelimit | 1순위 |
-| `functions/lib/validators.js` | AI 출력 JSON 검증 (4-3 차단 조건) | 1순위 |
-| `viewer-ai.js` | 클라이언트 AI 진입 — 입력 JSON 구성, Functions 호출, suggestion 저장 | 1순위 |
-| `viewer-ai-preview.js` | HTML 비교 미리보기 렌더 + accept/reject 핸들러 | 1순위 |
-| `viewer-ai-history.js` | ai-history 노드 박은 거 — 되돌리기 UI | 2순위 |
-| `viewer-ai-ui.css` | AI 비교 화면 / 버튼 / 배지 스타일 | 1순위 |
+| `functions/index.js` | Cloud Functions entry | 1 |
+| `functions/lib/claudePrompts.js` | 시스템 + 강도별 프롬프트 (체크리스트 포함) | 1 |
+| `functions/lib/imagePrompts.js` | 이미지 1단계/2단계 프롬프트 + 모델 설정 | 2 |
+| `functions/lib/quota.js` | RTDB counter ratelimit | 1 |
+| `functions/lib/validators.js` | 출력 JSON 검증 (4-4 차단 조건) | 1 |
+| `viewer-ai.js` | 클라이언트 진입 — 입력 JSON 구성, Functions 호출 | 1 |
+| `viewer-ai-preview.js` | 비교 미리보기 + accept/reject | 1 |
+| `viewer-ai-history.js` | ai-history 노드 — 되돌리기 UI | 2 |
+| `viewer-ai-ui.css` | AI 비교 화면 / 버튼 / 배지 | 1 |
 
 ### 9-2. 수정 파일
 
-| 파일 | 변경 내용 | 우선순위 |
-|---|---|---|
-| `viewer.html` | viewer-ai.js / viewer-ai-preview.js / CSS 박음 | 1순위 |
-| `maker.html` | 같은 파일들 박음 (maker도 AI 가능 박을지 결정) | 2순위 |
-| `viewer-edit.js` `_textEditHtml` | 본문 옆에 [🤖 AI 다듬기] 버튼 박음 | 1순위 |
-| `viewer-data.js` `saveSceneText ALLOWED` | 변경 없음 — 기존 ALLOWED 박은 거 그대로 사용 (body/title/buttons/choiceA/B) | — |
-| `database.rules.json` | `ai-suggestions/`, `ai-history/`, `ai-context/` 노드 rules 박음 | 1순위 |
-| `mobileTextBranch.js` | 모바일 텍스트형 편집 화면 AI 진입 박음 | 3순위 |
-| `storyAnalyzer.js` | 루트 단위 AI 일괄 검증 진입 박음 (선택) | 4순위 |
-| `firebase.json` | Functions 배포 설정 박음 | 1순위 |
+| 파일 | 변경 |
+|---|---|
+| `viewer.html` | viewer-ai.js / viewer-ai-preview.js / CSS 로드 |
+| `viewer-edit.js _textEditHtml` | [🤖 AI 다듬기 (강도 1)] / [🤖 AI 발전 (강도 2)] 버튼 |
+| `viewer-data.js saveSceneText ALLOWED` | 변경 없음 (기존 필드 그대로 사용) |
+| `database.rules.json` | `ai-suggestions/`, `ai-history/`, `ai-context/` 노드 rules |
+| `mobileTextBranch.js` | 모바일 텍스트형 AI 진입 (3순위) |
+| `firebase.json` | Functions 배포 설정 |
 
-### 9-3. 활용 가능한 기존 함수 (재사용)
+### 9-3. 재사용 함수 (새로 만들지 않음)
 
-| 함수 | 위치 | 용도 |
-|---|---|---|
-| `saveSceneText` | viewer-data.js | AI 결과 적용 (수락 시) |
-| `_queueSave` / `_flushPendingSave` | viewer-edit.js | debounce 저장 (단일 장면) |
-| `_patchSceneBody` / `_scheduleViewerFrameReRender` | viewer-edit.js | viewer 갱신 |
-| `viewerEnsureEditable` / `viewerIsMyLock` | viewer-locks.js | 잠금 확인 |
-| `_rtSyncSceneField` | storyAnalyzer.js (v130) | 메모리 동기 |
-| `findAllRoutes` | storyAnalyzer.js | AI 입력 routes 박음 |
-| `adaptScenes` | viewer-data.js | AI 입력 scenes 박음 |
-
-→ AI 기능 박을 때 **새 저장 경로 박지 X**. v130 박은 인라인 수정 패턴 그대로 따라 박음.
+`saveSceneText`, `_queueSave`, `_patchSceneBody`, `_scheduleViewerFrameReRender`, `viewerEnsureEditable`, `_rtSyncSceneField`, `findAllRoutes`, `adaptScenes`.
 
 ---
 
 ## 10. 구현 우선순위
 
-### 10-1. 단계 권장 순서
-
-**Phase A — 인프라 박기 (코드 박을 거)**
+### Phase A — 인프라 (가장 작은 시작)
 1. Firebase Functions 설정 + 배포 환경
-2. Claude API key 박음 (Secret Manager)
-3. `aiTextSuggest` Functions endpoint (강도 1만) — 입력 검증 + Claude 호출 + quota check
-4. `viewer-ai.js` 기본 — 입력 JSON 구성 + Functions 호출
-5. `ai-suggestions` 노드 + rules 박음
+2. Claude API key 등록 (Secret Manager)
+3. `aiTextSuggest` Functions endpoint (**강도 1만**)
+4. `viewer-ai.js` 기본 — 입력 JSON + Functions 호출
+5. `ai-suggestions` 노드 + rules
 
-**Phase B — UI 박기**
+### Phase B — UI
 6. `viewer-ai-preview.js` 비교 화면
-7. `viewer-edit.js _textEditHtml`에 버튼 박음 (강도 1)
+7. `viewer-edit.js`에 강도 1 버튼
 8. accept/reject 흐름 + `saveSceneText` 호출
-9. 작은 클래스 1개에서 베타 테스트
+9. **1개 베타 클래스에서 테스트** (위험 격리)
 
-**Phase C — 안전망 박기**
-10. ai-history 백업 + 되돌리기
-11. quota 도달 안내 UI
+### Phase C — 안전망
+10. ai-history 백업 + 되돌리기 UI
+11. quota 도달 안내
 12. admin 사용량 대시보드
 13. 비정상 패턴 모니터링
 
-**Phase D — 강도 2 + 이미지**
-14. 텍스트 강도 2 (전체 분기 일관성 검증 포함)
-15. ai-context 작품 분석 (이미지 일관성용)
-16. 이미지 강도 1 (정돈) — 모델 선택 (Imagen Edit / DALL-E inpaint / SDXL)
-17. 이미지 강도 2 (발전)
-18. Storage 박은 결과 URL 흐름
+### Phase D — 강도 2 + 이미지
+14. 텍스트 강도 2 (구조 분석 포함)
+15. ai-context 사전 분석 (이미지 일관성용)
+16. 이미지 강도 1 (SDXL img2img low strength)
+17. 이미지 강도 2 (SDXL img2img medium + ControlNet)
+18. Storage 결과 URL 흐름
 
-**Phase E — 통합**
+### Phase E — 통합
 19. 모바일 텍스트형 AI 진입
-20. 루트보기 일괄 다듬기 (작품 전체)
-21. 다국어 / 학년별 프롬프트 미세 조정
+20. 루트보기 일괄 검증
+21. 운영 데이터 기반 quota 확장 (Phase 2 정책)
 
-### 10-2. 1단계 박을 거 (MVP)
+### MVP 정의
 
-**박지 X 박을 거**:
-- 이미지 AI (별도 Phase D)
-- 강도 2 (Phase D)
-- 작품 전체 일괄 (singleScene만)
-- 자동 적용 (반드시 확인 화면 거침)
-- 학생 자율 박을지 (교사 승인 박는지 사용자 결정 박혀야)
+**Phase A + B + 가장 최소한의 C** = MVP.
 
-**박을 거**:
-- 텍스트 강도 1 (단일 장면)
-- 인스펙터 본문 옆 [🤖 AI 다듬기] 버튼
+- 텍스트 강도 1만
+- 인스펙터 본문 옆 버튼
 - 비교 화면 → 적용 / 보류
-- ai-suggestions + ai-history 노드
-- 학생 일 5회 quota
-- 클래스 일 100회 quota
+- ai-suggestions + ai-history
+- 학생 작품당 1회 quota
+- 1개 베타 클래스
 
-### 10-3. 사용자 박을 결정 (구현 전)
-
-다음은 코드 박기 전 사용자 확인 박아야:
-
-1. **공개수업 정책** — 학생 자율 vs 교사 승인 (사용자 박은 거 메모리 박지 X — 확인 필요)
-2. **모델 선택** — Claude Haiku (저렴) vs Sonnet (품질)
-3. **빌링 책임자** — 학교 / 교사 개인 / 가지 운영자
-4. **이미지 모델** — Imagen / DALL-E / SDXL 중 어느 것 (Claude는 이미지 생성 박지 X)
-5. **베타 클래스** — 처음 박을 때 1개 클래스만 박을지 (위험 격리)
-6. **학부모 동의** — 외부 AI 모델 박는 거 학교/학부모 동의 박을지
-
----
+이미지·강도 2는 MVP 이후.
 
 ---
 
 ## 11. Phase 0 결정문
 
-> **이 섹션의 목적**: Phase A(실제 구현)에 들어가기 전, 사용자가 박아둬야 할
-> 정책 결정문. v130 직후 GPT 박은 평가 그대로 옮긴 초안 + 사용자가 직접 박을
-> 자리 박음. **이 결정문이 박힌 후에만 Phase A 진행**.
+> Phase A(실제 구현)에 들어가기 전 사용자가 정해야 할 정책. 결정문이 채워진 후에만 Phase A 진행.
 
-### 11-1. GPT 박은 추천 초안 (사용자 확정 박지 X)
+### 11-1. 정책 초안 (v2)
 
-> AI 기능 1차 구현 정책 (추천 초안)
+> AI 기능 1차 구현 정책
 >
-> 1. 공개수업에서는 **교사 시연형**으로만 사용한다.
-> 2. 1차 구현은 **텍스트 AI 강도 1**만 한다.
-> 3. AI 결과는 **HTML 비교 미리보기**로만 보여준다.
-> 4. 원본에는 **자동 적용하지 않는다**.
-> 5. 적용은 **교사 또는 제작자가 수락할 때만** 한다.
-> 6. **이미지 AI는 아직 구현하지 않는다**.
-> 7. API 호출은 **Cloud Functions를 통해서만** 한다.
-> 8. **quota를 박기 전에는 학생에게 공개하지 않는다**.
+> 1. 1차 구현은 **텍스트 AI 강도 1만** 한다.
+> 2. AI 결과는 **비교 미리보기**로만 보여준다. 자동 적용 X.
+> 3. 적용은 **잠금 상태에서만** 가능 (다른 친구가 수정 중이 아닐 때).
+> 4. **이미지 AI는 아직 구현하지 않는다**.
+> 5. API 호출은 **Cloud Functions를 통해서만** 한다.
+> 6. quota는 **작품당 강도별 1회** (Phase 1 정책).
+> 7. quota 적용 전에는 학생에게 공개하지 않는다.
+> 8. 1개 베타 클래스에서 먼저 운영.
 
-이 초안은 GPT 박은 평가 박은 거 그대로. 사용자가 확정 박을 자리 (11-3).
+### 11-2. 사용자가 결정할 항목
 
-### 11-2. 사용자 박을 결정 항목
-
-GPT 박은 평가에서 박은 4개 핵심 + [10-3] 박은 6개 결정 항목 통합:
-
-| # | 항목 | 선택지 | 사용자 확정 |
+| # | 항목 | 선택지 | 확정 |
 |---|---|---|---|
-| 1 | **공개수업 모드** | 교사 시연형 / 학생 체험형 | ☐ 박을 자리 |
+| 1 | **공개수업 모드** (있다면) | 교사 시연형 / 학생 체험형 | ☐ |
 | 2 | **1차 범위** | 텍스트 강도 1만 / 강도 1+2 / 이미지 포함 | ☐ |
-| 3 | **자동 적용** | 자동 적용 X (확인 화면 거침) / 강도 1만 자동 / 자동 박음 | ☐ |
-| 4 | **적용 권한** | 교사만 / 제작자만 / 학생 본인 | ☐ |
-| 5 | **API 구조** | Cloud Functions 경유 / 클라이언트 직접 (보안 위험) | ☐ |
-| 6 | **모델 선택** (텍스트) | Haiku 4.5 (저렴) / Sonnet 4.6 (품질) / 둘 다 (강도별) | ☐ |
-| 7 | **모델 선택** (이미지, 후순위) | Imagen Edit / DALL-E / SDXL / 박지 X | ☐ |
-| 8 | **quota — 학생** | 일 5회 (제안) / 다른 값 | ☐ |
-| 9 | **quota — 클래스** | 일 100회 (제안) / 다른 값 | ☐ |
+| 3 | **자동 적용** | 자동 X (확인 화면) / 강도 1만 자동 | ☐ |
+| 4 | **적용 권한** | 학생 본인 / 교사 / 둘 다 | ☐ |
+| 5 | **API 구조** | Cloud Functions / 다른 방식 | ☐ |
+| 6 | **텍스트 모델** | Haiku 4.5 (저렴) / Sonnet 4.6 (품질) / 강도별 분리 | ☐ |
+| 7 | **이미지 모델** (Phase D) | SDXL / Imagen / Flux / 박지 X | ☐ |
+| 8 | **quota — Phase 1** | 작품당 1회 / 다른 값 | ☐ |
+| 9 | **quota — Phase 2 확장 기준** | 운영 N개월 후 / 사용 패턴 검토 후 | ☐ |
 | 10 | **빌링 책임자** | 학교 / 교사 개인 / 가지 운영자 | ☐ |
-| 11 | **베타 클래스** | 1개 클래스만 / 여러 클래스 / 운영 시작부터 전체 | ☐ |
-| 12 | **학부모 동의** | 명시 동의 박은 후만 / 학교 일괄 동의 / 박지 X | ☐ |
-| 13 | **AI 결과 보관** | TTL 24h (제안) / 30일 / 영구 | ☐ |
-| 14 | **공개수업 시연 시점** | 1차 구현 직후 / quota·로그 박은 후 | ☐ |
+| 11 | **베타 클래스** | 1개만 / 여러 개 / 운영 시작부터 전체 | ☐ |
+| 12 | **학부모 동의** | 명시 동의 박힌 후만 / 학교 일괄 동의 / 박지 X | ☐ |
+| 13 | **AI 결과 보관** | TTL 24h / 30일 / 영구 | ☐ |
+| 14 | **v1 → v2 텍스트 결과 재생성** | 체크리스트 기준으로 재실험 박을지 / 박지 X | ☐ |
 
 ### 11-3. 사용자 확정 결정 (박을 자리)
 
-> 이 자리에 사용자가 박은 결정 박은 후 Phase A 진행.
->
-> ```
-> 결정 박은 날: YYYY-MM-DD
-> 박은 사람: dobuk
->
-> 1. 공개수업 모드: __________
-> 2. 1차 범위: __________
-> 3. ...
-> ```
+```
+결정 박은 날: YYYY-MM-DD
+박은 사람: dobuk
+
+1. 공개수업 모드: __________
+2. 1차 범위: __________
+3. ...
+```
 
 ### 11-4. Phase A 진행 조건
 
-다음 항목 박힌 후에만 Phase A 시작:
+다음 항목 모두 충족 후 Phase A 시작.
 
-- [ ] 11-2 14개 항목 모두 박힘 (사용자 결정)
-- [ ] 학부모/학교 동의 박힘 (외부 AI 모델 박는 거)
-- [ ] Firebase 결제 알람 박힘 (v113 만원 사건 재발 방지)
-- [ ] 베타 클래스 1개 박힘 (위험 격리)
-- [ ] 비상 차단 스위치 박는 위치 박힘 (Cloud Functions 강제 종료 경로)
+- [ ] 11-2 14개 항목 모두 결정
+- [ ] 학부모/학교 동의 (외부 AI 사용)
+- [ ] Firebase 결제 알람 (v113 재발 방지)
+- [ ] Anthropic / Replicate 월 한도 설정
+- [ ] 베타 클래스 1개 지정
+- [ ] 비상 차단 스위치 위치 정함
 
-### 11-5. 박지 X 박을 거 (Phase 0 단계)
+### 11-5. Phase 0 단계 — 박지 않을 것
 
-Phase 0 = 결정문 박는 단계. 실제 박지 X:
+- 실제 Firebase에 `ai-suggestions/`/`ai-history/`/`ai-context/` 노드 생성 X
+- Firebase rules 변경 X
+- Cloud Functions 배포 X
+- Claude API key 등록 X
+- viewer-edit.js에 AI 버튼 추가 X
+- maker.html에 AI 버튼 추가 X
+- mobileTextBranch.js에 AI 진입 추가 X
 
-- 실제 Firebase에 `ai-suggestions/`/`ai-history/`/`ai-context/` 노드 박지 X
-- Firebase rules 변경 박지 X
-- Cloud Functions 배포 박지 X
-- Claude API key 박지 X
-- viewer-edit.js에 AI 버튼 박지 X
-- maker.html에 AI 버튼 박지 X
-- mobileTextBranch.js에 AI 진입 박지 X
-
-설계 문서 박은 거 + Phase 0 결정문 박은 거 이 두 가지만. 그 외는 모두 Phase A부터.
+설계 문서 작성 + Phase 0 결정문 채움. 그 외는 모두 Phase A부터.
 
 ---
 
 ## 부록 A — 모델 선택 권장
 
 ### 텍스트
-- **강도 1**: Claude Haiku 4.5 — 빠르고 저렴 (~$0.0008/요청 추정). 맞춤법·문장 정리 충분.
-- **강도 2**: Claude Sonnet 4.6 — 분기 일관성 검증 박을 때 추론 능력 필요 (~$0.005/요청 추정).
+- **강도 1**: Claude Haiku 4.5 — 빠름·저렴 (약 $0.001/요청). 맞춤법·문장 정리 충분.
+- **강도 2**: Claude Sonnet 4.6 — 분기 일관성 검증에 추론 능력 필요 (약 $0.005/요청).
 
 ### 이미지
-- **강도 1 (정돈)**: Imagen Edit / SDXL img2img (low strength) — 원본 보존
-- **강도 2 (발전)**: Imagen Edit (controlled) / SDXL img2img (medium strength) — 구도 유지
+- **강도 1**: SDXL img2img + ControlNet canny (Replicate). denoising 0.20~0.30.
+- **강도 2**: SDXL img2img + ControlNet + IP-Adapter (style reference). denoising 0.45~0.55.
+- 대안: Imagen 3 (Google) — 한국어 프롬프트 좋음, style reference 강함.
+- 비추천 (제품용): DALL-E 3 — 원본 보존이 약함. 수업 시연용으로만.
 
-→ 이미지는 Claude API 박지 X (Claude는 이미지 생성 박지 X). 별도 모델 박혀야.
+---
 
-## 부록 B — 가지 박은 코드 위치 빠른 참조
+## 부록 B — 가지 코드 위치 빠른 참조
 
 - 작품 데이터 로드: `viewer-data.js loadTeamData()`
 - 장면 정규화: `viewer-data.js adaptScenes()`
@@ -1047,30 +1088,35 @@ Phase 0 = 결정문 박는 단계. 실제 박지 X:
 - 본문 patch: `viewer-edit.js _patchSceneBody(value)`
 - 통째 재렌더: `viewer-edit.js _scheduleViewerFrameReRender()`
 - 루트 분석: `storyAnalyzer.js findAllRoutes(startNum)`
-- 인라인 수정 패턴: `storyAnalyzer.js _rtSaveBody/_rtSaveChoiceLabel` (v130 박은 거 — AI 적용도 같은 패턴)
-- 인스펙터 본문 입력: `viewer-edit.js _textEditHtml` line ~1830
+- 인라인 수정 패턴 (v130): `storyAnalyzer.js _rtSaveBody/_rtSaveChoiceLabel`
+- 인스펙터 본문 입력: `viewer-edit.js _textEditHtml`
 - 모바일 텍스트형 편집: `mobileTextBranch.js _mtbOpenEditScene`
 
 ---
 
 ## 부록 C — 다음 세션 가이드
 
-이 문서는 **설계 문서**이며 코드 변경 박지 X. AI 기능 실제 구현 박을 때:
+이 문서는 **설계 문서**이며 코드 변경은 없다. AI 기능 실제 구현 시:
 
-1. 이 문서 + `project_branch_ai_design.md` 메모리 둘 다 박음
-2. **[11. Phase 0 결정문] 박혔는지 확인** — 박지 X 박혔으면 Phase A 박지 X
-3. Phase A부터 순서대로 박음
-4. 각 Phase 후 사용자 검증 받음
-5. v113 만원 사건 교훈 항상 박음 — 비용 모니터링 우선
-6. 새 저장 함수 박지 X — 기존 saveSceneText + _queueSave 재사용
-7. 본문 줄바꿈(v127), 잠금(v129), 인라인 동기(v130) 정책 모두 정합 박음
-8. **6-2 박은 신설 노드 = 설계 후보** — 실제 박을 때 다시 확정 박음
+1. 이 문서 + `project_branch_ai_design.md` 메모리 두 가지 모두 확인
+2. **[11. Phase 0 결정문] 박혀있는지 확인** — 박혀있지 않으면 Phase A 진행 X
+3. Phase A부터 순서대로
+4. 각 Phase 후 사용자 검증
+5. v113 만원 사건 교훈 항상 적용 — 비용 모니터링 우선
+6. 새 저장 함수 만들지 X — 기존 `saveSceneText` + `_queueSave` 재사용
+7. 본문 줄바꿈(v127), 잠금(v129), 인라인 동기(v130) 정책 모두 정합
+8. [6-2 / 6-3] 신설 노드 = 설계 후보 — 실제 만들 때 다시 확정
 
 ---
 
-**문서 버전**: 2026-05-18 v130 직후 박음
-**보정 1회**: 2026-05-18 v130 직후 GPT 평가 받아 박음
-- 신설 노드 = 설계 후보 명시
-- Phase 0 결정문 섹션 박음
+**문서 버전**: v2 (2026-05-18)
+**v2 변경 핵심**:
+- 수업자료 맥락 완전 제거 (제품 기능 기준만)
+- 1단계 = "안심하고 받을 수 있는 정돈", 2단계 = "매력적이지만 판단이 필요한 발전" 정체성 명확화
+- 변화 폭 % 대신 허용/금지 행동 체크리스트 도입
+- 1단계는 새 문장 추가 금지 / 2단계는 구조 분석 필수
+- 출력 JSON에 safeAddition / creativeAddition 구분 추가
+- 이미지 1·2단계는 모델/파라미터(denoising strength, ControlNet, style reference) 기반
+- quota를 Phase 1(작품당 1회) / Phase 2(장면당 + 총량) 두 단계로 분리
 
-**다음 갱신**: Phase 0 결정문 박힌 후 (사용자 14개 항목 확정) 또는 Phase A 박을 때
+**다음 갱신**: Phase 0 결정문 14개 항목 채워진 후 또는 Phase A 진행 시.

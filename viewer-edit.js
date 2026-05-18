@@ -4659,28 +4659,61 @@ function _bindHudEditActions() {
 
   document.querySelector('.js-edit-open-map')?.addEventListener('click', openStructureMap);
 
-  /* v123: 루트보기 — storyAnalyzer.js의 openRoutePanel 재사용.
-     storyAnalyzer는 maker의 전역 scenes/projectMeta를 참조하므로, viewer 다듬기에서
-     호출 전에 ViewerState.scenes를 maker 형식({num: scene})으로 window에 임시 박음.
-     viewer.html에선 window.scenes / window.projectMeta가 비어있어 영향 없음. */
+  /* v123/v124b: 루트보기 — storyAnalyzer.js의 openRoutePanel 재사용.
+     storyAnalyzer는 maker의 전역 scenes/projectMeta를 참조하고, scene 객체에서
+     num/buttons/nextA/B 박음. viewer adaptScenes는 {id, choices} 박는 다른 구조라
+     변환 어댑터 필수. */
   document.querySelector('.js-edit-open-routes')?.addEventListener('click', () => {
     if (typeof openRoutePanel !== 'function') {
       alert('루트보기 기능을 불러오지 못했어요. 페이지를 새로고침해 주세요.');
       return;
     }
-    /* ViewerState.scenes → window.scenes (num 키 기준).
-       storyAnalyzer의 findAllRoutes/_resolveEntryNum 등이 scenes[num]으로 접근. */
+    /* ViewerState.scenes → maker 형식으로 변환:
+       · id 필드를 num으로
+       · choices → buttons 변환 ({label, nextId})
+       · nextA/B/choiceA/B 박음 (storyAnalyzer fallback 호환) */
     const sceneMap = {};
     if (typeof ViewerState !== 'undefined' && ViewerState.scenes) {
       Object.values(ViewerState.scenes).forEach(s => {
         if (!s) return;
         const num = s.num != null ? s.num : s.id;
-        if (num != null) sceneMap[num] = s;
+        if (num == null) return;
+        const choices = Array.isArray(s.choices) ? s.choices : [];
+        const buttons = choices.map(c => ({
+          label:  c && c.label  != null ? c.label  : '',
+          nextId: c && c.nextId != null ? c.nextId : null,
+        }));
+        sceneMap[num] = Object.assign({}, s, {
+          num: Number(num),                      /* "장면 N" 표시용 */
+          buttons,                                /* findAllRoutes가 박는 거 */
+          choiceA: buttons[0] ? buttons[0].label  : '',
+          choiceB: buttons[1] ? buttons[1].label  : '',
+          nextA:   buttons[0] ? buttons[0].nextId : null,
+          nextB:   buttons[1] ? buttons[1].nextId : null,
+          choiceCount: buttons.length,
+          trueEnding: s.isTrueEnd || s.trueEnding || false,
+        });
       });
     }
     window.scenes = sceneMap;
     window.projectMeta = (typeof ViewerState !== 'undefined' && ViewerState.project) ? ViewerState.project : {};
     openRoutePanel();
+
+    /* v124b: ✕ 버튼 + 배경 클릭 핸들러도 박음 (ui.js가 박는 거 — viewer.html엔 없음). */
+    const closeBtn = document.getElementById('btn-route-close');
+    const panel = document.getElementById('route-panel');
+    if (closeBtn && !closeBtn.dataset.bound) {
+      closeBtn.addEventListener('click', () => {
+        if (typeof closeRoutePanel === 'function') closeRoutePanel();
+      });
+      closeBtn.dataset.bound = '1';
+    }
+    if (panel && !panel.dataset.bgBound) {
+      panel.addEventListener('click', (e) => {
+        if (e.target === panel && typeof closeRoutePanel === 'function') closeRoutePanel();
+      });
+      panel.dataset.bgBound = '1';
+    }
   });
 
   document.querySelector('.js-edit-return-maker')?.addEventListener('click', async () => {

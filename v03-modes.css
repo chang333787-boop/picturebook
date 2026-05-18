@@ -693,6 +693,7 @@ body[data-page-orientation="portrait"] .scene-screen--pb.pb--split .pb-frame {
   line-height: 1.85;  /* 시안의 여백 있는 따뜻한 행간 */
   color: var(--pb-color-override, var(--v03-fg));
   margin: 0 0 12px;
+  white-space: pre-wrap; /* v127: 사용자가 박은 \n\n 등 줄바꿈/빈 줄 시각 박힘 */
   flex: 1;
   /* 줄바꿈 정책: 한국어 단어 단위 + 영문/숫자 강제 줄바꿈 */
   white-space: pre-wrap;

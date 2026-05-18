@@ -1318,7 +1318,11 @@ function _extractEditableText(el) {
     .replace(/<(div|p)[^>]*>/gi, '\n');
   const tmp = document.createElement('div');
   tmp.innerHTML = html;
-  return (tmp.textContent || '').replace(/^\n/, '');
+  /* v127: 옛 .replace(/^\n/, '') 박지 X — 사용자가 본문 앞에 \n\n 박은 거가
+     의도된 빈 줄. 첫 \n 박지 X 박은 게 사용자 박은 표현 박지 X 박힘.
+     browser가 첫 <div> 박을 때 박은 \n 박는 거 = 사용자 박은 거와 구분 안 박힘.
+     사용자 박은 거 우선 — 첫 \n도 유지. */
+  return tmp.textContent || '';
 }
 
 function _attachPbEditableInteractions(frame) {

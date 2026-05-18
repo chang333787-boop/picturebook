@@ -69,6 +69,25 @@ function renderCurrentScene() {
 
   /* v85: v83 안전 재박음 + v82 letterbox 룰 폐기 — 사용자 의도 정정. */
   document.getElementById('debug-theme-box')?.remove();
+
+  /* v127: 행동버튼 등장 후에만 클릭 박음 (사용자 명: "보이기 전에는 절대 눌리면 안 됨").
+     CSS는 :not(.is-ready) pointer-events:none 박혀있음. JS에서 animationend 박힐 때
+     .is-ready 박음. 다듬기 모드는 처음부터 박음. fallback 6초 — 애니메이션 박지 X 박힌
+     경우(reduced-motion 등) 영구 잠금 차단. */
+  stage.querySelectorAll('.pb-text__actions').forEach(el => {
+    if (document.body && document.body.classList.contains('edit-mode-active')) {
+      el.classList.add('is-ready');
+      return;
+    }
+    el.classList.remove('is-ready');
+    const onEnd = () => {
+      el.classList.add('is-ready');
+      el.removeEventListener('animationend', onEnd);
+    };
+    el.addEventListener('animationend', onEnd);
+    /* fallback — animation 박지 X 또는 prefers-reduced-motion 박힌 경우 */
+    setTimeout(() => el.classList.add('is-ready'), 6000);
+  });
 }
 
 /* ================================================================
@@ -373,7 +392,7 @@ function _renderSceneText(stage, scene) {
 /* 텍스트 카드 안 내용 — 제목 → 본문 → 버튼 */
 function _renderSceneCard(scene, choices) {
   const title = String(scene.title || '').trim();
-  const body  = String(scene.body  || '').trim();
+  const body  = String(scene.body  || '');  /* v127: trim 박지 X — \n\n 등 의도된 빈 줄 유지 */
   const isLong = scene.textLength === 'long';
 
   const titleHtml = title
@@ -448,7 +467,7 @@ function _renderScenePicturebook(stage, scene, submode) {
 
   /* 텍스트 영역 — 제목 → 본문 → 버튼 */
   const title = String(scene.title || '').trim();
-  const body  = String(scene.body  || '').trim();
+  const body  = String(scene.body  || '');  /* v127: trim 박지 X — \n\n 등 의도된 빈 줄 유지 */
   /* W8: 다듬기 모드에선 contenteditable — viewer에서 직접 수정 가능 + 다듬기 패널 양방향 동기화 */
   const isEdit = (typeof ViewerState !== 'undefined' && ViewerState.editMode);
   const editAttrs = isEdit ? 'contenteditable="true" data-pb-editable="title"' : '';
@@ -661,7 +680,7 @@ function _renderSceneMovie(stage, scene) {
      · null/undefined → fallback: body 존재 여부 (3단계까지의 임시 정책과 동일).
      영상 후 노출 흐름: 영상 재생 후 본문/선택지 노출 — 시각 분기는 CSS의
      data-movie-reveal 속성으로 처리, 여기선 데이터만 셋팅. */
-  const body = String(scene.body || '').trim();
+  const body = String(scene.body || '');  /* v127: trim 박지 X — 줄바꿈 유지 */
   const bodyEnabled = (scene.bodyEnabled === true) ? true
                     : (scene.bodyEnabled === false) ? false
                     : !!body;
@@ -734,7 +753,7 @@ function _renderSceneExperience(stage, scene) {
   const isEdit = !!(ViewerState && ViewerState.editMode);
 
   const title = String(scene.title || '').trim();
-  const body  = String(scene.body  || '').trim();
+  const body  = String(scene.body  || '');  /* v127: trim 박지 X — \n\n 등 의도된 빈 줄 유지 */
 
   /* W6: 정식 connectObjects 모델 — buttons[] 임시 집계 폐기.
      각 오브젝트는 배경 이미지 영역 위에 절대 위치(% 좌표)로 배치. */
@@ -1010,7 +1029,7 @@ function _buildTextBoxStyleForText(scene) {
 function renderTextBox(scene) {
   const isLong   = scene.textLength === 'long';
   const title    = String(scene.title || '').trim();
-  const body     = String(scene.body  || '').trim();
+  const body     = String(scene.body  || '');  /* v127: trim 박지 X — 줄바꿈 유지 */
   /* UX 마감 (1-2): 둘 다 비어있으면 text-box 자체를 렌더하지 않음 —
      빈 유리 박스가 장면 위에 떠있는 어색한 상태 방지 */
   if (!title && !body) return '';
@@ -1183,7 +1202,7 @@ function _renderStoryEnding(stage, scene) {
      · 사용자 제목 → 위쪽 작은 라벨로 (장면 제목)
      · 진엔딩 배지 + path 요약 + 다른 결말 찾기 버튼은 그대로 */
   const userTitle = String(scene.title || '').trim();
-  const userBody  = String(scene.body  || '').trim();
+  const userBody  = String(scene.body  || '');  /* v127: trim 박지 X — 엔딩 줄바꿈 유지 */
   const hasUserBody = userBody.length > 0;
 
   const systemLabel = isTrueEnd ? '진짜 결말' : '이야기 끝';
@@ -1664,9 +1683,13 @@ function applyWorkEffectVars(vf, sceneSpeed, textSpeed, textEntrance) {
   if (!vf) return;
   const sPct = typeof sceneSpeed === 'number' ? sceneSpeed : 50;
   const tPct = typeof textSpeed  === 'number' ? textSpeed  : 50;
-  vf.style.setProperty('--scene-trans-duration', _sceneTransMs(sPct) + 'ms');
+  const sceneMs = _sceneTransMs(sPct);
+  vf.style.setProperty('--scene-trans-duration', sceneMs + 'ms');
   vf.style.setProperty('--text-ent-duration',    _textEntDurMs(tPct) + 'ms');
   vf.style.setProperty('--text-tw-step',         _textTwStepMs(tPct) + 'ms');
+  /* v127: 본문 시작 delay clamp — 사용자 박은 "전환 후 본문 2초 이내".
+     느림(3500ms) 박은 거 = 본문 5초+ 박힘. 사용자 박은 명: 2000ms 상한. */
+  vf.style.setProperty('--text-ent-start-delay', Math.min(sceneMs, 2000) + 'ms');
   /* --text-ent-total 기본값: 효과 'none'이면 0, CSS 효과면 duration, typewriter는 일단 duration
      (실제 typewriter는 _applyTextEntranceTypewriter에서 글자수 보고 다시 박음) */
   if (textEntrance === 'none' || !textEntrance) {
@@ -1857,7 +1880,8 @@ function _applyTextEntranceTypewriter(stage, newScene) {
   const tPct = parseInt(stage.dataset.textSpeedPct, 10);
   const stepMs = _textTwStepMs(isNaN(tPct) ? 50 : tPct);
   const sPct = parseInt(stage.dataset.sceneSpeedPct, 10);
-  const sceneDur = _sceneTransMs(isNaN(sPct) ? 50 : sPct);
+  /* v127: 본문 시작 delay 2초 clamp (CSS와 동일 정책) */
+  const sceneDur = Math.min(_sceneTransMs(isNaN(sPct) ? 50 : sPct), 2000);
 
   const targets = newScene.querySelectorAll(
     '.pb-text__body, .cover-title-pb, .cover-subtitle-pb'
@@ -1879,7 +1903,7 @@ function _applyTextEntranceTypewriter(stage, newScene) {
       const sp = document.createElement('span');
       sp.className = 'tw-char';
       sp.textContent = ch;
-      /* 장면 전환 끝난 후 stagger 시작 */
+      /* 장면 전환 끝난 후 stagger 시작 (v127: 2초 상한 박힘) */
       sp.style.setProperty('animation-delay', (sceneDur + i * stepMs) + 'ms', 'important');
       frag.appendChild(sp);
     });

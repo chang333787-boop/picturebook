@@ -422,9 +422,11 @@ body.edit-mode-active #stage-wrap {
 #viewer-frame[data-transition="slide-up"] .scene-screen { animation-name: sceneSlideUp; }
 #viewer-frame[data-transition="flip3d"]   .scene-screen { animation-name: sceneFlip3d; }
 
-/* 1) fade — 기본 부드럽게 (v63 유지) */
+/* 1) fade — 기본 부드럽게.
+   v124: 빠름/느림 차이 체감 향상 — translateY 12px→24px + opacity 시작 더 늦게 박힘.
+   변화량 키워서 같은 duration에서도 속도 체감 ↑ (사용자 사건: 빠름/느림 차이 적음). */
 @keyframes sceneFadeIn {
-  from { opacity: 0; transform: translateY(12px); }
+  from { opacity: 0; transform: translateY(24px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
@@ -442,9 +444,10 @@ body.edit-mode-active #stage-wrap {
   }
 }
 
-/* 3) scale — 가운데에서 확대 */
+/* 3) scale — 가운데에서 확대.
+   v124: 변화량 키움 0.88→0.78. duration 차이가 시각적으로 더 명확히 박힘. */
 @keyframes sceneScaleIn {
-  from { opacity: 0; transform: scale(0.88); }
+  from { opacity: 0; transform: scale(0.78); }
   to   { opacity: 1; transform: scale(1); }
 }
 

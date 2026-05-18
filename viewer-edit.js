@@ -4659,6 +4659,30 @@ function _bindHudEditActions() {
 
   document.querySelector('.js-edit-open-map')?.addEventListener('click', openStructureMap);
 
+  /* v123: 루트보기 — storyAnalyzer.js의 openRoutePanel 재사용.
+     storyAnalyzer는 maker의 전역 scenes/projectMeta를 참조하므로, viewer 다듬기에서
+     호출 전에 ViewerState.scenes를 maker 형식({num: scene})으로 window에 임시 박음.
+     viewer.html에선 window.scenes / window.projectMeta가 비어있어 영향 없음. */
+  document.querySelector('.js-edit-open-routes')?.addEventListener('click', () => {
+    if (typeof openRoutePanel !== 'function') {
+      alert('루트보기 기능을 불러오지 못했어요. 페이지를 새로고침해 주세요.');
+      return;
+    }
+    /* ViewerState.scenes → window.scenes (num 키 기준).
+       storyAnalyzer의 findAllRoutes/_resolveEntryNum 등이 scenes[num]으로 접근. */
+    const sceneMap = {};
+    if (typeof ViewerState !== 'undefined' && ViewerState.scenes) {
+      Object.values(ViewerState.scenes).forEach(s => {
+        if (!s) return;
+        const num = s.num != null ? s.num : s.id;
+        if (num != null) sceneMap[num] = s;
+      });
+    }
+    window.scenes = sceneMap;
+    window.projectMeta = (typeof ViewerState !== 'undefined' && ViewerState.project) ? ViewerState.project : {};
+    openRoutePanel();
+  });
+
   document.querySelector('.js-edit-return-maker')?.addEventListener('click', async () => {
     /* 작업 복귀 전에도 저장 마무리 + 잠금 릴리스 */
     await _flushPendingSave();

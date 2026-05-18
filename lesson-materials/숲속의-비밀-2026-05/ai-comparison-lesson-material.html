@@ -1,0 +1,1333 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>숲속의 비밀 — AI 다듬기 비교 (수업 자료)</title>
+<link href="https://fonts.googleapis.com/css2?family=Jua&family=Nanum+Pen+Script&family=Gowun+Batang:wght@400;700&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --paper: #fbf6ea;
+    --paper-deep: #f4ecd8;
+    --ink: #2b1f10;
+    --ink-soft: #6b5638;
+    --accent: #9b4dca;
+    --accent-deep: #7030b0;
+    --orig: #4a7ab8;
+    --orig-bg: #eef3f9;
+    --lv1: #d99060;
+    --lv1-bg: #faf1e6;
+    --lv2: #6aa46a;
+    --lv2-bg: #ecf4ea;
+    --warn: #c08000;
+    --warn-bg: #fffae0;
+    --border: rgba(80,50,20,.18);
+    --shadow: 0 4px 16px rgba(80,50,20,.10);
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Jua', 'Gowun Batang', sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    margin: 0;
+    padding: 24px 16px 80px;
+    line-height: 1.6;
+  }
+  .container { max-width: 1080px; margin: 0 auto; }
+
+  /* ── 헤더 ── */
+  header.title-block {
+    text-align: center;
+    padding: 32px 16px 24px;
+    border-bottom: 2px solid var(--border);
+    margin-bottom: 24px;
+  }
+  .eyebrow {
+    font-size: 13px;
+    color: var(--accent);
+    letter-spacing: 0.15em;
+    margin: 0 0 8px;
+  }
+  h1 {
+    font-family: 'Jua', sans-serif;
+    font-size: clamp(28px, 4vw, 40px);
+    color: var(--ink);
+    margin: 0 0 12px;
+    letter-spacing: -0.01em;
+  }
+  .subtitle {
+    font-size: 15px;
+    color: var(--ink-soft);
+    margin: 0;
+  }
+
+  /* ── 핵심 안내 박스 ── */
+  .core-notice {
+    background: #fff;
+    border: 2px solid var(--accent);
+    border-radius: 16px;
+    padding: 20px 24px;
+    margin: 24px 0 32px;
+    box-shadow: var(--shadow);
+    text-align: center;
+  }
+  .core-notice .core-line {
+    font-family: 'Jua', sans-serif;
+    font-size: clamp(16px, 2vw, 19px);
+    color: var(--accent-deep);
+    margin: 0 0 8px;
+  }
+  .core-notice .core-sub {
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin: 0;
+  }
+
+  /* ── 섹션 구분 ── */
+  .section-divider {
+    margin: 48px 0 24px;
+    padding-bottom: 8px;
+    border-bottom: 1.5px dashed var(--border);
+  }
+  .section-divider h2 {
+    font-family: 'Jua', sans-serif;
+    font-size: clamp(22px, 3vw, 28px);
+    color: var(--ink);
+    margin: 0 0 6px;
+  }
+  .section-divider .section-desc {
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin: 0;
+  }
+
+  /* ── 장면 카드 ── */
+  .scene-card {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px 24px;
+    margin-bottom: 24px;
+    box-shadow: var(--shadow);
+  }
+  .scene-card h3 {
+    font-family: 'Jua', sans-serif;
+    font-size: 20px;
+    color: var(--ink);
+    margin: 0 0 4px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .scene-num-badge {
+    display: inline-block;
+    background: var(--paper-deep);
+    color: var(--ink-soft);
+    font-size: 12px;
+    padding: 3px 10px;
+    border-radius: 50px;
+  }
+  .scene-role {
+    font-size: 12px;
+    color: var(--ink-soft);
+    font-weight: normal;
+  }
+  .scene-card.is-ending h3 .scene-role { color: #c8503c; }
+
+  /* ── 비교 그리드 ── */
+  .compare-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+    margin: 16px 0;
+  }
+  @media (max-width: 768px) {
+    .compare-grid { grid-template-columns: 1fr; }
+  }
+  .ver-block {
+    border-radius: 10px;
+    padding: 14px;
+    border-top: 4px solid;
+  }
+  .ver-block.original  { background: var(--orig-bg); border-color: var(--orig); }
+  .ver-block.lv1       { background: var(--lv1-bg);  border-color: var(--lv1); }
+  .ver-block.lv2       { background: var(--lv2-bg);  border-color: var(--lv2); }
+  .ver-label {
+    font-family: 'Jua', sans-serif;
+    font-size: 12px;
+    margin: 0 0 8px;
+    letter-spacing: 0.05em;
+  }
+  .ver-block.original .ver-label { color: var(--orig); }
+  .ver-block.lv1      .ver-label { color: var(--lv1); }
+  .ver-block.lv2      .ver-label { color: var(--lv2); }
+  .ver-body {
+    font-family: 'Gowun Batang', serif;
+    font-size: 14px;
+    color: var(--ink);
+    white-space: pre-wrap;
+    word-break: keep-all;
+    line-height: 1.7;
+    min-height: 60px;
+  }
+
+  /* ── 선택지 ── */
+  .choices-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: 14px 0 8px;
+  }
+  .choice-pill {
+    background: #f3eeff;
+    color: var(--accent-deep);
+    border-radius: 50px;
+    padding: 4px 14px;
+    font-size: 12px;
+    border: 1px solid #d8c5ec;
+  }
+
+  /* ── 바뀐 점 / 유지된 점 / 사라질 수 있는 점 ── */
+  .change-blocks {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin: 12px 0;
+  }
+  @media (max-width: 600px) {
+    .change-blocks { grid-template-columns: 1fr; }
+  }
+  .change-block {
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 13px;
+    line-height: 1.55;
+  }
+  .change-block strong { display: block; font-size: 12px; margin-bottom: 4px; }
+  .change-block.changed   { background: #fff5e6; color: #8a5000; }
+  .change-block.preserved { background: #ecf3ff; color: #2c5a8a; }
+  .change-block.risk      { background: var(--warn-bg); color: var(--warn); border: 1px dashed #f0c060; }
+
+  /* ── 학생 질문 ── */
+  .student-check {
+    background: #f8f0ff;
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin: 16px 0 4px;
+    border-left: 4px solid var(--accent);
+  }
+  .student-check strong {
+    display: block;
+    color: var(--accent-deep);
+    margin-bottom: 6px;
+    font-size: 14px;
+  }
+  .student-check ul {
+    margin: 0;
+    padding-left: 18px;
+    font-size: 13px;
+    color: var(--ink-soft);
+    line-height: 1.7;
+  }
+
+  /* ── 이미지 비교 ── */
+  .image-compare-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+    margin: 16px 0;
+  }
+  @media (max-width: 768px) {
+    .image-compare-grid { grid-template-columns: 1fr; }
+  }
+  .image-block {
+    border-radius: 10px;
+    overflow: hidden;
+    border-top: 4px solid;
+    background: #fff;
+  }
+  .image-block.original  { border-color: var(--orig); }
+  .image-block.lv1       { border-color: var(--lv1); }
+  .image-block.lv2       { border-color: var(--lv2); }
+  .image-block .img-label {
+    padding: 8px 12px;
+    font-family: 'Jua', sans-serif;
+    font-size: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .image-block.original .img-label { color: var(--orig); background: var(--orig-bg); }
+  .image-block.lv1      .img-label { color: var(--lv1);  background: var(--lv1-bg); }
+  .image-block.lv2      .img-label { color: var(--lv2);  background: var(--lv2-bg); }
+  .image-block .img-frame {
+    width: 100%;
+    aspect-ratio: 4/3;
+    background: var(--paper-deep);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ink-soft);
+    font-size: 13px;
+    text-align: center;
+    padding: 12px;
+    overflow: hidden;
+  }
+  .image-block .img-frame img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #fff;
+  }
+  .image-block .img-placeholder {
+    font-size: 12px;
+    color: var(--ink-soft);
+    text-align: center;
+    padding: 12px;
+  }
+  .image-block .img-placeholder code {
+    background: #fff;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+  }
+
+  /* ── 이미지 프롬프트 카드 ── */
+  .prompt-card {
+    background: var(--paper-deep);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin: 10px 0;
+    font-family: 'Nanum Pen Script', sans-serif;
+    font-size: 15px;
+    line-height: 1.55;
+    color: var(--ink);
+    white-space: pre-wrap;
+    border-left: 3px solid var(--lv1);
+  }
+  .prompt-card.lv2 { border-left-color: var(--lv2); }
+  .prompt-card .prompt-head {
+    font-family: 'Jua', sans-serif;
+    font-size: 12px;
+    color: var(--ink-soft);
+    margin-bottom: 4px;
+    display: block;
+  }
+
+  /* ── 정리 섹션 ── */
+  .summary-section {
+    background: #fff;
+    border: 2px solid var(--accent);
+    border-radius: 16px;
+    padding: 28px 32px;
+    margin: 48px 0 24px;
+    box-shadow: var(--shadow);
+  }
+  .summary-section h2 {
+    font-family: 'Jua', sans-serif;
+    font-size: 24px;
+    color: var(--accent-deep);
+    margin: 0 0 20px;
+    text-align: center;
+  }
+  .summary-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+  }
+  @media (max-width: 768px) {
+    .summary-grid { grid-template-columns: 1fr; }
+  }
+  .summary-col {
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .summary-col.ok   { background: var(--lv2-bg); }
+  .summary-col.no   { background: var(--warn-bg); }
+  .summary-col.core { background: #f8f0ff; }
+  .summary-col h3 {
+    font-family: 'Jua', sans-serif;
+    font-size: 16px;
+    margin: 0 0 10px;
+  }
+  .summary-col.ok   h3 { color: var(--lv2); }
+  .summary-col.no   h3 { color: var(--warn); }
+  .summary-col.core h3 { color: var(--accent-deep); }
+  .summary-col ul {
+    margin: 0;
+    padding-left: 18px;
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--ink);
+  }
+
+  /* ── 푸터 ── */
+  footer {
+    text-align: center;
+    font-size: 12px;
+    color: var(--ink-soft);
+    margin-top: 48px;
+    padding-top: 20px;
+    border-top: 1px dashed var(--border);
+  }
+
+  /* ── 작은 도움말 ── */
+  .helper-note {
+    background: #fff;
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 12px;
+    color: var(--ink-soft);
+    margin: 12px 0;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- ═══════════════════════════════════════════════════════════
+       헤더
+       ═══════════════════════════════════════════════════════════ -->
+  <header class="title-block">
+    <p class="eyebrow">AI 다듬기 비교 — 수업 자료</p>
+    <h1>숲속의 비밀</h1>
+    <p class="subtitle">우리 작품 · 원본 vs AI 다듬기 1단계 vs AI 다듬기 2단계</p>
+  </header>
+
+  <div class="core-notice">
+    <p class="core-line">AI는 작품을 더 보기 좋게 도울 수 있지만,<br/>작품의 중심은 사람이 정해야 합니다.</p>
+    <p class="core-sub">아래 비교를 보면서, 무엇이 가장 우리 작품답고 멋진지 우리가 직접 정해 봅시다.</p>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       텍스트 비교 섹션
+       ═══════════════════════════════════════════════════════════ -->
+  <div class="section-divider">
+    <h2>1. 글 비교 — 원본 / AI 살짝 다듬기 / AI 장면 발전</h2>
+    <p class="section-desc">같은 장면을 세 가지로 비교해 봅시다. 어떤 글이 가장 우리 작품 같나요?</p>
+  </div>
+
+  <!-- ═══ 장면 1 ═══ -->
+  <article class="scene-card" data-scene-id="1">
+    <h3><span class="scene-num-badge">장면 1</span> <span class="scene-role">도입 — 멧돼지에 쫓김</span></h3>
+    <div class="compare-grid">
+      <div class="ver-block original">
+        <p class="ver-label">📘 원본</p>
+        <div class="ver-body">마루, 하루가 길을 가다 멧돼지에 쫓긴다.
+도망가고 있는데 숲속에서 소리가 난다.</div>
+      </div>
+      <div class="ver-block lv1">
+        <p class="ver-label">✏️ AI 살짝 다듬기</p>
+        <div class="ver-body">마루와 하루가 길을 가다 멧돼지에 쫓긴다.
+도망가고 있는데 숲속에서 소리가 난다.</div>
+      </div>
+      <div class="ver-block lv2">
+        <p class="ver-label">🌳 AI 장면 발전</p>
+        <div class="ver-body">마루와 하루가 좁은 길을 걷는데, 뒤에서 멧돼지가 거칠게 달려왔다. 두 사람은 숨도 못 쉬고 도망쳤다.
+
+그때, 깊은 숲속 어딘가에서 이상한 소리가 들려왔다.</div>
+      </div>
+    </div>
+    <div class="choices-row">
+      <span class="choice-pill">따라간다. → 장면 2</span>
+      <span class="choice-pill">안간다. → 장면 3</span>
+    </div>
+    <div class="change-blocks">
+      <div class="change-block changed"><strong>바뀐 점</strong>
+        1단계: '마루, 하루' → '마루와 하루' (자연스럽게)<br/>
+        2단계: 멧돼지를 '거칠게 달려왔다', 숲속 소리를 '이상한'으로 묘사 박음
+      </div>
+      <div class="change-block preserved"><strong>그대로 유지된 점</strong>
+        마루·하루·멧돼지·숲속 소리라는 도입 4요소
+      </div>
+    </div>
+    <div class="change-block risk"><strong>사라질 수 있는 느낌</strong>
+      원작의 짧고 시원한 한 줄("쫓긴다. 소리가 난다.") 박힌 느낌이 2단계에서 살짝 줄어들 수 있어요.
+    </div>
+    <div class="student-check">
+      <strong>🤔 생각해 봅시다</strong>
+      <ul>
+        <li>어떤 버전이 가장 우리 작품답나요?</li>
+        <li>"거칠게", "이상한" 박은 단어가 우리 작품 분위기와 어울리나요?</li>
+        <li>이 장면은 1단계 다듬기로도 충분할까요, 2단계 발전이 필요할까요?</li>
+      </ul>
+    </div>
+  </article>
+
+  <!-- ═══ 장면 2 ═══ -->
+  <article class="scene-card" data-scene-id="2">
+    <h3><span class="scene-num-badge">장면 2</span> <span class="scene-role">토토·모찌 등장 + 밀렵꾼 위협</span></h3>
+    <div class="compare-grid">
+      <div class="ver-block original">
+        <p class="ver-label">📘 원본</p>
+        <div class="ver-body">마루,하루는 토토, 모찌를 만났다. 모찌는 밀렵꾼에게 쫓기고 있었다.</div>
+      </div>
+      <div class="ver-block lv1">
+        <p class="ver-label">✏️ AI 살짝 다듬기</p>
+        <div class="ver-body">마루와 하루는 토토, 모찌를 만났다. 모찌는 밀렵꾼에게 쫓기고 있었다.</div>
+      </div>
+      <div class="ver-block lv2">
+        <p class="ver-label">🌳 AI 장면 발전</p>
+        <div class="ver-body">마루와 하루는 토토, 모찌를 만났다. 토토는 작은 동물이었고, 모찌는 그 옆에서 떨고 있었다. 모찌는 밀렵꾼에게 쫓기고 있었다.</div>
+      </div>
+    </div>
+    <div class="choices-row">
+      <span class="choice-pill">도와준다. → 장면 4</span>
+      <span class="choice-pill">도와주지 않는다. → 장면 5</span>
+    </div>
+    <div class="change-blocks">
+      <div class="change-block changed"><strong>바뀐 점</strong>
+        1단계: 쉼표 → '와'<br/>
+        2단계: 토토·모찌가 어떤 캐릭터인지 한 줄 박음
+      </div>
+      <div class="change-block preserved"><strong>그대로 유지된 점</strong>
+        토토·모찌 등장, 밀렵꾼 박힌 위협
+      </div>
+    </div>
+    <div class="change-block risk"><strong>사라질 수 있는 느낌</strong>
+      AI가 "토토 = 작은 동물"이라고 박은 건 추측이에요. 우리가 그린 토토의 진짜 모습과 다를 수 있어요.
+    </div>
+    <div class="student-check">
+      <strong>🤔 생각해 봅시다</strong>
+      <ul>
+        <li>토토와 모찌의 모습은 우리가 정한 것이지, AI가 정할 수 있나요?</li>
+        <li>2단계에서 박은 캐릭터 설명이 우리 작품과 맞나요?</li>
+      </ul>
+    </div>
+  </article>
+
+  <!-- ═══ 장면 3 ═══ -->
+  <article class="scene-card" data-scene-id="3">
+    <h3><span class="scene-num-badge">장면 3</span> <span class="scene-role">실종</span></h3>
+    <div class="compare-grid">
+      <div class="ver-block original">
+        <p class="ver-label">📘 원본</p>
+        <div class="ver-body">멧돼지에게 쫓기다 실종(마루,하루)</div>
+      </div>
+      <div class="ver-block lv1">
+        <p class="ver-label">✏️ AI 살짝 다듬기</p>
+        <div class="ver-body">멧돼지에게 쫓기다 마루와 하루가 실종됐다.</div>
+      </div>
+      <div class="ver-block lv2">
+        <p class="ver-label">🌳 AI 장면 발전</p>
+        <div class="ver-body">멧돼지에게 한참을 쫓기던 마루와 하루는 어느새 서로 떨어져 숲속에서 길을 잃었다.</div>
+      </div>
+    </div>
+    <div class="choices-row">
+      <span class="choice-pill">다시 찾는다. → 장면 6</span>
+      <span class="choice-pill">더 깊은곳으로 간다. → 장면 7</span>
+    </div>
+    <div class="change-blocks">
+      <div class="change-block changed"><strong>바뀐 점</strong>
+        1단계: 괄호 형식을 자연스러운 문장으로<br/>
+        2단계: '서로 떨어져 길을 잃었다'로 풀어 다음 분기와 자연스럽게 이어짐
+      </div>
+      <div class="change-block preserved"><strong>그대로 유지된 점</strong>
+        실종이라는 핵심 사건
+      </div>
+    </div>
+    <div class="student-check">
+      <strong>🤔 생각해 봅시다</strong>
+      <ul>
+        <li>원본의 짧은 메모 같은 형식이 그림책에 어울리나요?</li>
+        <li>어느 버전이 다음 장면(다시 찾는다·더 깊은 곳)과 더 잘 이어지나요?</li>
+      </ul>
+    </div>
+  </article>
+
+  <!-- ═══ 장면 4 ═══ -->
+  <article class="scene-card" data-scene-id="4">
+    <h3><span class="scene-num-badge">장면 4</span> <span class="scene-role">뇨뇨 기사 + 열매 선택</span></h3>
+    <div class="compare-grid">
+      <div class="ver-block original">
+        <p class="ver-label">📘 원본</p>
+        <div class="ver-body">뇨뇨 기사를 만나서 악당을 물리친 뒤 시민 둘은 배가 너무 고팠다. 기사 뇨뇨는 옆에 있던 열매를 따줬다. 무슨 열매를 먹지?</div>
+      </div>
+      <div class="ver-block lv1">
+        <p class="ver-label">✏️ AI 살짝 다듬기</p>
+        <div class="ver-body">뇨뇨 기사를 만나서 악당을 물리친 뒤, 시민 둘은 배가 너무 고팠다. 기사 뇨뇨는 옆에 있던 열매를 따 줬다. 무슨 열매를 먹지?</div>
+      </div>
+      <div class="ver-block lv2">
+        <p class="ver-label">🌳 AI 장면 발전</p>
+        <div class="ver-body">뇨뇨 기사를 만나 함께 악당을 물리친 뒤, 시민 두 사람은 배가 너무 고팠다. 기사 뇨뇨는 근처 나무에서 열매 두 개를 따 줬다. 하나는 반짝이며 먹음직스러웠고, 다른 하나는 시들고 못생겨 보였다. 무슨 열매를 먹지?</div>
+      </div>
+    </div>
+    <div class="choices-row">
+      <span class="choice-pill">엄청 맛있어 보이는 열매 → 장면 8</span>
+      <span class="choice-pill">엄청 맛없어 보이는 열매 → 장면 9</span>
+    </div>
+    <div class="change-blocks">
+      <div class="change-block changed"><strong>바뀐 점</strong>
+        1단계: 쉼표 + 띄어쓰기('따 줬다')<br/>
+        2단계: 두 열매의 외관(반짝이며 / 시들고 못생긴) 묘사 박음 — 선택지와 호응
+      </div>
+      <div class="change-block preserved"><strong>그대로 유지된 점</strong>
+        뇨뇨 기사, 열매 선택 분기, '시민 둘'이라는 학생 단어
+      </div>
+    </div>
+    <div class="student-check">
+      <strong>🤔 생각해 봅시다</strong>
+      <ul>
+        <li>두 열매의 외관 차이를 글로 박은 게 좋을까요, 그림으로만 보여 주는 게 좋을까요?</li>
+        <li>"시민"이라는 우리 작품 단어 박힌 게 그대로인가요?</li>
+      </ul>
+    </div>
+  </article>
+
+  <!-- ═══ 장면 5 ═══ -->
+  <article class="scene-card is-ending" data-scene-id="5">
+    <h3><span class="scene-num-badge">장면 5</span> <span class="scene-role">🏁 엔딩 — 잡혀감</span></h3>
+    <div class="compare-grid">
+      <div class="ver-block original">
+        <p class="ver-label">📘 원본</p>
+        <div class="ver-body">
+마루하루는 밀렵꾼에게 잡혀갔다!!
+ 토토와 모찌도 잡혀갔다!!
+</div>
+      </div>
+      <div class="ver-block lv1">
+        <p class="ver-label">✏️ AI 살짝 다듬기</p>
+        <div class="ver-body">
+마루와 하루는 밀렵꾼에게 잡혀갔다!!
+토토와 모찌도 잡혀갔다!!
+</div>
+      </div>
+      <div class="ver-block lv2">
+        <p class="ver-label">🌳 AI 장면 발전</p>
+        <div class="ver-body">
+마루와 하루는 결국 밀렵꾼에게 잡혀갔다!!
+토토와 모찌도 함께 잡혀갔다!!
+그날 숲은 조용해졌다.</div>
+      </div>
+    </div>
+    <div class="change-blocks">
+      <div class="change-block changed"><strong>바뀐 점</strong>
+        1단계: '마루하루' → '마루와 하루', 공백 정리<br/>
+        2단계: '그날 숲은 조용해졌다' 박은 마지막 한 줄
+      </div>
+      <div class="change-block preserved"><strong>그대로 유지된 점</strong>
+        잡혀감이라는 결말, 느낌표 두 개 강조
+      </div>
+    </div>
+    <div class="change-block risk"><strong>사라질 수 있는 느낌</strong>
+      원작의 갑작스럽고 강한 마무리(!! 두 줄로 끝)가 2단계에서 살짝 부드러워질 수 있어요.
+    </div>
+    <div class="student-check">
+      <strong>🤔 생각해 봅시다</strong>
+      <ul>
+        <li>엔딩은 짧고 강한 게 좋을까요, 한 줄 더 박아 마무리하는 게 좋을까요?</li>
+        <li>"!!" 박힌 강한 마무리가 우리가 의도한 분위기인가요?</li>
+      </ul>
+    </div>
+  </article>
+
+  <!-- ═══ 장면 6 ═══ -->
+  <article class="scene-card" data-scene-id="6">
+    <h3><span class="scene-num-badge">장면 6</span> <span class="scene-role">재회 + 막대자/필통 선택</span></h3>
+    <div class="compare-grid">
+      <div class="ver-block original">
+        <p class="ver-label">📘 원본</p>
+        <div class="ver-body">하루마루는 서로 만났다! 멧돼지를 무찔러야 한다! 무슨 공격을 할까? 시민 두명의 가방에는 막대자와 필통이 있었다. 뭘 고를까?</div>
+      </div>
+      <div class="ver-block lv1">
+        <p class="ver-label">✏️ AI 살짝 다듬기</p>
+        <div class="ver-body">하루와 마루는 서로 만났다! 멧돼지를 무찔러야 한다! 어떻게 공격할까? 시민 두 명의 가방에는 막대자와 필통이 있었다. 뭘 고를까?</div>
+      </div>
+      <div class="ver-block lv2">
+        <p class="ver-label">🌳 AI 장면 발전</p>
+        <div class="ver-body">하루와 마루는 마침내 다시 만났다! 멧돼지를 무찔러야 한다! 어떻게 공격할까? 시민 두 명의 가방을 열어 보니 막대자와 필통이 들어 있었다. 뭘 고를까?</div>
+      </div>
+    </div>
+    <div class="choices-row">
+      <span class="choice-pill">막대자 → 장면 10</span>
+      <span class="choice-pill">필통 → 장면 11</span>
+    </div>
+    <div class="change-blocks">
+      <div class="change-block changed"><strong>바뀐 점</strong>
+        1단계: '하루마루' 분리, '두명' 띄어쓰기, '무슨 공격' → '어떻게 공격'<br/>
+        2단계: '마침내 다시', '가방을 열어 보니'로 행동 박음
+      </div>
+      <div class="change-block preserved"><strong>그대로 유지된 점</strong>
+        재회 + 막대자/필통 박힌 학용품 코믹 + '시민' 단어
+      </div>
+    </div>
+    <div class="student-check">
+      <strong>🤔 생각해 봅시다</strong>
+      <ul>
+        <li>막대자·필통 박힌 게 재미있는 점인데, 어느 버전에서 그 재미가 가장 잘 살아나요?</li>
+      </ul>
+    </div>
+  </article>
+
+  <!-- ═══ 장면 7 ═══ -->
+  <article class="scene-card is-ending" data-scene-id="7">
+    <h3><span class="scene-num-badge">장면 7</span> <span class="scene-role">🏁 엔딩 — 흩어짐</span></h3>
+    <div class="compare-grid">
+      <div class="ver-block original">
+        <p class="ver-label">📘 원본</p>
+        <div class="ver-body">결국 흩어진다....</div>
+      </div>
+      <div class="ver-block lv1">
+        <p class="ver-label">✏️ AI 살짝 다듬기</p>
+        <div class="ver-body">결국 흩어진다…</div>
+      </div>
+      <div class="ver-block lv2">
+        <p class="ver-label">🌳 AI 장면 발전</p>
+        <div class="ver-body">결국 두 사람은 다시 만나지 못하고 흩어진다…</div>
+      </div>
+    </div>
+    <div class="change-blocks">
+      <div class="change-block changed"><strong>바뀐 점</strong>
+        1단계: '....' → '…' 말줄임표<br/>
+        2단계: '두 사람은 다시 만나지 못하고' 박음
+      </div>
+      <div class="change-block risk"><strong>사라질 수 있는 느낌</strong>
+        한 줄짜리 슬픈 여운이 2단계에서 살짝 길어져요. 짧고 강한 슬픔이 좋다면 원본이 더 나을 수 있어요.
+      </div>
+    </div>
+    <div class="student-check">
+      <strong>🤔 생각해 봅시다</strong>
+      <ul>
+        <li>슬픈 엔딩은 짧은 게 더 슬플까요, 풀어 박는 게 더 슬플까요?</li>
+      </ul>
+    </div>
+  </article>
+
+  <!-- ═══ 장면 8 ═══ -->
+  <article class="scene-card is-ending" data-scene-id="8">
+    <h3><span class="scene-num-badge">장면 8</span> <span class="scene-role">🏁 엔딩 — 독 열매</span></h3>
+    <div class="compare-grid">
+      <div class="ver-block original">
+        <p class="ver-label">📘 원본</p>
+        <div class="ver-body">
+
+맛있어 보이는 열매는 독이 있었다!
+</div>
+      </div>
+      <div class="ver-block lv1">
+        <p class="ver-label">✏️ AI 살짝 다듬기</p>
+        <div class="ver-body">
+
+맛있어 보이는 열매는 독이 있었다!
+</div>
+      </div>
+      <div class="ver-block lv2">
+        <p class="ver-label">🌳 AI 장면 발전</p>
+        <div class="ver-body">
+
+맛있어 보이는 열매에는 독이 있었다!
+시민 둘은 그만 쓰러지고 말았다.</div>
+      </div>
+    </div>
+    <div class="change-blocks">
+      <div class="change-block changed"><strong>바뀐 점</strong>
+        1단계: 줄바꿈 사이 공백 정리<br/>
+        2단계: '시민 둘은 그만 쓰러지고 말았다' 결과 박음
+      </div>
+      <div class="change-block preserved"><strong>그대로 유지된 점</strong>
+        앞 빈 줄 박힌 호흡, 느낌표
+      </div>
+    </div>
+    <div class="student-check">
+      <strong>🤔 생각해 봅시다</strong>
+      <ul>
+        <li>엔딩에 결과를 한 줄 더 박는 게 좋을까요, 한 줄로 끝나는 게 좋을까요?</li>
+      </ul>
+    </div>
+  </article>
+
+  <!-- ═══ 장면 9 ═══ -->
+  <article class="scene-card" data-scene-id="9">
+    <h3><span class="scene-num-badge">장면 9</span> <span class="scene-role">투명인간 10분 + 갈림길</span></h3>
+    <div class="compare-grid">
+      <div class="ver-block original">
+        <p class="ver-label">📘 원본</p>
+        <div class="ver-body">맛없어 보이는 열매는 배도 채워지고, 투명인간이 10분간 된다. 이제 어디로 가지?</div>
+      </div>
+      <div class="ver-block lv1">
+        <p class="ver-label">✏️ AI 살짝 다듬기</p>
+        <div class="ver-body">맛없어 보이는 열매를 먹으니 배도 부르고, 10분 동안 투명인간이 된다. 이제 어디로 가지?</div>
+      </div>
+      <div class="ver-block lv2">
+        <p class="ver-label">🌳 AI 장면 발전</p>
+        <div class="ver-body">맛없어 보이는 열매를 먹으니, 신기하게도 배도 부르고 10분 동안 몸이 투명해졌다. 시민 두 사람의 손이 천천히 사라지기 시작했다. 이제 어디로 가지?</div>
+      </div>
+    </div>
+    <div class="choices-row">
+      <span class="choice-pill">산속 깊은 곳 → 장면 12</span>
+      <span class="choice-pill">뇨뇨 마을 → 장면 13</span>
+    </div>
+    <div class="change-blocks">
+      <div class="change-block changed"><strong>바뀐 점</strong>
+        1단계: '배도 채워지고' → '배도 부르고', 어순 박음<br/>
+        2단계: '손이 천천히 사라지기 시작했다' 박은 시각 박음
+      </div>
+      <div class="change-block preserved"><strong>그대로 유지된 점</strong>
+        투명인간 10분 박힌 설정 (학생 박은 재미있는 설정)
+      </div>
+    </div>
+    <div class="student-check">
+      <strong>🤔 생각해 봅시다</strong>
+      <ul>
+        <li>투명해지는 순간을 그림으로만 보일까요, 글로도 박을까요?</li>
+      </ul>
+    </div>
+  </article>
+
+  <!-- ═══ 장면 10 ═══ -->
+  <article class="scene-card is-ending" data-scene-id="10">
+    <h3><span class="scene-num-badge">장면 10</span> <span class="scene-role">🏁 엔딩 — 행복한 결말</span></h3>
+    <div class="compare-grid">
+      <div class="ver-block original">
+        <p class="ver-label">📘 원본</p>
+        <div class="ver-body">마루하루는 맷돼지를 무찌르고 집으로 돌아가 행복하게 살았답니다.</div>
+      </div>
+      <div class="ver-block lv1">
+        <p class="ver-label">✏️ AI 살짝 다듬기</p>
+        <div class="ver-body">마루와 하루는 멧돼지를 무찌르고 집으로 돌아가 행복하게 살았답니다.</div>
+      </div>
+      <div class="ver-block lv2">
+        <p class="ver-label">🌳 AI 장면 발전</p>
+        <div class="ver-body">마루와 하루는 멧돼지를 멋지게 무찌르고, 함께 집으로 돌아가 오래오래 행복하게 살았답니다.</div>
+      </div>
+    </div>
+    <div class="change-blocks">
+      <div class="change-block changed"><strong>바뀐 점</strong>
+        1단계: '마루하루' 분리, '맷돼지' → '멧돼지' 맞춤법<br/>
+        2단계: '멋지게', '오래오래' 박음
+      </div>
+      <div class="change-block preserved"><strong>그대로 유지된 점</strong>
+        '행복하게 살았답니다' 박힌 전통적 그림책 마무리
+      </div>
+    </div>
+  </article>
+
+  <!-- ═══ 장면 11 ═══ -->
+  <article class="scene-card" data-scene-id="11">
+    <h3><span class="scene-num-badge">장면 11</span> <span class="scene-role">몽실이·무진 등장</span></h3>
+    <div class="compare-grid">
+      <div class="ver-block original">
+        <p class="ver-label">📘 원본</p>
+        <div class="ver-body">멧돼지에게 필통을 던지려고 보니 몽실이가 구해달라고 소리쳤다! 몽실이는 무진에게 쫒기고 있었다! 어떻게 하지??</div>
+      </div>
+      <div class="ver-block lv1">
+        <p class="ver-label">✏️ AI 살짝 다듬기</p>
+        <div class="ver-body">멧돼지에게 필통을 던지려고 보니 몽실이가 구해 달라고 소리쳤다! 몽실이는 무진에게 쫓기고 있었다! 어떻게 하지?</div>
+      </div>
+      <div class="ver-block lv2">
+        <p class="ver-label">🌳 AI 장면 발전</p>
+        <div class="ver-body">멧돼지에게 필통을 막 던지려는데, 어디선가 몽실이가 "구해 줘!" 하고 소리쳤다! 몽실이는 무진에게 쫓기고 있었다! 어떻게 하지?</div>
+      </div>
+    </div>
+    <div class="choices-row">
+      <span class="choice-pill">무진에게 그만하라고 한다. → 장면 14</span>
+      <span class="choice-pill">몽실이와 무진을 데리고 간다. → 장면 14</span>
+    </div>
+    <div class="change-blocks">
+      <div class="change-block changed"><strong>바뀐 점</strong>
+        1단계: '구해달라고' 띄어쓰기, '쫒기고' → '쫓기고', '??' → '?'<br/>
+        2단계: 직접 대사 "구해 줘!" 박음
+      </div>
+      <div class="change-block risk"><strong>사라질 수 있는 느낌</strong>
+        직접 대사("구해 줘!")는 원작에 없는 박은 거예요. 우리 작품 스타일에 어울리는지 확인이 필요해요.
+      </div>
+    </div>
+    <div class="student-check">
+      <strong>🤔 생각해 봅시다</strong>
+      <ul>
+        <li>인물이 직접 말하는 대사를 박는 게 우리 작품 스타일인가요?</li>
+      </ul>
+    </div>
+  </article>
+
+  <!-- ═══ 장면 12 ═══ -->
+  <article class="scene-card is-ending" data-scene-id="12">
+    <h3><span class="scene-num-badge">장면 12</span> <span class="scene-role">🏁 엔딩 — 늪</span></h3>
+    <div class="compare-grid">
+      <div class="ver-block original">
+        <p class="ver-label">📘 원본</p>
+        <div class="ver-body">결국 숲에 깊은 늪에 빠져서 나오지 못했다.</div>
+      </div>
+      <div class="ver-block lv1">
+        <p class="ver-label">✏️ AI 살짝 다듬기</p>
+        <div class="ver-body">결국 숲의 깊은 늪에 빠져서 나오지 못했다.</div>
+      </div>
+      <div class="ver-block lv2">
+        <p class="ver-label">🌳 AI 장면 발전</p>
+        <div class="ver-body">결국 숲의 깊은 늪에 빠져서, 시민 둘은 다시는 나오지 못했다.</div>
+      </div>
+    </div>
+    <div class="change-blocks">
+      <div class="change-block changed"><strong>바뀐 점</strong>
+        1단계: '숲에' → '숲의' 조사 정리<br/>
+        2단계: '시민 둘은 다시는' 주어 박음
+      </div>
+    </div>
+  </article>
+
+  <!-- ═══ 장면 13 ═══ -->
+  <article class="scene-card" data-scene-id="13">
+    <h3><span class="scene-num-badge">장면 13</span> <span class="scene-role">수영 뇨뇨 도움 분기</span></h3>
+    <div class="compare-grid">
+      <div class="ver-block original">
+        <p class="ver-label">📘 원본</p>
+        <div class="ver-body">수영 뇨뇨가 자신은 물고기를 구하러 가야한다고 한다. 하지만 수영 뇨뇨는 다른 뇨뇨보다 작다. 도와줄까?</div>
+      </div>
+      <div class="ver-block lv1">
+        <p class="ver-label">✏️ AI 살짝 다듬기</p>
+        <div class="ver-body">수영 뇨뇨가 자신은 물고기를 구하러 가야 한다고 한다. 하지만 수영 뇨뇨는 다른 뇨뇨보다 작다. 도와줄까?</div>
+      </div>
+      <div class="ver-block lv2">
+        <p class="ver-label">🌳 AI 장면 발전</p>
+        <div class="ver-body">수영 뇨뇨가 "나는 지금 물고기를 구하러 가야 해"라고 말했다. 하지만 수영 뇨뇨는 다른 뇨뇨들보다 훨씬 작아서, 혼자서는 힘들어 보였다. 도와줄까?</div>
+      </div>
+    </div>
+    <div class="choices-row">
+      <span class="choice-pill">도와준다 → 장면 15</span>
+      <span class="choice-pill">도와주지 않는다. → 장면 16</span>
+    </div>
+    <div class="change-block risk"><strong>사라질 수 있는 느낌</strong>
+      2단계는 직접 대사 + 도움이 필요한 이유 박은 거. 원작의 담담한 톤과 다를 수 있어요.
+    </div>
+  </article>
+
+  <!-- ═══ 장면 14 ═══ -->
+  <article class="scene-card" data-scene-id="14">
+    <h3><span class="scene-num-badge">장면 14</span> <span class="scene-role">화해 + 멧돼지 처치</span></h3>
+    <div class="compare-grid">
+      <div class="ver-block original">
+        <p class="ver-label">📘 원본</p>
+        <div class="ver-body">몽실이가 무진에게 화해하자고 말해서 화해했다.그래서 무진이가 멧돼지를 없앴다! 무진이와 몽실이가 사는 곳으로 갈까? 무진이와 몽실이를 데려갈까?</div>
+      </div>
+      <div class="ver-block lv1">
+        <p class="ver-label">✏️ AI 살짝 다듬기</p>
+        <div class="ver-body">몽실이가 무진에게 화해하자고 말해서 화해했다. 그래서 무진이가 멧돼지를 없앴다! 무진이와 몽실이가 사는 곳으로 갈까, 아니면 무진이와 몽실이를 데려갈까?</div>
+      </div>
+      <div class="ver-block lv2">
+        <p class="ver-label">🌳 AI 장면 발전</p>
+        <div class="ver-body">몽실이가 무진에게 "우리 화해하자"고 말하자, 무진이도 고개를 끄덕였다. 그래서 무진이가 멧돼지를 없앴다! 이제 무진이와 몽실이가 사는 곳으로 갈까, 아니면 두 친구를 데려갈까?</div>
+      </div>
+    </div>
+    <div class="choices-row">
+      <span class="choice-pill">무진이와 몽실이가 사는 곳으로 간다. → 장면 17</span>
+      <span class="choice-pill">무진이와 몽실이를 데려간다. → 장면 18</span>
+    </div>
+  </article>
+
+  <!-- ═══ 장면 15 ═══ -->
+  <article class="scene-card" data-scene-id="15">
+    <h3><span class="scene-num-badge">장면 15</span> <span class="scene-role">밀렵꾼 추격</span></h3>
+    <div class="compare-grid">
+      <div class="ver-block original">
+        <p class="ver-label">📘 원본</p>
+        <div class="ver-body">모찌를 구하고 오니 수영 뇨뇨를 밀렵꾼이 쫒아온다! 어떻게 하지?</div>
+      </div>
+      <div class="ver-block lv1">
+        <p class="ver-label">✏️ AI 살짝 다듬기</p>
+        <div class="ver-body">모찌를 구하고 오니 수영 뇨뇨를 밀렵꾼이 쫓아온다! 어떻게 하지?</div>
+      </div>
+      <div class="ver-block lv2">
+        <p class="ver-label">🌳 AI 장면 발전</p>
+        <div class="ver-body">모찌를 무사히 구하고 돌아오니, 이번에는 밀렵꾼이 수영 뇨뇨를 쫓아오고 있었다! 어떻게 하지?</div>
+      </div>
+    </div>
+    <div class="choices-row">
+      <span class="choice-pill">밀렵꾼을 말리기 → 장면 19</span>
+      <span class="choice-pill">무시하기 → 장면 20</span>
+    </div>
+  </article>
+
+  <!-- ═══ 장면 16 ═══ -->
+  <article class="scene-card" data-scene-id="16">
+    <h3><span class="scene-num-badge">장면 16</span> <span class="scene-role">모든 동물 모임</span></h3>
+    <div class="compare-grid">
+      <div class="ver-block original">
+        <p class="ver-label">📘 원본</p>
+        <div class="ver-body">수영뇨뇨와 같이 가보니 물고기 모찌가 도와달라고 했다. 어떻게 도와주지? 모든 동물이 모여있다!</div>
+      </div>
+      <div class="ver-block lv1">
+        <p class="ver-label">✏️ AI 살짝 다듬기</p>
+        <div class="ver-body">수영 뇨뇨와 같이 가 보니 물고기 모찌가 도와 달라고 했다. 어떻게 도와주지? 모든 동물이 모여 있다!</div>
+      </div>
+      <div class="ver-block lv2">
+        <p class="ver-label">🌳 AI 장면 발전</p>
+        <div class="ver-body">수영 뇨뇨와 같이 가 보니, 물고기 모찌가 "도와 줘!"라고 소리쳤다. 어떻게 도와주지? 마루와 하루 주위로 모든 동물들이 모여 있었다!</div>
+      </div>
+    </div>
+    <div class="choices-row">
+      <span class="choice-pill">밀렵꾼과 싸우기 → 장면 20</span>
+      <span class="choice-pill">모두를 구해주기 → 장면 17</span>
+    </div>
+  </article>
+
+  <!-- ═══ 장면 17 ═══ -->
+  <article class="scene-card is-ending" data-scene-id="17">
+    <h3><span class="scene-num-badge">장면 17</span> <span class="scene-role">🏁 엔딩 — 파티</span></h3>
+    <div class="compare-grid">
+      <div class="ver-block original">
+        <p class="ver-label">📘 원본</p>
+        <div class="ver-body">마루하루는 다시 숲속으로 돌아가니 모두가 기다리고 있었다. 숲속에서 파티를 열며 맛있는 음식을 먹었답니다!</div>
+      </div>
+      <div class="ver-block lv1">
+        <p class="ver-label">✏️ AI 살짝 다듬기</p>
+        <div class="ver-body">마루와 하루는 다시 숲속으로 돌아가니 모두가 기다리고 있었다. 숲속에서 파티를 열며 맛있는 음식을 먹었답니다!</div>
+      </div>
+      <div class="ver-block lv2">
+        <p class="ver-label">🌳 AI 장면 발전</p>
+        <div class="ver-body">마루와 하루가 다시 숲속으로 돌아가니, 친구들 모두가 기다리고 있었다. 그날 밤 숲속에서는 큰 파티가 열렸고, 마루와 하루는 맛있는 음식을 배불리 먹었답니다!</div>
+      </div>
+    </div>
+  </article>
+
+  <!-- ═══ 장면 18 ═══ -->
+  <article class="scene-card is-ending" data-scene-id="18">
+    <h3><span class="scene-num-badge">장면 18</span> <span class="scene-role">🏁 엔딩 — 목마름</span></h3>
+    <div class="compare-grid">
+      <div class="ver-block original">
+        <p class="ver-label">📘 원본</p>
+        <div class="ver-body">몽실이와 무진이가 사는 곳에는 물이 없어서 목이 말라서 쓰러졌다.</div>
+      </div>
+      <div class="ver-block lv1">
+        <p class="ver-label">✏️ AI 살짝 다듬기</p>
+        <div class="ver-body">몽실이와 무진이가 사는 곳에는 물이 없어서, 목이 말라 쓰러졌다.</div>
+      </div>
+      <div class="ver-block lv2">
+        <p class="ver-label">🌳 AI 장면 발전</p>
+        <div class="ver-body">몽실이와 무진이가 사는 곳에는 물이 한 방울도 없었다. 마루와 하루는 결국 목이 말라 쓰러지고 말았다.</div>
+      </div>
+    </div>
+  </article>
+
+  <!-- ═══ 장면 19 ═══ -->
+  <article class="scene-card is-ending" data-scene-id="19">
+    <h3><span class="scene-num-badge">장면 19</span> <span class="scene-role">🏁 엔딩 — 착해진 밀렵꾼 + 뇨뇨왕 상</span></h3>
+    <div class="compare-grid">
+      <div class="ver-block original">
+        <p class="ver-label">📘 원본</p>
+        <div class="ver-body">밀렵꾼이 하루마루의 말을 듣고 착해졌다!
+뇨뇨왕이 시민 둘에게 상을 내렸다</div>
+      </div>
+      <div class="ver-block lv1">
+        <p class="ver-label">✏️ AI 살짝 다듬기</p>
+        <div class="ver-body">밀렵꾼이 하루와 마루의 말을 듣고 착해졌다!
+뇨뇨왕이 시민 둘에게 상을 내렸다.</div>
+      </div>
+      <div class="ver-block lv2">
+        <p class="ver-label">🌳 AI 장면 발전</p>
+        <div class="ver-body">밀렵꾼이 하루와 마루의 진심 어린 말을 듣고는, 마음을 고쳐 착해졌다!
+그 소식을 들은 뇨뇨왕은 시민 둘에게 큰 상을 내렸다.</div>
+      </div>
+    </div>
+    <div class="change-block preserved"><strong>주목</strong>
+      이 엔딩은 우리 작품에서 가장 의미 있는 마무리 후보예요. 진엔딩으로 박을 수도 있어요.
+    </div>
+  </article>
+
+  <!-- ═══ 장면 20 ═══ -->
+  <article class="scene-card is-ending" data-scene-id="20">
+    <h3><span class="scene-num-badge">장면 20</span> <span class="scene-role">🏁 엔딩 — 패배</span></h3>
+    <div class="compare-grid">
+      <div class="ver-block original">
+        <p class="ver-label">📘 원본</p>
+        <div class="ver-body">밀렵꾼에게 모두 당해내지 못해서 쓰려졌다!</div>
+      </div>
+      <div class="ver-block lv1">
+        <p class="ver-label">✏️ AI 살짝 다듬기</p>
+        <div class="ver-body">밀렵꾼에게 모두 당해내지 못해서 쓰러졌다!</div>
+      </div>
+      <div class="ver-block lv2">
+        <p class="ver-label">🌳 AI 장면 발전</p>
+        <div class="ver-body">밀렵꾼의 힘에 모두가 당해내지 못해서, 그만 쓰러지고 말았다!</div>
+      </div>
+    </div>
+    <div class="change-blocks">
+      <div class="change-block changed"><strong>바뀐 점</strong>
+        1단계: '쓰려졌다' 오타 → '쓰러졌다'<br/>
+        2단계: '밀렵꾼의 힘에', '그만' 박음
+      </div>
+    </div>
+  </article>
+
+
+  <!-- ═══════════════════════════════════════════════════════════
+       이미지 비교 섹션
+       ═══════════════════════════════════════════════════════════ -->
+  <div class="section-divider">
+    <h2>2. 그림 비교 — 원본 / AI 정돈 / AI 발전</h2>
+    <p class="section-desc">
+      이미지 AI 결과는 아직 생성되지 않았어요. 아래 프롬프트를 외부 AI 도구(ChatGPT·Gemini·Imagen 등)에 박은 후,
+      생성된 이미지를 같은 폴더에 <code>scene_{번호}_ai_level1.png</code> / <code>scene_{번호}_ai_level2.png</code> 박은 이름으로 저장하면 자동으로 자리에 박혀요.
+    </p>
+  </div>
+
+  <div class="helper-note">
+    💡 <strong>이미지 자리 채우는 방법</strong>: 각 장면 박은 자리에 박은 이미지 파일을 같은 폴더에 박은 후 새로고침. HTML 박은 <code>&lt;img&gt;</code> 박은 거 src가 자동으로 박은 거 박음.
+  </div>
+
+  <!-- 이미지 박는 거 — 본문 박힌 20장 박은 거 (cover scene 21 박은 거 박지 X). 단축형: 첫 6장 자세히, 나머지 박은 거 박은 거 — 너무 길어지지 않게. -->
+  <!-- 박은 거 — 모든 20장 박은 거 박은 거 박지만 너무 길어. 핵심 6장 박은 거 박은 거 + 박은 거 박은 거 박은 거 박은 거 박은 거. -->
+
+  <article class="scene-card" data-scene-id="1">
+    <h3><span class="scene-num-badge">장면 1</span> <span class="scene-role">멧돼지 도입</span></h3>
+    <div class="image-compare-grid">
+      <div class="image-block original">
+        <div class="img-label">📘 원본 (학생 그림)</div>
+        <div class="img-frame">
+          <img src="https://storage.googleapis.com/picturebook-8731f.firebasestorage.app/images/classes/class_2026_junglim_1/teams/0000/scene_1.jpg" alt="원본 장면 1" loading="lazy"/>
+        </div>
+      </div>
+      <div class="image-block lv1">
+        <div class="img-label">✏️ AI 정돈 (1단계)</div>
+        <div class="img-frame">
+          <img src="scene_1_ai_level1.png" alt="AI 1단계 장면 1" loading="lazy" onerror="this.style.display='none'; this.parentNode.innerHTML='<div class=\'img-placeholder\'>아직 생성되지 않았어요.<br/>아래 프롬프트를 AI 도구에 박은 후<br/><code>scene_1_ai_level1.png</code> 박은 이름으로 저장해 주세요.</div>'"/>
+        </div>
+      </div>
+      <div class="image-block lv2">
+        <div class="img-label">🌳 AI 발전 (2단계)</div>
+        <div class="img-frame">
+          <img src="scene_1_ai_level2.png" alt="AI 2단계 장면 1" loading="lazy" onerror="this.style.display='none'; this.parentNode.innerHTML='<div class=\'img-placeholder\'>아직 생성되지 않았어요.<br/>아래 프롬프트를 AI 도구에 박은 후<br/><code>scene_1_ai_level2.png</code> 박은 이름으로 저장해 주세요.</div>'"/>
+        </div>
+      </div>
+    </div>
+    <div class="prompt-card">
+      <span class="prompt-head">✏️ 1단계 (정돈) 프롬프트</span>
+      Edit this children's storybook scene. Keep Maru and Haru's running poses, the wild boar's position, and the forest path exactly as drawn. Only smooth pencil lines, fill color gaps, even out green tones. Keep hand-drawn warmth. Korean children's storybook style.
+    </div>
+    <div class="prompt-card lv2">
+      <span class="prompt-head">🌳 2단계 (발전) 프롬프트</span>
+      Develop this opening scene — Maru and Haru running on a forest path chased by a wild boar, with a mysterious sound from deeper forest. Keep characters and boar exactly. Add dappled light through canopy, depth via distant trees, subtle motion lines. Maintain warm storybook tone consistent across all 21 scenes.
+    </div>
+    <div class="student-check">
+      <strong>🤔 그림 보며 생각해 봅시다</strong>
+      <ul>
+        <li>어떤 그림이 가장 멋져 보이나요?</li>
+        <li>어떤 그림이 가장 우리가 그린 그림 같나요?</li>
+        <li>AI가 정리하면서 좋아진 점은 무엇이고, 사라진 우리 느낌은 무엇인가요?</li>
+        <li>이 장면은 우리 손그림 그대로 두는 게 더 좋을까요?</li>
+      </ul>
+    </div>
+  </article>
+
+  <article class="scene-card" data-scene-id="2">
+    <h3><span class="scene-num-badge">장면 2</span> <span class="scene-role">토토·모찌 만남</span></h3>
+    <div class="image-compare-grid">
+      <div class="image-block original">
+        <div class="img-label">📘 원본</div>
+        <div class="img-frame">
+          <img src="https://storage.googleapis.com/picturebook-8731f.firebasestorage.app/images/classes/class_2026_junglim_1/teams/0000/scene_2.png" alt="원본 장면 2" loading="lazy"/>
+        </div>
+      </div>
+      <div class="image-block lv1">
+        <div class="img-label">✏️ AI 정돈</div>
+        <div class="img-frame">
+          <img src="scene_2_ai_level1.png" alt="AI 1단계 장면 2" loading="lazy" onerror="this.style.display='none'; this.parentNode.innerHTML='<div class=\'img-placeholder\'><code>scene_2_ai_level1.png</code><br/>저장 대기</div>'"/>
+        </div>
+      </div>
+      <div class="image-block lv2">
+        <div class="img-label">🌳 AI 발전</div>
+        <div class="img-frame">
+          <img src="scene_2_ai_level2.png" alt="AI 2단계 장면 2" loading="lazy" onerror="this.style.display='none'; this.parentNode.innerHTML='<div class=\'img-placeholder\'><code>scene_2_ai_level2.png</code><br/>저장 대기</div>'"/>
+        </div>
+      </div>
+    </div>
+    <div class="prompt-card">
+      <span class="prompt-head">✏️ 1단계 프롬프트</span>
+      Maru, Haru meet Toto (small animal friend) and Mochi (fish friend). Mochi is being chased by a poacher. Keep all four character placements and the poacher's position exactly. Smooth lines, balance colors. Keep poacher slightly scary but child-friendly.
+    </div>
+    <div class="prompt-card lv2">
+      <span class="prompt-head">🌳 2단계 프롬프트</span>
+      Pivotal meeting scene. Develop: enrich forest backdrop, add expressions showing Mochi's fear and protagonists' surprise. Toto and Mochi designs MUST stay consistent — they appear again in scenes 5, 15, 16.
+    </div>
+  </article>
+
+  <article class="scene-card is-ending" data-scene-id="5">
+    <h3><span class="scene-num-badge">장면 5</span> <span class="scene-role">🏁 엔딩 — 잡혀감</span></h3>
+    <div class="image-compare-grid">
+      <div class="image-block original">
+        <div class="img-label">📘 원본</div>
+        <div class="img-frame">
+          <img src="https://storage.googleapis.com/picturebook-8731f.firebasestorage.app/images/classes/class_2026_junglim_1/teams/0000/scene_5.png" alt="원본 장면 5" loading="lazy"/>
+        </div>
+      </div>
+      <div class="image-block lv1">
+        <div class="img-label">✏️ AI 정돈</div>
+        <div class="img-frame">
+          <img src="scene_5_ai_level1.png" alt="AI 1단계 장면 5" loading="lazy" onerror="this.style.display='none'; this.parentNode.innerHTML='<div class=\'img-placeholder\'><code>scene_5_ai_level1.png</code><br/>저장 대기</div>'"/>
+        </div>
+      </div>
+      <div class="image-block lv2">
+        <div class="img-label">🌳 AI 발전</div>
+        <div class="img-frame">
+          <img src="scene_5_ai_level2.png" alt="AI 2단계 장면 5" loading="lazy" onerror="this.style.display='none'; this.parentNode.innerHTML='<div class=\'img-placeholder\'><code>scene_5_ai_level2.png</code><br/>저장 대기</div>'"/>
+        </div>
+      </div>
+    </div>
+    <div class="prompt-card">
+      <span class="prompt-head">✏️ 1단계 프롬프트</span>
+      Ending: All four (Maru, Haru, Toto, Mochi) captured by poacher. Keep capture depiction (bag/rope) exactly. Just clean lines.
+    </div>
+    <div class="prompt-card lv2">
+      <span class="prompt-head">🌳 2단계 프롬프트</span>
+      Sad ending. Develop: quiet mood, fading light suggesting end of day. Not too dark for children's book. Poacher visually consistent with scene 2.
+    </div>
+  </article>
+
+  <article class="scene-card is-ending" data-scene-id="10">
+    <h3><span class="scene-num-badge">장면 10</span> <span class="scene-role">🏁 엔딩 — 행복한 결말</span></h3>
+    <div class="image-compare-grid">
+      <div class="image-block original">
+        <div class="img-label">📘 원본</div>
+        <div class="img-frame">
+          <img src="https://storage.googleapis.com/picturebook-8731f.firebasestorage.app/images/classes/class_2026_junglim_1/teams/0000/scene_10.png" alt="원본 장면 10" loading="lazy"/>
+        </div>
+      </div>
+      <div class="image-block lv1">
+        <div class="img-label">✏️ AI 정돈</div>
+        <div class="img-frame">
+          <img src="scene_10_ai_level1.png" alt="AI 1단계" loading="lazy" onerror="this.style.display='none'; this.parentNode.innerHTML='<div class=\'img-placeholder\'><code>scene_10_ai_level1.png</code><br/>저장 대기</div>'"/>
+        </div>
+      </div>
+      <div class="image-block lv2">
+        <div class="img-label">🌳 AI 발전</div>
+        <div class="img-frame">
+          <img src="scene_10_ai_level2.png" alt="AI 2단계" loading="lazy" onerror="this.style.display='none'; this.parentNode.innerHTML='<div class=\'img-placeholder\'><code>scene_10_ai_level2.png</code><br/>저장 대기</div>'"/>
+        </div>
+      </div>
+    </div>
+    <div class="prompt-card">
+      <span class="prompt-head">✏️ 1단계 프롬프트</span>
+      Happy ending: Maru and Haru defeat boar, return home happy. Keep joyful expressions and home as drawn. Just clean.
+    </div>
+    <div class="prompt-card lv2">
+      <span class="prompt-head">🌳 2단계 프롬프트</span>
+      Classic happy ending. Develop: warm golden lighting, cozy home backdrop with comforting details. Keep child-drawn home shape — do not replace with polished house.
+    </div>
+  </article>
+
+  <article class="scene-card is-ending" data-scene-id="17">
+    <h3><span class="scene-num-badge">장면 17</span> <span class="scene-role">🏁 엔딩 — 숲속 파티</span></h3>
+    <div class="image-compare-grid">
+      <div class="image-block original">
+        <div class="img-label">📘 원본</div>
+        <div class="img-frame">
+          <img src="https://storage.googleapis.com/picturebook-8731f.firebasestorage.app/images/classes/class_2026_junglim_1/teams/0000/scene_17.png" alt="원본 장면 17" loading="lazy"/>
+        </div>
+      </div>
+      <div class="image-block lv1">
+        <div class="img-label">✏️ AI 정돈</div>
+        <div class="img-frame">
+          <img src="scene_17_ai_level1.png" alt="AI 1단계" loading="lazy" onerror="this.style.display='none'; this.parentNode.innerHTML='<div class=\'img-placeholder\'><code>scene_17_ai_level1.png</code><br/>저장 대기</div>'"/>
+        </div>
+      </div>
+      <div class="image-block lv2">
+        <div class="img-label">🌳 AI 발전</div>
+        <div class="img-frame">
+          <img src="scene_17_ai_level2.png" alt="AI 2단계" loading="lazy" onerror="this.style.display='none'; this.parentNode.innerHTML='<div class=\'img-placeholder\'><code>scene_17_ai_level2.png</code><br/>저장 대기</div>'"/>
+        </div>
+      </div>
+    </div>
+    <div class="prompt-card">
+      <span class="prompt-head">✏️ 1단계 프롬프트</span>
+      Happy ending: Forest party with Maru, Haru, and all animal friends celebrating with food. Keep party composition exactly.
+    </div>
+    <div class="prompt-card lv2">
+      <span class="prompt-head">🌳 2단계 프롬프트</span>
+      Joyful celebration. Develop: warm evening light, lanterns or hanging decorations. All recurring characters MUST match earlier scenes (Toto, Mochi, Mongsil, Mujin, Swimming Nyonyo).
+    </div>
+  </article>
+
+  <article class="scene-card is-ending" data-scene-id="19">
+    <h3><span class="scene-num-badge">장면 19</span> <span class="scene-role">🏁 엔딩 — 착해진 밀렵꾼 + 뇨뇨왕 상 (진엔딩 후보)</span></h3>
+    <div class="image-compare-grid">
+      <div class="image-block original">
+        <div class="img-label">📘 원본</div>
+        <div class="img-frame">
+          <img src="https://storage.googleapis.com/picturebook-8731f.firebasestorage.app/images/classes/class_2026_junglim_1/teams/0000/scene_19.png" alt="원본 장면 19" loading="lazy"/>
+        </div>
+      </div>
+      <div class="image-block lv1">
+        <div class="img-label">✏️ AI 정돈</div>
+        <div class="img-frame">
+          <img src="scene_19_ai_level1.png" alt="AI 1단계" loading="lazy" onerror="this.style.display='none'; this.parentNode.innerHTML='<div class=\'img-placeholder\'><code>scene_19_ai_level1.png</code><br/>저장 대기</div>'"/>
+        </div>
+      </div>
+      <div class="image-block lv2">
+        <div class="img-label">🌳 AI 발전</div>
+        <div class="img-frame">
+          <img src="scene_19_ai_level2.png" alt="AI 2단계" loading="lazy" onerror="this.style.display='none'; this.parentNode.innerHTML='<div class=\'img-placeholder\'><code>scene_19_ai_level2.png</code><br/>저장 대기</div>'"/>
+        </div>
+      </div>
+    </div>
+    <div class="prompt-card">
+      <span class="prompt-head">✏️ 1단계 프롬프트</span>
+      Best ending: Poacher reformed, Nyonyo King awards the two citizens. Keep king design and poacher's softer expression as drawn.
+    </div>
+    <div class="prompt-card lv2">
+      <span class="prompt-head">🌳 2단계 프롬프트</span>
+      Most uplifting ending. Develop: regal warm atmosphere, sense of justice and kindness. Poacher transformation visible (softer face). 뇨뇨왕 visually distinct from 뇨뇨 기사 (scene 4) and 수영 뇨뇨 (scene 13) — same species, different individuals.
+    </div>
+  </article>
+
+  <div class="helper-note">
+    💡 위 5장 외 나머지 15장(3, 4, 6~9, 11~16, 18, 20)의 프롬프트는 <code>ai-image-prompts.json</code> 박은 거 박음.
+    수업에서 한꺼번에 다 박지 못해요 — <strong>5장 정도가 깊이 있는 비교 박을 수 있어요.</strong>
+  </div>
+
+
+  <!-- ═══════════════════════════════════════════════════════════
+       정리 섹션
+       ═══════════════════════════════════════════════════════════ -->
+  <div class="summary-section">
+    <h2>3. 우리가 정해야 할 것</h2>
+    <div class="summary-grid">
+      <div class="summary-col ok">
+        <h3>🤝 AI에게 맡겨도 되는 것</h3>
+        <ul>
+          <li>맞춤법 오타 ("쫒기고" → "쫓기고")</li>
+          <li>띄어쓰기 ("두명" → "두 명")</li>
+          <li>같은 단어를 두 번 쓴 어색한 문장</li>
+          <li>"마루하루" 같은 붙은 이름을 분리</li>
+          <li>그림의 흐릿한 부분을 살짝 또렷하게</li>
+          <li>색칠이 삐져나간 부분을 정돈</li>
+        </ul>
+      </div>
+      <div class="summary-col no">
+        <h3>🚫 AI가 바꾸면 안 되는 것</h3>
+        <ul>
+          <li>장면의 개수와 분기 순서</li>
+          <li>선택지의 의미와 다음 장면 연결</li>
+          <li>엔딩의 방향 (행복/슬픔/진엔딩)</li>
+          <li>캐릭터의 모습과 정체성</li>
+          <li>"시민", "막대자", "뇨뇨" 같은 우리만의 단어</li>
+          <li>그림의 구도와 배치</li>
+          <li>학생 손그림의 따뜻한 느낌</li>
+        </ul>
+      </div>
+      <div class="summary-col core">
+        <h3>💜 우리 작품의 핵심</h3>
+        <ul>
+          <li>마루·하루의 모험 이야기</li>
+          <li>친구를 만나고 도와주는 마음</li>
+          <li>9개의 다양한 엔딩 — 우리가 만든 선택의 결과</li>
+          <li>"착해진 밀렵꾼" 박은 진엔딩의 의미</li>
+          <li>학용품(막대자·필통)으로 싸우는 코믹함</li>
+          <li>친구들의 모습은 우리가 정한다</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="core-notice">
+    <p class="core-line">AI가 도와줘도, 우리 작품의 중심은 우리가 정합니다.</p>
+    <p class="core-sub">어떤 다듬기를 받아들이고, 어떤 부분은 우리 그대로 둘지 — 함께 정해 봅시다.</p>
+  </div>
+
+  <footer>
+    숲속의 비밀 · 2026-05 공개수업 자료 · 생성: 2026-05-18<br/>
+    원본 출처: Firebase / classes / class_2026_junglim_1 / teams / 0000 · 21장 (cover + normal 11 + ending 9)<br/>
+    이미지 AI 결과는 외부 도구로 직접 생성한 후 같은 폴더에 박음.
+  </footer>
+
+</div>
+</body>
+</html>

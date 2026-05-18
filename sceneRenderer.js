@@ -881,8 +881,8 @@ function bindCardEvents(el, s) {
       el.style.left = sc.x + 'px';
       el.style.top  = sc.y + 'px';
     }
-    if (rafId) cancelAnimationFrame(rafId);
-    rafId = requestAnimationFrame(() => { drawArrows(); rafId = null; });
+    /* v119: 매 RAF마다 drawArrows 박지 X — 100ms throttle 박음 (병목 1순위 fix) */
+    _scheduleArrowDrawDuringDrag();
   });
 
   el.addEventListener('pointerup', e => {
@@ -898,6 +898,8 @@ function bindCardEvents(el, s) {
     dragState = null;
     /* ★ 그룹 이동 시 모든 장면 저장 (기존엔 시작 장면만 저장해서 좌표 반영 안 됨) */
     groupNums.forEach(n => pushToFirebase(n));
+    /* v119: 드래그 종료 시 최종 arrow 박음 (throttle 박힌 pending 박지 X 박음) */
+    _finalizeArrowDraw();
   });
 
   el.addEventListener('pointercancel', () => {
@@ -908,6 +910,8 @@ function bindCardEvents(el, s) {
         dragState.nums.forEach(n => document.getElementById('card-'+n)?.classList.remove('group-selected'));
       el.classList.remove('dragging');
       dragState = null;
+      /* v119: cancel 시도 박은 후 최종 박음 — 박힌 위치 박은 거에 맞춰 선 박힘 */
+      _finalizeArrowDraw();
     }
   });
 
@@ -1096,6 +1100,43 @@ function getCardAt(clientX, clientY) {
       return parseInt(el.id.replace('card-', ''));
   }
   return null;
+}
+
+/* v119: 카드 드래그 중 drawArrows 박은 거 throttle (사용자 박은 A안).
+   옛엔 매 RAF(60fps)마다 전체 drawArrows 박힘 → 태블릿 프레임 박힘 (병목 1순위).
+   leading + trailing throttle 100ms. 드래그 종료 시 _finalizeArrowDraw로 최종 박음.
+   사용자 박은 의도: "카드가 손가락을 부드럽게 따라오는 게 우선, 선이 0.1초 늦어도 OK". */
+let _arrowDrawTimer = null;
+let _arrowDrawLastTime = 0;
+const ARROW_DRAW_THROTTLE_MS = 100;
+
+function _scheduleArrowDrawDuringDrag() {
+  const now = performance.now();
+  const elapsed = now - _arrowDrawLastTime;
+  if (elapsed >= ARROW_DRAW_THROTTLE_MS) {
+    /* leading edge — 즉시 박음 (drag 시작 직후 첫 박는 거 부드러움) */
+    _arrowDrawLastTime = now;
+    if (_arrowDrawTimer) { clearTimeout(_arrowDrawTimer); _arrowDrawTimer = null; }
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = requestAnimationFrame(() => { drawArrows(); rafId = null; });
+    return;
+  }
+  /* trailing edge — 박힌 throttle 안 박은 추가 호출은 묶음 */
+  if (_arrowDrawTimer) return;
+  _arrowDrawTimer = setTimeout(() => {
+    _arrowDrawTimer = null;
+    _arrowDrawLastTime = performance.now();
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = requestAnimationFrame(() => { drawArrows(); rafId = null; });
+  }, ARROW_DRAW_THROTTLE_MS - elapsed);
+}
+
+/* 드래그 종료 시 강제 박음 — pending throttle 박지 X */
+function _finalizeArrowDraw() {
+  if (_arrowDrawTimer) { clearTimeout(_arrowDrawTimer); _arrowDrawTimer = null; }
+  _arrowDrawLastTime = performance.now();
+  if (rafId) cancelAnimationFrame(rafId);
+  rafId = requestAnimationFrame(() => { drawArrows(); rafId = null; });
 }
 
 function drawArrows() {

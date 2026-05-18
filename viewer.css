@@ -6695,3 +6695,29 @@ body[data-page-orientation="portrait"] .terminal-screen--story .ending-page {
   .pb-draw-footer { flex-direction: column; align-items: stretch; }
   .pb-draw-footer-hint { text-align: center; }
 }
+
+/* v119: 태블릿 다듬기 화면 작은 보강 (coarse pointer + 768~ ).
+   사용자 박은 명: "대규모 개편 X, 작은 보강만". 박은 거:
+   1. input/textarea/select 16px 보장 — iPad Safari/Android Chrome 자동 확대 차단
+   2. 잠금 배너 버튼 터치 영역 min-height 40px
+   3. 도구 패널 주요 버튼 최소 터치 영역
+   PC 마우스(coarse 아님)·모바일 폰(768 미만)은 영향 없음. */
+@media (pointer: coarse) and (min-width: 768px) {
+  #edit-panel input,
+  #edit-panel textarea,
+  #edit-panel select,
+  .edit-text-input,
+  .js-edit-text-input {
+    font-size: 16px;
+  }
+  .edit-lock-takeover-btn,
+  .edit-lock-recheck-btn {
+    min-height: 40px;
+    padding: 8px 14px;
+    font-size: 13px;
+  }
+  .edit-lock-banner-actions {
+    gap: 10px;
+    margin-top: 10px;
+  }
+}

@@ -819,7 +819,23 @@
     /* 카드 */
     /* 카드 본체 — W8 Phase A-2: 종이톤 통일 */
     .scene-card{position:absolute;width:200px;background:var(--panel);border-radius:var(--radius);box-shadow:0 4px 16px var(--shadow);border:2px solid rgba(80,50,20,0.12);cursor:grab;user-select:none;overflow:hidden;touch-action:none;}
-    .scene-card.dragging{box-shadow:0 12px 32px rgba(120,90,50,.18);cursor:grabbing;z-index:999;}
+    /* v119: 드래그 중 transition 박지 X — 카드가 손가락 박은 거 즉시 따라옴 */
+    .scene-card.dragging{box-shadow:0 12px 32px rgba(120,90,50,.18);cursor:grabbing;z-index:999;transition:none !important;}
+    /* v119: 태블릿(coarse pointer + 768px 이상) CSS 가벼움 — box-shadow/transition 박은 거 줄임.
+       PC(마우스)나 모바일 폰(768 미만)은 영향 없음. 태블릿 페인트 비용 박지 X. */
+    @media (pointer: coarse) and (min-width: 768px) {
+      .scene-card {
+        box-shadow: 0 2px 6px rgba(120,90,50,.15);
+        transition: none;
+      }
+      .scene-card.dragging {
+        box-shadow: 0 6px 16px rgba(120,90,50,.18);
+      }
+      .port-dot {
+        box-shadow: none;
+        transition: none;
+      }
+    }
     .scene-card.type-start {border-color:var(--start); box-shadow:0 0 0 3px rgba(90,138,74,0.10), 0 4px 16px var(--shadow);}
     .scene-card.type-ending{border-color:var(--ending); background:#fffaf5;}
     .scene-card.type-normal{border-color:rgba(80,50,20,0.14);}
@@ -2747,7 +2763,7 @@
 <script src="locks.js?v=96"></script>
 <script src="firebase.js?v=118"></script>
 <script src="canvasInteraction.js?v=118"></script>
-<script src="sceneRenderer.js?v=96"></script>
+<script src="sceneRenderer.js?v=119"></script>
 <script src="storyAnalyzer.js?v=118"></script>
 <script src="mediaManager.js?v=114"></script>
 <script src="adminConsole.js?v=96"></script>

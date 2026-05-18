@@ -617,19 +617,20 @@ body.edit-mode-active #stage-wrap {
 
 /* 다듬기 모드에선 텍스트 등장 효과 끔 — 입력 깜빡임 차단 (v07 동일 정책)
    v72: .preview-text-once 박힌 element만 예외 — 표지 인스펙터에서 효과 미리보기.
-   v73: body.preview-active 박혔을 때만 .tw-char 차단 해제 (미리보기 1회 재생). */
-#viewer-frame.edit-mode-on .scene-screen--pb .pb-text__body:not(.preview-text-once),
-#viewer-frame.edit-mode-on .scene-screen--pb .cover-title-pb:not(.preview-text-once),
-#viewer-frame.edit-mode-on .scene-screen--pb .cover-subtitle-pb:not(.preview-text-once),
-body.edit-mode-active .scene-screen--pb .pb-text__body:not(.preview-text-once),
-body.edit-mode-active .scene-screen--pb .cover-title-pb:not(.preview-text-once),
-body.edit-mode-active .scene-screen--pb .cover-subtitle-pb:not(.preview-text-once) {
+   v73: body.preview-active 박혔을 때만 .tw-char 차단 해제 (미리보기 1회 재생).
+   v128: viewer-test-active(감상 테스트) 박혔을 때도 예외 — 실제 감상과 동일 조건. */
+#viewer-frame.edit-mode-on:not(.viewer-test-active) .scene-screen--pb .pb-text__body:not(.preview-text-once),
+#viewer-frame.edit-mode-on:not(.viewer-test-active) .scene-screen--pb .cover-title-pb:not(.preview-text-once),
+#viewer-frame.edit-mode-on:not(.viewer-test-active) .scene-screen--pb .cover-subtitle-pb:not(.preview-text-once),
+body.edit-mode-active:not(.viewer-test-active) .scene-screen--pb .pb-text__body:not(.preview-text-once),
+body.edit-mode-active:not(.viewer-test-active) .scene-screen--pb .cover-title-pb:not(.preview-text-once),
+body.edit-mode-active:not(.viewer-test-active) .scene-screen--pb .cover-subtitle-pb:not(.preview-text-once) {
   animation: none !important;
   opacity: 1 !important;
   filter: none !important;
   transform: none !important;
 }
-body.edit-mode-active:not(.preview-active) .tw-char {
+body.edit-mode-active:not(.preview-active):not(.viewer-test-active) .tw-char {
   animation: none !important;
   opacity: 1 !important;
 }
@@ -686,8 +687,9 @@ body.edit-mode-active .scene-screen--pb .pb-text__actions {
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: translateY(0); }
 }
-/* 다듬기 모드에선 행동 버튼 페이드 끔 (입력 깜빡임 차단). 미리보기 예외 X — 행동 버튼은 설정 없음. */
-body.edit-mode-active .scene-screen--pb .pb-text__actions {
+/* 다듬기 모드에선 행동 버튼 페이드 끔 (입력 깜빡임 차단). 미리보기 예외 X — 행동 버튼은 설정 없음.
+   v128: 감상 테스트(viewer-test-active) 박혔을 때는 페이드 재생 — 실제 감상과 동일 조건. */
+body.edit-mode-active:not(.viewer-test-active) .scene-screen--pb .pb-text__actions {
   animation: none !important;
   opacity: 1 !important;
   transform: none !important;
@@ -709,9 +711,11 @@ body.edit-mode-active .scene-screen--pb .pb-text__actions {
 /* W7 깜빡임 차단: 다듬기 모드에선 페이드인 끔.
    부분 패치로 대부분 처리되지만, 통째 재렌더 fallback 시에도 페이드인 안 보이게.
    다듬기는 입력이 잦은 상황이라 매번 fade-in이 깜빡임으로 체감됨.
-   v72: .preview-once 박힌 scene은 예외 — 표지 인스펙터 미리보기 1회 재생. */
-#viewer-frame.edit-mode-on .scene-screen:not(.preview-once),
-body.edit-mode-active .scene-screen:not(.preview-once) {
+   v72: .preview-once 박힌 scene은 예외 — 표지 인스펙터 미리보기 1회 재생.
+   v128: viewer-test-active(감상 테스트) 박혔을 때 예외 — 실제 감상과 동일 조건으로
+         장면 전환 효과 재생. 사용자 사건: "느림으로 박아도 빠르게 넘어가는 인상" 원인. */
+#viewer-frame.edit-mode-on:not(.viewer-test-active) .scene-screen:not(.preview-once),
+body.edit-mode-active:not(.viewer-test-active) .scene-screen:not(.preview-once) {
   animation: none;
 }
 /* 화면이 16:9보다 넓을 때: 좌우 레터박스 */

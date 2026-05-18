@@ -36,6 +36,12 @@ function renderCurrentScene() {
   if (safeHint) safeHint.classList.toggle('hidden', !ViewerState.editMode);
   stage.classList.toggle('edit-mode-on', ViewerState.editMode);
   document.body.classList.toggle('edit-mode-active', ViewerState.editMode);
+  /* v128: 감상 테스트 상태 명시 — 다듬기 화면 안에서 "▶ 감상 테스트" 눌렀을 때
+     ViewerState._testingEdit = true 박힘. CSS animation:none 룰이 감상 테스트에선
+     적용되면 안 됨 (실제 감상과 동일 조건으로 보여줘야). class를 명시적으로 박아 두면
+     edit-mode-on/active 잔재가 있어도 CSS에서 안전하게 분기 가능. */
+  stage.classList.toggle('viewer-test-active', !!ViewerState._testingEdit);
+  document.body.classList.toggle('viewer-test-active', !!ViewerState._testingEdit);
 
   /* W9: 다듬기 모드 ↔ 감상 모드 전환 시 viewer-frame 비율 재계산 필요 (portrait 작품용).
      · 다듬기: 16:9 / 감상 portrait 작품: 210:297. 그 외: 16:9. */
@@ -1671,11 +1677,12 @@ function _stageReplaceScene(stage, newHtml) {
 }
 
 /* v73: 슬라이더 0~100 → ms 매핑.
-   장면 전환: 400ms(0) ~ 3500ms(100), linear.
+   v128: 장면 전환 220~1300ms로 단축 (옛 400~3500ms). 사용자 사건: 3500ms는 너무 길어
+         "빠르게 넘어가는 인상"으로 느껴짐 + 본문 시작 delay와 충돌. 1300ms도 충분히 느림 체감.
    텍스트 등장 CSS 효과:  200ms(0) ~ 3000ms(100), linear.
    텍스트 등장 타자기 step: 20ms(0) ~ 300ms(100), linear (글자당).
    viewer-frame style.setProperty로 CSS 변수 박음 — 모든 룰이 변수 참조. */
-function _sceneTransMs(pct) { return Math.round(400 + (pct / 100) * 3100); }
+function _sceneTransMs(pct) { return Math.round(220 + (pct / 100) * 1080); }
 function _textEntDurMs(pct)  { return Math.round(200 + (pct / 100) * 2800); }
 function _textTwStepMs(pct)  { return Math.round(20  + (pct / 100) * 280); }
 

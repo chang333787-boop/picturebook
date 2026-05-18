@@ -644,10 +644,12 @@ function _applyEditLockUI() {
       const kind = (typeof classifyLockOwner === 'function' && num != null)
         ? classifyLockOwner(num) : 'other';
       if (kind === 'same-device') {
+        /* v125: 같은 기기/같은 사용자의 이전 탭이 박은 잠금 — 부드러운 문구.
+           "다른 창에서 편집 중" 박은 거가 사용자 박은 거 같은 사람이라 박지 X. */
         banner.classList.add('edit-lock-banner--mild');
         banner.innerHTML = `
-          <div class="edit-lock-banner-msg">🪟 이 장면이 다른 창에서 편집 중이에요. 지금은 읽기만 할 수 있어요.</div>
-          <button class="edit-lock-takeover-btn js-edit-lock-takeover" type="button">이 창에서 편집하기</button>`;
+          <div class="edit-lock-banner-msg">🪟 이전에 열어둔 편집 창이 남아 있어요. 여기에서 이어서 수정할 수 있어요.</div>
+          <button class="edit-lock-takeover-btn js-edit-lock-takeover" type="button">여기에서 이어서 수정</button>`;
         banner.querySelector('.js-edit-lock-takeover')
           ?.addEventListener('click', async () => {
             if (_editText.num == null) return;
@@ -699,10 +701,27 @@ function _applyEditLockUI() {
               _editText.editable = true;
               _applyEditLockUI();
             } else {
-              /* v117: 자세한 에러 메시지 — 사용자가 박을 거 알 수 있게.
-                 transaction 실패 + .set fallback 실패도 박힘. 보통 = 익명 auth
-                 박지 X 또는 네트워크 박지 X. 새로고침이 가장 흔한 fix. */
-              alert('잠금을 가져오지 못했어요.\n\n• 네트워크를 확인해주세요\n• 페이지를 새로고침한 후 다시 시도해주세요\n\n계속 박지 못하면 다른 브라우저에서 박아보세요.');
+              /* v125: 실패 원인별 다른 안내.
+                 1) auth 박지 X → "로그인/권한 확인이 늦어지고 있어요"
+                 2) 네트워크 추정 → "인터넷 연결 확인"
+                 3) 그 외 → 일반 안내 */
+              let authReady = false;
+              try {
+                if (typeof firebase !== 'undefined' && firebase.app) {
+                  const viewerApp = firebase.app('viewer');
+                  authReady = !!(viewerApp && viewerApp.auth && viewerApp.auth().currentUser);
+                }
+              } catch (e) { /* noop */ }
+              const onlineOk = (typeof navigator !== 'undefined') ? navigator.onLine !== false : true;
+              let msg;
+              if (!onlineOk) {
+                msg = '인터넷이 끊겨있어요.\n연결을 확인한 후 [다시 확인] 버튼을 눌러주세요.';
+              } else if (!authReady) {
+                msg = '로그인/권한 확인이 늦어지고 있어요.\n페이지를 새로고침하면 해결될 수 있어요.';
+              } else {
+                msg = '편집 권한을 가져오지 못했어요.\n• 잠시 후 [다시 확인]을 눌러주세요\n• 계속 박지 못하면 페이지를 새로고침해주세요';
+              }
+              alert(msg);
             }
           });
       }

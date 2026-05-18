@@ -114,15 +114,21 @@ function findAllRoutes(startNum = null) {
       return;
     }
 
-    branches.forEach(br => {
+    branches.forEach((br, brIdx) => {
+      /* v130: 인라인 수정 박은 거 위해 choiceIndex + fromSceneNum 박음.
+         legacy nextA/B 분기는 buttonsList 박지 X 박힌 경우 — choiceIndex는
+         portChar('A'=0,'B'=1)로 매핑. 박은 거 분기는 buttonsList 박은 idx 그대로. */
+      const choiceIdx = (buttonsList.length > 0)
+        ? brIdx
+        : (br.portChar === 'A' ? 0 : br.portChar === 'B' ? 1 : 0);
       if (br.broken) {
         routes.push([...newPath,
-          { choice: br.portChar, choiceLabel: br.label },
+          { choice: br.portChar, choiceLabel: br.label, fromSceneNum: Number(num), choiceIndex: choiceIdx },
           { broken: true, brokenNum: br.broken },
         ]);
       } else if (br.nextNum) {
         dfs(Number(br.nextNum),
-          [...newPath, { choice: br.portChar, choiceLabel: br.label }],
+          [...newPath, { choice: br.portChar, choiceLabel: br.label, fromSceneNum: Number(num), choiceIndex: choiceIdx }],
           visitedInPath);
       }
     });
@@ -343,8 +349,221 @@ function _rtCurrentStart() {
   return _routeMode === 'replay' ? _resolveReplayNum() : _resolveEntryNum();
 }
 
-/* ── 경로 단락 HTML 생성 ── */
+/* ── v130: 인라인 수정 가능 여부 판단 ──
+   viewer-edit 환경(ViewerState + _queueSave + _editText)에서만 박힘.
+   _editText.editable=true 박힌 경우만 ✎ 박음. 잠금/내가 수정하기 전엔 박지 X.
+   maker 환경에선 _editText 박지 X — false 박힘 (v130 = viewer-edit 한정). */
+function _rtIsViewerEditable() {
+  if (typeof window === 'undefined') return false;
+  if (typeof window.ViewerState === 'undefined') return false;
+  if (typeof window._editText === 'undefined') return false;
+  if (typeof window._queueSave !== 'function' && typeof window.saveSceneText !== 'function') return false;
+  return !!window._editText.editable;
+}
+
+/* ── v130: 본문/행동버튼 저장 라우터 ──
+   현재 다듬기 중인 장면이면 _queueSave (debounce + 잠금 heartbeat 박힘).
+   다른 장면이면 saveSceneText 직접 호출 (debounce 박지 X — blur 후 1회만 박음). */
+function _rtPersistSave(sceneNum, fields) {
+  const num = Number(sceneNum);
+  const editingNum = (window._editText && window._editText.num != null)
+    ? Number(window._editText.num) : null;
+  if (editingNum === num && typeof window._queueSave === 'function') {
+    window._queueSave(num, fields);
+    return;
+  }
+  if (typeof window.saveSceneText === 'function') {
+    window.saveSceneText(num, fields).catch(err => {
+      console.error('[rt save] 실패:', err);
+      try { alert('저장에 실패했어요. 인터넷 연결을 확인해 주세요.'); } catch (e) { /* noop */ }
+    });
+  }
+}
+
+/* ── v130: 메모리 상태 동기화 (window.scenes + ViewerState.scenes 둘 다 박음) ──
+   viewer-edit의 adapter는 ViewerState.scenes → window.scenes로 박는데 spread라
+   객체가 다름. 따라서 두 곳 모두 갱신해야 다음 렌더가 정합. */
+function _rtSyncSceneField(sceneNum, fieldName, value) {
+  if (typeof scenes !== 'undefined' && scenes[sceneNum]) {
+    scenes[sceneNum][fieldName] = value;
+  }
+  if (typeof window !== 'undefined' && window.ViewerState && window.ViewerState.scenes) {
+    const vId = String(sceneNum);
+    if (window.ViewerState.scenes[vId]) {
+      window.ViewerState.scenes[vId][fieldName] = value;
+    }
+  }
+}
+
+/* ── v130: 본문 저장 — 인라인 textarea blur/Enter 후 호출 ── */
+function _rtSaveBody(sceneNum, value) {
+  /* v127 정책 유지: trim 박지 X — \n\n 등 줄바꿈 그대로 보존 */
+  _rtSyncSceneField(sceneNum, 'body', value);
+  _rtPersistSave(sceneNum, { body: value });
+  /* viewer-frame 현재 장면이면 즉시 patch — 깜빡임 차단 */
+  const editingNum = (window._editText && window._editText.num != null)
+    ? Number(window._editText.num) : null;
+  if (editingNum === Number(sceneNum) && typeof window._patchSceneBody === 'function') {
+    window._patchSceneBody(value);
+  }
+  /* 다듬기 패널 본문 textarea 갱신 (사용자가 박은 거 X 박은 동안만) */
+  const panel = document.getElementById('edit-panel');
+  if (panel && editingNum === Number(sceneNum)) {
+    const bodyInput = panel.querySelector('.js-edit-body');
+    if (bodyInput && document.activeElement !== bodyInput) {
+      bodyInput.value = value;
+    }
+  }
+}
+
+/* ── v130: 선택지 라벨 저장 ── */
+function _rtSaveChoiceLabel(sceneNum, choiceIdx, value) {
+  const num = Number(sceneNum);
+  const idx = Number(choiceIdx);
+
+  /* maker 형식 buttons[] 갱신 */
+  if (typeof scenes !== 'undefined' && scenes[num]) {
+    const s = scenes[num];
+    if (!Array.isArray(s.buttons)) s.buttons = [];
+    while (s.buttons.length <= idx) s.buttons.push({ label: '', nextId: null });
+    s.buttons[idx] = { ...(s.buttons[idx] || {}), label: value };
+    /* choiceA/B 호환 동기화 (maker UI가 박은 거) */
+    if (idx === 0) s.choiceA = value;
+    if (idx === 1) s.choiceB = value;
+  }
+
+  /* ViewerState.scenes 동기화 — adapter가 choices 박은 거 사용 */
+  if (typeof window !== 'undefined' && window.ViewerState && window.ViewerState.scenes) {
+    const vs = window.ViewerState.scenes[String(num)];
+    if (vs && Array.isArray(vs.choices) && vs.choices[idx]) {
+      vs.choices[idx].label = value;
+    }
+  }
+
+  /* Firebase 저장 — buttons 전체 + choiceA/B 동기화 (viewer-data.js ALLOWED 박힘) */
+  const buttons = (typeof scenes !== 'undefined' && scenes[num] && Array.isArray(scenes[num].buttons))
+    ? scenes[num].buttons : [];
+  const patch = { buttons };
+  if (idx === 0) patch.choiceA = value;
+  if (idx === 1) patch.choiceB = value;
+  patch.choiceCount = buttons.length;
+  _rtPersistSave(num, patch);
+
+  /* viewer-frame 현재 장면이면 통째 재렌더 — 행동버튼 라벨 patch 없음.
+     _patchSceneBody 같은 부분 patch 박지 X — 통째 재렌더 박음. */
+  const editingNum = (window._editText && window._editText.num != null)
+    ? Number(window._editText.num) : null;
+  if (editingNum === num && typeof window._scheduleViewerFrameReRender === 'function') {
+    window._scheduleViewerFrameReRender();
+  }
+
+  /* 다듬기 패널 행동버튼 input 갱신 */
+  const panel = document.getElementById('edit-panel');
+  if (panel && editingNum === num) {
+    const labelInput = panel.querySelector(`.js-edit-button-label[data-idx="${idx}"]`);
+    if (labelInput && document.activeElement !== labelInput) {
+      labelInput.value = value;
+    }
+  }
+}
+
+/* ── v130: 인라인 편집 진입 — 본문 ── */
+function _rtEnterEditBody(sceneLine) {
+  if (!_rtIsViewerEditable()) return;
+  const num = Number(sceneLine.dataset.num);
+  if (!Number.isFinite(num) || !scenes[num]) return;
+  /* 이미 편집 중인 textarea 있으면 중복 박지 X */
+  if (sceneLine.querySelector('.rt-inline-body-editor')) return;
+
+  const scene = scenes[num];
+  const original = String(scene.body || '');
+
+  /* 기존 prefix/text/✎ 숨기고 textarea + 저장/취소 박음 */
+  const prefixEl = sceneLine.querySelector('.rt-scene-prefix');
+  const textEl   = sceneLine.querySelector('.rt-scene-text');
+  const editBtn  = sceneLine.querySelector('.js-rt-edit-body');
+  if (textEl) textEl.style.display = 'none';
+  if (editBtn) editBtn.style.display = 'none';
+
+  const wrap = document.createElement('div');
+  wrap.className = 'rt-inline-editor-wrap';
+  wrap.innerHTML = `
+    <textarea class="rt-inline-body-editor" data-scene-num="${num}" rows="4"
+      placeholder="장면 본문을 적어주세요">${_rtEsc(original)}</textarea>
+    <div class="rt-inline-editor-actions">
+      <span class="rt-inline-editor-hint">Ctrl+Enter 저장 · Esc 취소</span>
+      <button class="rt-inline-editor-btn rt-inline-editor-btn--cancel js-rt-cancel-body" type="button">취소</button>
+      <button class="rt-inline-editor-btn rt-inline-editor-btn--save js-rt-save-body" type="button">저장</button>
+    </div>`;
+  sceneLine.appendChild(wrap);
+
+  const ta = wrap.querySelector('.rt-inline-body-editor');
+  ta.focus();
+  /* 커서 끝으로 박음 */
+  try { ta.setSelectionRange(ta.value.length, ta.value.length); } catch (e) { /* noop */ }
+}
+
+/* ── v130: 인라인 편집 진입 — 선택지 라벨 ── */
+function _rtEnterEditChoice(choiceLine) {
+  if (!_rtIsViewerEditable()) return;
+  const num = Number(choiceLine.dataset.sceneNum);
+  const idx = Number(choiceLine.dataset.choiceIndex);
+  if (!Number.isFinite(num) || !Number.isFinite(idx) || !scenes[num]) return;
+  if (choiceLine.querySelector('.rt-inline-choice-editor')) return;
+
+  const s = scenes[num];
+  const buttons = Array.isArray(s.buttons) ? s.buttons : [];
+  const cur = (buttons[idx] && buttons[idx].label) ||
+              (idx === 0 ? (s.choiceA || '') : idx === 1 ? (s.choiceB || '') : '');
+
+  const textEl = choiceLine.querySelector('.rt-choice-text');
+  const editBtn = choiceLine.querySelector('.js-rt-edit-choice');
+  if (textEl) textEl.style.display = 'none';
+  if (editBtn) editBtn.style.display = 'none';
+
+  const wrap = document.createElement('span');
+  wrap.className = 'rt-inline-editor-wrap rt-inline-editor-wrap--choice';
+  wrap.innerHTML = `
+    <input class="rt-inline-choice-editor" type="text" maxlength="60"
+      data-scene-num="${num}" data-choice-index="${idx}"
+      value="${_rtEsc(cur)}" placeholder="선택지 라벨">
+    <button class="rt-inline-editor-btn rt-inline-editor-btn--cancel js-rt-cancel-choice" type="button">취소</button>
+    <button class="rt-inline-editor-btn rt-inline-editor-btn--save js-rt-save-choice" type="button">저장</button>`;
+  choiceLine.appendChild(wrap);
+
+  const input = wrap.querySelector('.rt-inline-choice-editor');
+  input.focus();
+  try { input.setSelectionRange(input.value.length, input.value.length); } catch (e) { /* noop */ }
+}
+
+/* ── v130: 편집 종료 — 저장 또는 취소 ── */
+function _rtFinishEditBody(sceneLine, save) {
+  const ta = sceneLine.querySelector('.rt-inline-body-editor');
+  if (!ta) return;
+  const num = Number(ta.dataset.sceneNum);
+  if (save && Number.isFinite(num)) {
+    /* v127 정책 — textarea.value 그대로 (trim 박지 X) */
+    _rtSaveBody(num, ta.value);
+  }
+  /* 통째 재렌더 — 같은 sceneId 박힌 모든 곳 자동 갱신 */
+  renderRoutePanel();
+}
+
+function _rtFinishEditChoice(choiceLine, save) {
+  const input = choiceLine.querySelector('.rt-inline-choice-editor');
+  if (!input) return;
+  const num = Number(input.dataset.sceneNum);
+  const idx = Number(input.dataset.choiceIndex);
+  if (save && Number.isFinite(num) && Number.isFinite(idx)) {
+    _rtSaveChoiceLabel(num, idx, input.value);
+  }
+  renderRoutePanel();
+}
+
+/* ── 경로 단락 HTML 생성 ──
+   v130: 본문/행동버튼 라벨 인라인 수정 박음. viewer-edit 환경 + editable일 때만 ✎ 버튼 표시. */
 function _rtPathHtml(path, pathIndex) {
+  const canEdit = _rtIsViewerEditable();
   let body = '';
   path.forEach(step => {
     if (step.loop) {
@@ -357,7 +576,17 @@ function _rtPathHtml(path, pathIndex) {
     }
     if (step.choice !== undefined) {
       const lbl = step.choiceLabel || (step.choice === '→' ? '다음으로' : `선택지 ${step.choice}`);
-      body += `<div class="rt-choice-line">- ${_rtEsc(lbl)} -</div>`;
+      /* v130: 선택지 라벨 인라인 수정 박음. fromSceneNum + choiceIndex 박힘 */
+      const editBtn = (canEdit && step.fromSceneNum != null && step.choiceIndex != null)
+        ? `<button class="rt-inline-edit-btn js-rt-edit-choice"
+             data-scene-num="${step.fromSceneNum}" data-choice-index="${step.choiceIndex}"
+             title="이 행동버튼 라벨 수정">✎</button>` : '';
+      const dataAttrs = (step.fromSceneNum != null && step.choiceIndex != null)
+        ? ` data-scene-num="${step.fromSceneNum}" data-choice-index="${step.choiceIndex}"` : '';
+      body += `<div class="rt-choice-line"${dataAttrs}>
+        <span class="rt-choice-text">- ${_rtEsc(lbl)} -</span>
+        ${editBtn}
+      </div>`;
       return;
     }
     /* scene step — 클릭 시 카드로 점프 */
@@ -366,9 +595,16 @@ function _rtPathHtml(path, pathIndex) {
     const prefix  = _rtScenePrefix(s);
     const preview = _rtPreviewText(s);
     const cls     = isEnd ? 'rt-scene-line rt-scene-line--ending' : 'rt-scene-line';
-    body += `<div class="${cls} js-rt-scene" data-num="${s.num}" title="클릭하면 해당 장면 카드로 이동">
+    /* v130: 본문 수정 ✎ 박음. 표지·엔딩도 본문 박을 수 있게 박음 (단 표지는 body 없으면 빈 textarea) */
+    const isCover = (s.type === 'cover' || s.isCover);
+    const editBodyBtn = (canEdit && !isCover)
+      ? `<button class="rt-inline-edit-btn js-rt-edit-body"
+           data-scene-num="${s.num}"
+           title="이 장면 본문 수정">✎</button>` : '';
+    body += `<div class="${cls} js-rt-scene" data-num="${s.num}">
       <span class="rt-scene-prefix">${_rtEsc(prefix)}.</span>
-      <span class="rt-scene-text">${_rtEsc(preview)}</span>
+      <span class="rt-scene-text" data-scene-num="${s.num}" title="클릭하면 해당 장면 카드로 이동">${_rtEsc(preview)}</span>
+      ${editBodyBtn}
     </div>`;
   });
 
@@ -577,14 +813,90 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  /* 장면 줄 → 카드 점프 */
+  /* 장면 줄 → 카드 점프 + v130 인라인 편집 */
   if (content) {
     content.addEventListener('click', e => {
-      const line = e.target.closest('.js-rt-scene');
-      if (!line) return;
-      const n = Number(line.dataset.num);
-      if (!Number.isFinite(n)) return;
-      _rtJumpToCard(n);
+      /* v130: ✎ 본문 수정 — scene 카드 점프보다 우선 박음 */
+      const editBodyBtn = e.target.closest('.js-rt-edit-body');
+      if (editBodyBtn) {
+        e.stopPropagation();
+        const line = editBodyBtn.closest('.js-rt-scene');
+        if (line) _rtEnterEditBody(line);
+        return;
+      }
+      /* v130: ✎ 선택지 라벨 수정 */
+      const editChoiceBtn = e.target.closest('.js-rt-edit-choice');
+      if (editChoiceBtn) {
+        e.stopPropagation();
+        const cl = editChoiceBtn.closest('.rt-choice-line');
+        if (cl) _rtEnterEditChoice(cl);
+        return;
+      }
+      /* v130: 본문 인라인 저장 / 취소 */
+      const saveBodyBtn = e.target.closest('.js-rt-save-body');
+      if (saveBodyBtn) {
+        const line = saveBodyBtn.closest('.js-rt-scene');
+        if (line) _rtFinishEditBody(line, true);
+        return;
+      }
+      const cancelBodyBtn = e.target.closest('.js-rt-cancel-body');
+      if (cancelBodyBtn) {
+        const line = cancelBodyBtn.closest('.js-rt-scene');
+        if (line) _rtFinishEditBody(line, false);
+        return;
+      }
+      /* v130: 선택지 인라인 저장 / 취소 */
+      const saveChoiceBtn = e.target.closest('.js-rt-save-choice');
+      if (saveChoiceBtn) {
+        const cl = saveChoiceBtn.closest('.rt-choice-line');
+        if (cl) _rtFinishEditChoice(cl, true);
+        return;
+      }
+      const cancelChoiceBtn = e.target.closest('.js-rt-cancel-choice');
+      if (cancelChoiceBtn) {
+        const cl = cancelChoiceBtn.closest('.rt-choice-line');
+        if (cl) _rtFinishEditChoice(cl, false);
+        return;
+      }
+      /* 인라인 editor 안 클릭은 무시 (textarea/input 자체) */
+      if (e.target.closest('.rt-inline-editor-wrap')) return;
+      /* scene 카드 점프 — .rt-scene-text 클릭한 경우만 (✎ 영역 클릭과 분리) */
+      const txt = e.target.closest('.rt-scene-text');
+      if (txt) {
+        const line = txt.closest('.js-rt-scene');
+        if (!line) return;
+        const n = Number(line.dataset.num);
+        if (Number.isFinite(n)) _rtJumpToCard(n);
+      }
+    });
+
+    /* v130: 키보드 단축키 — textarea Ctrl/Cmd+Enter 저장, Esc 취소 / input Enter 저장, Esc 취소 */
+    content.addEventListener('keydown', e => {
+      const ta = e.target.closest('.rt-inline-body-editor');
+      if (ta) {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          const line = ta.closest('.js-rt-scene');
+          if (line) _rtFinishEditBody(line, false);
+        } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+          e.preventDefault();
+          const line = ta.closest('.js-rt-scene');
+          if (line) _rtFinishEditBody(line, true);
+        }
+        return;
+      }
+      const input = e.target.closest('.rt-inline-choice-editor');
+      if (input) {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          const cl = input.closest('.rt-choice-line');
+          if (cl) _rtFinishEditChoice(cl, false);
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          const cl = input.closest('.rt-choice-line');
+          if (cl) _rtFinishEditChoice(cl, true);
+        }
+      }
     });
   }
 });

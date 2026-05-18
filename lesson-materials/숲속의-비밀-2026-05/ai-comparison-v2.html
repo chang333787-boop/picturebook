@@ -1,0 +1,1212 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>숲속의 비밀 — AI 1·2단계 비교 (v2 · 유기성 분석)</title>
+<link href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Batang:wght@400;700&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --paper: #fbf6ea;
+  --paper-deep: #f4ecd8;
+  --ink: #2b1f10;
+  --ink-soft: #6b5638;
+  --accent: #9b4dca;
+  --accent-deep: #7030b0;
+  --orig: #4a7ab8;
+  --orig-bg: #eef3f9;
+  --lv1: #d99060;
+  --lv1-bg: #faf1e6;
+  --lv2: #6aa46a;
+  --lv2-bg: #ecf4ea;
+  --warn: #c08000;
+  --warn-bg: #fffae0;
+  --warn-strong: #c54a2a;
+  --warn-strong-bg: #fbe9e1;
+  --ok: #4a8a4a;
+  --ok-bg: #ecf6ec;
+  --border: rgba(80,50,20,.18);
+  --shadow: 0 4px 16px rgba(80,50,20,.10);
+}
+* { box-sizing: border-box; }
+body {
+  font-family: 'Jua', 'Gowun Batang', sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  margin: 0;
+  padding: 24px 16px 80px;
+  line-height: 1.6;
+}
+.container { max-width: 1200px; margin: 0 auto; }
+
+/* ── 헤더 ── */
+header.title-block {
+  text-align: center;
+  padding: 32px 16px 24px;
+  border-bottom: 2px solid var(--border);
+  margin-bottom: 24px;
+}
+.eyebrow {
+  font-size: 13px;
+  color: var(--accent);
+  letter-spacing: 0.15em;
+  margin: 0 0 8px;
+}
+h1 {
+  font-family: 'Jua', sans-serif;
+  font-size: clamp(28px, 4vw, 40px);
+  color: var(--ink);
+  margin: 0 0 8px;
+}
+.subtitle { font-size: 14px; color: var(--ink-soft); margin: 0; }
+.version-badge {
+  display: inline-block;
+  background: var(--accent);
+  color: #fff;
+  padding: 3px 12px;
+  border-radius: 50px;
+  font-size: 12px;
+  margin-top: 8px;
+}
+
+/* ── 핵심 메시지 ── */
+.core-notice {
+  background: #fff;
+  border: 2px solid var(--accent);
+  border-radius: 16px;
+  padding: 20px 24px;
+  margin: 24px 0 32px;
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+.core-line {
+  font-family: 'Jua', sans-serif;
+  font-size: clamp(16px, 2vw, 19px);
+  color: var(--accent-deep);
+  margin: 0 0 8px;
+}
+.core-sub { font-size: 13px; color: var(--ink-soft); margin: 0; }
+
+/* ── 섹션 ── */
+.section-divider {
+  margin: 48px 0 24px;
+  padding-bottom: 8px;
+  border-bottom: 1.5px dashed var(--border);
+}
+.section-divider h2 {
+  font-family: 'Jua', sans-serif;
+  font-size: clamp(22px, 3vw, 28px);
+  color: var(--ink);
+  margin: 0 0 6px;
+}
+.section-desc { font-size: 13px; color: var(--ink-soft); margin: 0; }
+
+/* ── 유기성 분석 박스 ── */
+.organic-section {
+  background: #fff;
+  border-radius: 16px;
+  padding: 24px 28px;
+  margin: 24px 0 32px;
+  box-shadow: var(--shadow);
+  border-left: 6px solid var(--accent);
+}
+.organic-section h3 {
+  font-family: 'Jua', sans-serif;
+  font-size: 18px;
+  margin: 0 0 12px;
+  color: var(--accent-deep);
+}
+.organic-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin: 16px 0;
+}
+@media (max-width: 768px) {
+  .organic-grid { grid-template-columns: 1fr; }
+}
+.organic-col {
+  background: var(--paper);
+  border-radius: 10px;
+  padding: 14px 18px;
+}
+.organic-col.ok { border-left: 4px solid var(--ok); }
+.organic-col.warn { border-left: 4px solid var(--warn); }
+.organic-col h4 {
+  font-family: 'Jua', sans-serif;
+  font-size: 14px;
+  margin: 0 0 8px;
+}
+.organic-col.ok h4 { color: var(--ok); }
+.organic-col.warn h4 { color: var(--warn); }
+.organic-col ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+/* ── 약한 연결 표 ── */
+.weak-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  font-size: 13px;
+  background: #fff;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.weak-table th, .weak-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+.weak-table th {
+  background: var(--warn-bg);
+  color: var(--warn-strong);
+  font-family: 'Jua', sans-serif;
+  font-size: 12px;
+  letter-spacing: 0.03em;
+}
+.weak-table .weak-edge {
+  font-family: 'Jua', sans-serif;
+  color: var(--warn-strong);
+  white-space: nowrap;
+}
+.weak-table .weak-issue { color: var(--ink); }
+.weak-table .weak-fix {
+  color: var(--ok);
+  font-size: 12px;
+  background: var(--ok-bg);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+/* ── 장면 카드 ── */
+.scene-card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 20px 24px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow);
+}
+.scene-card.is-ending { border-left: 4px solid #c8503c; }
+.scene-card.is-true-end { border-left: 4px solid #d4a017; background: #fffdf3; }
+.scene-card h3 {
+  font-family: 'Jua', sans-serif;
+  font-size: 18px;
+  color: var(--ink);
+  margin: 0 0 4px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: baseline;
+}
+.scene-num-badge {
+  background: var(--paper-deep);
+  color: var(--ink-soft);
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 50px;
+}
+.scene-from { font-size: 11px; color: var(--ink-soft); font-weight: normal; }
+
+/* ── 연결 정보 ── */
+.conn-info {
+  background: var(--paper);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 12px;
+  margin: 10px 0 14px;
+}
+.conn-row { margin: 2px 0; color: var(--ink-soft); }
+.conn-row strong { color: var(--ink); margin-right: 4px; }
+.btn-pill {
+  display: inline-block;
+  background: #f3eeff;
+  color: var(--accent-deep);
+  border-radius: 50px;
+  padding: 2px 10px;
+  font-size: 11px;
+  margin: 2px;
+}
+.btn-pill--end { background: #fbe7e0; color: #c8503c; }
+.organic-note {
+  margin-top: 6px;
+  padding: 6px 10px;
+  background: var(--ok-bg);
+  color: var(--ok);
+  border-radius: 6px;
+  font-size: 11px;
+}
+.organic-note--warn { background: var(--warn-strong-bg); color: var(--warn-strong); }
+
+/* ── 비교 그리드 ── */
+.compare-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.2fr;
+  gap: 10px;
+  margin: 14px 0;
+}
+@media (max-width: 900px) {
+  .compare-grid { grid-template-columns: 1fr; }
+}
+.ver-block {
+  border-radius: 10px;
+  padding: 12px 14px;
+  border-top: 4px solid;
+}
+.ver-block.original { background: var(--orig-bg); border-color: var(--orig); }
+.ver-block.lv1      { background: var(--lv1-bg);  border-color: var(--lv1); }
+.ver-block.lv2      { background: var(--lv2-bg);  border-color: var(--lv2); }
+.ver-label {
+  font-family: 'Jua', sans-serif;
+  font-size: 12px;
+  margin: 0 0 8px;
+  letter-spacing: 0.03em;
+}
+.ver-block.original .ver-label { color: var(--orig); }
+.ver-block.lv1      .ver-label { color: var(--lv1); }
+.ver-block.lv2      .ver-label { color: var(--lv2); }
+.ver-body {
+  font-family: 'Gowun Batang', serif;
+  font-size: 13.5px;
+  color: var(--ink);
+  white-space: pre-wrap;
+  word-break: keep-all;
+  line-height: 1.75;
+  min-height: 50px;
+}
+
+/* ── 메모 그리드 ── */
+.notes-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 10px;
+}
+@media (max-width: 768px) { .notes-grid { grid-template-columns: 1fr; } }
+.note-block {
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.note-block strong {
+  display: block;
+  margin-bottom: 3px;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+.note-l1      { background: var(--lv1-bg);  color: #8a5000; }
+.note-l1 strong { color: var(--lv1); }
+.note-l2      { background: var(--lv2-bg);  color: #2c5a2c; }
+.note-l2 strong { color: var(--lv2); }
+.note-keep    { background: var(--orig-bg); color: #2c5a8a; }
+.note-keep strong { color: var(--orig); }
+.note-caution { background: var(--warn-strong-bg); color: var(--warn-strong); }
+.note-caution strong { color: var(--warn-strong); }
+.note-block em { color: var(--ink-soft); font-style: italic; }
+
+/* ── 정리 섹션 ── */
+.summary-section {
+  background: #fff;
+  border: 2px solid var(--accent);
+  border-radius: 16px;
+  padding: 28px 32px;
+  margin: 48px 0 24px;
+  box-shadow: var(--shadow);
+}
+.summary-section h2 {
+  font-family: 'Jua', sans-serif;
+  font-size: 24px;
+  color: var(--accent-deep);
+  margin: 0 0 20px;
+  text-align: center;
+}
+.summary-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+}
+@media (max-width: 768px) { .summary-grid { grid-template-columns: 1fr; } }
+.summary-col { border-radius: 10px; padding: 16px; }
+.summary-col.ok   { background: var(--ok-bg); }
+.summary-col.no   { background: var(--warn-bg); }
+.summary-col.core { background: #f8f0ff; }
+.summary-col h3 {
+  font-family: 'Jua', sans-serif;
+  font-size: 16px;
+  margin: 0 0 10px;
+}
+.summary-col.ok   h3 { color: var(--ok); }
+.summary-col.no   h3 { color: var(--warn); }
+.summary-col.core h3 { color: var(--accent-deep); }
+.summary-col ul { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.7; }
+
+/* ── 푸터 ── */
+footer {
+  text-align: center;
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin-top: 48px;
+  padding-top: 20px;
+  border-top: 1px dashed var(--border);
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header class="title-block">
+    <p class="eyebrow">AI 텍스트 다듬기 비교 — v2 (유기성 분석)</p>
+    <h1>숲속의 비밀</h1>
+    <p class="subtitle">원본 / AI 1단계(정돈) / AI 2단계(장면 발전) · 약한 연결 7곳 보충</p>
+    <span class="version-badge">v2 · 1·2단계 차이 강화</span>
+  </header>
+
+  <div class="core-notice">
+    <p class="core-line">AI는 작품을 더 보기 좋게 도울 수 있지만,<br/>작품의 중심은 사람이 정해야 합니다.</p>
+    <p class="core-sub">비교하고, 무엇이 우리 작품다운지 우리가 직접 정해 봅시다.</p>
+  </div>
+
+  <!-- 유기성 분석 -->
+  <div class="section-divider">
+    <h2>0. 전체 흐름 — 자연스러운 연결과 약한 연결</h2>
+    <p class="section-desc">작품 21장 분기를 분석한 결과예요. 약한 연결 7곳은 2단계가 자연스럽게 보충했어요.</p>
+  </div>
+
+  <div class="organic-section">
+    <h3>📊 분석 요약</h3>
+    <div class="organic-grid">
+      <div class="organic-col ok">
+        <h4>✅ 자연스러운 연결 (그대로)</h4>
+        <ul><li>1→2: 숲속 소리 따라가니 친구들 만남</li><li>4→8/9: 어떤 열매 선택했는지가 직접 결과로</li><li>6→10/11: 무기 선택이 다음 행동으로</li><li>14→17/18: 사는 곳 vs 데려가기가 두 결말 방향</li><li>15→19/20: 말리기 vs 무시가 결말 방향 결정</li><li>16-B→17: 모두 구해주기 → 파티</li></ul>
+      </div>
+      <div class="organic-col warn">
+        <h4>⚠ 원작에서 절대 변경하지 않은 핵심</h4>
+        <ul><li>학생 고유 표현: 시민, 막대자, 필통, 뇨뇨</li><li>21장 분기 구조 그대로 (nextId 변경 X)</li><li>9개 엔딩 분포 (해피 3 / 비극 6)</li><li>진엔딩(19)의 메시지: 말로 설득해 변화</li><li>학용품 코믹 톤 (막대자·필통)</li><li>친구를 도와주는 마음 박힌 핵심 가치</li></ul>
+      </div>
+    </div>
+
+    <h3 style="color: var(--warn-strong); margin-top: 24px;">⚠ 약한 연결 7곳 (2단계가 보충)</h3>
+    <table class="weak-table">
+      <thead>
+        <tr>
+          <th>분기</th>
+          <th>원래 문제</th>
+          <th>2단계가 보충한 방향</th>
+        </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td class="weak-edge">1-B → 3</td>
+        <td class="weak-issue">&#x27;안간다&#x27;고 했는데 왜 멧돼지에 쫓겨 실종?</td>
+        <td class="weak-fix">장면 3 도입에 &#x27;안 가도 멧돼지가 계속 따라와 정신없이 도망치다 흩어졌다&#x27;로 인과 연결</td>
+      </tr>
+    
+      <tr>
+        <td class="weak-edge">2-B → 5</td>
+        <td class="weak-issue">안 도와준 시민이 왜 본인도 잡혀감?</td>
+        <td class="weak-fix">장면 5에 &#x27;밀렵꾼이 모찌만 잡으려는 게 아니라 시민들도 노렸다&#x27;는 흐름 보충</td>
+      </tr>
+    
+      <tr>
+        <td class="weak-edge">4 도입 &#x27;악당 물리친 뒤&#x27;</td>
+        <td class="weak-issue">어디서 온 악당인지 불분명</td>
+        <td class="weak-fix">뇨뇨 기사 등장과 자연스러운 연결 (2-A에서 도와준 흐름 그대로 이어짐)</td>
+      </tr>
+    
+      <tr>
+        <td class="weak-edge">9-A → 12</td>
+        <td class="weak-issue">투명인간 설정이 12 늪 엔딩에서 활용되지 않음</td>
+        <td class="weak-fix">장면 12에 &#x27;투명한 상태로 발 밑이 안 보여 늪에 빠졌다&#x27;로 설정 활용</td>
+      </tr>
+    
+      <tr>
+        <td class="weak-edge">11-A / 11-B → 둘 다 14</td>
+        <td class="weak-issue">두 선택지가 같은 장면 — 의미 차이가 안 보임</td>
+        <td class="weak-fix">장면 14 도입에 &#x27;말림으로 화해&#x27; 흐름 박고, 끝에 두 선택지의 차이(같이 살기 vs 사는 곳 가기) 설명</td>
+      </tr>
+    
+      <tr>
+        <td class="weak-edge">13-B → 16</td>
+        <td class="weak-issue">안 도와줬는데 어떻게 모든 동물 모임?</td>
+        <td class="weak-fix">장면 16에 &#x27;두고 갔지만 가는 곳마다 같은 위협 — 결국 같은 강가에서 모두 만남&#x27;으로 보충</td>
+      </tr>
+    
+      <tr>
+        <td class="weak-edge">14-B → 18</td>
+        <td class="weak-issue">데려갔는데 왜 목마름?</td>
+        <td class="weak-fix">장면 18에 &#x27;데려간 곳이 메마른 땅 / 가뭄으로 물이 사라진 곳&#x27;으로 인과 보충</td>
+      </tr>
+    </tbody>
+    </table>
+
+    <div class="organic-col warn" style="margin-top: 16px;">
+      <h4>🚫 AI가 추측하지 말아야 할 부분</h4>
+      <ul><li>토토의 종류 (강아지/토끼/곰 등) — &#x27;작은 친구&#x27;로만 처리</li><li>모찌의 모습 — &#x27;물고기&#x27;만 박힘</li><li>뇨뇨 종족 디자인 — 학생 그림이 기준</li><li>시민이 학생인지 어른인지 — &#x27;평소에 학교&#x27; 같은 박은 거 위험</li><li>밀렵꾼의 외형·강도 — 어린이 책 톤</li></ul>
+    </div>
+  </div>
+
+  <!-- 장면별 비교 -->
+  <div class="section-divider">
+    <h2>1. 장면별 비교 (20장)</h2>
+    <p class="section-desc">각 장면을 원본 / 1단계 / 2단계 세 가지로 비교. 장면 19 ⭐는 진엔딩 후보 — 작품 핵심 메시지.</p>
+  </div>
+
+  
+    <article class="scene-card  " data-sid="1">
+      <h3>
+        <span class="scene-num-badge">장면 1</span>
+        <span class="scene-from">← 21_cover</span>
+      </h3>
+
+      <div class="conn-info">
+        <div class="conn-row"><strong>들어오는 선택지:</strong> 시작</div>
+        <div class="conn-row"><strong>다음:</strong> <span class="btn-pill">따라간다 → 장면 2</span> / <span class="btn-pill">안간다 → 장면 3</span></div>
+        <div class="organic-note">📍 A는 자연스러움. B는 &#x27;안 갔는데 멧돼지 쫓김&#x27;이 약함 — 3-Level2가 보충</div>
+      </div>
+
+      <div class="compare-grid">
+        <div class="ver-block original">
+          <p class="ver-label">📘 원본</p>
+          <div class="ver-body">마루, 하루가 길을 가다 멧돼지에 쫓긴다. <br/>도망가고 있는데 숲속에서 소리가 난다.</div>
+        </div>
+        <div class="ver-block lv1">
+          <p class="ver-label">✏️ AI 1단계 — 정돈</p>
+          <div class="ver-body">마루와 하루는 길을 가다가 갑자기 멧돼지에게 쫓기게 되었다.<br/>도망치는 중에 숲속 어딘가에서 이상한 소리가 들려왔다.</div>
+        </div>
+        <div class="ver-block lv2">
+          <p class="ver-label">🌳 AI 2단계 — 장면 발전</p>
+          <div class="ver-body">마루와 하루는 조용한 숲길을 나란히 걷고 있었다. 그때 뒤쪽 풀숲에서 &quot;부스럭&quot; 하는 소리가 들렸다. 두 친구가 고개를 돌리는 순간, 커다란 멧돼지가 씩씩거리며 달려왔다.<br/><br/>&quot;도망쳐!&quot;<br/><br/>마루가 외치자, 둘은 정신없이 숲길을 따라 뛰기 시작했다. 한참을 달리다 보니, 이번에는 깊은 숲속 어딘가에서 처음 듣는 이상한 소리가 들려왔다.</div>
+        </div>
+      </div>
+
+      <div class="notes-grid">
+        <div class="note-block note-l1"><strong>1단계 바꾼 점</strong>쉼표를 &amp;#x27;와&amp;#x27;로, 시점 통일, &amp;#x27;이상한&amp;#x27;으로 다음 장면 긴장감 살림</div>
+        <div class="note-block note-l2"><strong>2단계 발전 점</strong>배경 묘사, 의성어, 짧은 대사, 시간 경과 — 도입의 호흡 만듦</div>
+        <div class="note-block note-keep"><strong>유지한 핵심</strong>마루·하루·멧돼지·숲속 소리 도입 4요소</div>
+        <div class="note-block note-caution"><strong>⚠ 주의할 점</strong>&amp;#x27;도망쳐!&amp;#x27; 대사와 &amp;#x27;커다란&amp;#x27; 추측은 원작에 없음</div>
+      </div>
+    </article>
+    
+    <article class="scene-card  " data-sid="2">
+      <h3>
+        <span class="scene-num-badge">장면 2</span>
+        <span class="scene-from">← 1-A</span>
+      </h3>
+
+      <div class="conn-info">
+        <div class="conn-row"><strong>들어오는 선택지:</strong> 따라간다</div>
+        <div class="conn-row"><strong>다음:</strong> <span class="btn-pill">도와준다 → 장면 4</span> / <span class="btn-pill">도와주지 않는다 → 장면 5</span></div>
+        <div class="organic-note">📍 A는 4 도입이 어색 — 4-Level2가 보충. B는 5에서 &#x27;안 도와줬는데 왜 본인도 잡힘&#x27;이 약함 — 5-Level2가 보충</div>
+      </div>
+
+      <div class="compare-grid">
+        <div class="ver-block original">
+          <p class="ver-label">📘 원본</p>
+          <div class="ver-body">마루,하루는 토토, 모찌를 만났다. 모찌는 밀렵꾼에게 쫓기고 있었다.</div>
+        </div>
+        <div class="ver-block lv1">
+          <p class="ver-label">✏️ AI 1단계 — 정돈</p>
+          <div class="ver-body">마루와 하루가 소리를 따라가 보니, 토토와 모찌가 있었다. 모찌는 밀렵꾼에게 쫓기고 있었다.</div>
+        </div>
+        <div class="ver-block lv2">
+          <p class="ver-label">🌳 AI 2단계 — 장면 발전</p>
+          <div class="ver-body">이상한 소리를 따라 풀숲을 헤치고 들어가니, 그곳에는 작은 친구 토토와 물고기 모찌가 몸을 웅크리고 있었다. 모찌는 거친 숨을 몰아쉬며 떨고 있었고, 그 뒤로 발자국 소리가 점점 가까워졌다.<br/><br/>&quot;밀렵꾼이 모찌를 잡으러 와요. 도와주세요!&quot;<br/><br/>토토가 다급하게 외쳤다. 마루와 하루는 서로 눈을 마주쳤다. 어떻게 해야 할까?</div>
+        </div>
+      </div>
+
+      <div class="notes-grid">
+        <div class="note-block note-l1"><strong>1단계 바꾼 점</strong>&amp;#x27;소리를 따라가 보니&amp;#x27;로 들어오는 선택지의 결과 명시</div>
+        <div class="note-block note-l2"><strong>2단계 발전 점</strong>토토를 &amp;#x27;작은 친구&amp;#x27;로 모호하게(종류 학생 의도), 토토 대사로 위기 박힘, &amp;#x27;서로 눈을 마주쳤다&amp;#x27;로 선택의 무게</div>
+        <div class="note-block note-keep"><strong>유지한 핵심</strong>토토·모찌 등장, 밀렵꾼 위협</div>
+        <div class="note-block note-caution"><strong>⚠ 주의할 점</strong>토토 종류 추측 X. 토토 대사는 학생 톤 확인 필요</div>
+      </div>
+    </article>
+    
+    <article class="scene-card  " data-sid="3">
+      <h3>
+        <span class="scene-num-badge">장면 3</span>
+        <span class="scene-from">← 1-B</span>
+      </h3>
+
+      <div class="conn-info">
+        <div class="conn-row"><strong>들어오는 선택지:</strong> 안간다</div>
+        <div class="conn-row"><strong>다음:</strong> <span class="btn-pill">다시 찾는다 → 장면 6</span> / <span class="btn-pill">더 깊은곳 → 장면 7</span></div>
+        <div class="organic-note">📍 원본 &#x27;실종&#x27;이 1-B &#x27;안간다&#x27; 결과로는 인과 약함 — Level2가 &#x27;안 가도 멧돼지가 계속 따라옴&#x27;으로 보충</div>
+      </div>
+
+      <div class="compare-grid">
+        <div class="ver-block original">
+          <p class="ver-label">📘 원본</p>
+          <div class="ver-body">멧돼지에게 쫓기다 실종(마루,하루)</div>
+        </div>
+        <div class="ver-block lv1">
+          <p class="ver-label">✏️ AI 1단계 — 정돈</p>
+          <div class="ver-body">이상한 소리는 안 듣기로 했지만, 멧돼지는 계속 따라왔다. 정신없이 도망치다 마루와 하루는 서로 흩어지고 말았다.</div>
+        </div>
+        <div class="ver-block lv2">
+          <p class="ver-label">🌳 AI 2단계 — 장면 발전</p>
+          <div class="ver-body">&quot;저런 소리는 따라가지 말자.&quot;<br/><br/>마루와 하루는 소리를 못 들은 척 다시 길을 갔다. 그러나 멧돼지는 포기하지 않고 끝까지 따라왔다. 두 친구는 정신없이 달리고 또 달렸고, 어느 순간 정신을 차려보니 마루도 하루도 서로 어디에 있는지 알 수 없었다.<br/><br/>깊은 숲속, 두 사람은 완전히 흩어져 버렸다.</div>
+        </div>
+      </div>
+
+      <div class="notes-grid">
+        <div class="note-block note-l1"><strong>1단계 바꾼 점</strong>메모 형식을 문장으로. &amp;#x27;안간다&amp;#x27; 결과 명시</div>
+        <div class="note-block note-l2"><strong>2단계 발전 점</strong>1-B 선택의 동기를 직접 대사로. &amp;#x27;멧돼지는 포기하지 않고&amp;#x27;로 인과 명확</div>
+        <div class="note-block note-keep"><strong>유지한 핵심</strong>실종 사건, 멧돼지의 지속적 위협</div>
+        <div class="note-block note-caution"><strong>⚠ 주의할 점</strong>마루 대사는 박은 거 — 원작 메모식과 톤 차이</div>
+      </div>
+    </article>
+    
+    <article class="scene-card  " data-sid="4">
+      <h3>
+        <span class="scene-num-badge">장면 4</span>
+        <span class="scene-from">← 2-A</span>
+      </h3>
+
+      <div class="conn-info">
+        <div class="conn-row"><strong>들어오는 선택지:</strong> 도와준다</div>
+        <div class="conn-row"><strong>다음:</strong> <span class="btn-pill">엄청 맛있어 보이는 열매 → 장면 8</span> / <span class="btn-pill">엄청 맛없어 보이는 열매 → 장면 9</span></div>
+        <div class="organic-note">📍 원본 도입 &#x27;뇨뇨 기사를 만나서 악당을 물리친 뒤&#x27;가 갑작스러움 — Level2가 자연스럽게 보충</div>
+      </div>
+
+      <div class="compare-grid">
+        <div class="ver-block original">
+          <p class="ver-label">📘 원본</p>
+          <div class="ver-body">뇨뇨 기사를 만나서 악당을 물리친 뒤 시민 둘은 배가 너무 고팠다. 기사 뇨뇨는 옆에 있던 열매를 따줬다. 무슨 열매를 먹지?</div>
+        </div>
+        <div class="ver-block lv1">
+          <p class="ver-label">✏️ AI 1단계 — 정돈</p>
+          <div class="ver-body">모찌를 도와주려는 순간, 어디선가 뇨뇨 기사가 나타나 함께 밀렵꾼을 물리쳤다. 한바탕 싸움이 끝나자 시민 둘은 배가 너무 고팠다. 기사 뇨뇨는 옆에 있던 나무에서 열매를 따 주었다. 무슨 열매를 먹을까?</div>
+        </div>
+        <div class="ver-block lv2">
+          <p class="ver-label">🌳 AI 2단계 — 장면 발전</p>
+          <div class="ver-body">마루와 하루가 모찌를 구하려고 나서자, 어디선가 우렁찬 목소리가 들려왔다.<br/><br/>&quot;내가 도와주겠다!&quot;<br/><br/>용감한 뇨뇨 기사가 나타난 것이었다. 마루, 하루, 토토, 그리고 뇨뇨 기사가 힘을 합치자 밀렵꾼은 결국 물러나고 말았다. 모찌도 안전해졌다.<br/><br/>한바탕 싸움이 끝나자, 시민 둘은 배에서 꼬르륵 소리가 났다. 그 모습을 본 뇨뇨 기사는 빙긋 웃으며 옆 나무에서 열매 두 개를 따 주었다. 하나는 윤기가 흐르며 무척 맛있어 보였고, 다른 하나는 시들시들해 별로 먹고 싶지 않아 보였다.<br/><br/>&quot;어떤 걸 먹을래?&quot;</div>
+        </div>
+      </div>
+
+      <div class="notes-grid">
+        <div class="note-block note-l1"><strong>1단계 바꾼 점</strong>&amp;#x27;모찌를 도와주려는 순간&amp;#x27; + &amp;#x27;밀렵꾼&amp;#x27; 명시로 흐름 연결</div>
+        <div class="note-block note-l2"><strong>2단계 발전 점</strong>뇨뇨 기사 등장의 자연스러움, 두 열매 외관 차이로 선택지 호응</div>
+        <div class="note-block note-keep"><strong>유지한 핵심</strong>뇨뇨 기사, 두 열매 선택, &amp;#x27;시민 둘&amp;#x27; 표현</div>
+        <div class="note-block note-caution"><strong>⚠ 주의할 점</strong>토토가 싸움에 참여했는지는 추측</div>
+      </div>
+    </article>
+    
+    <article class="scene-card is-ending " data-sid="5">
+      <h3>
+        <span class="scene-num-badge">🏁 장면 5</span>
+        <span class="scene-from">← 2-B</span>
+      </h3>
+
+      <div class="conn-info">
+        <div class="conn-row"><strong>들어오는 선택지:</strong> 도와주지 않는다</div>
+        <div class="conn-row"><strong>다음:</strong> <span class="btn-pill btn-pill--end">엔딩</span></div>
+        <div class="organic-note">📍 안 도와준 시민이 왜 본인도 잡힘 — Level2가 &#x27;밀렵꾼이 시민들도 노렸다&#x27;로 보충</div>
+      </div>
+
+      <div class="compare-grid">
+        <div class="ver-block original">
+          <p class="ver-label">📘 원본</p>
+          <div class="ver-body"><br/>마루하루는 밀렵꾼에게 잡혀갔다!!<br/> 토토와 모찌도 잡혀갔다!!<br/></div>
+        </div>
+        <div class="ver-block lv1">
+          <p class="ver-label">✏️ AI 1단계 — 정돈</p>
+          <div class="ver-body">마루와 하루는 그냥 돌아서서 가 버렸다. 그런데 잠시 후, 밀렵꾼은 모찌만 잡은 것이 아니라 마루와 하루까지 쫓아와 잡아갔다!<br/>토토와 모찌도 결국 함께 잡혀가고 말았다!</div>
+        </div>
+        <div class="ver-block lv2">
+          <p class="ver-label">🌳 AI 2단계 — 장면 발전</p>
+          <div class="ver-body">&quot;우리 일도 아니잖아.&quot;<br/><br/>마루와 하루는 모찌에게서 등을 돌리고 가던 길을 갔다. 그러나 밀렵꾼은 모찌 하나로 만족하지 않았다. 시민 둘이 길을 알고 있다고 생각한 밀렵꾼은, 곧 마루와 하루까지 뒤쫓아 와 붙잡고 말았다.<br/><br/>결국 마루도, 하루도, 토토도, 모찌도 — 모두가 밀렵꾼에게 잡혀갔다.<br/><br/>그날, 숲은 너무도 조용해졌다.</div>
+        </div>
+      </div>
+
+      <div class="notes-grid">
+        <div class="note-block note-l1"><strong>1단계 바꾼 점</strong>&amp;#x27;안 도와줬는데 왜 잡혀가는가&amp;#x27; 인과 한 문장 보충</div>
+        <div class="note-block note-l2"><strong>2단계 발전 점</strong>선택의 동기 대사, &amp;#x27;시민 둘이 길을 알고 있다&amp;#x27;로 인과 명확화, 그림책 마무리 한 줄</div>
+        <div class="note-block note-keep"><strong>유지한 핵심</strong>네 인물 모두 잡혀감, 빈 줄 호흡</div>
+        <div class="note-block note-caution"><strong>⚠ 주의할 점</strong>&amp;#x27;우리 일도 아니잖아&amp;#x27; 대사가 차가운 톤 — 학생 의도 확인</div>
+      </div>
+    </article>
+    
+    <article class="scene-card  " data-sid="6">
+      <h3>
+        <span class="scene-num-badge">장면 6</span>
+        <span class="scene-from">← 3-A</span>
+      </h3>
+
+      <div class="conn-info">
+        <div class="conn-row"><strong>들어오는 선택지:</strong> 다시 찾는다</div>
+        <div class="conn-row"><strong>다음:</strong> <span class="btn-pill">막대자 → 장면 10</span> / <span class="btn-pill">필통 → 장면 11</span></div>
+        <div class="organic-note">📍 두 선택지가 각각 자연스럽게 10/11로 이어짐 (A는 막대자로 무찌름, B는 필통 던지려 보니 새 사건)</div>
+      </div>
+
+      <div class="compare-grid">
+        <div class="ver-block original">
+          <p class="ver-label">📘 원본</p>
+          <div class="ver-body">하루마루는 서로 만났다! 멧돼지를 무찔러야 한다! 무슨 공격을 할까? 시민 두명의 가방에는 막대자와 필통이 있었다. 뭘 고를까?</div>
+        </div>
+        <div class="ver-block lv1">
+          <p class="ver-label">✏️ AI 1단계 — 정돈</p>
+          <div class="ver-body">하루와 마루는 한참을 헤맨 끝에 서로 다시 만났다! 그런데 그때 또 멧돼지가 나타났다! 어떻게 공격할까? 시민 두 명의 가방을 뒤져 보니 막대자와 필통이 있었다. 어떤 것을 고를까?</div>
+        </div>
+        <div class="ver-block lv2">
+          <p class="ver-label">🌳 AI 2단계 — 장면 발전</p>
+          <div class="ver-body">숲을 뒤지고 또 뒤진 끝에, 마침내 마루와 하루는 서로를 다시 만났다. 두 친구는 너무 반가워 서로를 꼭 끌어안았다. 그런데 그 기쁨도 잠시, 멀리서 익숙한 발소리가 들려왔다.<br/><br/>&quot;또 멧돼지야!&quot;<br/><br/>이번에는 도망갈 수 없다. 멧돼지를 무찔러야 한다. 마루와 하루는 가방을 뒤집어 보았다. 안에서 나온 것은 — 평소에 학교에서 쓰던 막대자 한 개와 필통 하나. 무기라고 하기엔 좀 우습지만, 지금 가진 것은 이것뿐이다.<br/><br/>&quot;어떤 걸로 싸울까?&quot;</div>
+        </div>
+      </div>
+
+      <div class="notes-grid">
+        <div class="note-block note-l1"><strong>1단계 바꾼 점</strong>&amp;#x27;한참을 헤맨 끝에&amp;#x27;로 3-A 결과 박음</div>
+        <div class="note-block note-l2"><strong>2단계 발전 점</strong>재회의 행동, &amp;#x27;또 멧돼지&amp;#x27; 대사로 장면 1 멧돼지와 연결, &amp;#x27;학교에서 쓰던&amp;#x27;으로 학용품 코믹 톤</div>
+        <div class="note-block note-keep"><strong>유지한 핵심</strong>재회, 막대자/필통 선택, 학용품 코믹 톤</div>
+        <div class="note-block note-caution"><strong>⚠ 주의할 점</strong>&amp;#x27;학교에서&amp;#x27;는 추측 — 학생 그림에서 시민이 학생일 때만</div>
+      </div>
+    </article>
+    
+    <article class="scene-card is-ending " data-sid="7">
+      <h3>
+        <span class="scene-num-badge">🏁 장면 7</span>
+        <span class="scene-from">← 3-B</span>
+      </h3>
+
+      <div class="conn-info">
+        <div class="conn-row"><strong>들어오는 선택지:</strong> 더 깊은곳</div>
+        <div class="conn-row"><strong>다음:</strong> <span class="btn-pill btn-pill--end">엔딩</span></div>
+        <div class="organic-note">📍 더 깊은 곳 → 더 멀어짐 — 자연스러움</div>
+      </div>
+
+      <div class="compare-grid">
+        <div class="ver-block original">
+          <p class="ver-label">📘 원본</p>
+          <div class="ver-body">결국 흩어진다....</div>
+        </div>
+        <div class="ver-block lv1">
+          <p class="ver-label">✏️ AI 1단계 — 정돈</p>
+          <div class="ver-body">더 깊은 숲속으로 들어갈수록, 마루와 하루는 서로에게서 점점 더 멀어져 갔다. 결국 둘은 다시 만날 수 없게 흩어지고 말았다…</div>
+        </div>
+        <div class="ver-block lv2">
+          <p class="ver-label">🌳 AI 2단계 — 장면 발전</p>
+          <div class="ver-body">&quot;더 깊이 들어가야 찾을 수 있을 거야.&quot;<br/><br/>마루와 하루는 각자 더 깊은 숲속으로 발걸음을 옮겼다. 하지만 숲은 너무도 넓었고, 길은 어디로 이어지는지 알 수 없었다.<br/><br/>한 걸음 한 걸음 들어갈수록, 두 친구는 점점 더 멀어져만 갔다. 마루가 부르는 목소리도, 하루가 답하는 목소리도, 어느 순간 더는 들리지 않았다.<br/><br/>결국 그들은 — 다시는 서로를 만나지 못한 채, 깊은 숲 속에서 흩어지고 말았다.</div>
+        </div>
+      </div>
+
+      <div class="notes-grid">
+        <div class="note-block note-l1"><strong>1단계 바꾼 점</strong>메모를 문장으로, 선택의 결과 명시</div>
+        <div class="note-block note-l2"><strong>2단계 발전 점</strong>동기 대사, &amp;#x27;부르는 목소리/답하는 목소리&amp;#x27;의 시각화</div>
+        <div class="note-block note-keep"><strong>유지한 핵심</strong>흩어짐, 짧은 여운</div>
+        <div class="note-block note-caution"><strong>⚠ 주의할 점</strong>원작 한 줄의 강한 슬픔이 길어짐</div>
+      </div>
+    </article>
+    
+    <article class="scene-card is-ending " data-sid="8">
+      <h3>
+        <span class="scene-num-badge">🏁 장면 8</span>
+        <span class="scene-from">← 4-A</span>
+      </h3>
+
+      <div class="conn-info">
+        <div class="conn-row"><strong>들어오는 선택지:</strong> 맛있어 보이는 열매</div>
+        <div class="conn-row"><strong>다음:</strong> <span class="btn-pill btn-pill--end">엔딩</span></div>
+        <div class="organic-note">📍 직접 인과 — 자연스러움</div>
+      </div>
+
+      <div class="compare-grid">
+        <div class="ver-block original">
+          <p class="ver-label">📘 원본</p>
+          <div class="ver-body"><br/> <br/>맛있어 보이는 열매는 독이 있었다!<br/></div>
+        </div>
+        <div class="ver-block lv1">
+          <p class="ver-label">✏️ AI 1단계 — 정돈</p>
+          <div class="ver-body"><br/><br/>시민 둘은 윤기 흐르는 맛있는 열매를 골랐다. 그런데 그 열매에는 독이 들어 있었다!<br/></div>
+        </div>
+        <div class="ver-block lv2">
+          <p class="ver-label">🌳 AI 2단계 — 장면 발전</p>
+          <div class="ver-body"><br/><br/>&quot;이게 더 맛있어 보여!&quot;<br/><br/>마루와 하루는 망설임 없이 윤기가 흐르는 열매를 골라 한입 베어 물었다. 처음엔 달콤한 맛이 났다. 그러나 잠시 후, 두 친구의 몸이 점점 무거워지기 시작했다.<br/><br/>그 맛있어 보이던 열매에는 — 사실 독이 들어 있었다!<br/></div>
+        </div>
+      </div>
+
+      <div class="notes-grid">
+        <div class="note-block note-l1"><strong>1단계 바꾼 점</strong>앞 빈 줄 호흡 보존, 선택의 결과 명시</div>
+        <div class="note-block note-l2"><strong>2단계 발전 점</strong>대사로 선택 재현, &amp;#x27;달콤한 맛&amp;#x27;의 반전</div>
+        <div class="note-block note-keep"><strong>유지한 핵심</strong>독 열매, 느낌표, 빈 줄 호흡</div>
+        <div class="note-block note-caution"><strong>⚠ 주의할 점</strong>&amp;#x27;베어 물었다&amp;#x27; 묘사가 학생 톤보다 길 수 있음</div>
+      </div>
+    </article>
+    
+    <article class="scene-card  " data-sid="9">
+      <h3>
+        <span class="scene-num-badge">장면 9</span>
+        <span class="scene-from">← 4-B</span>
+      </h3>
+
+      <div class="conn-info">
+        <div class="conn-row"><strong>들어오는 선택지:</strong> 맛없어 보이는 열매</div>
+        <div class="conn-row"><strong>다음:</strong> <span class="btn-pill">산속 깊은 곳 → 장면 12</span> / <span class="btn-pill">뇨뇨 마을 → 장면 13</span></div>
+        <div class="organic-note">📍 투명인간 설정이 12 늪 엔딩에서 다시 활용되지 않음 — 12-Level2가 &#x27;발 밑이 안 보였다&#x27;로 활용</div>
+      </div>
+
+      <div class="compare-grid">
+        <div class="ver-block original">
+          <p class="ver-label">📘 원본</p>
+          <div class="ver-body">맛없어 보이는 열매는 배도 채워지고, 투명인간이 10분간 된다. 이제 어디로 가지?</div>
+        </div>
+        <div class="ver-block lv1">
+          <p class="ver-label">✏️ AI 1단계 — 정돈</p>
+          <div class="ver-body">시민 둘은 시들시들한 열매를 골랐다. 그런데 신기하게도, 그 열매를 먹자 배가 부르더니 10분 동안 몸이 투명해졌다! 이제 어디로 갈까?</div>
+        </div>
+        <div class="ver-block lv2">
+          <p class="ver-label">🌳 AI 2단계 — 장면 발전</p>
+          <div class="ver-body">&quot;맛은 없어도 한 번 먹어 볼까?&quot;<br/><br/>마루와 하루는 시들시들해 보이는 열매를 한입씩 먹었다. 그 순간 — 신기한 일이 벌어졌다. 배가 든든해지면서, 두 친구의 손이 천천히 사라지기 시작한 것이다. 다리도, 몸도, 어느새 거울에 비춰도 보이지 않게 되었다.<br/><br/>&quot;우리, 투명인간이 됐어!&quot;<br/><br/>뇨뇨 기사가 빙긋 웃으며 말했다.<br/><br/>&quot;그 열매는 10분 동안만 효과가 있어. 그동안에 어디든 다녀올 수 있을 거야. 어디로 갈래?&quot;</div>
+        </div>
+      </div>
+
+      <div class="notes-grid">
+        <div class="note-block note-l1"><strong>1단계 바꾼 점</strong>4-B 결과 명시, 자연스러운 표현</div>
+        <div class="note-block note-l2"><strong>2단계 발전 점</strong>투명화 과정의 시각적 묘사 (손→다리→몸), 뇨뇨 기사 재등장으로 4와 연결</div>
+        <div class="note-block note-keep"><strong>유지한 핵심</strong>투명인간 10분 설정, 신기한 반전</div>
+        <div class="note-block note-caution"><strong>⚠ 주의할 점</strong>뇨뇨 기사 재등장은 원작에 없음</div>
+      </div>
+    </article>
+    
+    <article class="scene-card is-ending " data-sid="10">
+      <h3>
+        <span class="scene-num-badge">🏁 장면 10</span>
+        <span class="scene-from">← 6-A</span>
+      </h3>
+
+      <div class="conn-info">
+        <div class="conn-row"><strong>들어오는 선택지:</strong> 막대자</div>
+        <div class="conn-row"><strong>다음:</strong> <span class="btn-pill btn-pill--end">엔딩</span></div>
+        <div class="organic-note">📍 막대자로 무찌름 — 자연스러움</div>
+      </div>
+
+      <div class="compare-grid">
+        <div class="ver-block original">
+          <p class="ver-label">📘 원본</p>
+          <div class="ver-body">마루하루는 맷돼지를 무찌르고 집으로 돌아가 행복하게 살았답니다.</div>
+        </div>
+        <div class="ver-block lv1">
+          <p class="ver-label">✏️ AI 1단계 — 정돈</p>
+          <div class="ver-body">마루와 하루는 막대자를 휘둘러 멧돼지를 무찔렀다. 그리고 무사히 집으로 돌아가, 그 후로 오래오래 행복하게 살았답니다.</div>
+        </div>
+        <div class="ver-block lv2">
+          <p class="ver-label">🌳 AI 2단계 — 장면 발전</p>
+          <div class="ver-body">마루는 막대자를 양손으로 꼭 쥐고, 멧돼지를 향해 힘껏 휘둘렀다. 하루도 옆에서 마루를 도왔다. 멧돼지는 깜짝 놀라 도망쳐 버렸다.<br/><br/>&quot;우리가 해냈어!&quot;<br/><br/>두 친구는 서로를 끌어안고 환하게 웃었다. 그러고는 함께 손을 잡고 — 정든 집으로 돌아가는 길에 올랐다.<br/><br/>그 후로 마루와 하루는, 가끔 그날의 모험을 떠올리며, 오래오래 행복하게 살았답니다.</div>
+        </div>
+      </div>
+
+      <div class="notes-grid">
+        <div class="note-block note-l1"><strong>1단계 바꾼 점</strong>&amp;#x27;맷돼지&amp;#x27; 맞춤법, 막대자 선택의 결과 명시</div>
+        <div class="note-block note-l2"><strong>2단계 발전 점</strong>행동 묘사, 승리의 기쁨 대사, &amp;#x27;가끔 그날의 모험을 떠올리며&amp;#x27;로 따뜻한 마무리</div>
+        <div class="note-block note-keep"><strong>유지한 핵심</strong>무찌름 + 행복하게 살았다, &amp;#x27;~답니다&amp;#x27; 그림책 톤</div>
+        <div class="note-block note-caution"><strong>⚠ 주의할 점</strong>행동 묘사가 1단계로도 충분할 수 있음</div>
+      </div>
+    </article>
+    
+    <article class="scene-card  " data-sid="11">
+      <h3>
+        <span class="scene-num-badge">장면 11</span>
+        <span class="scene-from">← 6-B</span>
+      </h3>
+
+      <div class="conn-info">
+        <div class="conn-row"><strong>들어오는 선택지:</strong> 필통</div>
+        <div class="conn-row"><strong>다음:</strong> <span class="btn-pill">무진에게 그만하라고 한다 → 장면 14</span> / <span class="btn-pill">몽실이와 무진을 데리고 간다 → 장면 14</span></div>
+        <div class="organic-note organic-note--warn">📍 ⚠ 두 선택지가 모두 14로 — 의미 차이가 안 보임. Level2가 도입에서 두 선택지의 차이를 미리 설명</div>
+      </div>
+
+      <div class="compare-grid">
+        <div class="ver-block original">
+          <p class="ver-label">📘 원본</p>
+          <div class="ver-body">멧돼지에게 필통을 던지려고 보니 몽실이가 구해달라고 소리쳤다! 몽실이는 무진에게 쫒기고 있었다! 어떻게 하지??</div>
+        </div>
+        <div class="ver-block lv1">
+          <p class="ver-label">✏️ AI 1단계 — 정돈</p>
+          <div class="ver-body">마루와 하루가 필통을 멧돼지에게 던지려는 순간, 옆에서 누군가의 외침이 들렸다.<br/>&quot;구해 줘!&quot;<br/>몽실이가 무진에게 쫓기며 도움을 청하고 있었다. 어떻게 해야 할까?</div>
+        </div>
+        <div class="ver-block lv2">
+          <p class="ver-label">🌳 AI 2단계 — 장면 발전</p>
+          <div class="ver-body">마루가 필통을 꼭 쥐고 멧돼지를 향해 막 던지려던 순간, 옆에서 다급한 목소리가 들려왔다.<br/><br/>&quot;누가 좀 도와줘! 무진이가 자꾸 따라와!&quot;<br/><br/>고개를 돌리니 작은 친구 몽실이가 다른 친구 무진에게 쫓기고 있었다. 멧돼지도 가까이 와 있고, 몽실이도 위험에 빠진 — 어떻게 해야 할까?<br/><br/>마루와 하루는 두 가지 길을 떠올렸다. 무진에게 &quot;그만해!&quot;라고 강하게 말릴 수도 있고, 아니면 두 친구를 한꺼번에 데리고 가 안전한 곳으로 피할 수도 있다.</div>
+        </div>
+      </div>
+
+      <div class="notes-grid">
+        <div class="note-block note-l1"><strong>1단계 바꾼 점</strong>6-B &amp;#x27;필통&amp;#x27; 결과, 맞춤법 정리</div>
+        <div class="note-block note-l2"><strong>2단계 발전 점</strong>다급한 대사, 멧돼지와 몽실이 위험 동시 박힘, 두 선택지의 의미 차이를 도입에 박음</div>
+        <div class="note-block note-keep"><strong>유지한 핵심</strong>몽실이·무진 등장, 필통과 멧돼지, 두 선택지</div>
+        <div class="note-block note-caution"><strong>⚠ 주의할 점</strong>무진을 &amp;#x27;다른 친구&amp;#x27;로 모호하게 — 적인지 친구인지 불분명한 원작 톤 유지</div>
+      </div>
+    </article>
+    
+    <article class="scene-card is-ending " data-sid="12">
+      <h3>
+        <span class="scene-num-badge">🏁 장면 12</span>
+        <span class="scene-from">← 9-A</span>
+      </h3>
+
+      <div class="conn-info">
+        <div class="conn-row"><strong>들어오는 선택지:</strong> 산속 깊은 곳</div>
+        <div class="conn-row"><strong>다음:</strong> <span class="btn-pill btn-pill--end">엔딩</span></div>
+        <div class="organic-note organic-note--warn">📍 ⚠ 9 투명인간 설정이 12에서 사라짐 — Level2가 &#x27;발 밑이 안 보였다&#x27;로 활용</div>
+      </div>
+
+      <div class="compare-grid">
+        <div class="ver-block original">
+          <p class="ver-label">📘 원본</p>
+          <div class="ver-body">결국 숲에 깊은 늪에 빠져서 나오지 못했다.</div>
+        </div>
+        <div class="ver-block lv1">
+          <p class="ver-label">✏️ AI 1단계 — 정돈</p>
+          <div class="ver-body">시민 둘은 투명한 몸으로 산속 깊은 곳을 헤매다 그만 깊은 늪에 빠지고 말았다. 결국 빠져나오지 못한 채로 끝나고 말았다.</div>
+        </div>
+        <div class="ver-block lv2">
+          <p class="ver-label">🌳 AI 2단계 — 장면 발전</p>
+          <div class="ver-body">&quot;산속 깊은 곳에 뭐가 있을지 궁금해!&quot;<br/><br/>마루와 하루는 투명해진 몸으로 산속 더 깊은 곳을 향해 걸어갔다. 그러나 몸이 투명하다 보니 — 자기 발 밑이 어떻게 생겼는지조차 잘 보이지 않았다.<br/><br/>한 걸음, 한 걸음, 점점 더 깊이.<br/><br/>그러던 어느 순간, 두 친구의 발이 푹 — 깊은 늪 속으로 빠져들고 말았다. 투명한 몸은 도와달라고 외쳐도 잘 보이지 않았고, 결국 마루와 하루는 그 늪에서 다시 나오지 못했다.</div>
+        </div>
+      </div>
+
+      <div class="notes-grid">
+        <div class="note-block note-l1"><strong>1단계 바꾼 점</strong>&amp;#x27;숲에 깊은&amp;#x27; → &amp;#x27;산속 깊은 곳&amp;#x27;(선택지 정확 일치), 투명 설정 보충</div>
+        <div class="note-block note-l2"><strong>2단계 발전 점</strong>투명함이 비극의 원인 — &amp;#x27;발 밑이 안 보였다&amp;#x27;, &amp;#x27;외쳐도 잘 보이지 않았다&amp;#x27;로 9-A와 강한 유기성</div>
+        <div class="note-block note-keep"><strong>유지한 핵심</strong>늪에 빠진 결말</div>
+        <div class="note-block note-caution"><strong>⚠ 주의할 점</strong>&amp;#x27;발 밑이 안 보였다&amp;#x27; 박은 거 — 9의 투명 설정을 살리는 자연스러운 보충</div>
+      </div>
+    </article>
+    
+    <article class="scene-card  " data-sid="13">
+      <h3>
+        <span class="scene-num-badge">장면 13</span>
+        <span class="scene-from">← 9-B</span>
+      </h3>
+
+      <div class="conn-info">
+        <div class="conn-row"><strong>들어오는 선택지:</strong> 뇨뇨 마을</div>
+        <div class="conn-row"><strong>다음:</strong> <span class="btn-pill">도와준다 → 장면 15</span> / <span class="btn-pill">도와주지 않는다 → 장면 16</span></div>
+        <div class="organic-note">📍 A는 자연스러움. B는 16에서 &#x27;안 도와줬는데 모든 동물 모임&#x27;이 약함 — 16-Level2가 보충</div>
+      </div>
+
+      <div class="compare-grid">
+        <div class="ver-block original">
+          <p class="ver-label">📘 원본</p>
+          <div class="ver-body">수영 뇨뇨가 자신은 물고기를 구하러 가야한다고 한다. 하지만 수영 뇨뇨는 다른 뇨뇨보다 작다. 도와줄까?</div>
+        </div>
+        <div class="ver-block lv1">
+          <p class="ver-label">✏️ AI 1단계 — 정돈</p>
+          <div class="ver-body">투명한 몸으로 뇨뇨 마을에 도착하자, 수영 뇨뇨가 다가왔다. 수영 뇨뇨는 물고기 친구를 구하러 가야 한다고 했다. 그런데 수영 뇨뇨는 다른 뇨뇨들보다 몸집이 훨씬 작다. 도와줄까?</div>
+        </div>
+        <div class="ver-block lv2">
+          <p class="ver-label">🌳 AI 2단계 — 장면 발전</p>
+          <div class="ver-body">투명한 몸으로 뇨뇨 마을에 들어서자, 한 작은 뇨뇨가 두 친구 앞에 나타났다. 다른 뇨뇨들보다 키도 작고 몸집도 작은 — 수영 뇨뇨였다.<br/><br/>&quot;나는 지금 위험에 빠진 물고기 친구를 구하러 가야 해. 그런데 나는 너무 작아서 혼자선 못 할 것 같아…&quot;<br/><br/>수영 뇨뇨는 고개를 푹 숙이며 말했다. 곧 투명함이 풀릴 시간도 다가오고 있었다. 마루와 하루는 어떻게 해야 할까?</div>
+        </div>
+      </div>
+
+      <div class="notes-grid">
+        <div class="note-block note-l1"><strong>1단계 바꾼 점</strong>9-B &amp;#x27;뇨뇨 마을&amp;#x27; 결과, 띄어쓰기 + &amp;#x27;물고기 친구&amp;#x27;로 16과 연결</div>
+        <div class="note-block note-l2"><strong>2단계 발전 점</strong>수영 뇨뇨 대사, &amp;#x27;투명함이 풀릴 시간&amp;#x27; — 9의 10분 설정 다시 활용</div>
+        <div class="note-block note-keep"><strong>유지한 핵심</strong>수영 뇨뇨가 작다는 설정, 도움 선택</div>
+        <div class="note-block note-caution"><strong>⚠ 주의할 점</strong>물고기 친구가 모찌인지는 학생 의도</div>
+      </div>
+    </article>
+    
+    <article class="scene-card  " data-sid="14">
+      <h3>
+        <span class="scene-num-badge">장면 14</span>
+        <span class="scene-from">← 11-A, 11-B</span>
+      </h3>
+
+      <div class="conn-info">
+        <div class="conn-row"><strong>들어오는 선택지:</strong> 두 가지 (그만하라고 / 데리고 간다)</div>
+        <div class="conn-row"><strong>다음:</strong> <span class="btn-pill">사는 곳으로 → 장면 17</span> / <span class="btn-pill">데려간다 → 장면 18</span></div>
+        <div class="organic-note organic-note--warn">📍 ⚠ 11의 두 선택지가 모두 14로 — Level2가 두 흐름 모두 어울리도록 박음</div>
+      </div>
+
+      <div class="compare-grid">
+        <div class="ver-block original">
+          <p class="ver-label">📘 원본</p>
+          <div class="ver-body">몽실이가 무진에게 화해하자고 말해서 화해했다.그래서 무진이가 멧돼지를 없앴다! 무진이와 몽실이가 사는 곳으로 갈까? 무진이와 몽실이를 데려갈까?</div>
+        </div>
+        <div class="ver-block lv1">
+          <p class="ver-label">✏️ AI 1단계 — 정돈</p>
+          <div class="ver-body">마루와 하루의 말을 들은 몽실이가 무진에게 다가가 &quot;우리 화해하자&quot;고 말했다. 무진도 잘못을 깨닫고 화해했다. 그러자 무진이가 힘을 합쳐 멧돼지를 없애 주었다! 이제 무진이와 몽실이가 사는 곳으로 갈까, 아니면 두 친구를 우리와 함께 데려갈까?</div>
+        </div>
+        <div class="ver-block lv2">
+          <p class="ver-label">🌳 AI 2단계 — 장면 발전</p>
+          <div class="ver-body">마루와 하루의 노력 끝에, 몽실이는 용기를 내 무진 앞에 섰다.<br/><br/>&quot;우리, 이제 그만 싸우자.&quot;<br/><br/>몽실이가 진심을 담아 말하자, 무진의 표정이 조금씩 부드러워졌다. 두 친구는 서로 미안하다고 말하며 화해했다. 그러고는 무진이 큰 힘으로 멧돼지까지 막아 주었다!<br/><br/>위기에서 벗어난 마루와 하루는 두 친구를 어떻게 할지 고민에 빠졌다. 무진이와 몽실이가 사는 곳까지 함께 가서 작별 인사를 할까, 아니면 두 친구를 우리 마을로 데려와 함께 살아갈까.</div>
+        </div>
+      </div>
+
+      <div class="notes-grid">
+        <div class="note-block note-l1"><strong>1단계 바꾼 점</strong>11의 두 선택지(말림/데려가기) 모두 자연스럽게 박음, 띄어쓰기</div>
+        <div class="note-block note-l2"><strong>2단계 발전 점</strong>몽실이 대사로 화해의 순간, 두 선택지의 의미 차이 명시(작별 vs 함께 살기)</div>
+        <div class="note-block note-keep"><strong>유지한 핵심</strong>화해 + 무진이 멧돼지 처치, 두 선택지</div>
+        <div class="note-block note-caution"><strong>⚠ 주의할 점</strong>11의 두 선택지가 같은 14로 향하는 구조는 변경 없음</div>
+      </div>
+    </article>
+    
+    <article class="scene-card  " data-sid="15">
+      <h3>
+        <span class="scene-num-badge">장면 15</span>
+        <span class="scene-from">← 13-A</span>
+      </h3>
+
+      <div class="conn-info">
+        <div class="conn-row"><strong>들어오는 선택지:</strong> 도와준다</div>
+        <div class="conn-row"><strong>다음:</strong> <span class="btn-pill">밀렵꾼을 말리기 → 장면 19</span> / <span class="btn-pill">무시하기 → 장면 20</span></div>
+        <div class="organic-note">📍 13-A 결과 → 수영 뇨뇨와 모찌 구함 → 밀렵꾼 만남. 자연스러움. 다음 분기는 진엔딩 vs 패배.</div>
+      </div>
+
+      <div class="compare-grid">
+        <div class="ver-block original">
+          <p class="ver-label">📘 원본</p>
+          <div class="ver-body">모찌를 구하고 오니 수영 뇨뇨를 밀렵꾼이 쫒아온다! 어떻게 하지?</div>
+        </div>
+        <div class="ver-block lv1">
+          <p class="ver-label">✏️ AI 1단계 — 정돈</p>
+          <div class="ver-body">수영 뇨뇨를 도와 무사히 물고기 모찌를 구하고 돌아오는 길, 이번에는 밀렵꾼이 수영 뇨뇨를 쫓아왔다! 어떻게 해야 할까?</div>
+        </div>
+        <div class="ver-block lv2">
+          <p class="ver-label">🌳 AI 2단계 — 장면 발전</p>
+          <div class="ver-body">수영 뇨뇨를 도와 물고기 모찌를 무사히 구해 낸 마루와 하루. 그러나 기쁨도 잠시였다. 돌아오는 길에 어디선가 큰 발자국 소리가 들리더니, 무시무시한 밀렵꾼이 모습을 드러냈다. 이번에는 작은 수영 뇨뇨를 노리고 있었다.<br/><br/>&quot;누가 우리 친구를 또 괴롭히지!&quot;<br/><br/>마루와 하루는 마음이 다급해졌다. 밀렵꾼을 말려 볼까, 아니면 그냥 모른 척할까. 어느 쪽을 골라도 큰 결과가 따를 것이다.</div>
+        </div>
+      </div>
+
+      <div class="notes-grid">
+        <div class="note-block note-l1"><strong>1단계 바꾼 점</strong>13-A 결과 명시, 맞춤법</div>
+        <div class="note-block note-l2"><strong>2단계 발전 점</strong>큰 발자국 소리로 위협 시각화, &amp;#x27;작은 수영 뇨뇨를 노리고&amp;#x27; 13-A 연결, 다짐 대사</div>
+        <div class="note-block note-keep"><strong>유지한 핵심</strong>모찌 구함 + 밀렵꾼이 수영 뇨뇨 노림, 두 선택지</div>
+        <div class="note-block note-caution"><strong>⚠ 주의할 점</strong>큰 결과 따를 것이라는 안내가 진엔딩 분기의 무게 알림</div>
+      </div>
+    </article>
+    
+    <article class="scene-card  " data-sid="16">
+      <h3>
+        <span class="scene-num-badge">장면 16</span>
+        <span class="scene-from">← 13-B</span>
+      </h3>
+
+      <div class="conn-info">
+        <div class="conn-row"><strong>들어오는 선택지:</strong> 도와주지 않는다</div>
+        <div class="conn-row"><strong>다음:</strong> <span class="btn-pill">싸우기 → 장면 20</span> / <span class="btn-pill">모두를 구해주기 → 장면 17</span></div>
+        <div class="organic-note organic-note--warn">📍 ⚠ 안 도와줬는데 모든 동물 모임 — Level2가 &#x27;같은 위협 때문에 결국 같은 강가에서 만남&#x27;으로 보충</div>
+      </div>
+
+      <div class="compare-grid">
+        <div class="ver-block original">
+          <p class="ver-label">📘 원본</p>
+          <div class="ver-body">수영뇨뇨와 같이 가보니 물고기 모찌가 도와달라고 했다. 어떻게 도와주지? 모든 동물이 모여있다!</div>
+        </div>
+        <div class="ver-block lv1">
+          <p class="ver-label">✏️ AI 1단계 — 정돈</p>
+          <div class="ver-body">수영 뇨뇨를 두고 왔지만, 다른 길을 가다 보니 결국 같은 강가에 도착했다. 그곳에는 물고기 모찌가 도움을 청하고 있었고, 어느새 숲의 모든 동물 친구들도 함께 모여 있었다! 어떻게 도와줄까?</div>
+        </div>
+        <div class="ver-block lv2">
+          <p class="ver-label">🌳 AI 2단계 — 장면 발전</p>
+          <div class="ver-body">수영 뇨뇨의 부탁을 거절하고 다른 길로 갔지만, 신기하게도 가는 곳마다 위험에 빠진 동물 친구들이 보였다. 그러다 큰 강가에 다다랐을 때 — 그곳에는 이미 토토, 모찌, 그리고 숲의 다른 동물 친구들이 모두 모여 있었다.<br/><br/>&quot;우리 모두 같은 밀렵꾼에게서 도망친 거였구나.&quot;<br/><br/>물고기 모찌가 다급히 도움을 청했다. 마루와 하루는 깨달았다. 우리만 피한다고 해결되는 일이 아니었다는 걸. 어떻게 해야 모두를 도울 수 있을까?</div>
+        </div>
+      </div>
+
+      <div class="notes-grid">
+        <div class="note-block note-l1"><strong>1단계 바꾼 점</strong>13-B 결과 박음, 띄어쓰기</div>
+        <div class="note-block note-l2"><strong>2단계 발전 점</strong>&amp;#x27;같은 밀렵꾼&amp;#x27; 박힌 인과로 모든 동물의 모임 자연스러움, 마루·하루의 깨달음</div>
+        <div class="note-block note-keep"><strong>유지한 핵심</strong>모든 동물 모임, 모찌 도움 요청, 두 선택지</div>
+        <div class="note-block note-caution"><strong>⚠ 주의할 점</strong>&amp;#x27;같은 밀렵꾼&amp;#x27; 박은 거 — 원작에 명시 X. 작품 일관성에 어울림</div>
+      </div>
+    </article>
+    
+    <article class="scene-card is-ending " data-sid="17">
+      <h3>
+        <span class="scene-num-badge">🏁 장면 17</span>
+        <span class="scene-from">← 14-A, 16-B</span>
+      </h3>
+
+      <div class="conn-info">
+        <div class="conn-row"><strong>들어오는 선택지:</strong> 두 가지 (사는 곳으로 / 모두 구해주기)</div>
+        <div class="conn-row"><strong>다음:</strong> <span class="btn-pill btn-pill--end">엔딩</span></div>
+        <div class="organic-note">📍 두 경로 모두 자연스럽게 도달. 작품의 따뜻한 마무리</div>
+      </div>
+
+      <div class="compare-grid">
+        <div class="ver-block original">
+          <p class="ver-label">📘 원본</p>
+          <div class="ver-body">마루하루는 다시 숲속으로 돌아가니 모두가 기다리고 있었다. 숲속에서 파티를 열며 맛있는 음식을 먹었답니다!</div>
+        </div>
+        <div class="ver-block lv1">
+          <p class="ver-label">✏️ AI 1단계 — 정돈</p>
+          <div class="ver-body">마루와 하루가 숲속으로 돌아오니, 그동안 만났던 모든 친구들이 기다리고 있었다. 그날 저녁, 숲속에서는 따뜻한 파티가 열렸다. 마루와 하루는 친구들과 함께 맛있는 음식을 나눠 먹으며 행복한 시간을 보냈답니다!</div>
+        </div>
+        <div class="ver-block lv2">
+          <p class="ver-label">🌳 AI 2단계 — 장면 발전</p>
+          <div class="ver-body">마루와 하루가 다시 숲속 마을로 돌아왔을 때, 놀라운 광경이 펼쳐졌다. 토토와 모찌, 뇨뇨 기사, 수영 뇨뇨, 몽실이와 무진까지 — 그동안 만난 모든 친구들이 한자리에 모여 있었다.<br/><br/>&quot;우리를 도와줘서 정말 고마워!&quot;<br/><br/>친구들은 마루와 하루를 환영하며 한 명씩 안아 주었다. 그날 밤, 숲속 한가운데에서는 작은 파티가 열렸다. 별빛 아래에서 모두가 둘러앉아, 각자 가져온 맛있는 음식을 나누어 먹으며 — 두 친구의 모험 이야기를 밤늦도록 나누었답니다!</div>
+        </div>
+      </div>
+
+      <div class="notes-grid">
+        <div class="note-block note-l1"><strong>1단계 바꾼 점</strong>두 경로(14-A/16-B) 모두 자연스러운 &amp;#x27;그동안 만났던 친구들&amp;#x27; 표현</div>
+        <div class="note-block note-l2"><strong>2단계 발전 점</strong>모든 등장 인물 호명으로 작품 전체 회상, 별빛 묘사</div>
+        <div class="note-block note-keep"><strong>유지한 핵심</strong>파티 해피엔딩, &amp;#x27;~답니다&amp;#x27; 그림책 톤</div>
+        <div class="note-block note-caution"><strong>⚠ 주의할 점</strong>14-A 경로에선 일부 친구만 만났을 수도 — 작품 전체 회상에는 큰 무리 없음</div>
+      </div>
+    </article>
+    
+    <article class="scene-card is-ending " data-sid="18">
+      <h3>
+        <span class="scene-num-badge">🏁 장면 18</span>
+        <span class="scene-from">← 14-B</span>
+      </h3>
+
+      <div class="conn-info">
+        <div class="conn-row"><strong>들어오는 선택지:</strong> 데려간다</div>
+        <div class="conn-row"><strong>다음:</strong> <span class="btn-pill btn-pill--end">엔딩</span></div>
+        <div class="organic-note organic-note--warn">📍 ⚠ 데려갔는데 왜 목마름 — Level2가 &#x27;메마른 땅 + 가뭄&#x27;으로 인과 보충</div>
+      </div>
+
+      <div class="compare-grid">
+        <div class="ver-block original">
+          <p class="ver-label">📘 원본</p>
+          <div class="ver-body">몽실이와 무진이가 사는 곳에는 물이 없어서 목이 말라서 쓰러졌다.</div>
+        </div>
+        <div class="ver-block lv1">
+          <p class="ver-label">✏️ AI 1단계 — 정돈</p>
+          <div class="ver-body">마루와 하루는 몽실이와 무진이를 데리고 그들이 살던 곳으로 향했다. 그런데 그곳에는 물이 한 방울도 없었다. 결국 모두 목이 말라 쓰러지고 말았다.</div>
+        </div>
+        <div class="ver-block lv2">
+          <p class="ver-label">🌳 AI 2단계 — 장면 발전</p>
+          <div class="ver-body">&quot;우리 같이 가자!&quot;<br/><br/>마루와 하루는 몽실이와 무진이를 데리고 그들이 살던 마을로 향했다. 그러나 도착한 곳은 — 황량하고 메마른 땅. 강도 우물도 보이지 않았다.<br/><br/>&quot;여기는 원래 물이 풍부한 곳이었는데, 가뭄이 오래되어 다 말라 버렸어.&quot;<br/><br/>몽실이가 슬프게 말했다. 마루와 하루는 친구들과 함께 물을 찾아 헤맸지만, 어디에도 마실 물은 없었다. 결국 모두 목이 너무 말라 — 한 명씩 쓰러지고 말았다.</div>
+        </div>
+      </div>
+
+      <div class="notes-grid">
+        <div class="note-block note-l1"><strong>1단계 바꾼 점</strong>14-B 결과 명시, 인과 한 문장 보충</div>
+        <div class="note-block note-l2"><strong>2단계 발전 점</strong>다짐 대사, &amp;#x27;메마른 땅&amp;#x27; 시각화, 몽실이 대사로 &amp;#x27;가뭄&amp;#x27; 설정 박음</div>
+        <div class="note-block note-keep"><strong>유지한 핵심</strong>목마름 비극</div>
+        <div class="note-block note-caution"><strong>⚠ 주의할 점</strong>&amp;#x27;가뭄&amp;#x27; 설정은 원작에 없는 박은 거</div>
+      </div>
+    </article>
+    
+    <article class="scene-card is-ending is-true-end" data-sid="19">
+      <h3>
+        <span class="scene-num-badge">⭐ 장면 19</span>
+        <span class="scene-from">← 15-A</span>
+      </h3>
+
+      <div class="conn-info">
+        <div class="conn-row"><strong>들어오는 선택지:</strong> 밀렵꾼을 말리기</div>
+        <div class="conn-row"><strong>다음:</strong> <span class="btn-pill btn-pill--end">엔딩</span></div>
+        <div class="organic-note">📍 작품의 핵심 메시지가 박힌 진엔딩 — 말로 설득해 변화</div>
+      </div>
+
+      <div class="compare-grid">
+        <div class="ver-block original">
+          <p class="ver-label">📘 원본</p>
+          <div class="ver-body">밀렵꾼이 하루마루의 말을 듣고 착해졌다! <br/>뇨뇨왕이 시민 둘에게 상을 내렸다</div>
+        </div>
+        <div class="ver-block lv1">
+          <p class="ver-label">✏️ AI 1단계 — 정돈</p>
+          <div class="ver-body">하루와 마루는 밀렵꾼 앞에 용감히 나서서, 친구들을 괴롭히지 말라고 진심으로 설득했다. 두 사람의 말을 들은 밀렵꾼은 마음을 고쳐 착해졌다!<br/>그 소식을 들은 뇨뇨왕은 시민 둘에게 큰 상을 내렸다.</div>
+        </div>
+        <div class="ver-block lv2">
+          <p class="ver-label">🌳 AI 2단계 — 장면 발전</p>
+          <div class="ver-body">하루와 마루는 떨리는 마음을 누르고, 천천히 밀렵꾼 앞으로 걸어 나갔다.<br/><br/>&quot;왜 친구들을 자꾸 괴롭히세요? 토토도, 모찌도, 수영 뇨뇨도 모두 무서워하고 있어요. 같이 잘 지낼 순 없을까요?&quot;<br/><br/>마루의 말에 밀렵꾼은 처음엔 비웃었다. 그러나 두 시민이 한 발도 물러서지 않고 진심으로 이야기하자, 밀렵꾼의 단단했던 표정이 조금씩 풀어졌다. 어쩌면 — 밀렵꾼도 마음 깊은 곳에서는 외로웠던 것일지도 모른다.<br/><br/>&quot;…미안해. 이제 그러지 않을게.&quot;<br/><br/>밀렵꾼이 처음으로 다른 사람에게 미안하다고 말한 순간이었다.<br/><br/>그 소식은 곧 숲 전체로 퍼졌다. 뇨뇨왕은 위엄 있는 모습으로 마루와 하루 앞에 나타나, 두 시민에게 빛나는 상을 내렸다.<br/><br/>&quot;용기를 내어 마음을 움직인 두 시민에게, 깊은 감사를 전하노라.&quot;<br/><br/>그날 이후, 숲에는 더 이상 누구도 쫓기지 않게 되었다.</div>
+        </div>
+      </div>
+
+      <div class="notes-grid">
+        <div class="note-block note-l1"><strong>1단계 바꾼 점</strong>15-A &amp;#x27;말리기&amp;#x27; 결과 명시, &amp;#x27;하루마루&amp;#x27; 분리</div>
+        <div class="note-block note-l2"><strong>2단계 발전 점</strong>마루 대사에 등장 친구들 호명, 밀렵꾼의 변화 과정, 뇨뇨왕의 위엄 있는 말, 작품 전체 마무리</div>
+        <div class="note-block note-keep"><strong>유지한 핵심</strong>작품의 핵심 메시지(말로 변화), 뇨뇨왕 상</div>
+        <div class="note-block note-caution"><strong>⚠ 주의할 점</strong>&amp;#x27;밀렵꾼도 외로웠을지 모른다&amp;#x27; 박은 거 — 추측이지만 진엔딩의 깊이 더함. 2단계가 다른 장면보다 긴 건 의도적(핵심 엔딩)</div>
+      </div>
+    </article>
+    
+    <article class="scene-card is-ending " data-sid="20">
+      <h3>
+        <span class="scene-num-badge">🏁 장면 20</span>
+        <span class="scene-from">← 15-B, 16-A</span>
+      </h3>
+
+      <div class="conn-info">
+        <div class="conn-row"><strong>들어오는 선택지:</strong> 두 가지 (무시 / 싸움)</div>
+        <div class="conn-row"><strong>다음:</strong> <span class="btn-pill btn-pill--end">엔딩</span></div>
+        <div class="organic-note">📍 두 경로 모두 패배 — 무시·싸움만으로는 부족하다는 학생 의도</div>
+      </div>
+
+      <div class="compare-grid">
+        <div class="ver-block original">
+          <p class="ver-label">📘 원본</p>
+          <div class="ver-body">밀렵꾼에게 모두 당해내지 못해서 쓰려졌다!</div>
+        </div>
+        <div class="ver-block lv1">
+          <p class="ver-label">✏️ AI 1단계 — 정돈</p>
+          <div class="ver-body">밀렵꾼의 힘은 너무 강해서, 마루와 하루도, 친구들도 모두 당해내지 못하고 쓰러지고 말았다!</div>
+        </div>
+        <div class="ver-block lv2">
+          <p class="ver-label">🌳 AI 2단계 — 장면 발전</p>
+          <div class="ver-body">마루와 하루, 그리고 그 자리에 있던 친구들은 힘을 다해 맞섰지만, 밀렵꾼의 힘 앞에서는 모두가 작아 보였다. 큰 그림자가 친구들을 하나하나 덮쳤고, 외침은 점점 잦아들었다.<br/><br/>&quot;우리만으로는… 도저히 안 돼…&quot;<br/><br/>마지막 목소리가 사라지고 — 결국 모두가 그 자리에서 쓰러지고 말았다. 무서운 침묵만이 숲에 남았다.</div>
+        </div>
+      </div>
+
+      <div class="notes-grid">
+        <div class="note-block note-l1"><strong>1단계 바꾼 점</strong>&amp;#x27;쓰려졌다&amp;#x27; 오타, 누가 쓰러졌는지 명확화</div>
+        <div class="note-block note-l2"><strong>2단계 발전 점</strong>&amp;#x27;큰 그림자&amp;#x27;, 마지막 대사가 두 경로 모두 어울림(혼자/일부만으론 부족)</div>
+        <div class="note-block note-keep"><strong>유지한 핵심</strong>패배, 느낌표</div>
+        <div class="note-block note-caution"><strong>⚠ 주의할 점</strong>&amp;#x27;도저히 안 돼&amp;#x27; 톤이 너무 어둡지 않도록</div>
+      </div>
+    </article>
+    
+
+  <!-- 정리 -->
+  <div class="summary-section">
+    <h2>2. 우리가 정해야 할 것</h2>
+    <div class="summary-grid">
+      <div class="summary-col ok">
+        <h3>🤝 AI에게 맡겨도 되는 것</h3>
+        <ul>
+          <li>맞춤법·띄어쓰기 오타</li>
+          <li>"마루하루" 같은 붙은 이름 분리</li>
+          <li>같은 단어 두 번 반복 정리</li>
+          <li>들어오는 선택지의 결과를 한 문장으로 보충</li>
+          <li>장면 간 어색한 연결을 자연스럽게</li>
+        </ul>
+      </div>
+      <div class="summary-col no">
+        <h3>🚫 AI가 바꾸면 안 되는 것</h3>
+        <ul>
+          <li>21장 분기 구조와 nextId</li>
+          <li>9개 엔딩의 방향</li>
+          <li>캐릭터의 정체성</li>
+          <li>"시민", "막대자", "필통", "뇨뇨" 같은 우리 표현</li>
+          <li>학생이 의도한 분위기</li>
+        </ul>
+      </div>
+      <div class="summary-col core">
+        <h3>💜 우리 작품의 핵심</h3>
+        <ul>
+          <li>마루·하루의 모험과 우정</li>
+          <li>9개 엔딩 — 우리의 선택</li>
+          <li>장면 19 진엔딩: 말로 변화시키는 힘</li>
+          <li>막대자·필통의 코믹한 매력</li>
+          <li>친구들의 모습은 우리가 정한다</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="core-notice">
+    <p class="core-line">AI가 도와줘도, 작품의 중심은 우리가 정합니다.</p>
+    <p class="core-sub">어떤 다듬기를 받아들이고 어떤 부분은 그대로 둘지 — 우리가 함께 정해 봅시다.</p>
+  </div>
+
+  <footer>
+    숲속의 비밀 · 2026-05 공개수업 자료 (v2) · 생성: 2026-05-18<br/>
+    원본 출처: Firebase / classes / class_2026_junglim_1 / teams / 0000<br/>
+    21장 (cover + normal 11 + ending 9) · 약한 연결 7곳 보충 완료
+  </footer>
+
+</div>
+</body>
+</html>

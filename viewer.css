@@ -393,6 +393,15 @@ body.viewer-edit-readonly #viewer-frame .pb-illust__photo,
 body.viewer-edit-readonly #viewer-frame .pb-illust__wrapper {
   pointer-events: none !important;
 }
+/* v132: 체험전시형 connectObjects 드래그/리사이즈 핸들도 readonly 차단.
+   v129 룰이 그림책 한정이라 누락된 거 보강. 다른 친구 잠금 상태에서
+   학생이 hotspot 드래그하면 시각적으로 움직이지만 _queueSave가 reject —
+   사용자 혼란 차단 위해 시각·인터랙션 둘 다 차단. */
+body.viewer-edit-readonly #viewer-frame .connect-object .js-co-move,
+body.viewer-edit-readonly #viewer-frame .connect-object .js-co-resize {
+  pointer-events: none !important;
+  opacity: 0.55 !important;
+}
 /* HUD 저장 버튼만 차단 — 다른 HUD 액션(▶ 감상 테스트, 🛤 루트, 🗺 구조, ← 브랜치) 살림 */
 body.viewer-edit-readonly .js-edit-save {
   pointer-events: none !important;

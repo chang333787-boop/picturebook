@@ -1338,13 +1338,16 @@ function _attachPbEditableInteractions(frame) {
       const text = (field === 'body') ? _extractEditableText(el) : el.textContent;
       scene[field] = text;
       _updatePlaceholder();
-      /* 다듬기 패널의 해당 input/textarea 즉시 갱신 (있으면) */
+      /* v122: 다듬기 패널의 해당 input/textarea 즉시 갱신 (있으면).
+         옛 오타 fix: '#edit-pane' → '#edit-panel' (실제 id). 옛엔 셀렉터가 박지 X
+         → 왼쪽 화면 수정해도 오른쪽 패널 input 박지 X (사용자 박은 양방향 동기 버그).
+         focus 보호: 오른쪽 input이 현재 focus 중이면 덮어쓰지 않음 (커서 보호). */
       const panelInput = document.querySelector(
         field === 'title'
-          ? '#edit-pane .js-edit-title'
-          : '#edit-pane .js-edit-body'
+          ? '#edit-panel .js-edit-title'
+          : '#edit-panel .js-edit-body'
       );
-      if (panelInput && panelInput.value !== text) {
+      if (panelInput && document.activeElement !== panelInput && panelInput.value !== text) {
         panelInput.value = text;
       }
       _queueDebounceSave(field, text);
@@ -2404,6 +2407,20 @@ function _bindSpeedSlider(panel, selector, field) {
   });
   slider.addEventListener('change', async () => {
     const pct = Math.max(0, Math.min(100, parseInt(slider.value, 10) || 0));
+    /* v122: change 시 마지막 값으로 CSS 변수 재적용 + preview 한 번 더.
+       v121 throttle 박은 거 때문에 마지막 input 박은 값이 pending 상태로 박힐 수 있음.
+       change 박힐 때 최종 값으로 다시 박아 정합 보장. */
+    if (ViewerState.project) {
+      ViewerState.project[field] = pct;
+      const vf = document.getElementById('viewer-frame');
+      if (vf && typeof applyWorkEffectVars === 'function') {
+        applyWorkEffectVars(vf,
+          ViewerState.project.sceneTransitionSpeed,
+          ViewerState.project.textEntranceSpeed,
+          ViewerState.project.textEntrance);
+      }
+      if (typeof previewWorkEffect === 'function') previewWorkEffect(field);
+    }
     await _saveProjectMetaField(field, pct);
   });
 }

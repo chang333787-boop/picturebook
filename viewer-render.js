@@ -14,6 +14,19 @@ function renderCurrentScene() {
 
   /* 테마 클래스 적용 */
   stage.className = `theme-${ViewerState.project.theme}`;
+
+  /* v122: 매 장면 박을 때마다 효과/속도 CSS 변수 다시 박음.
+     옛엔 작품 로드 시 한 번 + 다듬기 슬라이더 박을 때만 박음 → 다듬기 후 "감상 테스트"
+     박는 시점에 옛 값 박힐 가능성. 사용자 박은 "느림으로 박았는데 표지에서 빠르게 나옴".
+     ViewerState.project가 최신 박혀있어 그대로 박으면 정합 보장. */
+  if (typeof applyWorkEffectVars === 'function' && ViewerState.project) {
+    stage.dataset.transition   = ViewerState.project.sceneTransition || 'fade';
+    stage.dataset.textEntrance = ViewerState.project.textEntrance || 'none';
+    applyWorkEffectVars(stage,
+      ViewerState.project.sceneTransitionSpeed,
+      ViewerState.project.textEntranceSpeed,
+      ViewerState.project.textEntrance);
+  }
   /* 템플릿: 장면 단위 override → 없으면 project 기본 */
   const effectiveTemplate = scene.layoutTemplate || ViewerState.project.template;
   stage.dataset.template = effectiveTemplate;

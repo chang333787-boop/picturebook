@@ -3311,6 +3311,9 @@ function _bindTypeSectionsEvents(panel, scene) {
   }
 
   if (ptype === 'picturebook') {
+    /* v138: 본문 카드 톤 시스템 — 스타일/색계열(작품 단위) + 톤/엔딩 마감톤(장면 단위) */
+    _bindPbToneEvents(panel, scene);
+
     /* W9: 페이지 방향 토글 (작품 단위 — viewer-meta에 직접 저장) */
     panel.querySelectorAll('.js-pb-orientation').forEach(btn => {
       btn.addEventListener('click', async () => {
@@ -4261,6 +4264,13 @@ function _modePickerHtml(scene) {
   let submodeUi = '';
   if (current === 'picturebook') {
     submodeUi = _picturebookSubmodeHtml(scene);
+    /* v138: 분할형 일반 장면 + 분할형 엔딩만 본문 카드 톤 UI 박음.
+       그림 중심형(imageCenter)은 톤 시스템 적용 안 함 (사용자 명시 1차 제외).
+       엔딩은 v125 정책상 항상 분할형 고정 → submode 무관하게 박음. */
+    const _submodeForTone = (scene.picturebookSubmode === 'imageCenter') ? 'imageCenter' : 'split';
+    if (_submodeForTone === 'split' || scene.isEnding) {
+      submodeUi += _pbToneSectionHtml(scene);
+    }
   } else if (current === 'document') {
     submodeUi = _documentSubmodeHtml(scene);
   } else if (current === 'movie') {
@@ -4340,6 +4350,175 @@ function _bindSubmodePickerEvents(panel, scene) {
       _queueSave(scene.id, { presentationSubmode: val });
       renderEditPanel();
       renderCurrentScene();
+    });
+  });
+}
+
+/* ================================================================
+   v138: 그림책형 분할형 본문 카드 톤 시스템 UI
+   ─────────────────────────────────────────────────────────────
+   세 가지 axis:
+   · card-style    (작품 단위) — 기본/연한 종이/감성 테두리/파스텔 카드
+                                  → 장면 1에서만 노출
+   · card-color    (작품 단위) — 기본 흰색/숲빛 초록/따뜻한 노랑/차분한 파랑
+                                  → 장면 1에서만 노출
+   · card-tone     (장면 단위) — 기본/밝게/은은하게/차분하게/진하게
+                                  → 일반 장면 (엔딩 제외)
+   · card-end-tone (장면 단위) — 기본 마감/밝은 마감/여운 마감
+                                  → 엔딩 장면 전용
+
+   장면 1 식별: ViewerState.project.entrySceneId === scene.id
+                또는 fallback으로 scene.isStart === true.
+   엔딩 식별: scene.isEnding === true.
+   표지(cover) → 호출 안 됨 (_typeSectionsHtml에서 cover면 early return).
+   ================================================================ */
+const _PB_TONE_CARD_STYLES = [
+  { val: 'default', label: '기본' },
+  { val: 'paper',   label: '연한 종이' },
+  { val: 'border',  label: '감성 테두리' },
+  { val: 'pastel',  label: '파스텔 카드' },
+];
+const _PB_TONE_CARD_COLORS = [
+  { val: 'white',  label: '기본 흰색' },
+  { val: 'green',  label: '숲빛 초록' },
+  { val: 'yellow', label: '따뜻한 노랑' },
+  { val: 'blue',   label: '차분한 파랑' },
+];
+const _PB_TONE_SCENE_TONES = [
+  { val: 'default', label: '기본' },
+  { val: 'bright',  label: '밝게' },
+  { val: 'develop', label: '은은하게' },
+  { val: 'tense',   label: '차분하게' },
+  { val: 'crisis',  label: '진하게' },
+];
+const _PB_TONE_ENDING_TONES = [
+  { val: 'default',   label: '기본 마감' },
+  { val: 'bright',    label: '밝은 마감' },
+  { val: 'afterglow', label: '여운 마감' },
+];
+
+function _pbToneSectionHtml(scene) {
+  if (!scene || scene.type === 'cover') return '';
+
+  const proj = (ViewerState && ViewerState.project) || {};
+  const entryId = proj.entrySceneId;
+  const isFirstScene = entryId
+    ? String(scene.id) === String(entryId)
+    : (scene.isStart === true);
+  const isEnding = !!scene.isEnding;
+  const editable = _editText.editable !== false;
+
+  /* 작품 단위 (장면 1에서만) */
+  const styleRowHtml = isFirstScene
+    ? _pbToneRowHtml('card-style', '본문 카드 스타일',
+        '질감·테두리 형태·둥글기. 색은 별도예요.',
+        _PB_TONE_CARD_STYLES, proj.textCardStyle || '', editable)
+    : '';
+  const colorRowHtml = isFirstScene
+    ? _pbToneRowHtml('card-color', '색계열',
+        '본문 카드의 기본 색 방향.',
+        _PB_TONE_CARD_COLORS, proj.textCardColor || '', editable)
+    : '';
+
+  /* 장면 단위 — 일반/엔딩 분기 */
+  const sceneRowHtml = !isEnding
+    ? _pbToneRowHtml('card-tone', '본문 카드 톤',
+        '본문 카드의 밝기와 색감을 조절해 장면 분위기를 바꿔보세요. 학생 그림과 선택 버튼은 바뀌지 않아요.',
+        _PB_TONE_SCENE_TONES, scene.pbCardTone || '', editable)
+    : '';
+  const endRowHtml = isEnding
+    ? _pbToneRowHtml('card-end-tone', '엔딩 마감톤',
+        '결말의 느낌에 맞게 마감 분위기를 정해요.',
+        _PB_TONE_ENDING_TONES, scene.pbEndingTone || '', editable)
+    : '';
+
+  /* 박힐 내용이 하나도 없으면 섹션 자체 박지 X */
+  if (!styleRowHtml && !colorRowHtml && !sceneRowHtml && !endRowHtml) return '';
+
+  const startNote = isFirstScene
+    ? '<div class="edit-section-hint">🎨 본문 카드 스타일·색계열은 작품 전체에 적용돼요. 장면마다 따로 정하지 않아요.</div>'
+    : '';
+
+  return `
+    <div class="edit-submode-block edit-submode-block--pb-tone">
+      <label class="edit-sublabel">본문 카드 톤</label>
+      ${startNote}
+      ${styleRowHtml}
+      ${colorRowHtml}
+      ${sceneRowHtml}
+      ${endRowHtml}
+    </div>`;
+}
+
+function _pbToneRowHtml(axis, label, hint, options, current, editable) {
+  const lockedCls = editable ? '' : ' edit-tone-btn--locked';
+  const disabledAttr = editable ? '' : ' disabled aria-disabled="true"';
+  const gridModifier = options.length === 5 ? ' edit-tone-btn-grid--5'
+                     : options.length === 3 ? ' edit-tone-btn-grid--3'
+                     : '';
+  const btns = options.map(opt => {
+    const active = (opt.val === current);
+    return `<button type="button"
+      class="edit-tone-btn js-pb-tone-btn${active ? ' edit-tone-btn--active' : ''}${lockedCls}"
+      data-pb-tone-axis="${axis}"
+      data-pb-tone-val="${opt.val}"
+      title="${opt.label}"${disabledAttr}>${opt.label}</button>`;
+  }).join('');
+  return `
+    <div class="edit-tone-row">
+      <div class="edit-tone-row__head">
+        <span class="edit-tone-row__label">${label}</span>
+      </div>
+      ${hint ? `<div class="edit-tone-row__hint">${hint}</div>` : ''}
+      <div class="edit-tone-btn-grid${gridModifier}">${btns}</div>
+    </div>`;
+}
+
+function _bindPbToneEvents(panel, scene) {
+  if (!panel || !scene) return;
+  panel.querySelectorAll('.js-pb-tone-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (!_editText.editable) return;
+      const axis = btn.getAttribute('data-pb-tone-axis');
+      const val  = btn.getAttribute('data-pb-tone-val');
+      if (!axis || !val) return;
+
+      const proj = ViewerState.project || (ViewerState.project = {});
+
+      if (axis === 'card-style') {
+        if (proj.textCardStyle === val) return;
+        proj.textCardStyle = val;
+        if (typeof saveViewerMeta === 'function') {
+          saveViewerMeta().catch(e => console.warn('[v138 tone] saveViewerMeta(textCardStyle):', e));
+        }
+      } else if (axis === 'card-color') {
+        if (proj.textCardColor === val) return;
+        proj.textCardColor = val;
+        if (typeof saveViewerMeta === 'function') {
+          saveViewerMeta().catch(e => console.warn('[v138 tone] saveViewerMeta(textCardColor):', e));
+        }
+      } else if (axis === 'card-tone') {
+        if (scene.pbCardTone === val) return;
+        scene.pbCardTone = val;
+        _queueSave(scene.id, { pbCardTone: val });
+      } else if (axis === 'card-end-tone') {
+        if (scene.pbEndingTone === val) return;
+        scene.pbEndingTone = val;
+        _queueSave(scene.id, { pbEndingTone: val });
+      } else {
+        return;
+      }
+
+      /* 같은 axis 행 안에서 active 토글 — renderEditPanel 호출 X (탭 보존 + 무의미한 재렌더 회피) */
+      const row = btn.closest('.edit-tone-btn-grid');
+      if (row) {
+        row.querySelectorAll('.js-pb-tone-btn').forEach(b => {
+          b.classList.toggle('edit-tone-btn--active', b === btn);
+        });
+      }
+      /* 미리보기 즉시 갱신 — viewer-render의 _renderScenePicturebook이 다시 호출되며
+         .pb-frame에 새 톤 클래스가 박힘. */
+      if (typeof renderCurrentScene === 'function') renderCurrentScene();
     });
   });
 }

@@ -259,3 +259,81 @@
   --pbt-card-border: initial;
   --pbt-card-shadow: initial;
 }
+
+/* ════════════════════════════════════════════════════════════
+   9) 다듬기 패널 UI — 톤 선택 버튼 그룹 (v138)
+      기존 .edit-submode-block 패턴 따라 시각 통일.
+   ════════════════════════════════════════════════════════════ */
+.edit-submode-block--pb-tone {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed rgba(80, 50, 20, 0.18);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.edit-tone-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.edit-tone-row__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.edit-tone-row__label {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #4a3820;
+  letter-spacing: 0.02em;
+}
+.edit-tone-row__hint {
+  font-size: 11px;
+  color: #8a7556;
+  line-height: 1.55;
+}
+.edit-tone-btn-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+.edit-tone-btn-grid--5 { grid-template-columns: repeat(5, 1fr); }
+.edit-tone-btn-grid--3 { grid-template-columns: repeat(3, 1fr); }
+
+.edit-tone-btn {
+  appearance: none;
+  background: #fffaee;
+  border: 1px solid rgba(80, 50, 20, 0.20);
+  color: #4a3820;
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 7px 4px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  text-align: center;
+  line-height: 1.3;
+}
+.edit-tone-btn:hover:not(.edit-tone-btn--locked) {
+  background: #fdf4dd;
+  border-color: rgba(198, 111, 74, 0.42);
+}
+.edit-tone-btn--active {
+  background: #c66f4a;
+  color: #ffffff;
+  border-color: #c66f4a;
+}
+.edit-tone-btn--locked {
+  opacity: 0.55;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* viewer-edit.js의 잠금 클래스 (body.viewer-edit-readonly)와 동조 — 추가 안전망 */
+body.viewer-edit-readonly .edit-tone-btn {
+  opacity: 0.55;
+  cursor: not-allowed;
+  pointer-events: none;
+}

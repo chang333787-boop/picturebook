@@ -424,15 +424,16 @@
   opacity: 0.3;
 }
 
-/* 본문 글상자(.pb-stage__body-overlay) — 테두리·그림자만 톤 색.
-   사용자 박은 background(rgba(255,255,255,backdropOpacity)) inline style이라
-   안 덮어쓰기. 단 테두리·그림자만 추가. */
-.scene-screen--pb.pb--imagecenter .pb-frame[class*="pb-tone-color--"]
-  .pb-stage__body-overlay {
-  border: 1px solid var(--pbt-card-border);
-  border-radius: 10px;
-  transition: border-color 0.45s ease;
-}
+/* v138-fix16 (v135-6 마지막 보정): fix14에서 .pb-stage__body-overlay에 박은
+   1px solid var(--pbt-card-border) 규칙 제거. 그림 중심형에서 본문 글상자
+   테두리가 어색하게 보임(차분한 파랑인데 다른 색으로 보임 — sketch-note
+   테마/다듬기 outline 등 다른 요소와 시각 충돌).
+
+   정책 단순화: 그림 중심형에서 톤 적용은 .pb-frame 외곽만 (위 background
+   color-mix + 비네팅 약화). 본문 글상자는 사용자가 backdropOpacity로
+   직접 조절 — 톤 영향 X. 사용자 명세 "그림 중심형은 분할형보다 약하게"
+   부합. 분할형 본문 카드(.pb-text) 톤 적용은 그대로 유지. */
+/* (.pb-stage__body-overlay에는 톤 박지 X — viewer.css 그대로) */
 
 /* 학생 그림 보호 — 분할형 가드레일 강화. imageCenter에서 그림이 핵심. */
 .scene-screen--pb.pb--imagecenter .pb-frame[class*="pb-tone-color--"]

@@ -4412,30 +4412,35 @@ function _pbToneSectionHtml(scene) {
     ? String(scene.id) === String(entryId)
     : (scene.isStart === true);
   const isEnding = !!scene.isEnding;
-  const editable = _editText.editable !== false;
+
+  /* v138-fix6: editable 인자 박지 X. 기존 다른 UI(페이지 방향·하위 모드 등)
+     패턴과 일치 — HTML disabled 안 박고 클릭 핸들러에서 _editText.editable 검사.
+     시각 잠금은 body.viewer-edit-readonly 클래스로 CSS 처리. 잠금 확보 후
+     클래스 풀리면 즉시 활성화. 옛엔 첫 렌더 시 disabled 박힌 채로 잠금 확보돼도
+     안 풀려 비활성 그대로 보이는 버그. */
 
   /* 작품 단위 (장면 1에서만) */
   const styleRowHtml = isFirstScene
     ? _pbToneRowHtml('card-style', '본문 카드 스타일',
         '질감·테두리 형태·둥글기. 색은 별도예요.',
-        _PB_TONE_CARD_STYLES, proj.textCardStyle || '', editable)
+        _PB_TONE_CARD_STYLES, proj.textCardStyle || '')
     : '';
   const colorRowHtml = isFirstScene
     ? _pbToneRowHtml('card-color', '색계열',
         '본문 카드의 기본 색 방향.',
-        _PB_TONE_CARD_COLORS, proj.textCardColor || '', editable)
+        _PB_TONE_CARD_COLORS, proj.textCardColor || '')
     : '';
 
   /* 장면 단위 — 일반/엔딩 분기 */
   const sceneRowHtml = !isEnding
     ? _pbToneRowHtml('card-tone', '본문 카드 톤',
         '본문 카드의 밝기와 색감을 조절해 장면 분위기를 바꿔보세요. 학생 그림과 선택 버튼은 바뀌지 않아요.',
-        _PB_TONE_SCENE_TONES, scene.pbCardTone || '', editable)
+        _PB_TONE_SCENE_TONES, scene.pbCardTone || '')
     : '';
   const endRowHtml = isEnding
     ? _pbToneRowHtml('card-end-tone', '엔딩 마감톤',
         '결말의 느낌에 맞게 마감 분위기를 정해요.',
-        _PB_TONE_ENDING_TONES, scene.pbEndingTone || '', editable)
+        _PB_TONE_ENDING_TONES, scene.pbEndingTone || '')
     : '';
 
   /* 박힐 내용이 하나도 없으면 섹션 자체 박지 X */
@@ -4456,19 +4461,19 @@ function _pbToneSectionHtml(scene) {
     </div>`;
 }
 
-function _pbToneRowHtml(axis, label, hint, options, current, editable) {
-  const lockedCls = editable ? '' : ' edit-tone-btn--locked';
-  const disabledAttr = editable ? '' : ' disabled aria-disabled="true"';
+function _pbToneRowHtml(axis, label, hint, options, current) {
+  /* v138-fix6: HTML disabled 박지 X. 잠금 시각은 body.viewer-edit-readonly로
+     CSS 처리. 클릭 차단은 _bindPbToneEvents에서 _editText.editable 검사. */
   const gridModifier = options.length === 5 ? ' edit-tone-btn-grid--5'
                      : options.length === 3 ? ' edit-tone-btn-grid--3'
                      : '';
   const btns = options.map(opt => {
     const active = (opt.val === current);
     return `<button type="button"
-      class="edit-tone-btn js-pb-tone-btn${active ? ' edit-tone-btn--active' : ''}${lockedCls}"
+      class="edit-tone-btn js-pb-tone-btn${active ? ' edit-tone-btn--active' : ''}"
       data-pb-tone-axis="${axis}"
       data-pb-tone-val="${opt.val}"
-      title="${opt.label}"${disabledAttr}>${opt.label}</button>`;
+      title="${opt.label}">${opt.label}</button>`;
   }).join('');
   return `
     <div class="edit-tone-row">

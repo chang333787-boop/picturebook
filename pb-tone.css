@@ -62,11 +62,20 @@
 /* ════════════════════════════════════════════════════════════
    2) 색계열 — hue만 결정. 명도·채도는 톤이 조절.
    ════════════════════════════════════════════════════════════ */
+/* v138-fix10 (v135-4): 흰색 계열 — viewer.css의 --v03-card-bg(#fffaee)와
+   거의 동일하게 매칭. 기본 옵션이라 "기존 화면 그대로" 보여야.
+   기존 0.973·0.013·85 → 살짝 어둡고 노랑 hue → 아이보리 인상.
+   · c-l   0.973 → 0.985 (#fffaee 명도 매칭, 더 흰색)
+   · c-c   0.013 → 0.010 (살짝 약화 — 모든 톤에서 색 약하게)
+   · c-h   85    → 92    (#fffaee hue — 중성 따뜻)
+   · border-h 80 → 88   (테두리도 황색 멀리)
+   · border-c 0.06 → 0.04 (테두리 채도 약화 — 갈색 선 X)
+   · frame-c 0.018 → 0.012 (외곽 채도 약화 — 베이지 잠김 X) */
 .pb-tone-color--white {
-  --pbt-c-l: 0.973; --pbt-c-c: 0.013; --pbt-c-h: 85;
+  --pbt-c-l: 0.985; --pbt-c-c: 0.010; --pbt-c-h: 92;
   --pbt-color-accent: oklch(0.70 0.10 80);
-  --pbt-color-border-h: 80; --pbt-color-border-c: 0.06; --pbt-color-border-l: 0.40;
-  --pbt-frame-h: 80; --pbt-frame-c: 0.018;
+  --pbt-color-border-h: 88; --pbt-color-border-c: 0.04; --pbt-color-border-l: 0.40;
+  --pbt-frame-h: 88; --pbt-frame-c: 0.012;
 }
 .pb-tone-color--green {
   --pbt-c-l: 0.952; --pbt-c-c: 0.030; --pbt-c-h: 130;
@@ -145,6 +154,21 @@
   --pbt-t-frame-l-delta: -0.020;   /* -0.045 → -0.020 */
   --pbt-t-frame-c-mul: 1.00;       /* 1.30 → 1.00 (외곽 노랑 안 진해짐) */
   --pbt-t-vignette: 0.06;          /* 0.14 → 0.06 */
+}
+
+/* v138-fix10 (v135-4): 흰색 + 진하게(crisis) — 배경 베이지화 차단.
+   기본 crisis는 l-delta -0.090·c-mul 1.20 → 흰색 카드가 베이지/갈색으로
+   물듦. 사용자 명세 — 진하게도 배경 베이지 X. 무게감은 테두리·그림자만.
+   l-delta 약화 + c-mul 1.00 (채도 증가 X). 단 테두리·그림자 변수는 그대로
+   유지(기본 crisis 그대로) — 무게감 살림. */
+.pb-tone-color--white.pb-tone--crisis {
+  --pbt-t-l-delta: -0.030;         /* -0.090 → -0.030 (배경 거의 안 어두워짐) */
+  --pbt-t-c-mul: 1.00;             /* 1.20 → 1.00 (베이지화 차단) */
+  --pbt-t-frame-l-delta: -0.012;   /* -0.045 → -0.012 (외곽 거의 안 어두워짐) */
+  --pbt-t-frame-c-mul: 1.00;       /* 1.30 → 1.00 */
+  --pbt-t-vignette: 0.04;          /* 0.14 → 0.04 */
+  /* 테두리·그림자(border-mul·shadow-alpha·ring-alpha)는 기본 crisis 그대로 —
+     테두리·그림자 중심으로만 무게감 표현 */
 }
 
 /* ════════════════════════════════════════════════════════════

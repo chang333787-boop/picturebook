@@ -4393,12 +4393,16 @@ const _PB_TONE_CARD_COLORS = [
   { val: 'yellow', label: '햇살 크림' },
   { val: 'blue',   label: '차분한 파랑' },
 ];
+/* v138-fix12 (v135-5): 본문 카드 톤 UI 이름을 감정/분위기 → 강도 단계로 변경.
+   사용자 명세 — '은은하게'·'차분하게'는 직관성 낮음. 숫자 단계로 변경.
+   내부값(default/bright/develop/tense/crisis)은 그대로 유지 → Firebase
+   저장값 호환. 옛 작품 그대로 작동. CSS 톤 값도 변경 X. */
 const _PB_TONE_SCENE_TONES = [
   { val: 'default', label: '기본' },
-  { val: 'bright',  label: '밝게' },
-  { val: 'develop', label: '은은하게' },
-  { val: 'tense',   label: '차분하게' },
-  { val: 'crisis',  label: '진하게' },
+  { val: 'bright',  label: '1단계' },
+  { val: 'develop', label: '2단계' },
+  { val: 'tense',   label: '3단계' },
+  { val: 'crisis',  label: '4단계' },
 ];
 const _PB_TONE_ENDING_TONES = [
   { val: 'default',   label: '기본 마감' },
@@ -4437,7 +4441,7 @@ function _pbToneSectionHtml(scene) {
   /* 장면 단위 — 일반/엔딩 분기 */
   const sceneRowHtml = !isEnding
     ? _pbToneRowHtml('card-tone', '본문 카드 톤',
-        '본문 카드의 밝기와 색감을 조절해 장면 분위기를 바꿔보세요. 학생 그림과 선택 버튼은 바뀌지 않아요.',
+        '본문 카드의 색감 정도를 조절해요. 숫자가 높을수록 색감이 더 진해져요. 학생 그림과 선택 버튼은 바뀌지 않아요.',
         _PB_TONE_SCENE_TONES, scene.pbCardTone || '')
     : '';
   const endRowHtml = isEnding

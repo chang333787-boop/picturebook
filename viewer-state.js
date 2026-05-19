@@ -83,3 +83,11 @@ const ViewerState = {
     this.audioState.sceneId = null;
   },
 };
+
+/* v137: 다른 스크립트(특히 storyAnalyzer.js 박은 루트보기 환경 분기) 박은 거 박을 수 있게
+   window에 명시적으로 노출. const 선언은 script-level scope라 자동 노출 X.
+   v134에서 _editText만 박았던 거 박은 거 — ViewerState도 같은 패턴이었는데 박지 X 박았어 실수.
+   같은 객체 참조라 .currentSceneId / .scenes 등 mutation 자동 동기. */
+if (typeof window !== 'undefined') {
+  window.ViewerState = ViewerState;
+}

@@ -285,13 +285,32 @@
 
 /* v138-fix5 (v135-1-fix2): 행동버튼 wrapper(.pb-text__actions)에는 배경 박지 X.
    fix4에서 박은 wrapper background가 카드 안 큰 흰 박스로 보여 디자인 망가짐.
-   사용자 명세 — wrapper는 투명, 카드 흐름 자연스럽게 이어지게. 버튼 자체는
-   viewer.css 박힌 색(옅은 초록/파랑/코랄) 그대로 — 톤 변수 안 받음 (위
-   가드레일에서 --pbt-card-bg: initial 박힘).
+   사용자 명세 — wrapper는 투명, 카드 흐름 자연스럽게 이어지게. */
+/* (.pb-text__actions wrapper에는 background 박지 X — 카드 톤 색 비침. 자연스러움) */
 
-   결과: 카드(.pb-text) 톤 색이 wrapper 영역에 비치지만, 그 위에 박힌 버튼
-   자체가 viewer.css 색이라 독립된 선택 UI로 보임. */
-/* (background 박지 X — 명시적으로 박을 게 없음) */
+/* v138-fix7 (v135-1-fix4): 실제 행동버튼 자체에 명시적 불투명 배경 박음.
+   원인: viewer.css의 .choice-v03--picturebook[data-pb-color="N"] 배경이
+   rgba(...,0.06) — alpha 0.06이라 사실상 투명. 옛 viewer.css 카드 색 위에선
+   거의 흰색으로 보였지만, 새 톤 시스템에서 카드 색이 진해지면 버튼 배경이
+   카드 톤 색을 비침. 톤 변수 상속 문제가 아니라 alpha 투명도 문제.
+
+   해결: viewer.css 박힌 색계열을 alpha 1.0 옅은 색으로 박음. 디자인 의도
+   (1=초록, 2=파랑, 3=코랄)는 살리되, 카드 톤이 버튼 안에 안 비침. 테두리·
+   번호 원·화살표·그림자는 viewer.css 박힌 색 그대로 (덮어쓰기 X).
+
+   selector specificity (0,0,5,0) > viewer.css (0,0,2,0) — 항상 이김. */
+.scene-screen--pb .pb-frame[class*="pb-tone-color--"] .pb-text__actions
+  .choice-v03--picturebook[data-pb-color="1"] {
+  background-color: #f4f8f1;   /* rgba(90,138,74,0.06)의 옅은 초록을 불투명화 */
+}
+.scene-screen--pb .pb-frame[class*="pb-tone-color--"] .pb-text__actions
+  .choice-v03--picturebook[data-pb-color="2"] {
+  background-color: #f1f4f9;   /* rgba(90,146,194,0.06)의 옅은 파랑을 불투명화 */
+}
+.scene-screen--pb .pb-frame[class*="pb-tone-color--"] .pb-text__actions
+  .choice-v03--picturebook[data-pb-color="3"] {
+  background-color: #faf3ee;   /* rgba(198,111,74,0.06)의 옅은 코랄을 불투명화 */
+}
 
 /* ════════════════════════════════════════════════════════════
    9) 다듬기 패널 UI — 톤 선택 버튼 그룹 (v138)

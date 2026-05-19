@@ -2905,12 +2905,10 @@ function _typeSectionPicturebookHtml(scene) {
     ${pbStyleInlineHtml}
 
     ${(() => {
-      /* v138: 그림책형 분할형 본문 카드 톤 — 분할형 일반 + 분할형 엔딩에만 박음.
-         그림 중심형(imageCenter)은 톤 시스템 적용 안 함 (사용자 명시 1차 제외).
-         엔딩은 v125 정책상 항상 분할형 → submode 무관하게 박음.
+      /* v138-fix14 (v135-4 그림 중심형 확장): 그림책형 모든 하위 모드에서 톤
+         UI 박음. 분할형(split) + 그림 중심형(imageCenter) + 엔딩 모두 포함.
          _pbToneSectionHtml 자체에 cover early return 박혀있어 표지 안전. */
-      const showTone = (sub === 'split') || scene.isEnding;
-      return showTone ? _pbToneSectionHtml(scene) : '';
+      return _pbToneSectionHtml(scene);
     })()}`;
 }
 

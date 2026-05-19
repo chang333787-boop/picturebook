@@ -576,6 +576,9 @@ function _renderScenePicturebook(stage, scene, submode) {
 
     /* W4 디버그 정보 — 안정 확인 완료, 제거됨. */
 
+    /* v138-fix14 (v135-4 그림 중심형): 톤 클래스 박음. 외곽(.pb-frame) 강도는
+       pb-tone.css의 imageCenter 오버라이드에서 분할형 대비 약화. */
+    const _pbToneClsIC = _pbToneClasses(scene, 'scene');
     _stageReplaceScene(stage, `
       <div class="scene-screen scene-screen--pb ${layoutClass}"
         data-display="${scene.displayType}"
@@ -585,7 +588,7 @@ function _renderScenePicturebook(stage, scene, submode) {
         ${isEdit ? 'data-edit-mode="true"' : ''}
         ${styleAttr}>
         <div class="pb-page">
-          <div class="pb-frame">
+          <div class="pb-frame${_pbToneClsIC}">
             <div class="pb-stage">
               ${illustHtml}
               ${title || isEdit ? `<div class="pb-stage__title-overlay js-pb-editable-title" ${isEdit ? 'contenteditable="true" data-pb-editable="title"' : ''} data-placeholder="(제목을 적어보세요)">${escHtml(title)}</div>` : ''}

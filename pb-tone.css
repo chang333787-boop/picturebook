@@ -398,6 +398,55 @@
 }
 
 /* ════════════════════════════════════════════════════════════
+   8-A) 그림 중심형(imageCenter) 톤 적용 — v138-fix14 (v135-4)
+   ────────────────────────────────────────────────────────────
+   분할형(.pb--split)에는 7) 섹션에서 .pb-text에 카드 효과 박음. 그림 중심형
+   (.pb--imagecenter)은 본문이 .pb-stage__body-overlay 글상자에 박혀있어
+   다른 처리. 사용자 명세 — 그림이 주인공이라 외곽 강도 약화 (분할형 대비 30%).
+
+   적용 정책:
+   1) .pb-frame 외곽 공기감 강도 약화 — background mix 30% / 비네팅 opacity 0.3
+   2) 본문 글상자(.pb-stage__body-overlay)는 사용자 backdropOpacity 보존 —
+      background 자체는 안 건드림. 테두리·그림자만 톤 색 박음 (선택)
+   3) 행동버튼 보호 — 분할형과 동일 (.choice-v03--picturebook 자체에 박힌
+      배경/테두리/번호 원이 톤 영향 안 받음)
+   4) 학생 그림(.pb-illust__photo) — 가드레일 그대로 (filter:none !important)
+   ════════════════════════════════════════════════════════════ */
+
+/* .pb-frame 외곽 — frame 배경은 톤 color 살리되 명도는 페이지 외곽과 mix 30%.
+   분할형 대비 약 30% 강도. 사용자 명세 "그림 주변 프레임은 약하게만 톤 반영". */
+.scene-screen--pb.pb--imagecenter .pb-frame[class*="pb-tone-color--"] {
+  background: color-mix(in oklch, var(--pbt-frame-bg) 35%, #f4ecd8);
+}
+/* 비네팅 강도 30% — 그림 위로 그림자 안 깔리게.
+   :after의 mask가 radial 55%부터라 그림 영역엔 안 비치지만 안전망. */
+.scene-screen--pb.pb--imagecenter .pb-frame[class*="pb-tone-color--"]::after {
+  opacity: 0.3;
+}
+
+/* 본문 글상자(.pb-stage__body-overlay) — 테두리·그림자만 톤 색.
+   사용자 박은 background(rgba(255,255,255,backdropOpacity)) inline style이라
+   안 덮어쓰기. 단 테두리·그림자만 추가. */
+.scene-screen--pb.pb--imagecenter .pb-frame[class*="pb-tone-color--"]
+  .pb-stage__body-overlay {
+  border: 1px solid var(--pbt-card-border);
+  border-radius: 10px;
+  transition: border-color 0.45s ease;
+}
+
+/* 학생 그림 보호 — 분할형 가드레일 강화. imageCenter에서 그림이 핵심. */
+.scene-screen--pb.pb--imagecenter .pb-frame[class*="pb-tone-color--"]
+  .pb-illust__photo,
+.scene-screen--pb.pb--imagecenter .pb-frame[class*="pb-tone-color--"]
+  .pb-illust__photo img,
+.scene-screen--pb.pb--imagecenter .pb-frame[class*="pb-tone-color--"]
+  .pb-illust__inner {
+  filter: none !important;
+  mix-blend-mode: normal !important;
+  opacity: 1 !important;
+}
+
+/* ════════════════════════════════════════════════════════════
    9) 다듬기 패널 UI — 톤 선택 버튼 그룹 (v138)
       기존 .edit-submode-block 패턴 따라 시각 통일.
    ════════════════════════════════════════════════════════════ */

@@ -2902,7 +2902,16 @@ function _typeSectionPicturebookHtml(scene) {
       </div>
     </div>
 
-    ${pbStyleInlineHtml}`;
+    ${pbStyleInlineHtml}
+
+    ${(() => {
+      /* v138: 그림책형 분할형 본문 카드 톤 — 분할형 일반 + 분할형 엔딩에만 박음.
+         그림 중심형(imageCenter)은 톤 시스템 적용 안 함 (사용자 명시 1차 제외).
+         엔딩은 v125 정책상 항상 분할형 → submode 무관하게 박음.
+         _pbToneSectionHtml 자체에 cover early return 박혀있어 표지 안전. */
+      const showTone = (sub === 'split') || scene.isEnding;
+      return showTone ? _pbToneSectionHtml(scene) : '';
+    })()}`;
 }
 
 /* ────────────────────────────────────────────
@@ -4264,13 +4273,10 @@ function _modePickerHtml(scene) {
   let submodeUi = '';
   if (current === 'picturebook') {
     submodeUi = _picturebookSubmodeHtml(scene);
-    /* v138: 분할형 일반 장면 + 분할형 엔딩만 본문 카드 톤 UI 박음.
-       그림 중심형(imageCenter)은 톤 시스템 적용 안 함 (사용자 명시 1차 제외).
-       엔딩은 v125 정책상 항상 분할형 고정 → submode 무관하게 박음. */
-    const _submodeForTone = (scene.picturebookSubmode === 'imageCenter') ? 'imageCenter' : 'split';
-    if (_submodeForTone === 'split' || scene.isEnding) {
-      submodeUi += _pbToneSectionHtml(scene);
-    }
+    /* v138: 톤 UI 호출은 _typeSectionPicturebookHtml(2770줄)에 박음 —
+       사용자 작품(picturebook 명시)은 _typeSectionsHtml → _typeSectionPicturebookHtml
+       경로로 흐름. 여기(_modePickerHtml)는 모드 미지정 작품용 dead path라
+       톤 호출 박지 X. 박으면 중복 표시 위험. */
   } else if (current === 'document') {
     submodeUi = _documentSubmodeHtml(scene);
   } else if (current === 'movie') {

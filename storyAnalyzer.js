@@ -728,16 +728,25 @@ function _rtGroupByEnding(routes) {
     return 0;
   });
 
+  /* v134: 일반 엔딩 박은 거 박힌 순서대로 1, 2, 3 번호 부여. 진엔딩은 별도 ⭐ 라벨.
+     사용자 의도: "엔딩 1 · 장면 5" 박은 형식 — 옛 "장면 5 · 장면 5" 중복 박은 거 해소. */
+  let ordinaryEndingCount = 0;
   keys.forEach(k => {
     const rs = groups.get(k);
     if (k.startsWith('ending-')) {
       const n  = Number(k.slice(7));
       const sc = scenes[n];
+      const isTrue = !!sc?.trueEnding;
+      /* 일반 엔딩만 번호 부여 (진엔딩은 ⭐) */
+      if (!isTrue) ordinaryEndingCount += 1;
+      /* icon은 헤더 렌더에서 별도 ⭐/🏁 박음 — title에는 박지 X (중복 방지) */
+      const title = isTrue ? '진엔딩' : `엔딩 ${ordinaryEndingCount}`;
       result.push({
         key: k,
-        kind: sc?.trueEnding ? 'true-ending' : 'ending',
+        kind: isTrue ? 'true-ending' : 'ending',
         endingNum: n,
-        title: sc?.title ? _rtPreviewText(sc) : `장면 ${n}`,
+        endingOrdinal: isTrue ? null : ordinaryEndingCount,
+        title,
         routes: rs,
       });
     } else {
@@ -864,10 +873,30 @@ function renderRoutePanel() {
   contentEl.innerHTML = html;
 }
 
-/* ── 장면 카드로 점프 — 패널 닫고 canvas 스크롤 + 짧은 하이라이트 ── */
+/* ── 장면 카드로 점프 ──
+   v134: 환경 분기 — viewer-edit(다듬기)에서 박힌 경우 editNavigateTo로 다듬기 패널 진입.
+   maker 환경은 기존 카드 스크롤 + 하이라이트 유지. */
 function _rtJumpToCard(num) {
+  /* v134: viewer-edit 환경 박힌 경우 — 다듬기 패널에서 해당 장면으로 이동 */
+  if (typeof window !== 'undefined' &&
+      typeof window.editNavigateTo === 'function' &&
+      typeof window.ViewerState !== 'undefined' &&
+      window.ViewerState && window.ViewerState.scenes &&
+      window.ViewerState.scenes[String(num)]) {
+    closeRoutePanel();
+    /* 패널 닫기 애니 후 다음 프레임에서 장면 이동 박음 */
+    requestAnimationFrame(() => {
+      try {
+        window.editNavigateTo(String(num));
+      } catch (e) {
+        console.error('[rt jump] editNavigateTo 실패:', e);
+      }
+    });
+    return;
+  }
+
+  /* maker 환경 — 기존 카드 스크롤 + 하이라이트 흐름 */
   closeRoutePanel();
-  /* DOM 교체 다음 프레임에서 스크롤 — 패널 닫기 애니 방해 최소화 */
   requestAnimationFrame(() => {
     const card = document.getElementById('card-' + num);
     if (!card) return;

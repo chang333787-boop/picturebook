@@ -283,16 +283,15 @@
   --pbt-card-shadow: initial;
 }
 
-/* v138-fix4 (v135-1-fix): 행동버튼 wrapper(.pb-text__actions)에 톤 색 침범 차단.
-   .pb-text 자체가 카드 색이라 그 안의 .pb-text__actions wrapper에도 카드 색
-   비치는 게 기본. 사용자 명세 — wrapper도 톤 안 받아야. 명시적으로 viewer.css의
-   기본 카드 색(--v03-card-bg)을 wrapper에 박아 톤 색 차단.
+/* v138-fix5 (v135-1-fix2): 행동버튼 wrapper(.pb-text__actions)에는 배경 박지 X.
+   fix4에서 박은 wrapper background가 카드 안 큰 흰 박스로 보여 디자인 망가짐.
+   사용자 명세 — wrapper는 투명, 카드 흐름 자연스럽게 이어지게. 버튼 자체는
+   viewer.css 박힌 색(옅은 초록/파랑/코랄) 그대로 — 톤 변수 안 받음 (위
+   가드레일에서 --pbt-card-bg: initial 박힘).
 
-   padding/margin/border는 박지 X — viewer.css 박힌 위치 그대로 유지. background
-   만 박아 색만 분리. 마크업·레이아웃 영향 0. */
-.scene-screen--pb .pb-frame[class*="pb-tone-color--"] > .pb-text > .pb-text__actions {
-  background: var(--v03-card-bg, #fffaee);
-}
+   결과: 카드(.pb-text) 톤 색이 wrapper 영역에 비치지만, 그 위에 박힌 버튼
+   자체가 viewer.css 색이라 독립된 선택 UI로 보임. */
+/* (background 박지 X — 명시적으로 박을 게 없음) */
 
 /* ════════════════════════════════════════════════════════════
    9) 다듬기 패널 UI — 톤 선택 버튼 그룹 (v138)

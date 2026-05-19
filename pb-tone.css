@@ -1,0 +1,261 @@
+/* ====================================================================
+   pb-tone.css — 그림책형 분할형 본문 카드 톤 시스템 (v138 1차)
+   ────────────────────────────────────────────────────────────────────
+   적용 대상: 그림책형 분할형(.pb--split) 일반 장면 + 분할형 엔딩.
+   적용 위치: .pb-frame(외곽 공기감) + 그 자식 .pb-text(본문 카드).
+
+   원칙:
+   1) 학생 그림(.pb-illust__photo img)에는 어떤 변형도 가지 X — filter/blend/opacity 금지.
+   2) 행동버튼(.pb-text__actions, .pb-choice-*)에는 톤 영향 가지 X.
+   3) 옛 작품 보호: 톤 클래스가 박혀있지 않은 .pb-frame은 기존 viewer.css 그대로.
+      → 모든 새 규칙은 [class*="pb-tone-color--"] selector로 한정.
+   4) 본문 글자 크기·행간·폰트는 viewer.css 기존 .pb-text__body 규칙을 그대로 사용.
+      여기서는 배경·테두리·그림자·구분선·외곽 공기·색만 조절.
+
+   클래스 prefix:
+   · .pb-tone-style--{default|paper|border|pastel}   (작품 단위)
+   · .pb-tone-color--{white|green|yellow|blue}       (작품 단위)
+   · .pb-tone--{default|bright|develop|tense|crisis} (장면 단위)
+   · .pb-end-tone--{default|bright|afterglow}        (엔딩 단위)
+   ==================================================================== */
+
+/* ════════════════════════════════════════════════════════════
+   1) 카드 스타일 — 질감/형태만 결정 (색 ❌)
+   ════════════════════════════════════════════════════════════ */
+.pb-tone-style--default {
+  --pbt-card-radius:        12px;
+  --pbt-card-border-width:  1px;
+  --pbt-card-border-style:  solid;
+  --pbt-card-texture:       none;
+  --pbt-card-inner-ring:    0 0 0 0 transparent;
+  --pbt-card-shadow-base:   0 2px 6px;
+}
+.pb-tone-style--paper {
+  --pbt-card-radius:        8px;
+  --pbt-card-border-width:  1px;
+  --pbt-card-border-style:  solid;
+  --pbt-card-texture:
+    repeating-linear-gradient(135deg,
+      rgba(80,50,20,0.020) 0 1px, transparent 1px 5px),
+    repeating-linear-gradient(45deg,
+      rgba(80,50,20,0.015) 0 1px, transparent 1px 7px);
+  --pbt-card-inner-ring:    inset 0 1px 0 rgba(255,255,255,0.5);
+  --pbt-card-shadow-base:   0 1px 0 rgba(120,90,50,0.06), 0 4px 14px;
+}
+.pb-tone-style--border {
+  --pbt-card-radius:        14px;
+  --pbt-card-border-width:  2px;
+  --pbt-card-border-style:  solid;
+  --pbt-card-texture:       none;
+  --pbt-card-inner-ring:    inset 0 0 0 1px rgba(255,255,255,0.6);
+  --pbt-card-shadow-base:   0 1px 3px rgba(120,90,50,0.06), 0 6px 16px;
+}
+.pb-tone-style--pastel {
+  --pbt-card-radius:        16px;
+  --pbt-card-border-width:  1px;
+  --pbt-card-border-style:  solid;
+  --pbt-card-texture:       none;
+  --pbt-card-inner-ring:    0 0 0 0 transparent;
+  --pbt-card-shadow-base:   0 6px 22px;
+}
+
+/* ════════════════════════════════════════════════════════════
+   2) 색계열 — hue만 결정. 명도·채도는 톤이 조절.
+   ════════════════════════════════════════════════════════════ */
+.pb-tone-color--white {
+  --pbt-c-l: 0.973; --pbt-c-c: 0.013; --pbt-c-h: 85;
+  --pbt-color-accent: oklch(0.70 0.10 80);
+  --pbt-color-border-h: 80; --pbt-color-border-c: 0.06; --pbt-color-border-l: 0.40;
+  --pbt-frame-h: 80; --pbt-frame-c: 0.018;
+}
+.pb-tone-color--green {
+  --pbt-c-l: 0.952; --pbt-c-c: 0.030; --pbt-c-h: 130;
+  --pbt-color-accent: oklch(0.55 0.10 145);
+  --pbt-color-border-h: 140; --pbt-color-border-c: 0.10; --pbt-color-border-l: 0.42;
+  --pbt-frame-h: 130; --pbt-frame-c: 0.025;
+}
+.pb-tone-color--yellow {
+  --pbt-c-l: 0.962; --pbt-c-c: 0.058; --pbt-c-h: 85;
+  --pbt-color-accent: oklch(0.65 0.12 80);
+  --pbt-color-border-h: 75; --pbt-color-border-c: 0.14; --pbt-color-border-l: 0.46;
+  --pbt-frame-h: 80; --pbt-frame-c: 0.040;
+}
+.pb-tone-color--blue {
+  --pbt-c-l: 0.955; --pbt-c-c: 0.026; --pbt-c-h: 230;
+  --pbt-color-accent: oklch(0.55 0.10 240);
+  --pbt-color-border-h: 230; --pbt-color-border-c: 0.09; --pbt-color-border-l: 0.42;
+  --pbt-frame-h: 230; --pbt-frame-c: 0.020;
+}
+
+/* ════════════════════════════════════════════════════════════
+   3) 본문 카드 톤 (일반 장면) — 기본/밝게/은은하게/차분하게/진하게
+      release/해소는 CSS에 남기지 않음 (UI 제외). 향후 추가 시 별도 박음.
+   ════════════════════════════════════════════════════════════ */
+.pb-tone--default {
+  --pbt-t-l-delta: 0;       --pbt-t-c-mul: 1.00; --pbt-t-border-mul: 1.00; --pbt-t-border-l-delta: 0;
+  --pbt-t-shadow-alpha: 0.08; --pbt-t-shadow-spread: 10px; --pbt-t-divider-alpha: 0.50;
+  --pbt-t-ring-alpha: 0;    --pbt-t-frame-l-delta: 0;     --pbt-t-frame-c-mul: 1.00; --pbt-t-vignette: 0;
+  --pbt-t-extra-glow: 0 0 0 transparent;
+}
+.pb-tone--bright {
+  --pbt-t-l-delta: 0.030;   --pbt-t-c-mul: 0.80; --pbt-t-border-mul: 0.50; --pbt-t-border-l-delta: 0.06;
+  --pbt-t-shadow-alpha: 0.06; --pbt-t-shadow-spread: 6px;  --pbt-t-divider-alpha: 0.30;
+  --pbt-t-ring-alpha: 0;    --pbt-t-frame-l-delta: 0.012; --pbt-t-frame-c-mul: 0.85; --pbt-t-vignette: 0;
+  --pbt-t-extra-glow: 0 0 0 transparent;
+}
+.pb-tone--develop {
+  --pbt-t-l-delta: -0.012;  --pbt-t-c-mul: 1.05; --pbt-t-border-mul: 0.85; --pbt-t-border-l-delta: -0.02;
+  --pbt-t-shadow-alpha: 0.12; --pbt-t-shadow-spread: 16px; --pbt-t-divider-alpha: 0.55;
+  --pbt-t-ring-alpha: 0;    --pbt-t-frame-l-delta: 0;     --pbt-t-frame-c-mul: 1.05; --pbt-t-vignette: 0.02;
+  --pbt-t-extra-glow: 0 0 0 transparent;
+}
+.pb-tone--tense {
+  --pbt-t-l-delta: -0.055;  --pbt-t-c-mul: 1.15; --pbt-t-border-mul: 1.10; --pbt-t-border-l-delta: -0.08;
+  --pbt-t-shadow-alpha: 0.22; --pbt-t-shadow-spread: 32px; --pbt-t-divider-alpha: 0.75;
+  --pbt-t-ring-alpha: 0.05; --pbt-t-frame-l-delta: -0.020; --pbt-t-frame-c-mul: 1.20; --pbt-t-vignette: 0.08;
+  --pbt-t-extra-glow: 0 0 0 transparent;
+}
+.pb-tone--crisis {
+  --pbt-t-l-delta: -0.090;  --pbt-t-c-mul: 1.20; --pbt-t-border-mul: 1.20; --pbt-t-border-l-delta: -0.14;
+  --pbt-t-shadow-alpha: 0.32; --pbt-t-shadow-spread: 44px; --pbt-t-divider-alpha: 0.90;
+  --pbt-t-ring-alpha: 0.18; --pbt-t-frame-l-delta: -0.045; --pbt-t-frame-c-mul: 1.30; --pbt-t-vignette: 0.14;
+  --pbt-t-extra-glow: 0 0 0 transparent;
+}
+
+/* ════════════════════════════════════════════════════════════
+   4) 엔딩 마감톤
+   ════════════════════════════════════════════════════════════ */
+.pb-end-tone--default {
+  --pbt-t-l-delta: 0;       --pbt-t-c-mul: 1.00; --pbt-t-border-mul: 1.00; --pbt-t-border-l-delta: 0;
+  --pbt-t-shadow-alpha: 0.12; --pbt-t-shadow-spread: 18px; --pbt-t-divider-alpha: 0.55;
+  --pbt-t-ring-alpha: 0;    --pbt-t-frame-l-delta: 0;     --pbt-t-frame-c-mul: 1.00; --pbt-t-vignette: 0.02;
+  --pbt-t-extra-glow: 0 0 0 transparent;
+}
+.pb-end-tone--bright {
+  --pbt-t-l-delta: 0.025;   --pbt-t-c-mul: 0.85; --pbt-t-border-mul: 0.70; --pbt-t-border-l-delta: 0.04;
+  --pbt-t-shadow-alpha: 0.08; --pbt-t-shadow-spread: 18px; --pbt-t-divider-alpha: 0.42;
+  --pbt-t-ring-alpha: 0;    --pbt-t-frame-l-delta: 0.020; --pbt-t-frame-c-mul: 0.90; --pbt-t-vignette: 0;
+  --pbt-t-extra-glow: 0 0 36px color-mix(in oklch, var(--pbt-color-accent) 18%, transparent);
+}
+.pb-end-tone--afterglow {
+  --pbt-t-l-delta: -0.035;  --pbt-t-c-mul: 0.78; --pbt-t-border-mul: 0.50; --pbt-t-border-l-delta: 0;
+  --pbt-t-shadow-alpha: 0.10; --pbt-t-shadow-spread: 36px; --pbt-t-divider-alpha: 0.42;
+  --pbt-t-ring-alpha: 0;    --pbt-t-frame-l-delta: -0.020; --pbt-t-frame-c-mul: 0.90; --pbt-t-vignette: 0.06;
+  --pbt-t-extra-glow: 0 0 0 transparent;
+}
+
+/* ════════════════════════════════════════════════════════════
+   5) 합성 — .pb-frame에 색계열·톤 클래스가 박혀있을 때만 변수 합성.
+      옛 작품(.pb-frame에 톤 클래스 없음)은 viewer.css 그대로.
+   ════════════════════════════════════════════════════════════ */
+.scene-screen--pb .pb-frame[class*="pb-tone-color--"] {
+  /* 본문 카드 배경 */
+  --pbt-card-bg:
+    oklch(
+      calc(var(--pbt-c-l) + var(--pbt-t-l-delta, 0))
+      calc(var(--pbt-c-c) * var(--pbt-t-c-mul, 1))
+      var(--pbt-c-h)
+    );
+  /* 테두리 */
+  --pbt-card-border:
+    oklch(
+      calc(var(--pbt-color-border-l) + var(--pbt-t-border-l-delta, 0))
+      calc(var(--pbt-color-border-c) * var(--pbt-t-c-mul, 1))
+      var(--pbt-color-border-h)
+      / calc(0.70 * var(--pbt-t-border-mul, 1))
+    );
+  /* 본문↔선택지 구분선 */
+  --pbt-card-divider:
+    oklch(
+      var(--pbt-color-border-l)
+      calc(var(--pbt-color-border-c) * 0.7)
+      var(--pbt-color-border-h)
+      / var(--pbt-t-divider-alpha, 0.5)
+    );
+  /* 그림자 합성 (한 단 + 안쪽 ring + 부가 glow) */
+  --pbt-card-shadow:
+    var(--pbt-card-shadow-base, 0 2px 6px)
+      oklch(0.35 0.05 var(--pbt-color-border-h) / var(--pbt-t-shadow-alpha, 0.08)),
+    var(--pbt-card-inner-ring, 0 0 0 0 transparent),
+    inset 0 0 0 1px oklch(0.30 0.04 var(--pbt-color-border-h) / var(--pbt-t-ring-alpha, 0)),
+    var(--pbt-t-extra-glow, 0 0 0 transparent);
+  /* 페이지 외곽 종이톤 */
+  --pbt-frame-bg:
+    oklch(
+      calc(0.945 + var(--pbt-t-frame-l-delta, 0))
+      calc(var(--pbt-frame-c, 0.02) * var(--pbt-t-frame-c-mul, 1))
+      var(--pbt-frame-h, 80)
+    );
+}
+
+/* ════════════════════════════════════════════════════════════
+   6) 페이지 외곽 공기감 — .pb-frame 자체 배경 + ::after 비네팅
+      비네팅은 학생 그림 안쪽으로 비추지 않도록 radial 55%부터.
+      pointer-events:none — 클릭 막지 X.
+   ════════════════════════════════════════════════════════════ */
+.scene-screen--pb .pb-frame[class*="pb-tone-color--"] {
+  background: var(--pbt-frame-bg);
+  transition: background 0.45s ease;
+  /* 비네팅을 위해 stacking context 확보 — 자식 z-index가 작동 */
+  position: relative;
+}
+.scene-screen--pb .pb-frame[class*="pb-tone-color--"]::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse at 50% 50%,
+    transparent 55%,
+    oklch(0.20 0.04 var(--pbt-frame-h, 80) / var(--pbt-t-vignette, 0)) 100%
+  );
+  border-radius: inherit;
+  transition: background 0.45s ease;
+  z-index: 0;
+}
+/* 비네팅보다 자식 콘텐츠가 위에 보이도록 */
+.scene-screen--pb .pb-frame[class*="pb-tone-color--"] > .pb-illust,
+.scene-screen--pb .pb-frame[class*="pb-tone-color--"] > .pb-text,
+.scene-screen--pb .pb-frame[class*="pb-tone-color--"] > .pb-stage {
+  position: relative;
+  z-index: 1;
+}
+
+/* ════════════════════════════════════════════════════════════
+   7) 본문 카드 렌더 — 배경/테두리/그림자/구분선·색만 조절.
+      padding·font-size·line-height·overflow·flex 등 레이아웃 속성은 안 건드림.
+   ════════════════════════════════════════════════════════════ */
+.scene-screen--pb .pb-frame[class*="pb-tone-color--"] > .pb-text {
+  background-color: var(--pbt-card-bg);
+  background-image: var(--pbt-card-texture, none);
+  border-width: var(--pbt-card-border-width, 1px);
+  border-style: var(--pbt-card-border-style, solid);
+  border-color: var(--pbt-card-border);
+  border-radius: var(--pbt-card-radius, 12px);
+  box-shadow: var(--pbt-card-shadow);
+  transition:
+    background-color 0.45s ease,
+    border-color 0.45s ease,
+    box-shadow 0.45s ease;
+}
+/* 본문↔선택지 구분선 — 기존 .pb-text__actions-label 위쪽 1px 흐릿한 선처럼 보이게.
+   기존 viewer.css에 이 분리선이 별도로 박혀있으면 거기서 처리. 여기서는 안 박음. */
+
+/* ════════════════════════════════════════════════════════════
+   8) 가드레일 — 학생 그림 절대 보호. 행동버튼 톤 영향 차단.
+   ════════════════════════════════════════════════════════════ */
+.scene-screen--pb .pb-illust__photo,
+.scene-screen--pb .pb-illust__photo img,
+.scene-screen--pb .pb-illust__inner {
+  filter: none !important;
+  mix-blend-mode: normal !important;
+  opacity: 1 !important;
+}
+/* 행동버튼은 톤 변수 inherit 받지 않게 — 변수 끊기.
+   배경·테두리는 viewer.css의 기존 .pb-text__actions / 버튼 규칙 그대로. */
+.scene-screen--pb .pb-frame[class*="pb-tone-color--"] .pb-text__actions,
+.scene-screen--pb .pb-frame[class*="pb-tone-color--"] .pb-text__actions * {
+  --pbt-card-bg: initial;
+  --pbt-card-border: initial;
+  --pbt-card-shadow: initial;
+}

@@ -134,6 +134,18 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
       ViewerState.project.pbTheme = meta.pbTheme;
     }
 
+    /* v138: 그림책형 본문 카드 톤 시스템 (작품 단위)
+       장면 1에서 박은 값이 작품 전체 일반 분할형·엔딩 분할형에 적용됨.
+       valid 값만 인정 — 그 외엔 null로 두어 옛 viewer.css 규칙 그대로 사용. */
+    const VALID_CARD_STYLES = ['default', 'paper', 'border', 'pastel'];
+    const VALID_CARD_COLORS = ['white', 'green', 'yellow', 'blue'];
+    ViewerState.project.textCardStyle =
+      (typeof meta.textCardStyle === 'string' && VALID_CARD_STYLES.includes(meta.textCardStyle))
+        ? meta.textCardStyle : null;
+    ViewerState.project.textCardColor =
+      (typeof meta.textCardColor === 'string' && VALID_CARD_COLORS.includes(meta.textCardColor))
+        ? meta.textCardColor : null;
+
     /* v64: 장면 전환 효과 (작품 단위 메타)
        v73: 속도는 string('fast'/'normal'/'slow')에서 number(0~100)로 마이그레이션.
        옛 string 그대로 박혀있으면 자동 변환 (fast=0, normal=50, slow=100). */
@@ -284,6 +296,10 @@ async function saveSceneText(num, fields) {
     'coverTheme',         /* 표지 색 테마 */
     'titleVerticalPosition', /* 표지 제목 높낮이 */
     'kicker',             /* v129: 표지 상단 문구 — 작품 제목 위 작은 문구. 비우면 표시 안 됨 */
+    /* v138: 그림책형 본문 카드 톤 — 장면 단위. 일반 분할형 5종 / 엔딩 분할형 3종.
+       작품 단위(textCardStyle/textCardColor)는 viewer-meta에서 관리. */
+    'pbCardTone',         /* 일반 장면 톤: default | bright | develop | tense | crisis */
+    'pbEndingTone',       /* 엔딩 장면 마감톤: default | bright | afterglow */
   ];
   const patch = {};
   ALLOWED.forEach(k => {
@@ -345,6 +361,16 @@ async function saveViewerMeta() {
 
   /* W7: set → update. set은 노드 통째 덮어쓰기라 명시 안 한 필드(projectType 등) 사라짐.
      update는 명시한 키만 갱신, 나머지 보존. */
+  /* v138: 그림책형 본문 카드 스타일 / 색계열 — 작품 단위.
+     장면 1에서 박은 값을 작품 전체 기준으로 고정. null이면 저장 안 함
+     (옛 작품 보호 — 아직 사용자가 한 번도 박지 않은 상태). */
+  const _toneStylePatch = ViewerState.project.textCardStyle
+    ? { textCardStyle: ViewerState.project.textCardStyle }
+    : {};
+  const _toneColorPatch = ViewerState.project.textCardColor
+    ? { textCardColor: ViewerState.project.textCardColor }
+    : {};
+
   await db.ref(`${basePath}/viewer-meta`).update({
     mode:         ViewerState.project.mode,
     theme:        ViewerState.project.theme,
@@ -353,6 +379,8 @@ async function saveViewerMeta() {
     isPublic:     ViewerState.project.isPublic,  // 공개 정책 유지
     savedAt:      Date.now(),
     ...ptypePatch,                               // ★ projectType 보존 (안전망 이중)
+    ..._toneStylePatch,                          // v138: 본문 카드 스타일 (작품 단위)
+    ..._toneColorPatch,                          // v138: 색계열 (작품 단위)
   });
 }
 
@@ -466,6 +494,36 @@ function adaptScenes(rawScenes) {
          · backdropOpacity : 0~1 (배경막 강도. 0=투명, 1=완전 불투명)
          null이면 viewer-render에서 mockup 기본값 사용 (x:15 y:25 w:55 op:0.85). */
       picturebookBodyBox: _normalizePbBodyBox(raw.picturebookBodyBox),
+
+      /* ── 그림책형 본문 카드 톤 (v138 신규) ──
+         일반 분할형 장면의 본문 카드 톤. 5종:
+         · default  — 기본 (안정)
+         · bright   — 밝게
+         · develop  — 은은하게
+         · tense    — 차분하게
+         · crisis   — 진하게 (가장 무게감 큼)
+         값이 명시되지 않은 옛 장면은 null — viewer-render에서 톤 클래스 박지 X
+         (옛 작품 시각 변화 없음). 사용자가 다듬기에서 한 번이라도 박으면 값 저장. */
+      pbCardTone: (
+        raw.pbCardTone === 'default' ||
+        raw.pbCardTone === 'bright'  ||
+        raw.pbCardTone === 'develop' ||
+        raw.pbCardTone === 'tense'   ||
+        raw.pbCardTone === 'crisis'
+      ) ? raw.pbCardTone : null,
+
+      /* ── 그림책형 엔딩 마감톤 (v138 신규) ──
+         엔딩 장면 전용. 3종:
+         · default   — 기본 마감 (담백한 종결)
+         · bright    — 밝은 마감 (진엔딩·골드 glow)
+         · afterglow — 여운 마감 (조용·아쉬움)
+         null이면 톤 클래스 박지 X — 옛 엔딩 그대로. */
+      pbEndingTone: (
+        raw.pbEndingTone === 'default' ||
+        raw.pbEndingTone === 'bright'  ||
+        raw.pbEndingTone === 'afterglow'
+      ) ? raw.pbEndingTone : null,
+
       connectObjects:     _normalizeConnectObjects(raw.connectObjects) || [],
       textStyle:          _normalizeTextStyle(raw.textStyle),
       textTheme:          _normalizeTextTheme(raw.textTheme),

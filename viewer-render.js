@@ -420,6 +420,34 @@ function _renderSceneCard(scene, choices) {
         그림 영역 + 텍스트 영역 (제목 → 본문 → 버튼)
    버튼은 텍스트 영역 안에만, 그림 침범 금지.
    submode: 'spread' = LR(좌우), 'stage' = TB(상하). 기본은 'stage'(TB). */
+/* v138: 그림책형 분할형 본문 카드 톤 클래스 계산.
+   ViewerState.project.textCardStyle / textCardColor가 둘 다 명시값일 때만
+   톤 클래스 박음. 하나라도 없으면 빈 문자열 — 옛 작품 시각 변화 없음
+   (viewer.css 기존 규칙 그대로 작동).
+
+   적용 대상: 그림책형 분할형(.pb--split) 일반 장면 + 분할형 엔딩.
+   적용 안 함: 그림 중심형(imageCenter), 표지, 텍스트형, 무비형, 체험전시형.
+
+   kind:
+   · 'scene'  → pb-tone--{scene.pbCardTone||'default'}    (일반 5종)
+   · 'ending' → pb-end-tone--{scene.pbEndingTone||'default'} (엔딩 3종) */
+function _pbToneClasses(scene, kind) {
+  const proj = (typeof ViewerState !== 'undefined' && ViewerState.project) || {};
+  const cs = proj.textCardStyle;
+  const cc = proj.textCardColor;
+  if (!cs || !cc) return '';
+
+  let toneCls;
+  if (kind === 'ending') {
+    const t = (scene && scene.pbEndingTone) || 'default';
+    toneCls = ` pb-end-tone--${t}`;
+  } else {
+    const t = (scene && scene.pbCardTone) || 'default';
+    toneCls = ` pb-tone--${t}`;
+  }
+  return ` pb-tone-style--${cs} pb-tone-color--${cc}${toneCls}`;
+}
+
 function _renderScenePicturebook(stage, scene, submode) {
   const choices = Array.isArray(scene.choices) ? scene.choices : [];
   /* W4 디버그: 그림 데이터 소스 — viewer-edit은 imageData||imageUrl 둘 다 보고
@@ -578,6 +606,8 @@ function _renderScenePicturebook(stage, scene, submode) {
   }
 
   /* 분할형 (기본) — 위 그림 60 / 아래 텍스트+선택지 40 */
+  /* v138: 본문 카드 톤 클래스 — 작품 단위 style/color 있을 때만 박힘 */
+  const _pbToneCls = _pbToneClasses(scene, 'scene');
   _stageReplaceScene(stage, `
     <div class="scene-screen scene-screen--pb ${layoutClass}"
       data-display="${scene.displayType}"
@@ -586,7 +616,7 @@ function _renderScenePicturebook(stage, scene, submode) {
       data-presentation-submode="split"
       ${styleAttr}>
       <div class="pb-page">
-        <div class="pb-frame">
+        <div class="pb-frame${_pbToneCls}">
           ${illustHtml}
           <div class="pb-text">
             ${titleHtml}
@@ -1331,6 +1361,8 @@ function _renderStoryEnding(stage, scene) {
      v124c에 picturebookSubmode 반영 박았지만 그림 중심형 엔딩은 칸 밀림 +
      엔딩 표시 가려질 위험. 분할형이 안정적. 페이지 방향(projectMeta.pageOrientation)은
      body[data-page-orientation]에 박혀 모든 장면 자동 박힘 — 손 안 댐. */
+  /* v138: 엔딩 마감톤 클래스 — 작품 단위 style/color 있을 때만 박힘 */
+  const _pbEndToneCls = _pbToneClasses(scene, 'ending');
   _stageReplaceScene(stage, `
     <div class="scene-screen scene-screen--pb pb--split ending-as-pb${noImageClass}"
          ${endStyleAttr}
@@ -1338,7 +1370,7 @@ function _renderStoryEnding(stage, scene) {
          data-presentation-submode="split"
          data-ending="true">
       <div class="pb-page">
-        <div class="pb-frame">
+        <div class="pb-frame${_pbEndToneCls}">
           ${endingIllustHtml}
           ${endingTextHtml}
         </div>

@@ -83,21 +83,18 @@
   --pbt-color-border-h: 140; --pbt-color-border-c: 0.10; --pbt-color-border-l: 0.42;
   --pbt-frame-h: 130; --pbt-frame-c: 0.025;
 }
-/* v138-fix9 (v135-3): 노랑 계열 — 갈색/황토 느낌 제거.
-   현재 변수가 다른 색계열 대비 채도 2배 + 테두리 hue 75(황색 쪽) +
-   외곽 채도 가장 강함 → 누런 갈색 인상. cream / butter / honey 방향으로.
-   · c-l 0.962 → 0.972 (더 밝게 — cream)
-   · c-c 0.058 → 0.035 (채도 -40% — 갈색기 차단)
-   · c-h 85 → 90 (살짝 정통 노랑)
-   · color-border-h 75 → 80 (테두리도 황색 쪽 멀리)
-   · color-border-c 0.14 → 0.08 (테두리 갈색 선 약화)
-   · color-border-l 0.46 → 0.50 (테두리 밝게)
-   · frame-c 0.040 → 0.022 (외곽 노랑 잠김 약화 — 초록 0.020 / 파랑 0.015 수준) */
+/* v138-fix11 (v135-3 추가 보정): 노랑 계열 — "햇살 크림" 방향.
+   사용자 명세 — 현재(fix9) 베이지/낡은 종이 인상 남아있음. 더 cream 쪽으로.
+   그림 속 노란 길과 본문 카드가 경쟁하지 않게 색감 더 약화.
+   · c-l    0.972 → 0.975 (살짝 더 밝게)
+   · c-c    0.035 → 0.025 (채도 -29% 더 — cream만 살짝)
+   · color-border-c 0.08 → 0.06 (테두리 더 약화 — 갈색 선 X)
+   · frame-c 0.022 → 0.018 (외곽 더 약화 — 베이지 잠김 X) */
 .pb-tone-color--yellow {
-  --pbt-c-l: 0.972; --pbt-c-c: 0.035; --pbt-c-h: 90;
+  --pbt-c-l: 0.975; --pbt-c-c: 0.025; --pbt-c-h: 90;
   --pbt-color-accent: oklch(0.65 0.12 80);
-  --pbt-color-border-h: 80; --pbt-color-border-c: 0.08; --pbt-color-border-l: 0.50;
-  --pbt-frame-h: 85; --pbt-frame-c: 0.022;
+  --pbt-color-border-h: 80; --pbt-color-border-c: 0.06; --pbt-color-border-l: 0.50;
+  --pbt-frame-h: 85; --pbt-frame-c: 0.018;
 }
 .pb-tone-color--blue {
   --pbt-c-l: 0.955; --pbt-c-c: 0.026; --pbt-c-h: 230;
@@ -145,15 +142,25 @@
   --pbt-t-vignette: 0.08;          /* 0.14 → 0.08 */
 }
 
-/* v138-fix9 (v135-3): 노랑 + 진하게(crisis) — 갈색 카드 안 되게.
-   기본 crisis는 c-mul 1.20·l-delta -0.090 → 노랑 채도 강해지면 황색/갈색화.
-   honey beige 정도로 정착. 외곽도 함께 약화. */
+/* v138-fix11 (v135-3 추가 보정): 노랑 + 차분하게(tense) 오버라이드.
+   기본 tense는 l-delta -0.055·c-mul 1.15 → 노랑에서 살짝 누런 종이 인상.
+   "차분한 크림" 방향으로 — 채도 증가 차단, 명도 덜 낮춤. */
+.pb-tone-color--yellow.pb-tone--tense {
+  --pbt-t-l-delta: -0.035;         /* -0.055 → -0.035 (덜 어둡게) */
+  --pbt-t-c-mul: 1.00;             /* 1.15 → 1.00 (베이지화 차단) */
+}
+
+/* v138-fix11 (v135-3 추가 보정): 노랑 + 진하게(crisis) 추가 약화.
+   사용자 명세 — fix9도 탁한 종이 느낌 남음. 배경은 cream 유지, 무게감은
+   테두리·그림자 중심. background 명도 더 올리고 채도는 살짝 감소(0.85). */
 .pb-tone-color--yellow.pb-tone--crisis {
-  --pbt-t-l-delta: -0.055;         /* -0.090 → -0.055 (덜 어둡게 — honey 깊이) */
-  --pbt-t-c-mul: 1.00;             /* 1.20 → 1.00 (채도 증가 X — 갈색화 차단) */
-  --pbt-t-frame-l-delta: -0.020;   /* -0.045 → -0.020 */
-  --pbt-t-frame-c-mul: 1.00;       /* 1.30 → 1.00 (외곽 노랑 안 진해짐) */
-  --pbt-t-vignette: 0.06;          /* 0.14 → 0.06 */
+  --pbt-t-l-delta: -0.025;         /* fix9 -0.055 → -0.025 (배경 거의 그대로) */
+  --pbt-t-c-mul: 0.85;             /* fix9 1.00 → 0.85 (채도 감소 — cream 유지) */
+  /* border-mul·shadow-alpha·ring-alpha는 기본 crisis 그대로 — 테두리·그림자
+     중심 무게감. 배경 자체는 거의 안 변함. */
+  --pbt-t-frame-l-delta: -0.010;   /* fix9 -0.020 → -0.010 (외곽 거의 그대로) */
+  --pbt-t-frame-c-mul: 1.00;
+  --pbt-t-vignette: 0.04;          /* fix9 0.06 → 0.04 */
 }
 
 /* v138-fix10 (v135-4): 흰색 + 진하게(crisis) — 배경 베이지화 차단.

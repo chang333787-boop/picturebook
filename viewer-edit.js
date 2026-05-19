@@ -4387,7 +4387,10 @@ const _PB_TONE_CARD_STYLES = [
 const _PB_TONE_CARD_COLORS = [
   { val: 'white',  label: '기본 흰색' },
   { val: 'green',  label: '숲빛 초록' },
-  { val: 'yellow', label: '따뜻한 노랑' },
+  /* v138-fix11 (v135-3 추가 보정): UI 이름 '따뜻한 노랑' → '햇살 크림'.
+     실제 색 방향이 cream/honey 쪽이라 사용자 인식과 일치하게. 내부값 'yellow'
+     유지 (Firebase 저장값 호환 — 옛 작품도 그대로 작동). */
+  { val: 'yellow', label: '햇살 크림' },
   { val: 'blue',   label: '차분한 파랑' },
 ];
 const _PB_TONE_SCENE_TONES = [

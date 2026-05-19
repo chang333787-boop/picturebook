@@ -293,13 +293,19 @@
   color: #8a7556;
   line-height: 1.55;
 }
+/* 인스펙터 폭에 따라 자동 줄바꿈 — 좁으면 2~3 columns, 넓으면 한 줄.
+   minmax 64px: "은은하게"(4글자) 같은 라벨이 안 잘릴 최소 폭. */
 .edit-tone-btn-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(64px, 1fr));
   gap: 4px;
 }
-.edit-tone-btn-grid--5 { grid-template-columns: repeat(5, 1fr); }
-.edit-tone-btn-grid--3 { grid-template-columns: repeat(3, 1fr); }
+/* --5, --3 modifier 폐기 — auto-fit으로 통일.
+   기존 셀렉터는 호환 위해 그대로 두되 같은 규칙 적용. */
+.edit-tone-btn-grid--5,
+.edit-tone-btn-grid--3 {
+  grid-template-columns: repeat(auto-fit, minmax(64px, 1fr));
+}
 
 .edit-tone-btn {
   appearance: none;
@@ -309,12 +315,14 @@
   font-family: inherit;
   font-size: 11.5px;
   font-weight: 700;
-  padding: 7px 4px;
+  padding: 7px 6px;
   border-radius: 6px;
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
   text-align: center;
   line-height: 1.3;
+  white-space: nowrap;     /* 한 칸 안에서는 안 줄바꿈 — 줄바꿈 필요하면 그리드가 wrap */
+  min-width: 0;            /* grid 안에서 안전하게 줄어들 수 있게 */
 }
 .edit-tone-btn:hover:not(.edit-tone-btn--locked) {
   background: #fdf4dd;

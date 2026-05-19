@@ -373,28 +373,28 @@
    사용자 명세 — wrapper는 투명, 카드 흐름 자연스럽게 이어지게. */
 /* (.pb-text__actions wrapper에는 background 박지 X — 카드 톤 색 비침. 자연스러움) */
 
-/* v138-fix7 (v135-1-fix4): 실제 행동버튼 자체에 명시적 불투명 배경 박음.
+/* v138-fix15 (v135-5): 실제 행동버튼 자체 배경 공통 보정.
    원인: viewer.css의 .choice-v03--picturebook[data-pb-color="N"] 배경이
-   rgba(...,0.06) — alpha 0.06이라 사실상 투명. 옛 viewer.css 카드 색 위에선
-   거의 흰색으로 보였지만, 새 톤 시스템에서 카드 색이 진해지면 버튼 배경이
-   카드 톤 색을 비침. 톤 변수 상속 문제가 아니라 alpha 투명도 문제.
+   rgba(...,0.06) — alpha 0.06이라 사실상 투명. 카드 톤 색 비침.
 
-   해결: viewer.css 박힌 색계열을 alpha 1.0 옅은 색으로 박음. 디자인 의도
-   (1=초록, 2=파랑, 3=코랄)는 살리되, 카드 톤이 버튼 안에 안 비침. 테두리·
-   번호 원·화살표·그림자는 viewer.css 박힌 색 그대로 (덮어쓰기 X).
+   fix7 옛 정책: 색계열별로 옅은 색(#f4f8f1·#f1f4f9·#faf3ee) 박았는데
+   사용자 보니 카드 톤에 묻혀 보임. 공통 거의 흰색(#fffdf8)으로 통합 —
+   카드 톤 어떤 색이든 버튼이 또렷한 독립 UI로 보임.
 
-   selector specificity (0,0,5,0) > viewer.css (0,0,2,0) — 항상 이김. */
+   유지: border-color (1=초록/2=파랑/3=코랄), 번호 원 색, 화살표, 그림자,
+   크기, 위치 — viewer.css 박힌 값 그대로 (덮어쓰기 X). 버튼 정체성 유지.
+
+   selector specificity (0,0,4,0) > viewer.css (0,0,2,0) — 모든 색계열·
+   data-pb-color에 우선 적용. data-pb-color 분기 selector 없앰 — 공통 1개.
+
+   적용 범위:
+   · 분할형 일반 (.pb-text > .pb-text__actions)
+   · 분할형 엔딩 (.pb-text--ending > .pb-text__actions)
+   · 그림 중심형 (.pb-text--bottom-only > .pb-text__actions)
+   selector 한정 X — .pb-text__actions 어디든 매칭. */
 .scene-screen--pb .pb-frame[class*="pb-tone-color--"] .pb-text__actions
-  .choice-v03--picturebook[data-pb-color="1"] {
-  background-color: #f4f8f1;   /* rgba(90,138,74,0.06)의 옅은 초록을 불투명화 */
-}
-.scene-screen--pb .pb-frame[class*="pb-tone-color--"] .pb-text__actions
-  .choice-v03--picturebook[data-pb-color="2"] {
-  background-color: #f1f4f9;   /* rgba(90,146,194,0.06)의 옅은 파랑을 불투명화 */
-}
-.scene-screen--pb .pb-frame[class*="pb-tone-color--"] .pb-text__actions
-  .choice-v03--picturebook[data-pb-color="3"] {
-  background-color: #faf3ee;   /* rgba(198,111,74,0.06)의 옅은 코랄을 불투명화 */
+  .choice-v03--picturebook {
+  background-color: #fffdf8;
 }
 
 /* ════════════════════════════════════════════════════════════

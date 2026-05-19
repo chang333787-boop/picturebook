@@ -24,6 +24,12 @@ const _editText = {
   lockHandlerInstalled: false,
   saveStatusTimer: null,
 };
+/* v134: 다른 스크립트(특히 storyAnalyzer.js의 _rtIsViewerEditable) 박은 거 박을 수 있게
+   window에 명시적으로 노출. const 선언은 script-level scope라 자동으로 window에 박지 X 박은 거 —
+   v130 루트보기 인라인 수정 ✎ 버튼이 안 보이던 진짜 원인. */
+if (typeof window !== 'undefined') {
+  window._editText = _editText;
+}
 const EDIT_SAVE_DEBOUNCE_MS = 800;
 
 /* W9 (v3): 양옆 마감 테마 collapsible 상태.

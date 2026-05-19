@@ -352,30 +352,43 @@ function _rtCurrentStart() {
 /* ── v130: 인라인 수정 가능 여부 판단 ──
    viewer-edit 환경(ViewerState + _queueSave + _editText)에서만 박힘.
    _editText.editable=true 박힌 경우만 ✎ 박음. 잠금/내가 수정하기 전엔 박지 X.
-   maker 환경에선 _editText 박지 X — false 박힘 (v130 = viewer-edit 한정). */
+   maker 환경에선 _editText 박지 X — false 박힘 (v130 = viewer-edit 한정).
+   v134: body.viewer-edit-readonly 박힌 경우 추가 차단 (v129 정책 정합).
+         두 검사 모두 통과해야 ✎ 박음 — 안전망 강화. */
 function _rtIsViewerEditable() {
   if (typeof window === 'undefined') return false;
   if (typeof window.ViewerState === 'undefined') return false;
   if (typeof window._editText === 'undefined') return false;
   if (typeof window._queueSave !== 'function' && typeof window.saveSceneText !== 'function') return false;
+  /* v134: body class 박힌 경우 차단 (v129 readonly 정책 일관) */
+  if (typeof document !== 'undefined' && document.body &&
+      document.body.classList.contains('viewer-edit-readonly')) {
+    return false;
+  }
   return !!window._editText.editable;
 }
 
 /* ── v130: 본문/행동버튼 저장 라우터 ──
    현재 다듬기 중인 장면이면 _queueSave (debounce + 잠금 heartbeat 박힘).
-   다른 장면이면 saveSceneText 직접 호출 (debounce 박지 X — blur 후 1회만 박음). */
-function _rtPersistSave(sceneNum, fields) {
+   다른 장면이면 saveSceneText 직접 호출 (debounce 박지 X — blur 후 1회만 박음).
+   v134: 저장 실패 시 onFailure 콜백 호출 — 호출자가 메모리 롤백 + 화면 안내 박을 수 있게. */
+function _rtPersistSave(sceneNum, fields, onFailure) {
   const num = Number(sceneNum);
   const editingNum = (window._editText && window._editText.num != null)
     ? Number(window._editText.num) : null;
   if (editingNum === num && typeof window._queueSave === 'function') {
+    /* _queueSave는 debounce — 즉시 실패 감지 어렵지만 _flushPendingSave가
+       saveSceneText 호출 시 실패를 status banner로 알림. 여기선 정상 path. */
     window._queueSave(num, fields);
     return;
   }
   if (typeof window.saveSceneText === 'function') {
     window.saveSceneText(num, fields).catch(err => {
       console.error('[rt save] 실패:', err);
-      try { alert('저장에 실패했어요. 인터넷 연결을 확인해 주세요.'); } catch (e) { /* noop */ }
+      if (typeof onFailure === 'function') {
+        try { onFailure(err); } catch (e) { /* noop */ }
+      }
+      try { alert('저장에 실패했어요. 인터넷 연결을 확인해 주세요.\n원본 값으로 되돌아갑니다.'); } catch (e) { /* noop */ }
     });
   }
 }
@@ -395,11 +408,34 @@ function _rtSyncSceneField(sceneNum, fieldName, value) {
   }
 }
 
-/* ── v130: 본문 저장 — 인라인 textarea blur/Enter 후 호출 ── */
+/* ── v130: 본문 저장 — 인라인 textarea blur/Enter 후 호출 ──
+   v134: 저장 실패 시 메모리/패널/viewer-frame 모두 옛 값으로 롤백 — 화면-DB 불일치 차단. */
 function _rtSaveBody(sceneNum, value) {
   /* v127 정책 유지: trim 박지 X — \n\n 등 줄바꿈 그대로 보존 */
+  /* v134: 옛 값 박은 거 박은 후 롤백용으로 보관 */
+  const prevBody = (typeof scenes !== 'undefined' && scenes[sceneNum])
+    ? String(scenes[sceneNum].body || '') : '';
+
   _rtSyncSceneField(sceneNum, 'body', value);
-  _rtPersistSave(sceneNum, { body: value });
+  _rtPersistSave(sceneNum, { body: value }, () => {
+    /* 저장 실패 — 메모리/UI 옛 값으로 되돌림 */
+    _rtSyncSceneField(sceneNum, 'body', prevBody);
+    const editingNum2 = (window._editText && window._editText.num != null)
+      ? Number(window._editText.num) : null;
+    if (editingNum2 === Number(sceneNum) && typeof window._patchSceneBody === 'function') {
+      window._patchSceneBody(prevBody);
+    }
+    const panel2 = document.getElementById('edit-panel');
+    if (panel2 && editingNum2 === Number(sceneNum)) {
+      const bodyInput2 = panel2.querySelector('.js-edit-body');
+      if (bodyInput2 && document.activeElement !== bodyInput2) {
+        bodyInput2.value = prevBody;
+      }
+    }
+    /* 루트보기 통째 재렌더 — 같은 sceneId 박힌 곳 다 옛 값으로 */
+    if (typeof renderRoutePanel === 'function') renderRoutePanel();
+  });
+
   /* viewer-frame 현재 장면이면 즉시 patch — 깜빡임 차단 */
   const editingNum = (window._editText && window._editText.num != null)
     ? Number(window._editText.num) : null;
@@ -416,10 +452,29 @@ function _rtSaveBody(sceneNum, value) {
   }
 }
 
-/* ── v130: 선택지 라벨 저장 ── */
+/* ── v130: 선택지 라벨 저장 ──
+   v134: 저장 실패 시 buttons/choiceA·B 모두 옛 값으로 롤백. */
 function _rtSaveChoiceLabel(sceneNum, choiceIdx, value) {
   const num = Number(sceneNum);
   const idx = Number(choiceIdx);
+
+  /* v134: 옛 값 스냅샷 — 실패 시 롤백용 */
+  const prevSnapshot = (typeof scenes !== 'undefined' && scenes[num])
+    ? {
+        buttons: Array.isArray(scenes[num].buttons)
+          ? scenes[num].buttons.map(b => ({ ...b }))
+          : [],
+        choiceA: scenes[num].choiceA || '',
+        choiceB: scenes[num].choiceB || '',
+        choiceCount: scenes[num].choiceCount || 0,
+      }
+    : null;
+  const prevViewerLabel = (window.ViewerState && window.ViewerState.scenes &&
+                           window.ViewerState.scenes[String(num)] &&
+                           Array.isArray(window.ViewerState.scenes[String(num)].choices) &&
+                           window.ViewerState.scenes[String(num)].choices[idx])
+    ? window.ViewerState.scenes[String(num)].choices[idx].label
+    : '';
 
   /* maker 형식 buttons[] 갱신 */
   if (typeof scenes !== 'undefined' && scenes[num]) {
@@ -447,7 +502,34 @@ function _rtSaveChoiceLabel(sceneNum, choiceIdx, value) {
   if (idx === 0) patch.choiceA = value;
   if (idx === 1) patch.choiceB = value;
   patch.choiceCount = buttons.length;
-  _rtPersistSave(num, patch);
+  _rtPersistSave(num, patch, () => {
+    /* v134: 저장 실패 — 옛 값 복원 */
+    if (prevSnapshot && typeof scenes !== 'undefined' && scenes[num]) {
+      scenes[num].buttons = prevSnapshot.buttons;
+      scenes[num].choiceA = prevSnapshot.choiceA;
+      scenes[num].choiceB = prevSnapshot.choiceB;
+      scenes[num].choiceCount = prevSnapshot.choiceCount;
+    }
+    if (window.ViewerState && window.ViewerState.scenes) {
+      const vs2 = window.ViewerState.scenes[String(num)];
+      if (vs2 && Array.isArray(vs2.choices) && vs2.choices[idx]) {
+        vs2.choices[idx].label = prevViewerLabel;
+      }
+    }
+    const editingNum2 = (window._editText && window._editText.num != null)
+      ? Number(window._editText.num) : null;
+    if (editingNum2 === num && typeof window._scheduleViewerFrameReRender === 'function') {
+      window._scheduleViewerFrameReRender();
+    }
+    const panel2 = document.getElementById('edit-panel');
+    if (panel2 && editingNum2 === num) {
+      const labelInput2 = panel2.querySelector(`.js-edit-button-label[data-idx="${idx}"]`);
+      if (labelInput2 && document.activeElement !== labelInput2) {
+        labelInput2.value = prevViewerLabel;
+      }
+    }
+    if (typeof renderRoutePanel === 'function') renderRoutePanel();
+  });
 
   /* viewer-frame 현재 장면이면 통째 재렌더 — 행동버튼 라벨 patch 없음.
      _patchSceneBody 같은 부분 patch 박지 X — 통째 재렌더 박음. */

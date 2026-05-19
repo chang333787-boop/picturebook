@@ -74,11 +74,21 @@
   --pbt-color-border-h: 140; --pbt-color-border-c: 0.10; --pbt-color-border-l: 0.42;
   --pbt-frame-h: 130; --pbt-frame-c: 0.025;
 }
+/* v138-fix9 (v135-3): 노랑 계열 — 갈색/황토 느낌 제거.
+   현재 변수가 다른 색계열 대비 채도 2배 + 테두리 hue 75(황색 쪽) +
+   외곽 채도 가장 강함 → 누런 갈색 인상. cream / butter / honey 방향으로.
+   · c-l 0.962 → 0.972 (더 밝게 — cream)
+   · c-c 0.058 → 0.035 (채도 -40% — 갈색기 차단)
+   · c-h 85 → 90 (살짝 정통 노랑)
+   · color-border-h 75 → 80 (테두리도 황색 쪽 멀리)
+   · color-border-c 0.14 → 0.08 (테두리 갈색 선 약화)
+   · color-border-l 0.46 → 0.50 (테두리 밝게)
+   · frame-c 0.040 → 0.022 (외곽 노랑 잠김 약화 — 초록 0.020 / 파랑 0.015 수준) */
 .pb-tone-color--yellow {
-  --pbt-c-l: 0.962; --pbt-c-c: 0.058; --pbt-c-h: 85;
+  --pbt-c-l: 0.972; --pbt-c-c: 0.035; --pbt-c-h: 90;
   --pbt-color-accent: oklch(0.65 0.12 80);
-  --pbt-color-border-h: 75; --pbt-color-border-c: 0.14; --pbt-color-border-l: 0.46;
-  --pbt-frame-h: 80; --pbt-frame-c: 0.040;
+  --pbt-color-border-h: 80; --pbt-color-border-c: 0.08; --pbt-color-border-l: 0.50;
+  --pbt-frame-h: 85; --pbt-frame-c: 0.022;
 }
 .pb-tone-color--blue {
   --pbt-c-l: 0.955; --pbt-c-c: 0.026; --pbt-c-h: 230;
@@ -124,6 +134,17 @@
   --pbt-t-frame-l-delta: -0.025;   /* -0.045 → -0.025 */
   --pbt-t-frame-c-mul: 1.10;       /* 1.30 → 1.10 */
   --pbt-t-vignette: 0.08;          /* 0.14 → 0.08 */
+}
+
+/* v138-fix9 (v135-3): 노랑 + 진하게(crisis) — 갈색 카드 안 되게.
+   기본 crisis는 c-mul 1.20·l-delta -0.090 → 노랑 채도 강해지면 황색/갈색화.
+   honey beige 정도로 정착. 외곽도 함께 약화. */
+.pb-tone-color--yellow.pb-tone--crisis {
+  --pbt-t-l-delta: -0.055;         /* -0.090 → -0.055 (덜 어둡게 — honey 깊이) */
+  --pbt-t-c-mul: 1.00;             /* 1.20 → 1.00 (채도 증가 X — 갈색화 차단) */
+  --pbt-t-frame-l-delta: -0.020;   /* -0.045 → -0.020 */
+  --pbt-t-frame-c-mul: 1.00;       /* 1.30 → 1.00 (외곽 노랑 안 진해짐) */
+  --pbt-t-vignette: 0.06;          /* 0.14 → 0.06 */
 }
 
 /* ════════════════════════════════════════════════════════════

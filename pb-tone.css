@@ -243,31 +243,12 @@
 }
 
 /* ════════════════════════════════════════════════════════════
-   7) 본문 카드 렌더 — 카드 효과는 .pb-text__inner에만 박음.
-      v138-fix3 (v135-1): 행동버튼(.pb-text__actions)이 .pb-text__inner 밖에
-      있어 카드 톤 색 안 받음. .pb-text 자체는 transparent — frame 색 비침.
-
-      마크업:
-        <div class="pb-text">
-          <div class="pb-text__inner">  ← 카드 효과 여기만
-            제목 / 본문 / 행동라벨
-          </div>
-          <div class="pb-text__actions">  ← 카드 밖 — frame 색
-        </div>
-
-      padding·font-size·line-height 등 viewer.css 기존 레이아웃 속성은
-      안 건드림. inner에는 padding 박지 X — viewer.css의 .pb-text padding이
-      자식들 둘러쌈. 결과적으로 카드(inner) 윤곽이 본문 콘텐츠 둘레로 박힘.
+   7) 본문 카드 렌더 — 배경/테두리/그림자만 조절.
+      v138-fix4: .pb-text__inner 마크업 변경은 회귀(빈 공간 문제) 일으켜 revert.
+      마크업 변경 없이 CSS만으로 박는 옛 정책으로 복귀. 행동버튼 wrapper
+      침범 차단은 아래 8) 가드레일에서 처리.
    ════════════════════════════════════════════════════════════ */
 .scene-screen--pb .pb-frame[class*="pb-tone-color--"] > .pb-text {
-  /* .pb-text 자체는 카드 효과 안 박음 — frame 색 비침. viewer.css의
-     background/border/shadow도 무력화. padding은 그대로 유지 (자식 둘레 여백). */
-  background-color: transparent;
-  background-image: none;
-  border-color: transparent;
-  box-shadow: none;
-}
-.scene-screen--pb .pb-frame[class*="pb-tone-color--"] > .pb-text > .pb-text__inner {
   background-color: var(--pbt-card-bg);
   background-image: var(--pbt-card-texture, none);
   border-width: var(--pbt-card-border-width, 1px);
@@ -279,11 +260,6 @@
     background-color 0.45s ease,
     border-color 0.45s ease,
     box-shadow 0.45s ease;
-}
-/* 행동버튼 wrapper도 명시적으로 transparent — frame 색 비침. 안전망 (이중 확실).
-   기존 viewer.css의 .pb-text__actions에 background 없을 거지만 명시. */
-.scene-screen--pb .pb-frame[class*="pb-tone-color--"] > .pb-text > .pb-text__actions {
-  background: transparent;
 }
 /* 본문↔선택지 구분선 — 기존 .pb-text__actions-label 위쪽 1px 흐릿한 선처럼 보이게.
    기존 viewer.css에 이 분리선이 별도로 박혀있으면 거기서 처리. 여기서는 안 박음. */
@@ -305,6 +281,17 @@
   --pbt-card-bg: initial;
   --pbt-card-border: initial;
   --pbt-card-shadow: initial;
+}
+
+/* v138-fix4 (v135-1-fix): 행동버튼 wrapper(.pb-text__actions)에 톤 색 침범 차단.
+   .pb-text 자체가 카드 색이라 그 안의 .pb-text__actions wrapper에도 카드 색
+   비치는 게 기본. 사용자 명세 — wrapper도 톤 안 받아야. 명시적으로 viewer.css의
+   기본 카드 색(--v03-card-bg)을 wrapper에 박아 톤 색 차단.
+
+   padding/margin/border는 박지 X — viewer.css 박힌 위치 그대로 유지. background
+   만 박아 색만 분리. 마크업·레이아웃 영향 0. */
+.scene-screen--pb .pb-frame[class*="pb-tone-color--"] > .pb-text > .pb-text__actions {
+  background: var(--v03-card-bg, #fffaee);
 }
 
 /* ════════════════════════════════════════════════════════════

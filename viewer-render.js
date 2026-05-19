@@ -619,12 +619,10 @@ function _renderScenePicturebook(stage, scene, submode) {
         <div class="pb-frame${_pbToneCls}">
           ${illustHtml}
           <div class="pb-text">
-            <div class="pb-text__inner">
-              ${titleHtml}
-              <div class="pb-text__body-wrap">
-                ${bodyHtml}
-                <div class="pb-text__actions-label" aria-hidden="true">행동 ${pbChoiceCount}개 <span class="pb-text__actions-label-arrow">↓</span></div>
-              </div>
+            ${titleHtml}
+            <div class="pb-text__body-wrap">
+              ${bodyHtml}
+              <div class="pb-text__actions-label" aria-hidden="true">행동 ${pbChoiceCount}개 <span class="pb-text__actions-label-arrow">↓</span></div>
             </div>
             <div class="pb-text__actions" data-count="${pbChoiceCount}">${btns}</div>
           </div>
@@ -1326,17 +1324,15 @@ function _renderStoryEnding(stage, scene) {
   const endingTextHtml = `
     <div class="pb-text pb-text--ending ${_isEdit ? 'is-edit-static' : ''}"
          style="${_seqStyle}">
-      <div class="pb-text__inner">
-        ${userTitle ? `<div class="ending-user-title terminal-step terminal-step--title">${escHtml(userTitle)}</div>` : ''}
-        ${userBody ? `<p class="ending-user-body terminal-step terminal-step--body">${escHtml(userBody)}</p>` : ''}
-        <div class="ending-stamps-row terminal-step terminal-step--badge">
-          ${trueEndBadge}
-          <div class="ending-end-stamp">${systemIcon} ${systemLabel}</div>
-        </div>
-        ${pathSummary
-          ? `<div class="ending-path-summary-wrap terminal-step terminal-step--stats">${pathSummary.replace('<div class="ending-path-summary">', '<div class="ending-path-summary-inner">')}</div>`
-          : ''}
+      ${userTitle ? `<div class="ending-user-title terminal-step terminal-step--title">${escHtml(userTitle)}</div>` : ''}
+      ${userBody ? `<p class="ending-user-body terminal-step terminal-step--body">${escHtml(userBody)}</p>` : ''}
+      <div class="ending-stamps-row terminal-step terminal-step--badge">
+        ${trueEndBadge}
+        <div class="ending-end-stamp">${systemIcon} ${systemLabel}</div>
       </div>
+      ${pathSummary
+        ? `<div class="ending-path-summary-wrap terminal-step terminal-step--stats">${pathSummary.replace('<div class="ending-path-summary">', '<div class="ending-path-summary-inner">')}</div>`
+        : ''}
       <div class="pb-text__actions ending-actions terminal-step terminal-step--actions is-locked"
            data-count="${ViewerState.historyStack.length > 0 ? 2 : 1}">
         <button class="terminal-btn terminal-btn--primary js-restart" disabled aria-disabled="true">↺ 다른 결말 찾기</button>

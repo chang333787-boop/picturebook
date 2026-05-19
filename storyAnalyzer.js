@@ -875,21 +875,60 @@ function renderRoutePanel() {
 
 /* ── 장면 카드로 점프 ──
    v134: 환경 분기 — viewer-edit(다듬기)에서 박힌 경우 editNavigateTo로 다듬기 패널 진입.
-   maker 환경은 기존 카드 스크롤 + 하이라이트 유지. */
+   v136: 진단 로그 박음 — 어디서 막히는지 콘솔에서 확인 가능.
+         + viewer-edit 박혀있어 보이는데 editNavigateTo 박지 X 박혔으면 fallback으로
+         ViewerState.currentSceneId + renderCurrentScene 직접 호출. */
 function _rtJumpToCard(num) {
-  /* v134: viewer-edit 환경 박힌 경우 — 다듬기 패널에서 해당 장면으로 이동 */
-  if (typeof window !== 'undefined' &&
-      typeof window.editNavigateTo === 'function' &&
-      typeof window.ViewerState !== 'undefined' &&
-      window.ViewerState && window.ViewerState.scenes &&
-      window.ViewerState.scenes[String(num)]) {
+  const _hasViewer = typeof window !== 'undefined' && typeof window.ViewerState !== 'undefined';
+  const _hasEditNav = typeof window !== 'undefined' && typeof window.editNavigateTo === 'function';
+  const _hasRender = typeof window !== 'undefined' && typeof window.renderCurrentScene === 'function';
+  const _sceneOK = _hasViewer && window.ViewerState && window.ViewerState.scenes &&
+                   window.ViewerState.scenes[String(num)];
+
+  /* v136 진단 로그 — 사용자가 콘솔에서 확인 박을 수 있게 */
+  try {
+    console.log('[rt jump v136]', {
+      num,
+      hasViewer: _hasViewer,
+      hasEditNav: _hasEditNav,
+      hasRender: _hasRender,
+      sceneOK: !!_sceneOK,
+      sceneKeys: _hasViewer && window.ViewerState && window.ViewerState.scenes
+        ? Object.keys(window.ViewerState.scenes).slice(0, 5) : null,
+      editMode: _hasViewer && window.ViewerState ? window.ViewerState.editMode : null,
+    });
+  } catch (e) { /* noop */ }
+
+  /* viewer-edit 환경 — editNavigateTo 박혀있고 sceneId 박혀있으면 그대로 호출 */
+  if (_hasEditNav && _sceneOK) {
     closeRoutePanel();
-    /* 패널 닫기 애니 후 다음 프레임에서 장면 이동 박음 */
     requestAnimationFrame(() => {
       try {
         window.editNavigateTo(String(num));
+        console.log('[rt jump v136] editNavigateTo 완료');
       } catch (e) {
-        console.error('[rt jump] editNavigateTo 실패:', e);
+        console.error('[rt jump v136] editNavigateTo 실패:', e);
+      }
+    });
+    return;
+  }
+
+  /* v136 fallback: viewer 환경 박혀있는데 editNavigateTo 박지 X 박힌 경우
+     — ViewerState.currentSceneId + renderCurrentScene 직접 호출 */
+  if (_hasViewer && _sceneOK && _hasRender) {
+    closeRoutePanel();
+    requestAnimationFrame(() => {
+      try {
+        if (window.ViewerState.stopAudio) window.ViewerState.stopAudio();
+        window.ViewerState.currentSceneId = String(num);
+        window.ViewerState.selectedChoiceId = null;
+        if (Array.isArray(window.ViewerState.historyStack) && window.ViewerState.historyStack.length === 0) {
+          window.ViewerState.historyStack = ['__edit_entry__'];
+        }
+        window.renderCurrentScene();
+        console.log('[rt jump v136] fallback renderCurrentScene 완료');
+      } catch (e) {
+        console.error('[rt jump v136] fallback 실패:', e);
       }
     });
     return;
@@ -899,7 +938,10 @@ function _rtJumpToCard(num) {
   closeRoutePanel();
   requestAnimationFrame(() => {
     const card = document.getElementById('card-' + num);
-    if (!card) return;
+    if (!card) {
+      console.warn('[rt jump v136] maker path: card-' + num + ' 박지 X');
+      return;
+    }
     card.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
     card.classList.add('rt-highlight');
     setTimeout(() => card.classList.remove('rt-highlight'), 1400);
@@ -971,11 +1013,12 @@ window.addEventListener('DOMContentLoaded', () => {
       }
       /* 인라인 editor 안 클릭은 무시 (textarea/input 자체) */
       if (e.target.closest('.rt-inline-editor-wrap')) return;
-      /* scene 카드 점프 — .rt-scene-text 클릭한 경우만 (✎ 영역 클릭과 분리) */
-      const txt = e.target.closest('.rt-scene-text');
-      if (txt) {
-        const line = txt.closest('.js-rt-scene');
-        if (!line) return;
+      /* v135-fix: scene 카드 전체 클릭 영역으로 확장 — 옛엔 .rt-scene-text만 박혀
+         사용자가 prefix/여백 박은 영역 클릭하면 동작 X 박혔음.
+         이제 .js-rt-scene 박힌 카드 전체 영역 어디 클릭해도 점프.
+         (✎ 박은 거 위쪽 핸들러에서 stopPropagation 박혀 충돌 X) */
+      const line = e.target.closest('.js-rt-scene');
+      if (line) {
         const n = Number(line.dataset.num);
         if (Number.isFinite(n)) _rtJumpToCard(n);
       }

@@ -93,17 +93,18 @@ exports.callTextAiBatch = functions.https.onCall(async (data, context) => {
     "1": {
       "revisedText": "마루와 하루가 길을 가다가 멧돼지에게 쫓겼다. (mock)",
       "summary": "MOCK: 띄어쓰기 정리",
-      "safeAddition": [],
-      "creativeAddition": [],
+      "changes": ["띄어쓰기"],
       "preservedCheck": { "charactersUnchanged": true },
       "warnings": []
     },
     "2": { "skip": true, "reason": "이미 자연스러워요 (mock)" },
-    "3": { "revisedText": "... (mock)", ... }
+    "3": { "revisedText": "... (mock)", "summary": "...", "changes": ["..."], "preservedCheck": { ... }, "warnings": [] }
   },
   "isMock": true
 }
 ```
+
+> 1단계는 `safeAddition` / `creativeAddition` 박지 X (`prompts/text-strength-1.md v3`). 위 예시는 v3 정합. 2단계는 두 필드 박힘 (`AI_PROMPT_POLICY.md` 4-9 박힘).
 
 `isMock: true` 박힘 — 사용자가 보는 비교 모달에 "MOCK 데이터" 배지.
 

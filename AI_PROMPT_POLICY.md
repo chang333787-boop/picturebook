@@ -140,7 +140,10 @@ revisedText에서 한글 비율 70% 미만이면 거부됩니다.
 
 > 이 정책은 `prompts/text-strength-1.md v3` 박힌 거. v3 박힘 후 PROMPT_POLICY 박힘 (2026-05-20).
 
-## 3-6. 출력 JSON 구조 (요약)
+## 3-6. 출력 JSON 구조 (요약) — v3 기준
+
+`prompts/text-strength-1.md v3`에서 1단계는 `safeAddition` / `creativeAddition` **제거**. 1단계는 새 정보 추가 X — 다듬기만 박는 거라 두 필드 의미 없음.
+
 ```
 {
   "ok": true,
@@ -152,8 +155,6 @@ revisedText에서 한글 비율 70% 미만이면 거부됩니다.
       "revisedText": "...",
       "summary": "...",
       "changes": [...],
-      "safeAddition": [],          // 1단계엔 비어있어야 자연
-      "creativeAddition": [],      // 1단계엔 비어있어야 자연 — 박혔으면 경고
       "preservedCheck": { ... },
       "warnings": []
     },
@@ -161,6 +162,10 @@ revisedText에서 한글 비율 70% 미만이면 거부됩니다.
   }
 }
 ```
+
+**1단계 응답 검증**:
+- 응답에 `safeAddition` / `creativeAddition` 박혀있으면 **자동 거부** (1단계 위반)
+- `revisedText` 또는 `skip` union 박혀야 함
 
 ---
 
@@ -328,7 +333,7 @@ prompt에 명시 박을 거:
 - 작품 전체
 - 진단만 — 적용 흐름 X
 
-## 6-3. 진단 카테고리 (5개)
+## 6-3. 진단 항목 (8개)
 
 1. **맞춤법** — `갓다`, `도망갓다` 같은 오류
 2. **문장 어색함** — 어순·연결 어색
@@ -338,6 +343,8 @@ prompt에 명시 박을 거:
 6. **분기 흐름** — storyAnalyzer + AI 분석
 7. **도달 불가능 장면** — 어디에서도 안 들어가는 장면
 8. **갑작스러운 사건 변화** — 매끄럽지 X 박힌 변화
+
+> 위 8개 박힌 항목은 결과 모달에서 **4개 카테고리**로 묶여 박힘 (맞춤법 / 유기성 / 캐릭터 일관성 / 분기 흐름). `viewer-ai.js _showCheckResultModal` 박힘.
 
 ## 6-4. 절대 금지
 - **수정 박지 X** — 진단만
@@ -515,10 +522,17 @@ GPT v3 핵심. 다음 박혀있어야 2단계 가치 박힘:
 - **"장면이 살아났네"** = 2단계 ✓
 - 사용자 점검 시 이 차이 분명히 박혀있어야
 
-## 10-4. 자동 검증 (서버)
-- 글자수 1.5배 미만 → 경고
-- safeAddition / creativeAddition 둘 다 비었음 → 경고
+## 10-4. 자동 검증 (서버) — 2단계 기준
+
+> 1단계에는 `safeAddition` / `creativeAddition` 박지 X (v3 박힘). 아래는 **2단계 검증**.
+
+- 글자수 1.5배 미만 → 경고 (2단계 약함)
+- 2단계 `safeAddition` / `creativeAddition` 둘 다 비었음 → 경고 (2단계 약함)
 - 단 1·2단계 모두 skip 정책 박힘이라 — 일부 장면 skip은 OK
+
+**1단계 검증 (별도)**:
+- 응답에 `safeAddition` 또는 `creativeAddition` 박혀있으면 → 자동 거부 (1단계 위반)
+- 자세히는 `prompts/text-strength-1.md v3` 박힘
 
 ---
 

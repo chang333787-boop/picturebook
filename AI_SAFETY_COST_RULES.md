@@ -91,31 +91,42 @@ if (!isAiAllowed(data.classId, data.teamName)) {
 
 ---
 
-# 1-5. 가지 책임 5가지 (Anthropic 약관 박힌 기관 의무 — 2026-05-20 박힘)
+# 1-5. Anthropic 공식 가이드 기준 Phase A 전 확인·반영할 운영 의무 후보 (2026-05-20 박힘)
 
-provider 약관 재확인 결과 박혔음 (`AI_DECISIONS_FINAL.md` 3-2). Anthropic은 미성년자 박힌 서비스에 API 박는 거 조건부 허용 박혀있고, 박혀야 할 5가지 의무를 Customer(=가지) 책임으로 박음.
+provider 약관 재확인 결과 박혔음 (`AI_DECISIONS_FINAL.md` 3-2). Anthropic은 commercial product 입력/출력을 **기본으로 모델 학습에 사용 안 함**이라 안내 박혀있고, 미성년자 박힌 서비스에 API 박는 거 조건부 허용 박혀있음. 박혀야 할 5가지 운영 의무를 Customer(=가지) 책임 후보로 박음.
 
-| # | 박힐 거 | Anthropic 박힌 거 (출처) | 가지 현재 상태 | 박을 Phase |
+> 공식 문서 최종 확인은 Phase A 실 API 박기 직전에 다시 박는 것 박힘.
+
+| # | 박힐 거 | Anthropic 박힌 거 (출처) | 가지 현재 상태 | 박을 시점 |
 |---|---|---|---|---|
-| 1 | **학생/학부모 동의** | Commercial Terms — *"Customer warrants that it has all rights and permissions required to submit Inputs"* | ⚠️ 보류 (7장 박힘) | Phase A 직전 (베타 클래스 박힐 때) |
+| 1 | **학생/학부모 동의** | Commercial Terms — *"Customer warrants that it has all rights and permissions required to submit Inputs"* | ⚠️ 보류 (7장 박힘) | **학생 베타 박힐 때** (Phase A 후반 / Phase B). Phase A 초기 교사 테스트는 불필요 |
 | 2 | **AI 공개 라벨** | Minor guideline — *"Organizations must disclose to their users that they are interacting with an AI system"* (support.claude.com 9307344) | ⚠️ mock "※mock" 박혀있음 → Phase A "Claude AI 박음" 변경 박을 거 | Phase A 코드 |
 | 3 | **연령 확인 / 베타 제한** | Minor guideline 박힘 | ✓ 화이트리스트 (JL26A 3팀, 위 박힘) 1차 대체 | mock 박힘 / Phase A 베타까지 OK |
 | 4 | **콘텐츠 필터링** | Minor guideline 박힘 | ✓ Anthropic Trust&Safety 기본 박힘 / ⚠️ 가지 자체 욕설 필터 박을지 판단 | Phase A 박을 때 (선택) |
 | 5 | **모니터링 / 신고 메커니즘** | Minor guideline 박힘 | ⚠️ Phase A 박을 때 함께 박을 거 (👎 신고 박는 거) | Phase A 코드 |
 
-## 1-5-1. 박혀있어야 박는 거 (Phase A gating)
+## 1-5-1. 박혀있어야 박는 거 — gating 단계 분리
 
-✓ 또는 박힐 거 박혀있어야 Phase A 박을 수 있음. 위 표 박힌 ⚠️ 박힌 거 박을 때까지 Phase A 박지 X.
+### Phase A 초기 (교사 작품만)
+- 학부모 동의 X — 교사 자신 작품이라 본인이 동의 박은 거로 충분
+- 박혀있어야 박는 거:
+  - #2 AI 공개 라벨 (Phase A 코드에서 박힐 거)
+  - #3 화이트리스트 (이미 박힘)
+  - #4 Anthropic Trust&Safety (기본 박힘)
+  - #5 모니터링·신고 (Phase A 코드)
 
-특히:
-- **#1 학부모 동의** 박힘 X 박혀있으면 학생 데이터 박는 거 자체 X — 화이트리스트 (#3)로 베타 박힘만 가능
-- **#2 AI 공개 라벨** 박힘 X 박혀있으면 Anthropic Usage Policy 위반 — Anthropic이 박힌 의무 명시
-- **#5 모니터링·신고** 박힘 X 박혀있으면 Anthropic Trust&Safety만으로 충분 X — 미성년자 서비스 박힌 기관 자체 박을 거
+### Phase A 후반 / Phase B (학생 베타 박을 때)
+- **#1 학부모 동의 박혀있어야** 학생 데이터 박는 거 박을 수 있음
+- 위 4개 모두 박혀있어야
 
-## 1-5-2. 한국 박힌 추가 의무
+### 정합 박힘
+- `AI_DECISIONS_FINAL.md` 4-3 박힘 — "Phase A 초기엔 교사 작품만. 실 학생 데이터 박을 때 추가 조건"
+- 7장 7-1 박힘 — "개발/로컬 테스트 단계는 학부모 동의 X"
+
+## 1-5-2. 한국 박힌 추가 의무 후보
 
 Anthropic 약관은 미국 박힌 거 — 한국은 별도 규정 박힘:
-- **만 14세 미만 학부모 동의** — 한국 개인정보보호법 (위 #1과 별개로 한국 법 박힘)
+- **만 14세 미만 학부모 동의** — 한국 개인정보보호법은 만 14세 미만 아동 개인정보 처리에 법정대리인 동의·확인 박혀있을 가능성 (위 #1과 별개로 한국 법 박힘). 공식 확인은 Phase A 실 API 박기 직전 박을 거.
 - **교육 환경 학생 정보 박는 거** — 학교 박힌 동의 박을 가능성 (사용자가 박을 거)
 
 ---

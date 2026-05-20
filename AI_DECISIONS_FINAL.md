@@ -204,22 +204,25 @@
 | 미성년자 가이드 | 연령 확인 / 콘텐츠 필터링 / 모니터링·신고 / 교육 자료 / AI 공개 의무 박힘 | support.claude.com 9307344 |
 | Customer 책임 | *"Customer warrants that it has all rights and permissions required to submit Inputs"* — 학생/학부모 동의 가지 책임 | Commercial Terms |
 
-### 가지 박혀야 할 책임 (5가지)
+### 가지 운영 의무 후보 (5가지 — Anthropic 공식 가이드 기준)
 
-| # | 박힐 거 | 가지 현재 상태 |
-|---|---|---|
-| 1 | 학생/학부모 동의 박힘 | ⚠️ 보류 — 3-1 (베타 클래스 박힐 때 함께) |
-| 2 | AI 공개 라벨 (학생 화면 "Claude AI 박음") | ⚠️ Phase A 박을 때 mock "※mock" → 실 라벨로 변경 |
-| 3 | 연령 확인 / 베타 제한 | ✓ 화이트리스트 (JL26A 3팀) 박혀있음 |
-| 4 | 콘텐츠 필터링 | ✓ Anthropic Trust&Safety 기본 박힘 / ⚠️ 가지 자체 욕설 필터 박을지 판단 |
-| 5 | 모니터링·신고 메커니즘 | ⚠️ Phase A 박을 때 👎 신고 박을 거 |
+> 공식 문서 최종 확인은 Phase A 실 API 박기 직전에 다시 박는 것 박힘. 자세히는 `AI_SAFETY_COST_RULES.md` 1-5 박힘.
+
+| # | 박힐 거 | 가지 현재 상태 | gating |
+|---|---|---|---|
+| 1 | 학생/학부모 동의 박힘 | ⚠️ 보류 — 3-1 (베타 클래스 박힐 때 함께) | **학생 베타** (Phase A 후반 / Phase B). Phase A 초기 교사 테스트는 불필요 |
+| 2 | AI 공개 라벨 (학생 화면 "Claude AI 박음") | ⚠️ Phase A 박을 때 mock "※mock" → 실 라벨로 변경 | Phase A 코드 |
+| 3 | 연령 확인 / 베타 제한 | ✓ 화이트리스트 (JL26A 3팀) 박혀있음 | mock·Phase A 베타까지 박힘 |
+| 4 | 콘텐츠 필터링 | ✓ Anthropic Trust&Safety 기본 박힘 / ⚠️ 가지 자체 욕설 필터 박을지 판단 | Phase A 박을 때 (선택) |
+| 5 | 모니터링·신고 메커니즘 | ⚠️ Phase A 박을 때 👎 신고 박을 거 | Phase A 코드 |
 
 ### 결론
 
-Anthropic 약관 박힌 거 = **Phase A 박을 수 있는 근거 박힘**. 학습 사용 X 명시 + 30일 자동 삭제 + 미성년자 조건부 OK.
-단 가지 책임 5가지 박혀야 박을 수 있음 — 그 중 ✓ 2개 (3·4 기본) / ⚠️ 3개 (1·2·5).
+Anthropic 공식 가이드 박힌 거 = **Phase A 박을 수 있는 근거 박힘**. 학습 사용 X 안내 + 30일 자동 삭제 + 미성년자 조건부 OK.
+- **Phase A 초기 (교사 작품)** — #2·#3·#4·#5 박혀있어야. #1 학부모 동의는 박지 X여도 박을 수 있음 (교사 본인 작품).
+- **Phase A 후반 / Phase B (학생 베타)** — #1 박혀있어야 박을 수 있음.
 
-**Phase A 박기 전 사용자 최종 OK 박힐 거** — 위 결과 박힌 거 충분한지 박음.
+**Phase A 박기 전 사용자 최종 OK 박힐 거** — 위 결과 박힌 거 충분한지 박음. 공식 문서 최종 확인은 그때 다시.
 
 ## 3-3. Firebase Blaze plan 업그레이드
 - **조건**: Firebase 프로젝트가 Blaze plan 박힘

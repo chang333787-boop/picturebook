@@ -1,8 +1,9 @@
-# prompts/text-strength-1.md — 텍스트 1단계 (안심 정돈) 프롬프트 v2
+# prompts/text-strength-1.md — 텍스트 1단계 (안심 정돈) 프롬프트 v3
 
 > 시점: 2026-05-20 (Phase A 진행 전 준비)
-> 상태: **v2 초안** — 사용자 검토 후 v3 또는 확정
+> 상태: **v3 — 확정 직전** (사용자 OK 박힘 후 확정)
 > v1 → v2: 시제 정책 완화 / named entity 경고 위주 / safeAddition·creativeAddition 단순화 / 글자수 예외 / 자동 거부·경고 구분 / system prompt 표준어
+> v2 → v3: 7장 제목 정합 ("자동 거부 또는 강한 경고") / 7-1 분류 명확 (semantic 위반 = 강한 경고) / 7-2·7-3 부제 정리
 > 의존: AI_MASTER_PLAN_CLAUDE_v3.md / AI_PROMPT_POLICY.md / AI_SAFETY_COST_RULES.md
 > ⚠️ 이 파일은 **프롬프트 전문 초안**. 코드 구현 금지.
 

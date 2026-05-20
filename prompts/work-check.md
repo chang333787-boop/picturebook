@@ -1,8 +1,9 @@
-# prompts/work-check.md — 작품 검사 (진단 + 확인 방향) 프롬프트 v2
+# prompts/work-check.md — 작품 검사 (진단 + 확인 방향) 프롬프트 v3
 
 > 시점: 2026-05-20 (Phase A 진행 전 준비)
-> 상태: **v2 초안** — 사용자 검토 후 v3 또는 확정
+> 상태: **v3 — 확정 가능** (사용자 OK 박힘 후 확정)
 > v1 → v2: spelling correct 허용 정의 / "진단만" → "진단 + 확인 방향" / 어조 검증 보정 / branchFlow storyAnalyzer 우선 / system prompt 표준어
+> v2 → v3: 칭찬 어조 정책 완화 — 작품 평가성 칭찬은 약한 경고, 진단 결과 안내형 긍정은 허용
 > 의존: AI_MASTER_PLAN_CLAUDE_v3.md / AI_PROMPT_POLICY.md / AI_SAFETY_COST_RULES.md
 > ⚠️ 이 파일은 **프롬프트 전문 초안**. 코드 구현 금지.
 

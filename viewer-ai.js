@@ -32,10 +32,19 @@
   /* ────────────────────────────────────────────────────────────────
      Phase 정보 + 정책 상수
      ──────────────────────────────────────────────────────────────── */
-  const PHASE = 'phase-0.5-step3';
+  const PHASE = 'phase-0.5-step4';
   const MOCK_ONLY = true;
   const LS_ONBOARDING_KEY = 'pb_ai_onboarding_shown_v1';
   const LS_MOCK_STORE_KEY = 'pb_ai_mock_store_v1';
+  const LS_MOCK_USAGE_KEY = 'pb_ai_mock_usage_v1';
+
+  /* mock quota 초기값 (사용자 결정 박힌 AI_DECISIONS_FINAL.md #5 추천값) */
+  const MOCK_QUOTA = {
+    s1: 3,        /* 텍스트 1단계 */
+    s2: 1,        /* 텍스트 2단계 — Phase B */
+    s3: 1,        /* 텍스트 3단계 — Phase C */
+    check: 5,     /* 작품 검사 */
+  };
 
   /* mock 응답 지연 (사용자에게 호출 중 UI lock 보여주려고) */
   const MOCK_DELAY_MIN = 2000;
@@ -218,18 +227,18 @@
             icon: '📝',
             title: '텍스트 1단계',
             desc: '맞춤법·표현 정돈 (안심하고 받을 수 있는 정돈)',
-            enabled: a.s1.enabled,
-            disabledReason: a.s1.reason,
-            remaining: 3,
+            enabled: a.s1.enabled && _getRemaining('s1') > 0,
+            disabledReason: _getRemaining('s1') === 0 ? '이번 작품에서 사용할 수 있는 횟수를 모두 사용했어요' : a.s1.reason,
+            remaining: _getRemaining('s1'),
           })}
           ${_renderModeCard({
             key: 'check',
             icon: '🔍',
             title: '작품 검사',
-            desc: '맞춤법·유기성·캐릭터 일관성 진단 (수정 X) — step4 박을 거',
-            enabled: false,
-            disabledReason: 'step4에서 박을 거',
-            remaining: null,
+            desc: '맞춤법·유기성·캐릭터 일관성 진단 (수정 X)',
+            enabled: a.check.enabled && _getRemaining('check') > 0,
+            disabledReason: _getRemaining('check') === 0 ? '이번 작품에서 사용할 수 있는 횟수를 모두 사용했어요' : a.check.reason,
+            remaining: _getRemaining('check'),
           })}
           ${_renderModeCard({
             key: 's2',
@@ -268,6 +277,8 @@
         _removeModalRoot('ai-mode-modal');
         if (mode === 's1') {
           _startTextS1();
+        } else if (mode === 'check') {
+          _startWorkCheck();
         }
       });
     });
@@ -429,6 +440,47 @@
   }
 
   /* ════════════════════════════════════════════════════════════════
+     mock quota — localStorage (rules 변경 X 정책)
+     ════════════════════════════════════════════════════════════════ */
+  function _loadMockUsage() {
+    try {
+      const raw = localStorage.getItem(LS_MOCK_USAGE_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch (e) {}
+    return { s1Used: 0, s2Used: 0, s3Used: 0, checkUsed: 0, lastUsedAt: 0 };
+  }
+  function _saveMockUsage(usage) {
+    try { localStorage.setItem(LS_MOCK_USAGE_KEY, JSON.stringify(usage)); } catch (e) {}
+  }
+  function _getRemaining(mode) {
+    const u = _loadMockUsage();
+    if (mode === 's1')    return Math.max(0, MOCK_QUOTA.s1 - (u.s1Used || 0));
+    if (mode === 's2')    return Math.max(0, MOCK_QUOTA.s2 - (u.s2Used || 0));
+    if (mode === 's3')    return Math.max(0, MOCK_QUOTA.s3 - (u.s3Used || 0));
+    if (mode === 'check') return Math.max(0, MOCK_QUOTA.check - (u.checkUsed || 0));
+    return 0;
+  }
+  function _consumeQuota(mode) {
+    const u = _loadMockUsage();
+    if (mode === 's1')    u.s1Used = (u.s1Used || 0) + 1;
+    if (mode === 's2')    u.s2Used = (u.s2Used || 0) + 1;
+    if (mode === 's3')    u.s3Used = (u.s3Used || 0) + 1;
+    if (mode === 'check') u.checkUsed = (u.checkUsed || 0) + 1;
+    u.lastUsedAt = Date.now();
+    _saveMockUsage(u);
+  }
+  function _refundQuota(mode) {
+    /* 7가지 환불 정책 (AI_SAFETY_COST_RULES.md 5-1):
+       - 모델 실패 / 정책 위반 거부 / 네트워크 오류 → 환불 */
+    const u = _loadMockUsage();
+    if (mode === 's1' && u.s1Used > 0)       u.s1Used--;
+    if (mode === 's2' && u.s2Used > 0)       u.s2Used--;
+    if (mode === 's3' && u.s3Used > 0)       u.s3Used--;
+    if (mode === 'check' && u.checkUsed > 0) u.checkUsed--;
+    _saveMockUsage(u);
+  }
+
+  /* ════════════════════════════════════════════════════════════════
      호출 중 UI lock — 점 3개 + 경과 시간 + 분석 장면 수 + 취소
      ════════════════════════════════════════════════════════════════ */
   let _callingTimer = null;
@@ -481,12 +533,16 @@
      1단계 호출 시작
      ════════════════════════════════════════════════════════════════ */
   async function _startTextS1() {
+    /* quota 검사 */
+    if (_getRemaining('s1') <= 0) {
+      alert('이번 작품에서 사용할 수 있는 텍스트 1단계 횟수를 모두 사용했어요.');
+      return;
+    }
     /* 잠금 검사 */
     if (typeof _editText !== 'undefined' && _editText.editable === false) {
       alert('다른 사용자가 잠금을 잡고 있어서 AI를 사용할 수 없어요.');
       return;
     }
-
     /* 입력 큐 비우기 (v138 함수 재사용) */
     if (typeof _flushPendingSave === 'function') {
       await _flushPendingSave();
@@ -499,10 +555,11 @@
       return;
     }
 
+    /* quota 차감 — 호출 시작 시점 (7가지 환불 정책 따라 실패 시 환불) */
+    _consumeQuota('s1');
+
     /* AbortController 박음 */
     _currentAbort = { aborted: false };
-
-    /* 호출 중 UI lock */
     _showCallingModal(sceneCount);
 
     let suggestion = null;
@@ -511,9 +568,11 @@
     } catch (e) {
       _hideCallingModal();
       if (e && e.message === 'cancelled') {
-        /* 사용자 취소 — 안내만 */
+        /* 사용자가 호출 도중 취소 — quota 차감 그대로 (AI_SAFETY_COST_RULES 5-1 #2) */
         return;
       }
+      /* 모델/네트워크 실패 — quota 환불 */
+      _refundQuota('s1');
       alert('AI 호출 실패: ' + (e && e.message ? e.message : '알 수 없는 오류'));
       return;
     }
@@ -521,6 +580,206 @@
     _hideCallingModal();
     _saveMockSuggestion(suggestion);
     _showComparisonModal(suggestion);
+  }
+
+  /* ════════════════════════════════════════════════════════════════
+     step4 — 작품 검사 mock (수정 X 진단만)
+     ════════════════════════════════════════════════════════════════ */
+
+  /* mock 검사 — 실 AI X. 가짜 진단 4 카테고리. */
+  async function _mockCallWorkCheck(snapshot) {
+    const delayMs = MOCK_DELAY_MIN + Math.random() * (MOCK_DELAY_MAX - MOCK_DELAY_MIN);
+    await _delay(delayMs);
+
+    const sceneIds = Object.keys(snapshot);
+    if (sceneIds.length === 0) {
+      return { ok: true, type: 'check', isMock: true, categories: { spelling: [], coherence: [], characterConsistency: [], branchFlow: [] } };
+    }
+
+    /* mock 진단 — sceneId 기반 가짜 박음. 실 AI 박지 X. */
+    const spelling = [];
+    const coherence = [];
+    const characterConsistency = [];
+    const branchFlow = [];
+
+    /* 첫 1~2개 장면에 mock 맞춤법 박음 */
+    sceneIds.slice(0, Math.min(2, sceneIds.length)).forEach((id, idx) => {
+      spelling.push({
+        sceneId: id,
+        wrong: idx === 0 ? '쫓긴다' : '도망갓다',
+        correct: idx === 0 ? '쫓긴다' : '도망갔다',
+        note: 'MOCK 진단 — 실 AI 박지 X',
+      });
+    });
+
+    /* 장면 2개 이상이면 mock 유기성 박음 */
+    if (sceneIds.length >= 2) {
+      coherence.push({
+        sceneIdFrom: sceneIds[0],
+        sceneIdTo: sceneIds[1],
+        issue: 'MOCK: 두 장면 사이 흐름이 자연스러운지 한번 더 확인해주세요',
+      });
+    }
+
+    /* storyAnalyzer로 도달 불가능 장면 박음 (실제 분석) */
+    if (typeof analyzeStructure === 'function') {
+      try {
+        const analysis = analyzeStructure();
+        if (analysis && analysis.unreachableScenes && analysis.unreachableScenes.length) {
+          analysis.unreachableScenes.forEach(num => {
+            branchFlow.push({
+              sceneId: String(num),
+              issue: '이 장면은 어디서도 도달할 수 없어요',
+            });
+          });
+        }
+      } catch (e) { /* noop */ }
+    }
+
+    return {
+      ok: true,
+      checkId: 'mock_chk_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+      type: 'check',
+      isMock: true,
+      createdAt: Date.now(),
+      categories: { spelling, coherence, characterConsistency, branchFlow },
+    };
+  }
+
+  async function _startWorkCheck() {
+    /* quota 검사 */
+    if (_getRemaining('check') <= 0) {
+      alert('이번 작품에서 사용할 수 있는 작품 검사 횟수를 모두 사용했어요.');
+      return;
+    }
+    /* 잠금 검사 (검사도 박힌 데이터 기반이라 잠금 확인) */
+    if (typeof _editText !== 'undefined' && _editText.editable === false) {
+      alert('다른 사용자가 잠금을 잡고 있어서 AI를 사용할 수 없어요.');
+      return;
+    }
+    if (typeof _flushPendingSave === 'function') {
+      await _flushPendingSave();
+    }
+
+    const snapshot = _buildWorkSnapshot();
+    const sceneCount = Object.keys(snapshot).length;
+    if (sceneCount < 2) {
+      alert('본문이 박힌 장면이 2개 이상 필요해요.');
+      return;
+    }
+
+    _consumeQuota('check');
+    _currentAbort = { aborted: false };
+    _showCallingModal(sceneCount);
+
+    let result = null;
+    try {
+      result = await _mockCallWorkCheck(snapshot);
+    } catch (e) {
+      _hideCallingModal();
+      if (e && e.message === 'cancelled') return;
+      _refundQuota('check');
+      alert('AI 검사 실패: ' + (e && e.message ? e.message : '알 수 없는 오류'));
+      return;
+    }
+
+    _hideCallingModal();
+    _showCheckResultModal(result);
+  }
+
+  /* 검사 결과 모달 — 수정 X. 진단만. "장면 X로 이동" 버튼만 박음. */
+  function _showCheckResultModal(check) {
+    const cats = check.categories || {};
+    const sections = [
+      { key: 'spelling',             icon: '📝', title: '맞춤법',           items: cats.spelling || [] },
+      { key: 'coherence',            icon: '🔗', title: '장면 간 유기성',    items: cats.coherence || [] },
+      { key: 'characterConsistency', icon: '👤', title: '캐릭터 일관성',     items: cats.characterConsistency || [] },
+      { key: 'branchFlow',           icon: '🌳', title: '분기 흐름',         items: cats.branchFlow || [] },
+    ];
+
+    const sectionsHtml = sections.map(sec => {
+      const countCls = sec.items.length === 0 ? ' ai-check-category__count--zero' : '';
+      let itemsHtml = '';
+      if (sec.items.length === 0) {
+        itemsHtml = '<div class="ai-check-empty">문제 없음 ✓</div>';
+      } else {
+        itemsHtml = sec.items.map(item => _renderCheckItem(sec.key, item)).join('');
+      }
+      return `
+        <div class="ai-check-category">
+          <div class="ai-check-category__head">
+            <span>${sec.icon} ${sec.title}</span>
+            <span class="ai-check-category__count${countCls}">${sec.items.length}곳</span>
+          </div>
+          ${itemsHtml}
+        </div>
+      `;
+    }).join('');
+
+    const html = `
+      <div class="ai-modal__header">
+        <div class="ai-modal__title">🔍 작품 검사 결과 <span class="ai-mock-badge ai-mock-badge--header">Phase 0.5 mock</span></div>
+        <button class="ai-modal__close js-ai-modal-close" aria-label="닫기">✕</button>
+      </div>
+      <div class="ai-modal__body">
+        <div class="ai-check-intro">
+          AI는 <b>문제만 알려드려요</b>. 수정은 안 해드려요. 학생이 직접 보고 본인이 고치는 기능이에요.
+        </div>
+        ${sectionsHtml}
+      </div>
+      <div class="ai-modal__footer">
+        <button class="ai-btn ai-btn--primary js-ai-check-close">닫기</button>
+      </div>
+    `;
+    const root = _createModalRoot('ai-check-modal', html, { size: 'large' });
+
+    root.querySelector('.js-ai-modal-close').addEventListener('click', () => {
+      _removeModalRoot('ai-check-modal');
+    });
+    root.querySelector('.js-ai-check-close').addEventListener('click', () => {
+      _removeModalRoot('ai-check-modal');
+    });
+
+    /* 장면 X로 이동 — viewer의 editNavigateTo 재사용 (v138) */
+    root.querySelectorAll('.js-ai-check-jump').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const sceneId = btn.getAttribute('data-scene-id');
+        if (!sceneId) return;
+        if (typeof editNavigateTo === 'function') {
+          editNavigateTo(sceneId);
+          _removeModalRoot('ai-check-modal');
+        } else {
+          alert('해당 장면으로 이동할 수 없어요. 새로고침 후 다시 시도해주세요.');
+        }
+      });
+    });
+  }
+
+  function _renderCheckItem(catKey, item) {
+    let text = '';
+    let sceneId = '';
+    if (catKey === 'spelling') {
+      sceneId = item.sceneId || '';
+      text = `장면 ${sceneId}: <b>${_escapeHtml(item.wrong || '')}</b> → ${_escapeHtml(item.correct || '')}`;
+    } else if (catKey === 'coherence') {
+      sceneId = item.sceneIdFrom || '';
+      text = `장면 ${item.sceneIdFrom} → ${item.sceneIdTo}: ${_escapeHtml(item.issue || '')}`;
+    } else if (catKey === 'characterConsistency') {
+      sceneId = (item.scenes && item.scenes[0]) || '';
+      text = `<b>${_escapeHtml(item.character || '')}</b> (장면 ${(item.scenes || []).join(', ')}): ${_escapeHtml(item.issue || '')}`;
+    } else if (catKey === 'branchFlow') {
+      sceneId = item.sceneId || '';
+      text = sceneId ? `장면 ${sceneId}: ${_escapeHtml(item.issue || '')}` : _escapeHtml(item.issue || '');
+    }
+    const jumpHtml = sceneId
+      ? `<button class="ai-check-item__jump js-ai-check-jump" data-scene-id="${sceneId}">장면 ${sceneId} 이동</button>`
+      : '';
+    return `
+      <div class="ai-check-item">
+        <div class="ai-check-item__text">${text}</div>
+        ${jumpHtml}
+      </div>
+    `;
   }
 
   /* ════════════════════════════════════════════════════════════════
@@ -733,7 +992,11 @@
       _resetMockStore: function () {
         try { localStorage.removeItem(LS_MOCK_STORE_KEY); } catch (e) {}
       },
+      _resetMockUsage: function () {
+        try { localStorage.removeItem(LS_MOCK_USAGE_KEY); } catch (e) {}
+      },
       _getMockStore: _loadMockStore,
+      _getMockUsage: _loadMockUsage,
     };
   }
 })();

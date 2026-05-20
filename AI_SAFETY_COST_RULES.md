@@ -23,42 +23,63 @@
 
 ---
 
-# ⚠️ AI 호출 화이트리스트 (사용자 명시 — 2026-05-20)
+# ⚠️ Phase A 테스트용 임시 허용 목록 (사용자 명시 — 2026-05-20)
 
-가지는 익명 인증 인프라라 anonymous 어카운트 무한 생성 가능 → AI 호출 폭탄 위험 (v113 만원 사건 재발 가능). Functions 단에서 화이트리스트 박아 외부 호출 차단.
+가지는 익명 인증 인프라라 anonymous 어카운트 무한 생성 가능 → AI 호출 폭탄 위험 (v113 만원 사건 재발 가능). Functions 단에서 **Phase A 테스트 범위를 좁히기 위한 안전장치**로 classId/teamName 기반 임시 허용 목록 박음.
 
-## Phase A AI 호출 허용 목록 (Functions에 박을 거)
+## 성격 (운영 정책 X)
+
+- **Phase A 테스트용 임시 허용 목록**이지 운영 정책이나 장기 구조 X
+- 실 API 테스트 범위를 좁히기 위한 안전장치
+- 사용자가 직접 확인한 테스트 대상 (= 유의미한 그림책 데이터·본문 박힌 작품)에만 적용
+- 실제 학생 전체 대상 운영 전에는 **`teacherId`/account 기반 권한** 또는 **관리자 설정 기반 허용 목록**으로 교체
+
+## 현재 임시 허용 값 (사용자 직접 확인 박힌 테스트 대상)
 
 | classId | teamName | 비고 |
 |---|---|---|
-| `JL26A` | `0000` | 사용자 명시 |
-| `JL26A` | `은규` | 사용자 명시 (교사 본인 또는 학생) |
-| `JL26A` | `예지유은인우` | 사용자 명시 (한 팀 — 4명) |
+| `JL26A` | `0000` | 사용자 명시 — 테스트용 |
+| `JL26A` | `은규` | 사용자 명시 — 테스트용 (교사 본인 또는 학생) |
+| `JL26A` | `예지유은인우` | 사용자 명시 — 테스트용 (한 팀 — 4명) |
+
+> 위 값은 **현재 유의미한 그림책 데이터·본문 박힌 테스트 작품 박힌 대상**이라 그대로 유지 (사용자 명시 2026-05-20). 새 테스트 작품을 다시 만드는 비용이 크기 때문.
 
 위 매핑 외 모든 호출 거부 — Functions에서 즉시 차단 + quota 안 박힘.
 
-## 화이트리스트 구현 안 (Phase A에 박을 거)
+## 임시 구현 안 (Phase A에 박을 거)
 
 ```js
 // functions/index.js (Phase A 박을 거 — 지금 X)
-const AI_ALLOWED = [
+// ⚠️ 이건 Phase A 테스트 범위 좁히는 임시 안전장치. 운영 박을 때 teacherId/account 기반으로 교체.
+const AI_TEST_ALLOWED = [
   { classId: 'JL26A', teamName: '0000' },
   { classId: 'JL26A', teamName: '은규' },
   { classId: 'JL26A', teamName: '예지유은인우' },
 ];
 
-function isAiAllowed(classId, teamName) {
-  return AI_ALLOWED.some(a => a.classId === classId && a.teamName === teamName);
+function isAiTestAllowed(classId, teamName) {
+  return AI_TEST_ALLOWED.some(a => a.classId === classId && a.teamName === teamName);
 }
 
-// 모든 AI 호출 시작 시:
-if (!isAiAllowed(data.classId, data.teamName)) {
-  throw new functions.https.HttpsError('permission-denied', 'AI 사용 권한 X');
+// 모든 AI 호출 시작 시 (Phase A 테스트 단계):
+if (!isAiTestAllowed(data.classId, data.teamName)) {
+  throw new functions.https.HttpsError('permission-denied', 'AI 사용 권한 X (Phase A 테스트 대상 아님)');
 }
 ```
 
+## 운영 박을 때 교체 (Phase A 후반 / Phase B)
+
+위 임시 목록은 **운영 전에 다음 중 하나로 교체**:
+- **`teacherId`/account 기반 권한** — 교사 계정 박힐 때 그 교사가 만든 작품만 AI 가능
+- **관리자 설정 기반 허용 목록** — 관리자 콘솔에서 학교/클래스/교사 단위 허용 토글
+
+교체 시점:
+- 베타 확장 박힐 때 (학부모 동의 박힌 작품 박힘)
+- `teacherId`/account 인프라 박힘
+- App Check 박을지 결정 박힘 (사용자 미결정 — 보류)
+
 ## 추후 박을 거
-- 베타 확장 시 화이트리스트 갱신 (사용자 명시)
+- Phase A 후반 / Phase B 박을 때 위 임시 목록 → `teacherId`/account 기반으로 교체
 - 학부모 동의 박힌 작품 자동 박힘 (Phase B 이상)
 - App Check 박을지 (사용자 미결정 — 보류)
 
@@ -117,7 +138,7 @@ provider 약관 재확인 결과 박혔음 (`AI_DECISIONS_FINAL.md` 3-2). Anthro
 |---|---|---|---|---|
 | 1 | **학생/학부모 동의** | Commercial Terms — *"Customer warrants that it has all rights and permissions required to submit Inputs"* | ⚠️ 보류 (7장 박힘) | **학생 베타 박힐 때** (Phase A 후반 / Phase B). Phase A 초기 교사 테스트는 불필요 |
 | 2 | **AI 공개 라벨** | Minor guideline — *"Organizations must disclose to their users that they are interacting with an AI system"* (support.claude.com 9307344) | ⚠️ mock "※mock" 박혀있음 → Phase A "Claude AI 박음" 변경 박을 거 | Phase A 코드 |
-| 3 | **연령 확인 / 베타 제한** | Minor guideline 박힘 | ✓ 화이트리스트 (JL26A 3팀, 위 박힘) 1차 대체 | mock 박힘 / Phase A 베타까지 OK |
+| 3 | **연령 확인 / 베타 제한** | Minor guideline 박힘 | ✓ **Phase A 테스트용 임시 허용 목록** (JL26A 3팀, 위 박힘) 1차 대체 — 운영 박힐 때 `teacherId`/account 기반으로 교체 | mock 박힘 / Phase A 테스트까지 OK |
 | 4 | **콘텐츠 필터링** | Minor guideline 박힘 | ✓ Anthropic Trust&Safety 기본 박힘 / ⚠️ 가지 자체 욕설 필터 박을지 판단 | Phase A 박을 때 (선택) |
 | 5 | **모니터링 / 신고 메커니즘** | Minor guideline 박힘 | ⚠️ Phase A 박을 때 함께 박을 거 (👎 신고 박는 거) | Phase A 코드 |
 

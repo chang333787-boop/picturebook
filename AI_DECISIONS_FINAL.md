@@ -249,7 +249,7 @@
 |---|---|---|---|
 | 1 | 학생/학부모 동의 박힘 | ⚠️ 보류 — 3-1 (베타 클래스 박힐 때 함께) | **학생 베타** (Phase A 후반 / Phase B). Phase A 초기 교사 테스트는 불필요 |
 | 2 | AI 공개 라벨 (학생 화면 "Claude AI 박음") | ⚠️ Phase A 박을 때 mock "※mock" → 실 라벨로 변경 | Phase A 코드 |
-| 3 | 연령 확인 / 베타 제한 | ✓ 화이트리스트 (JL26A 3팀) 박혀있음 | mock·Phase A 베타까지 박힘 |
+| 3 | 연령 확인 / 베타 제한 | ✓ **Phase A 테스트용 임시 허용 목록** (JL26A 3팀) 박혀있음 — 운영 박힐 때 `teacherId`/account 기반으로 교체 | mock·Phase A 테스트까지 박힘 |
 | 4 | 콘텐츠 필터링 | ✓ Anthropic Trust&Safety 기본 박힘 / ⚠️ 가지 자체 욕설 필터 박을지 판단 | Phase A 박을 때 (선택) |
 | 5 | 모니터링·신고 메커니즘 | ⚠️ Phase A 박을 때 👎 신고 박을 거 | Phase A 코드 |
 

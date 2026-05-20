@@ -1,7 +1,7 @@
 /* ====================================================================
    viewer-ai.js — Phase 0.5 mock — 가지(branch) AI 기능
    --------------------------------------------------------------------
-   v138까지의 코드 + AI_MASTER_PLAN_CLAUDE_v3 + AI_PHASE_0_5_MOCK_SPEC 기준.
+   v138까지의 코드 + AI_MASTER_PLAN_CLAUDE_v3 + AI_PHASE_0_5_MOCK_SPEC + AI_POLICY_V140 기준.
 
    ⚠️ 이 파일은 mock 단계입니다 — 절대 박지 X:
    - 실 Anthropic / OpenAI / Gemini API 호출
@@ -11,19 +11,20 @@
    - Firebase Blaze 전제 작업
    - prompt 전문 작성
 
-   Phase 0.5 진행:
-   - step1: 진입 인프라 + 버튼  ✓
-   - step2: 모드 선택 + 첫 안내 + 실행 조건  ✓
-   - step3: mock 호출 + 비교 모달 + 선택 적용 (_rtSaveBody 재사용)  ← (지금)
-   - step4: 작품 검사 mock + quota mock 표시
-   - step5: 10개 시나리오 점검 + 통합 commit
+   Phase 0.5 v139 진행 (옛 흐름):
+   - step1~4: 진입/모드/비교/검사 — _rtSaveBody로 원본 덮어쓰기  ✓ (v140으로 폐기)
+
+   Phase 0.5 v140 진행 (새 흐름):
+   - v140-step1: 테스트 모드 + reset 함수 + localStorage 키 박음  ← (지금)
+   - v140-step2: 후보 3회 흐름 + 후보 모달
+   - v140-step3: 편집 중 / 마감 + aiVariants.textS1.final 저장
+   - v140-step4: viewer 토글 (원본/AI 1단계) + 마감 후 본문 분기
 
    mock 저장 정책 (rules 9-6 "rules 변경 X" 정신):
-   - ai-suggestions / ai-history는 Firebase rules에 박지 X 박혀있음
-   - 따라서 mock은 localStorage에 박음 (또는 window 메모리)
-   - 적용된 scene 본문만 Firebase scenes/{id}에 박음 (rules 허용)
-   - 새로고침 후 mock suggestion은 사라지지만 적용 본문은 유지
-     (mock 단계의 의도된 동작 — 실 단계엔 Firebase로)
+   - v139 박힌 거: ai-suggestions / ai-history localStorage. 적용 본문만 Firebase
+   - v140 박힌 거: aiDrafts / aiVariants 모두 localStorage (Firebase 박지 X)
+     - 원본 body는 절대 덮어쓰지 X (_rtSaveBody 호출 박지 X)
+     - Phase A 박힐 때 Firebase 노드로 박을 거
    ==================================================================== */
 
 (function () {
@@ -32,15 +33,24 @@
   /* ────────────────────────────────────────────────────────────────
      Phase 정보 + 정책 상수
      ──────────────────────────────────────────────────────────────── */
-  const PHASE = 'phase-0.5-step4';
+  const PHASE = 'phase-0.5-v140-step1';
   const MOCK_ONLY = true;
   const LS_ONBOARDING_KEY = 'pb_ai_onboarding_shown_v1';
   const LS_MOCK_STORE_KEY = 'pb_ai_mock_store_v1';
   const LS_MOCK_USAGE_KEY = 'pb_ai_mock_usage_v1';
 
+  /* ────────────────────────────────────────────────────────────────
+     v140 mock 전용 localStorage 키 (Phase A 박힐 때 Firebase로)
+     ⚠️ MOCK 전용 — Phase A 실 API에서는 Firebase 노드로 전환
+     ──────────────────────────────────────────────────────────────── */
+  const LS_AI_DRAFTS_KEY = 'pb_ai_drafts_v140';          /* aiDrafts.textS1 (mock) */
+  const LS_AI_VARIANTS_KEY = 'pb_ai_variants_v140';      /* aiVariants.textS1.final (mock) */
+  const LS_AI_VIEW_MODE_KEY = 'pb_ai_view_mode_v140';    /* 'original' | 'aiS1' (mock) */
+  const LS_TEST_MODE_BYPASS_KEY = 'pb_ai_test_bypass_v140'; /* TEST MODE 우회 토글 (mock) */
+
   /* mock quota 초기값 (사용자 결정 박힌 AI_DECISIONS_FINAL.md #5 추천값) */
   const MOCK_QUOTA = {
-    s1: 3,        /* 텍스트 1단계 */
+    s1: 3,        /* 텍스트 1단계 — v140 박힌 후보 3회와 정확히 매치 */
     s2: 1,        /* 텍스트 2단계 — Phase B */
     s3: 1,        /* 텍스트 3단계 — Phase C */
     check: 5,     /* 작품 검사 */
@@ -52,6 +62,128 @@
 
   /* AbortController 대용 — 사용자가 호출 중 취소 박을 수 있게 */
   let _currentAbort = null;
+
+  /* ════════════════════════════════════════════════════════════════
+     v140-step1: 테스트 모드 (TEST MODE)
+     ──────────────────────────────────────────────────────────────
+     진입 조건 (사용자 결정 #A):
+     - URL ?test=1
+     - localhost / 127.0.0.1 (개발 환경 자동)
+
+     ⚠️ 실 API 호출에는 testMode 우회 절대 적용 X (Phase A 박힐 때 Functions 단에서 차단)
+     이 모듈은 mock 전용이라 자유롭게 박음.
+     ════════════════════════════════════════════════════════════════ */
+  function _isTestMode() {
+    try {
+      const p = new URLSearchParams(location.search);
+      if (p.get('test') === '1') return true;
+      const h = location.hostname;
+      if (h === 'localhost' || h === '127.0.0.1' || h === '0.0.0.0') return true;
+    } catch (e) { /* noop */ }
+    return false;
+  }
+
+  function _isFinalizationBypassEnabled() {
+    /* TEST MODE에서만 박힘. 운영 모드에선 false (그래서 이 함수 박혀도 안전) */
+    if (!_isTestMode()) return false;
+    try {
+      const v = localStorage.getItem(LS_TEST_MODE_BYPASS_KEY);
+      return v === '1';
+    } catch (e) { return false; }
+  }
+
+  function _setFinalizationBypass(on) {
+    try {
+      if (on) localStorage.setItem(LS_TEST_MODE_BYPASS_KEY, '1');
+      else localStorage.removeItem(LS_TEST_MODE_BYPASS_KEY);
+    } catch (e) { /* noop */ }
+    _updateTestModeBadge();
+  }
+
+  function _showTestModeBadge() {
+    if (!_isTestMode()) return;
+    if (document.getElementById('ai-testmode-badge')) return;
+    const el = document.createElement('div');
+    el.id = 'ai-testmode-badge';
+    el.className = 'ai-testmode-badge';
+    el.innerHTML = ''
+      + '<span class="ai-testmode-badge__label">TEST MODE</span>'
+      + '<span class="ai-testmode-badge__hint">개발 테스트 모드 — 실 AI 호출 없음 · 학생 데이터 미사용</span>'
+      + '<button type="button" class="ai-testmode-badge__bypass js-ai-testmode-bypass" title="원본 마감 우회 토글">'
+      +   '마감 우회: <span class="js-bypass-state">OFF</span>'
+      + '</button>';
+    document.body.appendChild(el);
+    el.querySelector('.js-ai-testmode-bypass').addEventListener('click', function () {
+      _setFinalizationBypass(!_isFinalizationBypassEnabled());
+    });
+    _updateTestModeBadge();
+  }
+
+  function _updateTestModeBadge() {
+    const el = document.getElementById('ai-testmode-badge');
+    if (!el) return;
+    const state = el.querySelector('.js-bypass-state');
+    if (state) state.textContent = _isFinalizationBypassEnabled() ? 'ON' : 'OFF';
+    el.classList.toggle('ai-testmode-badge--bypass-on', _isFinalizationBypassEnabled());
+  }
+
+  function _hideTestModeBadge() {
+    const el = document.getElementById('ai-testmode-badge');
+    if (el && el.parentNode) el.parentNode.removeChild(el);
+  }
+
+  /* ════════════════════════════════════════════════════════════════
+     v140-step1: reset 함수 4가지 (사용자 결정 #B)
+     ──────────────────────────────────────────────────────────────
+     기본 reset = quota만. drafts / variants는 별도 함수.
+     window 노출 — 콘솔에서 박음.
+     ⚠️ MOCK 전용 — 실 API에는 무효 (Phase A Functions 단에서 무시)
+     ════════════════════════════════════════════════════════════════ */
+  function _resetMockUsage(mode) {
+    try {
+      if (!mode) {
+        localStorage.removeItem(LS_MOCK_USAGE_KEY);
+      } else {
+        const u = _safeParseJson(localStorage.getItem(LS_MOCK_USAGE_KEY)) || {};
+        const key = mode + 'Used';
+        if (key in u) u[key] = 0;
+        localStorage.setItem(LS_MOCK_USAGE_KEY, JSON.stringify(u));
+      }
+      console.log('[ai-mock] usage reset', mode || '(all)');
+    } catch (e) { console.warn('[ai-mock] usage reset failed', e); }
+  }
+
+  function _resetMockDrafts() {
+    try {
+      localStorage.removeItem(LS_AI_DRAFTS_KEY);
+      console.log('[ai-mock] drafts reset');
+    } catch (e) { console.warn('[ai-mock] drafts reset failed', e); }
+  }
+
+  function _resetMockVariants() {
+    try {
+      localStorage.removeItem(LS_AI_VARIANTS_KEY);
+      localStorage.removeItem(LS_AI_VIEW_MODE_KEY);
+      console.log('[ai-mock] variants reset');
+    } catch (e) { console.warn('[ai-mock] variants reset failed', e); }
+  }
+
+  function _resetMockAll() {
+    _resetMockUsage();
+    _resetMockDrafts();
+    _resetMockVariants();
+    try {
+      localStorage.removeItem(LS_MOCK_STORE_KEY);
+      localStorage.removeItem(LS_TEST_MODE_BYPASS_KEY);
+    } catch (e) { /* noop */ }
+    _updateTestModeBadge();
+    console.log('[ai-mock] all reset');
+  }
+
+  function _safeParseJson(s) {
+    if (!s) return null;
+    try { return JSON.parse(s); } catch (e) { return null; }
+  }
 
   /* ════════════════════════════════════════════════════════════════
      실행 조건 검사 (step2 그대로)
@@ -979,6 +1111,22 @@
   }
 
   /* ════════════════════════════════════════════════════════════════
+     v140-step1: TEST MODE 배지 자동 표시
+     ──────────────────────────────────────────────────────────────
+     DOMContentLoaded 박힌 후 TEST MODE 박혀있으면 화면 상단에 배지 박음.
+     ════════════════════════════════════════════════════════════════ */
+  function _bootstrapTestMode() {
+    if (!_isTestMode()) return;
+    const run = function () { _showTestModeBadge(); };
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', run);
+    } else {
+      run();
+    }
+  }
+  _bootstrapTestMode();
+
+  /* ════════════════════════════════════════════════════════════════
      window 노출
      ════════════════════════════════════════════════════════════════ */
   if (typeof window !== 'undefined') {
@@ -992,11 +1140,26 @@
       _resetMockStore: function () {
         try { localStorage.removeItem(LS_MOCK_STORE_KEY); } catch (e) {}
       },
-      _resetMockUsage: function () {
-        try { localStorage.removeItem(LS_MOCK_USAGE_KEY); } catch (e) {}
-      },
       _getMockStore: _loadMockStore,
       _getMockUsage: _loadMockUsage,
+
+      /* v140-step1 박은 거 — TEST MODE 박힌 정보 박음 */
+      _isTestMode: _isTestMode,
+      _isFinalizationBypassEnabled: _isFinalizationBypassEnabled,
+      _setFinalizationBypass: _setFinalizationBypass,
     };
+
+    /* ────────────────────────────────────────────────────────────
+       reset 4가지 — 콘솔 박는 거 박은 함수 (사용자 결정 #B)
+       window.__resetAiMockUsage()     — quota만 (기본)
+       window.__resetAiMockDrafts()    — drafts만
+       window.__resetAiMockVariants()  — variants만
+       window.__resetAiMockAll()       — 위 셋 + store + 우회 토글
+       ⚠️ MOCK 전용 — 실 API에는 무효
+       ──────────────────────────────────────────────────────────── */
+    window.__resetAiMockUsage    = _resetMockUsage;
+    window.__resetAiMockDrafts   = _resetMockDrafts;
+    window.__resetAiMockVariants = _resetMockVariants;
+    window.__resetAiMockAll      = _resetMockAll;
   }
 })();

@@ -133,24 +133,77 @@
   }
 
   /* ════════════════════════════════════════════════════════════════
-     v140-step1: reset 함수 4가지 (사용자 결정 #B)
+     v140 fix: mock usage namespace 분리 (팀별 quota — 2026-05-21 박힘)
      ──────────────────────────────────────────────────────────────
-     기본 reset = quota만. drafts / variants는 별도 함수.
+     사용자 버그 보고 박힘 — 같은 브라우저에서 0000 팀 사용하면 은규 / 예지유은인우
+     quota도 함께 차감 박혔음 (LS_MOCK_USAGE_KEY 공통 박혀서).
+
+     namespace key 박은 거:
+       pb_ai_mock_usage_v140__{classId}__{teamName}
+
+     fallback:
+       classId 박지 X → '_'
+       teamName 박지 X → '_'
+
+     ⚠️ usage만 namespace 박음 (사용자 명). aiDrafts / aiVariants 박은 거 박은 거 박은 — 별도 보고 박힐 거.
+     ════════════════════════════════════════════════════════════════ */
+  function _getCurrentNamespace() {
+    let classId = '_', teamName = '_';
+    try {
+      if (typeof ViewerState !== 'undefined' && ViewerState) {
+        if (ViewerState.classId)  classId  = String(ViewerState.classId);
+        if (ViewerState.teamName) teamName = String(ViewerState.teamName);
+      }
+      /* URL 박은 거 박은 거 박은 fallback */
+      const p = new URLSearchParams(location.search);
+      if (classId === '_' && p.get('classId')) classId = p.get('classId');
+      if (teamName === '_' && p.get('team'))   teamName = p.get('team');
+    } catch (e) { /* noop */ }
+    return classId + '__' + teamName;
+  }
+
+  function _getMockUsageKey() {
+    return LS_MOCK_USAGE_KEY + '__' + _getCurrentNamespace();
+  }
+
+  /* ════════════════════════════════════════════════════════════════
+     v140-step1: reset 함수 (사용자 결정 #B + v140 namespace fix)
+     ──────────────────────────────────────────────────────────────
+     기본 reset = 현재 팀 quota만. drafts / variants는 별도 함수.
+     전체 reset 박을 거 박은 거 박은 박은 — `__resetAiMockUsageAll` 박음.
      window 노출 — 콘솔에서 박음.
      ⚠️ MOCK 전용 — 실 API에는 무효 (Phase A Functions 단에서 무시)
      ════════════════════════════════════════════════════════════════ */
   function _resetMockUsage(mode) {
+    /* 현재 팀(namespace) quota만 reset */
+    const key = _getMockUsageKey();
     try {
       if (!mode) {
-        localStorage.removeItem(LS_MOCK_USAGE_KEY);
+        localStorage.removeItem(key);
       } else {
-        const u = _safeParseJson(localStorage.getItem(LS_MOCK_USAGE_KEY)) || {};
-        const key = mode + 'Used';
-        if (key in u) u[key] = 0;
-        localStorage.setItem(LS_MOCK_USAGE_KEY, JSON.stringify(u));
+        const u = _safeParseJson(localStorage.getItem(key)) || {};
+        const usedKey = mode + 'Used';
+        if (usedKey in u) u[usedKey] = 0;
+        localStorage.setItem(key, JSON.stringify(u));
       }
-      console.log('[ai-mock] usage reset', mode || '(all)');
+      console.log('[ai-mock] usage reset (' + _getCurrentNamespace() + ')', mode || '(all)');
     } catch (e) { console.warn('[ai-mock] usage reset failed', e); }
+  }
+
+  function _resetMockUsageAll() {
+    /* 모든 namespace usage 박은 거 박은 거 박은 — pb_ai_mock_usage_v140 prefix 박은 거 박은 거 박은 */
+    const removed = [];
+    try {
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && (k === LS_MOCK_USAGE_KEY || k.indexOf(LS_MOCK_USAGE_KEY + '__') === 0)) {
+          keysToRemove.push(k);
+        }
+      }
+      keysToRemove.forEach(function (k) { localStorage.removeItem(k); removed.push(k); });
+      console.log('[ai-mock] usage reset ALL — ' + removed.length + ' keys', removed);
+    } catch (e) { console.warn('[ai-mock] usage reset all failed', e); }
   }
 
   function _resetMockDrafts() {
@@ -169,7 +222,8 @@
   }
 
   function _resetMockAll() {
-    _resetMockUsage();
+    /* 전체 reset = 모든 팀 namespace usage + drafts + variants + store + 우회 토글 */
+    _resetMockUsageAll();
     _resetMockDrafts();
     _resetMockVariants();
     try {
@@ -1170,15 +1224,18 @@
   /* ════════════════════════════════════════════════════════════════
      mock quota — localStorage (rules 변경 X 정책)
      ════════════════════════════════════════════════════════════════ */
+  /* v140 fix: 팀별 namespace key (classId__teamName) 박음 — 같은 브라우저 박은 거 박은 거 박은 팀 간 quota 격리 */
   function _loadMockUsage() {
     try {
-      const raw = localStorage.getItem(LS_MOCK_USAGE_KEY);
+      const key = _getMockUsageKey();
+      let raw = localStorage.getItem(key);
+      /* 마이그 박은 거 박은 거 박은 — 옛 공통 키 박힌 거 박은 거 박은 박혀있고 박은 namespace 박지 X 박혀있으면 박지 X 박음 (각 팀 0부터 시작). */
       if (raw) return JSON.parse(raw);
     } catch (e) {}
     return { s1Used: 0, s2Used: 0, s3Used: 0, checkUsed: 0, lastUsedAt: 0 };
   }
   function _saveMockUsage(usage) {
-    try { localStorage.setItem(LS_MOCK_USAGE_KEY, JSON.stringify(usage)); } catch (e) {}
+    try { localStorage.setItem(_getMockUsageKey(), JSON.stringify(usage)); } catch (e) {}
   }
   function _getRemaining(mode) {
     const u = _loadMockUsage();
@@ -1755,15 +1812,17 @@
 
     /* ────────────────────────────────────────────────────────────
        reset 4가지 — 콘솔 박는 거 박은 함수 (사용자 결정 #B)
-       window.__resetAiMockUsage()     — quota만 (기본)
-       window.__resetAiMockDrafts()    — drafts만
-       window.__resetAiMockVariants()  — variants만
-       window.__resetAiMockAll()       — 위 셋 + store + 우회 토글
+       window.__resetAiMockUsage()      — 현재 팀 quota만 (기본)
+       window.__resetAiMockUsageAll()   — v140 fix: 모든 팀 quota (전체 namespace)
+       window.__resetAiMockDrafts()     — drafts만
+       window.__resetAiMockVariants()   — variants만
+       window.__resetAiMockAll()        — 전체 (usage 모든 팀 + drafts + variants + store + 우회)
        ⚠️ MOCK 전용 — 실 API에는 무효
        ──────────────────────────────────────────────────────────── */
-    window.__resetAiMockUsage    = _resetMockUsage;
-    window.__resetAiMockDrafts   = _resetMockDrafts;
-    window.__resetAiMockVariants = _resetMockVariants;
-    window.__resetAiMockAll      = _resetMockAll;
+    window.__resetAiMockUsage     = _resetMockUsage;
+    window.__resetAiMockUsageAll  = _resetMockUsageAll;
+    window.__resetAiMockDrafts    = _resetMockDrafts;
+    window.__resetAiMockVariants  = _resetMockVariants;
+    window.__resetAiMockAll       = _resetMockAll;
   }
 })();

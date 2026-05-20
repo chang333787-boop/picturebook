@@ -1,5 +1,5 @@
 /* ====================================================================
-   viewer-ai.js — Phase 0.5 mock — 가지(branch) AI 기능 진입 인프라
+   viewer-ai.js — Phase 0.5 mock — 가지(branch) AI 기능
    --------------------------------------------------------------------
    v138까지의 코드 + AI_MASTER_PLAN_CLAUDE_v3 + AI_PHASE_0_5_MOCK_SPEC 기준.
 
@@ -11,40 +11,47 @@
    - Firebase Blaze 전제 작업
    - prompt 전문 작성
 
-   Phase 0.5 진행 단계:
-   - step1: 진입 인프라 + viewer 상단 [🤖 AI 작품 다듬기] 버튼  ✓
-   - step2: 모드 선택 모달 + 첫 안내 모달 + 실행 조건 검사   ← (지금)
-   - step3: mock 호출 + 비교 모달 + 선택 적용 (_rtSaveBody 재사용)
+   Phase 0.5 진행:
+   - step1: 진입 인프라 + 버튼  ✓
+   - step2: 모드 선택 + 첫 안내 + 실행 조건  ✓
+   - step3: mock 호출 + 비교 모달 + 선택 적용 (_rtSaveBody 재사용)  ← (지금)
    - step4: 작품 검사 mock + quota mock 표시
    - step5: 10개 시나리오 점검 + 통합 commit
 
-   v138 기존 기능 (분할형/그림 중심형/본문 카드 톤/행동버튼/감상)는
-   절대 건드리지 X. 이 파일은 추가 기능만 박음.
+   mock 저장 정책 (rules 9-6 "rules 변경 X" 정신):
+   - ai-suggestions / ai-history는 Firebase rules에 박지 X 박혀있음
+   - 따라서 mock은 localStorage에 박음 (또는 window 메모리)
+   - 적용된 scene 본문만 Firebase scenes/{id}에 박음 (rules 허용)
+   - 새로고침 후 mock suggestion은 사라지지만 적용 본문은 유지
+     (mock 단계의 의도된 동작 — 실 단계엔 Firebase로)
    ==================================================================== */
 
 (function () {
   'use strict';
 
   /* ────────────────────────────────────────────────────────────────
-     Phase 정보 (사용자/디버깅 식별용)
+     Phase 정보 + 정책 상수
      ──────────────────────────────────────────────────────────────── */
-  const PHASE = 'phase-0.5-step2';
-  const MOCK_ONLY = true;   /* 실 API 박지 X — 절대 변경 금지 (다음 step에서 사용자 명시 박힐 때 변경) */
-
-  /* localStorage 키 — 첫 안내 모달 다시 안 박을 거 */
+  const PHASE = 'phase-0.5-step3';
+  const MOCK_ONLY = true;
   const LS_ONBOARDING_KEY = 'pb_ai_onboarding_shown_v1';
+  const LS_MOCK_STORE_KEY = 'pb_ai_mock_store_v1';
 
-  /* ────────────────────────────────────────────────────────────────
-     실행 조건 검사 — v138 ViewerState.scenes 기반
-     (AI_MASTER_PLAN_CLAUDE_v3 6-3 명시)
-     ──────────────────────────────────────────────────────────────── */
+  /* mock 응답 지연 (사용자에게 호출 중 UI lock 보여주려고) */
+  const MOCK_DELAY_MIN = 2000;
+  const MOCK_DELAY_MAX = 5000;
+
+  /* AbortController 대용 — 사용자가 호출 중 취소 박을 수 있게 */
+  let _currentAbort = null;
+
+  /* ════════════════════════════════════════════════════════════════
+     실행 조건 검사 (step2 그대로)
+     ════════════════════════════════════════════════════════════════ */
   function _countScenesWithBody() {
     if (typeof ViewerState === 'undefined' || !ViewerState.scenes) return 0;
     let count = 0;
     Object.values(ViewerState.scenes).forEach(s => {
-      if (!s) return;
-      /* 본문 비어있지 X 박힌 장면만 카운트. 표지(cover) 제외 */
-      if (s.type === 'cover') return;
+      if (!s || s.type === 'cover') return;
       const body = String(s.body || '').trim();
       if (body.length > 0) count++;
     });
@@ -52,7 +59,6 @@
   }
 
   function _countConnections() {
-    /* 연결 = 다른 장면으로 가는 선택지 박힌 거. 2단계 실행 조건. */
     if (typeof ViewerState === 'undefined' || !ViewerState.scenes) return 0;
     let count = 0;
     Object.values(ViewerState.scenes).forEach(s => {
@@ -64,7 +70,6 @@
     return count;
   }
 
-  /* 모드별 실행 가능 여부 + 비활성 사유 박음 */
   function _getModeAvailability() {
     const bodyCount = _countScenesWithBody();
     const connCount = _countConnections();
@@ -74,11 +79,11 @@
         reason:  bodyCount < 1 ? '본문이 있는 장면이 1개 이상 필요해요' : '',
       },
       s2: {
-        enabled: false,    /* Phase B에서 박을 거 — step2에선 disabled */
+        enabled: false,
         reason:  'Phase B에서 박을 거 (mock 단계 외)',
       },
       s3: {
-        enabled: false,    /* Phase C에서 박을 거 — 2단계 결과 필요 */
+        enabled: false,
         reason:  '2단계 결과가 박혀있어야 박을 수 있어요 (Phase C)',
       },
       check: {
@@ -88,36 +93,37 @@
     };
   }
 
-  /* ────────────────────────────────────────────────────────────────
-     모달 인프라 — overlay + 박스 + 닫기 (ESC / overlay 클릭 / [닫기] 버튼)
-     ──────────────────────────────────────────────────────────────── */
-  function _createModalRoot(id, contentHtml) {
-    /* 기존 모달 박혀있으면 먼저 제거 */
+  /* ════════════════════════════════════════════════════════════════
+     모달 인프라 — overlay + 박스 + 닫기
+     ════════════════════════════════════════════════════════════════ */
+  function _createModalRoot(id, contentHtml, opts) {
     _removeModalRoot(id);
 
     const root = document.createElement('div');
     root.id = id;
     root.className = 'ai-modal-overlay';
+    if (opts && opts.size === 'large') root.classList.add('ai-modal-overlay--large');
+    if (opts && opts.lock) root.classList.add('ai-modal-overlay--lock');
     root.innerHTML = `
-      <div class="ai-modal" role="dialog" aria-modal="true">
+      <div class="ai-modal${opts && opts.size === 'large' ? ' ai-modal--large' : ''}" role="dialog" aria-modal="true">
         ${contentHtml}
       </div>
     `;
     document.body.appendChild(root);
 
-    /* overlay 클릭 (단 모달 박스 내부 클릭은 X) */
-    root.addEventListener('click', (e) => {
-      if (e.target === root) _removeModalRoot(id);
-    });
-
-    /* ESC 키 */
-    const onKey = (e) => {
-      if (e.key === 'Escape') {
-        _removeModalRoot(id);
-        document.removeEventListener('keydown', onKey);
-      }
-    };
-    document.addEventListener('keydown', onKey);
+    /* lock 모달은 ESC / overlay 클릭 X */
+    if (!(opts && opts.lock)) {
+      root.addEventListener('click', (e) => {
+        if (e.target === root) _removeModalRoot(id);
+      });
+      const onKey = (e) => {
+        if (e.key === 'Escape') {
+          _removeModalRoot(id);
+          document.removeEventListener('keydown', onKey);
+        }
+      };
+      document.addEventListener('keydown', onKey);
+    }
 
     return root;
   }
@@ -127,10 +133,9 @@
     if (old) old.remove();
   }
 
-  /* ────────────────────────────────────────────────────────────────
-     첫 안내 모달 — 처음 박을 때 한 번
-     (AI_MASTER_PLAN_CLAUDE_v3 6-4 명시 문구)
-     ──────────────────────────────────────────────────────────────── */
+  /* ════════════════════════════════════════════════════════════════
+     첫 안내 모달
+     ════════════════════════════════════════════════════════════════ */
   function _showOnboardingModal(onConfirm) {
     const html = `
       <div class="ai-modal__header">
@@ -158,7 +163,7 @@
     root.querySelector('.js-ai-onboarding-ok').addEventListener('click', () => {
       const dontShow = root.querySelector('#ai-onboarding-dont-show').checked;
       if (dontShow) {
-        try { localStorage.setItem(LS_ONBOARDING_KEY, '1'); } catch (e) { /* noop */ }
+        try { localStorage.setItem(LS_ONBOARDING_KEY, '1'); } catch (e) {}
       }
       _removeModalRoot('ai-onboarding-modal');
       if (typeof onConfirm === 'function') onConfirm();
@@ -166,19 +171,14 @@
   }
 
   function _hasSeenOnboarding() {
-    try {
-      return localStorage.getItem(LS_ONBOARDING_KEY) === '1';
-    } catch (e) {
-      return false;
-    }
+    try { return localStorage.getItem(LS_ONBOARDING_KEY) === '1'; }
+    catch (e) { return false; }
   }
 
-  /* ────────────────────────────────────────────────────────────────
+  /* ════════════════════════════════════════════════════════════════
      모드 선택 모달
-     (AI_MASTER_PLAN_CLAUDE_v3 6-5)
-     ──────────────────────────────────────────────────────────────── */
+     ════════════════════════════════════════════════════════════════ */
   function _renderModeCard(opts) {
-    /* opts: { key, icon, title, desc, enabled, disabledReason, remaining } */
     const disabledCls = opts.enabled ? '' : ' ai-mode-card--disabled';
     const remainingHtml = opts.remaining != null
       ? `<div class="ai-mode-card__remaining">남은: ${opts.remaining}회 <span class="ai-mock-badge">mock</span></div>`
@@ -226,10 +226,10 @@
             key: 'check',
             icon: '🔍',
             title: '작품 검사',
-            desc: '맞춤법·유기성·캐릭터 일관성 진단 (수정 X)',
-            enabled: a.check.enabled,
-            disabledReason: a.check.reason,
-            remaining: 5,
+            desc: '맞춤법·유기성·캐릭터 일관성 진단 (수정 X) — step4 박을 거',
+            enabled: false,
+            disabledReason: 'step4에서 박을 거',
+            remaining: null,
           })}
           ${_renderModeCard({
             key: 's2',
@@ -258,35 +258,459 @@
 
     const root = _createModalRoot('ai-mode-modal', html);
 
-    /* 닫기 버튼 */
     root.querySelector('.js-ai-modal-close').addEventListener('click', () => {
       _removeModalRoot('ai-mode-modal');
     });
 
-    /* 모드 카드 클릭 — step2엔 다음 step 안내만 */
     root.querySelectorAll('.ai-mode-card:not(.ai-mode-card--disabled)').forEach(card => {
       card.addEventListener('click', () => {
         const mode = card.getAttribute('data-ai-mode');
-        const modeName = card.querySelector('.ai-mode-card__title').textContent;
-        alert(
-          `[${modeName}] 박혔어요.\n\n` +
-          'step2: 모드 선택 모달까지 박음.\n\n' +
-          '다음 step3에서 박을 거:\n' +
-          '· 작품 전체 snapshot 생성\n' +
-          '· mock 호출 (외부 API X)\n' +
-          '· 비교 모달 (장면 목록 + skip + 체크박스)\n' +
-          '· _rtSaveBody 재사용해 선택 적용\n' +
-          '· ai-suggestions / ai-history mock 저장'
-        );
+        _removeModalRoot('ai-mode-modal');
+        if (mode === 's1') {
+          _startTextS1();
+        }
       });
     });
   }
 
-  /* ────────────────────────────────────────────────────────────────
+  /* ════════════════════════════════════════════════════════════════
+     step3 — mock 호출 흐름
+     ════════════════════════════════════════════════════════════════ */
+
+  /* 작품 snapshot 박음 — AI에 박을 입력. 표지/본문빈장면 제외. */
+  function _buildWorkSnapshot() {
+    const scenes = {};
+    if (typeof ViewerState === 'undefined' || !ViewerState.scenes) return scenes;
+    Object.values(ViewerState.scenes).forEach(s => {
+      if (!s || s.type === 'cover') return;
+      const body = String(s.body || '').trim();
+      if (body.length === 0) return;
+      scenes[String(s.id)] = {
+        id: String(s.id),
+        title: s.title || '',
+        body: s.body,
+        isEnding: !!s.isEnding,
+        submode: s.picturebookSubmode === 'imageCenter' ? 'imageCenter' : 'split',
+        choices: (s.choices || []).map(c => ({
+          label: c && c.label ? c.label : '',
+          nextId: c && c.nextId ? c.nextId : null,
+        })),
+      };
+    });
+    return scenes;
+  }
+
+  /* mock revise — 간단 변형. 실 AI X. 사용자가 mock인 거 인지하려고 살짝 표 박음. */
+  function _mockReviseS1(body) {
+    /* 1단계 mock — 다중 공백·문장 부호 정리. 의미 변경 X. */
+    let r = String(body)
+      .replace(/[ \t]+/g, ' ')                              /* 다중 공백 1개 */
+      .replace(/\s*,\s*/g, ', ')                            /* 쉼표 뒤 공백 */
+      .replace(/([가-힣])\.([가-힣])/g, '$1. $2')            /* 마침표 뒤 공백 */
+      .replace(/\.\s*\n/g, '.\n')                           /* 마침표 + 줄바꿈 정돈 */
+      .trim();
+    /* 사용자가 mock인 거 인지하게 라벨 박음 — 실 단계엔 박지 X */
+    return r + '  ※mock';
+  }
+
+  /* AbortController 대용 delay */
+  function _delay(ms) {
+    return new Promise((resolve, reject) => {
+      const start = Date.now();
+      const tick = setInterval(() => {
+        if (_currentAbort && _currentAbort.aborted) {
+          clearInterval(tick);
+          reject(new Error('cancelled'));
+          return;
+        }
+        if (Date.now() - start >= ms) {
+          clearInterval(tick);
+          resolve();
+        }
+      }, 100);
+    });
+  }
+
+  /* mock 호출 — 실 API 박지 X. 가짜 응답 박음. */
+  async function _mockCallTextAiBatch(snapshot, strength) {
+    const delayMs = MOCK_DELAY_MIN + Math.random() * (MOCK_DELAY_MAX - MOCK_DELAY_MIN);
+    await _delay(delayMs);  /* 박는 도중 cancel 가능 */
+
+    const results = {};
+    Object.values(snapshot).forEach(s => {
+      /* 약 30% 장면은 skip — "이미 자연스러워요" */
+      if (Math.random() < 0.3) {
+        results[s.id] = { skip: true, reason: '이미 자연스러워요 (mock)' };
+      } else {
+        const revised = _mockReviseS1(s.body);
+        results[s.id] = {
+          revisedText: revised,
+          summary: 'MOCK: 띄어쓰기·문장 부호 정리',
+          changes: [
+            { type: 'mock_demo', description: 'MOCK 변경 — 실 AI 박지 X' },
+          ],
+          safeAddition: [],
+          creativeAddition: [],
+          preservedCheck: {
+            charactersUnchanged: true,
+            plotPointsUnchanged: true,
+            choiceMeaningsUnchanged: true,
+            endingDirectionUnchanged: true,
+            branchStructureUnchanged: true,
+            sceneRoleUnchanged: true,
+          },
+          warnings: [],
+        };
+      }
+    });
+
+    const totalScenes = Object.keys(snapshot).length;
+    const skipCount = Object.values(results).filter(r => r.skip).length;
+    const revisedCount = totalScenes - skipCount;
+
+    return {
+      ok: true,
+      suggestionId: 'mock_sug_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+      strength: strength,
+      scope: 'work',
+      isMock: true,
+      globalSummary: `MOCK: ${totalScenes}개 장면 중 ${revisedCount}개 다듬을 제안 박혔어요. (${skipCount}개 skip)`,
+      results: results,
+      originalSnapshot: snapshot,    /* 적용 직전 race 검증용 */
+      status: 'pending',
+      createdAt: Date.now(),
+      expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+    };
+  }
+
+  /* mock store — localStorage (rules에 ai-suggestions 박지 X 박혀있어 Firebase 안 박음) */
+  function _saveMockSuggestion(suggestion) {
+    try {
+      const store = _loadMockStore();
+      store.suggestions[suggestion.suggestionId] = suggestion;
+      localStorage.setItem(LS_MOCK_STORE_KEY, JSON.stringify(store));
+    } catch (e) { /* noop — mock 단계 */ }
+  }
+
+  function _saveMockHistory(sceneId, before, after, sourceSuggestionId) {
+    try {
+      const store = _loadMockStore();
+      if (!store.history[sceneId]) store.history[sceneId] = [];
+      store.history[sceneId].push({
+        historyId: 'mock_hist_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+        sourceSuggestionId: sourceSuggestionId,
+        before: { body: before },
+        after: { body: after },
+        appliedAt: Date.now(),
+        canUndo: true,
+        isMock: true,
+      });
+      localStorage.setItem(LS_MOCK_STORE_KEY, JSON.stringify(store));
+    } catch (e) { /* noop */ }
+  }
+
+  function _updateMockSuggestionStatus(suggestionId, status) {
+    try {
+      const store = _loadMockStore();
+      if (store.suggestions[suggestionId]) {
+        store.suggestions[suggestionId].status = status;
+        store.suggestions[suggestionId].updatedAt = Date.now();
+        localStorage.setItem(LS_MOCK_STORE_KEY, JSON.stringify(store));
+      }
+    } catch (e) {}
+  }
+
+  function _loadMockStore() {
+    try {
+      const raw = localStorage.getItem(LS_MOCK_STORE_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch (e) {}
+    return { suggestions: {}, history: {} };
+  }
+
+  /* ════════════════════════════════════════════════════════════════
+     호출 중 UI lock — 점 3개 + 경과 시간 + 분석 장면 수 + 취소
+     ════════════════════════════════════════════════════════════════ */
+  let _callingTimer = null;
+  function _showCallingModal(sceneCount) {
+    const startedAt = Date.now();
+    const html = `
+      <div class="ai-modal__body ai-calling-body">
+        <div class="ai-calling-dots">
+          <span></span><span></span><span></span>
+        </div>
+        <div class="ai-calling-title">🤖 AI가 작품을 읽고 있어요</div>
+        <div class="ai-calling-detail">
+          작품 <b>${sceneCount}개 장면</b>을 분석하는 중이에요.<br/>
+          <span class="ai-calling-time" id="ai-calling-time">0초 경과</span>
+        </div>
+        <div class="ai-calling-hint">
+          30초~1분 정도 걸릴 수 있어요.<br/>
+          <span class="ai-mock-badge">Phase 0.5 mock</span> 실 API 박지 X — 가짜 응답 (2~5초)
+        </div>
+        <button class="ai-btn ai-btn--ghost js-ai-call-cancel">취소</button>
+      </div>
+    `;
+    const root = _createModalRoot('ai-calling-modal', html, { lock: true });
+
+    /* 경과 시간 갱신 — 1초마다 */
+    if (_callingTimer) clearInterval(_callingTimer);
+    _callingTimer = setInterval(() => {
+      const el = document.getElementById('ai-calling-time');
+      if (!el) {
+        clearInterval(_callingTimer);
+        return;
+      }
+      const secs = Math.floor((Date.now() - startedAt) / 1000);
+      el.textContent = secs + '초 경과';
+    }, 1000);
+
+    root.querySelector('.js-ai-call-cancel').addEventListener('click', () => {
+      if (_currentAbort) _currentAbort.aborted = true;
+      if (_callingTimer) { clearInterval(_callingTimer); _callingTimer = null; }
+      _removeModalRoot('ai-calling-modal');
+    });
+  }
+
+  function _hideCallingModal() {
+    if (_callingTimer) { clearInterval(_callingTimer); _callingTimer = null; }
+    _removeModalRoot('ai-calling-modal');
+  }
+
+  /* ════════════════════════════════════════════════════════════════
+     1단계 호출 시작
+     ════════════════════════════════════════════════════════════════ */
+  async function _startTextS1() {
+    /* 잠금 검사 */
+    if (typeof _editText !== 'undefined' && _editText.editable === false) {
+      alert('다른 사용자가 잠금을 잡고 있어서 AI를 사용할 수 없어요.');
+      return;
+    }
+
+    /* 입력 큐 비우기 (v138 함수 재사용) */
+    if (typeof _flushPendingSave === 'function') {
+      await _flushPendingSave();
+    }
+
+    const snapshot = _buildWorkSnapshot();
+    const sceneCount = Object.keys(snapshot).length;
+    if (sceneCount === 0) {
+      alert('본문이 박힌 장면이 없어요. 먼저 작품을 작성해주세요.');
+      return;
+    }
+
+    /* AbortController 박음 */
+    _currentAbort = { aborted: false };
+
+    /* 호출 중 UI lock */
+    _showCallingModal(sceneCount);
+
+    let suggestion = null;
+    try {
+      suggestion = await _mockCallTextAiBatch(snapshot, 1);
+    } catch (e) {
+      _hideCallingModal();
+      if (e && e.message === 'cancelled') {
+        /* 사용자 취소 — 안내만 */
+        return;
+      }
+      alert('AI 호출 실패: ' + (e && e.message ? e.message : '알 수 없는 오류'));
+      return;
+    }
+
+    _hideCallingModal();
+    _saveMockSuggestion(suggestion);
+    _showComparisonModal(suggestion);
+  }
+
+  /* ════════════════════════════════════════════════════════════════
+     비교 모달 — 작품 단위 (장면 목록 + skip + 체크박스 + 좌우 split)
+     ════════════════════════════════════════════════════════════════ */
+  function _renderComparisonRow(sceneId, original, result) {
+    const sceneTitle = (typeof ViewerState !== 'undefined' && ViewerState.scenes && ViewerState.scenes[sceneId])
+      ? (ViewerState.scenes[sceneId].title || '').trim() : '';
+    const titleHtml = sceneTitle ? `<span class="ai-row-title">— ${_escapeHtml(sceneTitle)}</span>` : '';
+
+    if (result.skip) {
+      return `
+        <div class="ai-scene-row ai-scene-row--skip" data-scene-id="${sceneId}">
+          <div class="ai-scene-row__head">
+            <span class="ai-scene-row__num">장면 ${sceneId}</span>${titleHtml}
+            <span class="ai-scene-row__skip-label">이미 자연스러워요</span>
+          </div>
+        </div>
+      `;
+    }
+
+    return `
+      <div class="ai-scene-row" data-scene-id="${sceneId}">
+        <div class="ai-scene-row__head">
+          <label class="ai-scene-row__check">
+            <input type="checkbox" class="js-ai-scene-check" data-scene-id="${sceneId}" checked />
+            <span class="ai-scene-row__num">장면 ${sceneId}</span>${titleHtml}
+          </label>
+          <span class="ai-scene-row__summary">${_escapeHtml(result.summary || '')}</span>
+        </div>
+        <div class="ai-scene-row__split">
+          <div class="ai-scene-row__col">
+            <div class="ai-col-label">원문</div>
+            <div class="ai-col-body">${_escapeHtml(original.body || '')}</div>
+          </div>
+          <div class="ai-scene-row__col">
+            <div class="ai-col-label">AI 제안 <span class="ai-mock-badge">mock</span></div>
+            <div class="ai-col-body ai-col-body--suggested">${_escapeHtml(result.revisedText || '')}</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function _showComparisonModal(suggestion) {
+    const sceneIds = Object.keys(suggestion.results);
+    const rowsHtml = sceneIds.map(id => {
+      return _renderComparisonRow(id, suggestion.originalSnapshot[id], suggestion.results[id]);
+    }).join('');
+
+    const html = `
+      <div class="ai-modal__header">
+        <div class="ai-modal__title">🤖 AI 다듬기 결과 — 1단계 <span class="ai-mock-badge ai-mock-badge--header">Phase 0.5 mock</span></div>
+        <button class="ai-modal__close js-ai-modal-close" aria-label="닫기">✕</button>
+      </div>
+      <div class="ai-modal__body">
+        <div class="ai-result-summary">${_escapeHtml(suggestion.globalSummary || '')}</div>
+        <div class="ai-result-hint">
+          체크된 장면만 적용돼요. ✅ 모두 / ☐ 체크 풀기로 일괄 박을 수 있어요.
+        </div>
+        <div class="ai-result-actions-top">
+          <button class="ai-btn ai-btn--ghost js-ai-check-all">✅ 모두 선택</button>
+          <button class="ai-btn ai-btn--ghost js-ai-uncheck-all">☐ 모두 해제</button>
+        </div>
+        <div class="ai-result-rows">${rowsHtml}</div>
+      </div>
+      <div class="ai-modal__footer">
+        <button class="ai-btn ai-btn--ghost js-ai-cancel-all">전체 취소</button>
+        <button class="ai-btn ai-btn--primary js-ai-apply-selected" data-suggestion-id="${suggestion.suggestionId}">선택 적용</button>
+      </div>
+    `;
+    const root = _createModalRoot('ai-comparison-modal', html, { size: 'large' });
+
+    root.querySelector('.js-ai-modal-close').addEventListener('click', () => {
+      _updateMockSuggestionStatus(suggestion.suggestionId, 'dismissed');
+      _removeModalRoot('ai-comparison-modal');
+    });
+    root.querySelector('.js-ai-cancel-all').addEventListener('click', () => {
+      _updateMockSuggestionStatus(suggestion.suggestionId, 'dismissed');
+      _removeModalRoot('ai-comparison-modal');
+    });
+
+    root.querySelector('.js-ai-check-all').addEventListener('click', () => {
+      root.querySelectorAll('.js-ai-scene-check').forEach(cb => { cb.checked = true; });
+    });
+    root.querySelector('.js-ai-uncheck-all').addEventListener('click', () => {
+      root.querySelectorAll('.js-ai-scene-check').forEach(cb => { cb.checked = false; });
+    });
+
+    root.querySelector('.js-ai-apply-selected').addEventListener('click', async () => {
+      const checks = Array.from(root.querySelectorAll('.js-ai-scene-check:checked'));
+      const selectedIds = checks.map(cb => cb.getAttribute('data-scene-id'));
+      if (selectedIds.length === 0) {
+        alert('적용할 장면을 1개 이상 체크해주세요.');
+        return;
+      }
+      await _applySelected(suggestion, selectedIds);
+    });
+  }
+
+  /* ════════════════════════════════════════════════════════════════
+     선택 적용 — _rtSaveBody 재사용 (v138 함수)
+     ════════════════════════════════════════════════════════════════ */
+  async function _applySelected(suggestion, selectedIds) {
+    /* 잠금 재검사 */
+    if (typeof _editText !== 'undefined' && _editText.editable === false) {
+      alert('다른 사용자가 잠금을 잡고 있어서 적용할 수 없어요.');
+      return;
+    }
+
+    let appliedCount = 0;
+    let raceCount = 0;
+    const failedIds = [];
+
+    for (const sceneId of selectedIds) {
+      const result = suggestion.results[sceneId];
+      if (!result || result.skip) continue;
+
+      /* originalSnapshot vs 현재 body 비교 (race 검증) */
+      const originalBody = suggestion.originalSnapshot[sceneId]
+        ? suggestion.originalSnapshot[sceneId].body : null;
+      const currentBody = (typeof ViewerState !== 'undefined' && ViewerState.scenes && ViewerState.scenes[sceneId])
+        ? ViewerState.scenes[sceneId].body : null;
+
+      if (originalBody != null && currentBody != null && originalBody !== currentBody) {
+        /* 사용자가 그 사이 본문 박은 경우 — 안내 + 건너뛰기 */
+        raceCount++;
+        continue;
+      }
+
+      const newBody = result.revisedText || '';
+
+      /* mock history 저장 (localStorage) */
+      _saveMockHistory(sceneId, originalBody || '', newBody, suggestion.suggestionId);
+
+      /* v138 _rtSaveBody 재사용 — 메모리 + Firebase + 화면 + 롤백 모두 박힘 */
+      try {
+        if (typeof _rtSaveBody === 'function') {
+          await _rtSaveBody(sceneId, newBody);
+          appliedCount++;
+        } else {
+          /* storyAnalyzer.js 박지 X 박힌 환경 — fallback (mock 단계) */
+          console.warn('[AI mock] _rtSaveBody 박지 X — fallback');
+          failedIds.push(sceneId);
+        }
+      } catch (e) {
+        console.error('[AI mock apply] 장면', sceneId, '저장 실패:', e);
+        failedIds.push(sceneId);
+      }
+    }
+
+    /* suggestion status 갱신 */
+    const totalRevised = Object.values(suggestion.results).filter(r => !r.skip).length;
+    if (appliedCount === totalRevised) {
+      _updateMockSuggestionStatus(suggestion.suggestionId, 'applied');
+    } else if (appliedCount > 0) {
+      _updateMockSuggestionStatus(suggestion.suggestionId, 'partially_applied');
+    }
+
+    _removeModalRoot('ai-comparison-modal');
+
+    /* 현재 장면 미리보기 갱신 (v138 함수) */
+    if (typeof _scheduleViewerFrameReRender === 'function') {
+      _scheduleViewerFrameReRender();
+    }
+
+    /* 안내 */
+    let msg = `✅ ${appliedCount}개 장면에 AI 다듬기 적용했어요.`;
+    if (raceCount > 0) msg += `\n⚠ ${raceCount}개 장면은 본문이 바뀌어서 건너뛰었어요. 다시 생성해주세요.`;
+    if (failedIds.length > 0) msg += `\n❌ ${failedIds.length}개 장면 저장 실패`;
+    msg += '\n\n⚠️ Phase 0.5 mock — 적용된 본문에 "※mock" 라벨 박힘. 다음 step에서 라벨 박지 X.';
+    alert(msg);
+  }
+
+  /* ════════════════════════════════════════════════════════════════
+     유틸
+     ════════════════════════════════════════════════════════════════ */
+  function _escapeHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+      .replace(/\n/g, '<br/>');
+  }
+
+  /* ════════════════════════════════════════════════════════════════
      openModal — viewer 상단 [🤖 AI 작품 다듬기] 진입점
-     - 첫 사용자: onboarding → 모드 모달
-     - 그 외: 바로 모드 모달
-     ──────────────────────────────────────────────────────────────── */
+     ════════════════════════════════════════════════════════════════ */
   function openModal() {
     if (!_hasSeenOnboarding()) {
       _showOnboardingModal(_showModeModal);
@@ -295,18 +719,21 @@
     }
   }
 
-  /* ────────────────────────────────────────────────────────────────
-     window 노출 — viewer-edit.js의 _bindHudEditActions에서 호출
-     ──────────────────────────────────────────────────────────────── */
+  /* ════════════════════════════════════════════════════════════════
+     window 노출
+     ════════════════════════════════════════════════════════════════ */
   if (typeof window !== 'undefined') {
     window.viewerAi = {
       PHASE:      PHASE,
       MOCK_ONLY:  MOCK_ONLY,
       openModal:  openModal,
-      /* 디버깅 / 테스트용 (사용자가 onboarding 다시 보고 싶을 때) */
       _resetOnboarding: function () {
-        try { localStorage.removeItem(LS_ONBOARDING_KEY); } catch (e) { /* noop */ }
+        try { localStorage.removeItem(LS_ONBOARDING_KEY); } catch (e) {}
       },
+      _resetMockStore: function () {
+        try { localStorage.removeItem(LS_MOCK_STORE_KEY); } catch (e) {}
+      },
+      _getMockStore: _loadMockStore,
     };
   }
 })();

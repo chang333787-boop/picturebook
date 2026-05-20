@@ -1,8 +1,9 @@
 /* ====================================================================
    pb-ai.css — Phase 0.5 mock — 가지 AI UI 스타일
    --------------------------------------------------------------------
-   step1: 진입 버튼 (maker-return-bar 안 [🤖 AI 작품 다듬기]) 스타일만.
-   step2부터: 모드 선택 모달, 비교 모달, 호출 중 lock overlay 등.
+   step1: 진입 버튼 (.maker-return-btn--ai)  ✓
+   step2: 모달 overlay/박스 + 첫 안내 모달 + 모드 선택 모달  ← (지금)
+   step3~: 비교 모달, 호출 중 lock overlay 등
 
    v138 기존 디자인 (warm paper #fffaee, 코랄 #c66f4a) 따름.
    기존 viewer.css / pb-tone.css 클래스 안 건드림. 신규 클래스만 박음.
@@ -11,11 +12,8 @@
 /* ════════════════════════════════════════════════════════════
    1) 진입 버튼 — maker-return-bar 안 [🤖 AI 작품 다듬기]
       GPT v3 명시: 보조 강조 버튼 (메인 CTA X)
-      - 화려한 색 X
-      - 학생이 작품 만들기 전에 AI부터 누르는 흐름 피함
    ════════════════════════════════════════════════════════════ */
 .maker-return-btn--ai {
-  /* 옅은 따뜻 종이 + 코랄 — 보조 강조 (메인 [💾 저장]보다 약함) */
   background: linear-gradient(135deg, #fdf6e7 0%, #fbeede 100%);
   border-color: rgba(198, 111, 74, 0.35);
   color: #b85a3a;
@@ -27,4 +25,265 @@
 }
 .maker-return-btn--ai:active {
   background: #f7dec4;
+}
+
+/* ════════════════════════════════════════════════════════════
+   2) 모달 overlay + 박스 (공통)
+   ════════════════════════════════════════════════════════════ */
+.ai-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 500;                /* viewer 다른 모달(루트 패널 400)보다 위 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  overflow-y: auto;
+  animation: ai-overlay-fade-in 0.18s ease-out;
+}
+@keyframes ai-overlay-fade-in {
+  from { background: rgba(0, 0, 0, 0); }
+  to   { background: rgba(0, 0, 0, 0.55); }
+}
+
+.ai-modal {
+  background: #fffaee;
+  border-radius: 20px;
+  width: 100%;
+  max-width: 640px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  font-family: 'Nanum Gothic', sans-serif;
+  color: #2b1f10;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 40px);
+  animation: ai-modal-pop 0.22s ease-out;
+}
+@keyframes ai-modal-pop {
+  from { transform: scale(0.95); opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
+}
+
+.ai-modal__header {
+  background: linear-gradient(135deg, #fdf6e7 0%, #fbeede 100%);
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(198, 111, 74, 0.2);
+}
+.ai-modal__title {
+  font-family: 'Jua', sans-serif;
+  font-size: 18px;
+  color: #2b1f10;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.ai-modal__close {
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(80, 50, 20, 0.2);
+  color: #6b5638;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 14px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: background 0.15s ease;
+}
+.ai-modal__close:hover {
+  background: #fff;
+}
+
+.ai-modal__body {
+  padding: 22px 24px 18px;
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.ai-modal__footer {
+  padding: 14px 24px 18px;
+  border-top: 1px solid rgba(80, 50, 20, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: #fef8eb;
+}
+
+/* ════════════════════════════════════════════════════════════
+   3) 버튼 공통
+   ════════════════════════════════════════════════════════════ */
+.ai-btn {
+  appearance: none;
+  background: #fff;
+  border: 1.5px solid rgba(80, 50, 20, 0.25);
+  color: #2b1f10;
+  font-family: 'Nanum Gothic', sans-serif;
+  font-size: 13.5px;
+  font-weight: 700;
+  padding: 9px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.ai-btn:hover { background: #fdf6e7; }
+
+.ai-btn--primary {
+  background: #c66f4a;
+  border-color: #c66f4a;
+  color: #fff;
+}
+.ai-btn--primary:hover {
+  background: #b85a3a;
+  border-color: #b85a3a;
+}
+
+.ai-btn--ghost {
+  background: transparent;
+  border-color: rgba(80, 50, 20, 0.2);
+  color: #6b5638;
+}
+
+/* ════════════════════════════════════════════════════════════
+   4) MOCK 배지 — 사용자가 mock 단계임을 명확히 인지하게
+   ════════════════════════════════════════════════════════════ */
+.ai-mock-badge {
+  display: inline-block;
+  background: rgba(198, 111, 74, 0.15);
+  border: 1px solid rgba(198, 111, 74, 0.35);
+  color: #b85a3a;
+  font-family: 'Jua', sans-serif;
+  font-size: 10px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  letter-spacing: 0.5px;
+  vertical-align: middle;
+  margin-left: 6px;
+}
+.ai-mock-badge--header {
+  background: rgba(198, 111, 74, 0.18);
+}
+
+/* ════════════════════════════════════════════════════════════
+   5) 첫 안내 모달 (onboarding)
+   ════════════════════════════════════════════════════════════ */
+.ai-onboarding-text {
+  font-size: 15px;
+  line-height: 1.9;
+  color: #2b1f10;
+  margin: 0 0 16px;
+  text-align: center;
+}
+.ai-onboarding-hint {
+  background: rgba(198, 111, 74, 0.08);
+  border: 1px solid rgba(198, 111, 74, 0.25);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 12.5px;
+  color: #6b5638;
+  text-align: center;
+  font-family: 'Nanum Pen Script', cursive;
+}
+.ai-onboarding-skip {
+  font-size: 12.5px;
+  color: #6b5638;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.ai-onboarding-skip input[type="checkbox"] {
+  accent-color: #c66f4a;
+  cursor: pointer;
+}
+
+/* ════════════════════════════════════════════════════════════
+   6) 모드 선택 모달
+   ════════════════════════════════════════════════════════════ */
+.ai-mode-intro {
+  font-size: 13px;
+  color: #6b5638;
+  line-height: 1.7;
+  margin: 0 0 16px;
+  text-align: center;
+}
+
+.ai-mode-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+@media (max-width: 540px) {
+  .ai-mode-grid { grid-template-columns: 1fr; }
+}
+
+.ai-mode-card {
+  appearance: none;
+  background: #fff;
+  border: 1.5px solid rgba(80, 50, 20, 0.15);
+  border-radius: 12px;
+  padding: 16px 14px;
+  text-align: left;
+  font-family: 'Nanum Gothic', sans-serif;
+  color: #2b1f10;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 140px;
+}
+.ai-mode-card:hover:not(.ai-mode-card--disabled) {
+  background: #fdf6e7;
+  border-color: rgba(198, 111, 74, 0.45);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(198, 111, 74, 0.12);
+}
+.ai-mode-card--disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  background: #f7f1e0;
+}
+.ai-mode-card__icon {
+  font-size: 22px;
+  line-height: 1;
+}
+.ai-mode-card__title {
+  font-family: 'Jua', sans-serif;
+  font-size: 15px;
+  color: #2b1f10;
+}
+.ai-mode-card__desc {
+  font-size: 12px;
+  line-height: 1.55;
+  color: #6b5638;
+}
+.ai-mode-card__remaining {
+  margin-top: auto;
+  font-size: 11.5px;
+  color: #8a7556;
+  font-family: 'Nanum Pen Script', cursive;
+}
+.ai-mode-card__reason {
+  margin-top: auto;
+  font-size: 11px;
+  color: #b85a3a;
+  background: rgba(198, 111, 74, 0.08);
+  border-radius: 6px;
+  padding: 4px 8px;
+  line-height: 1.4;
+}
+
+.ai-mode-footer {
+  margin-top: 18px;
+  text-align: center;
+  font-size: 12px;
+  color: #8a7556;
+  font-family: 'Nanum Pen Script', cursive;
 }

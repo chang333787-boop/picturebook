@@ -270,8 +270,8 @@
 | ⚠️ | provider 약관 검토 박힘 | 박을 거 |
 | ⚠️ | Firebase Blaze plan | 박을 거 |
 | ⚠️ | 비용 비상 차단 박힘 | 박을 거 |
-| ✓ | prompts/text-strength-1.md 합의 | 박을 거 |
-| ✓ | prompts/work-check.md 합의 | 박을 거 |
+| ✓ | prompts/text-strength-1.md 합의 | **v3 확정** (2026-05-20 사용자 명시) |
+| ✓ | prompts/work-check.md 합의 | **v3 확정** (2026-05-20 사용자 명시) |
 | ⚠️ | 테스트 환경 — 교사 작품만 박을 거 (학부모 동의 박힌 작품 외 X) | 박을 거 |
 
 ### Phase A에서 박는 거

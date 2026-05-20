@@ -190,13 +190,42 @@
 ## 3-2. provider 약관 검토
 - **조건**: Anthropic 약관 박힘 — 학생 데이터 학습 안 함 명시 확인
 - **누가**: Claude (구현 시점) + 사용자 (최종 확인)
-- **상태**: 아직 박지 X
+- **상태**: ✓ **Claude 재확인 완료 (2026-05-20)** — 사용자 최종 OK 박힘 대기
+
+### 재확인 결과 (Anthropic Privacy Center · Commercial Terms · Usage Policy 2024-06)
+
+| 핵심 | 박힌 내용 | 출처 |
+|---|---|---|
+| 학습 사용 X | *"Anthropic may not train models on Customer Content from Services."* | Commercial Terms |
+| 학습 사용 X (재확인) | *"We will not use your chats or coding sessions to train our models, unless you choose to participate in our Development Partner Program."* — opt-in 또는 👍👎 피드백 명시 동의만 예외 | privacy.claude.com 7996885 |
+| 데이터 보관 | API 입력·출력 **30일 자동 삭제** 기본 / Zero Data Retention agreement 별도 신청 가능 | privacy.claude.com 7996866 |
+| 위반 콘텐츠 예외 | Usage Policy 위반 의심 시 최대 2년 / Trust&Safety classifier 점수 7년 | 동상 |
+| 미성년자 서비스 | 2024-06 Usage Policy — *"organizations to incorporate our API into their products for minors if they agree to implement certain safety features"* — 조건부 OK | anthropic.com/news/updating-our-usage-policy |
+| 미성년자 가이드 | 연령 확인 / 콘텐츠 필터링 / 모니터링·신고 / 교육 자료 / AI 공개 의무 박힘 | support.claude.com 9307344 |
+| Customer 책임 | *"Customer warrants that it has all rights and permissions required to submit Inputs"* — 학생/학부모 동의 가지 책임 | Commercial Terms |
+
+### 가지 박혀야 할 책임 (5가지)
+
+| # | 박힐 거 | 가지 현재 상태 |
+|---|---|---|
+| 1 | 학생/학부모 동의 박힘 | ⚠️ 보류 — 3-1 (베타 클래스 박힐 때 함께) |
+| 2 | AI 공개 라벨 (학생 화면 "Claude AI 박음") | ⚠️ Phase A 박을 때 mock "※mock" → 실 라벨로 변경 |
+| 3 | 연령 확인 / 베타 제한 | ✓ 화이트리스트 (JL26A 3팀) 박혀있음 |
+| 4 | 콘텐츠 필터링 | ✓ Anthropic Trust&Safety 기본 박힘 / ⚠️ 가지 자체 욕설 필터 박을지 판단 |
+| 5 | 모니터링·신고 메커니즘 | ⚠️ Phase A 박을 때 👎 신고 박을 거 |
+
+### 결론
+
+Anthropic 약관 박힌 거 = **Phase A 박을 수 있는 근거 박힘**. 학습 사용 X 명시 + 30일 자동 삭제 + 미성년자 조건부 OK.
+단 가지 책임 5가지 박혀야 박을 수 있음 — 그 중 ✓ 2개 (3·4 기본) / ⚠️ 3개 (1·2·5).
+
+**Phase A 박기 전 사용자 최종 OK 박힐 거** — 위 결과 박힌 거 충분한지 박음.
 
 ## 3-3. Firebase Blaze plan 업그레이드
 - **조건**: Firebase 프로젝트가 Blaze plan 박힘
 - **누가**: 사용자 (Firebase 콘솔)
 - **이유**: Spark 무료엔 outbound HTTP 안 됨 (AI provider 호출 불가)
-- **상태**: 아직 박지 X
+- **상태**: ✓ **박혔음** (2026-05-20 사용자 명시 "Blaze는 이미되있어")
 
 ## 3-4. 비용 비상 차단 박힘
 - **조건**:
@@ -267,7 +296,7 @@
 | ✓ | 분할형 본문 최대 (#21) | **hard cut 500자** (1단계는 원문 유지 원칙 — 2단계만 권장 250~400자) |
 | ✓ | 그림 중심형 본문 최대 (#22) | **hard cut 300자** (1단계는 원문 유지 원칙 — 2단계만 권장 100~200자) |
 | ✓ | 비용 임계치 — 테스트 (#13) | **월 $20 hard cap** (2026-05-20) |
-| ⚠️ | provider 약관 검토 박힘 | **Phase A 직전 Claude 재확인 + 사용자 OK** (Anthropic Privacy Center 기준 OK 박힐 거) |
+| ✓ | provider 약관 검토 박힘 | **Claude 재확인 완료 (2026-05-20)** — 학습 X / 30일 삭제 / 미성년자 조건부 OK / 가지 책임 5가지 (3-2 박힘). 사용자 최종 OK 박힘 대기 |
 | ✓ | Firebase Blaze plan | **박혔음** (2026-05-20 사용자 명시 "Blaze는 이미되있어") |
 | ⚠️ | 비용 비상 차단 박힘 | **Phase A 구현 단계 Functions hard cap / 일일 호출 제한 / Anthropic 콘솔 한도** |
 | ✓ | prompts/text-strength-1.md 합의 | **v3 확정** (2026-05-20 사용자 명시) |
@@ -319,19 +348,19 @@ Phase A 초기엔 교사 작품만. 실 학생 데이터 박을 때 추가 조�
 - [ ] **코드 박기 시작 OK 박힘** (사용자 명시)
 
 ## 5-3. Phase A 실 API 박기 전 — 박을 거
-- [ ] Phase 0.5 mock 완료 + 사용자 점검 OK
-- [ ] 보류 11개 중 mock 무관 6개 외 — 5개 박힘:
-  - provider 결정
-  - 1단계 모델 결정
-  - quota 테스트값
-  - 검사 quota
-  - 분할형/그림 중심형 글자수
-  - 비용 테스트 임계치
-- [ ] provider 약관 검토 박힘
-- [ ] Firebase Blaze plan 박힘
-- [ ] 비용 비상 차단 박힘
-- [ ] prompts/text-strength-1.md 합의
-- [ ] prompts/work-check.md 합의
+- [x] Phase 0.5 mock 박힘 (4 step 완료, 2026-05-20) — 사용자 점검 OK 박힘 대기
+- [x] 보류 11개 중 mock 무관 6개 외 — 5개 박힘 (2026-05-20 commit `20e9e76`):
+  - [x] provider 결정 (Anthropic Claude)
+  - [x] 1단계 모델 결정 (Haiku)
+  - [x] quota 테스트값
+  - [x] 검사 quota (5회)
+  - [x] 분할형/그림 중심형 글자수 (hard cut 500/300)
+  - [x] 비용 테스트 임계치 ($20 hard cap)
+- [x] provider 약관 검토 박힘 (Claude 재확인 완료 2026-05-20, 3-2 박힘) — 사용자 최종 OK 박힘 대기
+- [x] Firebase Blaze plan 박힘 (2026-05-20 사용자 명시)
+- [ ] 비용 비상 차단 박힘 (Phase A 구현 단계 박을 거)
+- [x] prompts/text-strength-1.md 합의 (v3 확정 2026-05-20)
+- [x] prompts/work-check.md 합의 (v3 확정 2026-05-20)
 
 ## 5-4. Phase A 후반/Phase B 박기 전 — 박을 거
 - [ ] 학부모 동의 박힘

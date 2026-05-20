@@ -33,7 +33,7 @@
   /* ────────────────────────────────────────────────────────────────
      Phase 정보 + 정책 상수
      ──────────────────────────────────────────────────────────────── */
-  const PHASE = 'phase-0.5-v140-step1';
+  const PHASE = 'phase-0.5-v140-step2';
   const MOCK_ONLY = true;
   const LS_ONBOARDING_KEY = 'pb_ai_onboarding_shown_v1';
   const LS_MOCK_STORE_KEY = 'pb_ai_mock_store_v1';
@@ -183,6 +183,288 @@
   function _safeParseJson(s) {
     if (!s) return null;
     try { return JSON.parse(s); } catch (e) { return null; }
+  }
+
+  /* ════════════════════════════════════════════════════════════════
+     v140-step2: aiDrafts helper (1단계 후보 3회 저장)
+     ──────────────────────────────────────────────────────────────
+     구조 (mock — Phase A 박힐 때 Firebase 노드로):
+     {
+       textS1: {
+         status: 'none' | 'generating' | 'candidate_ready' | 'drafting' | 'finalized',
+         candidates: {
+           attempt1: { suggestionId, results: { sceneId: {...} }, generatedAt },
+           attempt2: { ... },
+           attempt3: { ... }
+         },
+         selectedAttempt: 1 | 2 | 3 | null,
+         editedDraftByScene: { sceneId: editedBody }
+       }
+     }
+     ⚠️ MOCK 전용 — Phase A 박힐 때 Firebase로 전환
+     ════════════════════════════════════════════════════════════════ */
+  function _loadAiDrafts() {
+    return _safeParseJson(localStorage.getItem(LS_AI_DRAFTS_KEY)) || { textS1: null };
+  }
+
+  function _saveAiDrafts(drafts) {
+    try { localStorage.setItem(LS_AI_DRAFTS_KEY, JSON.stringify(drafts)); }
+    catch (e) { console.warn('[ai-mock] aiDrafts save failed', e); }
+  }
+
+  function _getAiTextS1Status() {
+    const d = _loadAiDrafts();
+    return (d.textS1 && d.textS1.status) || 'none';
+  }
+
+  function _setAiTextS1Status(status) {
+    const d = _loadAiDrafts();
+    if (!d.textS1) d.textS1 = { status: 'none', candidates: {}, selectedAttempt: null, editedDraftByScene: {} };
+    d.textS1.status = status;
+    _saveAiDrafts(d);
+  }
+
+  function _getCandidateCount() {
+    const d = _loadAiDrafts();
+    if (!d.textS1 || !d.textS1.candidates) return 0;
+    return Object.keys(d.textS1.candidates).length;
+  }
+
+  function _getNextAttemptNumber() {
+    return _getCandidateCount() + 1; /* 1·2·3 */
+  }
+
+  function _saveAiDraftCandidate(attemptN, candidate) {
+    const d = _loadAiDrafts();
+    if (!d.textS1) d.textS1 = { status: 'none', candidates: {}, selectedAttempt: null, editedDraftByScene: {} };
+    if (!d.textS1.candidates) d.textS1.candidates = {};
+    d.textS1.candidates['attempt' + attemptN] = candidate;
+    d.textS1.status = 'candidate_ready';
+    _saveAiDrafts(d);
+  }
+
+  function _setSelectedAttempt(attemptN) {
+    const d = _loadAiDrafts();
+    if (!d.textS1) return;
+    d.textS1.selectedAttempt = attemptN;
+    d.textS1.status = 'drafting';
+    _saveAiDrafts(d);
+  }
+
+  function _isS1Drafting() {
+    return _getAiTextS1Status() === 'drafting';
+  }
+
+  /* ════════════════════════════════════════════════════════════════
+     v140-step2: mock 후보 생성 (1 후보 세트 = 작품 전체)
+     ──────────────────────────────────────────────────────────────
+     v139의 _mockReviseS1 박은 거 박은 거 박은. 한 회차 = 1 후보.
+     ════════════════════════════════════════════════════════════════ */
+  async function _mockGenerateCandidate(snapshot, attemptN) {
+    /* mock 응답 지연 박음 (사용자에게 호출 중 UI lock 박힘) */
+    const delayMs = Math.floor(Math.random() * (MOCK_DELAY_MAX - MOCK_DELAY_MIN)) + MOCK_DELAY_MIN;
+    await _delay(delayMs);
+
+    const results = {};
+    snapshot.scenes.forEach(s => {
+      if (!s.body || !s.body.trim()) return;
+      /* 30% skip (이미 자연스러움) — v139 박힌 거 그대로 */
+      if (Math.random() < 0.3) {
+        results[s.id] = { skip: true, reason: '이미 자연스러워요 (mock 후보 ' + attemptN + ')' };
+      } else {
+        results[s.id] = {
+          revisedText: _mockReviseS1(s.body) + ' (mock 후보 ' + attemptN + ')',
+          summary: '띄어쓰기·문장부호 정리 (mock 후보 ' + attemptN + ')',
+          changes: ['띄어쓰기', '문장부호'],
+          preservedCheck: { charactersUnchanged: true },
+          warnings: []
+        };
+      }
+    });
+
+    return {
+      suggestionId: 'mock_v140_a' + attemptN + '_' + Date.now(),
+      attemptN: attemptN,
+      strength: 1,
+      scope: 'work',
+      globalSummary: 'MOCK 후보 ' + attemptN + ' — 장면별 다듬기 제안',
+      results: results,
+      generatedAt: Date.now(),
+      isMock: true
+    };
+  }
+
+  /* ════════════════════════════════════════════════════════════════
+     v140-step2: _startTextS1V140 — 1단계 진입 (drafting 차단 + 후보 누적)
+     ──────────────────────────────────────────────────────────────
+     v139의 _startTextS1 박은 거 박지 X — 옛 흐름 비활성. 호출 박지 X.
+     사용자 결정 #F: drafting 중에는 다른 AI 호출 차단.
+     ════════════════════════════════════════════════════════════════ */
+  async function _startTextS1V140() {
+    /* 사용자 결정 #F — drafting 중에는 다른 AI 호출 차단 */
+    if (_isS1Drafting()) {
+      alert('AI 1단계 편집 중입니다. 먼저 저장/마감하거나 취소해주세요.');
+      _showCandidatesModal();   /* 편집 중 후보 박은 거 박음 — drafting 상태 박힌 모달 */
+      return;
+    }
+
+    /* 후보 3회 모두 박혀있으면 — 후보 모달만 박음 (선택 단계로) */
+    const count = _getCandidateCount();
+    if (count >= MOCK_QUOTA.s1) {
+      _showCandidatesModal();
+      return;
+    }
+
+    /* quota 검사 */
+    if (_getRemaining('s1') <= 0) {
+      alert('1단계 quota 박혀있지 X. (남은 후보 ' + count + '/' + MOCK_QUOTA.s1 + ')');
+      _showCandidatesModal();
+      return;
+    }
+
+    /* quota 차감 + 호출 lock */
+    _consumeQuota('s1');
+    _setAiTextS1Status('generating');
+
+    const snapshot = _buildWorkSnapshot();
+    _showCallingModal(snapshot.scenes.length);
+    _currentAbort = { cancelled: false };
+
+    let candidate;
+    try {
+      const attemptN = _getNextAttemptNumber();
+      candidate = await _mockGenerateCandidate(snapshot, attemptN);
+      if (_currentAbort && _currentAbort.cancelled) {
+        /* 호출 도중 취소 — 7가지 환불 정책 #2: 차감 그대로 (환불 X) */
+        _hideCallingModal();
+        _setAiTextS1Status(count > 0 ? 'candidate_ready' : 'none');
+        return;
+      }
+      _saveAiDraftCandidate(attemptN, candidate);
+    } catch (e) {
+      /* mock 실패 — 환불 (7가지 #3) */
+      _refundQuota('s1');
+      _hideCallingModal();
+      _setAiTextS1Status(count > 0 ? 'candidate_ready' : 'none');
+      alert('mock 호출 실패: ' + (e && e.message || e));
+      return;
+    }
+
+    _hideCallingModal();
+    _showCandidatesModal();
+  }
+
+  /* ════════════════════════════════════════════════════════════════
+     v140-step2: 후보 모달 (회차 탭 — 사용자 결정 #E)
+     ════════════════════════════════════════════════════════════════ */
+  function _showCandidatesModal() {
+    const d = _loadAiDrafts();
+    const cands = (d.textS1 && d.textS1.candidates) || {};
+    const attempts = Object.keys(cands)
+      .filter(k => /^attempt\d+$/.test(k))
+      .map(k => parseInt(k.replace('attempt', ''), 10))
+      .sort(function (a, b) { return a - b; });
+
+    if (attempts.length === 0) {
+      alert('후보 박혀있지 X.');
+      return;
+    }
+
+    const remaining = _getRemaining('s1');
+    const status = _getAiTextS1Status();
+    const drafting = (status === 'drafting');
+    const selected = (d.textS1 && d.textS1.selectedAttempt) || null;
+
+    const tabsHtml = attempts.map(function (n) {
+      const active = (n === (selected || attempts[attempts.length - 1])) ? ' is-active' : '';
+      return '<button type="button" class="ai-cand-tab' + active + '" data-attempt="' + n + '">' + n + '회차</button>';
+    }).join('');
+
+    const moreBtn = (remaining > 0 && !drafting)
+      ? '<button type="button" class="ai-btn ai-btn--ghost js-ai-cand-more">[더 생성하기 (남은 ' + remaining + '회)]</button>'
+      : '<span class="ai-cand-quota-empty">' + (drafting ? '편집 중에는 추가 생성 X' : 'quota 박혀있지 X') + '</span>';
+
+    const draftingNote = drafting
+      ? '<div class="ai-cand-drafting-note">⚠️ AI 1단계 편집 중입니다. 먼저 저장/마감하거나 취소해주세요.</div>'
+      : '';
+
+    const inner = ''
+      + '<div class="ai-cand-modal">'
+      +   '<div class="ai-cand-modal__head">'
+      +     '<h3>AI 1단계 후보 (mock)</h3>'
+      +     '<button type="button" class="ai-modal-close js-ai-cand-close" aria-label="닫기">×</button>'
+      +   '</div>'
+      +   draftingNote
+      +   '<div class="ai-cand-tabs">' + tabsHtml + '</div>'
+      +   '<div class="ai-cand-tab-body js-ai-cand-body"></div>'
+      +   '<div class="ai-cand-modal__foot">'
+      +     moreBtn
+      +     '<button type="button" class="ai-btn ai-btn--primary js-ai-cand-select"' + (drafting ? ' disabled' : '') + '>[이 후보 선택하기]</button>'
+      +   '</div>'
+      + '</div>';
+
+    const root = _createModalRoot('ai-cand-modal-root', inner, { className: 'ai-modal-overlay' });
+
+    let activeAttempt = selected || attempts[attempts.length - 1];
+
+    function renderBody() {
+      const body = root.querySelector('.js-ai-cand-body');
+      if (!body) return;
+      const c = cands['attempt' + activeAttempt];
+      if (!c) { body.innerHTML = '<div class="ai-cand-empty">후보 박혀있지 X</div>'; return; }
+      const snapshot = _buildWorkSnapshot();
+      const scenes = snapshot.scenes;
+      const rows = scenes.map(function (s) {
+        const r = c.results[s.id];
+        if (!r) return '<div class="ai-cand-row ai-cand-row--none"><div class="ai-cand-scene-id">장면 ' + _escapeHtml(s.id) + '</div><div class="ai-cand-skip">(결과 없음)</div></div>';
+        if (r.skip) return '<div class="ai-cand-row ai-cand-row--skip"><div class="ai-cand-scene-id">장면 ' + _escapeHtml(s.id) + '</div><div class="ai-cand-skip">skip — ' + _escapeHtml(r.reason || '') + '</div></div>';
+        return ''
+          + '<div class="ai-cand-row">'
+          +   '<div class="ai-cand-scene-id">장면 ' + _escapeHtml(s.id) + '</div>'
+          +   '<div class="ai-cand-split">'
+          +     '<div class="ai-cand-col"><div class="ai-cand-col-label">원본</div><div class="ai-cand-col-text">' + _escapeHtml(s.body || '') + '</div></div>'
+          +     '<div class="ai-cand-col"><div class="ai-cand-col-label">후보 ' + activeAttempt + '회차</div><div class="ai-cand-col-text ai-cand-col-text--ai">' + _escapeHtml(r.revisedText || '') + '</div></div>'
+          +   '</div>'
+          +   (r.summary ? '<div class="ai-cand-summary">' + _escapeHtml(r.summary) + '</div>' : '')
+          + '</div>';
+      }).join('');
+      body.innerHTML = rows || '<div class="ai-cand-empty">박혀있지 X</div>';
+    }
+
+    renderBody();
+
+    /* 탭 박은 거 박음 */
+    root.querySelectorAll('.ai-cand-tab').forEach(function (tab) {
+      tab.addEventListener('click', function () {
+        activeAttempt = parseInt(tab.getAttribute('data-attempt'), 10);
+        root.querySelectorAll('.ai-cand-tab').forEach(function (t) { t.classList.remove('is-active'); });
+        tab.classList.add('is-active');
+        renderBody();
+      });
+    });
+
+    /* 닫기 */
+    root.querySelector('.js-ai-cand-close').addEventListener('click', function () {
+      _removeModalRoot('ai-cand-modal-root');
+    });
+
+    /* [더 생성하기] */
+    const moreEl = root.querySelector('.js-ai-cand-more');
+    if (moreEl) {
+      moreEl.addEventListener('click', function () {
+        _removeModalRoot('ai-cand-modal-root');
+        _startTextS1V140();   /* 다시 호출 — 누적 박힘 */
+      });
+    }
+
+    /* [이 후보 선택하기] — step3 진입 (drafting). step3 박힐 때 _enterDraftingMode 박을 거 */
+    root.querySelector('.js-ai-cand-select').addEventListener('click', function () {
+      if (drafting) return;
+      _setSelectedAttempt(activeAttempt);
+      _removeModalRoot('ai-cand-modal-root');
+      /* step3 박힐 때 _enterDraftingMode(activeAttempt) 박을 거 */
+      alert('후보 ' + activeAttempt + '회차 선택 박힘. (편집 중 UI는 v140-step3 박을 때 박힘)');
+    });
   }
 
   /* ════════════════════════════════════════════════════════════════
@@ -408,7 +690,8 @@
         const mode = card.getAttribute('data-ai-mode');
         _removeModalRoot('ai-mode-modal');
         if (mode === 's1') {
-          _startTextS1();
+          /* v140-step2: 후보 3회 흐름. 옛 _startTextS1 (비교 모달 + _rtSaveBody 적용)은 호출 박지 X */
+          _startTextS1V140();
         } else if (mode === 'check') {
           _startWorkCheck();
         }

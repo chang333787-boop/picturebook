@@ -332,10 +332,31 @@ v3 그대로. 단 `isMock: true` 박힘.
 }
 ```
 
-### mock quota 정책 (4-1 절대 금지 #5)
-- mock 단계엔 quota 차감 X (단 UI에는 표시)
-- 사용자가 quota 흐름 확인 가능하게 가짜 표시:
-  - 호출 후 "남은: 2회 (mock)" 라벨
+### mock quota 정책 (2026-05-20 v139 step4 박힘 — 갱신)
+
+**옛 정책**: "mock 단계엔 quota 차감 X (단 UI에는 표시)"
+**새 정책 (v139 step4)**: **mock 단계도 quota 차감 박음** — 단 localStorage 기반 (`LS_MOCK_USAGE_KEY`).
+
+이유:
+- 7가지 환불 정책 (AI_SAFETY_COST_RULES 5-1)을 mock 단계에서 검증해야 Phase A 박을 때 안전
+- 사용자 점검 시나리오 8 (quota 차감/환불 흐름) 박을 수 있어야 함
+- 실 Firebase ai-usage 노드는 박지 X — localStorage만 (rules 변경 X)
+
+**MOCK_QUOTA 값** (viewer-ai.js:42):
+```
+const MOCK_QUOTA = { s1: 3, s2: 1, s3: 1, check: 5 };
+```
+
+**7가지 환불 정책 mock 구현** (viewer-ai.js:463 `_consumeQuota` / :472 `_refundQuota`):
+| 시나리오 | mock 박은 거 |
+|---|---|
+| 호출 전 취소 (모드 모달에서 닫기) | 차감 X |
+| 호출 도중 [취소] | 차감 그대로 (환불 X) — AI_SAFETY_COST_RULES 5-1 #2 |
+| mock 호출 실패 / network 시뮬 | 환불 |
+| 비교 모달 [전체 취소] | 차감 그대로 (suggestion = dismissed) |
+| partially_applied | 차감 그대로 (24h 내 재호출 가능 UI 박힐 거) |
+
+**Phase A 박을 때 변경**: localStorage → Firebase `ai-usage/{classId}/{teamName}/{YYYY-MM}` 노드 + Functions 트랜잭션.
 
 ---
 
@@ -369,13 +390,13 @@ mock 박은 후 사용자가 박을 거 (이거 통과 박혀야 Phase A 박을 
 ## 8-4. 취소
 1. mock 호출 중 [취소] 클릭
 2. UI lock 해제
-3. mock 단계엔 quota 무관
+3. mock 단계도 quota 차감 그대로 (환불 X) — 7가지 환불 정책 #2 박힘 (AI_SAFETY_COST_RULES 5-1)
 
 ## 8-5. 결과 모달 — 전체 취소
 1. 결과 받음
 2. [전체 취소] 클릭
 3. suggestion status = `dismissed`
-4. mock 단계엔 quota 차감 X (실 단계엔 quota 차감)
+4. mock·실 단계 모두 quota 차감 그대로 (호출 박힌 후 결과 받음 박혔으니 — 7가지 환불 정책 박힘)
 
 ## 8-6. partially_applied
 1. 결과 받음

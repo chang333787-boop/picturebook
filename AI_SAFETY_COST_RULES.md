@@ -91,6 +91,35 @@ if (!isAiAllowed(data.classId, data.teamName)) {
 
 ---
 
+# 1-5. 가지 책임 5가지 (Anthropic 약관 박힌 기관 의무 — 2026-05-20 박힘)
+
+provider 약관 재확인 결과 박혔음 (`AI_DECISIONS_FINAL.md` 3-2). Anthropic은 미성년자 박힌 서비스에 API 박는 거 조건부 허용 박혀있고, 박혀야 할 5가지 의무를 Customer(=가지) 책임으로 박음.
+
+| # | 박힐 거 | Anthropic 박힌 거 (출처) | 가지 현재 상태 | 박을 Phase |
+|---|---|---|---|---|
+| 1 | **학생/학부모 동의** | Commercial Terms — *"Customer warrants that it has all rights and permissions required to submit Inputs"* | ⚠️ 보류 (7장 박힘) | Phase A 직전 (베타 클래스 박힐 때) |
+| 2 | **AI 공개 라벨** | Minor guideline — *"Organizations must disclose to their users that they are interacting with an AI system"* (support.claude.com 9307344) | ⚠️ mock "※mock" 박혀있음 → Phase A "Claude AI 박음" 변경 박을 거 | Phase A 코드 |
+| 3 | **연령 확인 / 베타 제한** | Minor guideline 박힘 | ✓ 화이트리스트 (JL26A 3팀, 위 박힘) 1차 대체 | mock 박힘 / Phase A 베타까지 OK |
+| 4 | **콘텐츠 필터링** | Minor guideline 박힘 | ✓ Anthropic Trust&Safety 기본 박힘 / ⚠️ 가지 자체 욕설 필터 박을지 판단 | Phase A 박을 때 (선택) |
+| 5 | **모니터링 / 신고 메커니즘** | Minor guideline 박힘 | ⚠️ Phase A 박을 때 함께 박을 거 (👎 신고 박는 거) | Phase A 코드 |
+
+## 1-5-1. 박혀있어야 박는 거 (Phase A gating)
+
+✓ 또는 박힐 거 박혀있어야 Phase A 박을 수 있음. 위 표 박힌 ⚠️ 박힌 거 박을 때까지 Phase A 박지 X.
+
+특히:
+- **#1 학부모 동의** 박힘 X 박혀있으면 학생 데이터 박는 거 자체 X — 화이트리스트 (#3)로 베타 박힘만 가능
+- **#2 AI 공개 라벨** 박힘 X 박혀있으면 Anthropic Usage Policy 위반 — Anthropic이 박힌 의무 명시
+- **#5 모니터링·신고** 박힘 X 박혀있으면 Anthropic Trust&Safety만으로 충분 X — 미성년자 서비스 박힌 기관 자체 박을 거
+
+## 1-5-2. 한국 박힌 추가 의무
+
+Anthropic 약관은 미국 박힌 거 — 한국은 별도 규정 박힘:
+- **만 14세 미만 학부모 동의** — 한국 개인정보보호법 (위 #1과 별개로 한국 법 박힘)
+- **교육 환경 학생 정보 박는 거** — 학교 박힌 동의 박을 가능성 (사용자가 박을 거)
+
+---
+
 # 2. API key 보호 (인프라)
 
 ## 2-1. 박을 위치

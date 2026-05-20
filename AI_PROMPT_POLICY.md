@@ -1,9 +1,17 @@
 # 가지 AI — 프롬프트 설계 원칙 (전문 X)
 
-> 입력: AI_MASTER_PLAN_CLAUDE_v3 (5장 레퍼런스 결과 기준)
+> 입력: AI_MASTER_PLAN_CLAUDE_v3 (5장 레퍼런스 결과 기준), **AI_POLICY_V140.md (호출 흐름 박힘)**
 > 시점: 2026-05-20
 > 위치: `/Users/dobuk/Downloads/picturebook-repo/AI_PROMPT_POLICY.md`
 > 상태: **원칙 박힘 — 프롬프트 전문은 Phase별 prompts/*.md 박음 시점에**
+
+## ⚠️ v140 호출 흐름 박힘 (2026-05-20)
+
+`AI_POLICY_V140.md` 박힌 새 호출 흐름:
+- 1단계는 **1회 호출마다 후보 세트 생성**, 브랜치당 최대 3회 candidates 저장
+- 옛 흐름 (1회 호출 → 1 결과 → `_rtSaveBody` 적용) **폐기**
+- 새 흐름: `aiDrafts.textS1.candidates` → 사용자 선택 → 미세 수정 → `aiVariants.textS1.final`
+- 1단계는 **원문 길이 유지 원칙** — 250~400자 늘리지 X (250~400자는 2단계 발전용 권장)
 
 ---
 
@@ -107,6 +115,23 @@ revisedText에서 한글 비율 70% 미만이면 거부됩니다.
 - **작품 전체** 한 번에
 - 자연스러운 장면은 **skip 표시** (skip: true + reason)
 - 모든 장면을 무조건 수정 X
+
+## 3-2-1. 호출 흐름 (v140 박음 — 후보 3회 + 미세 수정 + 마감)
+
+| 단계 | 박는 거 | 저장 위치 |
+|---|---|---|
+| 1. generating | 1회 호출 = 작품 전체 1 후보 세트 생성 | (호출 중) |
+| 2. candidate_ready | 후보 저장. 브랜치당 최대 **3회 누적** (attempt1·2·3) | `aiDrafts.textS1.candidates` |
+| 3. (사용자 선택) | 1·2·3 회차 중 하나 선택 | `aiDrafts.textS1.selectedAttempt` |
+| 4. drafting | 사용자가 본문 미세 수정 (맞춤법·띄어쓰기·조사·문장 연결) | `aiDrafts.textS1.editedDraftByScene` |
+| 5. finalized | `[AI 1단계 마감]` → 최종 1개만 저장 | `aiVariants.textS1.final` |
+
+핵심:
+- **브랜치당 최대 3회 후보 생성** (quota)
+- 후보 3개는 임시 — 마감 후 정리 (TTL)
+- 마감 후 원본 `body` 덮어쓰지 X — 토글 보기
+- 새 사건/인물/대사/배경/감정 추가 = 1단계 취지와 안 맞는다고 사용자 안내
+- 자세히는 `AI_POLICY_V140.md` 5장 박힘
 
 ## 3-3. 허용 (예시 박힘)
 

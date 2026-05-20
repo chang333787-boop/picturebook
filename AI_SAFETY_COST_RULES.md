@@ -1,9 +1,25 @@
 # 가지 AI — 보안·비용·법적 규칙 (실행용)
 
-> 입력: AI_MASTER_PLAN_CLAUDE_v3 (9·12·15장)
+> 입력: AI_MASTER_PLAN_CLAUDE_v3 (9·12·15장), **AI_POLICY_V140.md (새 정책)**
 > 시점: 2026-05-20
 > 위치: `/Users/dobuk/Downloads/picturebook-repo/AI_SAFETY_COST_RULES.md`
 > 상태: **실행용 — 모든 Phase에서 박혀있어야 박을 거**
+
+## ⚠️ v140 정책 박힘 (2026-05-20)
+
+`AI_POLICY_V140.md` 박힌 새 정책 박혔음. 이 문서에서 박힌 거 v140 박힌 거와 충돌 시 v140 우선. 핵심 추가 정책:
+
+| 영역 | v140 추가 |
+|---|---|
+| 운영/테스트 모드 | 분리 — `testMode` 우회는 mock 전용, 실 API 금지 |
+| 교사 허용제 | `aiPermission.enabled` Functions 검증 필수 |
+| 브랜치 lineage | `copyDepth <= 1` Functions 검증, depth 2+ 거부 |
+| 자식 재복사 | depth 1 브랜치 복사 버튼 비활성화 |
+| 다층 quota | 브랜치 + `rootBranchId` 묶음 + Functions hard cap |
+| aiDrafts TTL | 마감 후 정리 (기간 보류) |
+| aiVariants | 별도 저장, 원본 덮어쓰기 X |
+| contentLockedByAi | AI 마감 후 본문 잠금 (디자인만 조정 가능) |
+| 이미지 후보 TTL | Storage 비용 방어 |
 
 ---
 
@@ -196,10 +212,20 @@ Functions가 박을 거:
 11. ai-suggestions 저장
 12. 응답 반환
 
-## 3-3. 권한 검사
+## 3-3. 권한 검사 (v140 강화 — Functions 필수 검증)
 - Firebase auth (anonymous라도 박힘) 필수
 - `context.auth` 없으면 거부
 - teamName/classId 권한 박혀있는지 확인
+- 화이트리스트 (Phase A 위) 검증
+- **v140 추가 검증** (모두 박혀있어야 호출 허용):
+  - `aiPermission.enabled === true` (교사 허용제)
+  - `aiPermission.allowedModes[mode] === true` (모드별)
+  - `branchLineage.copyDepth <= 1` (모/자식 브랜치만)
+  - 브랜치별 quota 남음
+  - `rootBranchId` 묶음 quota 남음
+  - `contentLockedByAi` 상태 충돌 X (옛 마감과 충돌하지 X)
+  - `finalization.locked === true` (운영 모드) — 마감 박힌 작품만
+  - **실 API 호출에 `testMode` 우회 절대 불가**
 
 ## 3-4. cold start
 - Functions cold start 1~3초
@@ -597,3 +623,78 @@ functions/*.log
 # 17. 한 줄
 
 > 가지 AI는 **API key Functions 환경변수만 / 학부모 동의 박힌 작품만 / 7가지 환불 정책 + 3단 비용 방어 / prompt injection 방어 / 학생 데이터 최소화 / 사고 시 즉시 차단 절차** 박혀있을 때만 박을 거. **위 중 하나라도 박지 X 박혔으면 코드 한 줄도 박지 X**.
+
+---
+
+# 18. v140 추가 정책 — 운영/테스트 분리 + lineage + aiVariants (2026-05-20 박힘)
+
+`AI_POLICY_V140.md` 박힌 정책 박혔음. SAFETY 박힌 거 박힐 거:
+
+## 18-1. 운영 모드 ↔ 테스트 모드 분리
+
+| 모드 | 마감 조건 | quota | aiPermission | testMode 우회 |
+|---|---|---|---|---|
+| **운영 (실 API)** | 필수 | 적용 | ON 필수 | ❌ 절대 X |
+| **개발/교사 테스트 (mock)** | 임시 우회 가능 | reset 가능 | (선택) | OK — UI에 `TEST MODE` 표시 |
+
+핵심: **실 API 호출에는 testMode 우회 절대 X**. Functions에서 `req.testMode` 박혀있어도 실 API 호출 단에서 거부.
+
+## 18-2. 교사 AI 허용제 (Functions 검증)
+
+```js
+// callTextAiBatch / callWorkCheck — 호출 단 검증
+if (!work.aiPermission?.enabled) return reject('AI_NOT_ENABLED');
+if (!work.aiPermission.allowedModes?.[mode]) return reject('MODE_NOT_ALLOWED');
+```
+
+## 18-3. copyDepth 검증
+
+```js
+if ((work.branchLineage?.copyDepth ?? 0) > 1) return reject('AI_BLOCKED_BY_DEPTH');
+```
+
+## 18-4. 자식 브랜치 재복사 금지
+
+- `copyDepth 1` 브랜치 복사 버튼 비활성화 (client)
+- 복사 API에서도 `parentDepth + 1 > 1` 박힐 거 거부 (server)
+- 손자 브랜치 생성 자체 금지
+
+## 18-5. rootBranchId 묶음 quota
+
+```js
+// rootBranchId 기준 하루 N회 묶음 quota
+ai-usage-by-root/{rootBranchId}/{YYYY-MM-DD}/calls
+```
+
+값은 보류 (#38 — 베타에서 결정).
+
+## 18-6. aiDrafts TTL
+
+- 후보 3개 = 임시 draft
+- 마감 후 정리 (기간 보류 — #41)
+- 미적용 이미지 후보 별도 TTL — Storage 비용 방어
+
+## 18-7. aiVariants 저장 제한
+
+- `aiVariants.textS1.final` = 마감된 1개만
+- `aiVariants.imageAi.imageByScene` = 장면당 1개만 (토글 대상)
+- `_rtSaveBody`는 원본 편집 전용 — AI variant 저장에 X
+- 별도 저장 흐름 (예: `_rtSaveAiVariant`) 박혀야
+
+## 18-8. contentLockedByAi
+
+- AI 마감 후 본문 잠금 (`scenes.{id}.contentLockedByAi = true`)
+- 본문 수정 X — 디자인/연출만 허용
+- 잠금 해제는 새 브랜치/새 파일로
+
+## 18-9. Functions 필수 검증 (전체)
+
+호출 단 박혀야 박는 거 (3-3 박힘 참조):
+1. `aiPermission.enabled` + `allowedModes[mode]`
+2. `branchLineage.copyDepth <= 1`
+3. 브랜치 quota 남음
+4. `rootBranchId` 묶음 quota 남음
+5. `contentLocked` 상태 충돌 X
+6. `finalization.locked === true` (운영)
+7. `testMode` 우회 거부 (실 API)
+8. 화이트리스트 (Phase A 위)

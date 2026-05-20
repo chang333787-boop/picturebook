@@ -1,11 +1,21 @@
 # prompts/work-check.md — 작품 검사 (진단 + 확인 방향) 프롬프트 v3
 
 > 시점: 2026-05-20 (Phase A 진행 전 준비)
-> 상태: **v3 — 확정 가능** (사용자 OK 박힘 후 확정)
+> 상태: **v3 — 확정 가능** (사용자 OK 박힘 후 확정). 프롬프트 본문 유지, 실행 시점은 v140 박힘 (보류 항목 #37)
 > v1 → v2: spelling correct 허용 정의 / "진단만" → "진단 + 확인 방향" / 어조 검증 보정 / branchFlow storyAnalyzer 우선 / system prompt 표준어
 > v2 → v3: 칭찬 어조 정책 완화 — 작품 평가성 칭찬은 약한 경고, 진단 결과 안내형 긍정은 허용
-> 의존: AI_MASTER_PLAN_CLAUDE_v3.md / AI_PROMPT_POLICY.md / AI_SAFETY_COST_RULES.md
+> 의존: AI_MASTER_PLAN_CLAUDE_v3.md / AI_PROMPT_POLICY.md / AI_SAFETY_COST_RULES.md / **AI_POLICY_V140.md (실행 시점)**
 > ⚠️ 이 파일은 **프롬프트 전문 초안**. 코드 구현 금지.
+
+## ⚠️ v140 — 실행 시점 결정 항목 분리 (2026-05-20)
+
+프롬프트 본문 변경 X. 다만 **실행 시점**은 결정 항목으로 분리 (`AI_DECISIONS_FINAL.md` #37 보류):
+
+- **추천**: 작품 검사 = 마감 전 가능 (진단만이라 안전)
+- AI 정돈/발전 = 마감 후 가능
+- 단 사용자가 원하면 작품 검사도 마감 후로 묶을 수 있음 — 보류 유지
+
+이유: 검사는 수정 X — 학생이 완성 전 점검용으로 박을 수 있음.
 
 ---
 

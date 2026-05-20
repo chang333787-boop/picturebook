@@ -1,9 +1,37 @@
 # 가지 AI — Phase 0.5 mock 명세 (실 API 호출 금지)
 
-> 입력: AI_MASTER_PLAN_CLAUDE_v3 + AI_DECISIONS_FINAL
+> 입력: AI_MASTER_PLAN_CLAUDE_v3 + AI_DECISIONS_FINAL + **AI_POLICY_V140.md (새 정책)**
 > 시점: 2026-05-20
 > 위치: `/Users/dobuk/Downloads/picturebook-repo/AI_PHASE_0_5_MOCK_SPEC.md`
 > 상태: **문서 작성만 — 코드 박지 X**
+
+## ⚠️ v140 정책 박힘 (2026-05-20) — v139 mock 박힌 거 옛 흐름
+
+`AI_POLICY_V140.md` 박힌 새 정책 박혔음. v139 mock 박힌 거 (commit `1360644`)는 **초기 흐름 검증용 옛 mock**. 새 정책 박힌 거와 충돌하는 핵심:
+
+| 영역 | v139 mock (옛) | v140 (새) |
+|---|---|---|
+| AI 적용 | `_rtSaveBody`로 원본 본문 덮어쓰기 | `aiVariants.final` 별도 저장 + 토글 (X 덮어쓰기) |
+| 원본 마감 | 검사 X | 운영 필수 / mock은 테스트 모드로 우회 |
+| 교사 허용 | 검사 X | `aiPermission.enabled` 박혀야 |
+| copyDepth | 검사 X | 0/1까지만 |
+| 1단계 흐름 | 1회 호출 → 1 결과 → 즉시 적용 | 최대 3회 후보 → 선택 → 미세 수정 → 마감 |
+| mock quota | 7가지 환불 (차감 그대로) | reset 가능 (`window.__resetAiMockUsage`) |
+
+→ **Phase A 박기 전 또는 v140 mock 박을 때** aiVariants 토글 방식 + 후보 3회 + 테스트 모드 박은 거 박혀야 함. 자세히는 아래 0-1 박힘.
+
+## 0-1. v139 mock → v140 mock 박힐 거 (개요)
+
+v140 정책 박힌 mock은 별도 단계 박힘 — v140 mock (사용자 명시 박힐 때 박음). 박은 핵심:
+
+1. **`_rtSaveBody` 박은 거 박지 X** — `aiVariants.textS1.final` 별도 저장 흐름 박을 거
+2. **테스트 모드 UI 박음** — 화면 상단 `TEST MODE` 라벨, `[원본 마감 우회]` 토글
+3. **mock quota reset 박음** — `window.__resetAiMockUsage()` 콘솔 함수 / `[테스트 quota 초기화]` 버튼
+4. **1단계 후보 3회** — 1회 호출 = 1 후보 세트, 누적 3회까지 표시, 선택·미세 수정·마감 흐름
+5. **aiPermission mock** — 기본 ON 박힘 (테스트라). 실 API 단계는 검사 강제
+6. **copyDepth mock** — 기본 0 또는 1 박힘 (테스트라)
+
+v140 mock 코드는 **아직 박지 X** — 사용자 명시 박힐 때 박음.
 
 ---
 
@@ -358,6 +386,60 @@ const MOCK_QUOTA = { s1: 3, s2: 1, s3: 1, check: 5 };
 | partially_applied | 차감 그대로 (24h 내 재호출 가능 UI 박힐 거) |
 
 **Phase A 박을 때 변경**: localStorage → Firebase `ai-usage/{classId}/{teamName}/{YYYY-MM}` 노드 + Functions 트랜잭션.
+
+### v140 추가 — mock quota reset 박을 거
+
+테스트 편의를 위해 mock quota는 reset 가능해야 박힘 (v140 0-3 박힘):
+
+**콘솔 함수**:
+```js
+window.__resetAiMockUsage();  // 모든 mock 사용량 0으로 reset
+window.__resetAiMockUsage('s1');  // 특정 모드만 reset
+```
+
+**UI 버튼** (테스트 모드에서만 박힘):
+- `[테스트 quota 초기화]` — viewer 편집 상단 또는 모드 모달 안
+
+**핵심**:
+- mock quota = `mockUsage` (localStorage `LS_MOCK_USAGE_KEY`)
+- 실 quota = `realUsage` (Firebase `ai-usage/...`)
+- **두 저장소 분리** — reset이 실 데이터 안 박음
+- 실 API 호출에 `window.__resetAiMockUsage()` 박혀도 무시 (Functions 단에서 막음)
+
+---
+
+# 7-extra. 테스트 모드 (v140 박음)
+
+`AI_POLICY_V140.md` 0-2·0-3·0-4 박힌 거. mock 단계 검증 박혀 막히지 않게.
+
+## 7-extra-1. 진입 조건 (보류 — 결정 항목 #42)
+
+후보:
+- 교사 계정 박힘만
+- URL `?test=1` 박힘
+- 환경 박힌 거 (`localhost` / `firebase emulator`)
+
+## 7-extra-2. UI 표시 필수
+
+- 화면 상단 고정 라벨: **`TEST MODE — 개발 테스트 모드`** (빨간/주황 배지)
+- AI 모드 모달에 안내: "지금 테스트 모드 박혔어요. 실 AI 호출 안 됩니다."
+
+## 7-extra-3. 우회 가능한 거 (mock 전용)
+
+| 영역 | 운영 | 테스트 모드 mock |
+|---|---|---|
+| 원본 최종 마감 | 필수 | 우회 가능 (`[TEST] 마감 가정`) |
+| 교사 AI 허용 ON | 필수 | 기본 ON (테스트라) |
+| copyDepth ≤ 1 | 필수 | 기본 0 또는 1 |
+| quota | 차감 박음 | reset 가능 / 완화·비활성화 가능 |
+| `contentLockedByAi` | 적용 | (선택) 우회 가능 |
+
+## 7-extra-4. 절대 박지 X (testMode 우회 한계)
+
+- ❌ 실 Anthropic / OpenAI / Gemini API 호출
+- ❌ 실 API key 박힌 거 testMode로 노출
+- ❌ 실 학생 데이터에 mock 박는 거
+- ❌ Functions에서 `req.testMode === true` 박혀있어도 실 API 호출 단에서 거부
 
 ---
 

@@ -3,8 +3,25 @@
 > 입력: Claude v1 + GPT v2 + Claude v2 + GPT v3 + 사용자 명시 (2026-05-20)
 > 시점: 2026-05-20
 > 위치: `/Users/dobuk/Downloads/picturebook-repo/AI_MASTER_PLAN_CLAUDE_v3.md`
-> 상태: **합의안 (Claude·GPT·사용자 3자 통과)**
+> 상태: **합의안 (Claude·GPT·사용자 3자 통과) — v140 박은 후 일부 흐름 폐기**
 > 다음: 사용자 최종 검토 → 합의 → Phase 0 종료 조건 정의 → 코드 구현
+
+## ⚠️ v140 박힘 (2026-05-20) — v3에서 폐기/변경된 흐름
+
+`AI_POLICY_V140.md` 박힌 새 정책 박혔음. v3 박힌 거 중 다음 흐름 **폐기 또는 구버전**:
+
+| v3 박힌 거 (옛) | v140 박힌 거 (새) |
+|---|---|
+| "AI 결과 선택 적용 → `_rtSaveBody` 현재 본문 변경" | **폐기** — `aiVariants.textS1.final` 별도 저장 + 토글 |
+| AI 결과 → 새 복사본 생성 (옛 v1·v2 박힌 거) | **폐기** — 같은 브랜치 안 aiVariants 토글 |
+| 원본 마감 정책 X (v3 박힘) | **추가** — 운영 모드 마감 후만 AI |
+| 교사 AI 허용 X (v3 박힘) | **추가** — 기본 OFF, `aiPermission.enabled` |
+| 브랜치 복사 자유 (v3 박힘) | **추가** — `copyDepth 0/1`까지만 AI, 자식 재복사 X |
+| 1단계 1회 호출 = 1 결과 즉시 적용 | **변경** — 최대 3회 후보 → 선택 → 미세 수정 → 마감 |
+| 운영/테스트 모드 구분 X | **추가** — Phase 0.5 mock = 테스트 모드 |
+| `contentLockedByAi` X | **추가** — AI 마감 후 본문 잠금 |
+
+→ 자세히는 `AI_POLICY_V140.md` 박힘. v3 박힌 거 중 v140과 충돌하는 부분 박혀있을 때 **v140 우선**.
 
 ---
 

@@ -1,11 +1,27 @@
 # prompts/text-strength-1.md — 텍스트 1단계 (안심 정돈) 프롬프트 v3
 
 > 시점: 2026-05-20 (Phase A 진행 전 준비)
-> 상태: **v3 — 확정 직전** (사용자 OK 박힘 후 확정)
+> 상태: **v3 — 확정 직전** (사용자 OK 박힘 후 확정). 프롬프트 본문 유지, 호출 흐름은 v140 박힘
 > v1 → v2: 시제 정책 완화 / named entity 경고 위주 / safeAddition·creativeAddition 단순화 / 글자수 예외 / 자동 거부·경고 구분 / system prompt 표준어
 > v2 → v3: 7장 제목 정합 ("자동 거부 또는 강한 경고") / 7-1 분류 명확 (semantic 위반 = 강한 경고) / 7-2·7-3 부제 정리
-> 의존: AI_MASTER_PLAN_CLAUDE_v3.md / AI_PROMPT_POLICY.md / AI_SAFETY_COST_RULES.md
+> 의존: AI_MASTER_PLAN_CLAUDE_v3.md / AI_PROMPT_POLICY.md / AI_SAFETY_COST_RULES.md / **AI_POLICY_V140.md (호출 흐름)**
 > ⚠️ 이 파일은 **프롬프트 전문 초안**. 코드 구현 금지.
+
+## ⚠️ v140 호출 흐름 박힘 (2026-05-20)
+
+프롬프트 본문 (1~9장)은 그대로 유지. **호출 흐름만 v140 박힘**:
+
+| 단계 | 박는 거 | 저장 위치 |
+|---|---|---|
+| 1. generating | 1회 호출 = 작품 전체 1 후보 세트 생성 | (호출 중) |
+| 2. candidate_ready | 후보 저장. **브랜치당 최대 3회 누적** | `aiDrafts.textS1.candidates.attempt{1,2,3}` |
+| 3. (사용자 선택) | 회차 중 하나 선택 | `aiDrafts.textS1.selectedAttempt` |
+| 4. drafting | 사용자 미세 수정 (맞춤법·띄어쓰기·조사·문장 연결) | `aiDrafts.textS1.editedDraftByScene` |
+| 5. finalized | `[AI 1단계 마감]` → 1개만 저장 | `aiVariants.textS1.final` |
+
+**1단계는 원문 길이 유지 원칙** — 일부러 250~400자로 늘리지 X (250~400자는 2단계 발전용 권장 길이).
+
+옛 흐름 (1회 호출 → 1 결과 → `_rtSaveBody` 적용)은 **폐기**. 원본 `body` 덮어쓰지 X — 토글 보기.
 
 ---
 

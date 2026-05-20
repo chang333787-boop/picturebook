@@ -33,7 +33,7 @@
   /* ────────────────────────────────────────────────────────────────
      Phase 정보 + 정책 상수
      ──────────────────────────────────────────────────────────────── */
-  const PHASE = 'phase-0.5-v140-step2';
+  const PHASE = 'phase-0.5-v140-step3';
   const MOCK_ONLY = true;
   const LS_ONBOARDING_KEY = 'pb_ai_onboarding_shown_v1';
   const LS_MOCK_STORE_KEY = 'pb_ai_mock_store_v1';
@@ -457,14 +457,222 @@
       });
     }
 
-    /* [이 후보 선택하기] — step3 진입 (drafting). step3 박힐 때 _enterDraftingMode 박을 거 */
+    /* [이 후보 선택하기] — step3 박힌 편집 중 모달 박음 */
     root.querySelector('.js-ai-cand-select').addEventListener('click', function () {
       if (drafting) return;
       _setSelectedAttempt(activeAttempt);
       _removeModalRoot('ai-cand-modal-root');
-      /* step3 박힐 때 _enterDraftingMode(activeAttempt) 박을 거 */
-      alert('후보 ' + activeAttempt + '회차 선택 박힘. (편집 중 UI는 v140-step3 박을 때 박힘)');
+      _enterDraftingMode(activeAttempt);
     });
+  }
+
+  /* ════════════════════════════════════════════════════════════════
+     v140-step3: aiVariants helper (마감된 1개만 저장)
+     ──────────────────────────────────────────────────────────────
+     구조 (mock — Phase A 박힐 때 Firebase 노드로):
+     {
+       textS1: {
+         status: 'finalized',
+         final: {
+           sceneId: { body, source: 'attemptN', editedByUser: bool, finalizedAt }
+         },
+         finalizedAt: timestamp,
+         sourceSuggestionId: 'mock_v140_aN_...'
+       }
+     }
+     ⚠️ MOCK 전용 — Phase A 박힐 때 Firebase로 전환
+     ════════════════════════════════════════════════════════════════ */
+  function _loadAiVariants() {
+    return _safeParseJson(localStorage.getItem(LS_AI_VARIANTS_KEY)) || { textS1: null };
+  }
+
+  function _saveAiVariants(variants) {
+    try { localStorage.setItem(LS_AI_VARIANTS_KEY, JSON.stringify(variants)); }
+    catch (e) { console.warn('[ai-mock] aiVariants save failed', e); }
+  }
+
+  function _isS1Finalized() {
+    const v = _loadAiVariants();
+    return !!(v.textS1 && v.textS1.status === 'finalized');
+  }
+
+  function _getS1FinalBody(sceneId) {
+    const v = _loadAiVariants();
+    if (!v.textS1 || v.textS1.status !== 'finalized') return null;
+    const f = v.textS1.final && v.textS1.final[sceneId];
+    return f ? f.body : null;
+  }
+
+  /* ════════════════════════════════════════════════════════════════
+     v140-step3: 편집 중 모달 (drafting)
+     ──────────────────────────────────────────────────────────────
+     사용자 결정 #C — 마감 후 aiDrafts.textS1 기본 정리. TEST MODE에서 보존/초기화 선택 가능.
+     ════════════════════════════════════════════════════════════════ */
+  function _enterDraftingMode(attemptN) {
+    /* status 박은 거 박은 거 박음 (selectedAttempt 박은 거 박은 거 박음) */
+    const d = _loadAiDrafts();
+    if (!d.textS1) return;
+    d.textS1.selectedAttempt = attemptN;
+    d.textS1.status = 'drafting';
+    if (!d.textS1.editedDraftByScene) d.textS1.editedDraftByScene = {};
+    _saveAiDrafts(d);
+    _showDraftingPanel();
+  }
+
+  function _showDraftingPanel() {
+    const d = _loadAiDrafts();
+    if (!d.textS1 || d.textS1.status !== 'drafting' || !d.textS1.selectedAttempt) {
+      alert('편집 중 상태 박혀있지 X');
+      return;
+    }
+    const attemptN = d.textS1.selectedAttempt;
+    const cand = d.textS1.candidates && d.textS1.candidates['attempt' + attemptN];
+    if (!cand) {
+      alert('선택된 후보 박혀있지 X');
+      return;
+    }
+
+    const snapshot = _buildWorkSnapshot();
+    const edited = d.textS1.editedDraftByScene || {};
+
+    const rows = snapshot.scenes.map(function (s) {
+      const r = cand.results[s.id];
+      if (!r) {
+        return ''
+          + '<div class="ai-draft-row ai-draft-row--none">'
+          +   '<div class="ai-draft-scene-id">장면 ' + _escapeHtml(s.id) + '</div>'
+          +   '<div class="ai-draft-skip">(결과 박혀있지 X — 원본 박힘)</div>'
+          + '</div>';
+      }
+      if (r.skip) {
+        return ''
+          + '<div class="ai-draft-row ai-draft-row--skip">'
+          +   '<div class="ai-draft-scene-id">장면 ' + _escapeHtml(s.id) + '</div>'
+          +   '<div class="ai-draft-skip">skip — 원본 박힘 (' + _escapeHtml(r.reason || '') + ')</div>'
+          + '</div>';
+      }
+      const initialText = (s.id in edited) ? edited[s.id] : (r.revisedText || '');
+      return ''
+        + '<div class="ai-draft-row">'
+        +   '<div class="ai-draft-scene-id">장면 ' + _escapeHtml(s.id) + '</div>'
+        +   '<div class="ai-draft-original">'
+        +     '<div class="ai-draft-label">원본</div>'
+        +     '<div class="ai-draft-original-text">' + _escapeHtml(s.body || '') + '</div>'
+        +   '</div>'
+        +   '<div class="ai-draft-edit">'
+        +     '<div class="ai-draft-label">AI ' + attemptN + '회차 (수정 가능 — 맞춤법·띄어쓰기·조사·문장 연결)</div>'
+        +     '<textarea class="ai-draft-textarea js-ai-draft-textarea" data-scene-id="' + _escapeHtml(s.id) + '" rows="3">' + _escapeHtml(initialText) + '</textarea>'
+        +   '</div>'
+        + '</div>';
+    }).join('');
+
+    const inner = ''
+      + '<div class="ai-draft-modal">'
+      +   '<div class="ai-draft-modal__head">'
+      +     '<h3>AI 1단계 편집 중 — ' + attemptN + '회차 (mock)</h3>'
+      +     '<button type="button" class="ai-modal-close js-ai-draft-close" aria-label="닫기">×</button>'
+      +   '</div>'
+      +   '<div class="ai-draft-note">'
+      +     '맞춤법·띄어쓰기·조사·문장 연결만 수정해주세요. <br>'
+      +     '새 사건·인물·대사·배경·감정 추가는 1단계 취지와 안 맞아요 (그건 2단계).'
+      +   '</div>'
+      +   '<div class="ai-draft-body js-ai-draft-body">' + rows + '</div>'
+      +   '<div class="ai-draft-modal__foot">'
+      +     '<button type="button" class="ai-btn ai-btn--ghost js-ai-draft-cancel">[취소]</button>'
+      +     '<button type="button" class="ai-btn ai-btn--primary js-ai-draft-finalize">[AI 1단계 저장/마감]</button>'
+      +   '</div>'
+      + '</div>';
+
+    const root = _createModalRoot('ai-draft-modal-root', inner, { className: 'ai-modal-overlay' });
+
+    /* textarea 박힌 거 박은 거 박음 (debounce 박지 X — 단순 onblur·oninput 박음) */
+    root.querySelectorAll('.js-ai-draft-textarea').forEach(function (ta) {
+      ta.addEventListener('input', function () {
+        const sid = ta.getAttribute('data-scene-id');
+        _saveDraftEdit(sid, ta.value);
+      });
+    });
+
+    root.querySelector('.js-ai-draft-close').addEventListener('click', function () {
+      _removeModalRoot('ai-draft-modal-root');
+    });
+
+    root.querySelector('.js-ai-draft-cancel').addEventListener('click', function () {
+      if (!confirm('편집 박은 거 박지 X 박힐 거. 취소 박을지?')) return;
+      _cancelDrafting();
+      _removeModalRoot('ai-draft-modal-root');
+    });
+
+    root.querySelector('.js-ai-draft-finalize').addEventListener('click', function () {
+      _finalizeAiVariant();
+      _removeModalRoot('ai-draft-modal-root');
+      alert('AI 1단계 마감 박힘. viewer 상단 [원본] [AI 1단계] 토글 박힐 거 (v140-step4 박을 때 박힘).');
+    });
+  }
+
+  function _saveDraftEdit(sceneId, newBody) {
+    const d = _loadAiDrafts();
+    if (!d.textS1) return;
+    if (!d.textS1.editedDraftByScene) d.textS1.editedDraftByScene = {};
+    d.textS1.editedDraftByScene[sceneId] = newBody;
+    _saveAiDrafts(d);
+  }
+
+  function _cancelDrafting() {
+    const d = _loadAiDrafts();
+    if (!d.textS1) return;
+    /* selectedAttempt 박지 X 박음, edited 박지 X 박음, status candidate_ready로 */
+    d.textS1.selectedAttempt = null;
+    d.textS1.editedDraftByScene = {};
+    d.textS1.status = (_getCandidateCount() > 0) ? 'candidate_ready' : 'none';
+    _saveAiDrafts(d);
+  }
+
+  function _finalizeAiVariant() {
+    const d = _loadAiDrafts();
+    if (!d.textS1 || d.textS1.status !== 'drafting' || !d.textS1.selectedAttempt) return;
+    const attemptN = d.textS1.selectedAttempt;
+    const cand = d.textS1.candidates && d.textS1.candidates['attempt' + attemptN];
+    if (!cand) return;
+    const edited = d.textS1.editedDraftByScene || {};
+    const snapshot = _buildWorkSnapshot();
+
+    const final = {};
+    snapshot.scenes.forEach(function (s) {
+      const r = cand.results[s.id];
+      if (!r || r.skip) return;  /* skip 박은 거 박은 거 박지 X — 원본 박힘 */
+      const isEdited = (s.id in edited);
+      const body = isEdited ? edited[s.id] : (r.revisedText || '');
+      final[s.id] = {
+        body: body,
+        source: 'attempt' + attemptN,
+        editedByUser: isEdited,
+        finalizedAt: Date.now()
+      };
+    });
+
+    const v = _loadAiVariants();
+    v.textS1 = {
+      status: 'finalized',
+      final: final,
+      finalizedAt: Date.now(),
+      sourceSuggestionId: cand.suggestionId
+    };
+    _saveAiVariants(v);
+
+    /* 사용자 결정 #C — 마감 후 aiDrafts 기본 정리. TEST MODE에서는 보존/초기화 선택 가능. */
+    if (_isTestMode()) {
+      const keep = confirm('[TEST MODE] aiDrafts 박은 거 박은 거 박을지?\n\nOK = 박음 (3 후보 + 편집 상태 확인 가능)\n취소 = 정리 (운영 박은 거)');
+      if (!keep) {
+        try { localStorage.removeItem(LS_AI_DRAFTS_KEY); } catch (e) { /* noop */ }
+      } else {
+        /* status는 finalized로 박음 (selectedAttempt 박은 거 박은 거 박힘) */
+        d.textS1.status = 'finalized';
+        _saveAiDrafts(d);
+      }
+    } else {
+      try { localStorage.removeItem(LS_AI_DRAFTS_KEY); } catch (e) { /* noop */ }
+    }
   }
 
   /* ════════════════════════════════════════════════════════════════

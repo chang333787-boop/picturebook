@@ -1511,6 +1511,7 @@ function renderHUD() {
       <div class="maker-return-actions">
         ${isEdit ? `
           <button class="maker-return-btn maker-return-btn--test js-edit-preview-test" title="실제 관람자 화면으로 확인">▶ 감상 테스트</button>
+          <button class="maker-return-btn maker-return-btn--ai js-ai-trigger" title="작품 전체 AI 다듬기 (Phase 0.5 mock)">🤖 AI 작품 다듬기</button>
           <button class="maker-return-btn js-edit-open-routes" title="엔딩별 이야기 흐름 점검">🛤 루트보기</button>
           <button class="maker-return-btn js-edit-open-map" title="장면 연결을 한눈에 확인">🗺 구조 보기</button>
           <button class="maker-return-btn js-edit-return-maker" title="브랜치 화면으로 돌아가기">← 브랜치 화면으로</button>

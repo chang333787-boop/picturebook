@@ -4918,6 +4918,17 @@ function _bindHudEditActions() {
 
   document.querySelector('.js-edit-open-map')?.addEventListener('click', openStructureMap);
 
+  /* Phase 0.5 step1: 🤖 AI 작품 다듬기 — viewer-ai.js의 openModal 호출.
+     viewer-ai.js 박지 X 박힌 환경 fallback: 안내 alert만.
+     ⚠️ mock 단계 — 실 AI API 박지 X. */
+  document.querySelector('.js-ai-trigger')?.addEventListener('click', () => {
+    if (typeof window.viewerAi === 'object' && typeof window.viewerAi.openModal === 'function') {
+      window.viewerAi.openModal();
+    } else {
+      alert('AI 기능을 불러오지 못했어요. 페이지를 새로고침해 주세요.');
+    }
+  });
+
   /* v123/v124b: 루트보기 — storyAnalyzer.js의 openRoutePanel 재사용.
      storyAnalyzer는 maker의 전역 scenes/projectMeta를 참조하고, scene 객체에서
      num/buttons/nextA/B 박음. viewer adaptScenes는 {id, choices} 박는 다른 구조라

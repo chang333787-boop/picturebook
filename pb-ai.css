@@ -1,0 +1,30 @@
+/* ====================================================================
+   pb-ai.css — Phase 0.5 mock — 가지 AI UI 스타일
+   --------------------------------------------------------------------
+   step1: 진입 버튼 (maker-return-bar 안 [🤖 AI 작품 다듬기]) 스타일만.
+   step2부터: 모드 선택 모달, 비교 모달, 호출 중 lock overlay 등.
+
+   v138 기존 디자인 (warm paper #fffaee, 코랄 #c66f4a) 따름.
+   기존 viewer.css / pb-tone.css 클래스 안 건드림. 신규 클래스만 박음.
+==================================================================== */
+
+/* ════════════════════════════════════════════════════════════
+   1) 진입 버튼 — maker-return-bar 안 [🤖 AI 작품 다듬기]
+      GPT v3 명시: 보조 강조 버튼 (메인 CTA X)
+      - 화려한 색 X
+      - 학생이 작품 만들기 전에 AI부터 누르는 흐름 피함
+   ════════════════════════════════════════════════════════════ */
+.maker-return-btn--ai {
+  /* 옅은 따뜻 종이 + 코랄 — 보조 강조 (메인 [💾 저장]보다 약함) */
+  background: linear-gradient(135deg, #fdf6e7 0%, #fbeede 100%);
+  border-color: rgba(198, 111, 74, 0.35);
+  color: #b85a3a;
+}
+.maker-return-btn--ai:hover {
+  background: linear-gradient(135deg, #fbeede 0%, #f7dec4 100%);
+  border-color: rgba(198, 111, 74, 0.55);
+  color: #a04a30;
+}
+.maker-return-btn--ai:active {
+  background: #f7dec4;
+}

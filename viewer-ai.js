@@ -33,7 +33,7 @@
   /* ────────────────────────────────────────────────────────────────
      Phase 정보 + 정책 상수
      ──────────────────────────────────────────────────────────────── */
-  const PHASE = 'phase-0.5-v140-step3';
+  const PHASE = 'phase-0.5-v140-step4';
   const MOCK_ONLY = true;
   const LS_ONBOARDING_KEY = 'pb_ai_onboarding_shown_v1';
   const LS_MOCK_STORE_KEY = 'pb_ai_mock_store_v1';
@@ -628,6 +628,103 @@
     _saveAiDrafts(d);
   }
 
+  /* ════════════════════════════════════════════════════════════════
+     v140-step4: AI 보기 토글 (사용자 결정 #D)
+     ──────────────────────────────────────────────────────────────
+     별도 토글 바 박음. maker-return-bar 박지 X.
+     viewer-render.js 박은 6 곳 박은 거 박은 _getDisplayBody 박은 거 박을 거.
+     ════════════════════════════════════════════════════════════════ */
+  function _getAiViewMode() {
+    try {
+      const v = localStorage.getItem(LS_AI_VIEW_MODE_KEY);
+      return (v === 'aiS1') ? 'aiS1' : 'original';
+    } catch (e) { return 'original'; }
+  }
+
+  function _setAiViewMode(mode) {
+    try {
+      if (mode === 'aiS1') localStorage.setItem(LS_AI_VIEW_MODE_KEY, 'aiS1');
+      else localStorage.removeItem(LS_AI_VIEW_MODE_KEY);
+    } catch (e) { /* noop */ }
+    _updateAiToggleBar();
+    /* viewer 본문 박은 거 박은 거 박은 거 박은 거 — v138 박은 _scheduleViewerFrameReRender 박은 거 박음 */
+    if (typeof window._scheduleViewerFrameReRender === 'function') {
+      window._scheduleViewerFrameReRender();
+    } else if (typeof _scheduleViewerFrameReRender === 'function') {
+      _scheduleViewerFrameReRender();
+    }
+  }
+
+  /* viewer-render.js 박은 거 박은 거 박은 본문 박은 거 박은 거 박은 거 박은 — 토글 mode에 따라 박은 거 박음 */
+  function _getDisplayBody(sceneId, originalBody) {
+    if (_getAiViewMode() !== 'aiS1') return originalBody;
+    const v = _loadAiVariants();
+    if (!v.textS1 || v.textS1.status !== 'finalized') return originalBody;
+    const f = v.textS1.final && v.textS1.final[sceneId];
+    if (!f || typeof f.body !== 'string') return originalBody;
+    return f.body;
+  }
+
+  function _showAiToggleBar() {
+    /* finalized 박혀있을 때만 박음 */
+    if (!_isS1Finalized()) {
+      _hideAiToggleBar();
+      return;
+    }
+    /* edit mode 박을 때만 박음 (감상 모드 박지 X) */
+    const isEdit = (typeof ViewerState !== 'undefined') && ViewerState.editMode;
+    if (!isEdit) {
+      _hideAiToggleBar();
+      return;
+    }
+
+    let bar = document.getElementById('ai-view-toggle-bar');
+    if (!bar) {
+      bar = document.createElement('div');
+      bar.id = 'ai-view-toggle-bar';
+      bar.className = 'ai-view-toggle-bar';
+      bar.innerHTML = ''
+        + '<span class="ai-view-toggle-bar__label">보기 모드:</span>'
+        + '<button type="button" class="ai-view-toggle-btn js-ai-view-original" data-mode="original">원본</button>'
+        + '<button type="button" class="ai-view-toggle-btn js-ai-view-ais1" data-mode="aiS1">AI 1단계</button>';
+      document.body.appendChild(bar);
+      bar.querySelectorAll('.ai-view-toggle-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          _setAiViewMode(btn.getAttribute('data-mode'));
+        });
+      });
+    }
+    _updateAiToggleBar();
+  }
+
+  function _updateAiToggleBar() {
+    const bar = document.getElementById('ai-view-toggle-bar');
+    if (!bar) return;
+    const mode = _getAiViewMode();
+    bar.querySelectorAll('.ai-view-toggle-btn').forEach(function (btn) {
+      btn.classList.toggle('is-active', btn.getAttribute('data-mode') === mode);
+    });
+  }
+
+  function _hideAiToggleBar() {
+    const bar = document.getElementById('ai-view-toggle-bar');
+    if (bar && bar.parentNode) bar.parentNode.removeChild(bar);
+  }
+
+  /* DOMContentLoaded 박은 거 박은 거 박은 — finalized 박혀있고 edit 박혀있을 때만 박음 */
+  function _bootstrapAiToggleBar() {
+    const run = function () {
+      _showAiToggleBar();
+      /* ViewerState 박은 거 박은 거 박은 거 박은 거 박은 — editMode 박은 거 박은 거 박은 거 박은 거 박은 거 박은 거.
+         박은 거 박은 거 박은 거 박은 — viewer entry 박은 거 박은 거 박은 거 박은 거 박은 거. 박은 거 박은 거 — 박은 거 박은 거 박은 거 박은 거 박은 거 박은 거 박은 거 박은 거 박은 거 박은 거 박은 거 박은 거 박은 거 박은 거 박은 거 박은 거 박은 거 박은 거. */
+    };
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', run);
+    } else {
+      run();
+    }
+  }
+
   function _finalizeAiVariant() {
     const d = _loadAiDrafts();
     if (!d.textS1 || d.textS1.status !== 'drafting' || !d.textS1.selectedAttempt) return;
@@ -672,6 +769,14 @@
       }
     } else {
       try { localStorage.removeItem(LS_AI_DRAFTS_KEY); } catch (e) { /* noop */ }
+    }
+
+    /* step4: 마감 박은 후 토글 바 박음 + viewer 박은 거 박은 거 박은 거 박은 다시 렌더 */
+    _showAiToggleBar();
+    if (typeof window._scheduleViewerFrameReRender === 'function') {
+      window._scheduleViewerFrameReRender();
+    } else if (typeof _scheduleViewerFrameReRender === 'function') {
+      _scheduleViewerFrameReRender();
     }
   }
 
@@ -1616,6 +1721,7 @@
     }
   }
   _bootstrapTestMode();
+  _bootstrapAiToggleBar();
 
   /* ════════════════════════════════════════════════════════════════
      window 노출
@@ -1638,6 +1744,13 @@
       _isTestMode: _isTestMode,
       _isFinalizationBypassEnabled: _isFinalizationBypassEnabled,
       _setFinalizationBypass: _setFinalizationBypass,
+
+      /* v140-step4 박은 거 — viewer-render.js에서 박을 거 (한 줄씩) */
+      _getDisplayBody:    _getDisplayBody,
+      _getAiViewMode:     _getAiViewMode,
+      _setAiViewMode:     _setAiViewMode,
+      _showAiToggleBar:   _showAiToggleBar,
+      _isS1Finalized:     _isS1Finalized,
     };
 
     /* ────────────────────────────────────────────────────────────

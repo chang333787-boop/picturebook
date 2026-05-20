@@ -946,3 +946,63 @@
   border-top: 1px solid #e8dcc4;
   background: #fdf6e5;
 }
+
+/* ════════════════════════════════════════════════════════════════
+   v140-step4: AI 보기 토글 바 (사용자 결정 #D)
+   ──────────────────────────────────────────────────────────────
+   별도 토글 바 박음. maker-return-bar 박지 X.
+   그림/본문/행동버튼 영역 침범 X — fixed top center.
+   ════════════════════════════════════════════════════════════════ */
+.ai-view-toggle-bar {
+  position: fixed;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10005;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: #fffaee;
+  border: 1px solid #ecdfc4;
+  border-radius: 999px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.12);
+  font-family: 'Jua', sans-serif;
+  font-size: 12px;
+  pointer-events: auto;
+}
+
+.ai-view-toggle-bar__label {
+  color: #8a7a5e;
+  margin-right: 4px;
+  font-size: 11px;
+}
+
+.ai-view-toggle-btn {
+  appearance: none;
+  background: #f3e7cc;
+  border: 1px solid #e8dcc4;
+  color: #6b5638;
+  font-family: 'Jua', sans-serif;
+  font-size: 12px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.ai-view-toggle-btn:hover { background: #e8d9b6; }
+
+.ai-view-toggle-btn.is-active {
+  background: #c66f4a;
+  border-color: #b85a3a;
+  color: #fffaee;
+}
+
+/* TEST MODE 배지 박은 우상단 박은 거 박은 거 박은 — 박은 거 박은 거 박은 거 박은 거 박은 박은 거 */
+.ai-testmode-badge ~ .ai-view-toggle-bar { /* 시각 박은 거 박은 거 박은 거 박은 거 박은 거 박은 거 박은 거 박은 거 */ }
+
+@media (max-width: 600px) {
+  .ai-view-toggle-bar { font-size: 11px; padding: 4px 8px; }
+  .ai-view-toggle-btn { padding: 4px 9px; font-size: 11px; }
+}

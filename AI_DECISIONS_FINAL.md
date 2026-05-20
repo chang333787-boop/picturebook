@@ -268,7 +268,7 @@
 | ✓ | 그림 중심형 본문 최대 (#22) | **hard cut 300자** (1단계는 원문 유지 원칙 — 2단계만 권장 100~200자) |
 | ✓ | 비용 임계치 — 테스트 (#13) | **월 $20 hard cap** (2026-05-20) |
 | ⚠️ | provider 약관 검토 박힘 | **Phase A 직전 Claude 재확인 + 사용자 OK** (Anthropic Privacy Center 기준 OK 박힐 거) |
-| ⚠️ | Firebase Blaze plan | **실 API 연결 직전 사용자 콘솔 박을 거** (지금 단계엔 박지 X) |
+| ✓ | Firebase Blaze plan | **박혔음** (2026-05-20 사용자 명시 "Blaze는 이미되있어") |
 | ⚠️ | 비용 비상 차단 박힘 | **Phase A 구현 단계 Functions hard cap / 일일 호출 제한 / Anthropic 콘솔 한도** |
 | ✓ | prompts/text-strength-1.md 합의 | **v3 확정** (2026-05-20 사용자 명시) |
 | ✓ | prompts/work-check.md 합의 | **v3 확정** (2026-05-20 사용자 명시) |

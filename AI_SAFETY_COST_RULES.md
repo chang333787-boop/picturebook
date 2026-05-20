@@ -7,6 +7,47 @@
 
 ---
 
+# ⚠️ AI 호출 화이트리스트 (사용자 명시 — 2026-05-20)
+
+가지는 익명 인증 인프라라 anonymous 어카운트 무한 생성 가능 → AI 호출 폭탄 위험 (v113 만원 사건 재발 가능). Functions 단에서 화이트리스트 박아 외부 호출 차단.
+
+## Phase A AI 호출 허용 목록 (Functions에 박을 거)
+
+| classId | teamName | 비고 |
+|---|---|---|
+| `JL26A` | `0000` | 사용자 명시 |
+| `JL26A` | `은규` | 사용자 명시 (교사 본인 또는 학생) |
+| `JL26A` | `예지유은인우` | 사용자 명시 (한 팀 — 4명) |
+
+위 매핑 외 모든 호출 거부 — Functions에서 즉시 차단 + quota 안 박힘.
+
+## 화이트리스트 구현 안 (Phase A에 박을 거)
+
+```js
+// functions/index.js (Phase A 박을 거 — 지금 X)
+const AI_ALLOWED = [
+  { classId: 'JL26A', teamName: '0000' },
+  { classId: 'JL26A', teamName: '은규' },
+  { classId: 'JL26A', teamName: '예지유은인우' },
+];
+
+function isAiAllowed(classId, teamName) {
+  return AI_ALLOWED.some(a => a.classId === classId && a.teamName === teamName);
+}
+
+// 모든 AI 호출 시작 시:
+if (!isAiAllowed(data.classId, data.teamName)) {
+  throw new functions.https.HttpsError('permission-denied', 'AI 사용 권한 X');
+}
+```
+
+## 추후 박을 거
+- 베타 확장 시 화이트리스트 갱신 (사용자 명시)
+- 학부모 동의 박힌 작품 자동 박힘 (Phase B 이상)
+- App Check 박을지 (사용자 미결정 — 보류)
+
+---
+
 # 0. 이 문서의 역할
 
 - API key 보호 / Functions 원칙

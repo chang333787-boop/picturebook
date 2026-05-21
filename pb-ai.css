@@ -1101,3 +1101,18 @@
   .ai-view-toggle-bar { font-size: 11px; padding: 4px 8px; }
   .ai-view-toggle-btn { padding: 4px 9px; font-size: 11px; }
 }
+
+/* GPT 피드백 #3: 강한 경고 박힌 후보 행 */
+.ai-cand-row--warn {
+  background: #fef3c7;
+  border: 2px solid #f59e0b;
+}
+.ai-cand-strong-warn {
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: #fde68a;
+  color: #92400e;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}

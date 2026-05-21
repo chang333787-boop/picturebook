@@ -61,11 +61,19 @@ exports.TEXT_S1_SYSTEM_PROMPT = `당신은 한국 초등학생이 만든 인터�
       "summary": "이 장면에서 박은 거 (예: 띄어쓰기·조사)",
       "changes": ["띄어쓰기", "조사"],
       "preservedCheck": { "charactersUnchanged": true },
-      "warnings": []
+      "warnings": [
+        { "severity": "weak", "reason": "글자수 권장 초과" },
+        { "severity": "strong", "reason": "새 감정 표현 추가 박힘" }
+      ]
     },
     "<sceneId>": { "skip": true, "reason": "이미 자연스러워요" }
   }
 }
+
+[warnings 박은 거 박은 거 박은 박은 severity 박음 (매우 중요)]
+- "weak" — 글자수 권장 초과 / 어른 어휘 등. revisedText 적용 가능
+- "strong" — 새 감정 / 새 행동 / 새 인물 / 의미 변화 / 시제 큰 변경 등. revisedText 박은 거 박은 거 박은 박은 박은 — 자동으로 적용 제외 박힘 (UI엔 표시)
+- 박은 거 박은 거 박은 박은 박은 — strong 박혀있으면 — 1단계 박은 거 박은 거 박은 박은 박은 — 박은 거 박은 거 박은 박은 박은 박은 박은 박은 박은 — 박은 거 박은 거 박은 박은 박은 — skip 박을지 박은 거 박은 거 박은 박은. 단 박은 거 박은 거 박은 박은 박은 — 박은 거 박은 거 박은 박은 박은 — strong 박은 거 박은 거 박은 박은 박혀있는 박은 거 박은 거 박은 박은 박은 — 박을 위반 사항 박은 거 박은 거 박은 박은 — 명확히 박음
 
 ⚠️⚠️⚠️ 매우 중요:
 - "results" 객체의 키는 입력으로 받은 장면의 ID 그대로 사용하세요.

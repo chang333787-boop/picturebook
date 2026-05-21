@@ -718,16 +718,22 @@
       /* fix 2026-05-21: snapshot은 {sceneId: scene} 객체. Object.values 박음. */
       const scenes = Object.values(snapshot || {});
       const rows = scenes.map(function (s) {
-        const r = (c.results[s.id] || c.results["scene_" + s.id]);
+        const r = c.results[s.id];   /* Functions가 sceneId 정규화 박음 — fallback 박지 X */
         if (!r) return '<div class="ai-cand-row ai-cand-row--none"><div class="ai-cand-scene-id">장면 ' + _escapeHtml(s.id) + '</div><div class="ai-cand-skip">(결과 없음)</div></div>';
         if (r.skip) return '<div class="ai-cand-row ai-cand-row--skip"><div class="ai-cand-scene-id">장면 ' + _escapeHtml(s.id) + '</div><div class="ai-cand-skip">skip — ' + _escapeHtml(r.reason || '') + '</div></div>';
+        /* 강한 경고 박혀있으면 — UI 표시. 적용 자체 박은 거 박은 거 박은 박은 박은 — _finalizeAiVariant 박을 때 차단 박음 */
+        const strongWarn = (r.appliable === false || (Array.isArray(r.strongWarnings) && r.strongWarnings.length > 0));
+        const strongLabel = strongWarn
+          ? '<div class="ai-cand-strong-warn">⚠️ 강한 경고 — 적용 박지 X (1단계 위반 가능: ' + _escapeHtml((r.strongWarnings || []).map(w => w.reason || w).join(', ')) + ')</div>'
+          : '';
         return ''
-          + '<div class="ai-cand-row">'
+          + '<div class="ai-cand-row' + (strongWarn ? ' ai-cand-row--warn' : '') + '">'
           +   '<div class="ai-cand-scene-id">장면 ' + _escapeHtml(s.id) + '</div>'
           +   '<div class="ai-cand-split">'
           +     '<div class="ai-cand-col"><div class="ai-cand-col-label">원본</div><div class="ai-cand-col-text">' + _escapeHtml(s.body || '') + '</div></div>'
-          +     '<div class="ai-cand-col"><div class="ai-cand-col-label">후보 ' + activeAttempt + '회차</div><div class="ai-cand-col-text ai-cand-col-text--ai">' + _escapeHtml(r.revisedText || '') + '</div></div>'
+          +     '<div class="ai-cand-col"><div class="ai-cand-col-label">후보 ' + activeAttempt + '회차' + (strongWarn ? ' (적용 X)' : '') + '</div><div class="ai-cand-col-text ai-cand-col-text--ai">' + _escapeHtml(r.revisedText || '') + '</div></div>'
           +   '</div>'
+          +   strongLabel
           +   (r.summary ? '<div class="ai-cand-summary">' + _escapeHtml(r.summary) + '</div>' : '')
           + '</div>';
       }).join('');
@@ -841,7 +847,7 @@
 
     /* fix 2026-05-21: snapshot은 {sceneId: scene} 객체. Object.values 박음. */
     const rows = Object.values(snapshot || {}).map(function (s) {
-      const r = (cand.results[s.id] || cand.results["scene_" + s.id]);
+      const r = cand.results[s.id];   /* Functions가 sceneId 정규화 박음 */
       if (!r) {
         return ''
           + '<div class="ai-draft-row ai-draft-row--none">'
@@ -1045,8 +1051,13 @@
     /* fix 2026-05-21: snapshot은 {sceneId: scene} 객체. Object.values 박음. */
     Object.values(snapshot || {}).forEach(function (s) {
       if (!s) return;
-      const r = (cand.results[s.id] || cand.results["scene_" + s.id]);
+      const r = cand.results[s.id];   /* Functions가 sceneId 정규화 박음 */
       if (!r || r.skip) return;  /* skip 박은 거 박은 거 박지 X — 원본 박힘 */
+      /* GPT 피드백 #3: 강한 경고 박힌 결과는 적용 박지 X (원본 박힘) */
+      if (r.appliable === false || (Array.isArray(r.strongWarnings) && r.strongWarnings.length > 0)) {
+        console.warn('[Phase A] 장면', s.id, '— 강한 경고 박혀 적용 X', r.strongWarnings);
+        return;
+      }
       const isEdited = (s.id in edited);
       const body = isEdited ? edited[s.id] : (r.revisedText || '');
       final[s.id] = {

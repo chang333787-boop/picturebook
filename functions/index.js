@@ -354,6 +354,30 @@ function _hangulRatio(s) {
   return hangul / text;
 }
 
+/* sceneId 정규화 — Anthropic이 'scene_1' 박혀있을 때 '1'로 박음. 존재하지 않는 sceneId 제거. */
+function _normalizeResults(results, snapshot) {
+  if (!results || typeof results !== 'object') return {};
+  const validIds = new Set(Object.keys(snapshot || {}));
+  const normalized = {};
+  const dropped = [];
+  for (const rawKey of Object.keys(results)) {
+    let key = String(rawKey);
+    /* scene_, scene-, scene 박은 접두사 박지 X */
+    if (/^scene[_\-]?(\d+)$/i.test(key)) {
+      key = key.replace(/^scene[_\-]?/i, '');
+    }
+    if (validIds.has(key)) {
+      normalized[key] = results[rawKey];
+    } else {
+      dropped.push(rawKey);
+    }
+  }
+  if (dropped.length > 0) {
+    logger.warn('[ai/normalize] sceneId 박지 X 박혀있는 결과 제거', { dropped, validIds: Array.from(validIds) });
+  }
+  return normalized;
+}
+
 function _validateS1Response(parsed, snapshot) {
   if (!parsed || typeof parsed !== 'object') {
     throw new Error('JSON 박지 X — object 박지 X');
@@ -363,6 +387,11 @@ function _validateS1Response(parsed, snapshot) {
   }
   if (!parsed.results || typeof parsed.results !== 'object') {
     throw new Error('results 박지 X');
+  }
+  /* 박은 거 박은 거 박은 박은 거 박은 거 박은 박은 정규화 박음 — 'scene_1' → '1', 존재하지 않는 sceneId 제거 */
+  parsed.results = _normalizeResults(parsed.results, snapshot);
+  if (Object.keys(parsed.results).length === 0) {
+    throw new Error('정규화 후 results 박지 X (모든 sceneId 박은 거 박은 거 박은 박은 유효하지 X)');
   }
 
   const sceneMap = snapshot || {};
@@ -401,6 +430,23 @@ function _validateS1Response(parsed, snapshot) {
     /* 톤 / 표지 박지 X */
     if (r.storyTone || r.textCardStyle || r.textCardColor) {
       throw new Error(`장면 ${sceneId} — 톤 박은 거 박지 X`);
+    }
+
+    /* GPT 피드백 #3: 강한 경고 (severity 'strong') 박혀있으면 적용 가능 결과에서 제외 (skip 박음).
+       자동 거부 (throw) ≠ UI 표시 — strong warning은 결과 자체는 보존하되 적용 박지 X. */
+    const warnings = Array.isArray(r.warnings) ? r.warnings : [];
+    const strongWarnings = warnings.filter(w =>
+      w && (
+        w.severity === 'strong' ||
+        w.level === 'strong' ||
+        (typeof w === 'string' && /강한|strong/i.test(w))
+      )
+    );
+    if (strongWarnings.length > 0) {
+      /* 박은 거 박은 거 박은 박은 박은 — UI에서 박을 수 있게 박은 정보 박음. revisedText는 그대로 박혀있되 박은 거 박은 거 박은 박은 박은 — appliable: false */
+      r.appliable = false;
+      r.strongWarnings = strongWarnings;
+      logger.info('[ai/s1] 강한 경고 박힘 — 적용 제외', { sceneId, count: strongWarnings.length });
     }
   }
 

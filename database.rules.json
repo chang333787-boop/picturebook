@@ -46,10 +46,48 @@
             "viewer-meta": {
               ".read": true,
               ".write": "auth != null"
+            },
+
+            "aiPermission": {
+              ".read": true,
+              ".write": "auth != null"
+            },
+            "branchLineage": {
+              ".read": true,
+              ".write": "auth != null"
+            },
+            "aiDrafts": {
+              ".read": true,
+              ".write": false
+            },
+            "aiVariants": {
+              ".read": true,
+              ".write": false
             }
           }
         }
       }
+    },
+
+    "ai-usage": {
+      ".read": false,
+      ".write": false
+    },
+    "ai-usage-by-root": {
+      ".read": false,
+      ".write": false
+    },
+    "ai-usage-global": {
+      ".read": false,
+      ".write": false
+    },
+    "ai-kill-switch": {
+      ".read": true,
+      ".write": false
+    },
+    "ai-stats": {
+      ".read": false,
+      ".write": false
     },
     "teams": {
       ".read": true,

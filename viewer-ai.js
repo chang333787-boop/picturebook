@@ -33,7 +33,7 @@
   /* ────────────────────────────────────────────────────────────────
      Phase 정보 + 정책 상수
      ──────────────────────────────────────────────────────────────── */
-  const PHASE = 'phase-0.5-v140-step4-fix';
+  const PHASE = 'phase-a-step4';
   const MOCK_ONLY = true;
   const LS_ONBOARDING_KEY = 'pb_ai_onboarding_shown_v1';
   const LS_MOCK_STORE_KEY = 'pb_ai_mock_store_v1';
@@ -357,6 +357,76 @@
   }
 
   /* ════════════════════════════════════════════════════════════════
+     Phase A — Firebase Functions 호출 (실 Anthropic API)
+     ──────────────────────────────────────────────────────────────
+     ⚠️ TEST MODE 박혀있으면 mock 박음 (실 호출 X).
+        운영 박을 때 박은 거 박은 거 박은 박은 — _callPhaseAFunction 박음.
+     ════════════════════════════════════════════════════════════════ */
+  async function _callPhaseAFunction(fnName, payload) {
+    if (typeof firebase === 'undefined' || !firebase.functions) {
+      throw new Error('Firebase Functions SDK 박지 X — viewer.html 박을 거');
+    }
+    /* 서울 region 박은 거 박은 거 박은 박은 — functions/index.js setGlobalOptions 박힘 */
+    const fns = firebase.app().functions('asia-northeast3');
+    const callable = fns.httpsCallable(fnName);
+    /* testMode 박지 X 박은 거 박은 거 박은 박은 — Functions 단에서 거부 박힘 */
+    const result = await callable(payload);
+    return result.data;
+  }
+
+  /* Phase A 박은 거 박은 거 박은 박은 진입 — 운영 모드만. TEST MODE 박혀있으면 mock 박음. */
+  function _shouldUseRealApi() {
+    /* TEST MODE 박혀있으면 mock 박음 */
+    if (_isTestMode()) return false;
+    /* Firebase Functions SDK 박지 X 박혀있으면 mock fallback */
+    if (typeof firebase === 'undefined' || !firebase.functions) return false;
+    /* auth 박지 X 박혀있으면 mock fallback (실 호출은 401 박음) */
+    try {
+      if (!firebase.auth().currentUser) return false;
+    } catch (e) { return false; }
+    return true;
+  }
+
+  function _getCurrentClassIdTeamName() {
+    let classId = '', teamName = '';
+    try {
+      if (typeof ViewerState !== 'undefined' && ViewerState) {
+        classId = String(ViewerState.classId || '');
+        teamName = String(ViewerState.teamName || '');
+      }
+      const p = new URLSearchParams(location.search);
+      if (!classId && p.get('classId')) classId = p.get('classId');
+      if (!teamName && p.get('team')) teamName = p.get('team');
+    } catch (e) { /* noop */ }
+    return { classId, teamName };
+  }
+
+  async function _phaseACallTextS1(snapshot) {
+    const { classId, teamName } = _getCurrentClassIdTeamName();
+    const branchLineage = (typeof ViewerState !== 'undefined' && ViewerState.branchLineage) || {};
+    return _callPhaseAFunction('callTextAiBatch', {
+      classId, teamName,
+      workId: teamName,                                /* 가지 데이터 모델 — workId = teamName */
+      rootBranchId: branchLineage.rootBranchId || null,
+      copyDepth: branchLineage.copyDepth || 0,
+      snapshot,
+      /* testMode 박지 X — 실 API라 박은 거 박은 거 박은 박은 Functions 박은 거 박은 거 박은 박은 거부 박음 */
+    });
+  }
+
+  async function _phaseACallWorkCheck(snapshot) {
+    const { classId, teamName } = _getCurrentClassIdTeamName();
+    const branchLineage = (typeof ViewerState !== 'undefined' && ViewerState.branchLineage) || {};
+    return _callPhaseAFunction('callWorkCheck', {
+      classId, teamName,
+      workId: teamName,
+      rootBranchId: branchLineage.rootBranchId || null,
+      copyDepth: branchLineage.copyDepth || 0,
+      snapshot,
+    });
+  }
+
+  /* ════════════════════════════════════════════════════════════════
      v140-step2: mock 후보 생성 (1 후보 세트 = 작품 전체)
      ──────────────────────────────────────────────────────────────
      v139의 _mockReviseS1 박은 거 박은 거 박은. 한 회차 = 1 후보.
@@ -450,23 +520,54 @@
     _currentAbort = { cancelled: false };
 
     let candidate;
+    const useRealApi = _shouldUseRealApi();
     try {
       const attemptN = _getNextAttemptNumber();
-      candidate = await _mockGenerateCandidate(snapshot, attemptN);
-      if (_currentAbort && _currentAbort.cancelled) {
-        /* 호출 도중 취소 — 7가지 환불 정책 #2: 차감 그대로 (환불 X) */
-        _hideCallingModal();
-        _setAiTextS1Status(count > 0 ? 'candidate_ready' : 'none');
-        return;
+
+      if (useRealApi) {
+        /* Phase A — Firebase Functions 호출 (Anthropic Haiku) */
+        console.log('[Phase A] callTextAiBatch 호출 박음', { attemptN });
+        const apiResult = await _phaseACallTextS1(snapshot);
+        if (_currentAbort && _currentAbort.cancelled) {
+          /* 호출 도중 취소 — Functions quota는 차감 그대로 (환불 X) */
+          _hideCallingModal();
+          _setAiTextS1Status(count > 0 ? 'candidate_ready' : 'none');
+          return;
+        }
+        /* Functions 응답 박음 → candidate 박음 */
+        candidate = {
+          suggestionId: apiResult.suggestionId || ('api_a' + attemptN + '_' + Date.now()),
+          attemptN,
+          strength: 1,
+          scope: 'work',
+          globalSummary: apiResult.globalSummary || '',
+          results: apiResult.results || {},
+          meta: apiResult.meta,
+          generatedAt: Date.now(),
+          isMock: false,
+        };
+      } else {
+        /* TEST MODE 또는 fallback — mock 박음 */
+        candidate = await _mockGenerateCandidate(snapshot, attemptN);
+        if (_currentAbort && _currentAbort.cancelled) {
+          _hideCallingModal();
+          _setAiTextS1Status(count > 0 ? 'candidate_ready' : 'none');
+          return;
+        }
       }
       _saveAiDraftCandidate(attemptN, candidate);
     } catch (e) {
-      /* mock 실패 — 환불 (7가지 #3). console.error로 stack 박음 (사용자 명) */
-      console.error('[v140 mock] _startTextS1V140 박지 X — 후보 생성 실패', e);
-      _refundQuota('s1');
+      /* mock 또는 실 API 실패 — 7가지 환불 정책 #3·#4·#5
+         - mock 박은 거: _refundQuota('s1') (localStorage)
+         - 실 API 박은 거: Functions 박은 거 박은 거 박은 박은 _refundQuota 자동 박음 (Firebase 트랜잭션). client _refundQuota는 박지 X — client mockUsage만 reset (실 API 박을 때 mockUsage 박지 X) */
+      console.error('[v140 / Phase A] 후보 생성 실패', e);
+      if (!useRealApi) {
+        _refundQuota('s1');
+      }
       _hideCallingModal();
       _setAiTextS1Status(count > 0 ? 'candidate_ready' : 'none');
-      alert('mock 후보 생성 실패: ' + (e && e.message || e) + '\n\n콘솔 박아 stack 박음.');
+      const prefix = useRealApi ? '[Phase A]' : '[mock]';
+      alert(prefix + ' 후보 생성 실패: ' + (e && e.message || e) + '\n\n콘솔 박아 stack 박음.');
       return;
     }
 
@@ -1615,13 +1716,23 @@
     _showCallingModal(sceneCount);
 
     let result = null;
+    const useRealApi = _shouldUseRealApi();
     try {
-      result = await _mockCallWorkCheck(snapshot);
+      if (useRealApi) {
+        console.log('[Phase A] callWorkCheck 호출 박음');
+        result = await _phaseACallWorkCheck(snapshot);
+      } else {
+        result = await _mockCallWorkCheck(snapshot);
+      }
     } catch (e) {
       _hideCallingModal();
       if (e && e.message === 'cancelled') return;
-      _refundQuota('check');
-      alert('AI 검사 실패: ' + (e && e.message ? e.message : '알 수 없는 오류'));
+      if (!useRealApi) {
+        _refundQuota('check');
+      }
+      console.error('[v140 / Phase A] 작품 검사 실패', e);
+      const prefix = useRealApi ? '[Phase A]' : '[mock]';
+      alert(prefix + ' 작품 검사 실패: ' + (e && e.message ? e.message : '알 수 없는 오류'));
       return;
     }
 

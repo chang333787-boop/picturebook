@@ -142,9 +142,8 @@ async function _validateRequest(req, mode) {
   if (!classId || !teamName) {
     throw new HttpsError('invalid-argument', 'classId / teamName 박지 X');
   }
-  if (!workId) {
-    throw new HttpsError('invalid-argument', 'workId 박지 X');
-  }
+  /* workId 박은 거 박은 거 박은 박은 — 가지 데이터 모델 박은 거 박은 거 박은 박은 — team 자체 박은 거 박은 거 박은 박은 한 작품. workId 박지 X 박혀있으면 teamName 박음. */
+  const workIdEffective = workId || teamName;
 
   /* 2. 임시 허용 목록 (Phase A 박은 거 박은 거 박은 박은 박음) */
   if (!isAiTestAllowed(classId, teamName)) {
@@ -176,7 +175,7 @@ async function _validateRequest(req, mode) {
      ⚠️ 실제 가지 박은 거 박은 거 박은 박은 박은 거 박은 거 박은 박은 — 박을 노드 위치 박은 거 박은 거 박은 박은 데이터 모델에 정합 박을 거.
      박은 거 박은 거 박은 박은 박은 거 박은 거 박은 박은 — Phase A 박을 때 박지 X 박혀있을 가능성 — 박지 X 박혀있으면 기본 ON 박음 (Phase A 테스트라).
      운영 박은 거 박은 거 박은 박은 — 박혀있어야 박을 거 (사용자가 박을 거 박은 거 박은 박은 maker.html에서 박을 거). */
-  const permPath = `classes/${classId}/teams/${teamName}/works/${workId}/aiPermission`;
+  const permPath = `classes/${classId}/teams/${teamName}/aiPermission`;
   const permSnap = await admin.database().ref(permPath).once('value');
   const perm = permSnap.val();
   /* Phase A 박은 거 박은 거 박은 박은 — perm 박지 X 박혀있으면 기본 ON 박음. 운영 박을 때 박은 거 박은 거 박은 박은 perm 박혀있어야 박음. */
@@ -189,7 +188,7 @@ async function _validateRequest(req, mode) {
       throw new HttpsError('permission-denied', `MODE_NOT_ALLOWED (${mode})`);
     }
   } else {
-    logger.info('[ai] aiPermission 박지 X — Phase A 테스트 기본 ON 박음', { classId, teamName, workId });
+    logger.info('[ai] aiPermission 박지 X — Phase A 테스트 기본 ON 박음', { classId, teamName });
   }
 
   /* 8. 전역 일일 hard cap */
@@ -227,7 +226,7 @@ async function _validateRequest(req, mode) {
 
   return {
     uid: req.auth.uid,
-    classId, teamName, workId, rootBranchId, copyDepth,
+    classId, teamName, workId: workIdEffective, rootBranchId, copyDepth,
     mode, used, quotaMax,
     origin,
   };

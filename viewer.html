@@ -17,7 +17,7 @@
   <link rel="stylesheet" href="v03-modes.css?v=127"/>
   <link rel="stylesheet" href="pb-tone.css?v=15"/>
   <!-- Phase 0.5 mock — AI 기능 UI (step1: 진입 버튼만) -->
-  <link rel="stylesheet" href="pb-ai.css?v=v140s4e"/>
+  <link rel="stylesheet" href="pb-ai.css?v=phaseA1"/>
   <!-- W8: 자동 진입(?team= 있을 때) 깜빡임 차단.
        maker → "감상 테스트" / "다듬기" 진입 시 entry 화면이 잠깐 보였다가 사라지는 현상 제거.
        JS 로드 전에 inline으로 처리 — CSS의 #entry-screen{display:flex} 효과 무력화. -->
@@ -152,6 +152,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-functions-compat.js"></script>
 <!-- v37f 캐시 — 표지 높낮이/사이드/구조 + 텍스트 portrait 강제 -->
 <script src="viewer-state.js?v=137"></script>
 <script src="viewer-data.js?v=129"></script>
@@ -160,7 +161,7 @@
 <script src="viewer-render.js?v=v140s4"></script>
 <script src="viewer-edit.js?v=139s1"></script>
 <!-- Phase 0.5 mock — AI 인프라 (mock only, 실 API 박지 X) -->
-<script src="viewer-ai.js?v=v140s4e"></script>
+<script src="viewer-ai.js?v=phaseA1"></script>
 <script src="viewer-image-edit.js?v=96"></script>
 <script src="viewer-entry.js?v=96"></script>
 <!-- v123: 다듬기 화면 루트보기 — maker와 동일 함수 재사용 (ViewerState→window.scenes adapter) -->

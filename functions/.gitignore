@@ -1,0 +1,16 @@
+# 환경변수 / secrets (이중 안전망 — repo 루트 .gitignore도 박혀있음)
+.env
+.env.local
+.env.*.local
+.runtimeconfig.json
+
+# 빌드 / 의존성
+node_modules/
+lib/
+
+# Firebase
+.firebase/
+firebase-debug.log
+
+# OS
+.DS_Store

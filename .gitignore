@@ -9,3 +9,28 @@ node_modules/
 
 # OS
 .DS_Store
+
+# ════════════════════════════════════════════════════════════════
+# Phase A 박을 때 박을 거 박은 거 박은 박은 환경변수 / secrets
+# AI_PHASE_A_USER_PREP_CHECKLIST.md 5장 박힘 (2026-05-21)
+# ⚠️ Anthropic API key 박은 거 박은 거 박은 박은 박혀있을 위치 — 절대 commit X
+# ════════════════════════════════════════════════════════════════
+
+# Firebase Functions — 환경변수 / 빌드 산출물
+functions/node_modules/
+functions/.env
+functions/.env.local
+functions/.env.*.local
+functions/.runtimeconfig.json
+functions/lib/
+functions/.firebase/
+
+# 이중 안전망 — 어떤 위치 박혀있어도 .env 박지 X
+**/.env
+**/.env.local
+**/.env.*.local
+
+# 추가 secrets 패턴
+**/*-secret.json
+**/*.secret
+**/secrets.json

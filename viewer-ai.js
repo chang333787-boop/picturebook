@@ -364,16 +364,26 @@
      ⚠️ TEST MODE 박혀있으면 mock 박음 (실 호출 X).
         운영 박을 때 박은 거 박은 거 박은 박은 — _callPhaseAFunction 박음.
      ════════════════════════════════════════════════════════════════ */
+  /* viewer 박은 거 박은 거 박은 박은 named app 'viewer' 박음 (viewer-data.js 박힘). default app 박지 X. */
+  function _getViewerFirebaseApp() {
+    if (typeof firebase === 'undefined') return null;
+    try { return firebase.app('viewer'); } catch (e) { /* noop */ }
+    try { return firebase.app(); } catch (e) { /* noop */ }
+    if (firebase.apps && firebase.apps.length) return firebase.apps[0];
+    return null;
+  }
+
   async function _callPhaseAFunction(fnName, payload) {
     if (typeof firebase === 'undefined' || !firebase.functions) {
       throw new Error('Firebase Functions SDK 박지 X — viewer.html 박을 거');
     }
+    const app = _getViewerFirebaseApp();
+    if (!app) throw new Error('Firebase app 박지 X (viewer init 박지 X)');
     /* auth 박지 X 박혀있으면 anonymous 박음 (Functions context.auth 박혀있어야) */
-    await _ensureAnonymousAuth();
+    await _ensureAnonymousAuth(app);
     /* 서울 region 박은 거 박은 거 박은 박은 — functions/index.js setGlobalOptions 박힘 */
-    const fns = firebase.app().functions('asia-northeast3');
+    const fns = app.functions('asia-northeast3');
     const callable = fns.httpsCallable(fnName);
-    /* testMode 박지 X 박은 거 박은 거 박은 박은 — Functions 단에서 거부 박힘 */
     const result = await callable(payload);
     return result.data;
   }
@@ -396,13 +406,13 @@
     return true;
   }
 
-  /* anonymous 박은 거 박은 거 박은 박은 박지 X 박혀있으면 박음 */
-  async function _ensureAnonymousAuth() {
-    if (typeof firebase === 'undefined' || !firebase.auth) return null;
+  /* anonymous 박은 거 박은 거 박은 박은 박지 X 박혀있으면 박음 (named app 'viewer' 박음) */
+  async function _ensureAnonymousAuth(app) {
     try {
-      const cur = firebase.auth().currentUser;
+      const authObj = app ? app.auth() : firebase.auth();
+      const cur = authObj.currentUser;
       if (cur) return cur;
-      const cred = await firebase.auth().signInAnonymously();
+      const cred = await authObj.signInAnonymously();
       return cred && cred.user;
     } catch (e) {
       console.warn('[Phase A] anonymous 박지 X', e);

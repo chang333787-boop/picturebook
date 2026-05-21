@@ -370,6 +370,23 @@ exports.callTextAiBatch = onCall(async (req) => {
 
 ---
 
-# 6. 한 줄
+# 6. App Check 박은 거 박은 거 박은 박은 보완 3 박음 (`AI_APP_CHECK_ANALYSIS.md` 박힌 결론 B)
 
-> 가지 AI Phase A 박을 때 비용 비상 차단 박은 거 박은 거 박은 박은 — **8단 다층 방어** (auth → 화이트리스트 → aiPermission → copyDepth → testMode 거부 → 브랜치 quota → rootBranchId quota → 전역 hard cap) + Anthropic 콘솔 월 한도 $20 + kill switch + 7가지 환불 + 로그/알람. **client 박은 거 박은 거 박은 박은 신뢰 X — Functions만 신뢰**. 박힌 거 박은 거 박은 거 박은 박은 박지 X 박혔으면 코드 한 줄도 박지 X.
+App Check 박은 거 박은 거 박은 박은 — **Phase A 박지 X / Phase B 박음**. Phase A 박을 때 박을 보완 3 박음:
+
+| # | 박을 거 | 박은 위치 |
+|---|---|---|
+| 9 | **`maxInstances: 5`** — Functions invocation 폭주 박지 X | `functions/index.js` `onCall` 옵션 |
+| 10 | **Origin 검증** — `req.rawRequest.headers.origin` 박음. 가지 도메인 박지 X 박혀있으면 거부 | Functions 진입 첫 줄 |
+| 11 | **일일 invocation 알람** — 1000회 박을 때 이메일 (Cloud Logging query 박은 거 박은 거 박은 박은 onWrite) | Cloud Functions |
+
+→ Phase A = **8 + 3 = 11단 방어**.
+→ Phase B = App Check 박음 → **12단 방어**.
+
+자세히는 `AI_APP_CHECK_ANALYSIS.md` 박힘.
+
+---
+
+# 7. 한 줄
+
+> 가지 AI Phase A 박을 때 비용 비상 차단 박은 거 박은 거 박은 박은 — **11단 다층 방어** (auth → 화이트리스트 → aiPermission → copyDepth → testMode 거부 → 브랜치 quota → rootBranchId quota → 전역 hard cap → maxInstances → Origin → 일일 alarm) + Anthropic 콘솔 월 한도 $20 + kill switch + 7가지 환불 + 로그/알람. **client 박은 거 박은 거 박은 박은 신뢰 X — Functions만 신뢰**. **Phase B 박을 때 App Check 박음 → 12단**. 박힌 거 박은 거 박은 거 박은 박은 박지 X 박혔으면 코드 한 줄도 박지 X.

@@ -368,6 +368,8 @@
     if (typeof firebase === 'undefined' || !firebase.functions) {
       throw new Error('Firebase Functions SDK 박지 X — viewer.html 박을 거');
     }
+    /* auth 박지 X 박혀있으면 anonymous 박음 (Functions context.auth 박혀있어야) */
+    await _ensureAnonymousAuth();
     /* 서울 region 박은 거 박은 거 박은 박은 — functions/index.js setGlobalOptions 박힘 */
     const fns = firebase.app().functions('asia-northeast3');
     const callable = fns.httpsCallable(fnName);
@@ -378,15 +380,34 @@
 
   /* Phase A 박은 거 박은 거 박은 박은 진입 — 운영 모드만. TEST MODE 박혀있으면 mock 박음. */
   function _shouldUseRealApi() {
-    /* TEST MODE 박혀있으면 mock 박음 */
+    /* TEST MODE 박혀있으면 mock 박음 (단 ?realApi=1 박혀있으면 _isTestMode false 박힘) */
     if (_isTestMode()) return false;
     /* Firebase Functions SDK 박지 X 박혀있으면 mock fallback */
     if (typeof firebase === 'undefined' || !firebase.functions) return false;
-    /* auth 박지 X 박혀있으면 mock fallback (실 호출은 401 박음) */
+    /* ?realApi=1 박혀있으면 — auth 박지 X 박혀있어도 true 박음 (호출 직전 anonymous 박음) */
+    try {
+      const p = new URLSearchParams(location.search);
+      if (p.get('realApi') === '1') return true;
+    } catch (e) { /* noop */ }
+    /* 기본: auth 박혀있어야 박음 */
     try {
       if (!firebase.auth().currentUser) return false;
     } catch (e) { return false; }
     return true;
+  }
+
+  /* anonymous 박은 거 박은 거 박은 박은 박지 X 박혀있으면 박음 */
+  async function _ensureAnonymousAuth() {
+    if (typeof firebase === 'undefined' || !firebase.auth) return null;
+    try {
+      const cur = firebase.auth().currentUser;
+      if (cur) return cur;
+      const cred = await firebase.auth().signInAnonymously();
+      return cred && cred.user;
+    } catch (e) {
+      console.warn('[Phase A] anonymous 박지 X', e);
+      return null;
+    }
   }
 
   function _getCurrentClassIdTeamName() {

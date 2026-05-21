@@ -25,8 +25,8 @@
    11. kill switch (Firebase ai-kill-switch/enabled)
 
    step1 ✓ 골격
-   step2 ✓ 11단 검증 박음 (지금) — Anthropic 호출 박지 X
-   step3 ⏳ Anthropic SDK + prompt + 환불 정책
+   step2 ✓ 11단 검증 박음
+   step3 ✓ Anthropic SDK + prompt + 응답 검증 박음 (지금)
    step4 ⏳ database.rules.json + viewer-ai.js Firebase Functions 호출
    ==================================================================== */
 
@@ -35,6 +35,8 @@ const { defineSecret } = require('firebase-functions/params');
 const { setGlobalOptions } = require('firebase-functions/v2');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const Anthropic = require('@anthropic-ai/sdk');
+const { TEXT_S1_SYSTEM_PROMPT, WORK_CHECK_SYSTEM_PROMPT, buildUserMessage } = require('./prompts');
 
 /* Firebase Admin 초기화 — 1번만 */
 if (!admin.apps.length) {
@@ -287,6 +289,145 @@ async function _refundQuota(ctx) {
 }
 
 /* ════════════════════════════════════════════════════════════════
+   Anthropic SDK 호출 (Haiku)
+   ──────────────────────────────────────────────────────────────
+   사용 모델: claude-haiku-4-5 (Phase A — 가격·속도 최적)
+   max_tokens: 8000 (AI_COST_GUARD_PLAN.md 2-2-1 박힘)
+   ════════════════════════════════════════════════════════════════ */
+const HAIKU_MODEL = 'claude-haiku-4-5';
+const MAX_TOKENS = 8000;
+const ANTHROPIC_TIMEOUT_MS = 50000;  /* Functions timeout 60s 박힘 — 여유 10s */
+
+async function _callAnthropic(apiKey, systemPrompt, userMessage) {
+  const client = new Anthropic({ apiKey, timeout: ANTHROPIC_TIMEOUT_MS });
+
+  const response = await client.messages.create({
+    model: HAIKU_MODEL,
+    max_tokens: MAX_TOKENS,
+    system: systemPrompt,
+    messages: [
+      { role: 'user', content: userMessage }
+    ],
+  });
+
+  /* 응답 박은 거 박은 거 박은 박은 text 박음 */
+  const textBlock = (response.content || []).find(b => b.type === 'text');
+  if (!textBlock || !textBlock.text) {
+    throw new Error('Anthropic 응답 박지 X — text block 박지 X');
+  }
+
+  const usage = response.usage || {};
+  return {
+    text: textBlock.text,
+    inputTokens: usage.input_tokens || 0,
+    outputTokens: usage.output_tokens || 0,
+    stopReason: response.stop_reason || 'unknown',
+  };
+}
+
+/* ════════════════════════════════════════════════════════════════
+   JSON 파싱 + 검증 (1단계)
+   ──────────────────────────────────────────────────────────────
+   prompts/text-strength-1.md v3 박힌 규칙:
+   - safeAddition / creativeAddition 박혀있으면 자동 거부 (1단계 위반)
+   - revisedText 또는 skip union 박혀야
+   - 글자수 hard cut (분할형 500 / 그림 중심형 300)
+   - 한글 비율 70% 미만 거부
+   ════════════════════════════════════════════════════════════════ */
+function _parseJsonStrict(text) {
+  /* 응답 박은 거 박은 거 박은 박은 ```json ... ``` 박혀있을 가능성 — 박음 */
+  let s = String(text).trim();
+  if (s.startsWith('```')) {
+    s = s.replace(/^```(json)?\s*/i, '').replace(/```\s*$/, '').trim();
+  }
+  return JSON.parse(s);
+}
+
+function _hangulRatio(s) {
+  const str = String(s || '');
+  if (str.length === 0) return 1;
+  const hangul = (str.match(/[가-힣]/g) || []).length;
+  /* 공백·문장부호 박지 X 박은 거 박은 거 박은 박은 박은 (영문·숫자만 검사) */
+  const text = (str.match(/[가-힣a-zA-Z0-9]/g) || []).length;
+  if (text === 0) return 1;
+  return hangul / text;
+}
+
+function _validateS1Response(parsed, snapshot) {
+  if (!parsed || typeof parsed !== 'object') {
+    throw new Error('JSON 박지 X — object 박지 X');
+  }
+  if (parsed.strength !== 1) {
+    throw new Error(`strength 박지 X (${parsed.strength})`);
+  }
+  if (!parsed.results || typeof parsed.results !== 'object') {
+    throw new Error('results 박지 X');
+  }
+
+  const sceneMap = snapshot || {};
+  for (const sceneId of Object.keys(parsed.results)) {
+    const r = parsed.results[sceneId];
+    if (!r) continue;
+    if (r.skip === true) continue;  /* skip OK */
+
+    /* 1단계 위반 — safeAddition / creativeAddition 박지 X */
+    if ('safeAddition' in r || 'creativeAddition' in r) {
+      throw new Error(`장면 ${sceneId} — 1단계 위반 (safeAddition/creativeAddition 박혀있음)`);
+    }
+
+    /* revisedText 박지 X 박혀있으면 거부 */
+    if (typeof r.revisedText !== 'string' || r.revisedText.trim().length === 0) {
+      throw new Error(`장면 ${sceneId} — revisedText 박지 X`);
+    }
+
+    /* 글자수 hard cut */
+    const origScene = sceneMap[sceneId];
+    const submode = origScene && origScene.submode === 'imageCenter' ? 'imageCenter' : 'split';
+    const maxLen = submode === 'imageCenter' ? 300 : 500;
+    if (r.revisedText.length > maxLen) {
+      throw new Error(`장면 ${sceneId} — 글자수 hard cut 초과 (${r.revisedText.length}/${maxLen}, ${submode})`);
+    }
+
+    /* 한글 비율 70% 미만 거부 */
+    if (_hangulRatio(r.revisedText) < 0.7) {
+      throw new Error(`장면 ${sceneId} — 한글 비율 70% 미만`);
+    }
+
+    /* buttons / choices / nextA / nextB 박지 X */
+    if (r.buttons || r.choices || r.nextA || r.nextB) {
+      throw new Error(`장면 ${sceneId} — 분기 구조 박은 거 박지 X`);
+    }
+    /* 톤 / 표지 박지 X */
+    if (r.storyTone || r.textCardStyle || r.textCardColor) {
+      throw new Error(`장면 ${sceneId} — 톤 박은 거 박지 X`);
+    }
+  }
+
+  return parsed;
+}
+
+function _validateWorkCheckResponse(parsed) {
+  if (!parsed || typeof parsed !== 'object') {
+    throw new Error('JSON 박지 X — object 박지 X');
+  }
+  if (!parsed.categories || typeof parsed.categories !== 'object') {
+    throw new Error('categories 박지 X');
+  }
+  /* 본문 수정 결과 박혀있으면 거부 (검사 위반) */
+  const cats = parsed.categories;
+  for (const catKey of Object.keys(cats)) {
+    const items = cats[catKey];
+    if (!Array.isArray(items)) continue;
+    for (const item of items) {
+      if (item && (item.revisedText || (item.suggested && item.suggested.body))) {
+        throw new Error('작품 검사 위반 — revisedText / suggested.body 박혀있음 (수정 X)');
+      }
+    }
+  }
+  return parsed;
+}
+
+/* ════════════════════════════════════════════════════════════════
    callTextAiBatch — 텍스트 1단계 (안심 정돈)
    ──────────────────────────────────────────────────────────────
    step2 박은 거 박은 거 박은 박은 — 11단 검증 + quota 차감 박음.
@@ -300,25 +441,65 @@ exports.callTextAiBatch = onCall(
   async (req) => {
     /* 1~11단 검증 박음 */
     const ctx = await _validateRequest(req, 's1');
+
+    /* snapshot 박지 X 박혀있으면 거부 */
+    const snapshot = (req.data && req.data.snapshot) || {};
+    if (!snapshot || Object.keys(snapshot).length === 0) {
+      throw new HttpsError('invalid-argument', 'snapshot 박지 X (본문 박은 장면 X)');
+    }
+
     logger.info('[ai/s1] 검증 통과', {
       uid: ctx.uid, classId: ctx.classId, teamName: ctx.teamName, workId: ctx.workId,
-      used: ctx.used, quotaMax: ctx.quotaMax,
+      used: ctx.used, quotaMax: ctx.quotaMax, sceneCount: Object.keys(snapshot).length,
     });
 
-    /* quota 차감 (호출 박을 거 박은 거 박은 박은 박은 박음) */
+    /* quota 차감 (호출 박은 거 박은 거 박은 박은) */
     await _consumeQuota(ctx);
 
     try {
-      /* step3 박을 때 박을 거 — Anthropic SDK 호출 + prompt + 결과 검증 */
-      throw new HttpsError('unimplemented',
-        'Phase A step2 박은 거 박은 거 박은 박은 — 11단 검증 박혔지만 Anthropic 호출 박지 X (step3 박을 때).');
-    } catch (e) {
-      /* 환불 정책 #3·#4·#5 — Anthropic / 네트워크 / schema 실패 → 환불 */
-      if (e instanceof HttpsError && e.code === 'unimplemented') {
-        /* step2 박은 거 박은 거 박은 박은 박은 — 환불 박음 (Anthropic 박지 X 박혀있어) */
+      /* Anthropic 호출 */
+      const userMsg = buildUserMessage(snapshot, 's1');
+      const ai = await _callAnthropic(ANTHROPIC_API_KEY.value(), TEXT_S1_SYSTEM_PROMPT, userMsg);
+
+      logger.info('[ai/s1] Anthropic 응답 박힘', {
+        inputTokens: ai.inputTokens, outputTokens: ai.outputTokens, stopReason: ai.stopReason,
+      });
+
+      /* JSON 파싱 + 검증 */
+      let parsed;
+      try {
+        parsed = _parseJsonStrict(ai.text);
+        _validateS1Response(parsed, snapshot);
+      } catch (parseErr) {
+        /* 환불 정책 #5 — schema 위반 → 환불 */
         await _refundQuota(ctx);
+        logger.error('[ai/s1] schema 위반 — 환불 박음', { error: parseErr.message, text: ai.text.slice(0, 500) });
+        throw new HttpsError('internal', 'AI 응답 검증 실패: ' + parseErr.message);
       }
-      throw e;
+
+      /* 비용 추정 + stats 박음 */
+      const cost = _estimateCostUsd(ai.inputTokens, ai.outputTokens);
+      _logUsageStats(ctx, ai, cost).catch(e => logger.warn('stats 박지 X', e));
+
+      return {
+        ...parsed,
+        meta: {
+          model: HAIKU_MODEL,
+          inputTokens: ai.inputTokens,
+          outputTokens: ai.outputTokens,
+          estimatedCostUsd: cost,
+          phase: 'phase-a',
+        },
+      };
+
+    } catch (e) {
+      /* HttpsError 박은 거 박은 거 박은 박은 그대로 throw */
+      if (e instanceof HttpsError) throw e;
+
+      /* 환불 정책 #3·#4 — Anthropic / 네트워크 실패 → 환불 */
+      await _refundQuota(ctx);
+      logger.error('[ai/s1] 호출 실패 — 환불 박음', { error: e.message, stack: e.stack });
+      throw new HttpsError('internal', 'AI 호출 실패: ' + (e.message || String(e)));
     }
   }
 );
@@ -333,24 +514,97 @@ exports.callWorkCheck = onCall(
   },
   async (req) => {
     const ctx = await _validateRequest(req, 'check');
+
+    const snapshot = (req.data && req.data.snapshot) || {};
+    if (!snapshot || Object.keys(snapshot).length === 0) {
+      throw new HttpsError('invalid-argument', 'snapshot 박지 X (본문 박은 장면 X)');
+    }
+
     logger.info('[ai/check] 검증 통과', {
       uid: ctx.uid, classId: ctx.classId, teamName: ctx.teamName, workId: ctx.workId,
-      used: ctx.used, quotaMax: ctx.quotaMax,
+      used: ctx.used, quotaMax: ctx.quotaMax, sceneCount: Object.keys(snapshot).length,
     });
 
     await _consumeQuota(ctx);
 
     try {
-      throw new HttpsError('unimplemented',
-        'Phase A step2 박은 거 박은 거 박은 박은 — 11단 검증 박혔지만 Anthropic 호출 박지 X (step3 박을 때).');
-    } catch (e) {
-      if (e instanceof HttpsError && e.code === 'unimplemented') {
+      const userMsg = buildUserMessage(snapshot, 'check');
+      const ai = await _callAnthropic(ANTHROPIC_API_KEY.value(), WORK_CHECK_SYSTEM_PROMPT, userMsg);
+
+      logger.info('[ai/check] Anthropic 응답 박힘', {
+        inputTokens: ai.inputTokens, outputTokens: ai.outputTokens, stopReason: ai.stopReason,
+      });
+
+      let parsed;
+      try {
+        parsed = _parseJsonStrict(ai.text);
+        _validateWorkCheckResponse(parsed);
+      } catch (parseErr) {
         await _refundQuota(ctx);
+        logger.error('[ai/check] schema 위반 — 환불 박음', { error: parseErr.message, text: ai.text.slice(0, 500) });
+        throw new HttpsError('internal', 'AI 응답 검증 실패: ' + parseErr.message);
       }
-      throw e;
+
+      const cost = _estimateCostUsd(ai.inputTokens, ai.outputTokens);
+      _logUsageStats(ctx, ai, cost).catch(e => logger.warn('stats 박지 X', e));
+
+      return {
+        ...parsed,
+        meta: {
+          model: HAIKU_MODEL,
+          inputTokens: ai.inputTokens,
+          outputTokens: ai.outputTokens,
+          estimatedCostUsd: cost,
+          phase: 'phase-a',
+        },
+      };
+
+    } catch (e) {
+      if (e instanceof HttpsError) throw e;
+
+      await _refundQuota(ctx);
+      logger.error('[ai/check] 호출 실패 — 환불 박음', { error: e.message, stack: e.stack });
+      throw new HttpsError('internal', 'AI 호출 실패: ' + (e.message || String(e)));
     }
   }
 );
+
+/* ════════════════════════════════════════════════════════════════
+   비용 추정 + stats (Cloud Logging 박음)
+   ──────────────────────────────────────────────────────────────
+   Haiku 4.5 단가 (2026-05 기준):
+   - input:  $1 / 1M tokens
+   - output: $5 / 1M tokens
+   ════════════════════════════════════════════════════════════════ */
+const HAIKU_INPUT_USD_PER_M = 1.0;
+const HAIKU_OUTPUT_USD_PER_M = 5.0;
+
+function _estimateCostUsd(inputTokens, outputTokens) {
+  const inCost = (inputTokens / 1_000_000) * HAIKU_INPUT_USD_PER_M;
+  const outCost = (outputTokens / 1_000_000) * HAIKU_OUTPUT_USD_PER_M;
+  return Math.round((inCost + outCost) * 1_000_000) / 1_000_000;  /* 6자리 박음 */
+}
+
+async function _logUsageStats(ctx, ai, costUsd) {
+  const today = _todayYmd();
+  const { classId, teamName, mode } = ctx;
+  const statsRef = admin.database().ref(`ai-stats/${today}`);
+
+  /* 토큰 누적 */
+  await statsRef.child(`tokens/${mode}/input`).transaction(n => (n || 0) + ai.inputTokens);
+  await statsRef.child(`tokens/${mode}/output`).transaction(n => (n || 0) + ai.outputTokens);
+
+  /* 비용 누적 (마이크로달러 박음 — 정수 박는 게 안전) */
+  const costMicro = Math.round(costUsd * 1_000_000);
+  await statsRef.child(`cost/${mode}/microUsd`).transaction(n => (n || 0) + costMicro);
+  await statsRef.child(`cost/total/microUsd`).transaction(n => (n || 0) + costMicro);
+
+  /* 팀별 호출 수 */
+  const teamKey = `${classId}__${teamName}`.replace(/[.#$/\[\]]/g, '_');
+  await statsRef.child(`by-team/${teamKey}/${mode}`).transaction(n => (n || 0) + 1);
+
+  logger.info('[ai/stats] 박힘', { mode, inputTokens: ai.inputTokens, outputTokens: ai.outputTokens, costUsd });
+}
 
 /* ════════════════════════════════════════════════════════════════
    helper export (step3 박을 때 박을 거)
@@ -364,4 +618,11 @@ exports._internal = {
   _validateRequest,
   _consumeQuota,
   _refundQuota,
+  _callAnthropic,
+  _parseJsonStrict,
+  _validateS1Response,
+  _validateWorkCheckResponse,
+  _estimateCostUsd,
+  HAIKU_MODEL,
+  MAX_TOKENS,
 };

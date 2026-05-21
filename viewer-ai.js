@@ -718,7 +718,7 @@
       /* fix 2026-05-21: snapshot은 {sceneId: scene} 객체. Object.values 박음. */
       const scenes = Object.values(snapshot || {});
       const rows = scenes.map(function (s) {
-        const r = c.results[s.id];
+        const r = (c.results[s.id] || c.results["scene_" + s.id]);
         if (!r) return '<div class="ai-cand-row ai-cand-row--none"><div class="ai-cand-scene-id">장면 ' + _escapeHtml(s.id) + '</div><div class="ai-cand-skip">(결과 없음)</div></div>';
         if (r.skip) return '<div class="ai-cand-row ai-cand-row--skip"><div class="ai-cand-scene-id">장면 ' + _escapeHtml(s.id) + '</div><div class="ai-cand-skip">skip — ' + _escapeHtml(r.reason || '') + '</div></div>';
         return ''
@@ -841,7 +841,7 @@
 
     /* fix 2026-05-21: snapshot은 {sceneId: scene} 객체. Object.values 박음. */
     const rows = Object.values(snapshot || {}).map(function (s) {
-      const r = cand.results[s.id];
+      const r = (cand.results[s.id] || cand.results["scene_" + s.id]);
       if (!r) {
         return ''
           + '<div class="ai-draft-row ai-draft-row--none">'
@@ -1045,7 +1045,7 @@
     /* fix 2026-05-21: snapshot은 {sceneId: scene} 객체. Object.values 박음. */
     Object.values(snapshot || {}).forEach(function (s) {
       if (!s) return;
-      const r = cand.results[s.id];
+      const r = (cand.results[s.id] || cand.results["scene_" + s.id]);
       if (!r || r.skip) return;  /* skip 박은 거 박은 거 박지 X — 원본 박힘 */
       const isEdited = (s.id in edited);
       const body = isEdited ? edited[s.id] : (r.revisedText || '');

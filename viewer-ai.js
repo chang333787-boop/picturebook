@@ -320,8 +320,10 @@
     await _delay(delayMs);
 
     const results = {};
-    snapshot.scenes.forEach(s => {
-      if (!s.body || !s.body.trim()) return;
+    /* fix 2026-05-21: _buildWorkSnapshot은 {sceneId: scene} 객체 박음 (배열 X). Object.values 박음. */
+    const sceneList = Object.values(snapshot || {});
+    sceneList.forEach(s => {
+      if (!s || !s.body || !s.body.trim()) return;
       /* 30% skip (이미 자연스러움) — v139 박힌 거 그대로 */
       if (Math.random() < 0.3) {
         results[s.id] = { skip: true, reason: '이미 자연스러워요 (mock 후보 ' + attemptN + ')' };
@@ -381,7 +383,15 @@
     _setAiTextS1Status('generating');
 
     const snapshot = _buildWorkSnapshot();
-    _showCallingModal(snapshot.scenes.length);
+    /* fix 2026-05-21: snapshot은 {sceneId: scene} 객체. 길이는 Object.keys 박음. */
+    const sceneCount = Object.keys(snapshot || {}).length;
+    if (sceneCount === 0) {
+      _refundQuota('s1');
+      _setAiTextS1Status(count > 0 ? 'candidate_ready' : 'none');
+      alert('1단계 박을 본문 박은 장면 박혀있지 X.');
+      return;
+    }
+    _showCallingModal(sceneCount);
     _currentAbort = { cancelled: false };
 
     let candidate;
@@ -396,11 +406,12 @@
       }
       _saveAiDraftCandidate(attemptN, candidate);
     } catch (e) {
-      /* mock 실패 — 환불 (7가지 #3) */
+      /* mock 실패 — 환불 (7가지 #3). console.error로 stack 박음 (사용자 명) */
+      console.error('[v140 mock] _startTextS1V140 박지 X — 후보 생성 실패', e);
       _refundQuota('s1');
       _hideCallingModal();
       _setAiTextS1Status(count > 0 ? 'candidate_ready' : 'none');
-      alert('mock 호출 실패: ' + (e && e.message || e));
+      alert('mock 후보 생성 실패: ' + (e && e.message || e) + '\n\n콘솔 박아 stack 박음.');
       return;
     }
 
@@ -467,7 +478,8 @@
       const c = cands['attempt' + activeAttempt];
       if (!c) { body.innerHTML = '<div class="ai-cand-empty">후보 박혀있지 X</div>'; return; }
       const snapshot = _buildWorkSnapshot();
-      const scenes = snapshot.scenes;
+      /* fix 2026-05-21: snapshot은 {sceneId: scene} 객체. Object.values 박음. */
+      const scenes = Object.values(snapshot || {});
       const rows = scenes.map(function (s) {
         const r = c.results[s.id];
         if (!r) return '<div class="ai-cand-row ai-cand-row--none"><div class="ai-cand-scene-id">장면 ' + _escapeHtml(s.id) + '</div><div class="ai-cand-skip">(결과 없음)</div></div>';
@@ -589,7 +601,8 @@
     const snapshot = _buildWorkSnapshot();
     const edited = d.textS1.editedDraftByScene || {};
 
-    const rows = snapshot.scenes.map(function (s) {
+    /* fix 2026-05-21: snapshot은 {sceneId: scene} 객체. Object.values 박음. */
+    const rows = Object.values(snapshot || {}).map(function (s) {
       const r = cand.results[s.id];
       if (!r) {
         return ''
@@ -789,7 +802,9 @@
     const snapshot = _buildWorkSnapshot();
 
     const final = {};
-    snapshot.scenes.forEach(function (s) {
+    /* fix 2026-05-21: snapshot은 {sceneId: scene} 객체. Object.values 박음. */
+    Object.values(snapshot || {}).forEach(function (s) {
+      if (!s) return;
       const r = cand.results[s.id];
       if (!r || r.skip) return;  /* skip 박은 거 박은 거 박지 X — 원본 박힘 */
       const isEdited = (s.id in edited);

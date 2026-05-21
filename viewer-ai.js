@@ -76,6 +76,8 @@
   function _isTestMode() {
     try {
       const p = new URLSearchParams(location.search);
+      /* 명시 우회: ?realApi=1 박혀있으면 localhost라도 실 API 박음 (사용자 명시 박힐 때) */
+      if (p.get('realApi') === '1') return false;
       if (p.get('test') === '1') return true;
       const h = location.hostname;
       if (h === 'localhost' || h === '127.0.0.1' || h === '0.0.0.0') return true;

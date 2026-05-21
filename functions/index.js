@@ -58,9 +58,11 @@ const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY');
    ⚠️ 운영 박힐 때 teacherId/account 기반으로 교체
    ════════════════════════════════════════════════════════════════ */
 const AI_TEST_ALLOWED = [
-  { classId: 'JL26A', teamName: '0000' },
-  { classId: 'JL26A', teamName: '은규' },
-  { classId: 'JL26A', teamName: '예지유은인우' },
+  /* 실제 Firebase classId 박음 (사용자 친화 코드 JL26A → classCodes 박은 거 박은 거 박은 박은 매핑)
+     viewer가 URL에 박은 classId 박은 거 박은 거 박은 박은 — Firebase 박은 거 박은 거 박은 박은 그대로 박음 (코드 변환 X) */
+  { classId: 'class_2026_junglim_1', teamName: '0000' },
+  { classId: 'class_2026_junglim_1', teamName: '은규' },
+  { classId: 'class_2026_junglim_1', teamName: '예지유은인우' },
 ];
 
 function isAiTestAllowed(classId, teamName) {

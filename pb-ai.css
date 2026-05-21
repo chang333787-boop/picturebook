@@ -137,7 +137,7 @@
   max-height: calc(100vh - 40px);
   animation: ai-modal-pop 0.22s ease-out;
 }
-.ai-modal--large { max-width: 920px; }
+.ai-modal--large { max-width: 1280px; width: 95vw; }    /* v140 fix 2026-05-21 — 후보·편집 모달 넓힘 */
 @keyframes ai-modal-pop {
   from { transform: scale(0.95); opacity: 0; }
   to   { transform: scale(1);    opacity: 1; }
@@ -636,8 +636,10 @@
 .ai-cand-modal {
   background: #fffaee;
   border-radius: 12px;
-  width: min(880px, 92vw);
-  max-height: 86vh;
+  /* v140 fix 2026-05-21: width 95vw / max-height 90vh — 수정본 박은 거 박은 거 박은 박은 끝까지 박힘 (사용자 명) */
+  width: 95vw;
+  max-width: 1280px;
+  max-height: 90vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -746,7 +748,8 @@
 
 .ai-cand-split {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* v140 fix 2026-05-21: 세로 배치 박음 (사용자 명) — 수정본 박은 거 박은 거 박은 박은 좁아 박지 X */
+  grid-template-columns: 1fr;
   gap: 10px;
 }
 
@@ -810,9 +813,99 @@
   color: #8a7a5e;
 }
 
-/* 모바일 — split 박은 거 박지 X 박고 한 줄로 */
+/* v140 fix 2026-05-21: 모바일 — 같음 (이미 세로 박음) */
 @media (max-width: 600px) {
-  .ai-cand-split { grid-template-columns: 1fr; }
+  .ai-cand-modal { width: 98vw; max-height: 92vh; }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   v140 fix 2026-05-21: 모드 모달 TEST MODE reset 패널 + quota empty 모달
+   ════════════════════════════════════════════════════════════════ */
+.ai-mode-testmode-panel {
+  margin-top: 16px;
+  padding: 12px 14px;
+  background: #fff3e0;
+  border: 1px dashed #d97706;
+  border-radius: 10px;
+}
+.ai-mode-testmode-panel__head {
+  font-family: 'Jua', sans-serif;
+  font-size: 13px;
+  color: #8a4a00;
+  margin-bottom: 8px;
+}
+.ai-mode-testmode-panel__head code {
+  background: rgba(255,255,255,0.6);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+.ai-mode-testmode-panel__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ai-mode-testmode-panel__buttons .ai-btn {
+  font-size: 12px;
+  padding: 6px 10px;
+}
+.ai-mode-testmode-panel__hint {
+  margin-top: 8px;
+  font-size: 11px;
+  color: #8a4a00;
+  font-style: italic;
+}
+.ai-btn--danger {
+  border-color: #c92a2a;
+  color: #c92a2a;
+}
+.ai-btn--danger:hover {
+  background: #fff0f0;
+}
+
+/* quota 0 안내 모달 */
+.ai-quota-empty-modal {
+  background: #fffaee;
+  border-radius: 12px;
+  width: min(560px, 92vw);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+}
+.ai-quota-empty-modal__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid #e8dcc4;
+}
+.ai-quota-empty-modal__head h3 {
+  margin: 0;
+  font-family: 'Jua', sans-serif;
+  color: #6b5638;
+  font-size: 17px;
+}
+.ai-quota-empty-modal__body {
+  padding: 16px 18px;
+  color: #4a3c25;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.ai-quota-empty-modal__body p { margin: 0 0 10px; }
+.ai-quota-empty-team code {
+  background: #f3e7cc;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+.ai-quota-empty-modal__foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 18px;
+  border-top: 1px solid #e8dcc4;
+  background: #fdf6e5;
 }
 
 /* ════════════════════════════════════════════════════════════════
@@ -823,8 +916,10 @@
 .ai-draft-modal {
   background: #fffaee;
   border-radius: 12px;
-  width: min(820px, 92vw);
-  max-height: 86vh;
+  /* v140 fix 2026-05-21: 95vw / 90vh (사용자 명) */
+  width: 95vw;
+  max-width: 1100px;
+  max-height: 90vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;

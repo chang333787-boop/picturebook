@@ -33,7 +33,7 @@
   /* ────────────────────────────────────────────────────────────────
      Phase 정보 + 정책 상수
      ──────────────────────────────────────────────────────────────── */
-  const PHASE = 'phase-0.5-v140-step4';
+  const PHASE = 'phase-0.5-v140-step4-fix';
   const MOCK_ONLY = true;
   const LS_ONBOARDING_KEY = 'pb_ai_onboarding_shown_v1';
   const LS_MOCK_STORE_KEY = 'pb_ai_mock_store_v1';
@@ -166,6 +166,17 @@
     return LS_MOCK_USAGE_KEY + '__' + _getCurrentNamespace();
   }
 
+  /* v140 fix 2026-05-21: drafts / variants / viewMode 박은 거 박은 거 박은 박은 — 팀별 분리 (사용자 명) */
+  function _getMockDraftsKey() {
+    return LS_AI_DRAFTS_KEY + '__' + _getCurrentNamespace();
+  }
+  function _getMockVariantsKey() {
+    return LS_AI_VARIANTS_KEY + '__' + _getCurrentNamespace();
+  }
+  function _getMockViewModeKey() {
+    return LS_AI_VIEW_MODE_KEY + '__' + _getCurrentNamespace();
+  }
+
   /* ════════════════════════════════════════════════════════════════
      v140-step1: reset 함수 (사용자 결정 #B + v140 namespace fix)
      ──────────────────────────────────────────────────────────────
@@ -206,26 +217,61 @@
     } catch (e) { console.warn('[ai-mock] usage reset all failed', e); }
   }
 
+  /* v140 fix 2026-05-21: drafts / variants reset 박은 거 박은 거 박은 박은 — 현재 팀만 (사용자 명) */
   function _resetMockDrafts() {
     try {
+      localStorage.removeItem(_getMockDraftsKey());
+      /* 옛 공통 키 박은 거 박은 거 박은 박은 — 박은 거 박은 거 박은 박은 박지 X 박은 거 박은 거 박은 박은 (마이그 없음). 단 한 번 정리 박음. */
       localStorage.removeItem(LS_AI_DRAFTS_KEY);
-      console.log('[ai-mock] drafts reset');
+      console.log('[ai-mock] drafts reset (' + _getCurrentNamespace() + ')');
     } catch (e) { console.warn('[ai-mock] drafts reset failed', e); }
   }
 
   function _resetMockVariants() {
     try {
+      localStorage.removeItem(_getMockVariantsKey());
+      localStorage.removeItem(_getMockViewModeKey());
+      /* 옛 공통 키 박지 X */
       localStorage.removeItem(LS_AI_VARIANTS_KEY);
       localStorage.removeItem(LS_AI_VIEW_MODE_KEY);
-      console.log('[ai-mock] variants reset');
+      console.log('[ai-mock] variants reset (' + _getCurrentNamespace() + ')');
     } catch (e) { console.warn('[ai-mock] variants reset failed', e); }
+  }
+
+  /* 전체 박은 거 박은 거 박은 박은 — 모든 팀 namespace drafts/variants 박음 */
+  function _resetMockDraftsAll() {
+    const removed = [];
+    try {
+      const keys = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && (k === LS_AI_DRAFTS_KEY || k.indexOf(LS_AI_DRAFTS_KEY + '__') === 0)) keys.push(k);
+      }
+      keys.forEach(function (k) { localStorage.removeItem(k); removed.push(k); });
+      console.log('[ai-mock] drafts reset ALL — ' + removed.length + ' keys', removed);
+    } catch (e) { console.warn('[ai-mock] drafts reset all failed', e); }
+  }
+
+  function _resetMockVariantsAll() {
+    const removed = [];
+    try {
+      const keys = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (!k) continue;
+        if (k === LS_AI_VARIANTS_KEY || k.indexOf(LS_AI_VARIANTS_KEY + '__') === 0) keys.push(k);
+        else if (k === LS_AI_VIEW_MODE_KEY || k.indexOf(LS_AI_VIEW_MODE_KEY + '__') === 0) keys.push(k);
+      }
+      keys.forEach(function (k) { localStorage.removeItem(k); removed.push(k); });
+      console.log('[ai-mock] variants reset ALL — ' + removed.length + ' keys', removed);
+    } catch (e) { console.warn('[ai-mock] variants reset all failed', e); }
   }
 
   function _resetMockAll() {
     /* 전체 reset = 모든 팀 namespace usage + drafts + variants + store + 우회 토글 */
     _resetMockUsageAll();
-    _resetMockDrafts();
-    _resetMockVariants();
+    _resetMockDraftsAll();
+    _resetMockVariantsAll();
     try {
       localStorage.removeItem(LS_MOCK_STORE_KEY);
       localStorage.removeItem(LS_TEST_MODE_BYPASS_KEY);
@@ -258,11 +304,12 @@
      ⚠️ MOCK 전용 — Phase A 박힐 때 Firebase로 전환
      ════════════════════════════════════════════════════════════════ */
   function _loadAiDrafts() {
-    return _safeParseJson(localStorage.getItem(LS_AI_DRAFTS_KEY)) || { textS1: null };
+    /* v140 fix 2026-05-21: 팀별 namespace 박음. 옛 공통 키 박지 X. */
+    return _safeParseJson(localStorage.getItem(_getMockDraftsKey())) || { textS1: null };
   }
 
   function _saveAiDrafts(drafts) {
-    try { localStorage.setItem(LS_AI_DRAFTS_KEY, JSON.stringify(drafts)); }
+    try { localStorage.setItem(_getMockDraftsKey(), JSON.stringify(drafts)); }
     catch (e) { console.warn('[ai-mock] aiDrafts save failed', e); }
   }
 
@@ -364,16 +411,24 @@
       return;
     }
 
-    /* 후보 3회 모두 박혀있으면 — 후보 모달만 박음 (선택 단계로) */
+    /* v140 fix 2026-05-21: 4가지 분기 (사용자 명) */
     const count = _getCandidateCount();
-    if (count >= MOCK_QUOTA.s1) {
+    const remaining = _getRemaining('s1');
+
+    /* (1) 후보 X / quota X → reset 안내 모달 */
+    if (count === 0 && remaining <= 0) {
+      _showQuotaEmptyModal();
+      return;
+    }
+
+    /* (2) 후보 O / quota X → 후보 모달 (단 [더 생성하기] 비활성 — _showCandidatesModal 박은 거 박은 거 박은 박음) */
+    if (count > 0 && remaining <= 0) {
       _showCandidatesModal();
       return;
     }
 
-    /* quota 검사 */
-    if (_getRemaining('s1') <= 0) {
-      alert('1단계 quota 박혀있지 X. (남은 후보 ' + count + '/' + MOCK_QUOTA.s1 + ')');
+    /* (3) 후보 3회 누적 (모든 회차 박힘) → 후보 모달 박음 */
+    if (count >= MOCK_QUOTA.s1) {
       _showCandidatesModal();
       return;
     }
@@ -417,6 +472,47 @@
 
     _hideCallingModal();
     _showCandidatesModal();
+  }
+
+  /* ════════════════════════════════════════════════════════════════
+     v140 fix 2026-05-21: quota 0 안내 모달 (사용자 명)
+     ──────────────────────────────────────────────────────────────
+     후보 X / quota X 박은 거 박은 거 박은 박은 — 박은 거 박은 거 박은 박은 박지 X 박은 거 박은 거 박은 박은 박음.
+     TEST MODE에서는 reset 버튼 박음 — 즉시 다시 박음.
+     ════════════════════════════════════════════════════════════════ */
+  function _showQuotaEmptyModal() {
+    const ns = _getCurrentNamespace();
+    const testBtn = _isTestMode()
+      ? '<button type="button" class="ai-btn ai-btn--primary js-ai-quota-reset">[현재 팀 quota 초기화]</button>'
+      : '';
+    const inner = ''
+      + '<div class="ai-quota-empty-modal">'
+      +   '<div class="ai-quota-empty-modal__head">'
+      +     '<h3>1단계 테스트 횟수 박혀있지 X</h3>'
+      +     '<button type="button" class="ai-modal-close js-ai-qe-close" aria-label="닫기">×</button>'
+      +   '</div>'
+      +   '<div class="ai-quota-empty-modal__body">'
+      +     '<p>테스트 횟수를 모두 사용했어요. TEST MODE에서는 quota를 초기화하고 다시 확인할 수 있습니다.</p>'
+      +     '<p class="ai-quota-empty-team">현재 팀: <code>' + _escapeHtml(ns) + '</code></p>'
+      +   '</div>'
+      +   '<div class="ai-quota-empty-modal__foot">'
+      +     '<button type="button" class="ai-btn ai-btn--ghost js-ai-qe-close2">[닫기]</button>'
+      +     testBtn
+      +   '</div>'
+      + '</div>';
+
+    const root = _createModalRoot('ai-quota-empty-root', inner, { lock: true });
+    function close() { _removeModalRoot('ai-quota-empty-root'); }
+    root.querySelector('.js-ai-qe-close').addEventListener('click', close);
+    root.querySelector('.js-ai-qe-close2').addEventListener('click', close);
+    const resetEl = root.querySelector('.js-ai-quota-reset');
+    if (resetEl) {
+      resetEl.addEventListener('click', function () {
+        _resetMockUsage();
+        close();
+        alert('현재 팀 quota 초기화 박음 (' + ns + '). 다시 [1단계 정돈] 박음.');
+      });
+    }
   }
 
   /* ════════════════════════════════════════════════════════════════
@@ -468,7 +564,8 @@
       +   '</div>'
       + '</div>';
 
-    const root = _createModalRoot('ai-cand-modal-root', inner, { className: 'ai-modal-overlay' });
+    /* v140 fix 2026-05-21: lock: true 박음 — overlay 클릭/ESC 박지 X (사용자 명) */
+    const root = _createModalRoot('ai-cand-modal-root', inner, { lock: true, size: 'large' });
 
     let activeAttempt = selected || attempts[attempts.length - 1];
 
@@ -549,11 +646,12 @@
      ⚠️ MOCK 전용 — Phase A 박힐 때 Firebase로 전환
      ════════════════════════════════════════════════════════════════ */
   function _loadAiVariants() {
-    return _safeParseJson(localStorage.getItem(LS_AI_VARIANTS_KEY)) || { textS1: null };
+    /* v140 fix 2026-05-21: 팀별 namespace 박음 */
+    return _safeParseJson(localStorage.getItem(_getMockVariantsKey())) || { textS1: null };
   }
 
   function _saveAiVariants(variants) {
-    try { localStorage.setItem(LS_AI_VARIANTS_KEY, JSON.stringify(variants)); }
+    try { localStorage.setItem(_getMockVariantsKey(), JSON.stringify(variants)); }
     catch (e) { console.warn('[ai-mock] aiVariants save failed', e); }
   }
 
@@ -650,7 +748,8 @@
       +   '</div>'
       + '</div>';
 
-    const root = _createModalRoot('ai-draft-modal-root', inner, { className: 'ai-modal-overlay' });
+    /* v140 fix 2026-05-21: lock: true 박음 — 편집 중 textarea 박은 거 박은 거 박은 박은 — overlay/ESC 박지 X (사용자 명) */
+    const root = _createModalRoot('ai-draft-modal-root', inner, { lock: true, size: 'large' });
 
     /* textarea 박힌 거 박은 거 박음 (debounce 박지 X — 단순 onblur·oninput 박음) */
     root.querySelectorAll('.js-ai-draft-textarea').forEach(function (ta) {
@@ -702,16 +801,17 @@
      viewer-render.js 박은 6 곳 박은 거 박은 _getDisplayBody 박은 거 박을 거.
      ════════════════════════════════════════════════════════════════ */
   function _getAiViewMode() {
+    /* v140 fix 2026-05-21: 팀별 namespace 박음 */
     try {
-      const v = localStorage.getItem(LS_AI_VIEW_MODE_KEY);
+      const v = localStorage.getItem(_getMockViewModeKey());
       return (v === 'aiS1') ? 'aiS1' : 'original';
     } catch (e) { return 'original'; }
   }
 
   function _setAiViewMode(mode) {
     try {
-      if (mode === 'aiS1') localStorage.setItem(LS_AI_VIEW_MODE_KEY, 'aiS1');
-      else localStorage.removeItem(LS_AI_VIEW_MODE_KEY);
+      if (mode === 'aiS1') localStorage.setItem(_getMockViewModeKey(), 'aiS1');
+      else localStorage.removeItem(_getMockViewModeKey());
     } catch (e) { /* noop */ }
     _updateAiToggleBar();
     /* viewer 본문 박은 거 박은 거 박은 거 박은 거 — v138 박은 _scheduleViewerFrameReRender 박은 거 박음 */
@@ -1058,6 +1158,21 @@
         <div class="ai-mode-footer">
           🎨 이미지 다듬기는 Phase D에서 박을 거예요.
         </div>
+        ${_isTestMode() ? `
+        <div class="ai-mode-testmode-panel">
+          <div class="ai-mode-testmode-panel__head">
+            🧪 TEST MODE — 테스트 편의 reset (현재 팀: <code>${_escapeHtml(_getCurrentNamespace())}</code>)
+          </div>
+          <div class="ai-mode-testmode-panel__buttons">
+            <button type="button" class="ai-btn ai-btn--ghost js-ai-tm-reset-usage">[현재 팀 quota 초기화]</button>
+            <button type="button" class="ai-btn ai-btn--ghost js-ai-tm-reset-drafts">[현재 팀 후보 초기화]</button>
+            <button type="button" class="ai-btn ai-btn--ghost js-ai-tm-reset-variants">[현재 팀 AI 1단계 결과 초기화]</button>
+            <button type="button" class="ai-btn ai-btn--ghost ai-btn--danger js-ai-tm-reset-team-all">[현재 팀 AI 테스트 전체 초기화]</button>
+          </div>
+          <div class="ai-mode-testmode-panel__hint">
+            ⚠️ MOCK 전용 — 실 API에는 무효. reset 후 남은 횟수가 갱신됩니다.
+          </div>
+        </div>` : ''}
       </div>
     `;
 
@@ -1078,6 +1193,33 @@
           _startWorkCheck();
         }
       });
+    });
+
+    /* v140 fix 2026-05-21: TEST MODE reset 박은 거 박은 거 박은 박은 — 4 버튼. reset 후 모달 다시 렌더 박음 (남은 횟수 갱신) */
+    function _afterReset(label) {
+      _removeModalRoot('ai-mode-modal');
+      _showModeModal();
+      console.log('[ai-mock] reset 후 모드 모달 다시 박음 — ' + label);
+    }
+    const u = root.querySelector('.js-ai-tm-reset-usage');
+    if (u) u.addEventListener('click', function () { _resetMockUsage(); _afterReset('quota'); });
+    const d = root.querySelector('.js-ai-tm-reset-drafts');
+    if (d) d.addEventListener('click', function () { _resetMockDrafts(); _afterReset('drafts'); });
+    const v = root.querySelector('.js-ai-tm-reset-variants');
+    if (v) v.addEventListener('click', function () {
+      _resetMockVariants();
+      /* 토글 바도 박은 거 박은 거 박은 박은 — finalized 박지 X 박혀있으면 박지 X */
+      _showAiToggleBar();
+      _afterReset('variants');
+    });
+    const all = root.querySelector('.js-ai-tm-reset-team-all');
+    if (all) all.addEventListener('click', function () {
+      if (!confirm('현재 팀(' + _getCurrentNamespace() + ')의 mock quota·후보·결과 박은 거 박은 거 박은 박은 — 모두 박은 거 박은 거 박은 박은 박지 X 박을 거. 박을지?')) return;
+      _resetMockUsage();
+      _resetMockDrafts();
+      _resetMockVariants();
+      _showAiToggleBar();
+      _afterReset('team-all');
     });
   }
 
@@ -1834,10 +1976,12 @@
        window.__resetAiMockAll()        — 전체 (usage 모든 팀 + drafts + variants + store + 우회)
        ⚠️ MOCK 전용 — 실 API에는 무효
        ──────────────────────────────────────────────────────────── */
-    window.__resetAiMockUsage     = _resetMockUsage;
-    window.__resetAiMockUsageAll  = _resetMockUsageAll;
-    window.__resetAiMockDrafts    = _resetMockDrafts;
-    window.__resetAiMockVariants  = _resetMockVariants;
-    window.__resetAiMockAll       = _resetMockAll;
+    window.__resetAiMockUsage         = _resetMockUsage;
+    window.__resetAiMockUsageAll      = _resetMockUsageAll;
+    window.__resetAiMockDrafts        = _resetMockDrafts;
+    window.__resetAiMockDraftsAll     = _resetMockDraftsAll;     /* v140 fix 2026-05-21 */
+    window.__resetAiMockVariants      = _resetMockVariants;
+    window.__resetAiMockVariantsAll   = _resetMockVariantsAll;   /* v140 fix 2026-05-21 */
+    window.__resetAiMockAll           = _resetMockAll;
   }
 })();

@@ -1226,24 +1226,32 @@
           AI는 작품을 대신 만들지 않아요. 학생이 만든 작품을 읽고 더 자연스럽게 다듬을 후보를 보여줘요.
         </p>
         <div class="ai-mode-grid">
+          ${(() => {
+            /* Phase A fix 2026-05-21: 실 API 박을 때 client mock quota 박지 X (Functions가 quota 박음) */
+            const realApi = _shouldUseRealApi();
+            const s1Remain = realApi ? Infinity : _getRemaining('s1');
+            const checkRemain = realApi ? Infinity : _getRemaining('check');
+            return `
           ${_renderModeCard({
             key: 's1',
             icon: '📝',
             title: '텍스트 1단계',
             desc: '맞춤법·표현 정돈 (안심하고 받을 수 있는 정돈)',
-            enabled: a.s1.enabled && _getRemaining('s1') > 0,
-            disabledReason: _getRemaining('s1') === 0 ? '이번 작품에서 사용할 수 있는 횟수를 모두 사용했어요' : a.s1.reason,
-            remaining: _getRemaining('s1'),
+            enabled: a.s1.enabled && s1Remain > 0,
+            disabledReason: s1Remain === 0 ? '이번 작품에서 사용할 수 있는 횟수를 모두 사용했어요' : a.s1.reason,
+            remaining: realApi ? null : s1Remain,
           })}
           ${_renderModeCard({
             key: 'check',
             icon: '🔍',
             title: '작품 검사',
             desc: '맞춤법·유기성·캐릭터 일관성 진단 (수정 X)',
-            enabled: a.check.enabled && _getRemaining('check') > 0,
-            disabledReason: _getRemaining('check') === 0 ? '이번 작품에서 사용할 수 있는 횟수를 모두 사용했어요' : a.check.reason,
-            remaining: _getRemaining('check'),
+            enabled: a.check.enabled && checkRemain > 0,
+            disabledReason: checkRemain === 0 ? '이번 작품에서 사용할 수 있는 횟수를 모두 사용했어요' : a.check.reason,
+            remaining: realApi ? null : checkRemain,
           })}
+            `;
+          })()}
           ${_renderModeCard({
             key: 's2',
             icon: '✨',

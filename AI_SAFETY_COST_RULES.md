@@ -719,3 +719,20 @@ ai-usage-by-root/{rootBranchId}/{YYYY-MM-DD}/calls
 6. `finalization.locked === true` (운영)
 7. `testMode` 우회 거부 (실 API)
 8. 화이트리스트 (Phase A 위)
+
+---
+
+# 19. 비용 비상 차단 박은 거 박은 거 박은 박은 별도 박음 (`AI_COST_GUARD_PLAN.md`)
+
+박은 거 박은 거 박은 박은 — `AI_COST_GUARD_PLAN.md` 박은 거 박은 거 박은 박은 박음 (2026-05-21). 박은 거 박은 거 박은 박은:
+
+- 8단 다층 방어 박음 (auth → 화이트리스트 → aiPermission → copyDepth → testMode 거부 → 브랜치 quota → rootBranchId quota → 전역 hard cap)
+- Anthropic 콘솔 월 한도 $20 박음
+- 동시 호출 lock + rate limit (60s)
+- 일일 호출 제한 (전역 500 / 사용자 10)
+- 비상 kill switch (Firebase `ai-kill-switch/enabled`)
+- 로그 / 모니터링 / 알람 (80% / 100%)
+- 비용 초과 위험 상황별 대응 7가지 (Case A~G)
+- Phase A 코드 시작 전 체크리스트 박음
+
+자세히는 `AI_COST_GUARD_PLAN.md` 박힘. **Phase A 박을 때 그 문서 박은 거 박은 거 박은 박은 박혀있어야 박음**.

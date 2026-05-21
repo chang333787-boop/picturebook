@@ -485,7 +485,9 @@
 
     /* v140 fix 2026-05-21: 4가지 분기 (사용자 명) */
     const count = _getCandidateCount();
-    const remaining = _getRemaining('s1');
+    /* Phase A fix 2026-05-21: 실 API 박은 거 박은 거 박은 박은 — Functions 박은 거 박은 거 박은 박은 자체 quota 박음. client mock quota 박지 X. */
+    const useRealApiCheck = _shouldUseRealApi();
+    const remaining = useRealApiCheck ? Infinity : _getRemaining('s1');
 
     /* (1) 후보 X / quota X → reset 안내 모달 */
     if (count === 0 && remaining <= 0) {
@@ -499,21 +501,24 @@
       return;
     }
 
-    /* (3) 후보 3회 누적 (모든 회차 박힘) → 후보 모달 박음 */
-    if (count >= MOCK_QUOTA.s1) {
+    /* (3) 후보 3회 누적 (모든 회차 박힘) → 후보 모달 박음 (실 API는 Functions에서 별도 quota 박음 — 일단 client 박지 X) */
+    if (!useRealApiCheck && count >= MOCK_QUOTA.s1) {
       _showCandidatesModal();
       return;
     }
 
     /* quota 차감 + 호출 lock */
-    _consumeQuota('s1');
+    /* Phase A fix 2026-05-21: 실 API 박은 거 박은 거 박은 박은 — Functions 박음 quota 박음. client mockUsage 박지 X. */
+    if (!useRealApiCheck) {
+      _consumeQuota('s1');
+    }
     _setAiTextS1Status('generating');
 
     const snapshot = _buildWorkSnapshot();
     /* fix 2026-05-21: snapshot은 {sceneId: scene} 객체. 길이는 Object.keys 박음. */
     const sceneCount = Object.keys(snapshot || {}).length;
     if (sceneCount === 0) {
-      _refundQuota('s1');
+      if (!useRealApiCheck) _refundQuota('s1');
       _setAiTextS1Status(count > 0 ? 'candidate_ready' : 'none');
       alert('1단계 박을 본문 박은 장면 박혀있지 X.');
       return;

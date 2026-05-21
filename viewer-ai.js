@@ -564,8 +564,9 @@
 
       if (useRealApi) {
         /* Phase A — Firebase Functions 호출 (Anthropic Haiku) */
-        console.log('[Phase A] callTextAiBatch 호출 박음', { attemptN });
+        console.log('[Phase A] callTextAiBatch 호출 박음', { attemptN, snapshot });
         const apiResult = await _phaseACallTextS1(snapshot);
+        console.log('[Phase A] callTextAiBatch 응답 박힘', apiResult);
         if (_currentAbort && _currentAbort.cancelled) {
           /* 호출 도중 취소 — Functions quota는 차감 그대로 (환불 X) */
           _hideCallingModal();

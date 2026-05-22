@@ -378,7 +378,119 @@ function _normalizeResults(results, snapshot) {
   return normalized;
 }
 
+/* ════════════════════════════════════════════════════════════════
+   검증 보강 helper — 2026-05-22 추가
+   ────────────────────────────────────────────────────────────────
+   정책:
+   - 변경 없음 자동 skip 변환
+   - skip + revisedText 동시 → skip 우선
+   - preservedCheck false → appliable=false / 누락 → weak warning + 통과
+   - 금지 필드 recursive scan → 장면 단위 appliable=false
+   - 글자수 비율 weak / strong 단계 분리
+   - strong warning 모이면 r.appliable=false
+   ════════════════════════════════════════════════════════════════ */
+
+/* 변경 없음 비교용 정규화 — 정말로 실질 변경이 없을 때만 같다고 판정.
+   - 양 끝 공백 제거
+   - 비표준 공백(nbsp, zero-width) → 일반 공백
+   - CRLF → LF
+   유지: 마침표 뒤 공백 정리, 연속 공백 정리 같은 실제 변화는 변경으로 인정한다. */
+function _normalizeForCompare(s) {
+  return String(s == null ? '' : s)
+    .replace(/[ ​]/g, ' ')
+    .replace(/\r\n/g, '\n')
+    .trim();
+}
+
+/* 금지 키 목록 — recursive scan용 (정책 #4) */
+const BANNED_KEYS = new Set([
+  'buttons', 'choices', 'choiceA', 'choiceB', 'choiceCount',
+  'nextA', 'nextB', 'nextId',
+  'storyTone', 'pbCardTone', 'pbEndingTone',
+  'textCardStyle', 'textCardColor',
+  'coverTheme', 'subtitle', 'kicker', 'title',
+  'safeAddition', 'creativeAddition',
+]);
+
+/* result item 객체 안에서 금지 키를 재귀적으로 찾아 첫 발견 경로 반환.
+   - 키 이름 기준으로만 검사 (문자열 값에 "choices" 같은 단어가 포함돼도 금지 아님)
+   - 발견 시 'a.b.choices' 같은 점 경로 반환, 없으면 null */
+function _findBannedKey(obj, pathPrefix) {
+  if (!obj || typeof obj !== 'object') return null;
+  if (Array.isArray(obj)) {
+    for (let i = 0; i < obj.length; i++) {
+      const child = _findBannedKey(obj[i], `${pathPrefix}[${i}]`);
+      if (child) return child;
+    }
+    return null;
+  }
+  for (const k of Object.keys(obj)) {
+    if (BANNED_KEYS.has(k)) {
+      return pathPrefix ? `${pathPrefix}.${k}` : k;
+    }
+    const v = obj[k];
+    if (v && typeof v === 'object') {
+      const child = _findBannedKey(v, pathPrefix ? `${pathPrefix}.${k}` : k);
+      if (child) return child;
+    }
+  }
+  return null;
+}
+
+/* preservedCheck 7개 boolean 항목 — functions/prompts.js v3 schema 정합 (line 180~217) */
+const PRESERVED_CHECK_KEYS = [
+  'charactersUnchanged',
+  'plotPointsUnchanged',
+  'choiceMeaningsUnchanged',
+  'endingDirectionUnchanged',
+  'branchStructureUnchanged',
+  'sceneRoleUnchanged',
+  'studentToneUnchanged',
+];
+
+/* preservedCheck 검사 (정책 #3).
+   - { present:false } — 객체 자체가 없거나 object가 아님 → 누락(weak warning + 통과)
+   - { present:true, failed:[...] } — failed 비면 통과, 하나라도 false면 appliable=false */
+function _checkPreserved(preservedCheck) {
+  if (!preservedCheck || typeof preservedCheck !== 'object') {
+    return { present: false, failed: [] };
+  }
+  const failed = [];
+  for (const k of PRESERVED_CHECK_KEYS) {
+    if (k in preservedCheck && preservedCheck[k] === false) {
+      failed.push(k);
+    }
+  }
+  return { present: true, failed };
+}
+
+/* 글자수 비율 검사 (정책 #5).
+   반환: { strong?:true, weak?:true, reason?:string } — 둘 다 없으면 정상. */
+function _checkLengthRatio(origLen, revisedLen) {
+  if (origLen < 20) {
+    /* 원문 20자 미만 — 절대 증가량 기준 */
+    const diff = revisedLen - origLen;
+    if (diff > 60) return { strong: true, reason: `원문 짧음(${origLen}자) — 증가량 ${diff}자 (60자 초과)` };
+    if (diff > 30) return { weak: true, reason: `원문 짧음(${origLen}자) — 증가량 ${diff}자 (30자 초과)` };
+    return {};
+  }
+  /* 원문 20자 이상 — 비율 기준 */
+  const ratio = revisedLen / origLen;
+  if (ratio > 1.5) return { strong: true, reason: `글자수 비율 ${ratio.toFixed(2)}배 (1.5배 초과)` };
+  if (ratio > 1.4) return { weak: true, reason: `글자수 비율 ${ratio.toFixed(2)}배 (1.4배 초과)` };
+  if (ratio < 0.7) return { weak: true, reason: `글자수 비율 ${ratio.toFixed(2)}배 (0.7배 미만)` };
+  return {};
+}
+
+/* ════════════════════════════════════════════════════════════════
+   _validateS1Response — 1단계 응답 검증 + 후처리
+   ──────────────────────────────────────────────────────────────
+   원본 body는 절대 변경하지 않는다. 응답 객체만 수정한다.
+   전체 throw 조건은 최상위 구조가 깨진 경우와 hard cut/한글 비율 위반만 유지.
+   나머지 안전 검사는 모두 장면 단위 appliable=false 로 변경.
+   ════════════════════════════════════════════════════════════════ */
 function _validateS1Response(parsed, snapshot) {
+  /* ─── 응답 최상위 구조 검증 (깨지면 전체 거부) ─── */
   if (!parsed || typeof parsed !== 'object') {
     throw new Error('JSON 박지 X — object 박지 X');
   }
@@ -388,65 +500,128 @@ function _validateS1Response(parsed, snapshot) {
   if (!parsed.results || typeof parsed.results !== 'object') {
     throw new Error('results 박지 X');
   }
-  /* 박은 거 박은 거 박은 박은 거 박은 거 박은 박은 정규화 박음 — 'scene_1' → '1', 존재하지 않는 sceneId 제거 */
+  /* sceneId 정규화 — 'scene_1' → '1', 존재하지 않는 sceneId 제거 */
   parsed.results = _normalizeResults(parsed.results, snapshot);
   if (Object.keys(parsed.results).length === 0) {
     throw new Error('정규화 후 results 박지 X (모든 sceneId 박은 거 박은 거 박은 박은 유효하지 X)');
   }
 
   const sceneMap = snapshot || {};
+
   for (const sceneId of Object.keys(parsed.results)) {
     const r = parsed.results[sceneId];
-    if (!r) continue;
-    if (r.skip === true) continue;  /* skip OK */
+    if (!r || typeof r !== 'object') continue;
 
-    /* 1단계 위반 — safeAddition / creativeAddition 박지 X */
-    if ('safeAddition' in r || 'creativeAddition' in r) {
-      throw new Error(`장면 ${sceneId} — 1단계 위반 (safeAddition/creativeAddition 박혀있음)`);
+    /* 누적 buffer — 정책 #6: strong 4가지 흐름 모이면 r.appliable=false */
+    const strongWarnings = Array.isArray(r.strongWarnings) ? r.strongWarnings.slice() : [];
+    const weakWarnings = Array.isArray(r.weakWarnings) ? r.weakWarnings.slice() : [];
+
+    /* Claude가 r.warnings 배열에 직접 넣은 경고가 있으면 분류 누적 */
+    if (Array.isArray(r.warnings)) {
+      for (const w of r.warnings) {
+        if (!w) continue;
+        const isStrong = (w.severity === 'strong') || (w.level === 'strong') ||
+                         (typeof w === 'string' && /강한|strong/i.test(w));
+        if (isStrong) {
+          strongWarnings.push(w);
+        } else {
+          weakWarnings.push(w);
+        }
+      }
     }
 
-    /* revisedText 박지 X 박혀있으면 거부 */
+    /* ─── 정책 #2: skip + revisedText 동시 → skip 우선 ─── */
+    if (r.skip === true) {
+      delete r.revisedText;
+      delete r.summary;
+      delete r.changes;
+      if (strongWarnings.length > 0) r.strongWarnings = strongWarnings;
+      if (weakWarnings.length > 0) r.weakWarnings = weakWarnings;
+      continue;
+    }
+
+    /* skip 아니고 revisedText도 비어있으면 응답 자체가 부족 — 기존 throw 유지 */
     if (typeof r.revisedText !== 'string' || r.revisedText.trim().length === 0) {
       throw new Error(`장면 ${sceneId} — revisedText 박지 X`);
     }
 
-    /* 글자수 hard cut */
-    const origScene = sceneMap[sceneId];
-    const submode = origScene && origScene.submode === 'imageCenter' ? 'imageCenter' : 'split';
-    const maxLen = submode === 'imageCenter' ? 300 : 500;
-    if (r.revisedText.length > maxLen) {
-      throw new Error(`장면 ${sceneId} — 글자수 hard cut 초과 (${r.revisedText.length}/${maxLen}, ${submode})`);
+    /* origBody — sceneMap의 body 또는 text 필드 사용 (snapshot 구조 양쪽 호환) */
+    const origScene = sceneMap[sceneId] || {};
+    const origBody = typeof origScene.body === 'string'
+      ? origScene.body
+      : (typeof origScene.text === 'string' ? origScene.text : '');
+    const revised = r.revisedText;
+
+    /* ─── 정책 #1: 변경 없음 자동 skip 변환 ─── */
+    if (_normalizeForCompare(origBody) === _normalizeForCompare(revised)) {
+      r.skip = true;
+      r.reason = '실제 변경이 없어 원본을 유지합니다.';
+      delete r.revisedText;
+      delete r.summary;
+      delete r.changes;
+      if (strongWarnings.length > 0) r.strongWarnings = strongWarnings;
+      if (weakWarnings.length > 0) r.weakWarnings = weakWarnings;
+      continue;
     }
 
-    /* 한글 비율 70% 미만 거부 */
-    if (_hangulRatio(r.revisedText) < 0.7) {
+    /* ─── 글자수 hard cut (사용자 명시 — 기존 유지, 전체 throw) ─── */
+    const submode = origScene.submode === 'imageCenter' ? 'imageCenter' : 'split';
+    const maxLen = submode === 'imageCenter' ? 300 : 500;
+    if (revised.length > maxLen) {
+      throw new Error(`장면 ${sceneId} — 글자수 hard cut 초과 (${revised.length}/${maxLen}, ${submode})`);
+    }
+
+    /* ─── 한글 비율 70% 미만 (기존 유지, 전체 throw) ─── */
+    if (_hangulRatio(revised) < 0.7) {
       throw new Error(`장면 ${sceneId} — 한글 비율 70% 미만`);
     }
 
-    /* buttons / choices / nextA / nextB 박지 X */
-    if (r.buttons || r.choices || r.nextA || r.nextB) {
-      throw new Error(`장면 ${sceneId} — 분기 구조 박은 거 박지 X`);
-    }
-    /* 톤 / 표지 박지 X */
-    if (r.storyTone || r.textCardStyle || r.textCardColor) {
-      throw new Error(`장면 ${sceneId} — 톤 박은 거 박지 X`);
+    /* ─── 정책 #4: 금지 필드 recursive scan (장면 단위) ─── */
+    const bannedPath = _findBannedKey(r, '');
+    if (bannedPath) {
+      r.bannedFieldPath = bannedPath;
+      strongWarnings.push({
+        severity: 'strong',
+        code: 'BANNED_FIELD',
+        message: `금지 필드 발견: ${bannedPath}`,
+      });
+      logger.warn('[ai/s1] 금지 필드 — 적용 제외', { sceneId, bannedPath });
     }
 
-    /* GPT 피드백 #3: 강한 경고 (severity 'strong') 박혀있으면 적용 가능 결과에서 제외 (skip 박음).
-       자동 거부 (throw) ≠ UI 표시 — strong warning은 결과 자체는 보존하되 적용 박지 X. */
-    const warnings = Array.isArray(r.warnings) ? r.warnings : [];
-    const strongWarnings = warnings.filter(w =>
-      w && (
-        w.severity === 'strong' ||
-        w.level === 'strong' ||
-        (typeof w === 'string' && /강한|strong/i.test(w))
-      )
-    );
+    /* ─── 정책 #5: 글자수 비율 (weak / strong) ─── */
+    const lenRes = _checkLengthRatio(origBody.length, revised.length);
+    if (lenRes.strong) {
+      strongWarnings.push({ severity: 'strong', code: 'LEN_RATIO', message: lenRes.reason });
+    } else if (lenRes.weak) {
+      weakWarnings.push({ severity: 'weak', code: 'LEN_RATIO', message: lenRes.reason });
+    }
+
+    /* ─── 정책 #3: preservedCheck (있고 false면 strong / 누락이면 weak + 통과) ─── */
+    const pc = _checkPreserved(r.preservedCheck);
+    if (!pc.present) {
+      weakWarnings.push({
+        severity: 'weak',
+        code: 'PRESERVED_CHECK_MISSING',
+        message: 'preservedCheck 누락 — 통과 처리',
+      });
+    } else if (pc.failed.length > 0) {
+      r.preservedCheckFailed = pc.failed;
+      for (const k of pc.failed) {
+        strongWarnings.push({
+          severity: 'strong',
+          code: 'PRESERVED_CHECK_FALSE',
+          message: `preservedCheck.${k} = false`,
+        });
+      }
+    }
+
+    /* ─── 정책 #6: 누적 결과 반영 ─── */
     if (strongWarnings.length > 0) {
-      /* 박은 거 박은 거 박은 박은 박은 — UI에서 박을 수 있게 박은 정보 박음. revisedText는 그대로 박혀있되 박은 거 박은 거 박은 박은 박은 — appliable: false */
       r.appliable = false;
       r.strongWarnings = strongWarnings;
-      logger.info('[ai/s1] 강한 경고 박힘 — 적용 제외', { sceneId, count: strongWarnings.length });
+    }
+    if (weakWarnings.length > 0) {
+      r.weakWarnings = weakWarnings;
     }
   }
 
@@ -670,6 +845,12 @@ exports._internal = {
   _validateS1Response,
   _validateWorkCheckResponse,
   _estimateCostUsd,
+  _normalizeForCompare,
+  _findBannedKey,
+  _checkPreserved,
+  _checkLengthRatio,
+  BANNED_KEYS,
+  PRESERVED_CHECK_KEYS,
   HAIKU_MODEL,
   MAX_TOKENS,
 };

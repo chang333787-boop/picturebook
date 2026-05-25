@@ -235,13 +235,18 @@ async function uploadImageToStorage(input, sceneNum, opts) {
     cacheControl: 'public, max-age=31536000',  /* 1년 */
   });
 
-  /* public URL 박음 — v113 마이그와 같은 형식. 토큰 없는 GCS public URL.
-     storage rules의 allow read: if true 덕분에 토큰 없이 박힘. */
-  const bucket = storage.app.options.storageBucket || `${storage.app.options.projectId}.firebasestorage.app`;
-  return {
-    downloadURL: `https://storage.googleapis.com/${bucket}/${storagePath}`,
-    storagePath,
-  };
+  /* 2026-05-22 fix: GCS direct URL은 신규 업로드 시 public ACL이 박지 X 박혀서 HTTP 403.
+     v113 옛 마이그 작품은 ACL 박혀있어 작동하지만 신규 업로드는 박지 X.
+     ref.getDownloadURL()로 토큰 박힌 Firebase Storage URL을 받아 어디서든 접근 가능. */
+  let downloadURL;
+  try {
+    downloadURL = await ref.getDownloadURL();
+  } catch (e) {
+    /* fallback — 옛 GCS direct URL 형식. 옛 마이그 작품 호환용. */
+    const bucket = storage.app.options.storageBucket || `${storage.app.options.projectId}.firebasestorage.app`;
+    downloadURL = `https://storage.googleapis.com/${bucket}/${storagePath}`;
+  }
+  return { downloadURL, storagePath };
 }
 
 async function deleteImageFromStorage(storagePath) {

@@ -21,14 +21,29 @@ const firebaseConfig = {
 
 /* Firebase 초기화 — viewer 전용 앱 인스턴스 (maker와 충돌 방지) */
 let _viewerDb = null;
+let _viewerAuthPromise = null;
 function getViewerDb() {
   if (_viewerDb) return _viewerDb;
+  let app;
   try {
-    const app = firebase.app('viewer');
-    _viewerDb = app.database();
+    app = firebase.app('viewer');
   } catch {
-    const app = firebase.initializeApp(firebaseConfig, 'viewer');
-    _viewerDb = app.database();
+    app = firebase.initializeApp(firebaseConfig, 'viewer');
+  }
+  _viewerDb = app.database();
+  /* 2026-05-22 fix: viewer named app 익명 로그인 사전 보장.
+     이미지 업로드 / lock transaction이 호출되는 시점에 인증이 박혀 있도록 미리 시도.
+     기존엔 각 함수에서 await signInAnonymously() 박았는데, catch (e) {} 패턴이라
+     일시적 실패 시 currentUser=null 상태로 transaction 진행 → permission_denied. */
+  if (!_viewerAuthPromise && app && typeof app.auth === 'function') {
+    try {
+      const auth = app.auth();
+      if (!auth.currentUser) {
+        _viewerAuthPromise = auth.signInAnonymously()
+          .then(c => { try { console.log('[viewer] anonymous auth OK', c && c.user && c.user.uid); } catch(_) {} return c; })
+          .catch(e => { try { console.warn('[viewer] anonymous auth 실패 (재시도는 각 함수에서 진행)', e && e.code, e && e.message); } catch(_) {} _viewerAuthPromise = null; });
+      }
+    } catch (e) { /* auth SDK 없거나 init 실패 — 각 함수에서 다시 시도 */ }
   }
   return _viewerDb;
 }

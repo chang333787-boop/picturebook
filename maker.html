@@ -543,6 +543,26 @@
       transition: opacity .15s;
     }
     .tb-home-link:hover { opacity: 1; }
+    /* 2026-05-25: 태블릿 앱모드에서 다른 모둠으로 재로그인 — 작품 데이터는 그대로 둠 */
+    .tb-switch-team {
+      background: transparent;
+      border: 1px dashed var(--muted, #6b5638);
+      color: var(--muted, #6b5638);
+      font-family: var(--font-h, 'Jua', sans-serif);
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-left: 4px;
+      transition: opacity .15s, background .15s, border-color .15s;
+      opacity: .85;
+      line-height: 1.2;
+    }
+    .tb-switch-team:hover {
+      opacity: 1;
+      background: rgba(80,50,20,0.06);
+      border-color: var(--text, #2b1f10);
+    }
     .tb-workspace-info {
       display: flex;
       flex-direction: column;
@@ -2051,6 +2071,22 @@
   setTimeout(function () {
     if (window._maker_hideLoading) window._maker_hideLoading();
   }, 10000);
+
+  /* 2026-05-25: 모둠 바꾸기 — 현재 세션만 초기화 후 join-screen으로 복귀.
+     · Firebase 작품 데이터는 절대 건드리지 않음
+     · sessionStorage.makerSession (자동 입장 정보) + localStorage.branchReturnContext (복귀 컨텍스트) 두 키만 제거
+     · location.replace로 history 꼬임 방지 (태블릿 앱모드 안전) */
+  document.addEventListener('DOMContentLoaded', function () {
+    var btn = document.getElementById('btn-switch-team');
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+      var ok = confirm('다른 모둠으로 다시 로그인할까요?\n저장된 작품은 그대로 남아 있어요.');
+      if (!ok) return;
+      try { sessionStorage.removeItem('makerSession'); } catch (e) {}
+      try { localStorage.removeItem('branchReturnContext'); } catch (e) {}
+      location.replace('maker.html');
+    });
+  });
 </script>
 
 <!-- v95: 모바일 텍스트형 브랜치 전용 UI (Step 1 — 진입 + 빈 화면).
@@ -2428,6 +2464,7 @@
           <div id="online-badge"><div id="online-dot"></div><span id="online-label">연결 중...</span></div>
         </div>
       </div>
+      <button type="button" class="tb-switch-team" id="btn-switch-team" title="다른 모둠으로 다시 로그인 (작품은 그대로 남아 있어요)">🔄 모둠 바꾸기</button>
     </div>
   </div>
 

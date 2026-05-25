@@ -85,6 +85,12 @@
     />
     <div id="entry-error" class="entry-error"></div>
     <button id="entry-submit" class="entry-submit">작품 보기 →</button>
+    <!-- 2026-05-25: 태블릿 앱모드에서 처음 메뉴로 안전하게 돌아갈 경로 -->
+    <a href="index.html" class="entry-home-link"
+       style="display:inline-block; margin-top:14px; font-family:'Jua',sans-serif; font-size:13px; color:rgba(255,255,255,0.55); text-decoration:none; padding:6px 14px; border:1px dashed rgba(255,255,255,0.2); border-radius:6px; transition:color .15s, border-color .15s, background .15s;"
+       onmouseover="this.style.color='rgba(255,255,255,0.85)';this.style.borderColor='rgba(255,255,255,0.4)';"
+       onmouseout="this.style.color='rgba(255,255,255,0.55)';this.style.borderColor='rgba(255,255,255,0.2)';"
+    >← 처음 메뉴로</a>
   </div>
 </div>
 
@@ -158,7 +164,7 @@
 <script src="viewer-data.js?v=140imagefix1"></script>
 <script src="viewer-locks.js?v=117"></script>
 <script src="viewer-controls.js?v=96"></script>
-<script src="viewer-render.js?v=140endinginline1"></script>
+<script src="viewer-render.js?v=140nav1"></script>
 <script src="viewer-edit.js?v=140imagefix1"></script>
 <!-- Phase 0.5 mock — AI 인프라 (mock only, 실 API 박지 X) -->
 <script src="viewer-ai.js?v=phaseA9"></script>

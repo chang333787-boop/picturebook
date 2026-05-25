@@ -1341,13 +1341,11 @@ function _renderStoryEnding(stage, scene) {
          style="${_seqStyle}">
       ${userTitle ? `<div class="ending-user-title terminal-step terminal-step--title">${escHtml(userTitle)}</div>` : ''}
       ${userBody ? `<p class="ending-user-body terminal-step terminal-step--body">${escHtml(userBody)}</p>` : ''}
-      <div class="ending-stamps-row terminal-step terminal-step--badge">
+      <div class="pb-ending-meta-inline terminal-step terminal-step--badge">
         ${trueEndBadge}
         <div class="ending-end-stamp">${systemIcon} ${systemLabel}</div>
+        ${steps > 1 ? `<div class="pb-ending-meta-path">${steps}개의 장면을 거쳐 이 결말에 도달했어요</div>` : ''}
       </div>
-      ${pathSummary
-        ? `<div class="ending-path-summary-wrap terminal-step terminal-step--stats">${pathSummary.replace('<div class="ending-path-summary">', '<div class="ending-path-summary-inner">')}</div>`
-        : ''}
       <div class="pb-text__actions ending-actions terminal-step terminal-step--actions is-locked"
            data-count="${ViewerState.historyStack.length > 0 ? 2 : 1}">
         <button class="terminal-btn terminal-btn--primary js-restart" disabled aria-disabled="true">↺ 다른 결말 찾기</button>

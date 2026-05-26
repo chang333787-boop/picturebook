@@ -2636,6 +2636,7 @@ function _typeSectionCoverHtml(scene) {
     <div class="edit-section-hint edit-section-hint--lock">
       📖 표지는 작품 입구예요. 제목·한 줄 소개·표지 색·높낮이만 다듬을 수 있어요.
     </div>
+    ${_pbThemeSectionHtml()}
     ${_workSettingsSectionHtml()}`;
 }
 
@@ -2776,6 +2777,58 @@ function _typeSectionTextHtml(scene) {
     </div>`;
 }
 
+/* ────────────────────────────────────────────────────────────
+   2026-05-25 Phase 2: 양옆 마감 테마 helper (재사용 가능).
+   이전엔 _typeSectionPicturebookHtml 안 IIFE로 inline 박혀 있었음.
+   · 표지 분기 _typeSectionCoverHtml + picturebook 첫 일반 장면 두 곳에서 호출.
+   · 기존 상태 변수 _pbThemeCollapsed / _getPbThemeCollapsed() 그대로 사용.
+   · 기존 이벤트 핸들러 .js-pb-theme-toggle / .js-pb-theme 그대로 (panel.querySelectorAll 매칭).
+   · 작품 단위 데이터(ViewerState.project.pbTheme / viewer-meta.pbTheme) 그대로.
+   ──────────────────────────────────────────────────────────── */
+function _pbThemeSectionHtml() {
+  const PB_THEMES = [
+    { id: 'classic-book',  label: '클래식 책',  desc: '책 두께·제본' },
+    { id: 'paper-desk',    label: '책상',       desc: '종이 텍스처' },
+    { id: 'minimal-cream', label: '미니멀',     desc: '단순 종이톤' },
+    { id: 'sketch-note',   label: '손그림 노트', desc: '노트 줄지' },
+    { id: 'library-card',  label: '도서관',     desc: '황색 + 라벨' },
+    { id: 'night-tale',    label: '밤 이야기',   desc: '어두운 별빛' },
+  ];
+  const current  = (ViewerState.project.pbTheme || 'classic-book');
+  const currentT = PB_THEMES.find(t => t.id === current) || PB_THEMES[0];
+  const collapsed = _getPbThemeCollapsed();
+
+  const cardsHtml = PB_THEMES.map(t => `
+    <button type="button"
+      class="edit-pb-theme-card edit-pb-theme-card--${t.id} js-pb-theme ${current === t.id ? 'active' : ''}"
+      data-val="${t.id}">
+      <div class="edit-pb-theme-preview"><div class="edit-pb-theme-preview-page"></div></div>
+      <div class="edit-pb-theme-name">${t.label}</div>
+      <div class="edit-pb-theme-desc">${t.desc}</div>
+    </button>`).join('');
+
+  return `
+    <div class="edit-row">
+      <button type="button"
+        class="edit-pb-theme-toggle js-pb-theme-toggle ${collapsed ? 'is-collapsed' : 'is-expanded'}"
+        aria-expanded="${!collapsed}">
+        <span class="edit-pb-theme-toggle-left">
+          ${collapsed
+            ? `<span class="edit-pb-theme-toggle-mini edit-pb-theme-card--${currentT.id}"></span>`
+            : ''}
+          <span class="edit-pb-theme-toggle-text">
+            🎨 양옆 마감 테마${collapsed ? ` <span class="edit-pb-theme-toggle-current">— ${currentT.label}</span>` : ''}
+          </span>
+        </span>
+        <span class="edit-pb-theme-toggle-chev">${collapsed ? '▼' : '▲'}</span>
+      </button>
+      ${collapsed ? '' : `
+        <div class="edit-pb-theme-body">
+          <div class="edit-pb-theme-grid">${cardsHtml}</div>
+        </div>`}
+    </div>`;
+}
+
 /* ── 2) 그림책형 전용 섹션 ─────────────────────────────────────
    mockup: a_clean_ui_screenshot_mockup_of_a_digital_storyb.png 기준
    포함:
@@ -2834,49 +2887,7 @@ function _typeSectionPicturebookHtml(scene) {
     </div>
     ${lockHint}
 
-    <div class="edit-row">
-      ${(() => {
-        const PB_THEMES = [
-          { id: 'classic-book',  label: '클래식 책',  desc: '책 두께·제본' },
-          { id: 'paper-desk',    label: '책상',       desc: '종이 텍스처' },
-          { id: 'minimal-cream', label: '미니멀',     desc: '단순 종이톤' },
-          { id: 'sketch-note',   label: '손그림 노트', desc: '노트 줄지' },
-          { id: 'library-card',  label: '도서관',     desc: '황색 + 라벨' },
-          { id: 'night-tale',    label: '밤 이야기',   desc: '어두운 별빛' },
-        ];
-        const current  = (ViewerState.project.pbTheme || 'classic-book');
-        const currentT = PB_THEMES.find(t => t.id === current) || PB_THEMES[0];
-        const collapsed = _getPbThemeCollapsed();
-
-        const cardsHtml = PB_THEMES.map(t => `
-          <button type="button"
-            class="edit-pb-theme-card edit-pb-theme-card--${t.id} js-pb-theme ${current === t.id ? 'active' : ''}"
-            data-val="${t.id}">
-            <div class="edit-pb-theme-preview"><div class="edit-pb-theme-preview-page"></div></div>
-            <div class="edit-pb-theme-name">${t.label}</div>
-            <div class="edit-pb-theme-desc">${t.desc}</div>
-          </button>`).join('');
-
-        return `
-          <button type="button"
-            class="edit-pb-theme-toggle js-pb-theme-toggle ${collapsed ? 'is-collapsed' : 'is-expanded'}"
-            aria-expanded="${!collapsed}">
-            <span class="edit-pb-theme-toggle-left">
-              ${collapsed
-                ? `<span class="edit-pb-theme-toggle-mini edit-pb-theme-card--${currentT.id}"></span>`
-                : ''}
-              <span class="edit-pb-theme-toggle-text">
-                🎨 양옆 마감 테마${collapsed ? ` <span class="edit-pb-theme-toggle-current">— ${currentT.label}</span>` : ''}
-              </span>
-            </span>
-            <span class="edit-pb-theme-toggle-chev">${collapsed ? '▼' : '▲'}</span>
-          </button>
-          ${collapsed ? '' : `
-            <div class="edit-pb-theme-body">
-              <div class="edit-pb-theme-grid">${cardsHtml}</div>
-            </div>`}`;
-      })()}
-    </div>
+    ${_isFirstNormalScene(scene) ? _pbThemeSectionHtml() : ''}
 
     ${isImageCenter ? (() => {
       const bb = (typeof getPicturebookBodyBox === 'function')
@@ -3300,6 +3311,47 @@ const _CO_TYPE_ICON_MAP = {
 /* ── 유형별 섹션 이벤트 바인딩 (3단계 신규) ─────────────────────
    현재 토글되는 명시 필드는 무비형 bodyEnabled와 그림책형 picturebookSubmode 둘.
    나머지는 진입점만 — 클릭 시 안내 (3단계 범위에서 정식 연결 안 함). */
+/* 2026-05-25 Phase 2 fix: 양옆 마감 테마 핸들러 helper.
+   표지 분기(_typeSectionCoverHtml)와 picturebook 첫 일반 장면 양쪽에서
+   _pbThemeSectionHtml() 마크업이 박히는데, 옛엔 핸들러가 picturebook 분기
+   안에만 박혀 있어서 표지에서 토글이 동작하지 않았음. 두 분기 모두에서 호출. */
+function _bindPbThemeHandlers(panel) {
+  /* 토글 collapsible */
+  panel.querySelectorAll('.js-pb-theme-toggle').forEach(btn => {
+    btn.addEventListener('click', () => {
+      _pbThemeCollapsed = !_getPbThemeCollapsed();
+      renderEditPanel();
+    });
+  });
+  /* 양옆 마감 테마 카드 (작품 단위 — viewer-meta 저장) */
+  panel.querySelectorAll('.js-pb-theme').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!_editText.editable) return;
+      const PB_THEMES = ['classic-book', 'paper-desk', 'minimal-cream', 'sketch-note', 'library-card', 'night-tale'];
+      const val = PB_THEMES.includes(btn.dataset.val) ? btn.dataset.val : 'classic-book';
+      if (ViewerState.project.pbTheme === val) return;   // no-op
+      ViewerState.project.pbTheme = val;
+      if (document.body) document.body.dataset.pbTheme = val;
+      /* 카드 active 상태만 갱신 (전체 패널 재렌더 피하기 — 포커스 손실 방지) */
+      panel.querySelectorAll('.js-pb-theme').forEach(b => b.classList.toggle('active', b === btn));
+      /* Firebase 저장 — viewer-meta.pbTheme 직접 update */
+      try {
+        const teamName  = ViewerState.project.teamName;
+        const classId   = ViewerState.project.classId;
+        if (teamName && typeof getViewerDb === 'function') {
+          const encodedName = encodeURIComponent(teamName);
+          const basePath = classId
+            ? `classes/${classId}/teams/${encodedName}`
+            : `teams/${encodedName}`;
+          await getViewerDb().ref(`${basePath}/viewer-meta`).update({ pbTheme: val });
+        }
+      } catch (e) {
+        console.error('[pbTheme] 저장 실패:', e);
+      }
+    });
+  });
+}
+
 function _bindTypeSectionsEvents(panel, scene) {
   if (!panel || !scene) return;
   const ptype = _resolveViewerProjectType();
@@ -3342,6 +3394,8 @@ function _bindTypeSectionsEvents(panel, scene) {
         if (typeof _flushPendingSave === 'function') _flushPendingSave();
       });
     }
+    /* 2026-05-25 Phase 2: 표지에 양옆 마감 테마 박힘 — 토글/카드 핸들러 등록 */
+    _bindPbThemeHandlers(panel);
     return;   // 표지면 picturebook/text/movie 분기 안 들어감
   }
 
@@ -3378,13 +3432,8 @@ function _bindTypeSectionsEvents(panel, scene) {
       });
     });
 
-    /* W9 (v3): 양옆 마감 테마 collapsible 토글 */
-    panel.querySelectorAll('.js-pb-theme-toggle').forEach(btn => {
-      btn.addEventListener('click', () => {
-        _pbThemeCollapsed = !_getPbThemeCollapsed();
-        renderEditPanel();
-      });
-    });
+    /* 2026-05-25 Phase 2 fix: 양옆 마감 테마 핸들러 — helper로 통합 (표지 분기와 공유) */
+    _bindPbThemeHandlers(panel);
 
     /* 2026-05-25 Phase 1: 글자 스타일 / 본문 카드 톤 collapsible 토글.
        저장 데이터 영향 없음 — module-level 변수만 토글하고 패널 재렌더. */
@@ -3401,33 +3450,7 @@ function _bindTypeSectionsEvents(panel, scene) {
       });
     });
 
-    /* W9: 그림책 양옆 마감 테마 카드 (작품 단위 — viewer-meta 저장) */
-    panel.querySelectorAll('.js-pb-theme').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        if (!_editText.editable) return;
-        const PB_THEMES = ['classic-book', 'paper-desk', 'minimal-cream', 'sketch-note', 'library-card', 'night-tale'];
-        const val = PB_THEMES.includes(btn.dataset.val) ? btn.dataset.val : 'classic-book';
-        if (ViewerState.project.pbTheme === val) return;   // no-op
-        ViewerState.project.pbTheme = val;
-        if (document.body) document.body.dataset.pbTheme = val;
-        /* 카드 active 상태 갱신만 (전체 패널 재렌더 피하기 — 포커스 손실 방지) */
-        panel.querySelectorAll('.js-pb-theme').forEach(b => b.classList.toggle('active', b === btn));
-        /* Firebase 저장 — viewer-meta.pbTheme 직접 update */
-        try {
-          const teamName  = ViewerState.project.teamName;
-          const classId   = ViewerState.project.classId;
-          if (teamName && typeof getViewerDb === 'function') {
-            const encodedName = encodeURIComponent(teamName);
-            const basePath = classId
-              ? `classes/${classId}/teams/${encodedName}`
-              : `teams/${encodedName}`;
-            await getViewerDb().ref(`${basePath}/viewer-meta`).update({ pbTheme: val });
-          }
-        } catch (e) {
-          console.error('[pbTheme] 저장 실패:', e);
-        }
-      });
-    });
+    /* 양옆 마감 테마 카드 핸들러는 위 _bindPbThemeHandlers(panel)에서 함께 등록됨. */
 
     panel.querySelectorAll('.js-pb-submode').forEach(btn => {
       btn.addEventListener('click', () => {

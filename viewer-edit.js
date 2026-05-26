@@ -41,6 +41,14 @@ function _getPbThemeCollapsed() {
   return (ViewerState.project.pbTheme || 'classic-book') !== 'classic-book';
 }
 
+/* 2026-05-25 Phase 1: 그림책 편집 패널 우측 세로 길이 축소.
+   글자 스타일 / 본문 카드 톤 섹션 collapsible 상태.
+   · 기본 펼침 (false). 사용자 클릭 시 true로 토글.
+   · module-level 변수 — localStorage 저장 안 함. 새로고침하면 다시 펼침.
+   · UI 상태만 — 저장 데이터·작품 내용·감상 화면 영향 없음. */
+let _pbInlineStyleCollapsed = false;
+let _pbToneCollapsed = false;
+
 /* ================================================================
    W7-B: 영상 업로드 (viewer 쪽 자체 정의)
    ─────────────────────────────────────────────────────────────
@@ -2971,35 +2979,48 @@ function _pbInlineStyleHtml(scene) {
       title="${c || '기본 (테마 색)'}"
       >${label}</button>`;
   }).join('');
+  /* 2026-05-25 Phase 1 (fix): 섹션 collapsible 토글.
+     · wrapper (.edit-pb-inline-style)가 이미 카드 자체 (background + border + padding) →
+       그 안의 헤더는 평면적이어야 자연스러움. 양옆 마감 테마의 흰 박스 토글과 분리.
+     · 새 class .edit-collapsible-header / .edit-collapsible-body 박힘. */
+  const collapsed = _pbInlineStyleCollapsed;
   return `
     <div class="edit-pb-inline-style">
-      <h5 class="edit-pb-inline-title">🅰 글자 스타일</h5>
-      <div class="edit-row edit-row--compact">
-        <label class="edit-label">폰트</label>
-        <select class="edit-font-select js-edit-pb-font"
-          style="font-family:${(TEXT_FONT_FAMILIES && TEXT_FONT_FAMILIES[style.fontFamily || 'gothic']) || 'inherit'}">${fontOptions}</select>
-      </div>
-      <div class="edit-row edit-row--compact edit-row--inline">
-        <label class="edit-label">글자 크기 <span class="edit-label-note">(${style.fontSize}px)</span></label>
-        <input type="range" class="edit-slider js-edit-pb-size"
-          min="12" max="28" step="1" value="${style.fontSize}">
-      </div>
-      <div class="edit-row edit-row--compact">
-        <label class="edit-label">글자 색</label>
-        <div class="edit-color-row">
-          ${colorBtns}
-          <input type="color" class="edit-color-picker js-edit-pb-color-pick"
-            value="${style.color || '#1a1a1a'}" title="자유 색 선택">
-        </div>
-      </div>
-      <div class="edit-row edit-row--compact edit-row--inline">
-        <label class="edit-label">굵기</label>
-        <div class="edit-toggle-group">
-          <button type="button" class="edit-toggle js-edit-pb-weight ${style.weight === 'normal' ? 'active' : ''}" data-val="normal">보통</button>
-          <button type="button" class="edit-toggle js-edit-pb-weight ${style.weight === 'bold' ? 'active' : ''}" data-val="bold">굵게</button>
-        </div>
-      </div>
-      ${_applyStyleAllButtonHtml(scene)}
+      <button type="button"
+        class="edit-collapsible-header js-pb-inline-style-toggle ${collapsed ? 'is-collapsed' : 'is-expanded'}"
+        aria-expanded="${!collapsed}">
+        <span class="edit-collapsible-header-text">🅰 글자 스타일</span>
+        <span class="edit-collapsible-header-chev">${collapsed ? '▼' : '▲'}</span>
+      </button>
+      ${collapsed ? '' : `
+        <div class="edit-collapsible-body edit-pb-inline-style-body">
+          <div class="edit-row edit-row--compact">
+            <label class="edit-label">폰트</label>
+            <select class="edit-font-select js-edit-pb-font"
+              style="font-family:${(TEXT_FONT_FAMILIES && TEXT_FONT_FAMILIES[style.fontFamily || 'gothic']) || 'inherit'}">${fontOptions}</select>
+          </div>
+          <div class="edit-row edit-row--compact edit-row--inline">
+            <label class="edit-label">글자 크기 <span class="edit-label-note">(${style.fontSize}px)</span></label>
+            <input type="range" class="edit-slider js-edit-pb-size"
+              min="12" max="28" step="1" value="${style.fontSize}">
+          </div>
+          <div class="edit-row edit-row--compact">
+            <label class="edit-label">글자 색</label>
+            <div class="edit-color-row">
+              ${colorBtns}
+              <input type="color" class="edit-color-picker js-edit-pb-color-pick"
+                value="${style.color || '#1a1a1a'}" title="자유 색 선택">
+            </div>
+          </div>
+          <div class="edit-row edit-row--compact edit-row--inline">
+            <label class="edit-label">굵기</label>
+            <div class="edit-toggle-group">
+              <button type="button" class="edit-toggle js-edit-pb-weight ${style.weight === 'normal' ? 'active' : ''}" data-val="normal">보통</button>
+              <button type="button" class="edit-toggle js-edit-pb-weight ${style.weight === 'bold' ? 'active' : ''}" data-val="bold">굵게</button>
+            </div>
+          </div>
+          ${_applyStyleAllButtonHtml(scene)}
+        </div>`}
     </div>`;
 }
 
@@ -3361,6 +3382,21 @@ function _bindTypeSectionsEvents(panel, scene) {
     panel.querySelectorAll('.js-pb-theme-toggle').forEach(btn => {
       btn.addEventListener('click', () => {
         _pbThemeCollapsed = !_getPbThemeCollapsed();
+        renderEditPanel();
+      });
+    });
+
+    /* 2026-05-25 Phase 1: 글자 스타일 / 본문 카드 톤 collapsible 토글.
+       저장 데이터 영향 없음 — module-level 변수만 토글하고 패널 재렌더. */
+    panel.querySelectorAll('.js-pb-inline-style-toggle').forEach(btn => {
+      btn.addEventListener('click', () => {
+        _pbInlineStyleCollapsed = !_pbInlineStyleCollapsed;
+        renderEditPanel();
+      });
+    });
+    panel.querySelectorAll('.js-pb-tone-toggle').forEach(btn => {
+      btn.addEventListener('click', () => {
+        _pbToneCollapsed = !_pbToneCollapsed;
         renderEditPanel();
       });
     });
@@ -4462,14 +4498,26 @@ function _pbToneSectionHtml(scene) {
     ? '<div class="edit-section-hint">🎨 본문 카드 스타일·색계열은 작품 전체에 적용돼요. 장면마다 따로 정하지 않아요.</div>'
     : '';
 
+  /* 2026-05-25 Phase 1 (fix): 섹션 collapsible 토글.
+     · wrapper (.edit-submode-block)가 이미 카드 자체 → 헤더는 평면적으로 박힘.
+     · 새 class .edit-collapsible-header / .edit-collapsible-body 박힘. */
+  const collapsed = _pbToneCollapsed;
   return `
     <div class="edit-submode-block edit-submode-block--pb-tone">
-      <label class="edit-sublabel">본문 카드 톤</label>
-      ${startNote}
-      ${styleRowHtml}
-      ${colorRowHtml}
-      ${sceneRowHtml}
-      ${endRowHtml}
+      <button type="button"
+        class="edit-collapsible-header js-pb-tone-toggle ${collapsed ? 'is-collapsed' : 'is-expanded'}"
+        aria-expanded="${!collapsed}">
+        <span class="edit-collapsible-header-text">🎨 본문 카드 톤</span>
+        <span class="edit-collapsible-header-chev">${collapsed ? '▼' : '▲'}</span>
+      </button>
+      ${collapsed ? '' : `
+        <div class="edit-collapsible-body edit-pb-tone-body">
+          ${startNote}
+          ${styleRowHtml}
+          ${colorRowHtml}
+          ${sceneRowHtml}
+          ${endRowHtml}
+        </div>`}
     </div>`;
 }
 

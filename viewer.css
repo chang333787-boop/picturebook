@@ -3246,6 +3246,67 @@ body[data-page-orientation="portrait"] .terminal-screen--story .ending-page {
 .edit-pb-inline-style .edit-row--inline .edit-toggle-group {
   flex: 1;
 }
+
+/* ─────────────────────────────────────────────────────────────
+   2026-05-25 Phase 1 (fix): 섹션 collapsible 헤더 (평면형).
+   ─────────────────────────────────────────────────────────────
+   사용처: .edit-pb-inline-style (글자 스타일) /
+           .edit-submode-block--pb-tone (본문 카드 톤)
+   특징:
+   · wrapper가 이미 카드(background + border + padding)이므로,
+     헤더는 그 안에 평면적으로 박혀야 자연스러움.
+   · 양옆 마감 테마의 .edit-pb-theme-toggle (흰 박스형)과 분리된 시스템.
+   · 펼친 상태에서 헤더와 body가 같은 카드 안에서 점선으로 연결.
+   · 접힌 상태에서는 헤더만 보이고 점선·여백 없음.
+   ───────────────────────────────────────────────────────────── */
+.edit-collapsible-header {
+  width: 100%;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font-ui, 'Jua', sans-serif);
+  font-size: 13px;
+  color: var(--text, #2b1f10);
+  letter-spacing: 0.02em;
+  transition: color 120ms;
+}
+.edit-collapsible-header:hover {
+  color: #c66f4a;
+}
+.edit-collapsible-header-text {
+  font-weight: 500;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.edit-collapsible-header-chev {
+  font-size: 11px;
+  color: #8a6c4a;
+  margin-left: 8px;
+  flex-shrink: 0;
+  transition: color 120ms;
+}
+.edit-collapsible-header.is-expanded {
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed rgba(120,90,50,0.18);
+}
+.edit-collapsible-header.is-expanded .edit-collapsible-header-chev {
+  color: #c66f4a;
+}
+.edit-collapsible-body {
+  /* 본문 — wrapper(.edit-pb-inline-style / .edit-submode-block) padding 안에 그대로.
+     별도 background·border 없음. wrapper가 카드. */
+}
+
 .edit-tab {
   flex: 1;
   padding: 7px 10px;

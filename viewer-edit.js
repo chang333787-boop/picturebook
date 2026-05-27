@@ -2923,6 +2923,67 @@ function _pbThemeSectionHtml() {
     </div>`;
 }
 
+/* 2026-05-27 Phase 4-B: 그림책 1단 — 행동 버튼 개수 조작 섹션 HTML.
+   일반 장면에만 표시. 표지는 _typeSectionsHtml에서 _typeSectionCoverHtml로
+   분기되므로 여기 안 옴. 엔딩은 같은 함수에 들어오므로 여기서 명시 제외.
+   추가/삭제는 _pbAddChoiceForScene / _pbRemoveLastChoiceForScene 통해 처리 —
+   우측 2단의 _bindButtonsEditEvents와 동일하게 _queueSaveButtons 재사용. */
+function _pbChoiceCountSectionHtml(scene) {
+  if (!scene) return '';
+  if (scene.type === 'ending' || scene.isEnding) return '';
+  const count = Array.isArray(scene.choices) ? scene.choices.length : 0;
+  const removeDisabled = count <= 1;
+  const removeAttrs = removeDisabled
+    ? 'disabled style="opacity:0.4;cursor:not-allowed;" title="최소 1개의 버튼이 필요해요"'
+    : 'title="마지막 버튼 삭제"';
+  return `
+    <div class="edit-row edit-row--pb-choice-count">
+      <label class="edit-label">🎯 행동 버튼 개수
+        <span class="edit-label-note">현재 ${count}개</span>
+      </label>
+      <div class="edit-pb-choice-count-actions">
+        <button type="button" class="edit-toggle js-pb-choice-add">+ 버튼 추가</button>
+        <button type="button" class="edit-toggle js-pb-choice-remove-last" ${removeAttrs}>마지막 버튼 삭제</button>
+      </div>
+    </div>`;
+}
+
+/* 2026-05-27 Phase 4-B: 행동 버튼 개수 인라인 추가/삭제 helper.
+   우측 2단 _bindButtonsEditEvents 안 추가/삭제 로직과 같은 규칙. 새 저장
+   로직 만들지 않고 _queueSaveButtons(scene) 재사용 — buttons/choiceA/B/
+   choiceCount/nextA/B 일괄 저장. _bindButtonsEditEvents의 기존 핸들러는
+   변경 없음 (회귀 방지). */
+function _pbAddChoiceForScene(scene) {
+  if (!scene) return;
+  if (!Array.isArray(scene.choices)) scene.choices = [];
+  const newIdx = scene.choices.length;
+  const newId  = (typeof _autoChoiceId === 'function')
+    ? _autoChoiceId(newIdx)
+    : String.fromCharCode(65 + newIdx);
+  scene.choices.push({
+    id: newId,
+    label: '',
+    nextId: null,
+    presentation: (typeof defaultPresentation === 'function')
+      ? defaultPresentation(newId)
+      : { placement: 'bottom' },
+  });
+  _queueSaveButtons(scene);
+  _flushPendingSave();
+  renderEditPanel();
+  _scheduleViewerFrameReRender();
+}
+
+function _pbRemoveLastChoiceForScene(scene) {
+  if (!scene || !Array.isArray(scene.choices)) return;
+  if (scene.choices.length <= 1) return;  /* 최소 1개 유지 */
+  scene.choices.pop();
+  _queueSaveButtons(scene);
+  _flushPendingSave();
+  renderEditPanel();
+  _scheduleViewerFrameReRender();
+}
+
 /* ── 2) 그림책형 전용 섹션 ─────────────────────────────────────
    mockup: a_clean_ui_screenshot_mockup_of_a_digital_storyb.png 기준
    포함:
@@ -3021,6 +3082,8 @@ function _typeSectionPicturebookHtml(scene) {
         <button type="button" class="edit-toggle js-pb-image-crop" ${hasImage ? '' : 'disabled style="opacity:0.4;"'}>✄ 자르기</button>
       </div>
     </div>
+
+    ${_pbChoiceCountSectionHtml(scene)}
 
     ${pbStyleInlineHtml}
 
@@ -3545,6 +3608,25 @@ function _bindTypeSectionsEvents(panel, scene) {
     });
 
     /* 양옆 마감 테마 카드 핸들러는 위 _bindPbThemeHandlers(panel)에서 함께 등록됨. */
+
+    /* 2026-05-27 Phase 4-B: 1단 행동 버튼 개수 섹션 핸들러.
+       엔딩이면 _pbChoiceCountSectionHtml이 빈 문자열이라 querySelector 결과
+       null → 안전. 추가/삭제 helper는 _queueSaveButtons 재사용. */
+    const _pbAddChoiceBtn = panel.querySelector('.js-pb-choice-add');
+    if (_pbAddChoiceBtn) {
+      _pbAddChoiceBtn.addEventListener('click', () => {
+        if (!_editText.editable) return;
+        _pbAddChoiceForScene(scene);
+      });
+    }
+    const _pbRemoveLastChoiceBtn = panel.querySelector('.js-pb-choice-remove-last');
+    if (_pbRemoveLastChoiceBtn) {
+      _pbRemoveLastChoiceBtn.addEventListener('click', () => {
+        if (!_editText.editable) return;
+        if (_pbRemoveLastChoiceBtn.disabled) return;
+        _pbRemoveLastChoiceForScene(scene);
+      });
+    }
 
     panel.querySelectorAll('.js-pb-submode').forEach(btn => {
       btn.addEventListener('click', () => {

@@ -5780,6 +5780,109 @@ body[data-page-orientation="portrait"] .terminal-screen--story .ending-page {
   font-style: italic;
 }
 
+/* ============================================================
+   2026-05-27 Phase 4-C — 1단 선택지 연결 섹션 (오른쪽 1단)
+   ─────────────────────────────────────────────
+   행동 버튼별 다음 장면 연결을 1단에서 빠르게 바꿀 수 있게 한 줄짜리 row.
+   2단의 .edit-button-row와 톤 통일하되 더 컴팩트 (한 줄 + 작은 gap).
+   ============================================================ */
+.edit-pb-choice-link-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.edit-pb-choice-link-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+  transition: border-color 0.12s, background 0.12s;
+  min-width: 0;  /* 1단 폭 좁아도 깨지지 않게 — flex shrink 허용 */
+}
+.edit-pb-choice-link-row:hover {
+  border-color: rgba(88, 166, 255, 0.3);
+  background: rgba(255, 255, 255, 0.05);
+}
+.edit-pb-choice-link-row:focus-within {
+  border-color: rgba(88, 166, 255, 0.6);
+  background: rgba(88, 166, 255, 0.04);
+}
+
+/* 번호 — 작은 원형 badge. 우측 2단 행동 버튼 행과 통일된 톤. */
+.edit-pb-choice-link-num {
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(88, 166, 255, 0.15);
+  color: #79b8ff;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: 'Consolas', 'Menlo', monospace;
+  letter-spacing: 0;
+}
+
+/* 라벨 미리 — flex:1 + ellipsis 한 줄. 비면 muted/italic. */
+.edit-pb-choice-link-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--text, #ddd);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.edit-pb-choice-link-label.is-empty {
+  color: var(--text-muted, #888);
+  font-style: italic;
+}
+
+.edit-pb-choice-link-arrow {
+  flex: 0 0 auto;
+  color: var(--text-muted, #888);
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+/* select — 1단 폭 안에서 깨지지 않게. flex로 남는 폭 활용 + max 안전망. */
+.edit-pb-choice-link-select {
+  flex: 0 1 auto;
+  min-width: 90px;
+  max-width: 160px;
+  padding: 3px 6px;
+  border-radius: 5px;
+  border: 1px solid var(--border, #444);
+  background: var(--bg, #1a1a1a);
+  color: var(--text, #ddd);
+  font-size: 12px;
+  cursor: pointer;
+  text-overflow: ellipsis;
+}
+.edit-pb-choice-link-select:focus {
+  outline: 2px solid var(--accent, #5b9dff);
+  outline-offset: 1px;
+}
+.edit-pb-choice-link-select:hover {
+  border-color: var(--accent, #5b9dff);
+}
+/* 미연결 상태 (빈 값 selected) — 시각적 약하게 (2단 select와 동일 톤) */
+.edit-pb-choice-link-select option[value=""]:checked,
+.edit-pb-choice-link-select:not(:focus):has(option[value=""]:checked) {
+  color: var(--text-muted, #888);
+  font-style: italic;
+}
+/* disabled 옵션 (자기 자신) — 브라우저 기본보다 명확히 dim */
+.edit-pb-choice-link-select option:disabled {
+  color: rgba(255, 255, 255, 0.3);
+  font-style: italic;
+}
+
 .edit-buttons-actions {
   margin-top: 10px;
   display: flex;

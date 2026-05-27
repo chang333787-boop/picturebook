@@ -2323,6 +2323,12 @@ function _bindButtonsEditEvents(panel, scene) {
     /* nextNum도 함께 갱신 — preview 화살표 같은 곳에서 참고 */
     scene.choices[idx].nextNum = val ? Number(val) : null;
 
+    /* 2026-05-27 Phase 4-C: 1단 선택지 연결 select 동기화 — 양방향 정합.
+       1단에 같은 idx select가 있으면 value만 갱신 (옵션 정책 동일성은 다음
+       렌더 시점에 보장 — 옵션 자체 변경은 거의 발생 안 함). */
+    const linkSel1 = panel.querySelector(`.js-pb-choice-link[data-idx="${idx}"]`);
+    if (linkSel1 && linkSel1.value !== val) linkSel1.value = val;
+
     _queueSaveButtons(scene);
     _flushPendingSave();
     _scheduleViewerFrameReRender();
@@ -2984,6 +2990,81 @@ function _pbRemoveLastChoiceForScene(scene) {
   _scheduleViewerFrameReRender();
 }
 
+/* 2026-05-27 Phase 4-C: 1단 선택지 연결 select 옵션 빌더 — 안전 정책.
+   · 표지(cover) 제외 (목록에서 빼버림 — 학생 연결 실수 차단)
+   · 자기 자신: disabled + 라벨에 "[현재 장면]" 표시
+   · 엔딩: 선택 가능 + 라벨에 "[엔딩]" 표시
+   · 일반 장면: 평소대로
+   호출 측에서 (미연결) 옵션은 별도로 박음. 2단(_buttonRowHtml)은 기존
+   정책 그대로 — 사용자 명시 "1단에만 안전 옵션 적용". */
+function _buildLinkSelectOptionsHtml(scene, currentNextId) {
+  const allScenes = (typeof ViewerState !== 'undefined' && ViewerState.scenes)
+    ? Object.values(ViewerState.scenes) : [];
+  const sorted = allScenes.slice().sort((a, b) => {
+    const na = Number(a.num || a.id || 0);
+    const nb = Number(b.num || b.id || 0);
+    return na - nb;
+  });
+  const currentSceneId = String(scene.num || scene.id || '');
+  return sorted.map(s => {
+    if (!s) return '';
+    if (s.type === 'cover' || s.isCover) return '';   /* 표지 제외 */
+    const sNum = String(s.num || s.id || '');
+    if (!sNum) return '';
+    const isSelf = sNum === currentSceneId;
+    const isEnding = !!(s.type === 'ending' || s.isEnding);
+    const sTitle = String(s.title || '').trim();
+    let labelText = sTitle
+      ? `장면 ${sNum} (${sTitle.length > 12 ? sTitle.slice(0, 12) + '…' : sTitle})`
+      : `장면 ${sNum}`;
+    if (isEnding) labelText += ' [엔딩]';
+    if (isSelf) labelText += ' [현재 장면]';
+    const sel = (!isSelf && sNum === currentNextId) ? ' selected' : '';
+    const disabledAttr = isSelf ? ' disabled' : '';
+    return `<option value="${escHtml(sNum)}"${sel}${disabledAttr}>${escHtml(labelText)}</option>`;
+  }).join('');
+}
+
+/* 2026-05-27 Phase 4-C: 1단 — 선택지 연결 섹션 HTML.
+   일반 장면만 (표지/엔딩 제외). 버튼 0개면 섹션 자체 X.
+   각 row: [N] 라벨 미리(12자) → select. 저장 흐름은 _queueSaveButtons
+   재사용 (data 구조 변경 X). */
+function _pbChoiceLinkSectionHtml(scene) {
+  if (!scene) return '';
+  if (scene.type === 'cover' || scene.isCover) return '';
+  if (scene.type === 'ending' || scene.isEnding) return '';
+  const choices = Array.isArray(scene.choices) ? scene.choices : [];
+  if (choices.length === 0) return '';
+
+  const rows = choices.map((c, i) => {
+    const rawLabel = (c && typeof c.label === 'string') ? c.label.trim() : '';
+    const labelPreview = rawLabel
+      ? (rawLabel.length > 12 ? rawLabel.slice(0, 12) + '…' : rawLabel)
+      : '버튼 문구 없음';
+    const labelEmptyClass = rawLabel ? '' : ' is-empty';
+    const currentNext = (c && c.nextId) ? String(c.nextId) : '';
+    const optionsHtml = _buildLinkSelectOptionsHtml(scene, currentNext);
+    return `
+      <div class="edit-pb-choice-link-row" data-idx="${i}">
+        <span class="edit-pb-choice-link-num">[${i + 1}]</span>
+        <span class="edit-pb-choice-link-label${labelEmptyClass}">${escHtml(labelPreview)}</span>
+        <span class="edit-pb-choice-link-arrow">→</span>
+        <select class="edit-pb-choice-link-select js-pb-choice-link" data-idx="${i}">
+          <option value=""${currentNext ? '' : ' selected'}>(미연결)</option>
+          ${optionsHtml}
+        </select>
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="edit-row edit-row--pb-choice-link">
+      <label class="edit-label">🔗 선택지 연결</label>
+      <div class="edit-pb-choice-link-list">
+        ${rows}
+      </div>
+    </div>`;
+}
+
 /* ── 2) 그림책형 전용 섹션 ─────────────────────────────────────
    mockup: a_clean_ui_screenshot_mockup_of_a_digital_storyb.png 기준
    포함:
@@ -3084,6 +3165,8 @@ function _typeSectionPicturebookHtml(scene) {
     </div>
 
     ${_pbChoiceCountSectionHtml(scene)}
+
+    ${_pbChoiceLinkSectionHtml(scene)}
 
     ${pbStyleInlineHtml}
 
@@ -3627,6 +3710,31 @@ function _bindTypeSectionsEvents(panel, scene) {
         _pbRemoveLastChoiceForScene(scene);
       });
     }
+
+    /* 2026-05-27 Phase 4-C: 1단 선택지 연결 select 핸들러.
+       · scene.choices[idx].nextId / nextNum 갱신 (2단 핸들러와 동일 규칙)
+       · 2단 같은 idx select value 동기화 (정합 보호)
+       · _queueSaveButtons 재사용 — buildButtonsPatchForSave 거쳐
+         buttons/choiceA/B/choiceCount/nextA/B 일괄 저장 + maker 호환
+       · _scheduleViewerFrameReRender — 미리보기 버튼 disabled/활성 갱신 */
+    panel.querySelectorAll('.js-pb-choice-link').forEach(linkSel => {
+      linkSel.addEventListener('change', () => {
+        if (!_editText.editable) return;
+        const idx = parseInt(linkSel.dataset.idx, 10);
+        if (isNaN(idx) || !scene.choices || !scene.choices[idx]) return;
+        const val = linkSel.value || '';
+        scene.choices[idx].nextId = val || null;
+        scene.choices[idx].nextNum = val ? Number(val) : null;
+
+        /* 2단 동일 select 동기화 (있을 때만 — 2단 마크업은 그대로 유지) */
+        const sel2 = panel.querySelector(`.js-edit-btn-next[data-idx="${idx}"]`);
+        if (sel2 && sel2.value !== val) sel2.value = val;
+
+        _queueSaveButtons(scene);
+        _flushPendingSave();
+        _scheduleViewerFrameReRender();
+      });
+    });
 
     panel.querySelectorAll('.js-pb-submode').forEach(btn => {
       btn.addEventListener('click', () => {

@@ -459,10 +459,21 @@
   flex-direction: column;
   gap: 12px;
 }
+/* 2026-05-27: 본문 카드 톤 펼침 body 내부 묶음 간격.
+   옛엔 부모 flex가 아니라 row들이 거의 붙어 보였음.
+   .edit-tone-row 세 묶음(스타일/색계열/톤 또는 엔딩 마감톤) 사이를
+   12px로 박음 — 촘촘함 해소 + 태블릿 세로 부담 최소. */
+.edit-pb-tone-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
 .edit-tone-row {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  /* 2026-05-27: head ↔ hint ↔ btn-grid 사이 여백 6 → 8.
+     설명문장과 버튼 사이 여백 약간 확보. */
+  gap: 8px;
 }
 .edit-tone-row__head {
   display: flex;
@@ -470,7 +481,8 @@
   gap: 6px;
 }
 .edit-tone-row__label {
-  font-size: 12.5px;
+  /* 2026-05-27: 12.5 → 13 (다른 .edit-label 13px와 통일 — 묶음 제목 명확). */
+  font-size: 13px;
   font-weight: 700;
   color: #4a3820;
   letter-spacing: 0.02em;
@@ -485,7 +497,8 @@
 .edit-tone-btn-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(64px, 1fr));
-  gap: 4px;
+  /* 2026-05-27: 버튼 사이 간격 4 → 6 (한 덩어리처럼 붙어 보이는 거 해소). */
+  gap: 6px;
 }
 /* --5, --3 modifier 폐기 — auto-fit으로 통일.
    기존 셀렉터는 호환 위해 그대로 두되 같은 규칙 적용. */

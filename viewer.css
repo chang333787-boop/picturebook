@@ -3307,6 +3307,21 @@ body[data-page-orientation="portrait"] .terminal-screen--story .ending-page {
      별도 background·border 없음. wrapper가 카드. */
 }
 
+/* 2026-05-27 Phase 4-D-1: 우측 2단 (📝 내용) 접이식 wrapper.
+   글자 스타일 카드(.edit-pb-inline-style) 톤 참고하되 더 컴팩트.
+   잠금 배너 아래 자연스러운 카드로 박혀, 그림책 일반/엔딩에서 접힘 default.
+   표지 / 그림책 외 모드는 강제 펼침. */
+.edit-text-advanced-wrap {
+  margin-top: 8px;
+  padding: 10px 12px;
+  background: var(--surface2);
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+.edit-text-advanced-body {
+  /* wrapper padding 안에 .edit-row margin 10px 그대로 — 별도 padding X */
+}
+
 .edit-tab {
   flex: 1;
   padding: 7px 10px;

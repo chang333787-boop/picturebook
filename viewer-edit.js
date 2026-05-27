@@ -49,6 +49,13 @@ function _getPbThemeCollapsed() {
 let _pbInlineStyleCollapsed = false;
 let _pbToneCollapsed = false;
 
+/* 2026-05-27 Phase 4-D-1: 우측 2단 (📝 내용) 접이식 상태.
+   · null  — 자동 default. 그림책 일반/엔딩 = 접힘, 표지/외 모드 = 펼침
+   · true  — 사용자가 접음 (그림책 일반/엔딩에서만 유효 — 표지/외 모드는 강제 펼침)
+   · false — 사용자가 펼침
+   localStorage 저장 X — 새로고침 시 default 복귀. */
+let _textEditCollapsed = null;
+
 /* ================================================================
    W7-B: 영상 업로드 (viewer 쪽 자체 정의)
    ─────────────────────────────────────────────────────────────
@@ -1982,6 +1989,30 @@ function _textEditHtml(scene) {
   const isPicturebookMode = _ptypeForButtons === 'picturebook';
   const pbStyleInlineHtml = isPicturebookMode ? _pbInlineStyleHtml(scene) : '';
 
+  /* 2026-05-27 Phase 4-D-1: 우측 2단 (📝 내용) 접이식 wrapper.
+     · 표지 / 그림책 외 모드(텍스트/무비/체험) → 강제 펼침 — 이 분기는 2단 의존성 큼
+     · 그림책 일반 / 그림책 엔딩 → default 접힘, 사용자 토글 가능
+     · 잠금 배너는 wrapper 밖 — 잠금 충돌은 접혀있어도 항상 보여야 안전
+     · 내부 마크업·이벤트·저장 흐름 0 수정 — wrapper와 collapsed 분기만 박음 */
+  const _isCoverForCollapse = !!(scene && scene.type === 'cover');
+  const _isEndingForCollapse = !!(scene && (scene.type === 'ending' || scene.isEnding));
+  const _forceTextEditExpanded = _isCoverForCollapse || _ptypeForButtons !== 'picturebook';
+  let _textEditIsCollapsed;
+  if (_forceTextEditExpanded) {
+    _textEditIsCollapsed = false;
+  } else if (_textEditCollapsed === null) {
+    _textEditIsCollapsed = true;   /* 그림책 일반 + 엔딩 default 접힘 */
+  } else {
+    _textEditIsCollapsed = !!_textEditCollapsed;   /* 사용자 명시 토글값 */
+  }
+  const _textEditHeaderHtml = `
+    <button type="button"
+      class="edit-collapsible-header js-text-edit-toggle ${_textEditIsCollapsed ? 'is-collapsed' : 'is-expanded'}"
+      aria-expanded="${!_textEditIsCollapsed}">
+      <span class="edit-collapsible-header-text">📝 내용 고급 편집</span>
+      <span class="edit-collapsible-header-chev">${_textEditIsCollapsed ? '▼' : '▲'}</span>
+    </button>`;
+
   /* v37: 표지 scene 콘텐츠 영역 — 제목 + 한 줄 소개만 (본문·행동 버튼 X)
      v129: 표지 상단 문구(kicker) input 추가. 옛엔 팀 이름 자동 표시였음 → 사용자가 직접 박는 값.
            비우면 표지 상단에 아무것도 표시 안 됨. */
@@ -1990,59 +2021,70 @@ function _textEditHtml(scene) {
     const kickerVal   = scene.kicker   || '';
     return `
       <div class="js-edit-lock-banner edit-lock-banner" style="display:none;"></div>
-      <div class="edit-row">
-        <label class="edit-label" for="edit-cover-kicker">🏷 표지 상단 문구 <span class="edit-label-note">(선택)</span></label>
-        <input id="edit-cover-kicker" type="text"
-          class="edit-text-input edit-text-input--choice js-edit-text-input js-edit-cover-kicker"
-          value="${escHtml(kickerVal)}"
-          placeholder="예: 4학년 1반 작품 (비우면 표시 안 됨)"
-          maxlength="30">
-        <div class="edit-field-hint">작품 제목 위에 작게 보이는 문구예요. 비워두면 표시되지 않아요.</div>
-      </div>
-      <div class="edit-row">
-        <label class="edit-label" for="edit-scene-title">📖 작품 제목</label>
-        <input id="edit-scene-title" type="text"
-          class="edit-text-input edit-text-input--choice js-edit-text-input js-edit-title"
-          value="${escHtml(titleVal)}"
-          placeholder="작품 제목">
-      </div>
-      <div class="edit-row">
-        <label class="edit-label" for="edit-scene-subtitle">✍ 한 줄 소개 <span class="edit-label-note">(선택)</span></label>
-        <input id="edit-scene-subtitle" type="text"
-          class="edit-text-input edit-text-input--choice js-edit-text-input js-edit-cover-subtitle"
-          value="${escHtml(subtitleVal)}"
-          placeholder="짧은 한 줄 소개">
-      </div>
-      <div class="edit-text-status-row">
-        <span class="js-edit-text-status edit-text-status" aria-live="polite"></span>
+      <div class="edit-text-advanced-wrap">
+        ${_textEditHeaderHtml}
+        ${_textEditIsCollapsed ? '' : `
+          <div class="edit-collapsible-body edit-text-advanced-body">
+            <div class="edit-row">
+              <label class="edit-label" for="edit-cover-kicker">🏷 표지 상단 문구 <span class="edit-label-note">(선택)</span></label>
+              <input id="edit-cover-kicker" type="text"
+                class="edit-text-input edit-text-input--choice js-edit-text-input js-edit-cover-kicker"
+                value="${escHtml(kickerVal)}"
+                placeholder="예: 4학년 1반 작품 (비우면 표시 안 됨)"
+                maxlength="30">
+              <div class="edit-field-hint">작품 제목 위에 작게 보이는 문구예요. 비워두면 표시되지 않아요.</div>
+            </div>
+            <div class="edit-row">
+              <label class="edit-label" for="edit-scene-title">📖 작품 제목</label>
+              <input id="edit-scene-title" type="text"
+                class="edit-text-input edit-text-input--choice js-edit-text-input js-edit-title"
+                value="${escHtml(titleVal)}"
+                placeholder="작품 제목">
+            </div>
+            <div class="edit-row">
+              <label class="edit-label" for="edit-scene-subtitle">✍ 한 줄 소개 <span class="edit-label-note">(선택)</span></label>
+              <input id="edit-scene-subtitle" type="text"
+                class="edit-text-input edit-text-input--choice js-edit-text-input js-edit-cover-subtitle"
+                value="${escHtml(subtitleVal)}"
+                placeholder="짧은 한 줄 소개">
+            </div>
+            <div class="edit-text-status-row">
+              <span class="js-edit-text-status edit-text-status" aria-live="polite"></span>
+            </div>
+          </div>`}
       </div>`;
   }
 
   return `
     <div class="js-edit-lock-banner edit-lock-banner" style="display:none;"></div>
+    <div class="edit-text-advanced-wrap">
+      ${_textEditHeaderHtml}
+      ${_textEditIsCollapsed ? '' : `
+        <div class="edit-collapsible-body edit-text-advanced-body">
+          <div class="edit-row">
+            <label class="edit-label" for="edit-scene-title">📝 제목 <span class="edit-label-note">(짧은 헤드라인)</span></label>
+            <input id="edit-scene-title" type="text"
+              class="edit-text-input edit-text-input--choice js-edit-text-input js-edit-title"
+              value="${escHtml(titleVal)}"
+              placeholder="짧은 제목 (선택)">
+            ${titleHint}
+          </div>
 
-    <div class="edit-row">
-      <label class="edit-label" for="edit-scene-title">📝 제목 <span class="edit-label-note">(짧은 헤드라인)</span></label>
-      <input id="edit-scene-title" type="text"
-        class="edit-text-input edit-text-input--choice js-edit-text-input js-edit-title"
-        value="${escHtml(titleVal)}"
-        placeholder="짧은 제목 (선택)">
-      ${titleHint}
-    </div>
+          <div class="edit-row">
+            <label class="edit-label" for="edit-scene-body">📜 본문 <span class="edit-label-note">(장면에서 읽을 글)</span></label>
+            <textarea id="edit-scene-body"
+              class="edit-text-input edit-text-input--body js-edit-text-input js-edit-body"
+              rows="5"
+              placeholder="장면에 보여줄 내용을 적어주세요.">${escHtml(bodyVal)}</textarea>
+            ${bodyHint}
+          </div>
 
-    <div class="edit-row">
-      <label class="edit-label" for="edit-scene-body">📜 본문 <span class="edit-label-note">(장면에서 읽을 글)</span></label>
-      <textarea id="edit-scene-body"
-        class="edit-text-input edit-text-input--body js-edit-text-input js-edit-body"
-        rows="5"
-        placeholder="장면에 보여줄 내용을 적어주세요.">${escHtml(bodyVal)}</textarea>
-      ${bodyHint}
-    </div>
+          ${buttonsBlock}
 
-    ${buttonsBlock}
-
-    <div class="edit-text-status-row">
-      <span class="js-edit-text-status edit-text-status" aria-live="polite"></span>
+          <div class="edit-text-status-row">
+            <span class="js-edit-text-status edit-text-status" aria-live="polite"></span>
+          </div>
+        </div>`}
     </div>`;
 }
 
@@ -2162,6 +2204,23 @@ function _buttonRowHtml(choice, idx, total) {
 }
 
 function _bindTextEditEvents(panel, scene) {
+  /* 2026-05-27 Phase 4-D-1: 우측 2단 (📝 내용) 접이식 헤더 토글.
+     · 표지 / 그림책 외 모드는 강제 펼침 — 토글 시도해도 무력 (안전망).
+     · 그림책 일반 + 엔딩만 토글 적용. _textEditCollapsed에 명시값 박힘.
+     · localStorage 저장 X — 새로고침 시 default 복귀. */
+  const _textEditToggle = panel.querySelector('.js-text-edit-toggle');
+  if (_textEditToggle) {
+    _textEditToggle.addEventListener('click', () => {
+      const _isCover = !!(scene && scene.type === 'cover');
+      const _ptype = (typeof _resolveViewerProjectType === 'function')
+        ? _resolveViewerProjectType() : null;
+      if (_isCover || _ptype !== 'picturebook') return;   /* 강제 펼침 분기 */
+      const _cur = (_textEditCollapsed === null) ? true : !!_textEditCollapsed;
+      _textEditCollapsed = !_cur;
+      renderEditPanel();
+    });
+  }
+
   const titleEl = panel.querySelector('.js-edit-title');
   const bodyEl  = panel.querySelector('.js-edit-body');
 

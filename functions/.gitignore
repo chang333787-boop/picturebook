@@ -7,6 +7,7 @@
 # 빌드 / 의존성
 node_modules/
 lib/
+.npm-cache-tmp/
 
 # Firebase
 .firebase/

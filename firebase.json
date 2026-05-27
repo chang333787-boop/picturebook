@@ -11,6 +11,7 @@
       "codebase": "default",
       "ignore": [
         "node_modules",
+        ".npm-cache-tmp",
         ".git",
         "firebase-debug.log",
         "firebase-debug.*.log",

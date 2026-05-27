@@ -1334,13 +1334,21 @@ function _renderStoryEnding(stage, scene) {
      edit-mode-active body class 박힘 + viewer-test-active 박지 X면 정적 표시. */
   const _isEdit = !!(ViewerState && ViewerState.editMode);
 
+  /* 2026-05-25 Phase 3: 엔딩 본문 직접 입력 — AI 토글 안전 분기.
+     원본 보기 모드일 때만 contenteditable 적용. AI 1단계 보기 상태에서는
+     contenteditable 박지 X (AI 변환본 표시 중에 사용자 입력 충돌 방지). */
+  const _aiViewMode = (typeof window !== 'undefined' && window.viewerAi
+                       && typeof window.viewerAi._getAiViewMode === 'function')
+    ? window.viewerAi._getAiViewMode() : 'original';
+  const _allowInlineEdit = _isEdit && _aiViewMode === 'original';
+
   /* 텍스트 영역 — 작품 제목(작게) + 엔딩 본문(메인) + 이야기 끝 스탬프 + 경로 요약 + 버튼
      v133: 각 요소에 terminal-step + 종류별 modifier. CSS animation-delay 변수로 순차. */
   const endingTextHtml = `
     <div class="pb-text pb-text--ending ${_isEdit ? 'is-edit-static' : ''}"
          style="${_seqStyle}">
       ${userTitle ? `<div class="ending-user-title terminal-step terminal-step--title">${escHtml(userTitle)}</div>` : ''}
-      ${userBody ? `<p class="ending-user-body terminal-step terminal-step--body">${escHtml(userBody)}</p>` : ''}
+      ${(userBody || _allowInlineEdit) ? `<p class="ending-user-body terminal-step terminal-step--body${_allowInlineEdit ? ' js-pb-editable-body' : ''}" ${_allowInlineEdit ? 'contenteditable="true" data-pb-editable="body"' : ''} data-placeholder="(본문을 적어보세요)">${escHtml(userBody)}</p>` : ''}
       <div class="pb-ending-meta-inline terminal-step terminal-step--badge">
         ${trueEndBadge}
         <div class="ending-end-stamp">${systemIcon} ${systemLabel}</div>
@@ -1392,6 +1400,15 @@ function _renderStoryEnding(stage, scene) {
 
   if (typeof _setupPbPhotoWrappers === 'function') {
     _setupPbPhotoWrappers(stage);
+  }
+
+  /* 2026-05-25 Phase 3 fix: 엔딩 본문 직접 입력 핸들러 부착.
+     일반 장면 renderScene과 동일 패턴 — initEditInteractions()가
+     _attachPbEditableInteractions(frame)을 호출해 contenteditable element에
+     input/blur 이벤트 + 우측 textarea 양방향 동기화 + _queueSave 박음.
+     edit mode에서만 실행 (감상 모드 박지 X). */
+  if (ViewerState.editMode && typeof initEditInteractions === 'function') {
+    initEditInteractions();
   }
 
   /* v133: 엔딩 버튼은 등장 애니메이션 끝난 뒤에만 활성화.

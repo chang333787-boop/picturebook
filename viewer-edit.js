@@ -2005,11 +2005,16 @@ function _textEditHtml(scene) {
   } else {
     _textEditIsCollapsed = !!_textEditCollapsed;   /* 사용자 명시 토글값 */
   }
+  /* 2026-05-27 Phase 4-D-2: 저장 상태(.js-edit-text-status)를 헤더 안으로 이동.
+     접힌 상태에서도 저장 중/저장됨/저장 실패 메시지가 보이게 위함.
+     · _showSaveStatus는 그대로 — querySelector('.js-edit-text-status') 단일 매칭
+     · 표지/일반 두 분기 body 안 옛 status row 제거 (DOM 단일 위치 유지) */
   const _textEditHeaderHtml = `
     <button type="button"
       class="edit-collapsible-header js-text-edit-toggle ${_textEditIsCollapsed ? 'is-collapsed' : 'is-expanded'}"
       aria-expanded="${!_textEditIsCollapsed}">
       <span class="edit-collapsible-header-text">📝 내용 고급 편집</span>
+      <span class="js-edit-text-status edit-text-status edit-text-status--in-header" aria-live="polite"></span>
       <span class="edit-collapsible-header-chev">${_textEditIsCollapsed ? '▼' : '▲'}</span>
     </button>`;
 
@@ -2048,9 +2053,6 @@ function _textEditHtml(scene) {
                 value="${escHtml(subtitleVal)}"
                 placeholder="짧은 한 줄 소개">
             </div>
-            <div class="edit-text-status-row">
-              <span class="js-edit-text-status edit-text-status" aria-live="polite"></span>
-            </div>
           </div>`}
       </div>`;
   }
@@ -2080,10 +2082,6 @@ function _textEditHtml(scene) {
           </div>
 
           ${buttonsBlock}
-
-          <div class="edit-text-status-row">
-            <span class="js-edit-text-status edit-text-status" aria-live="polite"></span>
-          </div>
         </div>`}
     </div>`;
 }

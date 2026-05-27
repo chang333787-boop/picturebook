@@ -3869,6 +3869,20 @@ body[data-page-orientation="portrait"] .terminal-screen--story .ending-page {
   letter-spacing: 0.02em;
   transition: color var(--t-fast);
 }
+/* 2026-05-27 Phase 4-D-2: 헤더 안 저장 상태 표시.
+   접힘/펼침 무관 헤더가 항상 보이므로 저장 상태도 항상 확인 가능.
+   기존 11px/muted 톤 유지 + 헤더 flex 안 안전망(nowrap/ellipsis/max-width). */
+.edit-text-status--in-header {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 140px;
+  margin: 0 8px 0 auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 400;
+  pointer-events: none;   /* button 안 — 클릭은 button(헤더 토글)로 위임 */
+}
 
 /* ================================================================
    텍스트 위치 프리셋 — 실동작 버그 수정 ──

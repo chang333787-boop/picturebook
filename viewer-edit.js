@@ -2202,6 +2202,16 @@ function _buttonRowHtml(choice, idx, total) {
 }
 
 function _bindTextEditEvents(panel, scene) {
+  /* 2026-05-27 Phase 4-D-1 fix: 데스크탑 2컬럼 grid에서 1컬럼 전환 — :has() fallback.
+     헤더의 .is-collapsed 클래스를 보고 panel-inner에 같은 의미 클래스 박음.
+     CSS `.edit-panel-inner.is-text-collapsed { grid-template-columns: 1fr; }`가 받음.
+     구형 학교 태블릿(:has() 미지원)에서도 동일 효과 박힘 — 학생 기기별 화면 차이 차단. */
+  const panelInner = panel.querySelector('.edit-panel-inner');
+  const toggleBtn = panel.querySelector('.js-text-edit-toggle');
+  if (panelInner && toggleBtn) {
+    panelInner.classList.toggle('is-text-collapsed', toggleBtn.classList.contains('is-collapsed'));
+  }
+
   /* 2026-05-27 Phase 4-D-1: 우측 2단 (📝 내용) 접이식 헤더 토글.
      · 표지 / 그림책 외 모드는 강제 펼침 — 토글 시도해도 무력 (안전망).
      · 그림책 일반 + 엔딩만 토글 적용. _textEditCollapsed에 명시값 박힘.

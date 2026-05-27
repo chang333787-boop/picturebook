@@ -913,6 +913,17 @@ body[data-page-orientation="portrait"] #stage-wrap.letterbox-v #viewer-frame {
      설정 결정 후 콘텐츠 작성 흐름 자연. */
   #edit-panel .edit-panel-inner > .edit-tab-panel[data-panel="mode"]    { order: 1; }
   #edit-panel .edit-panel-inner > .edit-tab-panel[data-panel="content"] { order: 2; }
+
+  /* 2026-05-27 Phase 4-D-1 fix: 📝 내용 고급 편집 접힘 상태일 때 1컬럼 전환.
+     · 접힌 헤더가 오른쪽 빈 칸 시각적으로 차지하는 문제 해소
+     · 그림책 일반/엔딩 default 접힘 → 1fr → mode 위, content 아래 (위→아래 자연 흐름)
+     · 표지 / 그림책 외 모드 강제 펼침 → 클래스 박지 X → 2컬럼 유지
+     · 사용자가 토글로 펼치면 → 클래스 제거 → 2컬럼 복원
+     · 클래스 박는 책임은 viewer-edit.js _bindTextEditEvents에 박힘 — :has() 의존 X.
+       구형 학교 태블릿/WebView(:has() 미지원)에서도 일관 동작. */
+  #edit-panel .edit-panel-inner.is-text-collapsed {
+    grid-template-columns: 1fr;
+  }
   #edit-panel .edit-panel-inner > .edit-tab-panel[data-panel="choice"]  {
     order: 3;
     grid-column: 1 / -1;  /* 선택지(legacy) 섹션은 풀폭 */

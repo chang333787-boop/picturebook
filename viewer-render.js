@@ -132,6 +132,23 @@ function renderCover() {
   const p         = ViewerState.project;
   const mode      = p.mode;
 
+  /* 2026-05-27 Cover-1: edit mode에서 표지 텍스트 직접 입력 박음.
+     kicker / title / subtitle 모두 contenteditable + data-pb-editable.
+     · field 이름이 scene 속성 키와 동일해야 _attachPbEditableInteractions가
+       scene[field]에 바로 박을 수 있음 — 'kicker' / 'title' / 'subtitle'
+     · 빈 값에도 element는 박혀야 클릭 가능 → 아래 subtitle 분기 박음
+     · 감상 모드(isEdit=false)는 옛 마크업 그대로 — contenteditable/data 박지 X */
+  const isEdit = !!(typeof ViewerState !== 'undefined' && ViewerState.editMode);
+  const editKickerAttrs = isEdit
+    ? ' contenteditable="true" data-pb-editable="kicker" data-placeholder="(상단 문구)"'
+    : '';
+  const editTitleAttrs = isEdit
+    ? ' contenteditable="true" data-pb-editable="title" data-placeholder="(작품 제목)"'
+    : '';
+  const editSubtitleAttrs = isEdit
+    ? ' contenteditable="true" data-pb-editable="subtitle" data-placeholder="(한 줄 소개)"'
+    : '';
+
   /* v37: cover scene이 scenes에 있으면 그 데이터 우선. 없으면 project.coverTitle fallback */
   const coverScene = (ViewerState.scenes && typeof ViewerState.scenes === 'object')
     ? Object.values(ViewerState.scenes).find(s => s && s.type === 'cover')
@@ -166,8 +183,8 @@ function renderCover() {
               </div>
             </div>
             <div class="pb-text pb-text--cover">
-              <div class="cover-kicker${kicker ? '' : ' cover-kicker--empty'}">${escHtml(kicker)}</div>
-              <h1 class="cover-title-pb">${escHtml(title)}</h1>
+              <div class="cover-kicker${kicker ? '' : ' cover-kicker--empty'}"${editKickerAttrs}>${escHtml(kicker)}</div>
+              <h1 class="cover-title-pb"${editTitleAttrs}>${escHtml(title)}</h1>
               <button class="cover-start-btn js-cover-start">▶ 시작하기</button>
             </div>
           </div>
@@ -191,12 +208,14 @@ function renderCover() {
             <div class="cover-book__top">
               <!-- v129: 표지 상단 = 사용자가 박는 kicker. 옛 팀 이름 자동 표시 폐기.
                    비우면 빈 영역 (layout 유지). -->
-              <div class="cover-kicker${kicker ? '' : ' cover-kicker--empty'}">${escHtml(kicker)}</div>
+              <div class="cover-kicker${kicker ? '' : ' cover-kicker--empty'}"${editKickerAttrs}>${escHtml(kicker)}</div>
             </div>
             <div class="cover-book__center">
-              <h1 class="cover-title-pb">${escHtml(title)}</h1>
+              <h1 class="cover-title-pb"${editTitleAttrs}>${escHtml(title)}</h1>
               <div class="cover-book__deco">✦</div>
-              ${subtitle ? `<p class="cover-subtitle-pb">${escHtml(subtitle)}</p>` : ''}
+              ${(subtitle || isEdit)
+                ? `<p class="cover-subtitle-pb${subtitle ? '' : ' cover-subtitle-pb--empty'}"${editSubtitleAttrs}>${escHtml(subtitle)}</p>`
+                : ''}
             </div>
             <div class="cover-book__bottom">
               <button class="cover-start-btn js-cover-start">▶ 시작하기</button>
@@ -231,6 +250,15 @@ function renderCover() {
       }
       renderCurrentScene();
     });
+
+  /* 2026-05-27 Cover-1 fix: 표지에서도 contenteditable 핸들러 박음.
+     일반 renderScene과 동일 패턴 — initEditInteractions가
+     _attachPbEditableInteractions를 호출해 [data-pb-editable] element에
+     input/blur 핸들러 박음. 옛엔 표지에서 호출 누락 → 미리보기 → 우측 패널
+     양방향 동기 안 박혔던 버그 fix. */
+  if (ViewerState.editMode && typeof initEditInteractions === 'function') {
+    initEditInteractions();
+  }
 }
 
 /* ================================================================

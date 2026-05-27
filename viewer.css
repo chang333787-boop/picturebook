@@ -320,6 +320,18 @@ html, body {
   body.edit-mode-active #edit-panel.is-collapsed {
     transform: translateX(100%);
   }
+  /* 2026-05-27 Phase 4-D-3: 내용 고급 편집 접힘 상태일 때 panel 폭 540 → 360.
+     · 그림책 일반/엔딩 default 접힘 → mode 패널만 표시되니 폭 여유 ↓ 가능
+     · 작품 영역 +180px 노출 — 태블릿 1280×800 가림 완화 (기존 1단 폭에 근접)
+     · 표지 / 그림책 외 모드 / 사용자 토글 펼침 → 클래스 박지 X → 540 복원
+     · :not(.is-collapsed) — panel 자체 슬라이드 아웃 토글과 충돌 차단 */
+  body.edit-mode-active #edit-panel.is-text-collapsed:not(.is-collapsed) {
+    width: 360px;
+    min-width: 340px;
+  }
+  body.edit-mode-active #edit-panel.is-text-collapsed:not(.is-collapsed) ~ .edit-panel-toggle {
+    right: 360px;
+  }
 }
 
 /* v47: 인스펙터 토글 버튼 — 다듬기 모드에서만, 우측 끝 중앙. */

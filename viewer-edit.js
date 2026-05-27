@@ -1410,12 +1410,16 @@ function _attachPbEditableInteractions(frame) {
       /* v122: 다듬기 패널의 해당 input/textarea 즉시 갱신 (있으면).
          옛 오타 fix: '#edit-pane' → '#edit-panel' (실제 id). 옛엔 셀렉터가 박지 X
          → 왼쪽 화면 수정해도 오른쪽 패널 input 박지 X (사용자 박은 양방향 동기 버그).
-         focus 보호: 오른쪽 input이 현재 focus 중이면 덮어쓰지 않음 (커서 보호). */
-      const panelInput = document.querySelector(
-        field === 'title'
-          ? '#edit-panel .js-edit-title'
-          : '#edit-panel .js-edit-body'
-      );
+         focus 보호: 오른쪽 input이 현재 focus 중이면 덮어쓰지 않음 (커서 보호).
+         2026-05-27 Cover-1: kicker/subtitle 매핑 확장 — 표지 직접 입력 양방향 동기. */
+      const _PANEL_INPUT_MAP = {
+        title:    '#edit-panel .js-edit-title',
+        body:     '#edit-panel .js-edit-body',
+        kicker:   '#edit-panel .js-edit-cover-kicker',
+        subtitle: '#edit-panel .js-edit-cover-subtitle',
+      };
+      const _panelInputSel = _PANEL_INPUT_MAP[field];
+      const panelInput = _panelInputSel ? document.querySelector(_panelInputSel) : null;
       if (panelInput && document.activeElement !== panelInput && panelInput.value !== text) {
         panelInput.value = text;
       }
@@ -1441,8 +1445,9 @@ function _attachPbEditableInteractions(frame) {
       }
     });
 
-    /* Enter 키 — title은 줄바꿈 안 됨 (단일 줄), body는 자연 줄바꿈 허용 */
-    if (field === 'title') {
+    /* Enter 키 — title/kicker/subtitle 단일 줄 (Enter blur), body는 자연 줄바꿈 허용.
+       2026-05-27 Cover-1: kicker/subtitle도 표지 단일 줄 입력이라 동일 처리. */
+    if (field === 'title' || field === 'kicker' || field === 'subtitle') {
       el.addEventListener('keydown', e => {
         if (e.key === 'Enter') {
           e.preventDefault();
@@ -2205,11 +2210,18 @@ function _bindTextEditEvents(panel, scene) {
   /* 2026-05-27 Phase 4-D-1 fix: 데스크탑 2컬럼 grid에서 1컬럼 전환 — :has() fallback.
      헤더의 .is-collapsed 클래스를 보고 panel-inner에 같은 의미 클래스 박음.
      CSS `.edit-panel-inner.is-text-collapsed { grid-template-columns: 1fr; }`가 받음.
-     구형 학교 태블릿(:has() 미지원)에서도 동일 효과 박힘 — 학생 기기별 화면 차이 차단. */
+     구형 학교 태블릿(:has() 미지원)에서도 동일 효과 박힘 — 학생 기기별 화면 차이 차단.
+
+     2026-05-27 Phase 4-D-3: panel 자체에도 같은 클래스 박음 — 데스크탑(≥1025)
+     overlay 폭을 540 → 400으로 축소해 작품 영역 가림 완화.
+     클래스 박는 분기: 그림책 일반/엔딩 default 접힘 → 양쪽 같이 박힘.
+     표지/외 모드 강제 펼침 → 양쪽 같이 제거 → 폭 540 복원. */
   const panelInner = panel.querySelector('.edit-panel-inner');
   const toggleBtn = panel.querySelector('.js-text-edit-toggle');
   if (panelInner && toggleBtn) {
-    panelInner.classList.toggle('is-text-collapsed', toggleBtn.classList.contains('is-collapsed'));
+    const isC = toggleBtn.classList.contains('is-collapsed');
+    panelInner.classList.toggle('is-text-collapsed', isC);
+    panel.classList.toggle('is-text-collapsed', isC);
   }
 
   /* 2026-05-27 Phase 4-D-1: 우측 2단 (📝 내용) 접이식 헤더 토글.

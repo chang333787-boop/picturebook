@@ -1376,8 +1376,16 @@ function _attachPbEditableInteractions(frame) {
   }
 
   frame.querySelectorAll('[data-pb-editable]').forEach(el => {
-    const field = el.dataset.pbEditable;   /* 'title' | 'body' */
+    const field = el.dataset.pbEditable;   /* 'title' | 'body' | 'choice-label' */
     if (!field) return;
+
+    /* 2026-05-25 Phase 4-A: 행동 버튼 라벨 직접 편집 분기.
+       scene.choices[idx].label 박은 거 박은 박은 — _queueSaveButtons로 저장.
+       title/body와 저장 경로가 달라 별도 helper로 분리. */
+    if (field === 'choice-label') {
+      _attachChoiceLabelEditable(el, scene);
+      return;
+    }
 
     /* placeholder 표시 — 빈 상태일 때 회색 텍스트 */
     function _updatePlaceholder() {
@@ -1434,6 +1442,92 @@ function _attachPbEditableInteractions(frame) {
           el.blur();
         }
       });
+    }
+  });
+}
+
+/* ─── Phase 4-A: 행동 버튼 라벨 직접 편집 (2026-05-25) ──────
+   _attachPbEditableInteractions 안에서 field === 'choice-label'이면 호출.
+   · scene.choices[idx].label 갱신
+   · 우측 2단 input.js-edit-button-label[data-idx] 양방향 동기화
+   · _queueSaveButtons(scene) 재사용 — buttons/choiceA/B/nextA/B/choiceCount 일괄 저장
+   · 한 줄 입력 (Enter 박으면 blur)
+   · maxLen 안전망 (입력 초과 시 자동 절단) */
+function _attachChoiceLabelEditable(el, scene) {
+  const idx = Number(el.dataset.choiceIdx);
+  if (!Number.isFinite(idx) || !scene.choices || !scene.choices[idx]) return;
+
+  /* placeholder 표시 — 빈 상태일 때 회색 안내 */
+  function _updateChoicePlaceholder() {
+    const isEmpty = el.textContent.trim().length === 0;
+    el.classList.toggle('is-empty', isEmpty);
+  }
+  _updateChoicePlaceholder();
+
+  /* maxLen — ptype별 (_getChoiceLabelMaxViewer 박은 거 박은 박은 거 박은 박은) */
+  const _ptype = (typeof ViewerState !== 'undefined' && ViewerState.project &&
+                  ViewerState.project.projectType) || null;
+  const maxLen = (typeof _getChoiceLabelMaxViewer === 'function')
+    ? _getChoiceLabelMaxViewer(_ptype) : 60;
+
+  let choiceSaveTimer = null;
+
+  el.addEventListener('input', () => {
+    if (!_editText.editable) return;
+    let value = el.textContent;
+    /* maxLen 안전망 — paste 등으로 초과 시 절단 */
+    if (value.length > maxLen) {
+      value = value.slice(0, maxLen);
+      el.textContent = value;
+      /* caret을 끝으로 옮김 — 절단 직후 자연스러운 위치 */
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      range.collapse(false);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+
+    scene.choices[idx].label = value;
+    _updateChoicePlaceholder();
+
+    /* 우측 2단 input 동기화 — focus 보호 */
+    const panelInput = document.querySelector(
+      `#edit-panel .js-edit-button-label[data-idx="${idx}"]`
+    );
+    if (panelInput && document.activeElement !== panelInput && panelInput.value !== value) {
+      panelInput.value = value;
+      /* counter 갱신 (해당 row만) */
+      const row = panelInput.closest('.edit-button-row');
+      if (row) {
+        const lenEl = row.querySelector('.js-edit-btn-len');
+        if (lenEl) lenEl.textContent = String(value.length);
+      }
+    }
+
+    /* debounce 저장 — _queueSaveButtons 박음 */
+    if (choiceSaveTimer) clearTimeout(choiceSaveTimer);
+    choiceSaveTimer = setTimeout(() => {
+      if (typeof _queueSaveButtons === 'function') _queueSaveButtons(scene);
+      if (typeof _flushPendingSave === 'function') _flushPendingSave();
+    }, 300);
+  });
+
+  el.addEventListener('focus', () => el.classList.add('is-focused'));
+  el.addEventListener('blur', () => {
+    el.classList.remove('is-focused');
+    _updateChoicePlaceholder();
+    /* blur 시 즉시 저장 (debounce 무시) */
+    if (choiceSaveTimer) { clearTimeout(choiceSaveTimer); choiceSaveTimer = null; }
+    if (typeof _queueSaveButtons === 'function') _queueSaveButtons(scene);
+    if (typeof _flushPendingSave === 'function') _flushPendingSave();
+  });
+
+  /* Enter — 한 줄 입력 (title과 동일) */
+  el.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      el.blur();
     }
   });
 }

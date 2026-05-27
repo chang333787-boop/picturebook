@@ -995,12 +995,22 @@ function _v03ChoiceBtnHtml(scene, choice, mode, idx) {
      색은 CSS의 .choice-v03--picturebook[data-pb-color="N"]로 결정 (1=sage, 2=sky, 3=coral, 4+ wrap). */
   if (mode === 'picturebook') {
     const colorIdx = ((idx != null ? idx : 0) % 3) + 1;  /* 1·2·3 순환 */
+    /* 2026-05-25 Phase 4-A: edit mode일 때 라벨 직접 편집.
+       AI 토글 안전 분기 — 원본 보기 상태에서만 contenteditable. */
+    const _isEditChoice = !!(ViewerState && ViewerState.editMode);
+    const _aiViewModeChoice = (typeof window !== 'undefined' && window.viewerAi
+                               && typeof window.viewerAi._getAiViewMode === 'function')
+      ? window.viewerAi._getAiViewMode() : 'original';
+    const _allowChoiceEdit = _isEditChoice && _aiViewModeChoice === 'original';
+    const _labelEditAttrs = _allowChoiceEdit
+      ? ` contenteditable="true" data-pb-editable="choice-label" data-choice-idx="${idx != null ? idx : 0}"`
+      : '';
     return `<button class="choice-v03 choice-v03--picturebook js-choice${emptyClass}"
       data-choice-id="${escHtml(choice.id)}"
       data-pb-color="${colorIdx}"
       ${disabled}>
       <span class="pb-choice-num">${(idx != null ? idx : 0) + 1}</span>
-      <span class="pb-choice-label">${escHtml(label)}</span>
+      <span class="pb-choice-label"${_labelEditAttrs} data-placeholder="(버튼 문구)">${escHtml(label)}</span>
       <span class="pb-choice-arrow" aria-hidden="true">›</span>
     </button>`;
   }
@@ -1144,7 +1154,14 @@ function _choiceButtonHtml(scene, choice, type = 'bottom') {
 
 function _bindSceneEvents(stage, scene) {
   stage.querySelectorAll('.js-choice').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', (e) => {
+      /* 2026-05-25 Phase 4-A: edit mode에서는 버튼 클릭으로 장면 이동 박지 X.
+         라벨 contenteditable 편집 중 실수 클릭으로 다음 장면 이동 막기 위함.
+         감상 모드(editMode=false)는 기존 동작 그대로 — chooseOption 박힘. */
+      if (ViewerState && ViewerState.editMode) {
+        e.preventDefault();
+        return;
+      }
       const choiceId = btn.dataset.choiceId;
       chooseOption(choiceId);
     });

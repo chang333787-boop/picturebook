@@ -2001,7 +2001,10 @@ function _textEditHtml(scene) {
      · 내부 마크업·이벤트·저장 흐름 0 수정 — wrapper와 collapsed 분기만 박음 */
   const _isCoverForCollapse = !!(scene && scene.type === 'cover');
   const _isEndingForCollapse = !!(scene && (scene.type === 'ending' || scene.isEnding));
-  const _forceTextEditExpanded = _isCoverForCollapse || _ptypeForButtons !== 'picturebook';
+  /* 2026-05-27 Cover-2: 표지 강제 펼침 조건 제거.
+     Cover-1으로 kicker/title/subtitle 미리보기 직접 입력 박힌 후 2단 의존성 사라짐.
+     표지도 그림책 일반/엔딩과 동일하게 default 접힘 + compact 360 흐름. */
+  const _forceTextEditExpanded = _ptypeForButtons !== 'picturebook';
   let _textEditIsCollapsed;
   if (_forceTextEditExpanded) {
     _textEditIsCollapsed = false;
@@ -2231,10 +2234,11 @@ function _bindTextEditEvents(panel, scene) {
   const _textEditToggle = panel.querySelector('.js-text-edit-toggle');
   if (_textEditToggle) {
     _textEditToggle.addEventListener('click', () => {
-      const _isCover = !!(scene && scene.type === 'cover');
       const _ptype = (typeof _resolveViewerProjectType === 'function')
         ? _resolveViewerProjectType() : null;
-      if (_isCover || _ptype !== 'picturebook') return;   /* 강제 펼침 분기 */
+      /* 2026-05-27 Cover-2: 표지 강제 펼침 분기 제거 (cover 조건 빼짐).
+         그림책 외 모드만 강제 펼침 유지 — 그 모드는 미리보기 직접 입력 아직 미박힘. */
+      if (_ptype !== 'picturebook') return;
       const _cur = (_textEditCollapsed === null) ? true : !!_textEditCollapsed;
       _textEditCollapsed = !_cur;
       renderEditPanel();

@@ -37,29 +37,44 @@ const fs = require('fs');
 const path = require('path');
 
 /* ─── 환경변수 / 기본값 ─── */
-const BASE     = process.env.BRANCH_BASE_URL || 'http://localhost:8765/viewer.html';
-const CLASS_ID = process.env.BRANCH_CLASS_ID || 'class_2026_junglim_1';
-const TEAM     = process.env.BRANCH_TEAM     || '0000';
-const SCENE    = process.env.BRANCH_SCENE    || '2';
-const PTYPE    = process.env.BRANCH_PTYPE    || 'picturebook';
+const BASE          = process.env.BRANCH_BASE_URL     || 'http://localhost:8765/viewer.html';
+const CLASS_ID      = process.env.BRANCH_CLASS_ID     || 'class_2026_junglim_1';
+const TEAM          = process.env.BRANCH_TEAM         || '0000';
+const SCENE         = process.env.BRANCH_SCENE        || '2';
+const ENDING_SCENE  = process.env.BRANCH_ENDING_SCENE || '';   /* 미박힘 시 ending-edit 스킵 */
+const PTYPE         = process.env.BRANCH_PTYPE        || 'picturebook';
+
+/* ─── URL query 빌더 — team/classId/ptype은 모든 화면 공통, edit/scene는 옵션 ─── */
+function buildQuery(opts) {
+  opts = opts || {};
+  const params = [
+    `team=${encodeURIComponent(TEAM)}`,
+    `classId=${encodeURIComponent(CLASS_ID)}`,
+    `ptype=${encodeURIComponent(PTYPE)}`,
+  ];
+  if (opts.edit)  params.push('edit=1');
+  if (opts.scene) params.push(`scene=${encodeURIComponent(opts.scene)}`);
+  return '?' + params.join('&');
+}
 
 /* ─── viewport 박을 거 ─── */
 const VIEWPORTS = [
-  { name: 'pc',          width: 1440, height: 900 },
-  { name: 'tablet-wide', width: 1280, height: 800 },
+  { name: 'pc',           width: 1440, height: 900 },
+  { name: 'tablet-wide',  width: 1280, height: 800 },
+  { name: 'tablet-narrow', width: 1024, height: 768 },
 ];
 
-/* ─── 화면 박을 거 ─── */
+/* ─── 화면 박을 거 — Phase 5-B-2 확장 (브랜치 구조는 5-B-3 별도) ─── */
 const SHOTS = [
-  {
-    name: 'cover-edit',
-    query: `?team=${encodeURIComponent(TEAM)}&classId=${encodeURIComponent(CLASS_ID)}&edit=1&ptype=${PTYPE}`,
-  },
-  {
-    name: 'scene-edit',
-    query: `?team=${encodeURIComponent(TEAM)}&classId=${encodeURIComponent(CLASS_ID)}&edit=1&ptype=${PTYPE}&scene=${SCENE}`,
-  },
+  { name: 'cover-edit',  query: buildQuery({ edit: true }) },
+  { name: 'cover-view',  query: buildQuery({}) },
+  { name: 'scene-edit',  query: buildQuery({ edit: true, scene: SCENE }) },
+  { name: 'scene-view',  query: buildQuery({ scene: SCENE }) },
 ];
+/* ending-edit — BRANCH_ENDING_SCENE 박힌 경우만 박음 (작품별 엔딩 번호 다름) */
+if (ENDING_SCENE) {
+  SHOTS.push({ name: 'ending-edit', query: buildQuery({ edit: true, scene: ENDING_SCENE }) });
+}
 
 /* ─── 메인 ─── */
 (async () => {
@@ -67,10 +82,15 @@ const SHOTS = [
   const outDir = path.join(__dirname, 'screenshots', stamp);
   fs.mkdirSync(outDir, { recursive: true });
 
-  console.log(`📸 가지 자동 스크린샷 — Phase 5-B-1`);
+  console.log(`📸 가지 자동 스크린샷 — Phase 5-B-2`);
   console.log(`   산출물: ${outDir}`);
   console.log(`   base URL: ${BASE}`);
-  console.log(`   classId: ${CLASS_ID} / team: ${TEAM} / scene: ${SCENE}`);
+  console.log(`   classId: ${CLASS_ID} / team: ${TEAM}`);
+  console.log(`   일반 장면: ${SCENE} / 엔딩 장면: ${ENDING_SCENE || '(미박힘 — ending-edit 스킵)'}`);
+  console.log(`   화면 ${SHOTS.length}종 × viewport ${VIEWPORTS.length}종 = ${SHOTS.length * VIEWPORTS.length}장`);
+  if (!ENDING_SCENE) {
+    console.log(`   ℹ ending-edit 박으려면: BRANCH_ENDING_SCENE=N node take-shots.js`);
+  }
   console.log('');
 
   /* 서버 박혀있는지 확인 — fetch 한 번. ok 아니면 안내 후 exit. */

@@ -1403,6 +1403,9 @@ function _attachPbEditableInteractions(frame) {
 
     /* 입력 — scene 메모리 즉시 업데이트 + 다듬기 패널 input 동기화 */
     el.addEventListener('input', () => {
+      /* 2026-05-28 Codex review fix (High-Risk 2): 잠금/readonly 상태에서
+         scene 메모리 박지 X + 저장 큐 박지 X. choice-label과 동일 패턴. */
+      if (!_editText.editable) return;
       /* v45: 본문은 줄바꿈 보존(_extractEditableText), 제목은 단일 줄(textContent) */
       const text = (field === 'body') ? _extractEditableText(el) : el.textContent;
       scene[field] = text;
@@ -1433,6 +1436,9 @@ function _attachPbEditableInteractions(frame) {
     el.addEventListener('blur', () => {
       el.classList.remove('is-focused');
       _updatePlaceholder();
+      /* 2026-05-28 Codex review fix (High-Risk 2): 잠금/readonly 상태에서
+         blur로 박은 마지막 입력도 저장 큐 박지 X. */
+      if (!_editText.editable) return;
       /* blur 시 즉시 저장 (debounce 무시) */
       if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
       /* v45: 본문은 줄바꿈 보존 추출 */
@@ -2147,30 +2153,20 @@ function _buttonRowHtml(choice, idx, total) {
   if (len > maxLen) counterClass += ' edit-btn-counter--over';
   else if (len > warnAt) counterClass += ' edit-btn-counter--warn';
 
-  /* nextId 드롭다운 (W2-B-α) — 사용자가 버튼별 분기 연결 편집.
-     ViewerState.scenes에서 모든 장면 목록 가져와 옵션으로 제공.
-     · (미연결) — 빈 값 (현재 미연결이면 selected)
-     · 장면 N — N은 scene.num. 라벨에 제목도 같이 (있으면)
-     · 자기 자신도 옵션에 포함 (사용자 의도 존중) */
+  /* 2026-05-28 Codex review fix (High-Risk 3): 1단과 동일 안전 정책 박음.
+     · 표지 제외 / 자기 자신 disabled + [현재 장면] 라벨 / 엔딩 [엔딩] 라벨
+     · 옛 정책("자기 자신도 옵션에 포함") 폐기 — 무한 루프 / 표지 회귀 위험 차단
+     · 정책 단일 출처 — `_buildLinkSelectOptionsHtml` 재사용 (Phase 4-C)
+     · ViewerState.currentSceneId 박은 거 박음 — 다듬기 패널 박힌 시점에 항상 박혀있음
+     · currentScene fallback 박지 X 박으면 빈 옵션 — 안전 우선 (옛 무필터 옵션 박지 X) */
   const currentNext = choice && choice.nextId ? String(choice.nextId) : '';
-  const allScenes = (typeof ViewerState !== 'undefined' && ViewerState.scenes)
-    ? Object.values(ViewerState.scenes) : [];
-  /* num 오름차순 정렬 */
-  const sortedScenes = allScenes.slice().sort((a, b) => {
-    const na = Number(a.num || a.id || 0);
-    const nb = Number(b.num || b.id || 0);
-    return na - nb;
-  });
-  const optionsHtml = sortedScenes.map(s => {
-    const sNum = String(s.num || s.id || '');
-    if (!sNum) return '';
-    const sTitle = String(s.title || '').trim();
-    const labelText = sTitle
-      ? `장면 ${sNum} (${sTitle.length > 12 ? sTitle.slice(0, 12) + '…' : sTitle})`
-      : `장면 ${sNum}`;
-    const sel = sNum === currentNext ? ' selected' : '';
-    return `<option value="${escHtml(sNum)}"${sel}>${escHtml(labelText)}</option>`;
-  }).join('');
+  const _curSceneId = (typeof ViewerState !== 'undefined' && ViewerState.currentSceneId)
+    ? String(ViewerState.currentSceneId) : '';
+  const _curScene = (typeof ViewerState !== 'undefined' && ViewerState.scenes && _curSceneId)
+    ? ViewerState.scenes[_curSceneId] : null;
+  const optionsHtml = (_curScene && typeof _buildLinkSelectOptionsHtml === 'function')
+    ? _buildLinkSelectOptionsHtml(_curScene, currentNext)
+    : '';
 
   const nextSelectHtml = `
     <select class="edit-btn-next-select js-edit-btn-next" data-idx="${idx}">

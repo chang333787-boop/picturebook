@@ -1,0 +1,13 @@
+{
+  "name": "branch-screenshots",
+  "version": "0.1.0",
+  "private": true,
+  "description": "가지 자동 스크린샷 (Phase 5-B-1) — 루트와 격리된 의존성. PC/태블릿 viewport에서 viewer 화면 캡처.",
+  "scripts": {
+    "shots": "node take-shots.js",
+    "install:browser": "npx playwright install chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.48.0"
+  }
+}

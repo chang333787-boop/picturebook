@@ -1,0 +1,15 @@
+# Playwright 격리 의존성 / 산출물 — 절대 commit 박지 X
+node_modules/
+
+# 캡처 산출물 (각 실행마다 stamp 폴더 박음)
+screenshots/
+
+# Playwright 부산물
+test-results/
+playwright-report/
+
+# npm cache (안전망 — 사용자 home 박는 게 기본이지만 만약을 위해)
+.npm-cache-tmp/
+
+# OS
+.DS_Store

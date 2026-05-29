@@ -594,8 +594,31 @@ function _renderTeamList() {
     teams.sort((a, b) => a.name.localeCompare(b.name, 'ko'));
   else if (adminState.sort === 'scenes')
     teams.sort((a, b) => b.total - a.total);
-  else if (adminState.sort === 'status')
-    teams.sort((a, b) => (ORDER[a.status] ?? 9) - (ORDER[b.status] ?? 9));
+  else if (adminState.sort === 'status') {
+    /* 2026-05-29 admin 4차: 문제 우선 정렬 — status 박은 거 박은 후 추가 우선순위 박음.
+       · 같은 status 박은 거 박힐 때 박은 문제 박은 거 박은 거 박은 팀 박은 거 박은 거 박음
+       · 우선순위: status → 미연결 버튼 수 → problems.length → isolated → connectivity(낮은 게 먼저) → 이름순
+       · undefined 박은 거 박은 거 박은 거 박지 X 박은 안전망 박음 (`|| 0`)
+       · name/scenes 정렬 박은 거 박지 X 박은 채 — 박은 영역 한정 */
+    teams.sort((a, b) => {
+      const statusDiff = (ORDER[a.status] ?? 9) - (ORDER[b.status] ?? 9);
+      if (statusDiff) return statusDiff;
+
+      const unconnectedDiff = (b.unconnectedButtons || 0) - (a.unconnectedButtons || 0);
+      if (unconnectedDiff) return unconnectedDiff;
+
+      const problemsDiff = ((b.problems && b.problems.length) || 0) - ((a.problems && a.problems.length) || 0);
+      if (problemsDiff) return problemsDiff;
+
+      const isolatedDiff = (b.isolated || 0) - (a.isolated || 0);
+      if (isolatedDiff) return isolatedDiff;
+
+      const connectivityDiff = (a.connectivity || 0) - (b.connectivity || 0);
+      if (connectivityDiff) return connectivityDiff;
+
+      return a.name.localeCompare(b.name, 'ko');
+    });
+  }
 
   if (!teams.length) {
     list.innerHTML = '<div class="admin-empty">해당 상태의 팀이 없어요.</div>';

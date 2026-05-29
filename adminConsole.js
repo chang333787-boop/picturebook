@@ -357,12 +357,28 @@ function _analyzeTeam(encodedName, scenes, isPublic = false, meta = {}) {
   const interpretation = _makeInterpretation(status, ctx);
   const problems       = _listProblems(ctx);
 
+  /* 2026-05-29 admin 1차: 작품 모드(projectType) 박음.
+     · viewer-meta/projectType 박힌 거 박음 — 4종 화이트리스트 외 값은 미선택/알 수 없음
+     · 읽기 전용 — Firebase 쓰기 박지 X */
+  const MODE_LABEL = {
+    picturebook: '그림책',
+    text:        '텍스트',
+    movie:       '무비',
+    experience:  '체험전시',
+  };
+  const rawProjectType = (typeof meta.projectType === 'string') ? meta.projectType : '';
+  const projectType    = MODE_LABEL[rawProjectType] ? rawProjectType : '';
+  const modeLabel      = projectType
+    ? MODE_LABEL[projectType]
+    : (rawProjectType ? '알 수 없음' : '미선택');
+
   return {
     encodedName, name, total,
     endings, normals, trueEnds,
     entryNum, replayNum, entryValid, replayValid, entryBroken, replayBroken,
     hasImage, connectivity, noTitle, isolated, status, interpretation, problems,
     isPublic,
+    projectType, modeLabel,
   };
 }
 
@@ -531,6 +547,9 @@ function _teamCardHtml(t) {
   const canView = t.status === 'ready';
 
   const badges = [];
+  /* 2026-05-29 admin 1차: 작품 모드 배지 — 카드 첫 자리에 박음 (가장 자주 박는 정보).
+     모드 박혀있을 때만 박음 — 미선택은 박지 X (시각 잡음 차단). */
+  if (t.projectType) badges.push(`<span class="admin-badge admin-badge--mode">📚 ${_escHtml(t.modeLabel)}</span>`);
   if (t.trueEnds > 0) badges.push('<span class="admin-badge admin-badge--true">⭐ 진엔딩</span>');
   if (t.hasImage)     badges.push('<span class="admin-badge admin-badge--img">🖼 이미지</span>');
   if (t.status === 'in-progress' && t.total > 0)
@@ -798,6 +817,25 @@ function _toggleDetail(encodedName) {
 function _deleteTeam(encodedName, displayName) {
   if (!adminState.verified) return;
   if (!confirm(`"${displayName}" 팀의 모든 데이터를 삭제할까요?\n이 작업은 되돌릴 수 없어요!`)) return;
+
+  /* 2026-05-29 admin 1차: 강한 확인 — 팀 이름 정확히 다시 입력 박혀야 remove() 박음.
+     · 옛엔 confirm() 한 번만 박힘 — 실수 클릭 시 학생 작품 복구 X
+     · prompt 박은 입력값이 teamName과 정확히 일치 박혀야 박힘
+     · 취소 / 빈 값 / 불일치 → remove() 호출 경로 박지 X (안전 우선) */
+  const typed = prompt(
+    `⚠️ 마지막 확인 — 이 작업은 복구할 수 없어요.\n\n` +
+    `삭제하려면 팀 이름을 정확히 입력해주세요:\n"${displayName}"\n\n` +
+    `(취소하거나 다르게 박으면 삭제 박지 X)`
+  );
+  if (typed === null) return;                           /* 취소 */
+  if (typed.trim() === '') {                            /* 빈 값 */
+    alert('빈 입력이라 삭제를 취소했어요.');
+    return;
+  }
+  if (typed !== displayName) {                          /* 불일치 */
+    alert(`팀 이름이 일치하지 않아 삭제를 취소했어요.\n입력: "${typed}"\n팀명: "${displayName}"`);
+    return;
+  }
 
   const teamPath = (DATA_PATH_VERSION === 'v2' && adminState.adminClassId)
     ? `classes/${adminState.adminClassId}/teams/${encodedName}`

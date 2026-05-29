@@ -34,3 +34,6 @@ functions/.firebase/
 **/*-secret.json
 **/*.secret
 **/secrets.json
+
+# Claude Code 개인 권한 설정 (사용자별 — commit 박지 X)
+.claude/

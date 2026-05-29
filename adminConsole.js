@@ -341,16 +341,20 @@ function _analyzeTeam(encodedName, scenes, isPublic = false, meta = {}) {
   /* 2026-05-29 admin 3차: 한 장면의 미연결 버튼 수 계산.
      · 표지/엔딩 제외 — 행동 버튼 자체 X
      · buttons[] 우선 — nextId 없는 항목 카운트 (Phase 4-C 정책과 정합)
-     · legacy fallback — choiceCount 박힌 거 박은 후 nextA/nextB 빈 거 카운트 (choiceCount default 2)
-     · 저장 구조 박지 X — 읽기 전용 */
+     · legacy fallback — choiceCount 박은 시점 박은 거 박을 때만 박음
+     · 저장 구조 박지 X — 읽기 전용
+     2026-05-29 admin 3차 fix: choiceCount default 2 박은 거 폐기 —
+     buttons 박지 X 박고 choiceCount 박지 X 박은 빈/옛 장면 박은 거 미연결 2개로
+     과표시 박은 위험 차단. choiceCount 명시 박은 시점만 fallback 박음. */
   function _unconnectedButtonsCount(s) {
     if (!s) return 0;
     if (s.type === 'ending' || s.type === 'cover' || s.isCover) return 0;
     if (Array.isArray(s.buttons) && s.buttons.length > 0) {
       return s.buttons.filter(b => !b || !b.nextId).length;
     }
-    /* legacy fallback: choiceA/B + nextA/B 박은 옛 구조 */
-    const cnt = (typeof s.choiceCount === 'number' && s.choiceCount >= 1) ? s.choiceCount : 2;
+    /* legacy fallback — choiceCount 명시 박은 시점만 박음. 박지 X 박으면 0. */
+    if (typeof s.choiceCount !== 'number' || s.choiceCount < 1) return 0;
+    const cnt = s.choiceCount;
     let unset = 0;
     if (!s.nextA) unset++;
     if (cnt >= 2 && !s.nextB) unset++;

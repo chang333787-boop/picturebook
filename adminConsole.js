@@ -26,6 +26,9 @@ const adminState = {
   allTeams:    [],      // 로드된 팀 데이터 배열
   filter:      'all',   // 'all'|'not-started'|'in-progress'|'ready'|'needs-attention'
   sort:        'name',  // 'name'|'scenes'|'status'
+  /* 2026-05-29 admin 2차: 모드별 필터 — 상태 필터와 함께 박힘.
+     'all' = 전체 모드 / 'unset' = projectType 박지 X 박은 팀 / 그 외 = 4 화이트리스트 */
+  modeFilter:  'all',   // 'all'|'unset'|'picturebook'|'text'|'movie'|'experience'
   adminClassId: null,   // v2에서 교사가 현재 보는 classId (v1에서는 null)
 };
 
@@ -472,6 +475,15 @@ function _renderFilterBar(teams) {
     { key: 'ready',           label: '감상 가능' },
     { key: 'not-started',     label: '미시작' },
   ];
+  /* 2026-05-29 admin 2차: 모드 필터 — 상태 필터와 AND 결합. 박지 X 박힌 채면 모든 모드. */
+  const modeFilters = [
+    { key: 'all',         label: '전체 모드' },
+    { key: 'picturebook', label: '그림책' },
+    { key: 'text',        label: '텍스트' },
+    { key: 'movie',       label: '무비' },
+    { key: 'experience',  label: '체험전시' },
+    { key: 'unset',       label: '미선택' },
+  ];
   const sorts = [
     { key: 'name',   label: '이름순' },
     { key: 'scenes', label: '장면 수' },
@@ -484,6 +496,12 @@ function _renderFilterBar(teams) {
         <button class="admin-filter-btn ${adminState.filter === f.key ? 'active' : ''}"
           data-filter="${f.key}">${f.label}</button>`).join('')}
     </div>
+    <div class="admin-filters admin-filters--mode">
+      <span class="admin-filter-label">모드:</span>
+      ${modeFilters.map(f => `
+        <button class="admin-filter-btn admin-filter-btn--mode ${adminState.modeFilter === f.key ? 'active' : ''}"
+          data-mode-filter="${f.key}">${f.label}</button>`).join('')}
+    </div>
     <div class="admin-sorts">
       <span class="admin-sort-label">정렬:</span>
       ${sorts.map(s => `
@@ -491,9 +509,17 @@ function _renderFilterBar(teams) {
           data-sort="${s.key}">${s.label}</button>`).join('')}
     </div>`;
 
-  bar.querySelectorAll('.admin-filter-btn').forEach(btn => {
+  bar.querySelectorAll('.admin-filter-btn[data-filter]').forEach(btn => {
     btn.addEventListener('click', () => {
       adminState.filter = btn.dataset.filter;
+      _renderFilterBar(adminState.allTeams);
+      _renderTeamList();
+    });
+  });
+
+  bar.querySelectorAll('.admin-filter-btn[data-mode-filter]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      adminState.modeFilter = btn.dataset.modeFilter;
       _renderFilterBar(adminState.allTeams);
       _renderTeamList();
     });
@@ -518,6 +544,16 @@ function _renderTeamList() {
   let teams = adminState.filter === 'all'
     ? [...adminState.allTeams]
     : adminState.allTeams.filter(t => t.status === adminState.filter);
+
+  /* 2026-05-29 admin 2차: 모드 필터 — 상태 필터 다음에 AND 적용.
+     · 'all'    → 모든 모드 박힘 (필터 박지 X)
+     · 'unset'  → projectType 박지 X 박은 팀만 (빈 문자열 박은 거)
+     · 그 외   → 정확히 박힌 projectType 박은 팀만 */
+  if (adminState.modeFilter && adminState.modeFilter !== 'all') {
+    teams = (adminState.modeFilter === 'unset')
+      ? teams.filter(t => !t.projectType)
+      : teams.filter(t => t.projectType === adminState.modeFilter);
+  }
 
   const ORDER = { 'needs-attention': 0, 'in-progress': 1, 'not-started': 2, 'ready': 3 };
   if (adminState.sort === 'name')
@@ -849,5 +885,21 @@ function _deleteTeam(encodedName, displayName) {
       _renderFilterBar(adminState.allTeams);
       _renderTeamList();
     })
-    .catch(err => alert('❌ 삭제 실패: ' + err.message));
+    .catch(err => {
+      /* 2026-05-29 admin 2차: PERMISSION_DENIED 박은 별도 안내.
+         · Firebase RTDB 규칙상 admin 화면에서 직접 박지 X 박을 수 있음
+         · 원문 에러 박지 X — 교사 친화 문구 박음
+         · 권한 박는 거 박지 X (database.rules.json 박지 X) */
+      const errMsg  = (err && (err.code || err.message)) ? String(err.code || err.message) : '';
+      const isPermDenied = /PERMISSION_DENIED|permission[_ ]?denied/i.test(errMsg);
+      if (isPermDenied) {
+        alert(
+          '⚠️ 삭제 권한이 없어 삭제되지 않았어요.\n\n' +
+          '현재 보안 규칙상 관리자 화면에서 팀 데이터를 직접 삭제할 수 없어요.\n' +
+          '관리자에게 별도 처리 부탁드려요.'
+        );
+      } else {
+        alert('❌ 삭제 실패: ' + (err.message || err.code || '알 수 없는 오류'));
+      }
+    });
 }

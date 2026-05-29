@@ -338,11 +338,34 @@ function _analyzeTeam(encodedName, scenes, isPublic = false, meta = {}) {
     return out;
   }
 
+  /* 2026-05-29 admin 3차: 한 장면의 미연결 버튼 수 계산.
+     · 표지/엔딩 제외 — 행동 버튼 자체 X
+     · buttons[] 우선 — nextId 없는 항목 카운트 (Phase 4-C 정책과 정합)
+     · legacy fallback — choiceCount 박힌 거 박은 후 nextA/nextB 빈 거 카운트 (choiceCount default 2)
+     · 저장 구조 박지 X — 읽기 전용 */
+  function _unconnectedButtonsCount(s) {
+    if (!s) return 0;
+    if (s.type === 'ending' || s.type === 'cover' || s.isCover) return 0;
+    if (Array.isArray(s.buttons) && s.buttons.length > 0) {
+      return s.buttons.filter(b => !b || !b.nextId).length;
+    }
+    /* legacy fallback: choiceA/B + nextA/B 박은 옛 구조 */
+    const cnt = (typeof s.choiceCount === 'number' && s.choiceCount >= 1) ? s.choiceCount : 2;
+    let unset = 0;
+    if (!s.nextA) unset++;
+    if (cnt >= 2 && !s.nextB) unset++;
+    return unset;
+  }
+
   const nonEndingScenes = scenes.filter(s => s.type !== 'ending');
   /* 연결됨 = next 대상 1개 이상 (buttons[] 또는 nextA/B 어디든) */
   const connected       = nonEndingScenes.filter(s => _outgoingNumsAll(s).length > 0).length;
   const connectivity    = nonEndingScenes.length
     ? Math.round(connected / nonEndingScenes.length * 100) : 0;
+
+  /* 2026-05-29 admin 3차: 작품 전체 미연결 버튼 수 집계.
+     · 일반 장면 박은 거 박은 후 _unconnectedButtonsCount 박은 거 박은 합 */
+  const unconnectedButtons = scenes.reduce((acc, s) => acc + _unconnectedButtonsCount(s), 0);
 
   const noTitle = scenes.filter(s => !s.title?.trim()).length;
 
@@ -355,6 +378,8 @@ function _analyzeTeam(encodedName, scenes, isPublic = false, meta = {}) {
   const ctx = {
     total, endings, entryValid, replayValid, entryBroken, replayBroken,
     connectivity, isolated, noTitle,
+    /* 2026-05-29 admin 3차: 미연결 버튼 수 박은 ctx — _listProblems 박은 거 박음 */
+    unconnectedButtons,
   };
   const status         = _classifyStatus(ctx);
   const interpretation = _makeInterpretation(status, ctx);
@@ -382,6 +407,8 @@ function _analyzeTeam(encodedName, scenes, isPublic = false, meta = {}) {
     hasImage, connectivity, noTitle, isolated, status, interpretation, problems,
     isPublic,
     projectType, modeLabel,
+    /* 2026-05-29 admin 3차: 미연결 버튼 수 박은 거 — 카드 배지 + problems 박힘 */
+    unconnectedButtons,
   };
 }
 
@@ -420,7 +447,7 @@ function _makeInterpretation(status, { total, endings, entryValid, entryBroken, 
   return '이야기를 만들고 있는 중이에요.';
 }
 
-function _listProblems({ total, endings, entryValid, entryBroken, replayBroken, connectivity, noTitle, isolated }) {
+function _listProblems({ total, endings, entryValid, entryBroken, replayBroken, connectivity, noTitle, isolated, unconnectedButtons }) {
   const problems = [];
   if (total === 0) return problems;
   if (entryBroken)      problems.push({ icon: '❌', text: '첫 감상 시작점이 존재하지 않는 장면을 가리켜요' });
@@ -428,6 +455,9 @@ function _listProblems({ total, endings, entryValid, entryBroken, replayBroken, 
   if (replayBroken)     problems.push({ icon: '❌', text: '다시 시작점이 존재하지 않는 장면을 가리켜요' });
   if (endings === 0)    problems.push({ icon: '⚠️', text: '엔딩 장면이 없어요' });
   if (connectivity < 70 && total > 1) problems.push({ icon: '🔗', text: `연결 완성도 ${connectivity}%` });
+  /* 2026-05-29 admin 3차: 미연결 버튼 개별 카운트 — connectivity %(scene 단위)와 보완.
+     1 이상일 때만 박음 — 0이면 박지 X (불필요 경고 차단). */
+  if (unconnectedButtons > 0) problems.push({ icon: '🔗', text: `미연결 버튼 ${unconnectedButtons}개` });
   if (isolated > 0)     problems.push({ icon: '🔴', text: `고립 장면 ${isolated}개` });
   if (noTitle > 0)      problems.push({ icon: '📝', text: `내용 없는 장면 ${noTitle}개` });
   return problems;
@@ -590,6 +620,10 @@ function _teamCardHtml(t) {
   if (t.hasImage)     badges.push('<span class="admin-badge admin-badge--img">🖼 이미지</span>');
   if (t.status === 'in-progress' && t.total > 0)
     badges.push(`<span class="admin-badge admin-badge--conn">연결 ${t.connectivity}%</span>`);
+  /* 2026-05-29 admin 3차: 미연결 버튼 배지 — 1 이상일 때만 박음.
+     status 무관 박음 — ready 박은 거 박을 때도 미연결 박힌 거 박을 수 있음. */
+  if (t.unconnectedButtons > 0)
+    badges.push(`<span class="admin-badge admin-badge--warn">🔗 미연결 버튼 ${t.unconnectedButtons}개</span>`);
 
   const problemsHtml = t.problems.length
     ? `<div class="admin-problems">${t.problems.map(p =>

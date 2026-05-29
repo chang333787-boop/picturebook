@@ -36,13 +36,24 @@ const { chromium } = require('@playwright/test');
 const fs = require('fs');
 const path = require('path');
 
-/* ─── 환경변수 / 기본값 ─── */
+/* ─── 환경변수 / 기본값 ───
+   ⚠️ DEFAULT_CLASS_ID / DEFAULT_TEAM은 실제 Firebase 작품(화이트리스트).
+   환경변수 박지 X 박혀있으면 그 작품에 접속 — lock write / viewer-meta 박힘 가능성.
+   격리 테스트 작품 박는 게 권장 (예: BRANCH_CLASS_ID=class_test_screenshot). */
+const DEFAULT_CLASS_ID = 'class_2026_junglim_1';
+const DEFAULT_TEAM     = '0000';
+
 const BASE          = process.env.BRANCH_BASE_URL     || 'http://localhost:8765/viewer.html';
-const CLASS_ID      = process.env.BRANCH_CLASS_ID     || 'class_2026_junglim_1';
-const TEAM          = process.env.BRANCH_TEAM         || '0000';
+const CLASS_ID      = process.env.BRANCH_CLASS_ID     || DEFAULT_CLASS_ID;
+const TEAM          = process.env.BRANCH_TEAM         || DEFAULT_TEAM;
 const SCENE         = process.env.BRANCH_SCENE        || '2';
 const ENDING_SCENE  = process.env.BRANCH_ENDING_SCENE || '';   /* 미박힘 시 ending-edit 스킵 */
 const PTYPE         = process.env.BRANCH_PTYPE        || 'picturebook';
+
+/* 2026-05-28 Codex review fix (High-Risk 1): 실제 Firebase 작품 박는 시점 감지.
+   환경변수 둘 다 default면 production 화이트리스트 작품 박는 거 — 강한 경고. */
+const usingDefaultLiveTarget =
+  CLASS_ID === DEFAULT_CLASS_ID && TEAM === DEFAULT_TEAM;
 
 /* ─── URL query 빌더 — team/classId/ptype은 모든 화면 공통, edit/scene/fromMaker는 옵션 ─── */
 function buildQuery(opts) {
@@ -119,6 +130,25 @@ if (ENDING_SCENE) {
     console.log(`   ℹ ending-edit 박으려면: BRANCH_ENDING_SCENE=N node take-shots.js`);
   }
   console.log('');
+
+  /* 2026-05-28 Codex review fix (High-Risk 1): 실제 Firebase 작품 박는 시점 강한 경고.
+     edit=1 URL 로드 → viewer-edit.js의 initViewerLocks 박음 → Firebase locks/{scene} write 발화.
+     ?ptype=picturebook 박음 → viewer-data.js에서 viewer-meta/projectType write 가능성.
+     즉 스크린샷 박는 단순 page.goto가 실제 작품 데이터에 박힘. */
+  if (usingDefaultLiveTarget) {
+    console.log('⚠️  ════════════════════════════════════════════════════════════');
+    console.log('⚠️  주의: 실제 Firebase 작품에 접속합니다 (default 박힌 채).');
+    console.log(`⚠️    classId: ${CLASS_ID}`);
+    console.log(`⚠️    team:    ${TEAM}`);
+    console.log('⚠️  edit=1 URL 로드만으로도 다음이 발화될 수 있어요:');
+    console.log('⚠️    · Firebase locks/{scene} write (다른 사용자가 같은 장면 박을 때 충돌)');
+    console.log('⚠️    · viewer-meta/projectType write (?ptype 박힘)');
+    console.log('⚠️  격리 테스트 작품 박는 게 권장:');
+    console.log('⚠️    BRANCH_CLASS_ID=class_test_screenshot BRANCH_TEAM=_test_team_ \\');
+    console.log('⚠️    node take-shots.js');
+    console.log('⚠️  ════════════════════════════════════════════════════════════');
+    console.log('');
+  }
 
   /* 서버 박혀있는지 확인 — fetch 한 번. ok 아니면 안내 후 exit. */
   let serverOk = false;

@@ -2009,8 +2009,12 @@ function _textEditHtml(scene) {
   const _isEndingForCollapse = !!(scene && (scene.type === 'ending' || scene.isEnding));
   /* 2026-05-27 Cover-2: 표지 강제 펼침 조건 제거.
      Cover-1으로 kicker/title/subtitle 미리보기 직접 입력 박힌 후 2단 의존성 사라짐.
-     표지도 그림책 일반/엔딩과 동일하게 default 접힘 + compact 360 흐름. */
-  const _forceTextEditExpanded = _ptypeForButtons !== 'picturebook';
+     표지도 그림책 일반/엔딩과 동일하게 default 접힘 + compact 360 흐름.
+
+     2026-05-30 Text-1: 텍스트 모드도 접힘/펼침 허용 — 그림책과 동일 compact 360 UX.
+     movie/experience는 미리보기 직접 입력 미박힘 → 강제 펼침 유지. */
+  const _forceTextEditExpanded =
+    _ptypeForButtons !== 'picturebook' && _ptypeForButtons !== 'text';
   let _textEditIsCollapsed;
   if (_forceTextEditExpanded) {
     _textEditIsCollapsed = false;
@@ -2233,8 +2237,8 @@ function _bindTextEditEvents(panel, scene) {
       const _ptype = (typeof _resolveViewerProjectType === 'function')
         ? _resolveViewerProjectType() : null;
       /* 2026-05-27 Cover-2: 표지 강제 펼침 분기 제거 (cover 조건 빼짐).
-         그림책 외 모드만 강제 펼침 유지 — 그 모드는 미리보기 직접 입력 아직 미박힘. */
-      if (_ptype !== 'picturebook') return;
+         2026-05-30 Text-1: text도 토글 허용 — movie/experience만 강제 펼침 유지. */
+      if (_ptype !== 'picturebook' && _ptype !== 'text') return;
       const _cur = (_textEditCollapsed === null) ? true : !!_textEditCollapsed;
       _textEditCollapsed = !_cur;
       renderEditPanel();

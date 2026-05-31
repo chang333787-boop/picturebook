@@ -404,9 +404,16 @@ function _patchTextStyle() {
   const scene = ViewerState.scenes[ViewerState.currentSceneId];
   if (!scene) return false;
   const style = (typeof getTextStyle === 'function') ? getTextStyle(scene) : (scene.textStyle || {});
-  const fontMap = (typeof TEXT_FONT_FAMILIES === 'object') ? TEXT_FONT_FAMILIES : {};
-  if (style.fontFamily && fontMap[style.fontFamily]) {
-    screen.style.setProperty('--text-font-family', fontMap[style.fontFamily]);
+  /* 2026-05-31 Text-3A: 라이브 패치 CSS 변수 이름을 렌더(_renderSceneText)/CSS와 일치시킴.
+     옛 패치는 CSS가 안 읽는 이름(--text-font-family / --text-fw-body)에 박아서 폰트·굵기
+     즉시 반영이 안 됐음(재렌더 때만 적용). 색(--text-color-override)·크기(--text-fs-body)는
+     원래 이름이 맞아 즉시 반영됐음.
+     · 폰트 : --text-ff      (CSS .text-card font-family + 테마별 폰트 룰이 읽음)
+     · 굵기 : --text-weight  (CSS .text-card font-weight가 읽음) */
+  if (style.fontFamily) {
+    screen.style.setProperty('--text-ff', `var(--font-${style.fontFamily})`);
+  } else {
+    screen.style.removeProperty('--text-ff');
   }
   if (typeof style.fontSize === 'number') {
     screen.style.setProperty('--text-fs-body', style.fontSize + 'px');
@@ -416,10 +423,10 @@ function _patchTextStyle() {
   } else {
     screen.style.removeProperty('--text-color-override');
   }
-  if (style.weight === 'bold') {
-    screen.style.setProperty('--text-fw-body', '700');
+  if (style.weight) {
+    screen.style.setProperty('--text-weight', style.weight);
   } else {
-    screen.style.setProperty('--text-fw-body', '400');
+    screen.style.removeProperty('--text-weight');
   }
   return true;
 }
@@ -2541,10 +2548,10 @@ function _applyStyleAllButtonHtml(scene) {
       <button type="button" class="js-apply-style-all edit-apply-all-btn"
         data-scene-id="${scene.id}"
         style="width:100%;padding:9px 12px;border:1.5px solid #c66f4a;background:#fffaee;color:#c66f4a;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">
-        📋 이 글자 스타일을 모든 장면에 적용
+        📋 이 글자 스타일·테마를 모든 장면에 적용
       </button>
       <div class="edit-section-hint" style="margin-top:6px;">
-        한 번에 통일해요. 이후 다른 장면에서 따로 박으면 그 장면만 변경돼요.
+        글자 스타일과 테마를 한 번에 통일해요. 이후 다른 장면에서 따로 박으면 그 장면만 변경돼요.
       </div>
     </div>`;
 }
@@ -2710,6 +2717,10 @@ function _bindApplyStyleAllHandlers(panel, scene) {
     if (btn.disabled) return;
     const style = (typeof getTextStyle === 'function') ? getTextStyle(scene) : null;
     if (!style) return;
+    /* 2026-05-31 Text-3A: 전체 적용에 테마(textTheme)도 포함 — textStyle만 복사하던 옛 동작은
+       스타일을 전부 맞춰도 테마가 장면별로 남아 불일치였음. 새 필드 추가 아님(기존 textTheme).
+       일반 장면만 대상(표지=coverTheme / 엔딩=별개 시스템이라 textTheme 미적용). */
+    const theme = (typeof getTextTheme === 'function') ? getTextTheme(scene) : (scene.textTheme || 'classic');
 
     const list = (typeof _editSceneList === 'function') ? _editSceneList() : [];
     /* v75 fix: ViewerState.scenes는 num 필드 없고 id만 박힘 (adaptScenes에서 id = String(raw.num)).
@@ -2735,9 +2746,10 @@ function _bindApplyStyleAllHandlers(panel, scene) {
     let failCount = 0;
     for (const s of targets) {
       try {
-        await saveSceneText(s.id, { textStyle: { ...style } });
+        await saveSceneText(s.id, { textStyle: { ...style }, textTheme: theme });
         /* in-memory scene 데이터도 즉시 갱신 — 다음 인스펙터 박힐 때 반영 */
         s.textStyle = { ...style };
+        s.textTheme = theme;
         okCount++;
       } catch (e) {
         console.warn('[applyStyleAll] failed scene', s.id, e);
@@ -2925,7 +2937,7 @@ function _typeSectionTextHtml(scene) {
     <div class="edit-row">
       <label class="edit-label">글자 크기 <span class="edit-label-note">(${style.fontSize}px)</span></label>
       <input type="range" class="edit-slider js-edit-text-size"
-        min="12" max="28" step="1" value="${style.fontSize}">
+        min="12" max="50" step="1" value="${style.fontSize}">
     </div>
 
     <div class="edit-row">

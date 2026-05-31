@@ -49,6 +49,13 @@ function _getPbThemeCollapsed() {
 let _pbInlineStyleCollapsed = false;
 let _pbToneCollapsed = false;
 
+/* 2026-05-31 Text-3B: 텍스트형 스타일 패널 섹션 접힘 상태 (UI 표시만, 저장 영향 0).
+   · 글자 스타일 = 기본 펼침(주 동선), 테마/효과 = 기본 접힘(패널 길이 정리).
+   · module-level — 새로고침하면 default 복귀. localStorage 저장 안 함. */
+let _textStyleSecCollapsed  = false;
+let _textThemeSecCollapsed  = true;
+let _textEffectSecCollapsed = true;
+
 /* 2026-05-27 Phase 4-D-1: 우측 2단 (📝 내용) 접이식 상태.
    · null  — 자동 default. 그림책 일반/엔딩 = 접힘, 표지/외 모드 = 펼침
    · true  — 사용자가 접음 (그림책 일반/엔딩에서만 유효 — 표지/외 모드는 강제 펼침)
@@ -2921,6 +2928,13 @@ function _typeSectionTextHtml(scene) {
       <div class="edit-theme-card-desc">${t.desc}</div>
     </button>`).join('');
 
+  /* 2026-05-31 Text-3B: 스타일/테마/효과를 접이식 섹션으로 정리 (UI 표시만, 기능·핸들러·저장 불변).
+     · 글자 스타일 = 기본 펼침(주 동선), 테마/효과 = 기본 접힘.
+     · 생성 collapsible 패턴(.edit-collapsible-header/.edit-collapsible-body) 재사용 — 그림책과 동일.
+     · 내부 컨트롤 클래스(js-edit-text-*)·전체 적용 버튼은 그대로 → 기존 핸들러 그대로 바인딩. */
+  const _sc = _textStyleSecCollapsed;
+  const _tc = _textThemeSecCollapsed;
+  const _ec = _textEffectSecCollapsed;
   return `
     <div class="edit-divider"></div>
     <h4 class="edit-section-title edit-section-title--major">② 텍스트형 설정</h4>
@@ -2928,58 +2942,85 @@ function _typeSectionTextHtml(scene) {
       텍스트형은 글이 주인공입니다. 본문 위계가 가장 크고, 제목은 보조, 선택지는 카드 하단입니다.
     </div>
 
-    <div class="edit-row">
-      <label class="edit-label">🅰 폰트</label>
-      <select class="edit-font-select js-edit-text-font"
-        style="font-family:var(--font-${style.fontFamily || 'gothic'})">${fontOptions}</select>
+    <div class="edit-text-style-section">
+      <button type="button"
+        class="edit-collapsible-header js-text-style-toggle ${_sc ? 'is-collapsed' : 'is-expanded'}"
+        aria-expanded="${!_sc}">
+        <span class="edit-collapsible-header-text">🅰 글자 스타일</span>
+        <span class="edit-collapsible-header-chev">${_sc ? '▼' : '▲'}</span>
+      </button>
+      ${_sc ? '' : `
+        <div class="edit-collapsible-body">
+          <div class="edit-row">
+            <label class="edit-label">폰트</label>
+            <select class="edit-font-select js-edit-text-font"
+              style="font-family:var(--font-${style.fontFamily || 'gothic'})">${fontOptions}</select>
+          </div>
+
+          <div class="edit-row">
+            <label class="edit-label">글자 크기 <span class="edit-label-note">(${style.fontSize}px)</span></label>
+            <input type="range" class="edit-slider js-edit-text-size"
+              min="12" max="50" step="1" value="${style.fontSize}">
+          </div>
+
+          <div class="edit-row">
+            <label class="edit-label">글자 색</label>
+            <div class="edit-color-row">${colorBtns}</div>
+            <input type="color" class="edit-color-picker js-edit-text-color-pick"
+              value="${style.color || '#1a1a1a'}" title="자유 색 선택">
+          </div>
+
+          <div class="edit-row">
+            <label class="edit-label">굵기</label>
+            <div class="edit-toggle-group">
+              <button type="button" class="edit-toggle js-edit-text-weight ${style.weight === 'normal' ? 'active' : ''}" data-val="normal">보통</button>
+              <button type="button" class="edit-toggle js-edit-text-weight ${style.weight === 'bold' ? 'active' : ''}" data-val="bold">굵게</button>
+            </div>
+          </div>
+        </div>`}
     </div>
 
-    <div class="edit-row">
-      <label class="edit-label">글자 크기 <span class="edit-label-note">(${style.fontSize}px)</span></label>
-      <input type="range" class="edit-slider js-edit-text-size"
-        min="12" max="50" step="1" value="${style.fontSize}">
-    </div>
+    <div class="edit-divider"></div>
 
-    <div class="edit-row">
-      <label class="edit-label">글자 색</label>
-      <div class="edit-color-row">${colorBtns}</div>
-      <input type="color" class="edit-color-picker js-edit-text-color-pick"
-        value="${style.color || '#1a1a1a'}" title="자유 색 선택">
-    </div>
-
-    <div class="edit-row">
-      <label class="edit-label">굵기</label>
-      <div class="edit-toggle-group">
-        <button type="button" class="edit-toggle js-edit-text-weight ${style.weight === 'normal' ? 'active' : ''}" data-val="normal">보통</button>
-        <button type="button" class="edit-toggle js-edit-text-weight ${style.weight === 'bold' ? 'active' : ''}" data-val="bold">굵게</button>
-      </div>
+    <div class="edit-text-theme-section">
+      <button type="button"
+        class="edit-collapsible-header js-text-theme-toggle ${_tc ? 'is-collapsed' : 'is-expanded'}"
+        aria-expanded="${!_tc}">
+        <span class="edit-collapsible-header-text">🎨 테마 <span class="edit-label-note">(8종)</span></span>
+        <span class="edit-collapsible-header-chev">${_tc ? '▼' : '▲'}</span>
+      </button>
+      ${_tc ? '' : `
+        <div class="edit-collapsible-body">
+          <div class="edit-theme-grid">${themeCards}</div>
+          <div class="edit-section-hint">테마는 카드 배경/테두리/기본 폰트 톤을 결정합니다. 폰트·크기·색은 위에서 별도 조절 가능.</div>
+        </div>`}
     </div>
 
     ${_applyStyleAllButtonHtml(scene)}
 
     <div class="edit-divider"></div>
 
-    <div class="edit-row">
-      <label class="edit-label">🎨 테마 <span class="edit-label-note">(8종)</span></label>
-      <div class="edit-theme-grid">${themeCards}</div>
-      <div class="edit-section-hint">테마는 카드 배경/테두리/기본 폰트 톤을 결정합니다. 폰트·크기·색은 위에서 별도 조절 가능.</div>
-    </div>
-
-    <div class="edit-divider"></div>
-
-    <div class="edit-row">
-      <label class="edit-label">✨ 효과</label>
-      <div class="edit-section-hint" style="margin-bottom:6px;">장면 진입 효과</div>
-      <div class="edit-toggle-group">
-        <button type="button" class="edit-toggle js-edit-text-entrance ${effect.entrance === 'none' ? 'active' : ''}" data-val="none">없음</button>
-        <button type="button" class="edit-toggle js-edit-text-entrance ${effect.entrance === 'fade' ? 'active' : ''}" data-val="fade">페이드인</button>
-        <button type="button" class="edit-toggle js-edit-text-entrance ${effect.entrance === 'slide' ? 'active' : ''}" data-val="slide">슬라이드</button>
-      </div>
-      <div class="edit-section-hint" style="margin:10px 0 6px;">본문 표시 효과</div>
-      <div class="edit-toggle-group">
-        <button type="button" class="edit-toggle js-edit-text-body-effect ${effect.body === 'none' ? 'active' : ''}" data-val="none">없음</button>
-        <button type="button" class="edit-toggle js-edit-text-body-effect ${effect.body === 'typewriter' ? 'active' : ''}" data-val="typewriter">타자기</button>
-      </div>
+    <div class="edit-text-effect-section">
+      <button type="button"
+        class="edit-collapsible-header js-text-effect-toggle ${_ec ? 'is-collapsed' : 'is-expanded'}"
+        aria-expanded="${!_ec}">
+        <span class="edit-collapsible-header-text">✨ 효과</span>
+        <span class="edit-collapsible-header-chev">${_ec ? '▼' : '▲'}</span>
+      </button>
+      ${_ec ? '' : `
+        <div class="edit-collapsible-body">
+          <div class="edit-section-hint" style="margin-bottom:6px;">장면 진입 효과</div>
+          <div class="edit-toggle-group">
+            <button type="button" class="edit-toggle js-edit-text-entrance ${effect.entrance === 'none' ? 'active' : ''}" data-val="none">없음</button>
+            <button type="button" class="edit-toggle js-edit-text-entrance ${effect.entrance === 'fade' ? 'active' : ''}" data-val="fade">페이드인</button>
+            <button type="button" class="edit-toggle js-edit-text-entrance ${effect.entrance === 'slide' ? 'active' : ''}" data-val="slide">슬라이드</button>
+          </div>
+          <div class="edit-section-hint" style="margin:10px 0 6px;">본문 표시 효과</div>
+          <div class="edit-toggle-group">
+            <button type="button" class="edit-toggle js-edit-text-body-effect ${effect.body === 'none' ? 'active' : ''}" data-val="none">없음</button>
+            <button type="button" class="edit-toggle js-edit-text-body-effect ${effect.body === 'typewriter' ? 'active' : ''}" data-val="typewriter">타자기</button>
+          </div>
+        </div>`}
     </div>`;
 }
 
@@ -4464,6 +4505,27 @@ function _bindTypeSectionsEvents(panel, scene) {
         _flushPendingSave();
         panel.querySelectorAll('.js-edit-text-weight').forEach(b => b.classList.toggle('active', b === btn));
         if (!_patchTextStyle()) _scheduleViewerFrameReRender();
+      });
+    });
+
+    /* 2026-05-31 Text-3B: 스타일/테마/효과 섹션 접힘 토글. module 변수만 바꾸고 패널 재렌더.
+       저장 데이터·스타일 핸들러 영향 0 (그림책 js-pb-inline-style-toggle과 동일 패턴). */
+    panel.querySelectorAll('.js-text-style-toggle').forEach(btn => {
+      btn.addEventListener('click', () => {
+        _textStyleSecCollapsed = !_textStyleSecCollapsed;
+        renderEditPanel();
+      });
+    });
+    panel.querySelectorAll('.js-text-theme-toggle').forEach(btn => {
+      btn.addEventListener('click', () => {
+        _textThemeSecCollapsed = !_textThemeSecCollapsed;
+        renderEditPanel();
+      });
+    });
+    panel.querySelectorAll('.js-text-effect-toggle').forEach(btn => {
+      btn.addEventListener('click', () => {
+        _textEffectSecCollapsed = !_textEffectSecCollapsed;
+        renderEditPanel();
       });
     });
 

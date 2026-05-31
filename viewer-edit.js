@@ -2942,6 +2942,14 @@ function _typeSectionTextHtml(scene) {
       텍스트형은 글이 주인공입니다. 본문 위계가 가장 크고, 제목은 보조, 선택지는 카드 하단입니다.
     </div>
 
+    <!-- 2026-05-31 Text-2D: 1단 행동 버튼 개수/연결 — 그림책 helper 재사용(모드 무관).
+         일반 장면만(helper가 표지/엔딩 빈 문자열). 라벨 input은 미리보기 직접입력(Text-2C)+
+         내용 고급 편집(2단)에 맡기고, 1단은 개수+연결만. 저장은 _queueSaveButtons 그대로. -->
+    ${_pbChoiceCountSectionHtml(scene)}
+    ${_pbChoiceLinkSectionHtml(scene)}
+
+    <div class="edit-divider"></div>
+
     <div class="edit-text-style-section">
       <button type="button"
         class="edit-collapsible-header js-text-style-toggle ${_sc ? 'is-collapsed' : 'is-expanded'}"
@@ -4526,6 +4534,41 @@ function _bindTypeSectionsEvents(panel, scene) {
       btn.addEventListener('click', () => {
         _textEffectSecCollapsed = !_textEffectSecCollapsed;
         renderEditPanel();
+      });
+    });
+
+    /* 2026-05-31 Text-2D: 텍스트 1단 행동 버튼 개수/연결 핸들러 — 그림책 분기와 동일.
+       모드 무관 helper(_pbAddChoiceForScene/_pbRemoveLastChoiceForScene/js-pb-choice-link)
+       + _queueSaveButtons 재사용. 새 저장 로직 없음. 엔딩이면 섹션 빈 문자열 → querySelector null 안전. */
+    const _txtAddChoiceBtn = panel.querySelector('.js-pb-choice-add');
+    if (_txtAddChoiceBtn) {
+      _txtAddChoiceBtn.addEventListener('click', () => {
+        if (!_editText.editable) return;
+        _pbAddChoiceForScene(scene);
+      });
+    }
+    const _txtRemoveLastChoiceBtn = panel.querySelector('.js-pb-choice-remove-last');
+    if (_txtRemoveLastChoiceBtn) {
+      _txtRemoveLastChoiceBtn.addEventListener('click', () => {
+        if (!_editText.editable) return;
+        if (_txtRemoveLastChoiceBtn.disabled) return;
+        _pbRemoveLastChoiceForScene(scene);
+      });
+    }
+    panel.querySelectorAll('.js-pb-choice-link').forEach(linkSel => {
+      linkSel.addEventListener('change', () => {
+        if (!_editText.editable) return;
+        const idx = parseInt(linkSel.dataset.idx, 10);
+        if (isNaN(idx) || !scene.choices || !scene.choices[idx]) return;
+        const val = linkSel.value || '';
+        scene.choices[idx].nextId = val || null;
+        scene.choices[idx].nextNum = val ? Number(val) : null;
+        /* 2단(내용 고급 편집) 같은 idx 연결 select 동기화 (있을 때만) */
+        const sel2 = panel.querySelector(`.js-edit-btn-next[data-idx="${idx}"]`);
+        if (sel2 && sel2.value !== val) sel2.value = val;
+        _queueSaveButtons(scene);
+        _flushPendingSave();
+        _scheduleViewerFrameReRender();
       });
     });
 

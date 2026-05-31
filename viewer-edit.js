@@ -2731,12 +2731,20 @@ function _bindApplyStyleAllHandlers(panel, scene) {
 
     const list = (typeof _editSceneList === 'function') ? _editSceneList() : [];
     /* v75 fix: ViewerState.scenes는 num 필드 없고 id만 박힘 (adaptScenes에서 id = String(raw.num)).
-       Firebase 노드 키도 num 값과 동일하니 s.id 그대로 saveSceneText(id) 호출 OK. */
-    const targets = list.filter(s =>
-      s && s.type !== 'cover' && s.type !== 'ending' &&
-      String(s.id) !== String(scene.id) &&
-      typeof s.id !== 'undefined' && s.id !== null
-    );
+       Firebase 노드 키도 num 값과 동일하니 s.id 그대로 saveSceneText(id) 호출 OK.
+       2026-05-31 Text-4: 텍스트 모드는 엔딩도 textTheme/textStyle을 쓰므로(Text-4로 일반 장면과
+       동일 판형) 전체 적용 대상에 엔딩 포함. 표지(coverTheme 별개)는 계속 제외. 그림책/무비/체험은
+       엔딩이 별도 시스템이라 옛대로 엔딩 제외(회귀 차단) — _includeEnding은 text일 때만 true. */
+    const _ptype = (ViewerState && ViewerState.project) ? ViewerState.project.projectType : null;
+    const _includeEnding = _ptype === 'text';
+    const targets = list.filter(s => {
+      if (!s) return false;
+      if (s.type === 'cover' || s.isCover) return false;
+      if (!_includeEnding && (s.type === 'ending' || s.isEnding)) return false;
+      if (String(s.id) === String(scene.id)) return false;
+      if (typeof s.id === 'undefined' || s.id === null) return false;
+      return true;
+    });
     console.log('[applyStyleAll]', { sourceSceneId: scene.id, targetCount: targets.length, targets: targets.map(s => s.id) });
     if (!targets.length) {
       const orig = btn.textContent;

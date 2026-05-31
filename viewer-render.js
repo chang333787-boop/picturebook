@@ -1311,9 +1311,16 @@ function renderTerminal(scene) {
 
   if (mode === 'explore') {
     _renderExploreCompletion(stage, scene);
-  } else {
-    _renderStoryEnding(stage, scene);
+    return;
   }
+  /* 2026-05-31 Text-4: 텍스트 작품 엔딩은 텍스트 전용 화면으로 분기.
+     그림책/기타 ptype은 기존 _renderStoryEnding 그대로(0 수정) — 회귀 차단. */
+  const _ptype = (ViewerState && ViewerState.project) ? ViewerState.project.projectType : null;
+  if (_ptype === 'text') {
+    _renderTextEnding(stage, scene);
+    return;
+  }
+  _renderStoryEnding(stage, scene);
 }
 
 function _renderStoryEnding(stage, scene) {
@@ -1536,6 +1543,132 @@ function _renderStoryEnding(stage, scene) {
   /* 클릭 가드 — 등장 전엔 disabled, 등장 후도 transitioning 중이면 한 번만 */
   let _restartFired = false;
   let _backFired = false;
+  _restartBtn?.addEventListener('click', (e) => {
+    if (_restartBtn.disabled) { e.preventDefault(); return; }
+    if (_restartFired) return;
+    _restartFired = true;
+    restartStory();
+  });
+  _backBtn?.addEventListener('click', (e) => {
+    if (_backBtn.disabled) { e.preventDefault(); return; }
+    if (_backFired) return;
+    _backFired = true;
+    navigateBack();
+  });
+}
+
+/* ================================================================
+   2026-05-31 Text-4: 텍스트 전용 엔딩 — "소설 마지막 장 / 글의 여운" 느낌.
+   · 그림책 _renderStoryEnding과 분리 (pb 0 수정 → 회귀 차단).
+   · scene-screen--text + data-text-theme + .text-card 재사용 →
+     텍스트 테마 8종 / textStyle(폰트·크기·색·굵기)이 엔딩에도 자동 적용
+     (Text-3A에서 확인된 'textTheme 엔딩 미적용' 한계 해소).
+   · 그림책식 큰 일러스트 placeholder 칸 없음. 세로 판형. 본문 중심.
+   · 이식: 진엔딩/일반 구분, 다시 시작/직전 장면, 본문 직접입력(Text-2B),
+     순차 등장 / 다듬기 모드 즉시 enable. 저장 구조·필드 불변(body/title 기존).
+   ================================================================ */
+function _renderTextEnding(stage, scene) {
+  const isTrueEnd = scene.isTrueEnd;
+  const steps     = ViewerState.historyStack.length + 1;
+
+  const userTitle = String(scene.title || '').trim();
+  const _orig     = String(scene.body || '');   /* trim X — 엔딩 줄바꿈 유지 */
+  const userBody  = (window.viewerAi && window.viewerAi._getDisplayBody)
+    ? window.viewerAi._getDisplayBody(scene.id, _orig) : _orig;
+
+  const systemLabel = isTrueEnd ? '진짜 결말' : '이야기 끝';
+  const systemIcon  = isTrueEnd ? '🏆' : '🏁';
+
+  /* 일반 텍스트 장면(_renderSceneText)과 100% 동일하게 — 테마/스타일/효과 같은 방식.
+     컨테이너 class·data-* · CSS 변수를 일반 장면과 똑같이 써서 "같은 모드의 마지막 장면"으로 보이게 함. */
+  const theme  = (typeof getTextTheme  === 'function') ? getTextTheme(scene)  : 'classic';
+  const style  = (typeof getTextStyle  === 'function') ? getTextStyle(scene)  : null;
+  const effect = (typeof getTextEffect === 'function') ? getTextEffect(scene) : null;
+  const cssVars = [];
+  if (style) {
+    if (style.fontFamily) cssVars.push(`--text-ff: var(--font-${style.fontFamily})`);
+    if (style.fontSize)   cssVars.push(`--text-fs-body: ${style.fontSize}px`);
+    if (style.color)      cssVars.push(`--text-color-override: ${style.color}`);
+    if (style.weight)     cssVars.push(`--text-weight: ${style.weight}`);
+  }
+  const styleAttr = cssVars.length > 0 ? ` style="${cssVars.join(';')}"` : '';
+
+  /* 버튼 enable delay — 감상 시 본문 읽을 시간 (다듬기 모드는 즉시). 엔딩 전용 순차 연출 없음. */
+  const _textSpeed = (ViewerState && ViewerState.project &&
+    typeof ViewerState.project.textEntranceSpeed === 'number')
+    ? Math.max(0, Math.min(100, ViewerState.project.textEntranceSpeed)) : 50;
+  const _clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  const _actionsDelay = _clamp(1200 + _textSpeed * 18, 1200, 3200);
+
+  const _isEdit = !!(ViewerState && ViewerState.editMode);
+  const _aiViewMode = (typeof window !== 'undefined' && window.viewerAi
+                       && typeof window.viewerAi._getAiViewMode === 'function')
+    ? window.viewerAi._getAiViewMode() : 'original';
+  const _allowInlineEdit = _isEdit && _aiViewMode === 'original';
+  const hasBack = ViewerState.historyStack.length > 0;
+
+  /* 제목·본문은 일반 장면(_renderSceneCard)과 동일 class — 별도 엔딩 스타일 X. */
+  const titleHtml = userTitle
+    ? `<h3 class="text-card__title">${escHtml(userTitle)}</h3>`
+    : '';
+  const bodyHtml = (userBody || _allowInlineEdit)
+    ? `<p class="text-card__body${_allowInlineEdit ? ' js-pb-editable-body' : ''}"`
+      + `${_allowInlineEdit ? ' contenteditable="true" data-pb-editable="body"' : ''}`
+      + ` data-placeholder="(본문을 적어보세요)">${escHtml(userBody)}</p>`
+    : '';
+
+  /* 일반 텍스트 장면과 동일한 scene-screen--text-paged(고정 세로 페이지) + 기본 .text-card.
+     엔딩 차이는 카드 하단의 작은 마감 표시(.text-ending-foot)뿐 — 별도 대형 카드/스탬프 없음. */
+  _stageReplaceScene(stage, `
+    <div class="scene-screen scene-screen--text scene-screen--text-paged"
+         data-presentation-mode="text"
+         data-scene-num="${escHtml(String(scene.id))}"
+         data-text-theme="${escHtml(theme)}"
+         ${effect ? `data-text-entrance="${escHtml(effect.entrance)}"` : ''}
+         ${effect ? `data-text-body="${escHtml(effect.body)}"` : ''}
+         data-ending="true"${styleAttr}>
+      <div class="scene-bg-solid"></div>
+      <div class="text-page">
+        <div class="text-card js-text-card">
+          ${titleHtml}
+          ${bodyHtml}
+          <div class="text-ending-foot">
+            <div class="text-ending-mark">
+              <span class="text-ending-mark-label">${systemIcon} ${systemLabel}</span>
+              ${steps > 1 ? `<span class="text-ending-path">${steps}개의 장면을 거쳐 이 결말에 도달했어요</span>` : ''}
+            </div>
+            <div class="text-ending-actions is-locked" data-count="${hasBack ? 2 : 1}">
+              <button class="terminal-btn terminal-btn--primary js-restart" disabled aria-disabled="true">↺ 다른 결말 찾기</button>
+              ${hasBack ? `<button class="terminal-btn terminal-btn--ghost js-back" disabled aria-disabled="true">← 직전 장면으로</button>` : ''}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>`);
+
+  /* 글자 스타일 CSS 변수 즉시 적용 — 일반 장면 renderScene과 동일. */
+  try { if (typeof _patchTextStyle === 'function') _patchTextStyle(); } catch (e) { /* noop */ }
+
+  /* 본문 직접입력(Text-2B) — edit 모드에서만 contenteditable 핸들러 부착. */
+  if (ViewerState.editMode && typeof initEditInteractions === 'function') {
+    initEditInteractions();
+  }
+
+  /* 버튼 enable + 클릭 — _renderStoryEnding과 동일 흐름(작은 하단 버튼). */
+  const _restartBtn = stage.querySelector('.js-restart');
+  const _backBtn    = stage.querySelector('.js-back');
+  const _enableButtons = () => {
+    const actions = stage.querySelector('.text-ending-actions');
+    if (actions) { actions.classList.remove('is-locked'); actions.classList.add('is-ready'); }
+    if (_restartBtn) { _restartBtn.disabled = false; _restartBtn.setAttribute('aria-disabled', 'false'); }
+    if (_backBtn)    { _backBtn.disabled = false;    _backBtn.setAttribute('aria-disabled', 'false'); }
+  };
+  if (_isEdit) {
+    _enableButtons();
+  } else {
+    setTimeout(_enableButtons, Math.round(_actionsDelay));
+  }
+  let _restartFired = false, _backFired = false;
   _restartBtn?.addEventListener('click', (e) => {
     if (_restartBtn.disabled) { e.preventDefault(); return; }
     if (_restartFired) return;

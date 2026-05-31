@@ -2288,9 +2288,64 @@ body.edit-mode-active:not(.viewer-test-active) .scene-screen--text .text-card__b
   animation: none !important;
 }
 
-/* ================================================================
+/* ════════════════════════════════════════════════════
+   Text-4 (2026-05-31): 텍스트 엔딩 = 일반 텍스트 장면과 같은 판형의 "마지막 장면"
+   ─────────────────────────────────────────────────────
+   · 컨테이너/페이지/카드/제목/본문은 일반 장면(scene-screen--text-paged + .text-card
+     + .text-card__title/__body)을 그대로 사용 → 테마 8종·textStyle·세로 페이지 100% 동일.
+   · 엔딩 차이는 카드 하단의 작은 마감 표시(.text-ending-foot)뿐. 별도 대형 카드/스탬프 없음.
+   ════════════════════════════════════════════════════ */
+.scene-screen--text .text-ending-foot {
+  /* .text-card__body(flex:1)가 위를 채우므로 자연히 하단. 작고 보조적인 마감 영역. */
+  flex-shrink: 0;
+  margin-top: clamp(14px, 2.4vw, 22px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.scene-screen--text .text-ending-mark {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  color: currentColor;
+  opacity: 0.5;        /* 본문보다 약하게 — 튀지 않는 마감 표시 */
+  font-family: var(--font-ui, 'Jua', sans-serif);
+}
+.scene-screen--text .text-ending-mark-label {
+  font-size: clamp(12px, 1.4vw, 14px);
+  letter-spacing: 0.04em;
+}
+.scene-screen--text .text-ending-path {
+  font-size: clamp(10px, 1.1vw, 12px);
+  opacity: 0.8;
+}
+.scene-screen--text .text-ending-actions {
+  /* 작은 버튼 가로 한 줄(좁으면 줄바꿈). 전체 폭으로 뻗지 않음. */
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+.scene-screen--text .text-ending-actions .terminal-btn {
+  width: auto;
+  min-width: 130px;
+  padding: 8px 18px;
+  font-size: clamp(12px, 1.3vw, 14px);
+}
+/* 버튼 등장 전 클릭 차단(살짝 흐리게). 다듬기 모드는 즉시 클릭 가능. */
+.scene-screen--text .text-ending-actions.is-locked { pointer-events: none; opacity: 0.5; }
+.scene-screen--text .text-ending-actions.is-ready  { pointer-events: auto; opacity: 1; transition: opacity 0.3s; }
+body.edit-mode-active:not(.viewer-test-active) .scene-screen--text .text-ending-actions {
+  pointer-events: auto;
+  opacity: 1;
+}
+
+/* ════════════════════════════════════════════════════
    W5 다듬기 패널 — 폰트/색/테마 카드 스타일
-   ================================================================ */
+   ════════════════════════════════════════════════════ */
 .edit-font-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);

@@ -852,9 +852,13 @@ function _normalizeMovieData(raw) {
   const choiceReveal = MOVIE_CHOICE_REVEALS.indexOf(src.choiceReveal) !== -1
     ? src.choiceReveal : MOVIE_DEFAULT_REVEAL;
   return {
-    /* Firebase Storage 연동 전 — 항상 null. 다음 단계에서 URL 삽입. */
-    videoUrl:     (typeof src.videoUrl === 'string')    ? src.videoUrl     : null,
-    posterImage:  (typeof src.posterImage === 'string') ? src.posterImage  : null,
+    /* 2026-05-31 Movie-2: 업로드된 영상 정보 보존.
+       videoUrl/posterImage는 Firebase Storage URL (업로드 핸들러가 저장).
+       videoStoragePath는 영상 삭제/교체 시 Storage 파일 정리에 필요 — load normalize에서
+       드롭하면 reload 후 정리 불가(고아 파일)였음. 새 필드 추가 아님(이미 저장하는 기존 필드 보존). */
+    videoUrl:         (typeof src.videoUrl === 'string')         ? src.videoUrl         : null,
+    videoStoragePath: (typeof src.videoStoragePath === 'string') ? src.videoStoragePath : null,
+    posterImage:      (typeof src.posterImage === 'string')      ? src.posterImage      : null,
     captionMode,
     choiceReveal,
   };

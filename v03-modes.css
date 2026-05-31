@@ -2249,6 +2249,39 @@ body[data-page-orientation="portrait"] .scene-screen--pb.pb--split .pb-text__act
      긴 글은 천천히 보이는 시각적 효과 부여. */
 }
 
+/* ─── Text-2B (2026-05-31): 텍스트 본문 직접 입력 (edit 모드 전용) ───
+   그림책 본문 contenteditable과 동일 UX를 텍스트 모드에도. placeholder/포커스
+   스타일은 .scene-screen--pb에만 있던 룰을 .scene-screen--text용으로 별도 추가.
+   색은 테마 8종(밝은/어두운: retro·dark) 모두 대응 위해 currentColor + opacity. */
+.scene-screen--text [contenteditable="true"] {
+  outline: none;
+  cursor: text;
+  min-height: 1.6em;
+  border-radius: 4px;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+.scene-screen--text [contenteditable="true"]:hover {
+  background: rgba(127, 127, 127, 0.10);
+}
+.scene-screen--text [contenteditable="true"]:focus,
+.scene-screen--text [contenteditable="true"].is-focused {
+  background: rgba(127, 127, 127, 0.12);
+  box-shadow: 0 0 0 2px rgba(127, 127, 127, 0.40);
+}
+.scene-screen--text [contenteditable="true"].is-empty::before {
+  content: attr(data-placeholder);
+  color: currentColor;
+  opacity: 0.45;
+  font-style: italic;
+  pointer-events: none;
+}
+/* edit 모드에선 텍스트 효과(entrance/typewriter clip-path) 끔 — contenteditable 입력 깨짐 차단.
+   감상(.viewer-test-active 포함 X) 에서는 효과 유지. .text-card 중앙정렬 transform은 건드리지 않음. */
+body.edit-mode-active:not(.viewer-test-active) .scene-screen--text .text-card,
+body.edit-mode-active:not(.viewer-test-active) .scene-screen--text .text-card__body {
+  animation: none !important;
+}
+
 /* ================================================================
    W5 다듬기 패널 — 폰트/색/테마 카드 스타일
    ================================================================ */

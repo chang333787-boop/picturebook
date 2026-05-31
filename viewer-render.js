@@ -443,8 +443,24 @@ function _renderSceneCard(scene, choices) {
 
   const titleHtml = title
     ? `<h3 class="text-card__title">${escHtml(title)}</h3>` : '';
-  const bodyHtml  = body
-    ? `<p class="text-card__body${isLong ? ' text-card__body--scroll' : ''}">${escHtml(body)}</p>` : '';
+  /* 2026-05-31 Text-2B: edit 모드면 본문 직접 입력 — contenteditable + placeholder.
+     · 감상 모드: 옛대로 빈 본문이면 <p> 미렌더 (시각 변화 0).
+     · edit 모드: 빈 본문도 <p> 렌더 → 클릭 가능 + placeholder("(본문을 적어보세요)").
+       data-pb-editable="body"로 그림책 본문 핸들러(_attachPbEditableInteractions) 재사용 →
+       scene.body 저장 + 우측 .js-edit-body textarea 양방향 동기. is-empty는 최초 렌더부터 박음.
+     · textEffect(entrance/typewriter)는 edit 모드 CSS에서 끔 — 입력 깨짐 차단.
+     · 'pb' 접두사는 공통 핸들러 재사용 탓(이름만 그림책 유래) — 향후 공통화 여지 주석. */
+  const _isEditMode = !!(typeof ViewerState !== 'undefined' && ViewerState.editMode);
+  let bodyHtml = '';
+  if (body || _isEditMode) {
+    const scrollCls = isLong ? ' text-card__body--scroll' : '';
+    const editCls   = _isEditMode ? ' js-pb-editable-body' : '';
+    const emptyCls  = (_isEditMode && !body) ? ' is-empty' : '';
+    const editAttrs = _isEditMode
+      ? ' contenteditable="true" data-pb-editable="body" data-placeholder="(본문을 적어보세요)"'
+      : '';
+    bodyHtml = `<p class="text-card__body${scrollCls}${editCls}${emptyCls}"${editAttrs}>${escHtml(body)}</p>`;
+  }
 
   /* 버튼 영역 — 카드 안 맨 아래. v0.3 텍스트형은 좌측정렬 세로 */
   const btns = _v03FilterChoices(choices).map(c => _v03ChoiceBtnHtml(scene, c, 'text')).join('');

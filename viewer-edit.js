@@ -530,7 +530,18 @@ function _patchChoiceLabel(idx, value) {
     coLabel.textContent = value || '';
     return true;
   }
-  /* 그 외(텍스트/무비/legacy): 화살표 ::after 분리 — 텍스트 노드만 갱신 */
+  /* 2026-05-31 Text-2C: 텍스트형 라벨 직접편집 span — .pb-choice-label과 동형 처리.
+     span만 갱신(버튼 내 다른 노드 보존) + is-empty 토글로 빈 라벨 placeholder 유지.
+     해당 span이 입력 포커스 중이면 덮어쓰지 않음(커서 보호 — 자체 input이 이미 동기). */
+  const textLabel = btn.querySelector('.text-choice-label');
+  if (textLabel) {
+    if (!(textLabel.isContentEditable && document.activeElement === textLabel)) {
+      textLabel.textContent = value || '';
+      textLabel.classList.toggle('is-empty', !(value || '').trim());
+    }
+    return true;
+  }
+  /* 그 외(텍스트 비편집/무비/legacy): 화살표 ::after 분리 — 텍스트 노드만 갱신 */
   const textNode = Array.from(btn.childNodes).find(n => n.nodeType === Node.TEXT_NODE);
   if (textNode) textNode.nodeValue = value || '';
   else btn.textContent = value || '';

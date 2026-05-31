@@ -2275,6 +2275,12 @@ body[data-page-orientation="portrait"] .scene-screen--pb.pb--split .pb-text__act
   font-style: italic;
   pointer-events: none;
 }
+/* Text-2C: 행동 버튼 라벨 직접편집 span — 빈 라벨도 클릭 영역 확보(inline은 min-height 무시).
+   inline-block + min-width로 빈 상태에서도 placeholder(::before) 폭 + 클릭 가능. */
+.scene-screen--text .text-choice-label {
+  display: inline-block;
+  min-width: 1.5em;
+}
 /* edit 모드에선 텍스트 효과(entrance/typewriter clip-path) 끔 — contenteditable 입력 깨짐 차단.
    감상(.viewer-test-active 포함 X) 에서는 효과 유지. .text-card 중앙정렬 transform은 건드리지 않음. */
 body.edit-mode-active:not(.viewer-test-active) .scene-screen--text .text-card,

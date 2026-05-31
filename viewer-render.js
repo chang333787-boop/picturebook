@@ -462,8 +462,10 @@ function _renderSceneCard(scene, choices) {
     bodyHtml = `<p class="text-card__body${scrollCls}${editCls}${emptyCls}"${editAttrs}>${escHtml(body)}</p>`;
   }
 
-  /* 버튼 영역 — 카드 안 맨 아래. v0.3 텍스트형은 좌측정렬 세로 */
-  const btns = _v03FilterChoices(choices).map(c => _v03ChoiceBtnHtml(scene, c, 'text')).join('');
+  /* 버튼 영역 — 카드 안 맨 아래. v0.3 텍스트형은 좌측정렬 세로.
+     2026-05-31 Text-2C: 라벨 직접편집 위해 인덱스(i) 전달 — data-choice-idx로 쓰임.
+     그림책 분할형 호출부(filteredChoices.map((c,i)=>...))와 동일 규약(필터 인덱스). */
+  const btns = _v03FilterChoices(choices).map((c, i) => _v03ChoiceBtnHtml(scene, c, 'text', i)).join('');
   const btnsHtml = `<div class="text-card__actions">${btns}</div>`;
 
   return `${titleHtml}${bodyHtml}${btnsHtml}`;
@@ -1035,7 +1037,12 @@ function _v03FilterChoices(choices) {
 }
 
 function _v03ChoiceBtnHtml(scene, choice, mode, idx) {
-  const disabled = !choice.nextId ? 'disabled' : '';
+  /* 2026-05-31 Text-2C: text edit 모드에선 미연결(nextId 없음) 버튼도 disabled 안 함.
+     disabled <button>은 자식 contenteditable 포커스를 막아 빈/미연결 라벨 편집 불가가 됨.
+     edit 모드는 클릭 내비가 이미 차단(_bindSceneEvents)되어 disabled 불필요. text만 한정 —
+     pb/movie/legacy는 옛대로 유지(스코프 보호). */
+  const _isEditBtn = !!(ViewerState && ViewerState.editMode);
+  const disabled = (!choice.nextId && !(mode === 'text' && _isEditBtn)) ? 'disabled' : '';
   /* W8: 빈 라벨 placeholder — 사용자 보고 "(빈 버튼)" → 더 친절 안내 */
   const label    = String(choice.label || '').trim() || '(행동 버튼을 적어보세요)';
   const isEmpty  = !String(choice.label || '').trim();
@@ -1067,10 +1074,29 @@ function _v03ChoiceBtnHtml(scene, choice, mode, idx) {
     </button>`;
   }
 
-  /* 다른 모드(text/movie/legacy): 기존 구조 보존 */
+  /* 다른 모드(text/movie/legacy): 기존 구조 보존.
+     2026-05-31 Text-2C: text 모드 + edit + AI original이면 라벨 직접 입력.
+     그림책 choice-label 핸들러(_attachChoiceLabelEditable)를 label span에 그대로 재사용 —
+     scene.choices[idx].label 저장 + 우측 .js-edit-button-label 양방향 동기 + _queueSaveButtons.
+     빈 라벨은 placeholder fallback(label) 대신 진짜 빈 값 + is-empty로 CSS placeholder(::before)
+     표시(Text-2B 텍스트 contenteditable 룰 재사용). movie/legacy는 옛대로 plain text(텍스트 노드). */
+  let _textLabelHtml = escHtml(label);
+  if (mode === 'text') {
+    const _aiViewChoice = (typeof window !== 'undefined' && window.viewerAi
+                           && typeof window.viewerAi._getAiViewMode === 'function')
+      ? window.viewerAi._getAiViewMode() : 'original';
+    if (_isEditBtn && _aiViewChoice === 'original') {
+      const _rawLabel = String(choice.label || '');
+      const _emptyLabelCls = _rawLabel.trim() ? '' : ' is-empty';
+      _textLabelHtml = `<span class="text-choice-label${_emptyLabelCls}"`
+        + ` contenteditable="true" data-pb-editable="choice-label"`
+        + ` data-choice-idx="${idx != null ? idx : 0}"`
+        + ` data-placeholder="(행동 버튼을 적어보세요)">${escHtml(_rawLabel)}</span>`;
+    }
+  }
   return `<button class="choice-v03 choice-v03--${mode} js-choice${emptyClass}"
     data-choice-id="${escHtml(choice.id)}" ${disabled}>
-    ${escHtml(label)}
+    ${_textLabelHtml}
   </button>`;
 }
 

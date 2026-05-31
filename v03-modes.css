@@ -1361,8 +1361,42 @@ body[data-page-orientation="portrait"] .scene-screen--pb.pb--split .pb-text__act
   inset: 0;
   background: #000;
   overflow: hidden;
+  /* 2026-05-31 Movie-B-1: 안쪽 .movie-stage(자체 비율)를 가운데 정렬. 공유 #viewer-frame은
+     안 건드리고, movie는 stage 비율로 가로/세로를 자체 결정(text .text-page / 그림책 .pb-page 패턴). */
+  display: grid;
+  place-items: center;
+  container-type: size;
+  container-name: moviestage;
 }
-/* 영상/포스터 전체 영역 — viewer-frame 통째로 차지 */
+/* 2026-05-31 Movie-B-1: movie 전용 안쪽 비율 stage.
+   · 가로(기본): stage가 프레임을 그대로 채움 — 원래 무비 동작 유지(회귀 0).
+     감상은 프레임이 이미 16:9라 꽉 참 / 편집은 프레임을 채우고 영상은 object-fit:contain로 letterbox.
+   · 세로(pageOrientation=portrait): 편집 프레임이 세로가 안 되는 문제를 우회 —
+     stage를 안쪽 210:297 박스로 고정(그림책 세로모드와 동일 비율) + 컨테이너에 맞춰 contain.
+   · 영상·decision은 stage 안에서만 배치 → 프레임 밖 안 나감, 잘림 없음(object-fit:contain). */
+.scene-screen--movie .movie-stage {
+  position: relative;
+  background: #000;
+  overflow: hidden;
+  /* 가로(기본) = 프레임 채움 */
+  width: 100%;
+  height: 100%;
+}
+/* 세로 = 안쪽 210:297 박스 (컨테이너 비율에 맞춰 contain — text-page 패턴) */
+body[data-page-orientation="portrait"] .scene-screen--movie .movie-stage {
+  width: auto;
+  height: auto;
+  aspect-ratio: 210 / 297;
+  max-width: 100%;
+  max-height: 100%;
+}
+@container moviestage (aspect-ratio > 210/297) {
+  body[data-page-orientation="portrait"] .scene-screen--movie .movie-stage { height: 100%; width: auto; }
+}
+@container moviestage (aspect-ratio <= 210/297) {
+  body[data-page-orientation="portrait"] .scene-screen--movie .movie-stage { width: 100%; height: auto; }
+}
+/* 영상/포스터 전체 영역 — 이제 .movie-stage 기준으로 가득 채움 */
 .scene-screen--movie .movie-media {
   position: absolute;
   inset: 0;

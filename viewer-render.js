@@ -816,18 +816,22 @@ function _renderSceneMovie(stage, scene) {
     ? existingVideo
     : null;
 
+  /* 2026-05-31 Movie-B-1: 안쪽 .movie-stage(자체 가로/세로 비율 컨테이너)로 감쌈.
+     영상·decision은 stage 안에서만 배치 → 공유 프레임 안 건드리고 잘림/넘침 차단. */
   _stageReplaceScene(stage, `
     <div class="scene-screen scene-screen--movie"
       data-display="${scene.displayType}"
       data-scene-num="${escHtml(String(scene.id))}"
       data-presentation-mode="movie"${movieAttrs}>
-      <div class="movie-media">
-        ${reuseVideo ? '' : mediaInner}
-      </div>
-      <div class="movie-decision">
-        ${bodyHtml}
-        <div class="movie-decision__actions" data-btn-layout="${btnLayout}">
-          ${btns}
+      <div class="movie-stage">
+        <div class="movie-media">
+          ${reuseVideo ? '' : mediaInner}
+        </div>
+        <div class="movie-decision">
+          ${bodyHtml}
+          <div class="movie-decision__actions" data-btn-layout="${btnLayout}">
+            ${btns}
+          </div>
         </div>
       </div>
     </div>`);

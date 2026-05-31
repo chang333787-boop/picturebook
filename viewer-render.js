@@ -160,6 +160,14 @@ function renderCover() {
      비우면 표지 상단에 아무것도 안 보임 (DOM은 박혀 있되 빈 텍스트). */
   const kicker    = (coverScene && typeof coverScene.kicker === 'string')
     ? coverScene.kicker : '';
+  /* 2026-05-31 Text-2: 빈 kicker 처리 — 감상 모드와 edit 모드 분리.
+     · 감상 모드(빈 값): cover-kicker--empty → visibility:hidden (표지에 안 보임, 옛 동작 유지).
+     · edit 모드(빈 값): is-empty → placeholder("(상단 문구)") + 클릭 가능. hidden 안 먹음.
+       is-empty를 최초 렌더 template부터 박음 — JS _updatePlaceholder 타이밍/재렌더 경로와
+       무관하게 첫 paint부터 placeholder가 보이고 클릭 가능. (옛 버그: edit 모드에서도
+       빈 kicker가 hidden이라 직접 클릭 불가 + 우측 재렌더 시 placeholder 사라짐) */
+  let kickerEmptyCls = '';
+  if (!kicker) kickerEmptyCls = isEdit ? ' is-empty' : ' cover-kicker--empty';
   const coverTheme = (coverScene && coverScene.coverTheme) || 'default';
   const titleVPos = (coverScene && typeof coverScene.titleVerticalPosition === 'number')
     ? coverScene.titleVerticalPosition : 50;
@@ -183,7 +191,7 @@ function renderCover() {
               </div>
             </div>
             <div class="pb-text pb-text--cover">
-              <div class="cover-kicker${kicker ? '' : ' cover-kicker--empty'}"${editKickerAttrs}>${escHtml(kicker)}</div>
+              <div class="cover-kicker${kickerEmptyCls}"${editKickerAttrs}>${escHtml(kicker)}</div>
               <h1 class="cover-title-pb"${editTitleAttrs}>${escHtml(title)}</h1>
               <button class="cover-start-btn js-cover-start">▶ 시작하기</button>
             </div>
@@ -208,7 +216,7 @@ function renderCover() {
             <div class="cover-book__top">
               <!-- v129: 표지 상단 = 사용자가 박는 kicker. 옛 팀 이름 자동 표시 폐기.
                    비우면 빈 영역 (layout 유지). -->
-              <div class="cover-kicker${kicker ? '' : ' cover-kicker--empty'}"${editKickerAttrs}>${escHtml(kicker)}</div>
+              <div class="cover-kicker${kickerEmptyCls}"${editKickerAttrs}>${escHtml(kicker)}</div>
             </div>
             <div class="cover-book__center">
               <h1 class="cover-title-pb"${editTitleAttrs}>${escHtml(title)}</h1>

@@ -1446,6 +1446,14 @@ body[data-page-orientation="portrait"] .scene-screen--pb.pb--split .pb-text__act
   visibility: visible;
   pointer-events: auto;
 }
+/* 2026-05-31 Movie-1: 다듬기 모드는 영상 종료(data-played) 여부와 무관하게 결정 패널 표시 —
+   제작자가 영상 끝까지 안 봐도 본문/행동 버튼을 확인·편집할 수 있게. 감상 모드는 영향 없음.
+   감상 테스트(.viewer-test-active)는 실제 감상과 동일해야 하므로 제외(숨김 유지).
+   movie 모드 전용 — text/picturebook/experience 무관. (특이도 body+3class > data-played 룰) */
+body.edit-mode-active:not(.viewer-test-active) .scene-screen--movie[data-played="false"] .movie-decision {
+  visibility: visible;
+  pointer-events: auto;
+}
 .scene-screen--movie[data-body-enabled="off"] .movie-decision__desc {
   display: none;
 }

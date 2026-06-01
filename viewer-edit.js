@@ -3472,12 +3472,36 @@ function _typeSectionMovieHtml(scene) {
   /* 선택지 노출 시점 — end (영상 종료 후) / always (즉시 보임) */
   const choiceReveal = md.choiceReveal || 'end';
 
+  /* 2026-05-31 Movie-B-2: 화면 방향(가로/세로)은 작품 단위 — 첫 장면(entrySceneId)에서만 변경.
+     그림책과 동일 정책·핸들러(js-pb-orientation), 저장은 viewer-meta.pageOrientation.
+     Movie-B-1의 .movie-stage가 portrait 비율(210:297)을 실제 적용. */
+  const _entryId = ViewerState.project && ViewerState.project.entrySceneId;
+  const _isFirstMovieScene = _entryId
+    ? String(scene.id) === String(_entryId)
+    : (scene.isStart === true);
+  const _orientLockedAttr  = _isFirstMovieScene ? '' : 'disabled';
+  const _orientLockedClass = _isFirstMovieScene ? '' : ' edit-toggle--locked';
+  const _isPortrait = (ViewerState.project && ViewerState.project.pageOrientation === 'portrait');
+
   return `
     <div class="edit-divider"></div>
     <h4 class="edit-section-title edit-section-title--major">② 무비형 설정</h4>
     <div class="edit-section-hint">
       무비형은 영상 또는 이미지를 보고 반응을 선택하는 모드입니다.
       상단에 미디어, 하단에 결정 패널(본문 + 선택지)이 나뉘어 표시됩니다.
+    </div>
+
+    <div class="edit-row">
+      <label class="edit-label">🎬 화면 방향 <span class="edit-label-note">(작품 전체)</span></label>
+      <div class="edit-toggle-group">
+        <button type="button" ${_orientLockedAttr}
+          class="edit-toggle js-pb-orientation${_orientLockedClass} ${_isPortrait ? '' : 'active'}"
+          data-val="landscape">가로형</button>
+        <button type="button" ${_orientLockedAttr}
+          class="edit-toggle js-pb-orientation${_orientLockedClass} ${_isPortrait ? 'active' : ''}"
+          data-val="portrait">세로형</button>
+      </div>
+      <div class="edit-field-hint">작품 전체 무비 화면 비율을 정합니다. 영상은 잘리지 않고 화면 안에 맞춰집니다.${_isFirstMovieScene ? '' : ' (첫 장면에서만 변경할 수 있어요)'}</div>
     </div>
 
     <div class="edit-row">
@@ -3725,6 +3749,38 @@ function _bindPbThemeHandlers(panel) {
   });
 }
 
+/* 2026-05-31 Movie-B-2: 페이지 방향(가로/세로) 토글 핸들러 — 작품 단위 viewer-meta.pageOrientation.
+   그림책·무비형 공유(js-pb-orientation). 모드 무관 로직이라 helper로 분리(중복 제거 + 양쪽 동일). */
+function _bindPageOrientationToggle(panel) {
+  panel.querySelectorAll('.js-pb-orientation').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!_editText.editable) return;
+      const val = btn.dataset.val === 'portrait' ? 'portrait' : 'landscape';
+      if (ViewerState.project.pageOrientation === val) return;   // no-op
+      ViewerState.project.pageOrientation = val;
+      if (document.body) document.body.dataset.pageOrientation = val;
+      if (typeof window._applyLetterbox === 'function') window._applyLetterbox();
+      /* 인스펙터 즉시 갱신 (active 반영) + viewer 프레임 재렌더 (페이지 비율 즉시 반영) */
+      renderEditPanel();
+      _scheduleViewerFrameReRender();
+      /* Firebase 저장 — viewer-meta.pageOrientation 직접 update */
+      try {
+        const teamName = ViewerState.project.teamName;
+        const classId  = ViewerState.project.classId;
+        if (teamName && typeof getViewerDb === 'function') {
+          const encodedName = encodeURIComponent(teamName);
+          const basePath = classId
+            ? `classes/${classId}/teams/${encodedName}`
+            : `teams/${encodedName}`;
+          await getViewerDb().ref(`${basePath}/viewer-meta`).update({ pageOrientation: val });
+        }
+      } catch (e) {
+        console.error('[pageOrientation] 저장 실패:', e);
+      }
+    });
+  });
+}
+
 function _bindTypeSectionsEvents(panel, scene) {
   if (!panel || !scene) return;
   const ptype = _resolveViewerProjectType();
@@ -3776,34 +3832,8 @@ function _bindTypeSectionsEvents(panel, scene) {
     /* v138: 본문 카드 톤 시스템 — 스타일/색계열(작품 단위) + 톤/엔딩 마감톤(장면 단위) */
     _bindPbToneEvents(panel, scene);
 
-    /* W9: 페이지 방향 토글 (작품 단위 — viewer-meta에 직접 저장) */
-    panel.querySelectorAll('.js-pb-orientation').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        if (!_editText.editable) return;
-        const val = btn.dataset.val === 'portrait' ? 'portrait' : 'landscape';
-        if (ViewerState.project.pageOrientation === val) return;   // no-op
-        ViewerState.project.pageOrientation = val;
-        if (document.body) document.body.dataset.pageOrientation = val;
-        if (typeof window._applyLetterbox === 'function') window._applyLetterbox();
-        /* 인스펙터 즉시 갱신 (active 상태 반영) + viewer 프레임 재렌더 (페이지 비율/grid 즉시 반영) */
-        renderEditPanel();
-        _scheduleViewerFrameReRender();
-        /* Firebase 저장 — viewer-meta.pageOrientation 직접 update */
-        try {
-          const teamName  = ViewerState.project.teamName;
-          const classId   = ViewerState.project.classId;
-          if (teamName && typeof getViewerDb === 'function') {
-            const encodedName = encodeURIComponent(teamName);
-            const basePath = classId
-              ? `classes/${classId}/teams/${encodedName}`
-              : `teams/${encodedName}`;
-            await getViewerDb().ref(`${basePath}/viewer-meta`).update({ pageOrientation: val });
-          }
-        } catch (e) {
-          console.error('[pageOrientation] 저장 실패:', e);
-        }
-      });
-    });
+    /* W9: 페이지 방향 토글 (작품 단위 — viewer-meta 저장). 2026-05-31 Movie-B-2: helper로 분리. */
+    _bindPageOrientationToggle(panel);
 
     /* 2026-05-25 Phase 2 fix: 양옆 마감 테마 핸들러 — helper로 통합 (표지 분기와 공유) */
     _bindPbThemeHandlers(panel);
@@ -4179,6 +4209,10 @@ function _bindTypeSectionsEvents(panel, scene) {
   }
 
   if (ptype === 'movie') {
+    /* 2026-05-31 Movie-B-2: 무비형도 작품 단위 화면 방향(가로/세로) 토글 — 그림책과 동일 helper.
+       movie-stage(Movie-B-1)가 생겨서 이제 세로 비율이 실제 적용됨. */
+    _bindPageOrientationToggle(panel);
+
     /* movieData 객체 보장 — 없으면 기본값 */
     function _ensureMovieData() {
       if (!scene.movieData || typeof scene.movieData !== 'object') {

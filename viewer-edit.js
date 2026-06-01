@@ -3500,17 +3500,9 @@ function _typeSectionMovieHtml(scene) {
         <div class="js-movie-video-error edit-movie-error" style="display:none;"></div>
       </div>
 
-      <!-- 포스터 이미지 -->
-      <div class="edit-movie-poster-section" style="margin-top:10px;">
-        <div class="edit-section-hint" style="margin:8px 0 6px;font-weight:600;color:#c8dcf2;">🖼 포스터 이미지</div>
-        <div class="edit-toggle-group">
-          <button type="button" class="edit-toggle js-movie-poster-upload">🖼 포스터 업로드/교체</button>
-          ${hasPoster ? `<button type="button" class="edit-toggle js-movie-poster-delete">🗑 포스터 삭제</button>` : ''}
-        </div>
-        <div class="edit-section-hint" style="margin-top:6px;">
-          영상 없을 때 단독 표시되거나, 영상 재생 전 썸네일로 사용됩니다.
-        </div>
-      </div>
+      <!-- 2026-05-31 Movie-F: 포스터 이미지 업로드/교체 UI 제거 — 무비형은 영상 중심.
+           posterImage/scene.imageData 데이터·resolveMoviePoster 렌더 fallback은 유지(하위호환).
+           js-movie-poster-upload/-delete 핸들러는 UI 없어 inert. -->
     </div>
 
     <div class="edit-row">

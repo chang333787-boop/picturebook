@@ -801,7 +801,9 @@ function _renderSceneMovie(stage, scene) {
   const initialPlayed = hasVideo ? 'false' : 'true';
   const movieAttrs =
     ` data-movie-caption="${md.captionMode || 'overlay'}"` +
-    ` data-movie-reveal="${md.choiceReveal || 'end'}"` +
+    /* 2026-05-31 Movie-C: 마감 규칙 — 무비형은 항상 "영상 끝난 뒤" 본문/선택지 노출.
+       저장된 choiceReveal=always는 무시(end 강제). 데이터 필드는 보존, 렌더만 고정. */
+    ` data-movie-reveal="end"` +
     ` data-body-enabled="${bodyEnabled ? 'on' : 'off'}"` +
     ` data-played="${initialPlayed}"` +
     (hasVideo ? ' data-movie-has-video="true"' : '');

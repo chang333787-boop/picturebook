@@ -2037,9 +2037,10 @@ function _textEditHtml(scene) {
      표지도 그림책 일반/엔딩과 동일하게 default 접힘 + compact 360 흐름.
 
      2026-05-30 Text-1: 텍스트 모드도 접힘/펼침 허용 — 그림책과 동일 compact 360 UX.
-     movie/experience는 미리보기 직접 입력 미박힘 → 강제 펼침 유지. */
+     2026-05-31 Movie-C: 무비형도 접힘/펼침 허용(패널 단순화 — text/그림책과 통일).
+     experience만 강제 펼침 유지. */
   const _forceTextEditExpanded =
-    _ptypeForButtons !== 'picturebook' && _ptypeForButtons !== 'text';
+    _ptypeForButtons !== 'picturebook' && _ptypeForButtons !== 'text' && _ptypeForButtons !== 'movie';
   let _textEditIsCollapsed;
   if (_forceTextEditExpanded) {
     _textEditIsCollapsed = false;
@@ -2262,8 +2263,8 @@ function _bindTextEditEvents(panel, scene) {
       const _ptype = (typeof _resolveViewerProjectType === 'function')
         ? _resolveViewerProjectType() : null;
       /* 2026-05-27 Cover-2: 표지 강제 펼침 분기 제거 (cover 조건 빼짐).
-         2026-05-30 Text-1: text도 토글 허용 — movie/experience만 강제 펼침 유지. */
-      if (_ptype !== 'picturebook' && _ptype !== 'text') return;
+         2026-05-30 Text-1: text 허용. 2026-05-31 Movie-C: movie 허용 — experience만 강제 펼침. */
+      if (_ptype !== 'picturebook' && _ptype !== 'text' && _ptype !== 'movie') return;
       const _cur = (_textEditCollapsed === null) ? true : !!_textEditCollapsed;
       _textEditCollapsed = !_cur;
       renderEditPanel();
@@ -3527,35 +3528,12 @@ function _typeSectionMovieHtml(scene) {
       </div>
     </div>
 
-    <div class="edit-row">
-      <label class="edit-label">자막 표시 방식</label>
-      <div class="edit-toggle-group">
-        <button type="button"
-          class="edit-toggle js-movie-caption-mode ${captionMode === 'overlay' ? 'active' : ''}"
-          data-val="overlay">🎞 영상 위 (overlay)</button>
-        <button type="button"
-          class="edit-toggle js-movie-caption-mode ${captionMode === 'caption-bar' ? 'active' : ''}"
-          data-val="caption-bar">📺 자막 띠 (bar)</button>
-      </div>
-      <div class="edit-section-hint">
-        영상 재생 중 본문이 어떻게 보일지 결정합니다. (본문 사용 ON일 때만 효과)
-      </div>
-    </div>
-
-    <div class="edit-row">
-      <label class="edit-label">선택지 노출 시점</label>
-      <div class="edit-toggle-group">
-        <button type="button"
-          class="edit-toggle js-movie-choice-reveal ${choiceReveal === 'end' ? 'active' : ''}"
-          data-val="end">⏯ 영상 끝난 뒤</button>
-        <button type="button"
-          class="edit-toggle js-movie-choice-reveal ${choiceReveal === 'always' ? 'active' : ''}"
-          data-val="always">👁 항상 보임</button>
-      </div>
-      <div class="edit-section-hint">
-        영상이 있는 경우에만 의미 있는 옵션입니다. 끝난 뒤: 영상 종료 후 결정 패널 노출. 항상 보임: 영상과 동시에 노출.
-      </div>
+    <div class="edit-section-hint" style="margin-top:6px;">
+      🎬 무비형은 영상이 끝난 뒤 본문·선택지가 나타나요. (자막 방식·노출 시점 옵션은 정리됨)
     </div>`;
+  /* 2026-05-31 Movie-C: 무비형 단순화 — "자막 표시 방식(captionMode)" · "선택지 노출 시점
+     (choiceReveal)" 토글 UI 제거. 마감 규칙은 항상 "영상 끝난 뒤 본문/선택지 노출"(렌더에서
+     data-movie-reveal="end" 강제). captionMode/choiceReveal 저장 데이터는 보존(필드 삭제 X). */
 }
 
 /* ── 4) 체험전시형 전용 섹션 ────────────────────────────────────

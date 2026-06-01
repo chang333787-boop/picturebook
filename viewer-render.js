@@ -1326,6 +1326,12 @@ function renderTerminal(scene) {
     _renderTextEnding(stage, scene);
     return;
   }
+  /* 2026-05-31 Movie-E: 무비형 엔딩도 무비 장면 규칙(영상 → 종료 후 엔딩 UI)으로.
+     그림책/기타 ptype은 기존 _renderStoryEnding 그대로(0 수정). */
+  if (_ptype === 'movie') {
+    _renderMovieEnding(stage, scene);
+    return;
+  }
   _renderStoryEnding(stage, scene);
 }
 
@@ -1683,6 +1689,113 @@ function _renderTextEnding(stage, scene) {
   });
   _backBtn?.addEventListener('click', (e) => {
     if (_backBtn.disabled) { e.preventDefault(); return; }
+    if (_backFired) return;
+    _backFired = true;
+    navigateBack();
+  });
+}
+
+/* ================================================================
+   2026-05-31 Movie-E: 무비형 전용 엔딩 — 엔딩도 "무비 장면".
+   · 엔딩 scene의 movieData.videoUrl 영상 재생 → 종료(data-played) 후 엔딩 UI 노출
+     (일반 무비 장면 reveal=end와 동일 게이트 재사용).
+   · 영상 없으면 placeholder + 엔딩 UI 즉시(data-played="true").
+   · 그림책 _renderStoryEnding과 분리(0 수정). movie 장면 구조(.movie-stage/.movie-media/
+     .movie-decision) 그대로 + decision을 엔딩 마감(마크/본문/경로/버튼)으로 교체.
+   · 진엔딩/일반, 다시 시작(js-restart)/직전 장면(js-back) 이식. edit는 Movie-1 override로 미리 보임.
+   ================================================================ */
+function _renderMovieEnding(stage, scene) {
+  const md     = (typeof getMovieData === 'function') ? getMovieData(scene) : {};
+  const poster = (typeof resolveMoviePoster === 'function') ? resolveMoviePoster(scene) : null;
+  const hasVideo = !!md.videoUrl;
+
+  const isTrueEnd = scene.isTrueEnd;
+  const steps     = ViewerState.historyStack.length + 1;
+  const userTitle = String(scene.title || '').trim();
+  const _orig     = String(scene.body || '');   /* trim X — 줄바꿈 유지 */
+  const userBody  = (window.viewerAi && window.viewerAi._getDisplayBody)
+    ? window.viewerAi._getDisplayBody(scene.id, _orig) : _orig;
+  const systemLabel = isTrueEnd ? '진짜 결말' : '이야기 끝';
+  const systemIcon  = isTrueEnd ? '🏆' : '🏁';
+  const hasBack = ViewerState.historyStack.length > 0;
+
+  /* 미디어 — _renderSceneMovie와 동일(영상/포스터/placeholder). 엔딩 placeholder는 마감 아이콘. */
+  let mediaInner;
+  if (hasVideo) {
+    const posterAttr = poster ? ` poster="${poster}"` : '';
+    mediaInner = `<video class="movie-video js-movie-video" controls
+      preload="metadata"${posterAttr}
+      src="${md.videoUrl}"></video>`;
+  } else if (poster) {
+    mediaInner = `<div class="movie-poster" style="background-image:url('${poster}')"></div>`;
+  } else {
+    mediaInner = `<div class="movie-poster movie-poster--empty">
+      <div class="movie-empty-mark">${systemIcon}</div>
+    </div>`;
+  }
+  const initialPlayed = hasVideo ? 'false' : 'true';
+
+  /* 깜빡임 차단 — 같은 videoUrl이면 기존 <video> 노드 재사용 (_renderSceneMovie와 동일) */
+  const existingVideo = stage.querySelector('.movie-video');
+  const reuseVideo = (existingVideo && hasVideo && existingVideo.getAttribute('src') === md.videoUrl)
+    ? existingVideo : null;
+
+  const titleHtml = userTitle ? `<div class="movie-ending-title">${escHtml(userTitle)}</div>` : '';
+  const bodyHtml  = userBody  ? `<p class="movie-ending-body">${escHtml(userBody)}</p>` : '';
+  const routeHtml = steps > 1 ? `<div class="movie-ending-route">${steps}개의 장면을 거쳐 이 결말에 도달했어요</div>` : '';
+
+  _stageReplaceScene(stage, `
+    <div class="scene-screen scene-screen--movie movie-ending-screen"
+      data-display="${scene.displayType}"
+      data-scene-num="${escHtml(String(scene.id))}"
+      data-presentation-mode="movie"
+      data-ending="true"
+      data-movie-caption="overlay"
+      data-movie-reveal="end"
+      data-body-enabled="on"
+      data-played="${initialPlayed}"${hasVideo ? ' data-movie-has-video="true"' : ''}>
+      <div class="movie-stage">
+        <div class="movie-media">
+          ${reuseVideo ? '' : mediaInner}
+        </div>
+        <div class="movie-decision movie-ending-decision">
+          <div class="movie-ending-mark${isTrueEnd ? ' movie-ending-mark--true' : ''}">${systemIcon} ${systemLabel}</div>
+          ${titleHtml}
+          ${bodyHtml}
+          ${routeHtml}
+          <div class="movie-ending-actions">
+            <button class="terminal-btn terminal-btn--primary js-restart">↺ 다른 결말 찾기</button>
+            ${hasBack ? `<button class="terminal-btn terminal-btn--ghost js-back">← 직전 장면으로</button>` : ''}
+          </div>
+        </div>
+      </div>
+    </div>`);
+
+  /* 보존한 video 노드 reattach (재로드 X) */
+  if (reuseVideo) {
+    const newMedia = stage.querySelector('.movie-media');
+    if (newMedia) newMedia.appendChild(reuseVideo);
+  }
+
+  /* 영상 종료 → data-played="true" → 엔딩 decision 노출 (일반 무비 장면과 동일 게이트).
+     감상=영상 종료 후 / 영상 없음=즉시 / 편집=Movie-1 override로 미리 보임. */
+  stage.querySelectorAll('.js-movie-video').forEach(video => {
+    video.addEventListener('ended', () => {
+      const sc = video.closest('.scene-screen--movie');
+      if (sc) sc.setAttribute('data-played', 'true');
+    });
+  });
+
+  /* 다시 시작 / 직전 장면 — _renderStoryEnding과 동일 동작. */
+  const _restartBtn = stage.querySelector('.js-restart');
+  const _backBtn    = stage.querySelector('.js-back');
+  let _restartFired = false, _backFired = false;
+  _restartBtn?.addEventListener('click', () => {
+    if (_restartFired) return;
+    _restartFired = true;
+    restartStory();
+  });
+  _backBtn?.addEventListener('click', () => {
     if (_backFired) return;
     _backFired = true;
     navigateBack();

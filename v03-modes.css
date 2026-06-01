@@ -1505,6 +1505,57 @@ body.edit-mode-active:not(.viewer-test-active) .scene-screen--movie[data-played=
   letter-spacing: 0.01em;
 }
 
+/* 2026-05-31 Movie-E: 무비형 엔딩 decision — 일반 무비 decision(.movie-decision overlay)을
+   그대로 쓰되 마감 표시/버튼만. 영상 종료(data-played) 게이트로 노출(기존 룰 재사용). */
+.scene-screen--movie .movie-ending-decision {
+  align-items: center;
+  text-align: center;
+}
+.scene-screen--movie .movie-ending-mark {
+  font-family: var(--font-ui, 'Jua', sans-serif);
+  font-size: clamp(13px, 1.6vw, 16px);
+  letter-spacing: 0.04em;
+  color: #fff;
+  opacity: 0.82;
+}
+.scene-screen--movie .movie-ending-mark--true {
+  opacity: 1;
+  font-weight: 700;
+}
+.scene-screen--movie .movie-ending-title {
+  color: #fff;
+  font-weight: 700;
+  font-size: clamp(14px, 1.8vw, 18px);
+}
+.scene-screen--movie .movie-ending-body {
+  color: #fff;
+  font-size: 14px;
+  line-height: 1.55;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+.scene-screen--movie .movie-ending-route {
+  color: #fff;
+  opacity: 0.6;
+  font-size: 12px;
+}
+.scene-screen--movie .movie-ending-actions {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+.scene-screen--movie .movie-ending-actions .terminal-btn {
+  width: auto;
+  min-width: 130px;
+  padding: 8px 18px;
+  font-size: clamp(12px, 1.3vw, 14px);
+}
+
 /* 정식 video 태그 — movie-media 영역 안 꽉 채우되 절대 안 넘어감 */
 .scene-screen--movie .movie-video {
   width: 100%;

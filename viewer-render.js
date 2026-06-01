@@ -785,14 +785,29 @@ function _renderSceneMovie(stage, scene) {
   const bodyEnabled = (scene.bodyEnabled === true) ? true
                     : (scene.bodyEnabled === false) ? false
                     : !!body;
-  const bodyHtml = (bodyEnabled && body)
-    ? `<p class="movie-decision__desc">${escHtml(body)}</p>`
-    : '';
+  /* 2026-05-31 Movie-G: 본문 직접입력 — edit 모드(AI original)면 decision 본문에 contenteditable.
+     bodyEnabled=true일 때만(off면 기존대로 숨김). 빈 본문도 edit이면 렌더(placeholder).
+     감상 모드는 옛대로 빈 본문 미렌더. data-pb-editable="body" → _attachPbEditableInteractions +
+     _patchSceneBody(이미 .movie-decision__desc 처리) 양방향 동기. */
+  const _isEditMovie = !!(ViewerState && ViewerState.editMode);
+  const _aiViewMovie = (window.viewerAi && typeof window.viewerAi._getAiViewMode === 'function')
+    ? window.viewerAi._getAiViewMode() : 'original';
+  const _allowMovieInlineEdit = _isEditMovie && _aiViewMovie === 'original';
+  let bodyHtml = '';
+  if (bodyEnabled && (body || _allowMovieInlineEdit)) {
+    const _editAttrs = _allowMovieInlineEdit
+      ? ' contenteditable="true" data-pb-editable="body" data-placeholder="영상이 끝난 뒤 보여줄 문장을 입력하세요"'
+      : '';
+    const _editCls  = _allowMovieInlineEdit ? ' js-pb-editable-body' : '';
+    const _emptyCls = (_allowMovieInlineEdit && !body) ? ' is-empty' : '';
+    bodyHtml = `<p class="movie-decision__desc${_editCls}${_emptyCls}"${_editAttrs}>${escHtml(body)}</p>`;
+  }
 
-  /* 버튼 배열 — v0.3: 1개=세로, 2개=폭 충분하면 가로(CSS data 속성으로 분기), 3+개=세로 */
+  /* 버튼 배열 — v0.3: 1개=세로, 2개=폭 충분하면 가로(CSS data 속성으로 분기), 3+개=세로.
+     2026-05-31 Movie-G: 라벨 직접편집 위해 인덱스(i) 전달 — data-choice-idx로 쓰임. */
   const btnCount = choices.length;
   const btnLayout = btnCount === 2 ? 'pair' : 'stack';
-  const btns = _v03FilterChoices(choices).map(c => _v03ChoiceBtnHtml(scene, c, 'movie')).join('');
+  const btns = _v03FilterChoices(choices).map((c, i) => _v03ChoiceBtnHtml(scene, c, 'movie', i)).join('');
 
   /* 무비형 메타 데이터 속성 — 기존 captionMode/choiceReveal + 본문 ON/OFF + 재생 상태 (4단계 신규)
      · data-played="false" : 영상 재생 전/중 — CSS에서 .movie-decision 숨김
@@ -1048,7 +1063,9 @@ function _v03ChoiceBtnHtml(scene, choice, mode, idx) {
      edit 모드는 클릭 내비가 이미 차단(_bindSceneEvents)되어 disabled 불필요. text만 한정 —
      pb/movie/legacy는 옛대로 유지(스코프 보호). */
   const _isEditBtn = !!(ViewerState && ViewerState.editMode);
-  const disabled = (!choice.nextId && !(mode === 'text' && _isEditBtn)) ? 'disabled' : '';
+  /* 2026-05-31 Movie-G: text와 동일하게 movie도 edit 모드면 미연결 버튼 disabled 안 함
+     (disabled <button>은 자식 contenteditable 포커스 차단). pb/legacy는 옛대로. */
+  const disabled = (!choice.nextId && !((mode === 'text' || mode === 'movie') && _isEditBtn)) ? 'disabled' : '';
   /* W8: 빈 라벨 placeholder — 사용자 보고 "(빈 버튼)" → 더 친절 안내 */
   const label    = String(choice.label || '').trim() || '(행동 버튼을 적어보세요)';
   const isEmpty  = !String(choice.label || '').trim();
@@ -1085,9 +1102,12 @@ function _v03ChoiceBtnHtml(scene, choice, mode, idx) {
      그림책 choice-label 핸들러(_attachChoiceLabelEditable)를 label span에 그대로 재사용 —
      scene.choices[idx].label 저장 + 우측 .js-edit-button-label 양방향 동기 + _queueSaveButtons.
      빈 라벨은 placeholder fallback(label) 대신 진짜 빈 값 + is-empty로 CSS placeholder(::before)
-     표시(Text-2B 텍스트 contenteditable 룰 재사용). movie/legacy는 옛대로 plain text(텍스트 노드). */
+     표시(Text-2B 텍스트 contenteditable 룰 재사용).
+     2026-05-31 Movie-G: movie도 동일 직접입력(text 분기에 movie 포함). 라벨 span 클래스는
+     .text-choice-label 그대로 재사용 — _patchChoiceLabel(viewer-edit.js)의 기존 .text-choice-label
+     분기가 movie 버튼도 처리 → viewer-edit 수정 불필요. legacy만 plain text(텍스트 노드). */
   let _textLabelHtml = escHtml(label);
-  if (mode === 'text') {
+  if (mode === 'text' || mode === 'movie') {
     const _aiViewChoice = (typeof window !== 'undefined' && window.viewerAi
                            && typeof window.viewerAi._getAiViewMode === 'function')
       ? window.viewerAi._getAiViewMode() : 'original';

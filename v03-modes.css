@@ -1556,6 +1556,37 @@ body.edit-mode-active:not(.viewer-test-active) .scene-screen--movie[data-played=
   font-size: clamp(12px, 1.3vw, 14px);
 }
 
+/* 2026-05-31 Movie-G: 무비형 본문/행동버튼 라벨 직접입력 (edit 모드).
+   decision은 어두운 영상 overlay라 흰 글씨 + 반투명 placeholder. */
+.scene-screen--movie [contenteditable="true"] {
+  outline: none;
+  cursor: text;
+  border-radius: 4px;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+.scene-screen--movie .movie-decision__desc[contenteditable="true"] {
+  min-height: 1.4em;
+}
+.scene-screen--movie [contenteditable="true"]:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+.scene-screen--movie [contenteditable="true"]:focus,
+.scene-screen--movie [contenteditable="true"].is-focused {
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.45);
+}
+.scene-screen--movie [contenteditable="true"].is-empty::before {
+  content: attr(data-placeholder);
+  color: rgba(255, 255, 255, 0.55);
+  font-style: italic;
+  pointer-events: none;
+}
+/* 행동버튼 라벨 span — 빈 라벨도 클릭 영역 확보 (Text-2C와 동일 .text-choice-label 마커) */
+.scene-screen--movie .text-choice-label {
+  display: inline-block;
+  min-width: 1.5em;
+}
+
 /* 정식 video 태그 — movie-media 영역 안 꽉 채우되 절대 안 넘어감 */
 .scene-screen--movie .movie-video {
   width: 100%;

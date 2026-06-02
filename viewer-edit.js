@@ -3185,6 +3185,20 @@ function _pbRemoveLastChoiceForScene(scene) {
   _scheduleViewerFrameReRender();
 }
 
+/* 2026-06-02: 1단 중간 버튼 개별 삭제 — 2단 js-edit-btn-remove와 동일 데이터 경로
+   (splice(idx,1) → _queueSaveButtons → renderEditPanel + 재렌더). 최소 1개 유지 정책 동일.
+   splice로 배열이 dense하게 유지돼 미리보기(원본 인덱스)/1단/2단 모두 정합. */
+function _pbRemoveChoiceAtForScene(scene, idx) {
+  if (!scene || !Array.isArray(scene.choices)) return;
+  if (!Number.isFinite(idx) || idx < 0 || idx >= scene.choices.length) return;
+  if (scene.choices.length <= 1) return;  /* 최소 1개 유지 (2단 삭제와 동일) */
+  scene.choices.splice(idx, 1);
+  _queueSaveButtons(scene);
+  _flushPendingSave();
+  renderEditPanel();
+  _scheduleViewerFrameReRender();
+}
+
 /* 2026-05-27 Phase 4-C: 1단 선택지 연결 select 옵션 빌더 — 안전 정책.
    · 표지(cover) 제외 (목록에서 빼버림 — 학생 연결 실수 차단)
    · 자기 자신: disabled + 라벨에 "[현재 장면]" 표시
@@ -3224,12 +3238,16 @@ function _buildLinkSelectOptionsHtml(scene, currentNextId) {
    일반 장면만 (표지/엔딩 제외). 버튼 0개면 섹션 자체 X.
    각 row: [N] 라벨 미리(12자) → select. 저장 흐름은 _queueSaveButtons
    재사용 (data 구조 변경 X). */
-function _pbChoiceLinkSectionHtml(scene) {
+function _pbChoiceLinkSectionHtml(scene, rowDelete) {
   if (!scene) return '';
   if (scene.type === 'cover' || scene.isCover) return '';
   if (scene.type === 'ending' || scene.isEnding) return '';
   const choices = Array.isArray(scene.choices) ? scene.choices : [];
   if (choices.length === 0) return '';
+
+  /* 2026-06-02: rowDelete=true면 행마다 개별 삭제(×) — 단 최소 1개 유지(2단 정책 동일)라
+     버튼이 1개뿐이면 ×를 숨김. 현재 movie 1단에서만 켬(text/pb 1단은 옛 그대로). */
+  const allowRowDelete = !!rowDelete && choices.length > 1;
 
   const rows = choices.map((c, i) => {
     const rawLabel = (c && typeof c.label === 'string') ? c.label.trim() : '';
@@ -3239,6 +3257,9 @@ function _pbChoiceLinkSectionHtml(scene) {
     const labelEmptyClass = rawLabel ? '' : ' is-empty';
     const currentNext = (c && c.nextId) ? String(c.nextId) : '';
     const optionsHtml = _buildLinkSelectOptionsHtml(scene, currentNext);
+    const removeBtnHtml = allowRowDelete
+      ? `<button type="button" class="edit-pb-choice-link-remove js-pb-choice-remove" data-idx="${i}" title="이 버튼 삭제" aria-label="이 버튼 삭제">×</button>`
+      : '';
     return `
       <div class="edit-pb-choice-link-row" data-idx="${i}">
         <span class="edit-pb-choice-link-num">[${i + 1}]</span>
@@ -3248,6 +3269,7 @@ function _pbChoiceLinkSectionHtml(scene) {
           <option value=""${currentNext ? '' : ' selected'}>(미연결)</option>
           ${optionsHtml}
         </select>
+        ${removeBtnHtml}
       </div>`;
   }).join('');
 
@@ -3549,9 +3571,10 @@ function _typeSectionMovieHtml(scene) {
     </div>
 
     <!-- 2026-06-01 Movie-H: 1단 행동 버튼 개수/연결 — 그림책/텍스트(Text-2D)와 동일 helper 재사용.
-         일반 장면만(helper가 표지/엔딩이면 빈 문자열). 저장은 _queueSaveButtons 그대로. -->
+         일반 장면만(helper가 표지/엔딩이면 빈 문자열). 저장은 _queueSaveButtons 그대로.
+         2026-06-02: movie만 행별 개별 삭제(×) 켬(rowDelete=true) — 고급편집 숨김 목표. -->
     ${_pbChoiceCountSectionHtml(scene)}
-    ${_pbChoiceLinkSectionHtml(scene)}
+    ${_pbChoiceLinkSectionHtml(scene, true)}
 
     <div class="edit-row">
       <label class="edit-label">미디어</label>
@@ -4317,6 +4340,16 @@ function _bindTypeSectionsEvents(panel, scene) {
         _queueSaveButtons(scene);
         _flushPendingSave();
         _scheduleViewerFrameReRender();
+      });
+    });
+
+    /* 2026-06-02: 무비 1단 행별 개별 삭제(×) — 2단 삭제와 동일 경로(_pbRemoveChoiceAtForScene).
+       삭제 후 renderEditPanel + 재렌더로 1단/2단/미리보기 일괄 갱신, 번호 1,2,3 재정렬. */
+    panel.querySelectorAll('.js-pb-choice-remove').forEach(rmBtn => {
+      rmBtn.addEventListener('click', () => {
+        if (!_editText.editable) return;
+        const idx = parseInt(rmBtn.dataset.idx, 10);
+        _pbRemoveChoiceAtForScene(scene, idx);
       });
     });
 

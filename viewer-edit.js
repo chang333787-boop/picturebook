@@ -527,7 +527,21 @@ function _patchSceneTitle(value) {
 function _patchChoiceLabel(idx, value) {
   const screen = _getSceneScreen();
   if (!screen) return false;
-  /* 4모드 선택지 클래스 모두 — 체험전시는 connect-object 안 .co-label */
+  /* 2026-06-02: 원본 인덱스 정합 — 미리보기 라벨 span은 data-choice-idx에 scene.choices
+     원본 인덱스를 싣는다. 위치(buttons[idx])가 아니라 속성으로 타겟해야 choices에 구멍이
+     있어도 엉뚱한 버튼을 건드리지 않는다(편집 모드 pb/text/movie 공통). */
+  const editLabel = screen.querySelector(
+    `[data-pb-editable="choice-label"][data-choice-idx="${idx}"]`
+  );
+  if (editLabel) {
+    if (!(editLabel.isContentEditable && document.activeElement === editLabel)) {
+      editLabel.textContent = value || '';
+      editLabel.classList.toggle('is-empty', !(value || '').trim());
+    }
+    return true;
+  }
+  /* fallback — data-choice-idx 없는 경우(비편집/AI보기/legacy): 옛 위치 기반.
+     4모드 선택지 클래스 모두 — 체험전시는 connect-object 안 .co-label */
   const buttons = screen.querySelectorAll('.choice-v03, .pb-choice, .text-choice, .js-connect-object');
   if (!buttons || idx >= buttons.length) return false;
   const btn = buttons[idx];
@@ -560,6 +574,21 @@ function _patchChoiceLabel(idx, value) {
   if (textNode) textNode.nodeValue = value || '';
   else btn.textContent = value || '';
   return true;
+}
+
+/* 2026-06-02: 1단 '🔗 선택지 연결'의 [N] 라벨 미리보기를 라이브 갱신.
+   라벨을 미리보기/2단 어디서 고쳐도 1단 표시가 즉시 따라오게(정적이던 것 보완).
+   idx = scene.choices 원본 인덱스(1단 row data-idx와 동일 규약). */
+function _syncChoiceLinkLabelPreview(idx, value) {
+  const panel = document.getElementById('edit-panel');
+  if (!panel) return;
+  const el = panel.querySelector(
+    `.edit-pb-choice-link-row[data-idx="${idx}"] .edit-pb-choice-link-label`
+  );
+  if (!el) return;
+  const t = String(value || '').trim();
+  el.textContent = t ? (t.length > 12 ? t.slice(0, 12) + '…' : t) : '버튼 문구 없음';
+  el.classList.toggle('is-empty', !t);
 }
 
 /* 체험전시형 connectObject 부분 갱신 — 오브젝트 위치/크기/라벨 */
@@ -1533,6 +1562,7 @@ function _attachChoiceLabelEditable(el, scene) {
 
     scene.choices[idx].label = value;
     _updateChoicePlaceholder();
+    _syncChoiceLinkLabelPreview(idx, value);   /* 1단 [N] 라벨 미리보기 동기 */
 
     /* 우측 2단 input 동기화 — focus 보호 */
     const panelInput = document.querySelector(
@@ -2386,6 +2416,7 @@ function _bindButtonsEditEvents(panel, scene) {
     /* W7 깜빡임 차단: 선택지 라벨 입력은 viewer의 해당 버튼 텍스트만 갱신.
        W8 fix: val 변수 정의 안 됨 — value(절단 적용된 실제 입력값) 사용. */
     if (!_patchChoiceLabel(idx, value)) _scheduleViewerFrameReRender();
+    _syncChoiceLinkLabelPreview(idx, value);   /* 1단 [N] 라벨 미리보기 동기 */
     _queueSaveButtons(scene);
   });
 
@@ -3482,13 +3513,26 @@ function _typeSectionMovieHtml(scene) {
   const _orientLockedAttr  = _isFirstMovieScene ? '' : 'disabled';
   const _orientLockedClass = _isFirstMovieScene ? '' : ' edit-toggle--locked';
   const _isPortrait = (ViewerState.project && ViewerState.project.pageOrientation === 'portrait');
+  /* 2026-06-01 Movie-H: 선택지 표시 방식 — 작품 단위 viewer-meta.movieDecisionStyle.
+     panel(기본 하단 패널) | card(중앙 카드). 첫 장면에서만 변경(화면 방향과 동일 정책). */
+  const _isCardDeco = (ViewerState.project && ViewerState.project.movieDecisionStyle === 'card');
 
   return `
     <div class="edit-divider"></div>
     <h4 class="edit-section-title edit-section-title--major">② 무비형 설정</h4>
-    <div class="edit-section-hint">
-      무비형은 영상 또는 이미지를 보고 반응을 선택하는 모드입니다.
-      상단에 미디어, 하단에 결정 패널(본문 + 선택지)이 나뉘어 표시됩니다.
+    <div class="edit-section-hint">영상이 끝난 뒤 본문과 선택지가 나타납니다.</div>
+
+    <div class="edit-row">
+      <label class="edit-label">💬 선택지 표시 방식 <span class="edit-label-note">(작품 전체)</span></label>
+      <div class="edit-toggle-group">
+        <button type="button" ${_orientLockedAttr}
+          class="edit-toggle js-movie-deco${_orientLockedClass} ${_isCardDeco ? '' : 'active'}"
+          data-val="panel">하단 패널</button>
+        <button type="button" ${_orientLockedAttr}
+          class="edit-toggle js-movie-deco${_orientLockedClass} ${_isCardDeco ? 'active' : ''}"
+          data-val="card">중앙 카드</button>
+      </div>
+      <div class="edit-field-hint">영상 종료 후 선택지가 나타납니다.${_isFirstMovieScene ? '' : ' (첫 장면에서만)'}</div>
     </div>
 
     <div class="edit-row">
@@ -3501,8 +3545,13 @@ function _typeSectionMovieHtml(scene) {
           class="edit-toggle js-pb-orientation${_orientLockedClass} ${_isPortrait ? 'active' : ''}"
           data-val="portrait">세로형</button>
       </div>
-      <div class="edit-field-hint">작품 전체 무비 화면 비율을 정합니다. 영상은 잘리지 않고 화면 안에 맞춰집니다.${_isFirstMovieScene ? '' : ' (첫 장면에서만 변경할 수 있어요)'}</div>
+      <div class="edit-field-hint">작품 전체 화면 방향입니다. 영상은 잘리지 않습니다.${_isFirstMovieScene ? '' : ' (첫 장면에서만)'}</div>
     </div>
+
+    <!-- 2026-06-01 Movie-H: 1단 행동 버튼 개수/연결 — 그림책/텍스트(Text-2D)와 동일 helper 재사용.
+         일반 장면만(helper가 표지/엔딩이면 빈 문자열). 저장은 _queueSaveButtons 그대로. -->
+    ${_pbChoiceCountSectionHtml(scene)}
+    ${_pbChoiceLinkSectionHtml(scene)}
 
     <div class="edit-row">
       <label class="edit-label">미디어</label>
@@ -3539,13 +3588,7 @@ function _typeSectionMovieHtml(scene) {
           class="edit-toggle js-movie-body-enabled ${!bodyEnabled ? 'active' : ''}"
           data-val="off">— 본문 없음</button>
       </div>
-      <div class="edit-section-hint">
-        ON: 결정 패널에 본문(설명문) + 선택지 / OFF: 선택지만.
-      </div>
-    </div>
-
-    <div class="edit-section-hint" style="margin-top:6px;">
-      🎬 무비형은 영상이 끝난 뒤 본문·선택지가 나타나요. (자막 방식·노출 시점 옵션은 정리됨)
+      <div class="edit-section-hint">본문을 함께 보여줄지 정합니다.</div>
     </div>`;
   /* 2026-05-31 Movie-C: 무비형 단순화 — "자막 표시 방식(captionMode)" · "선택지 노출 시점
      (choiceReveal)" 토글 UI 제거. 마감 규칙은 항상 "영상 끝난 뒤 본문/선택지 노출"(렌더에서
@@ -3776,6 +3819,34 @@ function _bindPageOrientationToggle(panel) {
         }
       } catch (e) {
         console.error('[pageOrientation] 저장 실패:', e);
+      }
+    });
+  });
+}
+
+/* 2026-06-01 Movie-H: 선택지 표시 방식(panel|card) 토글 — 작품 단위 viewer-meta.movieDecisionStyle.
+   화면 방향 토글(_bindPageOrientationToggle)과 동일 패턴(viewer-meta update + in-memory + 재렌더). */
+function _bindMovieDecoToggle(panel) {
+  panel.querySelectorAll('.js-movie-deco').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!_editText.editable) return;
+      const val = btn.dataset.val === 'card' ? 'card' : 'panel';
+      if ((ViewerState.project.movieDecisionStyle || 'panel') === val) return;   // no-op
+      ViewerState.project.movieDecisionStyle = val;
+      renderEditPanel();
+      _scheduleViewerFrameReRender();
+      try {
+        const teamName = ViewerState.project.teamName;
+        const classId  = ViewerState.project.classId;
+        if (teamName && typeof getViewerDb === 'function') {
+          const encodedName = encodeURIComponent(teamName);
+          const basePath = classId
+            ? `classes/${classId}/teams/${encodedName}`
+            : `teams/${encodedName}`;
+          await getViewerDb().ref(`${basePath}/viewer-meta`).update({ movieDecisionStyle: val });
+        }
+      } catch (e) {
+        console.error('[movieDecisionStyle] 저장 실패:', e);
       }
     });
   });
@@ -4212,6 +4283,42 @@ function _bindTypeSectionsEvents(panel, scene) {
     /* 2026-05-31 Movie-B-2: 무비형도 작품 단위 화면 방향(가로/세로) 토글 — 그림책과 동일 helper.
        movie-stage(Movie-B-1)가 생겨서 이제 세로 비율이 실제 적용됨. */
     _bindPageOrientationToggle(panel);
+    /* 2026-06-01 Movie-H: 선택지 표시 방식(하단 패널/중앙 카드) 토글. */
+    _bindMovieDecoToggle(panel);
+
+    /* 2026-06-01 Movie-H: 무비 1단 행동 버튼 개수/연결 핸들러 — Text-2D와 동일.
+       모드 무관 helper(_pbAddChoiceForScene/_pbRemoveLastChoiceForScene/js-pb-choice-link)
+       + _queueSaveButtons 재사용. 엔딩이면 섹션 빈 문자열 → querySelector null 안전. */
+    const _mvAddChoiceBtn = panel.querySelector('.js-pb-choice-add');
+    if (_mvAddChoiceBtn) {
+      _mvAddChoiceBtn.addEventListener('click', () => {
+        if (!_editText.editable) return;
+        _pbAddChoiceForScene(scene);
+      });
+    }
+    const _mvRemoveLastChoiceBtn = panel.querySelector('.js-pb-choice-remove-last');
+    if (_mvRemoveLastChoiceBtn) {
+      _mvRemoveLastChoiceBtn.addEventListener('click', () => {
+        if (!_editText.editable) return;
+        if (_mvRemoveLastChoiceBtn.disabled) return;
+        _pbRemoveLastChoiceForScene(scene);
+      });
+    }
+    panel.querySelectorAll('.js-pb-choice-link').forEach(linkSel => {
+      linkSel.addEventListener('change', () => {
+        if (!_editText.editable) return;
+        const idx = parseInt(linkSel.dataset.idx, 10);
+        if (isNaN(idx) || !scene.choices || !scene.choices[idx]) return;
+        const val = linkSel.value || '';
+        scene.choices[idx].nextId = val || null;
+        scene.choices[idx].nextNum = val ? Number(val) : null;
+        const sel2 = panel.querySelector(`.js-edit-btn-next[data-idx="${idx}"]`);
+        if (sel2 && sel2.value !== val) sel2.value = val;
+        _queueSaveButtons(scene);
+        _flushPendingSave();
+        _scheduleViewerFrameReRender();
+      });
+    });
 
     /* movieData 객체 보장 — 없으면 기본값 */
     function _ensureMovieData() {

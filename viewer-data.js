@@ -145,6 +145,11 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
     if (typeof meta.pageOrientation === 'string') {
       ViewerState.project.pageOrientation = meta.pageOrientation;
     }
+    /* 2026-06-01 Movie-H: 무비형 선택지 표시 방식(작품 단위). panel(기본) | card.
+       pageOrientation과 동일 화이트리스트 읽기 — 새 필드 1개, 저장 구조 변경 없음. */
+    if (typeof meta.movieDecisionStyle === 'string') {
+      ViewerState.project.movieDecisionStyle = meta.movieDecisionStyle;
+    }
     if (typeof meta.pbTheme === 'string') {
       ViewerState.project.pbTheme = meta.pbTheme;
     }

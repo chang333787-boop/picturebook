@@ -1403,23 +1403,108 @@ body[data-page-orientation="portrait"] .scene-screen--movie .movie-stage {
   background: #000;
   overflow: hidden;
 }
-/* 결정 패널 — 영상 위에 overlay (그림책 imageCenter 구조).
-   하단 중앙에 본문 글상자처럼 떠있고, 아래 선택지가 가로 분배. */
+/* ════════ Movie decision — 토큰 기반 (card/panel × 가로/세로) ════════
+   2026-06-02 Movie-H: 위치/크기는 4조합 분기, 타이포/버튼은 공통 토큰 + 필요 조합만 override.
+   값은 실화면 튜너로 잡은 뒤 체계화(1:1 아님, card 세로 본문16/버튼14 하한).
+   normal·ending(.movie-ending-decision)은 .movie-decision 레이아웃 토큰을 공유한다. */
+
+/* 공통 타이포/버튼 토큰 (기본값) */
+.scene-screen--movie {
+  --md-body-font: 20px;
+  --md-btn-font: 16px;
+  --md-btn-py: 11px;
+  --md-btn-px: 12px;
+  --md-btn-gap: 16px;
+  --md-btn-minw: 0px;
+}
+
+/* panel(B, 하단) — 가로 기본. 배경은 위로 투명해지는 gradient 유지(영상 비침). */
+.scene-screen--movie[data-movie-deco="panel"] {
+  --md-left: 0;
+  --md-right: 0;
+  --md-anchor-top: auto;
+  --md-anchor-bottom: 0px;
+  --md-translate-x: 0%;
+  --md-translate-y: 0%;
+  --md-width: 100%;
+  --md-max-width: 100%;
+  --md-max-height: 42%;
+  --md-pad: 22px 32px;
+  --md-radius: 0px;
+  --md-blur: 2px;
+  --md-bg: linear-gradient(to top, rgba(8,10,16,0.92) 55%, rgba(8,10,16,0.38) 100%);
+  --md-border: none;
+  --md-shadow: none;
+  --md-gap: 16px;
+  --md-body-font: 22px;
+  --md-btn-py: 13px;
+  --md-btn-gap: 18px;
+}
+body[data-page-orientation="portrait"] .scene-screen--movie[data-movie-deco="panel"] {
+  --md-max-height: 44%;
+  --md-blur: 3px;
+  --md-bg: linear-gradient(to top, rgba(8,10,16,0.85) 55%, rgba(8,10,16,0.32) 100%);
+  --md-body-font: 19px;
+}
+
+/* card(A, 중앙) — 가로 기본. 배경은 solid 반투명 유지. */
+.scene-screen--movie[data-movie-deco="card"] {
+  --md-left: 50%;
+  --md-right: auto;
+  --md-anchor-top: 82%;
+  --md-anchor-bottom: auto;
+  --md-translate-x: -50%;
+  --md-translate-y: -41%;
+  --md-width: min(96%, 960px);
+  --md-max-width: calc(100% - 24px);
+  --md-max-height: 70%;
+  --md-pad: 30px 34px;
+  --md-radius: 20px;
+  --md-blur: 10px;
+  --md-bg: rgba(26, 30, 40, 0.75);
+  --md-border: 1px solid rgba(255, 255, 255, 0.08);
+  --md-shadow: 0 14px 44px rgba(0, 0, 0, 0.42);
+  --md-gap: 16px;
+  --md-btn-font: 18px;
+  --md-btn-gap: 12px;
+}
+body[data-page-orientation="portrait"] .scene-screen--movie[data-movie-deco="card"] {
+  --md-anchor-top: 80%;
+  --md-translate-y: -46%;
+  --md-width: min(93%, 920px);
+  --md-max-height: 74%;
+  --md-pad: 24px 28px;
+  --md-blur: 12px;
+  --md-gap: 14px;
+  --md-body-font: 16px;
+  --md-btn-font: 14px;
+  --md-btn-px: 9px;
+  --md-btn-gap: 10px;
+}
+
+/* 토큰 소비 — 레이아웃 (card/panel 공통, 값은 위 토큰에서). */
 .scene-screen--movie .movie-decision {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  /* W7-A 정정 v7: 폭 명시 — 부모 .scene-screen--movie의 left:0 right:0 만으로
-     부족할 수 있어 명시적으로 width 100% + 박스 모델 보장. */
-  width: 100%;
-  max-width: 100%;
-  background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.55) 70%, rgba(0,0,0,0) 100%);
-  padding: 40px 20px 16px;
+  left: var(--md-left, 0);
+  right: var(--md-right, 0);
+  top: var(--md-anchor-top, auto);
+  bottom: var(--md-anchor-bottom, 0px);
+  transform: translate(var(--md-translate-x, 0%), var(--md-translate-y, 0%));
+  width: var(--md-width, 100%);
+  max-width: var(--md-max-width, 100%);
+  max-height: var(--md-max-height, 42%);
+  background: var(--md-bg, linear-gradient(to top, rgba(8,10,16,0.92) 55%, rgba(8,10,16,0.38) 100%));
+  padding: var(--md-pad, 22px 32px);
+  border: var(--md-border, none);
+  border-radius: var(--md-radius, 0px);
+  box-shadow: var(--md-shadow, none);
+  -webkit-backdrop-filter: blur(var(--md-blur, 0px));
+  backdrop-filter: blur(var(--md-blur, 0px));
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  max-height: 60%;
+  align-items: center;
+  text-align: center;
+  gap: var(--md-gap, 16px);
   overflow-y: auto;
   overflow-x: hidden;
   box-sizing: border-box;
@@ -1603,7 +1688,7 @@ body.edit-mode-active:not(.viewer-test-active) .scene-screen--movie[data-played=
 /* 결정 패널 — flex 0 0 40% 절대 비율. 자체 스크롤로 본문/선택지 길어도 OK */
 /* W7-A 정정 v6: 옛 flex 60/40 룰 폐기 — 위에서 absolute overlay 룰 사용 */
 .scene-screen--movie .movie-decision__desc {
-  font-size: 14px;
+  font-size: var(--md-body-font, 20px);
   line-height: 1.55;
   color: #fff;          /* W7-A 정정 v6: 어두운 overlay 위에 흰 글씨 */
   margin: 0;
@@ -1613,14 +1698,12 @@ body.edit-mode-active:not(.viewer-test-active) .scene-screen--movie[data-played=
   overflow-wrap: anywhere;
 }
 .scene-screen--movie .movie-decision__actions {
-  /* W7-A 정정 v7: 명시적으로 row + nowrap.
-     이전엔 column이 default + pair만 row였는데, fix9에서 row+wrap로 바꿨다가
-     6개 줄바꿈해 흘러내림.
-     이제: 항상 row + nowrap → 6개라도 한 줄에 작게 들어감 + viewer-frame 폭 절대 안 넘음. */
+  /* 2026-06-01 Movie-H: 패널/카드 둘 다 가운데 정렬 + 줄바꿈 허용. */
   display: flex;
   flex-direction: row;
-  flex-wrap: nowrap;
-  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--md-btn-gap, 16px);
   width: 100%;
   max-width: 100%;
   overflow: hidden;
@@ -1637,22 +1720,14 @@ body.edit-mode-active:not(.viewer-test-active) .scene-screen--movie[data-played=
      width: auto: 본체 룰의 width: 100% 무력화 (flex 분배 우선). */
   flex: 1 1 0;
   width: auto;
-  min-width: 0;
-  padding: 9px 8px;       /* 6개 들어가도 글자 보이게 작은 padding */
-  font-size: 12.5px;
+  min-width: var(--md-btn-minw, 0px);   /* 0 유지 — 많은 버튼도 flex 균등 분배/축소 */
+  padding: var(--md-btn-py, 11px) var(--md-btn-px, 12px);
+  font-size: var(--md-btn-font, 16px);
   text-align: center;
   justify-content: center;
 }
 .scene-screen--movie .movie-decision__actions .choice-v03::after {
   display: none;       /* 화살표 숨김 (가로 분배 시 공간 부족) */
-}
-
-@media (min-width: 640px) {
-  /* 폭 충분하면 padding/글씨 조금 키움 */
-  .scene-screen--movie .movie-decision__actions .choice-v03 {
-    padding: 10px 12px;
-    font-size: 13.5px;
-  }
 }
 
 /* ╭─────────────────────────────────────────╮

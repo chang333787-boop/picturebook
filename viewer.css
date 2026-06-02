@@ -892,6 +892,7 @@ body[data-page-orientation="portrait"] #stage-wrap.letterbox-v #viewer-frame {
   background: var(--surface);
   border-left: 1px solid var(--border);
   overflow-y: auto;
+  overflow-x: hidden;   /* 2026-06-02: 내부 자식이 넓어도 패널 밖(화면 오른쪽)으로 잘리지 않게 */
   flex-shrink: 0;
 }
 #edit-panel:empty { display: none; }
@@ -900,7 +901,9 @@ body[data-page-orientation="portrait"] #stage-wrap.letterbox-v #viewer-frame {
 @media (min-width: 1025px) {
   #edit-panel .edit-panel-inner {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    /* 2026-06-02: minmax(0,1fr) — grid blowout 방지. 넓은 자식(select·긴 문구)이
+       컬럼을 패널 밖으로 늘리지 못하게(50/50 외관은 동일, 좁아지면 자식이 wrap/ellipsis). */
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     column-gap: 18px;
     row-gap: 14px;
     align-items: start;
@@ -934,7 +937,7 @@ body[data-page-orientation="portrait"] #stage-wrap.letterbox-v #viewer-frame {
      · 클래스 박는 책임은 viewer-edit.js _bindTextEditEvents에 박힘 — :has() 의존 X.
        구형 학교 태블릿/WebView(:has() 미지원)에서도 일관 동작. */
   #edit-panel .edit-panel-inner.is-text-collapsed {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   #edit-panel .edit-panel-inner > .edit-tab-panel[data-panel="choice"]  {
     order: 3;
@@ -5713,6 +5716,7 @@ body[data-page-orientation="portrait"] .terminal-screen--story .ending-page {
   flex-direction: column;
   gap: 8px;
   margin-top: 6px;
+  min-width: 0;   /* 2026-06-02: 좁은 grid 컬럼 안에서 카드가 줄어들 수 있게 */
 }
 
 .edit-button-row {
@@ -5724,6 +5728,7 @@ body[data-page-orientation="portrait"] .terminal-screen--story .ending-page {
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 4px;
   transition: border-color 0.12s, background 0.12s;
+  min-width: 0;   /* 2026-06-02: input/meta가 패널 폭 안에서 줄어들게 (overflow 차단) */
 }
 .edit-button-row:hover {
   border-color: rgba(88, 166, 255, 0.3);
@@ -5769,6 +5774,10 @@ body[data-page-orientation="portrait"] .terminal-screen--story .ending-page {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  /* 2026-06-02: 좁은 패널 폭에서 [글자수]+[다음→select]가 한 줄에 안 들어가면
+     overflow 대신 줄바꿈(연결 select가 아래 줄로). 넓은 폭(text/pb)에선 한 줄 유지 — 회귀 0. */
+  flex-wrap: wrap;
+  gap: 4px 8px;
   font-size: 10.5px;
   color: var(--text-muted, #888);
   font-family: 'Consolas', 'Menlo', monospace;
@@ -5794,6 +5803,11 @@ body[data-page-orientation="portrait"] .terminal-screen--story .ending-page {
 .edit-btn-target {
   font-style: normal;
   opacity: 0.75;
+  /* 2026-06-02: 라벨 + select 묶음이 좁은 폭에서 select를 줄여 패널 밖으로 안 나가게. */
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
 }
 
 /* nextId 드롭다운 (W2-B-α) — 버튼별 다음 장면 연결 편집 */
@@ -5811,6 +5825,7 @@ body[data-page-orientation="portrait"] .terminal-screen--story .ending-page {
   font-size: 12px;
   cursor: pointer;
   max-width: 180px;
+  min-width: 0;   /* 2026-06-02: 좁은 폭에서 축소 허용 (overflow 차단) */
   /* 길어지면 ... 처리 */
   text-overflow: ellipsis;
 }
@@ -5854,6 +5869,7 @@ body[data-page-orientation="portrait"] .terminal-screen--story .ending-page {
   border-radius: 4px;
   transition: border-color 0.12s, background 0.12s;
   min-width: 0;  /* 1단 폭 좁아도 깨지지 않게 — flex shrink 허용 */
+  flex-wrap: wrap;   /* 2026-06-02: 좁은 폭에선 select가 라벨 아래 줄로 쌓이게 */
 }
 .edit-pb-choice-link-row:hover {
   border-color: rgba(88, 166, 255, 0.3);
@@ -5904,9 +5920,9 @@ body[data-page-orientation="portrait"] .terminal-screen--story .ending-page {
 
 /* select — 1단 폭 안에서 깨지지 않게. flex로 남는 폭 활용 + max 안전망. */
 .edit-pb-choice-link-select {
-  flex: 0 1 auto;
-  min-width: 90px;
-  max-width: 160px;
+  flex: 1 1 auto;
+  min-width: 0;       /* 2026-06-02: 좁은 폭에서 축소 허용 (패널 밖으로 안 나가게) */
+  max-width: 100%;    /* 줄바꿈돼 자기 줄에 오면 폭 활용, 절대 패널 초과 X */
   padding: 3px 6px;
   border-radius: 5px;
   border: 1px solid var(--border, #444);

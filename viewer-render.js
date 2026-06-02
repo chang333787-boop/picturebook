@@ -463,9 +463,8 @@ function _renderSceneCard(scene, choices) {
   }
 
   /* 버튼 영역 — 카드 안 맨 아래. v0.3 텍스트형은 좌측정렬 세로.
-     2026-05-31 Text-2C: 라벨 직접편집 위해 인덱스(i) 전달 — data-choice-idx로 쓰임.
-     그림책 분할형 호출부(filteredChoices.map((c,i)=>...))와 동일 규약(필터 인덱스). */
-  const btns = _v03FilterChoices(choices).map((c, i) => _v03ChoiceBtnHtml(scene, c, 'text', i)).join('');
+     2026-06-02: data-choice-idx = 원본 인덱스(x.origIdx), 표시 순번 = i. */
+  const btns = _v03FilterChoicesIndexed(choices).map((x, i) => _v03ChoiceBtnHtml(scene, x.c, 'text', x.origIdx, i)).join('');
   const btnsHtml = `<div class="text-card__actions">${btns}</div>`;
 
   return `${titleHtml}${bodyHtml}${btnsHtml}`;
@@ -600,9 +599,9 @@ function _renderScenePicturebook(stage, scene, submode) {
     : `<h3 class="pb-text__title js-pb-editable-title" ${editAttrs} data-placeholder="(제목을 적어보세요)">${escHtml(title)}</h3>`;
   const bodyHtml  = body || isEdit
     ? `<p class="pb-text__body js-pb-editable-body" ${editAttrsBody} data-placeholder="(본문을 적어보세요)">${escHtml(body)}</p>` : '';
-  const filteredChoices = _v03FilterChoices(choices);
+  const filteredChoices = _v03FilterChoicesIndexed(choices);
   const pbChoiceCount = filteredChoices.length;
-  const btns = filteredChoices.map((c, i) => _v03ChoiceBtnHtml(scene, c, 'picturebook', i)).join('');
+  const btns = filteredChoices.map((x, i) => _v03ChoiceBtnHtml(scene, x.c, 'picturebook', x.origIdx, i)).join('');
 
   /* 그림 중심형: 제목은 그림 위 상단 고정 / 본문은 그림 위 글상자.
      분할형: 제목/본문/선택지 모두 하단 텍스트 영역. */
@@ -804,21 +803,24 @@ function _renderSceneMovie(stage, scene) {
   }
 
   /* 버튼 배열 — v0.3: 1개=세로, 2개=폭 충분하면 가로(CSS data 속성으로 분기), 3+개=세로.
-     2026-05-31 Movie-G: 라벨 직접편집 위해 인덱스(i) 전달 — data-choice-idx로 쓰임. */
+     2026-06-02: data-choice-idx = 원본 인덱스(x.origIdx), 표시 순번 = i. */
   const btnCount = choices.length;
   const btnLayout = btnCount === 2 ? 'pair' : 'stack';
-  const btns = _v03FilterChoices(choices).map((c, i) => _v03ChoiceBtnHtml(scene, c, 'movie', i)).join('');
+  const btns = _v03FilterChoicesIndexed(choices).map((x, i) => _v03ChoiceBtnHtml(scene, x.c, 'movie', x.origIdx, i)).join('');
 
   /* 무비형 메타 데이터 속성 — 기존 captionMode/choiceReveal + 본문 ON/OFF + 재생 상태 (4단계 신규)
      · data-played="false" : 영상 재생 전/중 — CSS에서 .movie-decision 숨김
      · data-played="true"  : 영상 종료 또는 영상 없음 — .movie-decision 노출
      초기값: videoUrl 있으면 "false", 없으면 "true". 'ended' 이벤트로 토글. */
   const initialPlayed = hasVideo ? 'false' : 'true';
+  /* 2026-06-01 Movie-H: 작품단위 선택지 표시 방식 — panel(기본 하단 패널) | card(중앙 카드). */
+  const _movieDeco = (ViewerState.project && ViewerState.project.movieDecisionStyle === 'card') ? 'card' : 'panel';
   const movieAttrs =
     ` data-movie-caption="${md.captionMode || 'overlay'}"` +
     /* 2026-05-31 Movie-C: 마감 규칙 — 무비형은 항상 "영상 끝난 뒤" 본문/선택지 노출.
        저장된 choiceReveal=always는 무시(end 강제). 데이터 필드는 보존, 렌더만 고정. */
     ` data-movie-reveal="end"` +
+    ` data-movie-deco="${_movieDeco}"` +
     ` data-body-enabled="${bodyEnabled ? 'on' : 'off'}"` +
     ` data-played="${initialPlayed}"` +
     (hasVideo ? ' data-movie-has-video="true"' : '');
@@ -1041,23 +1043,35 @@ function _renderSceneLegacy(stage, scene, presentationMode, presentationSubmode)
    남아있을 수 있음. 감상 화면에서 그런 빈 버튼을 표시하는 건 어색하므로 skip.
    기준: 라벨이 빈 채 AND nextId 없음 → 사용자가 의도한 버튼 아님 (빈 칸 잔재).
    라벨이 있거나 nextId 연결된 버튼은 표시 (미연결 + 라벨 있음 = 진짜 미연결 경고).  */
-function _v03FilterChoices(choices) {
+/* 2026-06-02: 원본 인덱스(origIdx) 보존 필터 — [{c, origIdx}] 반환.
+   미리보기 버튼이 scene.choices 원본 인덱스를 data-choice-idx로 싣게 해,
+   choices에 falsy 구멍이 있어도 1단/2단 편집과 인덱스가 어긋나지 않게 한다(단일 출처). */
+function _v03FilterChoicesIndexed(choices) {
   if (!Array.isArray(choices)) return [];
-  /* W8: 다듬기 모드 — 빈 선택지도 표시 (사용자 보고: "행동 버튼 추가 누르면 바로 안 나타나").
-     감상 모드 — 라벨/다음 장면 둘 다 없으면 숨김 (실제 작품 흐름). */
+  /* W8: 다듬기 모드 — 빈 선택지도 표시. 감상 모드 — 라벨/다음 둘 다 없으면 숨김. */
   const isEdit = (typeof ViewerState !== 'undefined' && ViewerState.editMode);
-  if (isEdit) {
-    return choices.filter(c => !!c);
-  }
-  return choices.filter(c => {
-    if (!c) return false;
-    const hasLabel = String(c.label || '').trim().length > 0;
-    const hasNext  = !!c.nextId;
-    return hasLabel || hasNext;
+  const out = [];
+  choices.forEach((c, origIdx) => {
+    if (!c) return;
+    if (!isEdit) {
+      const hasLabel = String(c.label || '').trim().length > 0;
+      const hasNext  = !!c.nextId;
+      if (!(hasLabel || hasNext)) return;
+    }
+    out.push({ c, origIdx });
   });
+  return out;
 }
 
-function _v03ChoiceBtnHtml(scene, choice, mode, idx) {
+/* 표시용(원본 인덱스가 필요 없는 곳) — 위 indexed에서 choice만 추출. */
+function _v03FilterChoices(choices) {
+  return _v03FilterChoicesIndexed(choices).map(x => x.c);
+}
+
+function _v03ChoiceBtnHtml(scene, choice, mode, idx, dispIdx) {
+  /* idx = scene.choices 원본 인덱스(data-choice-idx, 편집 바인딩용).
+     dispIdx = 화면 표시 순번(0-based, 번호 원·색 순환용) — 구멍 있어도 1,2,3 순차. */
+  const _num = (dispIdx != null ? dispIdx : (idx != null ? idx : 0));
   /* 2026-05-31 Text-2C: text edit 모드에선 미연결(nextId 없음) 버튼도 disabled 안 함.
      disabled <button>은 자식 contenteditable 포커스를 막아 빈/미연결 라벨 편집 불가가 됨.
      edit 모드는 클릭 내비가 이미 차단(_bindSceneEvents)되어 disabled 불필요. text만 한정 —
@@ -1076,7 +1090,7 @@ function _v03ChoiceBtnHtml(scene, choice, mode, idx) {
      라벨 클래스 .pb-choice-label은 _patchChoiceLabel 실시간 반영용 타겟.
      색은 CSS의 .choice-v03--picturebook[data-pb-color="N"]로 결정 (1=sage, 2=sky, 3=coral, 4+ wrap). */
   if (mode === 'picturebook') {
-    const colorIdx = ((idx != null ? idx : 0) % 3) + 1;  /* 1·2·3 순환 */
+    const colorIdx = (_num % 3) + 1;  /* 1·2·3 순환 (표시 순번 기준) */
     /* 2026-05-25 Phase 4-A: edit mode일 때 라벨 직접 편집.
        AI 토글 안전 분기 — 원본 보기 상태에서만 contenteditable. */
     const _isEditChoice = !!(ViewerState && ViewerState.editMode);
@@ -1091,7 +1105,7 @@ function _v03ChoiceBtnHtml(scene, choice, mode, idx) {
       data-choice-id="${escHtml(choice.id)}"
       data-pb-color="${colorIdx}"
       ${disabled}>
-      <span class="pb-choice-num">${(idx != null ? idx : 0) + 1}</span>
+      <span class="pb-choice-num">${_num + 1}</span>
       <span class="pb-choice-label"${_labelEditAttrs} data-placeholder="(버튼 문구)">${escHtml(label)}</span>
       <span class="pb-choice-arrow" aria-hidden="true">›</span>
     </button>`;
@@ -1772,6 +1786,7 @@ function _renderMovieEnding(stage, scene) {
       data-ending="true"
       data-movie-caption="overlay"
       data-movie-reveal="end"
+      data-movie-deco="${(ViewerState.project && ViewerState.project.movieDecisionStyle === 'card') ? 'card' : 'panel'}"
       data-body-enabled="on"
       data-played="${initialPlayed}"${hasVideo ? ' data-movie-has-video="true"' : ''}>
       <div class="movie-stage">

@@ -4343,8 +4343,10 @@ function _bindTypeSectionsEvents(panel, scene) {
         panel.querySelectorAll('.js-movie-body-enabled').forEach(b => {
           b.classList.toggle('active', (b.dataset.val === 'on') === enabled);
         });
-        /* viewer: data-body-enabled 속성만 갱신 */
-        if (!_patchMovieAttr('body', enabled ? 'on' : 'off')) _scheduleViewerFrameReRender();
+        /* 2026-06-02: 본문 사용 토글은 장면 재렌더 — bodyEnabled 변화로 .movie-decision__desc가
+           생성/제거되고, edit 모드면 빈 본문 placeholder가 즉시 떠 바로 입력 가능해야 함.
+           data-body-enabled 속성만 패치하면 본문 없던 장면엔 desc 자체가 없어 placeholder 미표시. */
+        _scheduleViewerFrameReRender();
       });
     });
 

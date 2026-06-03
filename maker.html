@@ -2425,7 +2425,10 @@
           <p class="ptype-card-desc">영상/이미지 보고 반응 선택</p>
         </div>
       </button>
-      <button class="ptype-card ptype-card--experience" data-ptype="experience">
+      <!-- 2026-06 무비 출시 마감: 체험전시형(experience)을 모드 선택에서 숨김. 코드·데이터·렌더러는 그대로 유지(삭제 아님).
+           다시 노출하려면 아래 버튼의 hidden 속성과 style="display:none" 만 제거하면 됨 (핸들러는 data-ptype forEach·id 기반이라 자동 연결).
+           숨김 시 복사형(다른 모둠 작품 받기) 카드가 그리드에서 이 자리로 올라옴. -->
+      <button class="ptype-card ptype-card--experience" data-ptype="experience" hidden style="display:none">
         <span class="ptype-card-icon" aria-hidden="true">🗺️</span>
         <span class="ptype-card-prev-badge">✓ 이전 선택</span>
         <div class="ptype-card-body">

@@ -1945,13 +1945,17 @@ function renderHUD() {
      W9 (v4): 사용자 보고 "인스펙터 상단 공간 낭비" → 모든 다듬기 액션을
      이 라인으로 옮김. 인스펙터 _editActionsHtml은 빈 반환으로. */
   const isEdit = ViewerState.editMode;
+  /* 2026-06 AI 안정화: AI 작품 다듬기는 텍스트·그림책 모드에서만 노출.
+     무비형/체험전시형은 이번 범위 외 — AI 버튼 숨김(ptype gate). */
+  const _aiAllowed = !!(ViewerState.project &&
+    (ViewerState.project.projectType === 'text' || ViewerState.project.projectType === 'picturebook'));
   const makerBarHtml = fromMaker ? `
     <div class="maker-return-bar ${isEdit ? 'maker-return-bar--editing' : ''}">
       <span class="maker-return-label">${isEdit ? '🎨 마감 편집 중' : '✏️ 제작자 테스트 중'}</span>
       <div class="maker-return-actions">
         ${isEdit ? `
           <button class="maker-return-btn maker-return-btn--test js-edit-preview-test" title="실제 관람자 화면으로 확인">▶ 감상 테스트</button>
-          <button class="maker-return-btn maker-return-btn--ai js-ai-trigger" title="작품 전체 AI 다듬기 (Phase 0.5 mock)">🤖 AI 작품 다듬기</button>
+          ${_aiAllowed ? '<button class="maker-return-btn maker-return-btn--ai js-ai-trigger" title="작품 전체 AI 다듬기 — 문장 정돈·작품 검사">🤖 AI 작품 다듬기</button>' : ''}
           <button class="maker-return-btn js-edit-open-routes" title="엔딩별 이야기 흐름 점검">🛤 루트보기</button>
           <button class="maker-return-btn js-edit-open-map" title="장면 연결을 한눈에 확인">🗺 구조 보기</button>
           <button class="maker-return-btn js-edit-return-maker" title="브랜치 화면으로 돌아가기">← 브랜치 화면으로</button>

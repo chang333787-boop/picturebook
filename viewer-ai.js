@@ -1,15 +1,14 @@
 /* ====================================================================
-   viewer-ai.js — Phase 0.5 mock — 가지(branch) AI 기능
+   viewer-ai.js — 가지(branch) AI 기능 (클라이언트)
    --------------------------------------------------------------------
-   v138까지의 코드 + AI_MASTER_PLAN_CLAUDE_v3 + AI_PHASE_0_5_MOCK_SPEC + AI_POLICY_V140 기준.
+   v138 코드 + AI_MASTER_PLAN_CLAUDE_v3 + AI_POLICY_V140 기준.
 
-   ⚠️ 이 파일은 mock 단계입니다 — 절대 박지 X:
-   - 실 Anthropic / OpenAI / Gemini API 호출
-   - 실 API key
-   - 실 비용 발생 가능 작업
-   - 실 학생 데이터 사용
-   - Firebase Blaze 전제 작업
-   - prompt 전문 작성
+   현재 상태(2026-06):
+   - 텍스트 1단계(callTextAiBatch) · 작품 검사(callWorkCheck) = 실 API(Anthropic Haiku) 작동.
+     운영 게이트 = _shouldUseRealApi()(인증+운영). mock은 fallback(테스트/무인증)일 뿐.
+   - 텍스트 2단계 = 준비 중(카드 비활성), 텍스트 3단계/이미지 = 미노출/미구현.
+   - 적용 결과는 localStorage 오버레이(aiVariants) — 원본 scene.body 절대 안 덮음.
+   - 아래 MOCK_ONLY 상수는 레거시(실제 분기엔 안 쓰임). 실 분기는 _shouldUseRealApi().
 
    Phase 0.5 v139 진행 (옛 흐름):
    - step1~4: 진입/모드/비교/검사 — _rtSaveBody로 원본 덮어쓰기  ✓ (v140으로 폐기)
@@ -1136,11 +1135,11 @@
       },
       s2: {
         enabled: false,
-        reason:  'Phase B에서 박을 거 (mock 단계 외)',
+        reason:  '준비 중이에요 (다음 업데이트에서 만나요)',
       },
       s3: {
         enabled: false,
-        reason:  '2단계 결과가 박혀있어야 박을 수 있어요 (Phase C)',
+        reason:  '준비 중이에요',
       },
       check: {
         enabled: bodyCount >= 2,
@@ -1205,7 +1204,7 @@
           마음에 드는 장면만 골라 적용할 수 있어요.
         </p>
         <div class="ai-onboarding-hint">
-          ⚠️ Phase 0.5 mock — 실제 AI는 박혀있지 X. 가짜 결과로 흐름만 확인해요.
+          AI 결과는 후보로만 보여줘요. 내가 직접 골라 적용해야 반영되고, 원본은 그대로 남아요.
         </div>
       </div>
       <div class="ai-modal__footer">
@@ -1261,12 +1260,12 @@
 
     const html = `
       <div class="ai-modal__header">
-        <div class="ai-modal__title">🤖 AI 작품 다듬기 <span class="ai-mock-badge ai-mock-badge--header">Phase 0.5 mock</span></div>
+        <div class="ai-modal__title">🤖 AI 작품 다듬기</div>
         <button class="ai-modal__close js-ai-modal-close" aria-label="닫기">✕</button>
       </div>
       <div class="ai-modal__body">
         <p class="ai-mode-intro">
-          AI는 작품을 대신 만들지 않아요. 학생이 만든 작품을 읽고 더 자연스럽게 다듬을 후보를 보여줘요.
+          AI는 작품을 대신 만들지 않아요. 내가 만든 작품을 읽고 더 자연스럽게 다듬거나 확인할 점을 알려줘요.
         </p>
         <div class="ai-mode-grid">
           ${(() => {
@@ -1279,7 +1278,7 @@
             key: 's1',
             icon: '📝',
             title: '텍스트 1단계',
-            desc: '맞춤법·표현 정돈 (안심하고 받을 수 있는 정돈)',
+            desc: '문장을 읽기 좋게 다듬어요. 새로운 내용은 만들지 않아요.',
             enabled: a.s1.enabled && s1Remain > 0,
             disabledReason: s1Remain === 0 ? '이번 작품에서 사용할 수 있는 횟수를 모두 사용했어요' : a.s1.reason,
             remaining: realApi ? null : s1Remain,
@@ -1288,7 +1287,7 @@
             key: 'check',
             icon: '🔍',
             title: '작품 검사',
-            desc: '맞춤법·유기성·캐릭터 일관성 진단 (수정 X)',
+            desc: '작품 전체의 흐름, 선택지 연결, 캐릭터 일관성을 점검해요. AI가 직접 고치지는 않아요.',
             enabled: a.check.enabled && checkRemain > 0,
             disabledReason: checkRemain === 0 ? '이번 작품에서 사용할 수 있는 횟수를 모두 사용했어요' : a.check.reason,
             remaining: realApi ? null : checkRemain,
@@ -1299,23 +1298,14 @@
             key: 's2',
             icon: '✨',
             title: '텍스트 2단계',
-            desc: '장면 발전 + 작품 유기성',
+            desc: '장면을 더 생생하게 발전시켜요. 원작의 핵심 사건과 선택지는 지켜요.',
             enabled: a.s2.enabled,
             disabledReason: a.s2.reason,
             remaining: null,
           })}
-          ${_renderModeCard({
-            key: 's3',
-            icon: '🎯',
-            title: '텍스트 3단계',
-            desc: '교육적 후보 선택 (5개 시작 → 10개 확장)',
-            enabled: a.s3.enabled,
-            disabledReason: a.s3.reason,
-            remaining: null,
-          })}
         </div>
         <div class="ai-mode-footer">
-          🎨 이미지 다듬기는 Phase D에서 박을 거예요.
+          🎨 그림 다듬기 기능은 준비 중이에요.
         </div>
         ${_isTestMode() ? `
         <div class="ai-mode-testmode-panel">
@@ -1598,8 +1588,7 @@
           <span class="ai-calling-time" id="ai-calling-time">0초 경과</span>
         </div>
         <div class="ai-calling-hint">
-          30초~1분 정도 걸릴 수 있어요.<br/>
-          <span class="ai-mock-badge">Phase 0.5 mock</span> 실 API 박지 X — 가짜 응답 (2~5초)
+          30초~1분 정도 걸릴 수 있어요.
         </div>
         <button class="ai-btn ai-btn--ghost js-ai-call-cancel">취소</button>
       </div>
@@ -1829,7 +1818,7 @@
 
     const html = `
       <div class="ai-modal__header">
-        <div class="ai-modal__title">🔍 작품 검사 결과 <span class="ai-mock-badge ai-mock-badge--header">Phase 0.5 mock</span></div>
+        <div class="ai-modal__title">🔍 작품 검사 결과</div>
         <button class="ai-modal__close js-ai-modal-close" aria-label="닫기">✕</button>
       </div>
       <div class="ai-modal__body">

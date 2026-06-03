@@ -5646,9 +5646,8 @@ function _bindHudEditActions() {
 
   document.querySelector('.js-edit-open-map')?.addEventListener('click', openStructureMap);
 
-  /* Phase 0.5 step1: 🤖 AI 작품 다듬기 — viewer-ai.js의 openModal 호출.
-     viewer-ai.js 박지 X 박힌 환경 fallback: 안내 alert만.
-     ⚠️ mock 단계 — 실 AI API 박지 X. */
+  /* 🤖 AI 작품 다듬기 — viewer-ai.js의 openModal 호출. (텍스트 1단계·작품 검사 = 실 API 작동.
+     viewer-ai.js 미로드 환경 fallback: 안내 alert만.) */
   document.querySelector('.js-ai-trigger')?.addEventListener('click', () => {
     if (typeof window.viewerAi === 'object' && typeof window.viewerAi.openModal === 'function') {
       window.viewerAi.openModal();

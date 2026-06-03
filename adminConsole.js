@@ -30,7 +30,22 @@ const adminState = {
      'all' = 전체 모드 / 'unset' = projectType 박지 X 박은 팀 / 그 외 = 4 화이트리스트 */
   modeFilter:  'all',   // 'all'|'unset'|'picturebook'|'text'|'movie'|'experience'
   adminClassId: null,   // v2에서 교사가 현재 보는 classId (v1에서는 null)
+  /* 2026-06 admin 1차 최적화: 팀 목록 60초 단기 인메모리 캐시.
+     admin 재진입(교사가 팀 maker↔admin 왕복) 시 클래스 전체 teams+scenes 재읽기를 줄임.
+     localStorage/sessionStorage 미사용 — 모듈 메모리만(F5하면 자연 초기화).
+     무효화 = _invalidateAdminCache(): 삭제/공개토글/새로고침/닫기 시. */
+  allTeamsLoadedAt: 0,  // 마지막 성공 로드 시각(ms). 0 = 캐시 무효
+  cachedClassId:    null, // 캐시된 목록이 속한 classId (다르면 캐시 무시)
 };
+
+/* 캐시 TTL (ms) — 60초. 읽기전용 요약(장면 수/연결률)이라 짧은 staleness 허용. */
+const ADMIN_CACHE_TTL_MS = 60000;
+
+/* admin 목록 캐시 무효화 — 다음 loadAdminData 진입 시 강제 재읽기. */
+function _invalidateAdminCache(reason) {
+  adminState.allTeamsLoadedAt = 0;
+  adminState.cachedClassId    = null;
+}
 
 /* ================================================================
    이벤트 위임 — DOMContentLoaded 1회 등록
@@ -58,6 +73,18 @@ window.addEventListener('DOMContentLoaded', () => {
     if (publicBtn) _toggleIsPublic(publicBtn.dataset.encoded, publicBtn.dataset.name, publicBtn.dataset.public === 'true');
     if (issueBtn)  _issueCopyCodeFlow(issueBtn.dataset.encoded, issueBtn.dataset.name);
   });
+
+  /* 2026-06: 수동 새로고침 — 캐시 무효화 후 강제 재읽기. summary bar는 정적 요소라
+     innerHTML이 바뀌어도 이 위임 리스너는 유지됨. */
+  const summaryBar = document.getElementById('admin-summary-bar');
+  if (summaryBar) {
+    summaryBar.addEventListener('click', e => {
+      if (!e.target.closest('.js-admin-refresh')) return;
+      if (!adminState.verified) return;
+      _invalidateAdminCache('manual-refresh');
+      loadAdminData();
+    });
+  }
 });
 
 /* ================================================================
@@ -83,6 +110,7 @@ function _enterAdminDirect() {
 function closeAdmin() {
   adminState.verified     = false;
   adminState.adminClassId = null;
+  _invalidateAdminCache('close-admin');   // classId 변경/로그아웃 대비 — 다음 진입 시 새로 읽음
   document.getElementById('admin-panel').style.display = 'none';
 }
 
@@ -180,6 +208,18 @@ async function _loadAdminDataV2() {
   /* adminState에 보관 — _openMaker/_openViewer에서 재사용 */
   adminState.adminClassId = resolvedClassId;
 
+  /* 2026-06 캐시 hit: 같은 classId를 60초 이내에 이미 성공 로드했으면
+     클래스 전체 teams+scenes 재읽기를 생략하고 메모리 목록으로만 재렌더.
+     class bar/team-list DOM은 closeAdmin이 display:none만 하므로 유지됨 → classBar 재읽기도 생략. */
+  if (adminState.cachedClassId === resolvedClassId
+      && adminState.allTeams.length > 0
+      && (Date.now() - adminState.allTeamsLoadedAt) < ADMIN_CACHE_TTL_MS) {
+    _renderSummaryBar(adminState.allTeams);
+    _renderFilterBar(adminState.allTeams);
+    _renderTeamList();
+    return;
+  }
+
   /* v94: 클래스 메타 조회 후 헤더 바 박음 (반 이름 + 코드 + 복사 버튼) */
   _renderClassBar(resolvedClassId);
 
@@ -200,6 +240,9 @@ async function _loadAdminDataV2() {
       const meta     = teamData['viewer-meta'] || {};
       return _analyzeTeam(encodedName, scenes, isPublic, meta);
     });
+    /* 2026-06 캐시 기록 — 성공 로드 시각/대상 classId. 다음 60초간 재진입 시 재읽기 생략. */
+    adminState.allTeamsLoadedAt = Date.now();
+    adminState.cachedClassId    = resolvedClassId;
     _renderSummaryBar(adminState.allTeams);
     _renderFilterBar(adminState.allTeams);
     _renderTeamList();
@@ -492,7 +535,9 @@ function _renderSummaryBar(teams) {
         <span class="admin-summary-dot">${STATUS_META[s].icon}</span>
         <span class="admin-summary-num" style="color:${STATUS_META[s].color}">${counts[s]}</span>
         <span class="admin-summary-label">${STATUS_META[s].label}</span>
-      </div>`).join('')}`;
+      </div>`).join('')}
+    <button type="button" class="js-admin-refresh" title="팀 목록 새로고침"
+      style="margin-left:auto;background:none;border:1px solid rgba(107,86,56,0.28);border-radius:7px;padding:4px 9px;cursor:pointer;font-size:13px;color:#6b5638;line-height:1;">🔄 새로고침</button>`;
 }
 
 /* ================================================================
@@ -753,6 +798,7 @@ async function _toggleIsPublic(encodedName, teamName, currentIsPublic) {
     /* allTeams 상태 즉시 업데이트 후 카드 리렌더 */
     const team = adminState.allTeams.find(t => t.encodedName === encodedName);
     if (team) team.isPublic = newIsPublic;
+    _invalidateAdminCache('toggle-public');   // 상태 변경 — 다음 재진입 때 fresh 읽기
     _renderTeamList();
   } catch (err) {
     alert(`❌ ${label} 전환 실패: ${err.message}`);
@@ -942,6 +988,7 @@ function _deleteTeam(encodedName, displayName) {
     .then(() => {
       alert(`✅ "${displayName}" 팀 데이터가 삭제됐어요.`);
       adminState.allTeams = adminState.allTeams.filter(t => t.encodedName !== encodedName);
+      _invalidateAdminCache('delete-team');   // 다음 재진입 때 삭제된 팀이 캐시로 살아나지 않게
       _renderSummaryBar(adminState.allTeams);
       _renderFilterBar(adminState.allTeams);
       _renderTeamList();

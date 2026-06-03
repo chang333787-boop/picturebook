@@ -1775,7 +1775,30 @@ function _renderMovieEnding(stage, scene) {
     ? existingVideo : null;
 
   const titleHtml = userTitle ? `<div class="movie-ending-title">${escHtml(userTitle)}</div>` : '';
-  const bodyHtml  = userBody  ? `<p class="movie-ending-body">${escHtml(userBody)}</p>` : '';
+
+  /* 2026-06-02: 엔딩 본문 — 일반 무비 장면(_renderSceneMovie)과 동일 정책으로 통일.
+     · bodyEnabled 기준 동일(명시 필드 우선, 없으면 본문 유무).
+     · edit + AI원본이면 빈 본문도 placeholder + 직접입력(contenteditable + data-pb-editable="body").
+       → 기존 _attachPbEditableInteractions(제네릭 [data-pb-editable] 스캔)가 scene.body에 저장.
+     · placeholder는 data-placeholder 속성일 뿐 — 저장 데이터(scene.body)엔 안 들어감.
+     · 감상 모드는 옛대로 본문 있을 때만 표시. bodyEnabled=false면 미렌더(즉시 숨김). */
+  const bodyEnabled = (scene.bodyEnabled === true) ? true
+                    : (scene.bodyEnabled === false) ? false
+                    : !!_orig;
+  const _isEditMovieEnd = !!(ViewerState && ViewerState.editMode);
+  const _aiViewMovieEnd = (window.viewerAi && typeof window.viewerAi._getAiViewMode === 'function')
+    ? window.viewerAi._getAiViewMode() : 'original';
+  const _allowMovieEndBodyEdit = _isEditMovieEnd && _aiViewMovieEnd === 'original';
+  let bodyHtml = '';
+  if (bodyEnabled && (userBody || _allowMovieEndBodyEdit)) {
+    const _editAttrs = _allowMovieEndBodyEdit
+      ? ' contenteditable="true" data-pb-editable="body" data-placeholder="엔딩 문장을 입력하세요"'
+      : '';
+    const _editCls  = _allowMovieEndBodyEdit ? ' js-pb-editable-body' : '';
+    const _emptyCls = (_allowMovieEndBodyEdit && !_orig) ? ' is-empty' : '';
+    const _shown    = _allowMovieEndBodyEdit ? _orig : userBody;   /* 편집=원문 / 감상=표시본 */
+    bodyHtml = `<p class="movie-ending-body${_editCls}${_emptyCls}"${_editAttrs}>${escHtml(_shown)}</p>`;
+  }
   const routeHtml = steps > 1 ? `<div class="movie-ending-route">${steps}개의 장면을 거쳐 이 결말에 도달했어요</div>` : '';
 
   _stageReplaceScene(stage, `
@@ -1787,7 +1810,7 @@ function _renderMovieEnding(stage, scene) {
       data-movie-caption="overlay"
       data-movie-reveal="end"
       data-movie-deco="${(ViewerState.project && ViewerState.project.movieDecisionStyle === 'card') ? 'card' : 'panel'}"
-      data-body-enabled="on"
+      data-body-enabled="${bodyEnabled ? 'on' : 'off'}"
       data-played="${initialPlayed}"${hasVideo ? ' data-movie-has-video="true"' : ''}>
       <div class="movie-stage">
         <div class="movie-media">
@@ -1810,6 +1833,14 @@ function _renderMovieEnding(stage, scene) {
   if (reuseVideo) {
     const newMedia = stage.querySelector('.movie-media');
     if (newMedia) newMedia.appendChild(reuseVideo);
+  }
+
+  /* 2026-06-02 fix: 엔딩 본문 직접입력 핸들러 부착 — _renderTextEnding/_renderSceneMovie와 동일.
+     이 호출이 빠져서 .movie-ending-body[data-pb-editable="body"]에 input/placeholder/저장 핸들러가
+     안 붙었음 → ① placeholder(is-empty) 미해제로 글자가 placeholder 옆에 붙음 ② scene.body 미저장으로
+     본문 사용 ON/OFF 재렌더 시 본문 소실. initEditInteractions가 frame 전체 [data-pb-editable] 재부착. */
+  if (ViewerState.editMode && typeof initEditInteractions === 'function') {
+    initEditInteractions();
   }
 
   /* 영상 종료 → data-played="true" → 엔딩 decision 노출 (일반 무비 장면과 동일 게이트).

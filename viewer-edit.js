@@ -484,6 +484,7 @@ function _patchSceneBody(value) {
        screen.querySelector('.text-card__body')
     || screen.querySelector('.pb-text__body')
     || screen.querySelector('.movie-decision__desc')
+    || screen.querySelector('.movie-ending-body')   /* 2026-06-02: 무비 엔딩 본문 직접입력 동기 보강 */
     || screen.querySelector('.exp-body-panel p')
     || screen.querySelector('.ending-user-body');
   if (!bodyNode) {
@@ -1102,7 +1103,7 @@ function renderEditPanel() {
     const _ptype = _resolveViewerProjectType();
     const tabs = _editTabsForMode(_ptype, /*hasChoice*/ false);
     panel.innerHTML = `
-      <div class="edit-panel-inner">
+      <div class="edit-panel-inner${_ptype === 'movie' ? ' edit-panel-inner--movie' : ''}">
         ${_editActionsHtml()}
         ${_editNavHtml(scene)}
 
@@ -1239,7 +1240,7 @@ function renderEditPanel() {
 
   const tabs = _editTabsForMode(_ptypeForLegacy, /*hasChoice*/ !!legacyChoiceSectionHtml);
   panel.innerHTML = `
-    <div class="edit-panel-inner">
+    <div class="edit-panel-inner${_ptypeForLegacy === 'movie' ? ' edit-panel-inner--movie' : ''}">
       <!-- 상단 고정 바 (액션 + 네비) -->
       ${_editActionsHtml()}
       ${_editNavHtml(scene)}

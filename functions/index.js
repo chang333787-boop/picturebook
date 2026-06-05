@@ -173,25 +173,44 @@ async function _validateRequest(req, mode) {
     throw new HttpsError('unavailable', 'AI 박은 거 박은 거 박은 박은 잠시 박지 X. 운영자에게 박음.');
   }
 
-  /* 3. aiPermission (Firebase RTDB 박음)
+  /* 3. 권한 게이트 (aiSettings 우선 / aiPermission fallback)
      박을 노드 박은 거 박은 거 박은 박은: classes/{classId}/teams/{teamName}/works/{workId}/aiPermission
      ⚠️ 실제 가지 박은 거 박은 거 박은 박은 박은 거 박은 거 박은 박은 — 박을 노드 위치 박은 거 박은 거 박은 박은 데이터 모델에 정합 박을 거.
      박은 거 박은 거 박은 박은 박은 거 박은 거 박은 박은 — Phase A 박을 때 박지 X 박혀있을 가능성 — 박지 X 박혀있으면 기본 ON 박음 (Phase A 테스트라).
      운영 박은 거 박은 거 박은 박은 — 박혀있어야 박을 거 (사용자가 박을 거 박은 거 박은 박은 maker.html에서 박을 거). */
-  const permPath = `classes/${classId}/teams/${teamName}/aiPermission`;
-  const permSnap = await admin.database().ref(permPath).once('value');
-  const perm = permSnap.val();
-  /* Phase A 박은 거 박은 거 박은 박은 — perm 박지 X 박혀있으면 기본 ON 박음. 운영 박을 때 박은 거 박은 거 박은 박은 perm 박혀있어야 박음. */
-  if (perm) {
-    if (perm.enabled !== true) {
-      throw new HttpsError('permission-denied', 'AI_NOT_ENABLED (교사가 AI 박지 X)');
+  /* Phase 1 — 교사 AI 권한 게이트. 우선순위:
+       (a) AI_TEST_ALLOWED 하드게이트 = 위(2번)에서 이미 통과해야 도달.
+       (b) classes/{classId}/aiSettings 존재 → 진실. enabled + modes[modeKey].
+       (c) aiSettings 없음 → 기존 teams/{teamName}/aiPermission fallback (동작 보존).
+       (d) 둘 다 없음 → 기본 ON (Phase A 호환).
+     모든 검사는 quota 차감(_consumeQuota, 핸들러) 전에 수행됨. */
+  const MODE_KEY_MAP = { s1: 'textS1', s2: 'textS2', check: 'workCheck', imageS1: 'imageS1', imageS2: 'imageS2' };
+  const aiSettingsSnap = await admin.database().ref(`classes/${classId}/aiSettings`).once('value');
+  const aiSettings = aiSettingsSnap.val();
+  if (aiSettings) {
+    if (aiSettings.enabled !== true) {
+      throw new HttpsError('permission-denied', 'AI_NOT_ENABLED_CLASS (선생님이 AI를 아직 열어주지 않았어요)');
     }
-    const allowed = perm.allowedModes && perm.allowedModes[mode];
-    if (allowed !== true) {
-      throw new HttpsError('permission-denied', `MODE_NOT_ALLOWED (${mode})`);
+    const modeKey = MODE_KEY_MAP[mode] || mode;
+    const modeAllowed = aiSettings.modes && aiSettings.modes[modeKey] === true;
+    if (modeAllowed !== true) {
+      throw new HttpsError('permission-denied', `MODE_NOT_ENABLED_CLASS (${mode}) — 선생님이 이 기능을 아직 열어주지 않았어요`);
     }
   } else {
-    logger.info('[ai] aiPermission 박지 X — Phase A 테스트 기본 ON 박음', { classId, teamName });
+    const permPath = `classes/${classId}/teams/${teamName}/aiPermission`;
+    const permSnap = await admin.database().ref(permPath).once('value');
+    const perm = permSnap.val();
+    if (perm) {
+      if (perm.enabled !== true) {
+        throw new HttpsError('permission-denied', 'AI_NOT_ENABLED (교사가 AI 박지 X)');
+      }
+      const allowed = perm.allowedModes && perm.allowedModes[mode];
+      if (allowed !== true) {
+        throw new HttpsError('permission-denied', `MODE_NOT_ALLOWED (${mode})`);
+      }
+    } else {
+      logger.info('[ai] aiSettings/aiPermission 박지 X — 기본 ON 박음', { classId, teamName });
+    }
   }
 
   /* 8. 전역 일일 hard cap */

@@ -1947,8 +1947,20 @@ function renderHUD() {
   const isEdit = ViewerState.editMode;
   /* 2026-06 AI 안정화: AI 작품 다듬기는 텍스트·그림책 모드에서만 노출.
      무비형/체험전시형은 이번 범위 외 — AI 버튼 숨김(ptype gate). */
-  const _aiAllowed = !!(ViewerState.project &&
+  const _aiPtypeAllowed = !!(ViewerState.project &&
     (ViewerState.project.projectType === 'text' || ViewerState.project.projectType === 'picturebook'));
+  /* Phase 1: 교사 AI 권한 게이트.
+     · 학급 AI 설정 멱등 preload — 텍스트/그림책 + 제작자 편집일 때만(무비/체험엔 읽기 X).
+       ViewerState.classId가 늦게 준비돼도 renderHUD가 다시 호출되면 자가 보정됨.
+     · _aiHardOff = 학급 aiSettings 노드가 있고 enabled !== true일 때만 true.
+       미로드/노드없음/켜짐 → false(버튼 노출, 서버가 최종 차단) — 안전 fallback. */
+  if (_aiPtypeAllowed && fromMaker && isEdit &&
+      window.viewerAi && typeof window.viewerAi.preloadClassAiSettings === 'function') {
+    try { window.viewerAi.preloadClassAiSettings(); } catch (e) { /* noop */ }
+  }
+  const _aiHardOff = !!(window.viewerAi && typeof window.viewerAi.isClassAiHardOff === 'function'
+    && window.viewerAi.isClassAiHardOff());
+  const _aiAllowed = _aiPtypeAllowed && !_aiHardOff;
   const makerBarHtml = fromMaker ? `
     <div class="maker-return-bar ${isEdit ? 'maker-return-bar--editing' : ''}">
       <span class="maker-return-label">${isEdit ? '🎨 마감 편집 중' : '✏️ 제작자 테스트 중'}</span>

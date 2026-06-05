@@ -433,6 +433,73 @@
     return { classId, teamName };
   }
 
+  /* ════════════════════════════════════════════════════════════════
+     Phase 1: 학급 AI 설정 (classes/{classId}/aiSettings) 클라 캐시
+     ──────────────────────────────────────────────────────────────
+     상태 3종:
+       undefined = 아직 안 읽음   → 안전 fallback(허용). 서버가 최종 차단하므로 안전.
+       null      = 읽었으나 노드 없음 → 기본 ON (기존 동작 보존).
+       object    = 교사 설정 존재 → enabled + modes[modeKey] 게이트.
+     클라 게이트는 UX용. 실제 차단은 서버 _validateRequest가 보장. ════════════════════════════════════════════════════════════════ */
+  const AI_MODE_KEY_MAP = { s1: 'textS1', s2: 'textS2', check: 'workCheck', imageS1: 'imageS1', imageS2: 'imageS2' };
+  let _classAiSettings = undefined;        // undefined|null|object
+  let _classAiSettingsClassId = null;
+  let _classAiSettingsLoading = false;
+
+  function getClassAiSettings() { return _classAiSettings; }
+
+  /* 확실히 학급 AI가 꺼진 상태(노드 있고 enabled !== true)일 때만 true. 미로드/노드없음/켜짐 → false. */
+  function isClassAiHardOff() {
+    const s = _classAiSettings;
+    if (s === undefined || s === null) return false;
+    return s.enabled !== true;
+  }
+
+  /* 교사 권한상 mode 허용 여부. 미로드/노드없음 → true(fallback). object → enabled && modes[key]. */
+  function _isModeAllowedByTeacher(mode) {
+    const s = _classAiSettings;
+    if (s === undefined || s === null) return true;
+    if (s.enabled !== true) return false;
+    const key = AI_MODE_KEY_MAP[mode] || mode;
+    return !!(s.modes && s.modes[key] === true);
+  }
+
+  async function _loadClassAiSettings() {
+    const { classId } = _getCurrentClassIdTeamName();
+    if (!classId) { _classAiSettings = null; _classAiSettingsClassId = null; return null; }   // v1/무클래스 → 기본 ON
+    if (_classAiSettingsClassId === classId && _classAiSettings !== undefined) return _classAiSettings;
+    if (_classAiSettingsLoading) return _classAiSettings;
+    _classAiSettingsLoading = true;
+    try {
+      const app = _getViewerFirebaseApp();
+      // app/database 아직 준비 안 됨(부트스트랩이 viewer-data init보다 먼저 실행) →
+      // 캐시·classId 잠그지 말고 미로드(undefined) 유지. 이후 renderHUD preload가 재시도.
+      // (null로 잠그면 idempotent 가드에 막혀 영구히 재읽기 못 함 → 교사 OFF가 클라에 안 반영됨)
+      if (!app || !app.database) { return _classAiSettings; }
+      const snap = await app.database().ref('classes/' + classId + '/aiSettings').once('value');
+      _classAiSettings = snap.val();       // object | null
+      _classAiSettingsClassId = classId;
+    } catch (e) {
+      // 읽기 실패 → 미로드 유지(undefined=기본 ON, 서버가 최종 차단). classId 잠그지 않아 재시도 가능.
+    } finally {
+      _classAiSettingsLoading = false;
+    }
+    return _classAiSettings;
+  }
+
+  /* HUD에서 fire-and-forget로 호출. 멱등 — 현재 classId가 이미 로드됐으면 캐시 즉시 반환(Firebase 읽기 X).
+     로드 결과 hard-off 상태가 직전과 달라졌을 때만 HUD 1회 재렌더 → 무한 루프 방지.
+     (ViewerState.classId가 init 시점엔 비어있을 수 있어, classId 준비 후 renderHUD가 다시 호출되면 자가 보정됨.) */
+  async function _preloadClassAiSettings() {
+    const before = isClassAiHardOff();
+    await _loadClassAiSettings();
+    const after = isClassAiHardOff();
+    if (after !== before && typeof renderHUD === 'function') {
+      try { renderHUD(); } catch (e) { /* noop */ }
+    }
+    return _classAiSettings;
+  }
+
   async function _phaseACallTextS1(snapshot) {
     const { classId, teamName } = _getCurrentClassIdTeamName();
     const branchLineage = (typeof ViewerState !== 'undefined' && ViewerState.branchLineage) || {};
@@ -1316,22 +1383,27 @@
   function _getModeAvailability() {
     const bodyCount = _countScenesWithBody();
     const connCount = _countConnections();
+    /* Phase 1: 교사 권한 게이트 — 꺼진 mode는 카드 비활성 + "아직 열어주지 않았어요". */
+    const NOT_OPENED = '선생님이 아직 열어주지 않았어요';
+    const s1Teacher    = _isModeAllowedByTeacher('s1');
+    const s2Teacher    = _isModeAllowedByTeacher('s2');
+    const checkTeacher = _isModeAllowedByTeacher('check');
     return {
       s1: {
-        enabled: bodyCount >= 1,
-        reason:  bodyCount < 1 ? '본문이 있는 장면이 1개 이상 필요해요' : '',
+        enabled: s1Teacher && bodyCount >= 1,
+        reason:  !s1Teacher ? NOT_OPENED : (bodyCount < 1 ? '본문이 있는 장면이 1개 이상 필요해요' : ''),
       },
       s2: {
-        enabled: bodyCount >= 1,
-        reason:  bodyCount < 1 ? '본문이 있는 장면이 1개 이상 필요해요' : '',
+        enabled: s2Teacher && bodyCount >= 1,
+        reason:  !s2Teacher ? NOT_OPENED : (bodyCount < 1 ? '본문이 있는 장면이 1개 이상 필요해요' : ''),
       },
       s3: {
         enabled: false,
         reason:  '준비 중이에요',
       },
       check: {
-        enabled: bodyCount >= 2,
-        reason:  bodyCount < 2 ? '본문이 있는 장면이 2개 이상 필요해요' : '',
+        enabled: checkTeacher && bodyCount >= 2,
+        reason:  !checkTeacher ? NOT_OPENED : (bodyCount < 2 ? '본문이 있는 장면이 2개 이상 필요해요' : ''),
       },
     };
   }
@@ -2260,7 +2332,9 @@
   /* ════════════════════════════════════════════════════════════════
      openModal — viewer 상단 [🤖 AI 작품 다듬기] 진입점
      ════════════════════════════════════════════════════════════════ */
-  function openModal() {
+  async function openModal() {
+    /* Phase 1: 카드가 교사 권한을 반영하도록 모달 전에 aiSettings 로드 보장. */
+    try { await _loadClassAiSettings(); } catch (e) { /* fallback 허용 */ }
     if (!_hasSeenOnboarding()) {
       _showOnboardingModal(_showModeModal);
     } else {
@@ -2284,6 +2358,15 @@
   }
   _bootstrapTestMode();
   _bootstrapAiToggleBar();
+  /* Phase 1: 학급 AI 설정 preload — 버튼/카드 게이트용. 실패해도 fallback 허용(서버가 최종 차단). */
+  (function _bootstrapClassAiSettings() {
+    const run = function () { _preloadClassAiSettings().catch(function () {}); };
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', run);
+    } else {
+      run();
+    }
+  })();
 
   /* ════════════════════════════════════════════════════════════════
      window 노출
@@ -2313,6 +2396,11 @@
       _setAiViewMode:     _setAiViewMode,
       _showAiToggleBar:   _showAiToggleBar,
       _isS1Finalized:     _isS1Finalized,
+
+      /* Phase 1: 학급 AI 권한 게이트 — viewer-render.js renderHUD에서 버튼 노출 판단 */
+      getClassAiSettings:     getClassAiSettings,
+      isClassAiHardOff:       isClassAiHardOff,
+      preloadClassAiSettings: _preloadClassAiSettings,
     };
 
     /* ────────────────────────────────────────────────────────────

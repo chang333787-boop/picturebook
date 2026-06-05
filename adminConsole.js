@@ -222,6 +222,8 @@ async function _loadAdminDataV2() {
 
   /* v94: 클래스 메타 조회 후 헤더 바 박음 (반 이름 + 코드 + 복사 버튼) */
   _renderClassBar(resolvedClassId);
+  /* Phase 1: 학급 AI 설정 패널 */
+  _renderAiSettingsPanel(resolvedClassId);
 
   list.innerHTML = '<div class="admin-loading">팀 목록을 불러오는 중...</div>';
 
@@ -295,6 +297,156 @@ async function _renderClassBar(classId) {
         alert('복사 실패. 직접 적어주세요: ' + code);
       }
     });
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   Phase 1: 학급 AI 설정 패널 — classes/{classId}/aiSettings
+   ──────────────────────────────────────────────────────────────
+   · 교사가 학급 단위로 AI 전체 ON/OFF + 기능별 ON/OFF 제어.
+   · aiSettings 노드가 없으면 UI는 OFF로 보이되, 저장 전에는 서버 fallback(aiPermission/기본 ON) 유지.
+   · 교사가 처음 저장하면 노드 생성 → 그때부터 서버가 aiSettings 우선 적용.
+   · 이미지 1/2단계는 노출만(준비 중) — 저장 구조엔 포함하되 카드 구현은 안 함.
+   ════════════════════════════════════════════════════════════════ */
+const AI_MODE_DEFS = [
+  { key: 'textS1',   label: '텍스트 1단계 (문장 정돈)', soon: false },
+  { key: 'textS2',   label: '텍스트 2단계 (장면 발전)', soon: false },
+  { key: 'workCheck',label: '작품 검사',               soon: false },
+  { key: 'imageS1',  label: '그림 1단계 (정돈)',        soon: true  },
+  { key: 'imageS2',  label: '그림 2단계 (발전)',        soon: true  },
+];
+
+async function _renderAiSettingsPanel(classId) {
+  const panel = document.getElementById('admin-ai-settings');
+  if (!panel || !classId) return;
+
+  /* 현재 저장값 로드 — 없으면 OFF 기본값 */
+  let saved = null;
+  try {
+    const snap = await db.ref(`classes/${classId}/aiSettings`).once('value');
+    saved = snap.val();
+  } catch (e) { /* 읽기 실패 시 기본값 */ }
+
+  const exists = !!saved;
+  const state = {
+    enabled: exists ? saved.enabled === true : false,
+    modes: {
+      textS1:   exists ? !!(saved.modes && saved.modes.textS1)   : false,
+      textS2:   exists ? !!(saved.modes && saved.modes.textS2)   : false,
+      workCheck:exists ? !!(saved.modes && saved.modes.workCheck): false,
+      imageS1:  exists ? !!(saved.modes && saved.modes.imageS1)  : false,
+      imageS2:  exists ? !!(saved.modes && saved.modes.imageS2)  : false,
+    },
+    policy: {
+      requireCompletion:  (exists && saved.policy && saved.policy.requireCompletion  === false) ? false : true,
+      requireSafetyCheck: (exists && saved.policy && saved.policy.requireSafetyCheck === false) ? false : true,
+      allowViewerToggle:  (exists && saved.policy && saved.policy.allowViewerToggle  === false) ? false : true,
+    },
+  };
+
+  panel.style.display = 'flex';
+  _drawAiSettingsPanel(panel, classId, state, exists);
+}
+
+function _drawAiSettingsPanel(panel, classId, state, exists) {
+  const statusCls = state.enabled ? 'on' : 'off';
+  const statusTxt = state.enabled ? 'AI 켜짐' : 'AI 꺼짐';
+  const notSavedNote = exists ? '' : ' · 아직 저장된 적 없음(기본 동작 유지 중)';
+
+  const modeToggles = AI_MODE_DEFS.map(d => {
+    const checked = state.modes[d.key] ? 'checked' : '';
+    const dis = d.soon ? ' is-disabled' : '';
+    const disAttr = d.soon ? 'disabled' : '';
+    const soonTag = d.soon ? '<span class="admin-ai-soon">준비 중</span>' : '';
+    return `<label class="admin-ai-toggle${dis}" data-mode-toggle="${d.key}">
+      <input type="checkbox" ${checked} ${disAttr} data-ai-mode="${d.key}">
+      ${_escHtml(d.label)}${soonTag}
+    </label>`;
+  }).join('');
+
+  panel.innerHTML = `
+    <div class="admin-ai-head">
+      <div class="admin-ai-title">🤖 학급 AI 설정</div>
+      <span class="admin-ai-status ${statusCls}" id="admin-ai-status">${statusTxt}${notSavedNote}</span>
+      <div class="admin-ai-master">
+        <label class="admin-ai-toggle" data-mode-toggle="__master">
+          <input type="checkbox" id="admin-ai-master" ${state.enabled ? 'checked' : ''}>
+          AI 전체 ${state.enabled ? '켜짐' : '꺼짐'}
+        </label>
+      </div>
+    </div>
+    <div class="admin-ai-modes ${state.enabled ? '' : 'is-locked'}" id="admin-ai-modes">
+      ${modeToggles}
+    </div>
+    <div class="admin-ai-head">
+      <span class="admin-ai-hint">학생에게는 선생님이 켠 기능만 보이고 사용할 수 있어요. 그림 기능은 준비 중이에요.</span>
+      <button class="admin-ai-save" id="admin-ai-save" style="margin-left:auto;">저장</button>
+    </div>
+  `;
+
+  const masterEl = panel.querySelector('#admin-ai-master');
+  const modesEl  = panel.querySelector('#admin-ai-modes');
+  const statusEl = panel.querySelector('#admin-ai-status');
+  const saveBtn  = panel.querySelector('#admin-ai-save');
+
+  masterEl.addEventListener('change', () => {
+    state.enabled = masterEl.checked;
+    masterEl.closest('.admin-ai-toggle').lastChild.textContent = ` AI 전체 ${state.enabled ? '켜짐' : '꺼짐'}`;
+    statusEl.className = 'admin-ai-status ' + (state.enabled ? 'on' : 'off');
+    statusEl.textContent = state.enabled ? 'AI 켜짐 · 저장하면 적용돼요' : 'AI 꺼짐 · 저장하면 적용돼요';
+    modesEl.classList.toggle('is-locked', !state.enabled);
+  });
+
+  modesEl.querySelectorAll('input[data-ai-mode]').forEach(input => {
+    input.addEventListener('change', () => {
+      const key = input.dataset.aiMode;
+      state.modes[key] = input.checked;
+    });
+  });
+
+  saveBtn.addEventListener('click', () => _saveAiSettings(classId, state, panel, saveBtn, statusEl));
+}
+
+async function _saveAiSettings(classId, state, panel, saveBtn, statusEl) {
+  if (!adminState.verified) return;
+  const uid = (typeof auth !== 'undefined' && auth.currentUser) ? auth.currentUser.uid : null;
+
+  const payload = {
+    enabled: state.enabled === true,
+    modes: {
+      textS1:    state.modes.textS1    === true,
+      textS2:    state.modes.textS2    === true,
+      workCheck: state.modes.workCheck === true,
+      imageS1:   state.modes.imageS1   === true,
+      imageS2:   state.modes.imageS2   === true,
+    },
+    policy: {
+      requireCompletion:  state.policy.requireCompletion  !== false,
+      requireSafetyCheck: state.policy.requireSafetyCheck !== false,
+      allowViewerToggle:  state.policy.allowViewerToggle  !== false,
+    },
+    updatedAt: Date.now(),
+    updatedBy: uid,
+  };
+
+  saveBtn.disabled = true;
+  saveBtn.textContent = '저장 중...';
+  try {
+    await db.ref(`classes/${classId}/aiSettings`).set(payload);
+    _invalidateAdminCache('ai-settings-save');
+    saveBtn.textContent = '✓ 저장됨';
+    saveBtn.classList.add('saved');
+    statusEl.className = 'admin-ai-status ' + (state.enabled ? 'on' : 'off');
+    statusEl.textContent = state.enabled ? 'AI 켜짐 (저장됨)' : 'AI 꺼짐 (저장됨)';
+    setTimeout(() => {
+      saveBtn.textContent = '저장';
+      saveBtn.classList.remove('saved');
+      saveBtn.disabled = false;
+    }, 1600);
+  } catch (err) {
+    saveBtn.disabled = false;
+    saveBtn.textContent = '저장';
+    alert('❌ AI 설정 저장 실패: ' + err.message);
   }
 }
 

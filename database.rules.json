@@ -28,6 +28,10 @@
           ".read": "auth != null && (auth.token.role === 'super_admin' || auth.token.role === 'teacher' || data.child('teacher_uid').val() === auth.uid)",
           ".write": "auth != null && ((!data.exists() && newData.child('teacher_uid').val() === auth.uid) || data.child('teacher_uid').val() === auth.uid || auth.token.role === 'super_admin')"
         },
+        "aiSettings": {
+          ".read": true,
+          ".write": "auth != null && (root.child('classes/' + $classId + '/meta/teacher_uid').val() === auth.uid || auth.token.role === 'super_admin')"
+        },
         "teams": {
           ".read": true,
           "$team": {

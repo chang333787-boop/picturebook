@@ -36,7 +36,7 @@ const { setGlobalOptions } = require('firebase-functions/v2');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
 const Anthropic = require('@anthropic-ai/sdk');
-const { TEXT_S1_SYSTEM_PROMPT, WORK_CHECK_SYSTEM_PROMPT, buildUserMessage } = require('./prompts');
+const { TEXT_S1_SYSTEM_PROMPT, TEXT_S2_SYSTEM_PROMPT, WORK_CHECK_SYSTEM_PROMPT, buildUserMessage } = require('./prompts');
 
 /* Firebase Admin 초기화 — 1번만 */
 if (!admin.apps.length) {
@@ -74,6 +74,7 @@ function isAiTestAllowed(classId, teamName) {
    ════════════════════════════════════════════════════════════════ */
 const QUOTA = {
   s1: 3,         /* 1단계 — 브랜치당 후보 3회 */
+  s2: 2,         /* 2단계 — 브랜치당 2회 (발전은 무겁고 신중) */
   check: 5,      /* 작품 검사 — 브랜치당 5회 */
 };
 const ROOT_DAILY_LIMIT = 50;       /* rootBranchId 묶음 — 하루 50회 */
@@ -296,14 +297,17 @@ async function _refundQuota(ctx) {
    max_tokens: 8000 (AI_COST_GUARD_PLAN.md 2-2-1 박힘)
    ════════════════════════════════════════════════════════════════ */
 const HAIKU_MODEL = 'claude-haiku-4-5';
+/* 텍스트 2단계 전용 모델 — 기본은 Haiku로 선테스트. 품질/원작보존이 부족하면 이 한 줄만
+   Sonnet으로 승격(예: const S2_MODEL = 'claude-sonnet-4-5';). s1/작품검사는 Haiku 그대로. */
+const S2_MODEL = HAIKU_MODEL;
 const MAX_TOKENS = 8000;
 const ANTHROPIC_TIMEOUT_MS = 50000;  /* Functions timeout 60s 박힘 — 여유 10s */
 
-async function _callAnthropic(apiKey, systemPrompt, userMessage) {
+async function _callAnthropic(apiKey, systemPrompt, userMessage, model) {
   const client = new Anthropic({ apiKey, timeout: ANTHROPIC_TIMEOUT_MS });
 
   const response = await client.messages.create({
-    model: HAIKU_MODEL,
+    model: model || HAIKU_MODEL,
     max_tokens: MAX_TOKENS,
     system: systemPrompt,
     messages: [
@@ -336,12 +340,47 @@ async function _callAnthropic(apiKey, systemPrompt, userMessage) {
    - 한글 비율 70% 미만 거부
    ════════════════════════════════════════════════════════════════ */
 function _parseJsonStrict(text) {
-  /* 응답 박은 거 박은 거 박은 박은 ```json ... ``` 박혀있을 가능성 — 박음 */
+  /* 응답이 ```json ... ``` 코드펜스로 감싸여 올 가능성 — 펜스 우선 제거 */
   let s = String(text).trim();
   if (s.startsWith('```')) {
     s = s.replace(/^```(json)?\s*/i, '').replace(/```\s*$/, '').trim();
   }
-  return JSON.parse(s);
+  /* 1) 정상 경로: 깨끗한 JSON은 그대로 파싱한다 (s1/check 기존 동작 보존). */
+  try {
+    return JSON.parse(s);
+  } catch (e) {
+    /* 2) 모델이 JSON object 뒤에 설명/거절 문장을 덧붙인 경우(부적절 표현 s2 경로 등):
+          문자열 리터럴/escape를 고려해 첫 번째 균형 잡힌 JSON object만 추출해 재시도.
+          object 자체가 깨졌으면 추출이 null이거나 재파싱이 다시 throw → 기존처럼 실패. */
+    const extracted = _extractFirstJsonObject(s);
+    if (extracted === null) throw e;
+    return JSON.parse(extracted);
+  }
+}
+
+/* 첫 '{' 부터 문자열/escape를 고려해 균형 잡힌 '}' 까지 추출. 균형이 안 맞으면 null. */
+function _extractFirstJsonObject(s) {
+  const start = s.indexOf('{');
+  if (start === -1) return null;
+  let depth = 0;
+  let inStr = false;
+  let escaped = false;
+  for (let i = start; i < s.length; i++) {
+    const ch = s[i];
+    if (inStr) {
+      if (escaped) escaped = false;
+      else if (ch === '\\') escaped = true;
+      else if (ch === '"') inStr = false;
+      continue;
+    }
+    if (ch === '"') { inStr = true; continue; }
+    if (ch === '{') depth++;
+    else if (ch === '}') {
+      depth--;
+      if (depth === 0) return s.slice(start, i + 1);
+    }
+  }
+  return null;
 }
 
 function _hangulRatio(s) {
@@ -650,6 +689,185 @@ function _validateWorkCheckResponse(parsed) {
 }
 
 /* ════════════════════════════════════════════════════════════════
+   텍스트 2단계 검증 helper (s1 공유 helper 재사용 + s2 전용 추가)
+   ════════════════════════════════════════════════════════════════ */
+/* s2 글자수 hard cut (발전이므로 s1보다 큼). 초과 시 전체 throw(환불). */
+const S2_MAXLEN = { split: 700, imageCenter: 350 };
+
+/* s2 글자수 비율 — 발전이므로 확장 허용, 폭주만 차단. 원문 20자 미만은 절대 증가량 기준. */
+function _checkLengthRatioS2(origLen, revisedLen) {
+  if (origLen < 20) {
+    const diff = revisedLen - origLen;
+    if (diff > 220) return { strong: true, reason: `원문 짧음(${origLen}자) — 증가량 ${diff}자 (220자 초과)` };
+    if (diff > 160) return { weak: true, reason: `원문 짧음(${origLen}자) — 증가량 ${diff}자 (160자 초과)` };
+    return {};
+  }
+  const ratio = revisedLen / origLen;
+  if (ratio > 3.0) return { strong: true, reason: `글자수 비율 ${ratio.toFixed(2)}배 (3.0배 초과 — 재창작 위험)` };
+  if (ratio > 2.5) return { weak: true, reason: `글자수 비율 ${ratio.toFixed(2)}배 (2.5배 초과)` };
+  if (ratio < 0.8) return { weak: true, reason: `글자수 비율 ${ratio.toFixed(2)}배 (0.8배 미만 — 발전인데 줄었음)` };
+  return {};
+}
+
+/* 원작에 없는 큰 설정 키워드 — revised에 새로 등장(원문에 없던 것)하면 strong(발전 범위 초과). */
+const S2_BIG_SETTING_WORDS = [
+  '마법', '마법사', '마법학교', '마법왕국', '전학생', '악당', '비밀조직', '비밀결사',
+  '우주', '외계', '드래곤', '전설의 용사', '용사', '왕자', '공주', '로봇',
+  '괴물', '몬스터', '좀비', '뱀파이어', '유령', '귀신', '초능력', '변신', '시간여행',
+];
+function _findAddedBigSetting(origBody, revised) {
+  const orig = String(origBody || '');
+  const rev = String(revised || '');
+  for (const w of S2_BIG_SETTING_WORDS) {
+    if (rev.includes(w) && !orig.includes(w)) return w;
+  }
+  return null;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   _validateS2Response — 텍스트 2단계 응답 검증 + 후처리
+   원본 body는 절대 변경하지 않는다(응답 객체만 수정).
+   전체 throw: 최상위 구조 깨짐 / hard cut / 한글 비율.
+   장면 단위 appliable=false: 보존 false·금지필드·큰설정·길이폭주.
+   ════════════════════════════════════════════════════════════════ */
+function _validateS2Response(parsed, snapshot) {
+  if (!parsed || typeof parsed !== 'object') {
+    throw new Error('JSON 박지 X — object 박지 X');
+  }
+  if (parsed.strength !== 2) {
+    throw new Error(`strength 박지 X (${parsed.strength})`);
+  }
+  if (!parsed.results || typeof parsed.results !== 'object') {
+    throw new Error('results 박지 X');
+  }
+  parsed.results = _normalizeResults(parsed.results, snapshot);
+  if (Object.keys(parsed.results).length === 0) {
+    throw new Error('정규화 후 results 박지 X');
+  }
+
+  const sceneMap = snapshot || {};
+
+  /* 정책 #2 보강: 큰 설정 키워드는 "현재 장면 본문"이 아니라 "작품 전체 원문" 기준으로 판단한다.
+     (장면1에 이미 마법사가 있으면 장면2 발전문의 "마법사"는 자연스러운 이어짐이라 허용해야 함) */
+  const workText = Object.values(sceneMap)
+    .map((s) => (s && (typeof s.body === 'string' ? s.body : (typeof s.text === 'string' ? s.text : ''))) || '')
+    .join('\n');
+
+  for (const sceneId of Object.keys(parsed.results)) {
+    const r = parsed.results[sceneId];
+    if (!r || typeof r !== 'object') continue;
+
+    const strongWarnings = Array.isArray(r.strongWarnings) ? r.strongWarnings.slice() : [];
+    const weakWarnings = Array.isArray(r.weakWarnings) ? r.weakWarnings.slice() : [];
+
+    if (Array.isArray(r.warnings)) {
+      for (const w of r.warnings) {
+        if (!w) continue;
+        const isStrong = (w.severity === 'strong') || (w.level === 'strong') ||
+                         (typeof w === 'string' && /강한|strong/i.test(w));
+        if (isStrong) strongWarnings.push(w); else weakWarnings.push(w);
+      }
+    }
+
+    if (r.skip === true) {
+      delete r.revisedText; delete r.summary; delete r.changes;
+      if (strongWarnings.length > 0) r.strongWarnings = strongWarnings;
+      if (weakWarnings.length > 0) r.weakWarnings = weakWarnings;
+      continue;
+    }
+
+    /* 부적절 표현(INAPPROPRIATE/SAFETY): prompts.js 부적절 처리 원칙에 따라 모델은
+       해당 장면을 발전시키지 않고 revisedText 없이 strong 경고만 반환한다.
+       전체 batch throw 대신 이 장면만 appliable=false로 차단하고 정상 장면은 계속 처리한다.
+       (revisedText가 함께 온 경우는 아래 일반 경로에서 strong → appliable=false로 처리됨) */
+    const hasInappropriate = strongWarnings.some((w) =>
+      (w && (w.code === 'INAPPROPRIATE' || w.code === 'SAFETY')) ||
+      (typeof w === 'string' && /INAPPROPRIATE|SAFETY/i.test(w)));
+    if (hasInappropriate && (typeof r.revisedText !== 'string' || r.revisedText.trim().length === 0)) {
+      r.appliable = false;
+      r.strongWarnings = strongWarnings;
+      if (weakWarnings.length > 0) r.weakWarnings = weakWarnings;
+      delete r.revisedText; delete r.summary; delete r.changes;
+      continue;
+    }
+
+    if (typeof r.revisedText !== 'string' || r.revisedText.trim().length === 0) {
+      throw new Error(`장면 ${sceneId} — revisedText 박지 X`);
+    }
+
+    const origScene = sceneMap[sceneId] || {};
+    const origBody = typeof origScene.body === 'string'
+      ? origScene.body
+      : (typeof origScene.text === 'string' ? origScene.text : '');
+    const revised = r.revisedText;
+
+    /* 변경 없음 → skip 변환 */
+    if (_normalizeForCompare(origBody) === _normalizeForCompare(revised)) {
+      r.skip = true;
+      r.reason = '실제 변경이 없어 원본을 유지합니다.';
+      delete r.revisedText; delete r.summary; delete r.changes;
+      if (strongWarnings.length > 0) r.strongWarnings = strongWarnings;
+      if (weakWarnings.length > 0) r.weakWarnings = weakWarnings;
+      continue;
+    }
+
+    /* hard cut (전체 throw) */
+    const submode = origScene.submode === 'imageCenter' ? 'imageCenter' : 'split';
+    const maxLen = S2_MAXLEN[submode];
+    if (revised.length > maxLen) {
+      throw new Error(`장면 ${sceneId} — 글자수 hard cut 초과 (${revised.length}/${maxLen}, ${submode})`);
+    }
+
+    /* 한글 비율 (전체 throw) */
+    if (_hangulRatio(revised) < 0.7) {
+      throw new Error(`장면 ${sceneId} — 한글 비율 70% 미만`);
+    }
+
+    /* 금지 필드 scan → 장면 단위 차단 */
+    const bannedPath = _findBannedKey(r, '');
+    if (bannedPath) {
+      r.bannedFieldPath = bannedPath;
+      strongWarnings.push({ severity: 'strong', code: 'BANNED_FIELD', message: `금지 필드 발견: ${bannedPath}` });
+    }
+
+    /* 큰 설정 키워드(작품 전체 원문에 없던 것) → strong (정책 #2: 현재 장면이 아닌 작품 전체 기준) */
+    const bigSetting = _findAddedBigSetting(workText, revised);
+    if (bigSetting) {
+      strongWarnings.push({ severity: 'strong', code: 'BIG_SETTING_ADDED', message: `원작에 없는 큰 설정 추가 의심: "${bigSetting}"` });
+    }
+
+    /* 글자수 비율 (s2) */
+    const lenRes = _checkLengthRatioS2(origBody.length, revised.length);
+    if (lenRes.strong) strongWarnings.push({ severity: 'strong', code: 'LEN_RATIO', message: lenRes.reason });
+    else if (lenRes.weak) weakWarnings.push({ severity: 'weak', code: 'LEN_RATIO', message: lenRes.reason });
+
+    /* preservedCheck (s2 강화 — 정책 #1: false → strong / 누락도 → strong + 적용 차단)
+       2단계는 내용 추가가 허용되는 기능이라 preservedCheck가 핵심 안전장치다.
+       누락을 통과시키면 위험하므로, 누락이면 원본 보호를 위해 적용을 차단한다.
+       ※ 공유 헬퍼 _checkPreserved와 s1 경로(weak 통과)는 그대로 두고, s2 함수 안에서만 강화. */
+    const pc = _checkPreserved(r.preservedCheck);
+    if (!pc.present) {
+      r.preservedCheckMissing = true;
+      strongWarnings.push({ severity: 'strong', code: 'PRESERVED_CHECK_MISSING', message: '2단계 보존 검사 결과가 없어 원본 보호를 위해 적용하지 않음' });
+    } else if (pc.failed.length > 0) {
+      r.preservedCheckFailed = pc.failed;
+      for (const k of pc.failed) {
+        strongWarnings.push({ severity: 'strong', code: 'PRESERVED_CHECK_FALSE', message: `preservedCheck.${k} = false` });
+      }
+    }
+
+    /* 누적 반영 — strong 있으면 적용 차단 */
+    if (strongWarnings.length > 0) {
+      r.appliable = false;
+      r.strongWarnings = strongWarnings;
+    }
+    if (weakWarnings.length > 0) r.weakWarnings = weakWarnings;
+  }
+
+  return parsed;
+}
+
+/* ════════════════════════════════════════════════════════════════
    callTextAiBatch — 텍스트 1단계 (안심 정돈)
    ──────────────────────────────────────────────────────────────
    step2 박은 거 박은 거 박은 박은 — 11단 검증 + quota 차감 박음.
@@ -721,6 +939,72 @@ exports.callTextAiBatch = onCall(
       /* 환불 정책 #3·#4 — Anthropic / 네트워크 실패 → 환불 */
       await _refundQuota(ctx);
       logger.error('[ai/s1] 호출 실패 — 환불 박음', { error: e.message, stack: e.stack });
+      throw new HttpsError('internal', 'AI 호출 실패: ' + (e.message || String(e)));
+    }
+  }
+);
+
+/* ════════════════════════════════════════════════════════════════
+   callTextAiBatchS2 — 텍스트 2단계 (장면 발전)
+   s1과 공유 헬퍼(_validateRequest/_consumeQuota/_refundQuota/_callAnthropic/_parseJsonStrict/
+   _estimateCostUsd/_logUsageStats) 재사용. prompt=TEXT_S2_SYSTEM_PROMPT, 모델=S2_MODEL(기본 Haiku),
+   검증=_validateS2Response. 기존 callTextAiBatch/callWorkCheck는 불변.
+   ════════════════════════════════════════════════════════════════ */
+exports.callTextAiBatchS2 = onCall(
+  {
+    secrets: [ANTHROPIC_API_KEY],
+    enforceAppCheck: false,
+  },
+  async (req) => {
+    const ctx = await _validateRequest(req, 's2');
+
+    const snapshot = (req.data && req.data.snapshot) || {};
+    if (!snapshot || Object.keys(snapshot).length === 0) {
+      throw new HttpsError('invalid-argument', 'snapshot 박지 X (본문 박은 장면 X)');
+    }
+
+    logger.info('[ai/s2] 검증 통과', {
+      uid: ctx.uid, classId: ctx.classId, teamName: ctx.teamName, workId: ctx.workId,
+      used: ctx.used, quotaMax: ctx.quotaMax, sceneCount: Object.keys(snapshot).length,
+    });
+
+    await _consumeQuota(ctx);
+
+    try {
+      const userMsg = buildUserMessage(snapshot, 's2');
+      const ai = await _callAnthropic(ANTHROPIC_API_KEY.value(), TEXT_S2_SYSTEM_PROMPT, userMsg, S2_MODEL);
+
+      logger.info('[ai/s2] Anthropic 응답 박힘', {
+        model: S2_MODEL, inputTokens: ai.inputTokens, outputTokens: ai.outputTokens, stopReason: ai.stopReason,
+      });
+
+      let parsed;
+      try {
+        parsed = _parseJsonStrict(ai.text);
+        _validateS2Response(parsed, snapshot);
+      } catch (parseErr) {
+        await _refundQuota(ctx);
+        logger.error('[ai/s2] schema 위반 — 환불 박음', { error: parseErr.message, text: ai.text.slice(0, 500) });
+        throw new HttpsError('internal', 'AI 응답 검증 실패: ' + parseErr.message);
+      }
+
+      const cost = _estimateCostUsd(ai.inputTokens, ai.outputTokens);
+      _logUsageStats(ctx, ai, cost).catch(e => logger.warn('stats 박지 X', e));
+
+      return {
+        ...parsed,
+        meta: {
+          model: S2_MODEL,
+          inputTokens: ai.inputTokens,
+          outputTokens: ai.outputTokens,
+          estimatedCostUsd: cost,
+          phase: 'phase-a',
+        },
+      };
+    } catch (e) {
+      if (e instanceof HttpsError) throw e;
+      await _refundQuota(ctx);
+      logger.error('[ai/s2] 호출 실패 — 환불 박음', { error: e.message, stack: e.stack });
       throw new HttpsError('internal', 'AI 호출 실패: ' + (e.message || String(e)));
     }
   }

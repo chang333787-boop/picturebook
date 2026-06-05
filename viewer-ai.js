@@ -459,6 +459,186 @@
   }
 
   /* ════════════════════════════════════════════════════════════════
+     텍스트 2단계 (장면 발전) — 클라이언트 연결 (2026-06)
+     서버 callTextAiBatchS2 호출 → 후보 결과 표시 → 사용자가 적용 → localStorage(aiVariants.textS2)
+     오버레이. 원본 scene.body 절대 안 덮음. s1 흐름/작품검사 불변(독립 함수).
+     ════════════════════════════════════════════════════════════════ */
+  async function _phaseACallTextS2(snapshot) {
+    const { classId, teamName } = _getCurrentClassIdTeamName();
+    const branchLineage = (typeof ViewerState !== 'undefined' && ViewerState.branchLineage) || {};
+    return _callPhaseAFunction('callTextAiBatchS2', {
+      classId, teamName,
+      workId: teamName,
+      rootBranchId: branchLineage.rootBranchId || null,
+      copyDepth: branchLineage.copyDepth || 0,
+      snapshot,
+    });
+  }
+
+  /* TEST MODE / 무인증 fallback — 가벼운 mock 발전(흐름 테스트용). 실 API에는 안 씀. */
+  async function _mockGenerateS2(snapshot) {
+    await new Promise(function (r) { setTimeout(r, 800); });
+    const results = {};
+    Object.values(snapshot || {}).forEach(function (s) {
+      if (!s || !s.body) return;
+      results[String(s.id)] = {
+        revisedText: String(s.body) + ' 그러고는 주변을 천천히 둘러보았다.',
+        summary: 'mock 발전 — 행동 묘사 추가',
+        addedElements: { background: false, action: true, emotion: false, sensory: false, dialogue: false },
+        preservedCheck: {
+          charactersUnchanged: true, plotPointsUnchanged: true, choiceMeaningsUnchanged: true,
+          endingDirectionUnchanged: true, branchStructureUnchanged: true, sceneRoleUnchanged: true,
+          studentToneUnchanged: true,
+        },
+        riskLevel: 'low', appliable: true,
+      };
+    });
+    return { ok: true, strength: 2, scope: 'work', globalSummary: 'MOCK 2단계 (가짜)', results: results, isMock: true };
+  }
+
+  async function _startTextS2() {
+    const snapshot = _buildWorkSnapshot();
+    const sceneCount = Object.keys(snapshot || {}).length;
+    if (sceneCount === 0) {
+      alert('2단계로 발전시킬 본문이 있는 장면이 없어요.');
+      return;
+    }
+    const useRealApi = _shouldUseRealApi();
+    if (!useRealApi && _getRemaining('s2') <= 0) {
+      alert('이번 작품에서 텍스트 2단계를 사용할 수 있는 횟수를 모두 사용했어요. (테스트 모드)');
+      return;
+    }
+    _showCallingModal(sceneCount);
+    _currentAbort = { cancelled: false };
+    let apiResult;
+    try {
+      if (useRealApi) {
+        apiResult = await _phaseACallTextS2(snapshot);
+      } else {
+        _consumeQuota('s2');
+        apiResult = await _mockGenerateS2(snapshot);
+      }
+    } catch (e) {
+      _hideCallingModal();
+      console.error('[Phase A] 텍스트 2단계 실패', e);
+      alert('AI 장면 발전에 실패했어요. 잠시 후 다시 시도해주세요.\n' + (e && e.message ? e.message : ''));
+      return;
+    }
+    _hideCallingModal();
+    if (_currentAbort && _currentAbort.cancelled) return;
+    _showS2ResultModal(snapshot, (apiResult && apiResult.results) || {});
+  }
+
+  /* 차단된 s2 후보의 strongWarnings를 학생용 부드러운 문구로 변환(최대 2개). 코드 없는 경고는 일반 문구로 fallback. */
+  function _s2BlockedReasons(r) {
+    const ws = (r && Array.isArray(r.strongWarnings)) ? r.strongWarnings : [];
+    const out = [];
+    ws.forEach(function (w) {
+      const code = (w && w.code) || '';
+      let m = '';
+      if (code === 'BIG_SETTING_ADDED') m = '원작에 없던 큰 설정이 들어갔어요.';
+      else if (code === 'PRESERVED_CHECK_FALSE') m = '선택지나 다음 장면 흐름이 바뀔 수 있어요.';
+      else if (code === 'PRESERVED_CHECK_MISSING') m = '보존 검사 결과가 부족해 원본을 보호했어요.';
+      else if (code === 'BANNED_FIELD') m = '바꾸면 안 되는 부분이 함께 바뀌려 했어요.';
+      else if (code === 'LEN_RATIO') m = '내용이 원작보다 너무 많이 늘어났어요.';
+      else if (code === 'INAPPROPRIATE' || code === 'SAFETY') m = '다듬기에 적합하지 않은 표현이 있어요. 표현을 직접 바꾼 뒤 다시 시도해 주세요.';
+      if (m && out.indexOf(m) < 0) out.push(m);
+    });
+    return out.slice(0, 2);
+  }
+
+  function _showS2ResultModal(snapshot, results) {
+    const rows = Object.keys(snapshot || {}).map(function (sid) {
+      const orig = snapshot[sid] || {};
+      const r = results[sid];
+      if (!r) return '';
+      if (r.skip === true) {
+        return '<div class="ai-scene-row"><div class="ai-col-label">장면 ' + _escapeHtml(sid)
+          + ' — 발전 안 함</div><div style="color:#888;font-size:13px;">'
+          + _escapeHtml(r.reason || '이미 충분히 발전되어 있어요') + '</div></div>';
+      }
+      const blocked = (r.appliable === false) || (Array.isArray(r.strongWarnings) && r.strongWarnings.length > 0);
+      const added = r.addedElements || {};
+      const addedLabels = [];
+      if (added.background) addedLabels.push('배경');
+      if (added.action) addedLabels.push('행동');
+      if (added.emotion) addedLabels.push('감정');
+      if (added.sensory) addedLabels.push('감각');
+      if (added.dialogue) addedLabels.push('대사');
+      let note;
+      if (blocked) {
+        const reasons = _s2BlockedReasons(r);
+        const reasonHtml = reasons.length
+          ? '<ul style="margin:4px 0 0 18px;padding:0;font-weight:400;">' + reasons.map(function (m) { return '<li>' + _escapeHtml(m) + '</li>'; }).join('') + '</ul>'
+          : '';
+        note = '<div style="margin-top:6px;color:#c0392b;font-size:13px;font-weight:600;">⚠ 이 장면은 원본 보호를 위해 적용할 수 없어요.'
+          + reasonHtml
+          + '<div style="font-weight:400;margin-top:3px;">표현을 직접 바꾼 뒤 다시 시도해 보세요. (원본은 그대로 보호돼요)</div></div>';
+      } else if (Array.isArray(r.weakWarnings) && r.weakWarnings.length > 0) {
+        const ws = r.weakWarnings.map(function (w) { return (w && w.reason) ? w.reason : String(w); }).join(', ');
+        note = '<div style="margin-top:6px;color:#b9770e;font-size:13px;">주의: ' + _escapeHtml(ws) + '</div>';
+      } else {
+        note = '<div style="margin-top:6px;color:#3a7d3a;font-size:13px;">선택지와 다음 장면 흐름을 확인했어요.</div>';
+      }
+      return ''
+        + '<div class="ai-scene-row" data-scene-id="' + _escapeHtml(sid) + '"' + (blocked ? ' style="opacity:0.85;"' : '') + '>'
+        +   '<div class="ai-col-label">장면 ' + _escapeHtml(sid)
+        +     (addedLabels.length ? ' · 추가된 점: ' + _escapeHtml(addedLabels.join(', ')) : '') + '</div>'
+        +   '<div class="ai-scene-row__split">'
+        +     '<div class="ai-scene-row__col"><div class="ai-col-label">원본</div><div class="ai-col-body">' + _escapeHtml(orig.body || '') + '</div></div>'
+        +     '<div class="ai-scene-row__col"><div class="ai-col-label">AI 장면 발전</div><div class="ai-col-body ai-col-body--suggested">' + _escapeHtml(r.revisedText || '') + '</div></div>'
+        +   '</div>'
+        +   note
+        + '</div>';
+    }).join('');
+
+    const html = ''
+      + '<div class="ai-modal__header"><div class="ai-modal__title">✨ AI 장면 발전 결과 — 2단계</div>'
+      +   '<button class="ai-modal__close js-ai-modal-close" aria-label="닫기">✕</button></div>'
+      + '<div class="ai-modal__body">'
+      +   '<p class="ai-mode-intro">원작의 핵심 사건과 선택지는 지키면서 장면을 더 생생하게 발전시킨 후보예요. 마음에 드는 장면만 적용할 수 있고, 원본은 그대로 남아요.</p>'
+      +   '<div class="ai-s2-list">' + (rows || '<div class="ai-empty">발전할 장면이 없어요.</div>') + '</div>'
+      + '</div>'
+      + '<div class="ai-modal__footer">'
+      +   '<button type="button" class="ai-btn ai-btn--ghost js-ai-s2-cancel">취소</button>'
+      +   '<button type="button" class="ai-btn ai-btn--primary js-ai-s2-apply">적용 가능한 장면 적용하기</button>'
+      + '</div>';
+
+    const root = _createModalRoot('ai-s2-result-modal', html, { size: 'large' });
+    root.querySelector('.js-ai-modal-close').addEventListener('click', function () { _removeModalRoot('ai-s2-result-modal'); });
+    root.querySelector('.js-ai-s2-cancel').addEventListener('click', function () { _removeModalRoot('ai-s2-result-modal'); });
+    root.querySelector('.js-ai-s2-apply').addEventListener('click', function () {
+      _applyS2Results(results);
+      _removeModalRoot('ai-s2-result-modal');
+    });
+  }
+
+  /* 적용 — strongWarnings/appliable=false 장면은 제외. aiVariants.textS2.final에 저장(원본 불변). */
+  function _applyS2Results(results) {
+    const final = {};
+    let appliedCount = 0;
+    Object.keys(results || {}).forEach(function (sid) {
+      const r = results[sid];
+      if (!r || r.skip === true) return;
+      const blocked = (r.appliable === false) || (Array.isArray(r.strongWarnings) && r.strongWarnings.length > 0);
+      if (blocked) return;
+      if (typeof r.revisedText !== 'string' || !r.revisedText.trim()) return;
+      final[sid] = { body: r.revisedText, finalizedAt: Date.now() };
+      appliedCount++;
+    });
+    if (appliedCount === 0) {
+      alert('적용 가능한 장면이 없어요. (모든 후보가 주의/차단 상태이거나 발전 없음)');
+      return;
+    }
+    const v = _loadAiVariants();
+    v.textS2 = { status: 'finalized', final: final, finalizedAt: Date.now() };
+    _saveAiVariants(v);
+    _setAiViewMode('aiS2');
+    _showAiToggleBar();
+    alert('✅ ' + appliedCount + '개 장면에 AI 장면 발전을 적용했어요. 원본은 그대로 보호돼요. 위쪽 보기 모드에서 원본/문장 정돈/장면 발전을 전환할 수 있어요.');
+  }
+
+  /* ════════════════════════════════════════════════════════════════
      v140-step2: mock 후보 생성 (1 후보 세트 = 작품 전체)
      ──────────────────────────────────────────────────────────────
      v139의 _mockReviseS1 박은 거 박은 거 박은. 한 회차 = 1 후보.
@@ -805,6 +985,11 @@
     return !!(v.textS1 && v.textS1.status === 'finalized');
   }
 
+  function _isS2Finalized() {
+    const v = _loadAiVariants();
+    return !!(v.textS2 && v.textS2.status === 'finalized');
+  }
+
   function _getS1FinalBody(sceneId) {
     const v = _loadAiVariants();
     if (!v.textS1 || v.textS1.status !== 'finalized') return null;
@@ -946,16 +1131,16 @@
      viewer-render.js 박은 6 곳 박은 거 박은 _getDisplayBody 박은 거 박을 거.
      ════════════════════════════════════════════════════════════════ */
   function _getAiViewMode() {
-    /* v140 fix 2026-05-21: 팀별 namespace 박음 */
+    /* v140 fix 2026-05-21: 팀별 namespace 박음. 2026-06: aiS2 추가(3-way). */
     try {
       const v = localStorage.getItem(_getMockViewModeKey());
-      return (v === 'aiS1') ? 'aiS1' : 'original';
+      return (v === 'aiS1' || v === 'aiS2') ? v : 'original';
     } catch (e) { return 'original'; }
   }
 
   function _setAiViewMode(mode) {
     try {
-      if (mode === 'aiS1') localStorage.setItem(_getMockViewModeKey(), 'aiS1');
+      if (mode === 'aiS1' || mode === 'aiS2') localStorage.setItem(_getMockViewModeKey(), mode);
       else localStorage.removeItem(_getMockViewModeKey());
     } catch (e) { /* noop */ }
     _updateAiToggleBar();
@@ -969,43 +1154,46 @@
 
   /* viewer-render.js 박은 거 박은 거 박은 본문 박은 거 박은 거 박은 거 박은 — 토글 mode에 따라 박은 거 박음 */
   function _getDisplayBody(sceneId, originalBody) {
-    if (_getAiViewMode() !== 'aiS1') return originalBody;
+    const mode = _getAiViewMode();
+    if (mode !== 'aiS1' && mode !== 'aiS2') return originalBody;
     const v = _loadAiVariants();
-    if (!v.textS1 || v.textS1.status !== 'finalized') return originalBody;
-    const f = v.textS1.final && v.textS1.final[sceneId];
+    const variant = (mode === 'aiS2') ? v.textS2 : v.textS1;
+    if (!variant || variant.status !== 'finalized') return originalBody;
+    const f = variant.final && variant.final[sceneId];
     if (!f || typeof f.body !== 'string') return originalBody;
     return f.body;
   }
 
   function _showAiToggleBar() {
-    /* finalized 박혀있을 때만 박음 */
-    if (!_isS1Finalized()) {
-      _hideAiToggleBar();
-      return;
-    }
+    /* 2026-06: 3-way. s1 또는 s2가 finalized면 표시. 변형 구성이 바뀔 수 있어 매번 재생성. */
+    const hasS1 = _isS1Finalized();
+    const hasS2 = _isS2Finalized();
+    if (!hasS1 && !hasS2) { _hideAiToggleBar(); return; }
     /* edit mode 박을 때만 박음 (감상 모드 박지 X) */
     const isEdit = (typeof ViewerState !== 'undefined') && ViewerState.editMode;
-    if (!isEdit) {
-      _hideAiToggleBar();
-      return;
+    if (!isEdit) { _hideAiToggleBar(); return; }
+
+    /* 현재 보기 mode가 더 이상 유효하지 않으면 원본으로 정리 (setMode가 재렌더+업데이트) */
+    const cur = _getAiViewMode();
+    if ((cur === 'aiS1' && !hasS1) || (cur === 'aiS2' && !hasS2)) {
+      _setAiViewMode('original');
     }
 
-    let bar = document.getElementById('ai-view-toggle-bar');
-    if (!bar) {
-      bar = document.createElement('div');
-      bar.id = 'ai-view-toggle-bar';
-      bar.className = 'ai-view-toggle-bar';
-      bar.innerHTML = ''
-        + '<span class="ai-view-toggle-bar__label">보기 모드:</span>'
-        + '<button type="button" class="ai-view-toggle-btn js-ai-view-original" data-mode="original">원본</button>'
-        + '<button type="button" class="ai-view-toggle-btn js-ai-view-ais1" data-mode="aiS1">AI 1단계</button>';
-      document.body.appendChild(bar);
-      bar.querySelectorAll('.ai-view-toggle-btn').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-          _setAiViewMode(btn.getAttribute('data-mode'));
-        });
+    _hideAiToggleBar();
+    const bar = document.createElement('div');
+    bar.id = 'ai-view-toggle-bar';
+    bar.className = 'ai-view-toggle-bar';
+    let html = '<span class="ai-view-toggle-bar__label">보기 모드:</span>'
+      + '<button type="button" class="ai-view-toggle-btn js-ai-view-original" data-mode="original">원본</button>';
+    if (hasS1) html += '<button type="button" class="ai-view-toggle-btn js-ai-view-ais1" data-mode="aiS1">AI 문장 정돈</button>';
+    if (hasS2) html += '<button type="button" class="ai-view-toggle-btn js-ai-view-ais2" data-mode="aiS2">AI 장면 발전</button>';
+    bar.innerHTML = html;
+    document.body.appendChild(bar);
+    bar.querySelectorAll('.ai-view-toggle-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        _setAiViewMode(btn.getAttribute('data-mode'));
       });
-    }
+    });
     _updateAiToggleBar();
   }
 
@@ -1134,8 +1322,8 @@
         reason:  bodyCount < 1 ? '본문이 있는 장면이 1개 이상 필요해요' : '',
       },
       s2: {
-        enabled: false,
-        reason:  '준비 중이에요 (다음 업데이트에서 만나요)',
+        enabled: bodyCount >= 1,
+        reason:  bodyCount < 1 ? '본문이 있는 장면이 1개 이상 필요해요' : '',
       },
       s3: {
         enabled: false,
@@ -1338,6 +1526,8 @@
         if (mode === 's1') {
           /* v140-step2: 후보 3회 흐름. 옛 _startTextS1 (비교 모달 + _rtSaveBody 적용)은 호출 박지 X */
           _startTextS1V140();
+        } else if (mode === 's2') {
+          _startTextS2();
         } else if (mode === 'check') {
           _startWorkCheck();
         }

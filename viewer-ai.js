@@ -593,6 +593,11 @@
     }
     _hideCallingModal();
     if (_currentAbort && _currentAbort.cancelled) return;
+    /* Phase 2 — 서버 사전 검사 차단 응답이면 모달 안내 후 종료 (AI 발전 없음) */
+    if (apiResult && apiResult.blocked) {
+      _showAiPrecheckBlockedModal(apiResult, 's2');
+      return;
+    }
     _showS2ResultModal(snapshot, (apiResult && apiResult.results) || {});
   }
 
@@ -612,6 +617,80 @@
       if (m && out.indexOf(m) < 0) out.push(m);
     });
     return out.slice(0, 2);
+  }
+
+  /* ════════════════════════════════════════════════════════════════
+     Phase 2 — 사전 검사 차단 안내 모달 (safety / completion / structure / cooldown)
+     ──────────────────────────────────────────────────────────────
+     서버가 {ok:false, blocked:true, reasonCode, categories, sceneIds, message} 반환 시 표시.
+     원칙: 문제 표현 원문 노출 X (장면 번호 + 부드러운 카테고리 라벨만). native alert 아님.
+     ════════════════════════════════════════════════════════════════ */
+  var _PRECHECK_CAT_LABEL = {
+    profanity: '거친 말',
+    sexual: '어른용 표현',
+    harassment: '친구를 괴롭히는 표현',
+    personal_info: '개인정보(전화·주소 등)',
+    self_harm: '위험한 표현',
+    hate: '차별·혐오 표현',
+    gore: '너무 잔인한 표현',
+    injection: 'AI를 속이려는 표현',
+  };
+  var _PRECHECK_TITLE = {
+    SAFETY_BLOCKED: '✋ 잠깐, 표현을 확인해 주세요',
+    INCOMPLETE_WORK: '📝 아직 준비가 덜 됐어요',
+    STRUCTURE_INCOMPLETE: '🧩 이야기 흐름을 연결해 주세요',
+    SAFETY_COOLDOWN: '⏳ 잠깐 쉬어가요',
+  };
+
+  function _showAiPrecheckBlockedModal(res, mode) {
+    res = res || {};
+    var reason = res.reasonCode || 'SAFETY_BLOCKED';
+    var title = _PRECHECK_TITLE[reason] || '안내';
+    var msg = res.message || '지금은 AI를 사용할 수 없어요.';
+
+    var sceneIds = Array.isArray(res.sceneIds) ? res.sceneIds.filter(Boolean) : [];
+    var sceneHtml = '';
+    if (sceneIds.length) {
+      sceneHtml = '<div style="margin-top:10px;font-size:13px;color:#444;">확인할 장면: '
+        + sceneIds.map(function (s) { return '<span style="display:inline-block;background:#f3eaff;color:#7b3fc0;border-radius:10px;padding:2px 9px;margin:2px;font-weight:600;">장면 ' + _escapeHtml(String(s)) + '</span>'; }).join('')
+        + '</div>';
+    }
+
+    var cats = Array.isArray(res.categories) ? res.categories : [];
+    var catHtml = '';
+    if (reason === 'SAFETY_BLOCKED' && cats.length) {
+      var labels = [];
+      cats.forEach(function (c) { var l = _PRECHECK_CAT_LABEL[c]; if (l && labels.indexOf(l) < 0) labels.push(l); });
+      if (labels.length) {
+        catHtml = '<div style="margin-top:8px;font-size:13px;color:#666;">살펴볼 점: '
+          + labels.map(function (l) { return _escapeHtml(l); }).join(', ') + '</div>';
+      }
+    }
+
+    /* safety 계열에는 "AI가 대신 고치지 않는다 + 원본 보호" 안내를 명시 */
+    var footNote = (reason === 'SAFETY_BLOCKED' || reason === 'SAFETY_COOLDOWN')
+      ? '<p style="margin-top:12px;font-size:13px;color:#3a7d3a;">AI가 대신 고치지 않아요. 표현을 직접 바꾼 뒤 다시 시도해 주세요. 원본은 그대로 보호돼요.</p>'
+      : '<p style="margin-top:12px;font-size:13px;color:#3a7d3a;">원본은 그대로 보호돼요.</p>';
+
+    var html = ''
+      + '<div class="ai-modal__header"><div class="ai-modal__title">' + _escapeHtml(title) + '</div>'
+      +   '<button class="ai-modal__close js-ai-precheck-close" aria-label="닫기">✕</button></div>'
+      + '<div class="ai-modal__body">'
+      +   '<p style="font-size:15px;color:#333;line-height:1.6;">' + _escapeHtml(msg) + '</p>'
+      +   sceneHtml
+      +   catHtml
+      +   footNote
+      + '</div>'
+      + '<div class="ai-modal__footer">'
+      +   '<button type="button" class="ai-btn ai-btn--primary js-ai-precheck-ok">알겠어요</button>'
+      + '</div>';
+
+    var root = _createModalRoot('ai-precheck-blocked-modal', html, {});
+    var close = function () { _removeModalRoot('ai-precheck-blocked-modal'); };
+    var x = root.querySelector('.js-ai-precheck-close');
+    var ok = root.querySelector('.js-ai-precheck-ok');
+    if (x) x.addEventListener('click', close);
+    if (ok) ok.addEventListener('click', close);
   }
 
   function _showS2ResultModal(snapshot, results) {
@@ -813,6 +892,13 @@
         console.log('[Phase A] callTextAiBatch 호출 박음', { attemptN, snapshot });
         const apiResult = await _phaseACallTextS1(snapshot);
         console.log('[Phase A] callTextAiBatch 응답 박힘', apiResult);
+        /* Phase 2 — 서버 사전 검사 차단 응답이면 모달 안내 후 종료 (후보 생성 없음, quota 차감 없음) */
+        if (apiResult && apiResult.blocked) {
+          _hideCallingModal();
+          _setAiTextS1Status(count > 0 ? 'candidate_ready' : 'none');
+          _showAiPrecheckBlockedModal(apiResult, 's1');
+          return;
+        }
         if (_currentAbort && _currentAbort.cancelled) {
           /* 호출 도중 취소 — Functions quota는 차감 그대로 (환불 X) */
           _hideCallingModal();
@@ -2046,6 +2132,11 @@
     }
 
     _hideCallingModal();
+    /* Phase 2 — 서버 사전 검사 차단 응답이면 모달 안내 후 종료 (진단 없음) */
+    if (result && result.blocked) {
+      _showAiPrecheckBlockedModal(result, 'check');
+      return;
+    }
     _showCheckResultModal(result);
   }
 

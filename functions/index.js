@@ -310,6 +310,216 @@ async function _refundQuota(ctx) {
 }
 
 /* ════════════════════════════════════════════════════════════════
+   Phase 2 — AI 호출 前 사전 검사
+   (safety precheck + completion/structure quick check)
+   ──────────────────────────────────────────────────────────────
+   삽입 위치: 각 handler에서 snapshot empty check 직후, _consumeQuota(ctx) 직전.
+   원칙:
+   - block 이면 AI 호출 X + quota 차감 X (safety/quick 공통).
+   - safety block만 safetyAttempt 기록 + 연속 3회 → 5분 cooldown.
+   - quick-check block(INCOMPLETE/STRUCTURE)은 안내만 — cooldown 카운트 제외(작성 중 상태일 수 있음).
+   - 문제 표현 원문은 응답에 넣지 않음 (sceneIds / categories 만 반환).
+   - 정상 모험/싸움/죽음 서사는 과차단하지 않도록 패턴을 보수적으로 둠.
+   - safety state(aiSafetyState/{classId}/{teamName}/{mode})는 admin SDK 전용.
+     rules에 노출 X → 클라 직접 read/write 불가. database.rules.json 변경 없음.
+   - block은 정상 응답 return 방식({ok:false,blocked:true,...}). HttpsError throw 아님.
+   ════════════════════════════════════════════════════════════════ */
+const SAFETY_MAX_CONSECUTIVE = 3;          /* 연속 block 3회 → 쿨다운 */
+const SAFETY_COOLDOWN_MS = 5 * 60 * 1000;  /* 5분 */
+
+/* 학생용 안내 문구 — 문제 표현 원문은 절대 포함하지 않음. */
+const _PRECHECK_MSG = {
+  SAFETY: 'AI가 다듬기 어려운 표현이 있어요. AI가 대신 고쳐주지는 않아요. 표현을 직접 바꾼 뒤 다시 시도해 주세요. (원본은 그대로 보호돼요)',
+  INCOMPLETE_S1: '다듬을 본문이 있는 장면이 아직 없어요.',
+  INCOMPLETE_S2: '장면이 2개 이상 있어야 AI가 장면을 발전시킬 수 있어요. 이야기를 조금 더 쓴 뒤 다시 시도해 주세요.',
+  INCOMPLETE_CHECK: '검사할 본문이 아직 없어요.',
+  STRUCTURE_S2: '선택지로 이어지는 다음 장면이나 엔딩이 아직 없어요. 이야기 흐름을 연결한 뒤 다시 시도해 주세요. (원본은 그대로 보호돼요)',
+};
+
+/* 보수적 패턴 — 1차. /g 플래그 금지(.test 상태 유지 버그 방지).
+   "괴물과 싸웠다 / 도망쳤다 / 무서웠다 / 죽었다" 같은 일반 서사는 잡지 않음. */
+const SAFETY_PATTERNS = {
+  /* 욕설/비속어 — 명백한 것만. 단독 "새끼"는 제외(강아지 새끼 등 오탐 방지). */
+  profanity: [
+    /씨발|시발|씨bal|쌍놈|쌍년|개새끼|개자식|개놈|썅|좆|존나|병신|지랄|닥쳐|꺼져\s*죽|엿\s*먹어|니애미|니에미|fuck|f\*ck|bitch/i,
+    /ㅅㅂ|ㅄ|ㅂㅅ|ㅈㄹ/,
+  ],
+  /* 성적/19금 */
+  sexual: [
+    /섹스|쎅스|성관계|야동|야애니|자위행위|성기|음경|자지|보지|발기|사정하|오르가즘|porn|성적\s*흥분/i,
+  ],
+  /* 실명+비난/괴롭힘 — 실명 추출 불가하므로 명백한 따돌림/괴롭힘 표현만 보수적으로. */
+  harassment: [
+    /왕따|따돌림|따돌려|괴롭혀|괴롭힐|괴롭히자|놀려서\s*울려|때려서\s*괴롭/,
+  ],
+  /* 개인정보 — 전화/주민번호/카드 형식 */
+  personal_info: [
+    /01[016789][-\s]?\d{3,4}[-\s]?\d{4}/,            /* 휴대폰 */
+    /\b\d{6}[-\s]?[1-4]\d{6}\b/,                      /* 주민등록번호 형식 */
+    /\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b/,     /* 카드번호 16자리 */
+    /비밀번호\s*[:는은]?\s*\S+|password\s*[:=]/i,
+  ],
+  /* 자해/자살 조장 */
+  self_harm: [
+    /자살|자해|손목\s*긋|손목을?\s*그어|목\s*매달|목을\s*매|투신|죽는\s*방법|죽어\s*버리는\s*법/,
+  ],
+  /* 혐오/차별 — 명백한 비하/차별어만. */
+  hate: [
+    /짱깨|쪽바리|쪽발이|틀딱|급식충|맘충|한남충|김치녀|똥남아|병신새끼|장애인\s*주제/,
+  ],
+  /* 명백히 잔혹한 폭력(고어) — 일반 싸움/죽음은 제외, 신체훼손 묘사만. */
+  gore: [
+    /목을?\s*(잘라|베어|베고|썰어)|사지를?\s*찢|내장을?\s*꺼내|눈알을?\s*(파|뽑)|살점을?\s*도려|피가\s*솟구|피분수/,
+  ],
+  /* prompt injection */
+  injection: [
+    /이전\s*(지시|명령|프롬프트)\S*\s*(무시|잊)|지금부터\s*너는|너는\s*이제|시스템\s*프롬프트|역할을?\s*(무시|벗어)|ignore\s+(all\s+)?previous|system\s+prompt|disregard\s+(the\s+)?above|you\s+are\s+now/i,
+  ],
+};
+
+/* snapshot 전체 스캔 → 카테고리/문제 sceneId 수집. 원문은 반환하지 않음. */
+function _scanSafety(snapshot) {
+  const cats = new Set();
+  const sceneIds = new Set();
+  Object.keys(snapshot || {}).forEach((sid) => {
+    const sc = snapshot[sid] || {};
+    const parts = [sc.body, sc.title];
+    (sc.choices || []).forEach((c) => { if (c && c.label) parts.push(c.label); });
+    const text = parts.filter(Boolean).join('\n');
+    if (!text) return;
+    Object.keys(SAFETY_PATTERNS).forEach((cat) => {
+      const hit = SAFETY_PATTERNS[cat].some((re) => re.test(text));
+      if (hit) { cats.add(cat); sceneIds.add(String(sid)); }
+    });
+  });
+  return { blocked: cats.size > 0, categories: Array.from(cats), sceneIds: Array.from(sceneIds) };
+}
+
+/* completion / structure quick check — mode별 기준. snapshot은 이미 빈 본문 제외됨. */
+function _quickCheck(snapshot, mode) {
+  const ids = Object.keys(snapshot || {});
+  const n = ids.length;
+
+  if (mode === 's1') {
+    /* 가장 관대 — 본문 1장면 이상이면 통과. 구조 검사 안 함. */
+    if (n < 1) return { blocked: true, reasonCode: 'INCOMPLETE_WORK', sceneIds: [], message: _PRECHECK_MSG.INCOMPLETE_S1 };
+    return { blocked: false };
+  }
+
+  if (mode === 's2') {
+    if (n < 2) return { blocked: true, reasonCode: 'INCOMPLETE_WORK', sceneIds: [], message: _PRECHECK_MSG.INCOMPLETE_S2 };
+    /* 흐름 검사: snapshot 안으로 이어지는 선택지(valid next)도, 엔딩도 하나도 없으면 차단.
+       (둘 중 하나라도 있으면 통과 — 과차단 방지) */
+    let hasValidNext = false;
+    let hasEnding = false;
+    const dangling = new Set();
+    ids.forEach((sid) => {
+      const sc = snapshot[sid] || {};
+      if (sc.isEnding) hasEnding = true;
+      (sc.choices || []).forEach((c) => {
+        if (c && c.nextId) {
+          if (snapshot[String(c.nextId)]) hasValidNext = true;
+          else dangling.add(String(sid));
+        }
+      });
+    });
+    if (!hasValidNext && !hasEnding) {
+      return { blocked: true, reasonCode: 'STRUCTURE_INCOMPLETE', sceneIds: Array.from(dangling), message: _PRECHECK_MSG.STRUCTURE_S2 };
+    }
+    return { blocked: false };
+  }
+
+  /* check — 진단이라 가장 관대. 본문 거의 없을 때만(=empty, 사실상 handler가 먼저 throw). */
+  if (n < 1) return { blocked: true, reasonCode: 'INCOMPLETE_WORK', sceneIds: [], message: _PRECHECK_MSG.INCOMPLETE_CHECK };
+  return { blocked: false };
+}
+
+/* safetyAttempt 기록 — 연속 block 카운트 + 3회시 쿨다운. admin SDK write(클라 접근 X). */
+async function _recordSafetyBlock(stateRef, prevState, categories, sceneIds) {
+  const now = Date.now();
+  const consecutive = ((prevState && prevState.consecutiveBlocks) || 0) + 1;
+  const update = {
+    consecutiveBlocks: consecutive,
+    lastBlockedAt: now,
+    lastCategories: categories || [],
+    lastSceneIds: sceneIds || [],
+  };
+  if (consecutive >= SAFETY_MAX_CONSECUTIVE) {
+    update.blockedUntil = now + SAFETY_COOLDOWN_MS;
+  }
+  try {
+    await stateRef.update(update);
+  } catch (e) {
+    logger.warn('[ai/precheck] safetyState 기록 실패(무시)', { error: e && e.message });
+  }
+  return consecutive;
+}
+
+/* 사전 검사 진입점 — block이면 {ok:false,blocked:true,...} 반환, 통과면 null.
+   호출 위치: handler의 _consumeQuota(ctx) 직전. block 반환 시 handler가 즉시 return → quota 차감 X. */
+async function _runAiPrecheck(ctx, snapshot, mode) {
+  const { classId, teamName } = ctx;
+  const stateRef = admin.database().ref(`aiSafetyState/${classId}/${teamName}/${mode}`);
+
+  let state = {};
+  try {
+    const snap = await stateRef.once('value');
+    state = snap.val() || {};
+  } catch (e) {
+    logger.warn('[ai/precheck] safetyState 읽기 실패(통과 처리)', { error: e && e.message });
+    state = {};
+  }
+
+  const now = Date.now();
+
+  /* 0. 쿨다운 — blockedUntil 동안 즉시 차단 (quota 차감 없음). */
+  if (state.blockedUntil && state.blockedUntil > now) {
+    const remainSec = Math.ceil((state.blockedUntil - now) / 1000);
+    const remainMin = Math.max(1, Math.ceil(remainSec / 60));
+    return {
+      ok: false, blocked: true, reasonCode: 'SAFETY_COOLDOWN',
+      categories: state.lastCategories || [], sceneIds: [],
+      cooldownRemainSec: remainSec,
+      message: `잠깐 쉬어가요. 약 ${remainMin}분 뒤에 다시 시도할 수 있어요.`,
+    };
+  }
+
+  /* 1. safety precheck */
+  const safety = _scanSafety(snapshot);
+  if (safety.blocked) {
+    const consecutive = await _recordSafetyBlock(stateRef, state, safety.categories, safety.sceneIds);
+    const out = {
+      ok: false, blocked: true, reasonCode: 'SAFETY_BLOCKED',
+      categories: safety.categories, sceneIds: safety.sceneIds,
+      message: _PRECHECK_MSG.SAFETY,
+    };
+    if (consecutive >= SAFETY_MAX_CONSECUTIVE) out.cooldownRemainSec = Math.ceil(SAFETY_COOLDOWN_MS / 1000);
+    return out;
+  }
+
+  /* 2. completion / structure quick check
+     ── quick-check block은 cooldown 카운트에서 제외한다(확정 정책).
+        이유: 본문 부족/구조 미완성은 학생이 아직 작성 중인 자연스러운 상태일 수 있어
+              5분 잠금은 과함. quota 차감 없이 안내만. consecutiveBlocks 증감/cooldown 일절 X.
+        (남용 우려가 있는 safety block만 cooldown 대상.) safety 카운터는 건드리지 않음. */
+  const quick = _quickCheck(snapshot, mode);
+  if (quick.blocked) {
+    return {
+      ok: false, blocked: true, reasonCode: quick.reasonCode,
+      categories: [], sceneIds: quick.sceneIds || [],
+      message: quick.message,
+    };
+  }
+
+  /* 3. 통과 — safety 연속 block 카운터/쿨다운 리셋. */
+  if (state.consecutiveBlocks || state.blockedUntil) {
+    try { await stateRef.update({ consecutiveBlocks: 0, blockedUntil: 0, lastResetAt: now }); }
+    catch (e) { logger.warn('[ai/precheck] reset 실패(무시)', { error: e && e.message }); }
+  }
+  return null;
+}
+
+/* ════════════════════════════════════════════════════════════════
    Anthropic SDK 호출 (Haiku)
    ──────────────────────────────────────────────────────────────
    사용 모델: claude-haiku-4-5 (Phase A — 가격·속도 최적)
@@ -912,6 +1122,13 @@ exports.callTextAiBatch = onCall(
       used: ctx.used, quotaMax: ctx.quotaMax, sceneCount: Object.keys(snapshot).length,
     });
 
+    /* Phase 2 — safety precheck + completion/structure quick check (quota 차감 前, AI 호출 前) */
+    const precheck = await _runAiPrecheck(ctx, snapshot, 's1');
+    if (precheck && precheck.blocked) {
+      logger.info('[ai/s1] precheck 차단', { reasonCode: precheck.reasonCode, categories: precheck.categories, sceneIds: precheck.sceneIds });
+      return precheck;
+    }
+
     /* quota 차감 (호출 박은 거 박은 거 박은 박은) */
     await _consumeQuota(ctx);
 
@@ -987,6 +1204,13 @@ exports.callTextAiBatchS2 = onCall(
       used: ctx.used, quotaMax: ctx.quotaMax, sceneCount: Object.keys(snapshot).length,
     });
 
+    /* Phase 2 — safety precheck + completion/structure quick check (quota 차감 前, AI 호출 前) */
+    const precheck = await _runAiPrecheck(ctx, snapshot, 's2');
+    if (precheck && precheck.blocked) {
+      logger.info('[ai/s2] precheck 차단', { reasonCode: precheck.reasonCode, categories: precheck.categories, sceneIds: precheck.sceneIds });
+      return precheck;
+    }
+
     await _consumeQuota(ctx);
 
     try {
@@ -1049,6 +1273,13 @@ exports.callWorkCheck = onCall(
       uid: ctx.uid, classId: ctx.classId, teamName: ctx.teamName, workId: ctx.workId,
       used: ctx.used, quotaMax: ctx.quotaMax, sceneCount: Object.keys(snapshot).length,
     });
+
+    /* Phase 2 — safety precheck + completion quick check (quota 차감 前, AI 호출 前) */
+    const precheck = await _runAiPrecheck(ctx, snapshot, 'check');
+    if (precheck && precheck.blocked) {
+      logger.info('[ai/check] precheck 차단', { reasonCode: precheck.reasonCode, categories: precheck.categories, sceneIds: precheck.sceneIds });
+      return precheck;
+    }
 
     await _consumeQuota(ctx);
 
@@ -1156,4 +1387,13 @@ exports._internal = {
   PRESERVED_CHECK_KEYS,
   HAIKU_MODEL,
   MAX_TOKENS,
+  /* Phase 2 — precheck. _runAiPrecheck/_recordSafetyBlock는 admin.database 필요(테스트시 mock 주입). */
+  _scanSafety,
+  _quickCheck,
+  _runAiPrecheck,
+  _recordSafetyBlock,
+  SAFETY_PATTERNS,
+  SAFETY_MAX_CONSECUTIVE,
+  SAFETY_COOLDOWN_MS,
+  _PRECHECK_MSG,
 };

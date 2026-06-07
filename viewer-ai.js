@@ -423,8 +423,10 @@
     let classId = '', teamName = '';
     try {
       if (typeof ViewerState !== 'undefined' && ViewerState) {
-        classId = String(ViewerState.classId || '');
-        teamName = String(ViewerState.teamName || '');
+        /* 진실은 ViewerState.project.* (loadTeamData가 채움). scenes/aiVariants 경로와 정합. */
+        const proj = ViewerState.project || {};
+        classId = String(proj.classId || ViewerState.classId || '');
+        teamName = String(proj.teamName || ViewerState.teamName || '');
       }
       const p = new URLSearchParams(location.search);
       if (!classId && p.get('classId')) classId = p.get('classId');
@@ -496,6 +498,10 @@
     const after = isClassAiHardOff();
     if (after !== before && typeof renderHUD === 'function') {
       try { renderHUD(); } catch (e) { /* noop */ }
+    }
+    /* Phase 3 — 텍스트 aiVariant Firebase 캐시 로딩(fire-and-forget). 로딩되면 프레임 재렌더. */
+    if (typeof _preloadFirebaseTextVariants === 'function') {
+      _preloadFirebaseTextVariants();
     }
     return _classAiSettings;
   }
@@ -770,6 +776,8 @@
       if (blocked) return;
       if (typeof r.revisedText !== 'string' || !r.revisedText.trim()) return;
       final[sid] = { body: r.revisedText, finalizedAt: Date.now() };
+      if (r.addedElements && typeof r.addedElements === 'object') final[sid].addedElements = r.addedElements;
+      if (typeof r.riskLevel === 'string') final[sid].riskLevel = r.riskLevel;
       appliedCount++;
     });
     if (appliedCount === 0) {
@@ -779,6 +787,12 @@
     const v = _loadAiVariants();
     v.textS2 = { status: 'finalized', final: final, finalizedAt: Date.now() };
     _saveAiVariants(v);
+
+    /* Phase 3 — 실 API 모드에서 Firebase 정식 저장(원본 scene.body 불변, 서버 경유). */
+    if (_shouldUseRealApi()) {
+      _saveTextVariantToFirebase('s2', final);   /* fire-and-forget */
+    }
+
     _setAiViewMode('aiS2');
     _showAiToggleBar();
     alert('✅ ' + appliedCount + '개 장면에 AI 장면 발전을 적용했어요. 원본은 그대로 보호돼요. 위쪽 보기 모드에서 원본/문장 정돈/장면 발전을 전환할 수 있어요.');
@@ -1151,6 +1165,112 @@
   }
 
   /* ════════════════════════════════════════════════════════════════
+     Phase 3: 텍스트 aiVariant Firebase 정식 저장/읽기
+     ──────────────────────────────────────────────────────────────
+     · 저장: saveTextVariant callable(서버 admin SDK). 원본 scene.body 불변.
+     · 읽기: classes/{cid}/teams/{enc}/aiVariants/text/{sid}/{s1|s2}.body — 메모리 캐시.
+     · _getDisplayBody: Firebase 우선 → localStorage fallback → 원본.
+     · localStorage는 임시 캐시/백업. Firebase가 정식(canonical).
+     · 실 API 사용 시에만 저장(mock 데이터 오염 방지).
+     ════════════════════════════════════════════════════════════════ */
+  let _fbTextVariants = null;     /* { s1:{sid:body}, s2:{sid:body} } | null(미로딩) */
+  let _fbTextVariantsKey = null;  /* 'classId__teamName' — 팀 바뀌면 캐시 무효화 */
+
+  function _fbVariantCacheKey() {
+    const c = _getCurrentClassIdTeamName();
+    return c.classId + '__' + c.teamName;
+  }
+
+  async function _loadFirebaseTextVariants(force) {
+    const key = _fbVariantCacheKey();
+    if (!force && _fbTextVariants && _fbTextVariantsKey === key) return _fbTextVariants;
+    const { classId, teamName } = _getCurrentClassIdTeamName();
+    if (!classId || !teamName) return null;
+    const app = _getViewerFirebaseApp();
+    if (!app || !app.database) return null;
+    const enc = encodeURIComponent(teamName);
+    try {
+      const snap = await app.database().ref('classes/' + classId + '/teams/' + enc + '/aiVariants/text').once('value');
+      const raw = snap.val() || {};
+      const out = { s1: {}, s2: {} };
+      Object.keys(raw).forEach(function (sid) {
+        const node = raw[sid] || {};
+        if (node.s1 && typeof node.s1.body === 'string') out.s1[sid] = node.s1.body;
+        if (node.s2 && typeof node.s2.body === 'string') out.s2[sid] = node.s2.body;
+      });
+      _fbTextVariants = out;
+      _fbTextVariantsKey = key;
+      return out;
+    } catch (e) {
+      console.warn('[Phase 3] aiVariants 읽기 실패(원본 fallback)', e);
+      return null;
+    }
+  }
+
+  /* 동기 — 캐시에서만 읽음. 캐시 미로딩이면 null(호출부가 localStorage/원본 fallback). */
+  function _getFbVariantBody(variantKey, sceneId) {
+    if (!_fbTextVariants) return null;
+    const m = _fbTextVariants[variantKey];
+    if (!m) return null;
+    const b = m[String(sceneId)];
+    return (typeof b === 'string') ? b : null;
+  }
+
+  /* HUD preload에서 fire-and-forget. 로딩 후 프레임 재렌더 → _getDisplayBody가 Firebase 반영. */
+  async function _preloadFirebaseTextVariants() {
+    const out = await _loadFirebaseTextVariants(false);
+    if (out && (Object.keys(out.s1).length || Object.keys(out.s2).length)) {
+      if (typeof window._scheduleViewerFrameReRender === 'function') {
+        window._scheduleViewerFrameReRender();
+      } else if (typeof _scheduleViewerFrameReRender === 'function') {
+        _scheduleViewerFrameReRender();
+      }
+    }
+    return out;
+  }
+
+  /* finalMap: {sceneId:{body,...}} (localStorage final 형태). 실 API 모드에서만 호출. */
+  async function _saveTextVariantToFirebase(variantKey, finalMap) {
+    if (variantKey !== 's1' && variantKey !== 's2') return { ok: false, reason: 'bad-variant' };
+    const { classId, teamName } = _getCurrentClassIdTeamName();
+    if (!classId || !teamName) { console.warn('[Phase 3] classId/teamName 없음 — Firebase 저장 생략'); return { ok: false, reason: 'no-context' }; }
+    const scenes = {};
+    Object.keys(finalMap || {}).forEach(function (sid) {
+      const f = finalMap[sid];
+      if (!f || typeof f.body !== 'string' || f.body.trim() === '') return;
+      const e = { body: f.body };
+      if (typeof f.source === 'string') e.source = f.source;
+      if (typeof f.editedByUser === 'boolean') e.editedByUser = f.editedByUser;
+      if (f.addedElements && typeof f.addedElements === 'object') e.addedElements = f.addedElements;
+      if (typeof f.riskLevel === 'string') e.riskLevel = f.riskLevel;
+      scenes[sid] = e;
+    });
+    if (Object.keys(scenes).length === 0) return { ok: false, reason: 'empty' };
+    const branchLineage = (typeof ViewerState !== 'undefined' && ViewerState.branchLineage) || {};
+    const payload = {
+      classId, teamName,
+      workId: teamName,
+      rootBranchId: branchLineage.rootBranchId || null,
+      copyDepth: branchLineage.copyDepth || 0,
+      variant: variantKey,
+      scenes: scenes,
+    };
+    try {
+      const data = await _callPhaseAFunction('saveTextVariant', payload);
+      if (data && data.blocked) {
+        console.warn('[Phase 3] Firebase 저장 차단(safety)', data.reasonCode, data.categories);
+        return { ok: false, blocked: true, data: data };
+      }
+      await _loadFirebaseTextVariants(true);   /* 캐시 갱신 */
+      console.info('[Phase 3] Firebase 저장 완료', variantKey, (data && data.savedSceneIds) || []);
+      return { ok: true, data: data };
+    } catch (e) {
+      console.warn('[Phase 3] Firebase 저장 실패(로컬은 유지)', e);
+      return { ok: false, error: e && e.message };
+    }
+  }
+
+  /* ════════════════════════════════════════════════════════════════
      v140-step3: 편집 중 모달 (drafting)
      ──────────────────────────────────────────────────────────────
      사용자 결정 #C — 마감 후 aiDrafts.textS1 기본 정리. TEST MODE에서 보존/초기화 선택 가능.
@@ -1309,6 +1429,11 @@
   function _getDisplayBody(sceneId, originalBody) {
     const mode = _getAiViewMode();
     if (mode !== 'aiS1' && mode !== 'aiS2') return originalBody;
+    const variantKey = (mode === 'aiS2') ? 's2' : 's1';
+    /* Firebase 우선 (정식 저장 — 캐시). 있으면 그대로. */
+    const fb = _getFbVariantBody(variantKey, sceneId);
+    if (typeof fb === 'string') return fb;
+    /* localStorage fallback (임시 캐시/백업) */
     const v = _loadAiVariants();
     const variant = (mode === 'aiS2') ? v.textS2 : v.textS1;
     if (!variant || variant.status !== 'finalized') return originalBody;
@@ -1416,6 +1541,12 @@
       sourceSuggestionId: cand.suggestionId
     };
     _saveAiVariants(v);
+
+    /* Phase 3 — 실 API 모드에서 Firebase 정식 저장(원본 scene.body 불변, 서버 경유).
+       localStorage는 백업으로 유지. mock/테스트 모드는 Firebase 저장 생략(오염 방지). */
+    if (_shouldUseRealApi()) {
+      _saveTextVariantToFirebase('s1', final);   /* fire-and-forget */
+    }
 
     /* 사용자 결정 #C — 마감 후 aiDrafts 기본 정리. TEST MODE에서는 보존/초기화 선택 가능. */
     if (_isTestMode()) {
@@ -2459,6 +2590,36 @@
     }
   })();
 
+  /* Phase 3: 텍스트 aiVariant Firebase preload — 감상자/제작자 공통.
+     renderHUD의 preload는 maker-edit 경로(fromMaker && isEdit)에서만 도므로
+     감상자 화면에서도 후보가 read되도록 별도 보장.
+     ViewerState.project(classId+teamName)는 auto-enter 후 늦게 채워지므로
+     준비될 때까지만 짧게 폴링 → 준비되면 1회 preload(내부에서 캐시+프레임 재렌더). */
+  (function _bootstrapFirebaseTextVariants() {
+    let tries = 0;
+    const MAX = 60;                 /* 최대 ~24초 (400ms × 60) — 로드 성공 시 즉시 종료 */
+    /* classId/teamName은 URL 파라미터 fallback으로 즉시 잡혀도 Firebase app 초기화는 늦으므로,
+       context만 보고 1회 발사하면 app 미준비로 null 반환 후 멈춘다.
+       → 실제 로드 성공(out !== null: classId+teamName+app 모두 준비)까지 재시도. */
+    const tick = function () {
+      tries++;
+      Promise.resolve()
+        .then(function () { return _preloadFirebaseTextVariants(); })
+        .then(function (out) {
+          if (out) return;          /* 로드 완료(데이터 유무 무관) → 종료 */
+          if (tries < MAX) setTimeout(tick, 400);
+        })
+        .catch(function () {
+          if (tries < MAX) setTimeout(tick, 400);
+        });
+    };
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', tick);
+    } else {
+      tick();
+    }
+  })();
+
   /* ════════════════════════════════════════════════════════════════
      window 노출
      ════════════════════════════════════════════════════════════════ */
@@ -2492,6 +2653,11 @@
       getClassAiSettings:     getClassAiSettings,
       isClassAiHardOff:       isClassAiHardOff,
       preloadClassAiSettings: _preloadClassAiSettings,
+
+      /* Phase 3: 텍스트 aiVariant Firebase 저장/읽기 */
+      _loadFirebaseTextVariants:    _loadFirebaseTextVariants,
+      _preloadFirebaseTextVariants: _preloadFirebaseTextVariants,
+      _saveTextVariantToFirebase:   _saveTextVariantToFirebase,
     };
 
     /* ────────────────────────────────────────────────────────────

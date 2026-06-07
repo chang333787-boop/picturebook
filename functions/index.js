@@ -116,13 +116,30 @@ function _yyyyMm() {
   return _todayYmd().slice(0, 7);
 }
 
+/* 본문 해시 — djb2 → 8자리 hex. Phase 3: aiVariant가 어떤 원본 body 기준으로 만들어졌는지 기록.
+   클라가 보낸 값은 신뢰하지 않고, 서버가 원본 scenes/{sceneId}/body를 직접 읽어 재계산한다.
+   stale 판정(현재 body 해시 ≠ 저장된 해시)은 Phase 4 — Phase 3은 저장만. */
+function _bodyHash(str) {
+  const s = String(str == null ? '' : str);
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) {
+    h = ((h << 5) + h + s.charCodeAt(i)) | 0;  /* h*33 + c, 32bit */
+  }
+  return (h >>> 0).toString(16).padStart(8, '0');
+}
+
 /* ════════════════════════════════════════════════════════════════
    11단 검증 — 호출 진입 단 박음
    ──────────────────────────────────────────────────────────────
    각 박힌 단계 박지 X 박혀있으면 HttpsError throw.
    순서: 가벼운 검증 박은 거 박은 거 박은 박은 → 무거운 검증 (DB 박은 거 박은 거 박은 박은)
    ════════════════════════════════════════════════════════════════ */
-async function _validateRequest(req, mode) {
+async function _validateRequest(req, mode, opts) {
+  /* opts.skipUsageLimits=true → 사용량 한도(전역/root/브랜치 quota) 검사를 건너뜀.
+     saveTextVariant(저장 전용)는 AI를 호출하지 않으므로 quota 소진 후에도 저장 가능해야 함.
+     권한 게이트(auth/testMode/허용목록/copyDepth/origin/killswitch/aiSettings)는 그대로 적용. */
+  const skipUsageLimits = !!(opts && opts.skipUsageLimits);
+
   /* 1. Firebase auth (anonymous라도 박힘) */
   if (!req.auth || !req.auth.uid) {
     throw new HttpsError('unauthenticated', '로그인 박은 거 박은 거 박은 박은 박지 X');
@@ -213,37 +230,41 @@ async function _validateRequest(req, mode) {
     }
   }
 
-  /* 8. 전역 일일 hard cap */
-  const today = _todayYmd();
-  const globalSnap = await admin.database().ref(`ai-usage-global/${today}/calls`).once('value');
-  const globalCalls = globalSnap.val() || 0;
-  if (globalCalls >= GLOBAL_DAILY_LIMIT) {
-    throw new HttpsError('resource-exhausted',
-      '오늘 전역 호출 한도 박은 거 박은 거 박은 박은 (' + GLOBAL_DAILY_LIMIT + '). 내일 박음.');
-  }
-
-  /* 7. rootBranchId 묶음 quota */
-  if (rootBranchId) {
-    const rootSnap = await admin.database().ref(`ai-usage-by-root/${rootBranchId}/${today}/calls`).once('value');
-    const rootCalls = rootSnap.val() || 0;
-    if (rootCalls >= ROOT_DAILY_LIMIT) {
+  let used = 0;
+  let quotaMax = 0;
+  if (!skipUsageLimits) {
+    /* 8. 전역 일일 hard cap */
+    const today = _todayYmd();
+    const globalSnap = await admin.database().ref(`ai-usage-global/${today}/calls`).once('value');
+    const globalCalls = globalSnap.val() || 0;
+    if (globalCalls >= GLOBAL_DAILY_LIMIT) {
       throw new HttpsError('resource-exhausted',
-        `이 작품 묶음(rootBranchId) 박은 거 박은 거 박은 박은 하루 한도 박힘 (${ROOT_DAILY_LIMIT}). 내일 박음.`);
+        '오늘 전역 호출 한도 박은 거 박은 거 박은 박은 (' + GLOBAL_DAILY_LIMIT + '). 내일 박음.');
     }
-  }
 
-  /* 6. 브랜치 quota */
-  const yyyyMm = _yyyyMm();
-  const usagePath = `ai-usage/${classId}/${teamName}/${yyyyMm}/${mode}Used`;
-  const usageSnap = await admin.database().ref(usagePath).once('value');
-  const used = usageSnap.val() || 0;
-  const quotaMax = QUOTA[mode] || 0;
-  if (quotaMax === 0) {
-    throw new HttpsError('invalid-argument', `mode '${mode}' 박지 X (s1 / check 박음)`);
-  }
-  if (used >= quotaMax) {
-    throw new HttpsError('resource-exhausted',
-      `이 작품의 ${mode} quota 박은 거 박은 거 박은 박은 박힘 (${used}/${quotaMax}).`);
+    /* 7. rootBranchId 묶음 quota */
+    if (rootBranchId) {
+      const rootSnap = await admin.database().ref(`ai-usage-by-root/${rootBranchId}/${today}/calls`).once('value');
+      const rootCalls = rootSnap.val() || 0;
+      if (rootCalls >= ROOT_DAILY_LIMIT) {
+        throw new HttpsError('resource-exhausted',
+          `이 작품 묶음(rootBranchId) 박은 거 박은 거 박은 박은 하루 한도 박힘 (${ROOT_DAILY_LIMIT}). 내일 박음.`);
+      }
+    }
+
+    /* 6. 브랜치 quota */
+    const yyyyMm = _yyyyMm();
+    const usagePath = `ai-usage/${classId}/${teamName}/${yyyyMm}/${mode}Used`;
+    const usageSnap = await admin.database().ref(usagePath).once('value');
+    used = usageSnap.val() || 0;
+    quotaMax = QUOTA[mode] || 0;
+    if (quotaMax === 0) {
+      throw new HttpsError('invalid-argument', `mode '${mode}' 박지 X (s1 / check 박음)`);
+    }
+    if (used >= quotaMax) {
+      throw new HttpsError('resource-exhausted',
+        `이 작품의 ${mode} quota 박은 거 박은 거 박은 박은 박힘 (${used}/${quotaMax}).`);
+    }
   }
 
   return {
@@ -1326,6 +1347,117 @@ exports.callWorkCheck = onCall(
 );
 
 /* ════════════════════════════════════════════════════════════════
+   saveTextVariant — Phase 3: 텍스트 aiVariant Firebase 정식 저장 (서버 경유)
+   ──────────────────────────────────────────────────────────────
+   · 원본 scene.body 절대 불변. 별도 노드에만 저장.
+     저장 경로: classes/{classId}/teams/{enc}/aiVariants/text/{sceneId}/{s1|s2}
+     summary  : classes/{classId}/teams/{enc}/aiVariantSummary/text {s1,s2,updatedAt} (viewer-meta 밖 형제 노드)
+   · write는 서버 admin SDK 전용. rules는 aiVariants.write:false 유지(클라 직접 write 불가).
+   · AI 호출 없음 → quota/전역/root 한도 검사 건너뜀(skipUsageLimits). 권한 게이트는 적용.
+   · safety 재검사: 저장할 body에 문제 표현 있으면 저장하지 않고 block 반환(원문 미반환, quota 무관).
+   · basedOnBodyHash: 서버가 원본 scenes/{sceneId}/body를 직접 읽어 _bodyHash 재계산(클라 값 무시).
+   ════════════════════════════════════════════════════════════════ */
+exports.saveTextVariant = onCall(
+  {
+    enforceAppCheck: false,
+  },
+  async (req) => {
+    const variant = String((req.data && req.data.variant) || '');
+    if (variant !== 's1' && variant !== 's2') {
+      throw new HttpsError('invalid-argument', `variant '${variant}' 박지 X (s1 / s2 박음)`);
+    }
+
+    /* 권한 게이트 통과(quota 검사 제외). mode=variant → aiSettings textS1/textS2 게이트 동일 적용. */
+    const ctx = await _validateRequest(req, variant, { skipUsageLimits: true });
+
+    /* scenes: { sceneId: { body, source?, editedByUser?, addedElements?, riskLevel? } } — 저장할 최종 본문 + 메타.
+       (구버전 클라 호환: req.data.bodies = { sceneId: bodyString } 도 허용.) */
+    let rawScenes = (req.data && req.data.scenes) || null;
+    if (!rawScenes && req.data && req.data.bodies) {
+      rawScenes = {};
+      Object.keys(req.data.bodies).forEach((sid) => { rawScenes[sid] = { body: req.data.bodies[sid] }; });
+    }
+    rawScenes = rawScenes || {};
+    const entries = {};
+    Object.keys(rawScenes).forEach((sid) => {
+      const e = rawScenes[sid] || {};
+      if (e && typeof e.body === 'string' && e.body.trim() !== '') entries[String(sid)] = e;
+    });
+    const sceneIds = Object.keys(entries);
+    if (sceneIds.length === 0) {
+      throw new HttpsError('invalid-argument', 'scenes 박지 X (저장할 본문 X)');
+    }
+
+    logger.info('[ai/saveVariant] 검증 통과', {
+      uid: ctx.uid, classId: ctx.classId, teamName: ctx.teamName, variant, sceneCount: sceneIds.length,
+    });
+
+    /* safety 재검사 — 저장할 body로 pseudo-snapshot 구성. block이면 저장 안 함(원문 미반환). */
+    const pseudo = {};
+    sceneIds.forEach((sid) => { pseudo[sid] = { body: entries[sid].body }; });
+    const safety = _scanSafety(pseudo);
+    if (safety.blocked) {
+      logger.info('[ai/saveVariant] safety 차단 — 저장 안 함', { variant, categories: safety.categories, sceneIds: safety.sceneIds });
+      return {
+        ok: false, blocked: true, reasonCode: 'SAFETY_BLOCKED',
+        categories: safety.categories, sceneIds: safety.sceneIds,
+        message: _PRECHECK_MSG.SAFETY,
+      };
+    }
+
+    const enc = encodeURIComponent(ctx.teamName);
+    const base = `classes/${ctx.classId}/teams/${enc}`;
+    const baseRef = admin.database().ref(base);
+    const now = Date.now();
+
+    /* 서버가 원본 scenes/{sceneId}/body를 직접 읽어 basedOnBodyHash 재계산. scene.body는 절대 수정 X. */
+    const update = {};
+    const savedSceneIds = [];
+    for (const sid of sceneIds) {
+      const e = entries[sid];
+      let originalBody = '';
+      try {
+        const snap = await baseRef.child(`scenes/${sid}/body`).once('value');
+        originalBody = snap.val();
+        originalBody = (originalBody == null) ? '' : String(originalBody);
+      } catch (err) {
+        logger.warn('[ai/saveVariant] 원본 body 읽기 실패(빈 값 처리)', { sceneId: sid, error: err && err.message });
+        originalBody = '';
+      }
+      const node = {
+        body: e.body,
+        basedOnBodyHash: _bodyHash(originalBody),
+        status: 'finalized',
+        finalizedBy: ctx.uid,
+        finalizedAt: now,
+        updatedAt: now,
+      };
+      /* 선택 메타(있을 때만 — RTDB는 null write 시 키 삭제이므로 null은 넣지 않음) */
+      if (typeof e.source === 'string') node.source = e.source;
+      if (typeof e.editedByUser === 'boolean') node.editedByUser = e.editedByUser;
+      if (e.addedElements && typeof e.addedElements === 'object') node.addedElements = e.addedElements;
+      if (typeof e.riskLevel === 'string') node.riskLevel = e.riskLevel;
+      update[`aiVariants/text/${sid}/${variant}`] = node;
+      savedSceneIds.push(sid);
+    }
+
+    /* summary — 형제 노드(viewer-meta 밖). 복사 시 stale 전파 방지. */
+    update[`aiVariantSummary/text/${variant}`] = true;
+    update[`aiVariantSummary/text/updatedAt`] = now;
+
+    try {
+      await baseRef.update(update);
+    } catch (e) {
+      logger.error('[ai/saveVariant] 저장 실패', { error: e && e.message, stack: e && e.stack });
+      throw new HttpsError('internal', '저장 실패: ' + (e && e.message ? e.message : String(e)));
+    }
+
+    logger.info('[ai/saveVariant] 저장 완료', { variant, savedCount: savedSceneIds.length });
+    return { ok: true, variant, savedSceneIds, savedAt: now };
+  }
+);
+
+/* ════════════════════════════════════════════════════════════════
    비용 추정 + stats (Cloud Logging 박음)
    ──────────────────────────────────────────────────────────────
    Haiku 4.5 단가 (2026-05 기준):
@@ -1396,4 +1528,6 @@ exports._internal = {
   SAFETY_MAX_CONSECUTIVE,
   SAFETY_COOLDOWN_MS,
   _PRECHECK_MSG,
+  /* Phase 3 — 텍스트 aiVariant 저장 */
+  _bodyHash,
 };

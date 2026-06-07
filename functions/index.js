@@ -128,6 +128,32 @@ function _bodyHash(str) {
   return (h >>> 0).toString(16).padStart(8, '0');
 }
 
+/* Phase 4-D-1: variant layout(picturebookBodyBox) 서버 sanitizer.
+   클라가 보낸 값은 신뢰하지 않고 클램프. viewer-data.js _normalizePbBodyBox와 동일 범위.
+   x 0~80, y 0~80, width 20~95, height null(auto) | 12~90, backdropOpacity 0~1. */
+function _sanitizePbBodyBox(raw) {
+  const r = (raw && typeof raw === 'object') ? raw : {};
+  const clamp = (v, lo, hi, def) => {
+    const n = Number(v);
+    if (!isFinite(n)) return def;
+    return Math.min(hi, Math.max(lo, n));
+  };
+  const out = {
+    x: clamp(r.x, 0, 80, 15),
+    y: clamp(r.y, 0, 80, 25),
+    width: clamp(r.width, 20, 95, 55),
+    backdropOpacity: clamp(r.backdropOpacity, 0, 1, 0.85),
+  };
+  /* height: null이면 auto-content. 숫자면 12~90 클램프. */
+  if (r.height == null || r.height === '') {
+    out.height = null;
+  } else {
+    const h = Number(r.height);
+    out.height = isFinite(h) ? Math.min(90, Math.max(12, h)) : null;
+  }
+  return out;
+}
+
 /* ════════════════════════════════════════════════════════════════
    11단 검증 — 호출 진입 단 박음
    ──────────────────────────────────────────────────────────────
@@ -1367,18 +1393,22 @@ exports.saveTextVariant = onCall(
       throw new HttpsError('invalid-argument', `variant '${variant}' 박지 X (s1 / s2 박음)`);
     }
 
-    /* mode: 'finalize'(Phase3 기본 — 전체 노드 새로 씀) | 'patchBody'(Phase4-C — 기존 메타 보존, body만 갱신).
-       patchBody는 기존 variant 노드를 읽어 body/basedOnBodyHash만 바꾸고 modifiedByUser/At/By 추가. */
+    /* mode: 'finalize'(Phase3 기본 — 전체 노드 새로 씀) | 'patchBody'(Phase4-C — 기존 메타 보존, body만 갱신)
+       | 'patchLayout'(Phase4-D-1 — 기존 노드 read-merge로 layout.picturebookBodyBox만 갱신, body/메타 보존).
+       patchLayout은 텍스트를 건드리지 않으므로 safety 재검사 없음. scene.body/scenes layout 절대 미변경. */
     const mode = String((req.data && req.data.mode) || 'finalize');
-    if (mode !== 'finalize' && mode !== 'patchBody') {
-      throw new HttpsError('invalid-argument', `mode '${mode}' 박지 X (finalize / patchBody 박음)`);
+    if (mode !== 'finalize' && mode !== 'patchBody' && mode !== 'patchLayout') {
+      throw new HttpsError('invalid-argument', `mode '${mode}' 박지 X (finalize / patchBody / patchLayout 박음)`);
     }
+    const isLayoutPatch = (mode === 'patchLayout');
 
     /* 권한 게이트 통과(quota 검사 제외). mode=variant → aiSettings textS1/textS2 게이트 동일 적용. */
     const ctx = await _validateRequest(req, variant, { skipUsageLimits: true });
 
-    /* scenes: { sceneId: { body, source?, editedByUser?, addedElements?, riskLevel? } } — 저장할 최종 본문 + 메타.
-       (구버전 클라 호환: req.data.bodies = { sceneId: bodyString } 도 허용.) */
+    /* scenes:
+       - finalize/patchBody: { sceneId: { body, source?, editedByUser?, addedElements?, riskLevel? } }
+       - patchLayout:        { sceneId: { layout: { picturebookBodyBox } } }  (body 없음)
+       (구버전 클라 호환: req.data.bodies = { sceneId: bodyString } 도 허용 — body 모드 전용.) */
     let rawScenes = (req.data && req.data.scenes) || null;
     if (!rawScenes && req.data && req.data.bodies) {
       rawScenes = {};
@@ -1388,28 +1418,37 @@ exports.saveTextVariant = onCall(
     const entries = {};
     Object.keys(rawScenes).forEach((sid) => {
       const e = rawScenes[sid] || {};
-      if (e && typeof e.body === 'string' && e.body.trim() !== '') entries[String(sid)] = e;
+      if (isLayoutPatch) {
+        /* layout 모드: layout.picturebookBodyBox 가 객체일 때만 채택. body 불요. */
+        if (e && e.layout && typeof e.layout === 'object' && e.layout.picturebookBodyBox && typeof e.layout.picturebookBodyBox === 'object') {
+          entries[String(sid)] = e;
+        }
+      } else if (e && typeof e.body === 'string' && e.body.trim() !== '') {
+        entries[String(sid)] = e;
+      }
     });
     const sceneIds = Object.keys(entries);
     if (sceneIds.length === 0) {
-      throw new HttpsError('invalid-argument', 'scenes 박지 X (저장할 본문 X)');
+      throw new HttpsError('invalid-argument', isLayoutPatch ? 'scenes 박지 X (저장할 layout X)' : 'scenes 박지 X (저장할 본문 X)');
     }
 
     logger.info('[ai/saveVariant] 검증 통과', {
-      uid: ctx.uid, classId: ctx.classId, teamName: ctx.teamName, variant, sceneCount: sceneIds.length,
+      uid: ctx.uid, classId: ctx.classId, teamName: ctx.teamName, variant, mode, sceneCount: sceneIds.length,
     });
 
-    /* safety 재검사 — 저장할 body로 pseudo-snapshot 구성. block이면 저장 안 함(원문 미반환). */
-    const pseudo = {};
-    sceneIds.forEach((sid) => { pseudo[sid] = { body: entries[sid].body }; });
-    const safety = _scanSafety(pseudo);
-    if (safety.blocked) {
-      logger.info('[ai/saveVariant] safety 차단 — 저장 안 함', { variant, categories: safety.categories, sceneIds: safety.sceneIds });
-      return {
-        ok: false, blocked: true, reasonCode: 'SAFETY_BLOCKED',
-        categories: safety.categories, sceneIds: safety.sceneIds,
-        message: _PRECHECK_MSG.SAFETY,
-      };
+    /* safety 재검사 — body 모드만. patchLayout은 텍스트 미변경이므로 검사 생략. */
+    if (!isLayoutPatch) {
+      const pseudo = {};
+      sceneIds.forEach((sid) => { pseudo[sid] = { body: entries[sid].body }; });
+      const safety = _scanSafety(pseudo);
+      if (safety.blocked) {
+        logger.info('[ai/saveVariant] safety 차단 — 저장 안 함', { variant, categories: safety.categories, sceneIds: safety.sceneIds });
+        return {
+          ok: false, blocked: true, reasonCode: 'SAFETY_BLOCKED',
+          categories: safety.categories, sceneIds: safety.sceneIds,
+          message: _PRECHECK_MSG.SAFETY,
+        };
+      }
     }
 
     const enc = encodeURIComponent(ctx.teamName);
@@ -1422,6 +1461,34 @@ exports.saveTextVariant = onCall(
     const savedSceneIds = [];
     for (const sid of sceneIds) {
       const e = entries[sid];
+      let node;
+      if (isLayoutPatch) {
+        /* patchLayout — 기존 variant 노드 read-merge. body/메타/basedOnBodyHash 보존, layout.picturebookBodyBox만 갱신.
+           원본 scenes/{sid}/body 안 읽음(텍스트 미변경). 노드 없으면 layout만 가진 stub 생성(원본 body는 절대 복사 X). */
+        let existing = null;
+        try {
+          const exSnap = await baseRef.child(`aiVariants/text/${sid}/${variant}`).once('value');
+          existing = exSnap.val();
+        } catch (err) {
+          logger.warn('[ai/saveVariant] 기존 variant 읽기 실패(layout stub 생성)', { sceneId: sid, variant, error: err && err.message });
+          existing = null;
+        }
+        const sanitizedBox = _sanitizePbBodyBox(e.layout.picturebookBodyBox);
+        if (existing && typeof existing === 'object') {
+          node = Object.assign({}, existing);
+          node.layout = Object.assign({}, existing.layout || {}, { picturebookBodyBox: sanitizedBox });
+        } else {
+          /* variant 본문이 아직 없는 경우: layout만 저장(body 미포함 — 원본 fallback은 클라가 처리). */
+          node = { layout: { picturebookBodyBox: sanitizedBox } };
+        }
+        node.layoutModifiedByUser = true;
+        node.layoutModifiedAt = now;
+        node.layoutModifiedBy = ctx.uid;
+        node.updatedAt = now;
+        update[`aiVariants/text/${sid}/${variant}`] = node;
+        savedSceneIds.push(sid);
+        continue;
+      }
       let originalBody = '';
       try {
         const snap = await baseRef.child(`scenes/${sid}/body`).once('value');
@@ -1431,7 +1498,6 @@ exports.saveTextVariant = onCall(
         logger.warn('[ai/saveVariant] 원본 body 읽기 실패(빈 값 처리)', { sceneId: sid, error: err && err.message });
         originalBody = '';
       }
-      let node;
       if (mode === 'patchBody') {
         /* 기존 노드 읽어 메타 보존 + body/basedOnBodyHash만 갱신. 노드 없으면 finalize처럼 새로 생성. */
         let existing = null;

@@ -1186,6 +1186,8 @@
      ════════════════════════════════════════════════════════════════ */
   let _fbTextVariants = null;     /* { s1:{sid:body}, s2:{sid:body} } | null(미로딩) */
   let _fbTextVariantsKey = null;  /* 'classId__teamName' — 팀 바뀌면 캐시 무효화 */
+  /* Phase 4-D-1: variant layout(picturebookBodyBox) 메모리 캐시. body 캐시와 같은 로더로 채움. */
+  let _fbTextVariantLayouts = null; /* { s1:{sid:{picturebookBodyBox}}, s2:{sid:{picturebookBodyBox}} } | null */
 
   function _fbVariantCacheKey() {
     const c = _getCurrentClassIdTeamName();
@@ -1204,12 +1206,16 @@
       const snap = await app.database().ref('classes/' + classId + '/teams/' + enc + '/aiVariants/text').once('value');
       const raw = snap.val() || {};
       const out = { s1: {}, s2: {} };
+      const layoutOut = { s1: {}, s2: {} };
       Object.keys(raw).forEach(function (sid) {
         const node = raw[sid] || {};
         if (node.s1 && typeof node.s1.body === 'string') out.s1[sid] = node.s1.body;
         if (node.s2 && typeof node.s2.body === 'string') out.s2[sid] = node.s2.body;
+        if (node.s1 && node.s1.layout && node.s1.layout.picturebookBodyBox) layoutOut.s1[sid] = { picturebookBodyBox: node.s1.layout.picturebookBodyBox };
+        if (node.s2 && node.s2.layout && node.s2.layout.picturebookBodyBox) layoutOut.s2[sid] = { picturebookBodyBox: node.s2.layout.picturebookBodyBox };
       });
       _fbTextVariants = out;
+      _fbTextVariantLayouts = layoutOut;
       _fbTextVariantsKey = key;
       return out;
     } catch (e) {
@@ -1225,6 +1231,40 @@
     if (!m) return null;
     const b = m[String(sceneId)];
     return (typeof b === 'string') ? b : null;
+  }
+
+  /* Phase 4-D-1: variant layout(picturebookBodyBox) 동기 조회. FB 캐시 우선 → localStorage final → null. */
+  function _getFbVariantLayout(variantKey, sceneId) {
+    if (!_fbTextVariantLayouts) return null;
+    const m = _fbTextVariantLayouts[variantKey];
+    if (!m) return null;
+    const v = m[String(sceneId)];
+    return (v && v.picturebookBodyBox) ? v.picturebookBodyBox : null;
+  }
+
+  function _getLocalVariantLayout(variantKey, sceneId) {
+    try {
+      const v = _loadAiVariants();
+      const variant = (variantKey === 's2') ? v.textS2 : v.textS1;
+      const f = variant && variant.final && variant.final[String(sceneId)];
+      if (f && f.layout && f.layout.picturebookBodyBox) return f.layout.picturebookBodyBox;
+    } catch (e) { /* noop */ }
+    return null;
+  }
+
+  /* 현재 보기 모드 기준 표시할 picturebookBodyBox 반환.
+     원본 보기 → originalBox 그대로. aiS1/aiS2 보기 → variant layout(FB→local) 있으면 그것, 없으면 originalBox fallback. */
+  function _getDisplayPbBodyBox(sceneId, originalBox) {
+    const mode = _getAiViewMode();
+    if (mode !== 'aiS1' && mode !== 'aiS2') return originalBox;
+    const variantKey = (mode === 'aiS2') ? 's2' : 's1';
+    const box = _getFbVariantLayout(variantKey, sceneId) || _getLocalVariantLayout(variantKey, sceneId);
+    return box || originalBox;
+  }
+
+  /* 렌더 통합 진입점 — { picturebookBodyBox } 반환. originalBox는 호출부(render)가 getPicturebookBodyBox(scene)로 전달. */
+  function _getDisplayLayout(sceneId, originalBox) {
+    return { picturebookBodyBox: _getDisplayPbBodyBox(sceneId, originalBox) };
   }
 
   /* HUD preload에서 fire-and-forget. 로딩 후 프레임 재렌더 → _getDisplayBody가 Firebase 반영. */
@@ -1316,6 +1356,12 @@
     const variantKey = (mode === 'aiS2') ? 's2' : 's1';
     if (!_variantHasCandidate(variantKey, sceneId)) return null;
     return variantKey;
+  }
+
+  /* Phase 4-D-1: 현재 이 장면 글상자(picturebookBodyBox)를 variant 편집할 수 있으면 variantKey 반환, 아니면 null.
+     조건은 body 편집과 동일(editMode + text/picturebook + aiS1/aiS2 보기 + 그 variant 후보 존재). */
+  function _aiVariantLayoutEditAllowed(sceneId) {
+    return _aiVariantBodyEditAllowed(sceneId);
   }
 
   /* 낙관적 버퍼 — FB 메모리 캐시 + localStorage 백업만 갱신. scene.body 절대 미수정. */
@@ -1449,6 +1495,111 @@
     }
     /* 저장 도중 들어온 새 입력 처리. */
     if (Object.keys(_variantSave.pending).length > 0) _flushVariantBodySave();
+  }
+
+  /* ════════════════════════════════════════════════════════════════
+     Phase 4-D-1: variant layout(picturebookBodyBox) 편집 저장
+     ──────────────────────────────────────────────────────────────
+     · 편집 대상 = variant 글상자 위치/크기 1종. 원본 scene.picturebookBodyBox는 절대 미변경.
+     · 낙관적 버퍼: 드래그 즉시 FB 메모리 캐시 + localStorage 백업 갱신 → 재렌더해도 유지.
+     · 저장 = saveTextVariant(mode:'patchLayout') — body/메타 보존, layout.picturebookBodyBox만 갱신.
+     · body 저장 큐(_variantSave)와 완전히 분리된 별도 큐.
+     ════════════════════════════════════════════════════════════════ */
+
+  /* 낙관적 버퍼 — FB layout 캐시 + localStorage final.layout 백업만 갱신. scene.picturebookBodyBox 미수정. */
+  function _setVariantLayoutBuffer(variantKey, sceneId, pbBodyBox) {
+    const sid = String(sceneId);
+    if (!_fbTextVariantLayouts) _fbTextVariantLayouts = { s1: {}, s2: {} };
+    if (!_fbTextVariantLayouts[variantKey]) _fbTextVariantLayouts[variantKey] = {};
+    _fbTextVariantLayouts[variantKey][sid] = { picturebookBodyBox: Object.assign({}, pbBodyBox) };
+    try {
+      const v = _loadAiVariants();
+      const tk = (variantKey === 's2') ? 'textS2' : 'textS1';
+      if (!v[tk]) v[tk] = { status: 'finalized', final: {} };
+      if (!v[tk].final) v[tk].final = {};
+      const prev = v[tk].final[sid] || {};
+      const prevLayout = prev.layout || {};
+      v[tk].final[sid] = Object.assign({}, prev, { layout: Object.assign({}, prevLayout, { picturebookBodyBox: Object.assign({}, pbBodyBox) }) });
+      _saveAiVariants(v);
+    } catch (e) { /* noop */ }
+  }
+
+  /* patchLayout 저장 — 별도 경로. 원본 layout 저장(saveSceneText/_queueSave) 절대 재사용 X. */
+  async function _saveVariantLayoutPatch(variantKey, scenesLayoutMap) {
+    if (variantKey !== 's1' && variantKey !== 's2') return { ok: false, reason: 'bad-variant' };
+    const { classId, teamName } = _getCurrentClassIdTeamName();
+    if (!classId || !teamName) return { ok: false, reason: 'no-context' };
+    const scenes = {};
+    Object.keys(scenesLayoutMap || {}).forEach(function (sid) {
+      const box = scenesLayoutMap[sid] && scenesLayoutMap[sid].picturebookBodyBox;
+      if (box && typeof box === 'object') scenes[sid] = { layout: { picturebookBodyBox: box } };
+    });
+    if (Object.keys(scenes).length === 0) return { ok: false, reason: 'empty' };
+    const branchLineage = (typeof ViewerState !== 'undefined' && ViewerState.branchLineage) || {};
+    const payload = {
+      classId, teamName, workId: teamName,
+      rootBranchId: branchLineage.rootBranchId || null,
+      copyDepth: branchLineage.copyDepth || 0,
+      variant: variantKey,
+      mode: 'patchLayout',
+      scenes: scenes,
+    };
+    try {
+      const data = await _callPhaseAFunction('saveTextVariant', payload);
+      if (data && data.blocked) return { ok: false, blocked: true, data: data };
+      return { ok: true, data: data };
+    } catch (e) {
+      return { ok: false, error: e && e.message };
+    }
+  }
+
+  /* layout 저장 큐 — body 큐와 분리. pending[variantKey:sceneId] = {variantKey,sceneId,box}. */
+  const _variantLayoutSave = { pending: {}, timer: null, saving: false };
+
+  function _queueVariantLayoutSave(variantKey, sceneId, pbBodyBox) {
+    if (variantKey !== 's1' && variantKey !== 's2') return;
+    const sid = String(sceneId);
+    _setVariantLayoutBuffer(variantKey, sid, pbBodyBox);
+    _variantLayoutSave.pending[variantKey + ':' + sid] = { variantKey: variantKey, sceneId: sid, box: Object.assign({}, pbBodyBox) };
+    _showVariantSaveStatus('AI 버전의 글상자 위치를 조정 중입니다. 원본 위치는 바뀌지 않습니다.', 0);
+    if (_variantLayoutSave.timer) clearTimeout(_variantLayoutSave.timer);
+    _variantLayoutSave.timer = setTimeout(function () { _flushVariantLayoutSave(); }, 700);
+  }
+
+  async function _flushVariantLayoutSave() {
+    if (_variantLayoutSave.timer) { clearTimeout(_variantLayoutSave.timer); _variantLayoutSave.timer = null; }
+    if (_variantLayoutSave.saving) return;
+    const keys = Object.keys(_variantLayoutSave.pending);
+    if (keys.length === 0) return;
+
+    const byVariant = { s1: {}, s2: {} };
+    keys.forEach(function (k) {
+      const p = _variantLayoutSave.pending[k];
+      byVariant[p.variantKey][p.sceneId] = { picturebookBodyBox: p.box };
+    });
+    const snapshot = _variantLayoutSave.pending;
+    _variantLayoutSave.pending = {};
+    _variantLayoutSave.saving = true;
+    _showVariantSaveStatus('저장 중…', 0);
+
+    let anyFail = false;
+    for (const vk of ['s1', 's2']) {
+      if (Object.keys(byVariant[vk]).length === 0) continue;
+      const res = await _saveVariantLayoutPatch(vk, byVariant[vk]);   /* eslint-disable-line no-await-in-loop */
+      if (!res || !res.ok) anyFail = true;
+    }
+    _variantLayoutSave.saving = false;
+
+    if (anyFail) {
+      Object.keys(snapshot).forEach(function (k) {
+        if (!_variantLayoutSave.pending[k]) _variantLayoutSave.pending[k] = snapshot[k];
+      });
+      _showVariantSaveStatus('글상자 위치 저장 실패 — 다시 시도해 주세요.', 4000);
+    } else {
+      try { await _loadFirebaseTextVariants(true); } catch (e) { /* noop */ }
+      _showVariantSaveStatus('저장됨', 1500);
+    }
+    if (Object.keys(_variantLayoutSave.pending).length > 0) _flushVariantLayoutSave();
   }
 
   /* ════════════════════════════════════════════════════════════════
@@ -1649,6 +1800,8 @@
     } catch (e) { /* noop */ }
     /* Phase 4-C: variant body 편집 pending도 전환 전에 flush(변형 전환 시 유실 방지). */
     try { _flushVariantBodySave(); } catch (e) { /* noop */ }
+    /* Phase 4-D-1: variant layout(글상자) 편집 pending도 전환 전에 flush. */
+    try { _flushVariantLayoutSave(); } catch (e) { /* noop */ }
     try {
       if (mode === 'aiS1' || mode === 'aiS2') localStorage.setItem(_getMockViewModeKey(), mode);
       else localStorage.removeItem(_getMockViewModeKey());
@@ -2911,6 +3064,12 @@
       _aiVariantBodyEditAllowed:    _aiVariantBodyEditAllowed,
       _queueVariantBodySave:        _queueVariantBodySave,
       _flushVariantBodySave:        _flushVariantBodySave,
+
+      /* Phase 4-D-1: variant layout(글상자) 편집 저장 — render 변형 박스 + edit 드래그 라우팅 */
+      _getDisplayLayout:            _getDisplayLayout,
+      _aiVariantLayoutEditAllowed:  _aiVariantLayoutEditAllowed,
+      _queueVariantLayoutSave:      _queueVariantLayoutSave,
+      _flushVariantLayoutSave:      _flushVariantLayoutSave,
     };
 
     /* ────────────────────────────────────────────────────────────

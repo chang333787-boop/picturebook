@@ -591,6 +591,10 @@ function _renderScenePicturebook(stage, scene, submode) {
   const editAttrsBody = _allowPbEdit
     ? 'contenteditable="true" data-pb-editable="body"'
     : (_variantBodyKeyPb ? `contenteditable="true" data-ai-variant-edit="${_variantBodyKeyPb}"` : '');
+  /* Phase 4-D-1: s1/s2 보기 중엔 글상자(picturebookBodyBox)만 variant 위치/크기 편집 가능(원본 layout 잠금 유지). */
+  const _variantLayoutKeyPb = (typeof window !== 'undefined' && window.viewerAi
+                               && typeof window.viewerAi._aiVariantLayoutEditAllowed === 'function')
+    ? window.viewerAi._aiVariantLayoutEditAllowed(scene.id) : null;
 
   /* v36: 가로분할형은 8:2 비율로 그림 영역이 커서 하단 텍스트 영역에 제목까지 들어가면
      본문·버튼이 잘림. → 제목을 그림 좌상단 오버레이로 옮기고, 하단은 본문·버튼만.
@@ -634,9 +638,14 @@ function _renderScenePicturebook(stage, scene, submode) {
   if (isImageCenter) {
     /* W4: 본문 글상자 위치/크기/배경막 동적 적용 — 다듬기에서 조정.
        다듬기 모드(editMode)에서는 ✥ 드래그 핸들 + 4 모서리 ⤡ 리사이즈 핸들 노출. */
-    const bodyBox = (typeof getPicturebookBodyBox === 'function')
+    const _origBodyBox = (typeof getPicturebookBodyBox === 'function')
       ? getPicturebookBodyBox(scene)
       : { x: 15, y: 25, width: 55, height: null, backdropOpacity: 0.85 };
+    /* Phase 4-D-1: aiS1/aiS2 보기면 variant layout(있으면) 적용, 없으면 원본 fallback. 원본 보기면 원본 그대로. */
+    const bodyBox = (typeof window !== 'undefined' && window.viewerAi
+                     && typeof window.viewerAi._getDisplayLayout === 'function')
+      ? (window.viewerAi._getDisplayLayout(scene.id, _origBodyBox).picturebookBodyBox || _origBodyBox)
+      : _origBodyBox;
     /* 배경막 색상은 흰색 기준 — opacity로 강도 조절. 0이면 완전 투명, 1이면 완전 불투명.
        height: null이면 콘텐츠 자동, 숫자면 명시 높이 (W4: 사용자가 모서리 리사이즈로 박스 높이 명시 가능). */
     const heightStyle = (typeof bodyBox.height === 'number') ? ` height: ${bodyBox.height}%;` : '';
@@ -649,7 +658,10 @@ function _renderScenePicturebook(stage, scene, submode) {
     /* 다듬기 모드 — 드래그 핸들(가운데 ✥) + 리사이즈 핸들(4 모서리).
        감상 모드에서는 노출 X. mockup 기준: 제목은 고정(🔒), 본문 상자만 조절.
        isEdit는 위에서 이미 선언됨. */
-    const editHandlesHtml = _allowPbEdit ? `
+    /* Phase 4-D-1: 원본 보기(_allowPbEdit) 또는 variant 보기(_variantLayoutKeyPb)에서 핸들 노출.
+       감상자(editMode=false)는 두 게이트 모두 false라 핸들 없음. */
+    const _showPbBoxHandles = _allowPbEdit || !!_variantLayoutKeyPb;
+    const editHandlesHtml = _showPbBoxHandles ? `
       <div class="pb-body-handle pb-body-handle--move js-pb-body-move" title="드래그하여 위치 이동">✥</div>
       <div class="pb-body-handle pb-body-handle--resize-nw js-pb-body-resize" data-corner="nw" title="크기 조절"></div>
       <div class="pb-body-handle pb-body-handle--resize-ne js-pb-body-resize" data-corner="ne" title="크기 조절"></div>
@@ -675,7 +687,7 @@ function _renderScenePicturebook(stage, scene, submode) {
             <div class="pb-stage">
               ${illustHtml}
               ${title || isEdit ? `<div class="pb-stage__title-overlay js-pb-editable-title" ${_allowPbEdit ? 'contenteditable="true" data-pb-editable="title"' : ''} data-placeholder="(제목을 적어보세요)">${escHtml(title)}</div>` : ''}
-              ${body || isEdit ? `<div class="pb-stage__body-overlay js-pb-body-overlay" style="${bodyOverlayStyle || 'left:15%; top:25%; width:55%; background:rgba(255,255,255,0.85);'}">
+              ${body || isEdit ? `<div class="pb-stage__body-overlay js-pb-body-overlay"${_variantLayoutKeyPb ? ` data-ai-variant-layout="${_variantLayoutKeyPb}"` : ''} style="${bodyOverlayStyle || 'left:15%; top:25%; width:55%; background:rgba(255,255,255,0.85);'}">
                 <p class="pb-text__body js-pb-editable-body" ${editAttrsBody} data-placeholder="(본문을 적어보세요)">${escHtml(body)}</p>
                 ${editHandlesHtml}
               </div>` : ''}

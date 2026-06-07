@@ -1673,19 +1673,41 @@ function _attachPbBodyBoxInteractions(overlay, frame) {
   const stage = overlay.closest('.pb-stage');
   if (!stage) return;
 
+  /* Phase 4-D-1: variant 글상자 편집 모드. overlay에 data-ai-variant-layout="s1|s2"가 있으면
+     원본 scenes/{id}/picturebookBodyBox 대신 aiVariants 경로에 저장(별도 큐). */
+  const _variantLayoutKey = (overlay.dataset && (overlay.dataset.aiVariantLayout === 's1' ? 's1'
+    : overlay.dataset.aiVariantLayout === 's2' ? 's2' : null)) || null;
+
   /* 현재 장면 + 변경 적용 헬퍼 */
   const getScene = () => ViewerState.scenes[ViewerState.currentSceneId];
   const getBox = () => {
     const s = getScene();
     if (!s) return null;
-    const cur = (typeof getPicturebookBodyBox === 'function') ? getPicturebookBodyBox(s) : null;
+    const orig = (typeof getPicturebookBodyBox === 'function') ? getPicturebookBodyBox(s) : null;
+    /* variant 모드면 현재 표시 중인 variant box를 시작점으로(없으면 원본 fallback은 _getDisplayLayout이 처리). */
+    let cur = orig;
+    if (_variantLayoutKey && typeof window !== 'undefined' && window.viewerAi
+        && typeof window.viewerAi._getDisplayLayout === 'function') {
+      const disp = window.viewerAi._getDisplayLayout(s.id, orig);
+      if (disp && disp.picturebookBodyBox) cur = disp.picturebookBodyBox;
+    }
     /* 깊은 복사 — 직접 ref 수정하면 다음 호출에서 같은 객체. 안전하게 새 객체. */
     return cur ? { ...cur } : { x: 15, y: 25, width: 55, height: null, backdropOpacity: 0.85 };
   };
   const applyBox = (box) => {
     const s = getScene();
     if (!s) return;
-    /* Phase 4-A: s1/s2 보기 중엔 원본 layout(picturebookBodyBox) in-memory/저장 모두 금지. */
+    if (_variantLayoutKey) {
+      /* variant 경로 — 원본 scene.picturebookBodyBox 절대 미변경. 별도 큐로 aiVariants에 저장. */
+      _applyVariantBoxInlineStyle(box);
+      if (typeof window !== 'undefined' && window.viewerAi
+          && typeof window.viewerAi._queueVariantLayoutSave === 'function') {
+        window.viewerAi._queueVariantLayoutSave(_variantLayoutKey, s.id, { ...box });
+      }
+      return;
+    }
+    /* Phase 4-A: s1/s2 보기 중엔 원본 layout(picturebookBodyBox) in-memory/저장 모두 금지.
+       (variant 경로는 위에서 이미 분기되었으므로, 여기 도달=원본 보기이거나 후보 없음.) */
     if (_isVariantViewLocked()) return;
     /* 메모리 박기 + DB 저장 큐 — _editText.num 매칭 안 되면 _queueSave 가드에 걸리므로
        saveSceneText 직접 호출 fallback. 둘 다 시도. */
@@ -1693,7 +1715,10 @@ function _attachPbBodyBoxInteractions(overlay, frame) {
     if (typeof _queueSave === 'function') {
       _queueSave(s.num || s.id, { picturebookBodyBox: { ...box } });
     }
-    /* inline style 직접 갱신 (재렌더 사이 깜빡임 방지) */
+    _applyVariantBoxInlineStyle(box);
+  };
+  /* inline style 직접 갱신 (재렌더 사이 깜빡임 방지) — 원본/variant 공통. */
+  const _applyVariantBoxInlineStyle = (box) => {
     overlay.style.left  = `${box.x}%`;
     overlay.style.top   = `${box.y}%`;
     overlay.style.width = `${box.width}%`;
@@ -1753,6 +1778,14 @@ function _attachPbBodyBoxInteractions(overlay, frame) {
       if (!dragging) return;
       dragging = false;
       overlay.classList.remove('pb-body-overlay--moving');
+      if (_variantLayoutKey) {
+        /* variant 경로 — 별도 큐 flush. 패널은 잠겨 있으므로 renderEditPanel 미호출. */
+        if (typeof window !== 'undefined' && window.viewerAi
+            && typeof window.viewerAi._flushVariantLayoutSave === 'function') {
+          window.viewerAi._flushVariantLayoutSave();
+        }
+        return;
+      }
       if (typeof _flushPendingSave === 'function') _flushPendingSave();
       /* 다듬기 패널 슬라이더 갱신 — 슬라이더 값이 새 위치 반영되도록 */
       if (typeof renderEditPanel === 'function') renderEditPanel();
@@ -1842,6 +1875,13 @@ function _attachPbBodyBoxInteractions(overlay, frame) {
       if (!resizing) return;
       resizing = false;
       overlay.classList.remove('pb-body-overlay--resizing');
+      if (_variantLayoutKey) {
+        if (typeof window !== 'undefined' && window.viewerAi
+            && typeof window.viewerAi._flushVariantLayoutSave === 'function') {
+          window.viewerAi._flushVariantLayoutSave();
+        }
+        return;
+      }
       if (typeof _flushPendingSave === 'function') _flushPendingSave();
       if (typeof renderEditPanel === 'function') renderEditPanel();
     };

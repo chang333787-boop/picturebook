@@ -457,14 +457,21 @@ function _renderSceneCard(scene, choices) {
                          && typeof window.viewerAi._getAiViewMode === 'function')
     ? window.viewerAi._getAiViewMode() : 'original';
   const _allowTcEdit = _isEditMode && _aiViewModeTc === 'original';
+  /* Phase 4-C: s1/s2 보기 중엔 본문만 variant 편집(별도 저장 경로). 원본 보기는 기존 그대로. */
+  const _variantBodyKeyTc = (typeof window !== 'undefined' && window.viewerAi
+                             && typeof window.viewerAi._aiVariantBodyEditAllowed === 'function')
+    ? window.viewerAi._aiVariantBodyEditAllowed(scene.id) : null;
+  const _bodyEditable = _allowTcEdit || !!_variantBodyKeyTc;
   let bodyHtml = '';
   if (body || _isEditMode) {
     const scrollCls = isLong ? ' text-card__body--scroll' : '';
-    const editCls   = _allowTcEdit ? ' js-pb-editable-body' : '';
-    const emptyCls  = (_allowTcEdit && !body) ? ' is-empty' : '';
+    const editCls   = _bodyEditable ? ' js-pb-editable-body' : '';
+    const emptyCls  = (_bodyEditable && !body) ? ' is-empty' : '';
     const editAttrs = _allowTcEdit
       ? ' contenteditable="true" data-pb-editable="body" data-placeholder="(본문을 적어보세요)"'
-      : '';
+      : (_variantBodyKeyTc
+        ? ` contenteditable="true" data-ai-variant-edit="${_variantBodyKeyTc}" data-placeholder="(본문을 적어보세요)"`
+        : '');
     bodyHtml = `<p class="text-card__body${scrollCls}${editCls}${emptyCls}"${editAttrs}>${escHtml(body)}</p>`;
   }
 
@@ -576,7 +583,14 @@ function _renderScenePicturebook(stage, scene, submode) {
     ? window.viewerAi._getAiViewMode() : 'original';
   const _allowPbEdit = isEdit && _aiViewModePb === 'original';
   const editAttrs = _allowPbEdit ? 'contenteditable="true" data-pb-editable="title"' : '';
-  const editAttrsBody = _allowPbEdit ? 'contenteditable="true" data-pb-editable="body"' : '';
+  /* Phase 4-C: s1/s2 보기 중엔 본문만 variant 편집(원본 layout/title은 잠금 유지).
+     원본 보기 → data-pb-editable="body"(scene.body 경로). variant 보기 → data-ai-variant-edit(별도 경로). */
+  const _variantBodyKeyPb = (typeof window !== 'undefined' && window.viewerAi
+                             && typeof window.viewerAi._aiVariantBodyEditAllowed === 'function')
+    ? window.viewerAi._aiVariantBodyEditAllowed(scene.id) : null;
+  const editAttrsBody = _allowPbEdit
+    ? 'contenteditable="true" data-pb-editable="body"'
+    : (_variantBodyKeyPb ? `contenteditable="true" data-ai-variant-edit="${_variantBodyKeyPb}"` : '');
 
   /* v36: 가로분할형은 8:2 비율로 그림 영역이 커서 하단 텍스트 영역에 제목까지 들어가면
      본문·버튼이 잘림. → 제목을 그림 좌상단 오버레이로 옮기고, 하단은 본문·버튼만.
@@ -662,7 +676,7 @@ function _renderScenePicturebook(stage, scene, submode) {
               ${illustHtml}
               ${title || isEdit ? `<div class="pb-stage__title-overlay js-pb-editable-title" ${_allowPbEdit ? 'contenteditable="true" data-pb-editable="title"' : ''} data-placeholder="(제목을 적어보세요)">${escHtml(title)}</div>` : ''}
               ${body || isEdit ? `<div class="pb-stage__body-overlay js-pb-body-overlay" style="${bodyOverlayStyle || 'left:15%; top:25%; width:55%; background:rgba(255,255,255,0.85);'}">
-                <p class="pb-text__body js-pb-editable-body" ${_allowPbEdit ? 'contenteditable="true" data-pb-editable="body"' : ''} data-placeholder="(본문을 적어보세요)">${escHtml(body)}</p>
+                <p class="pb-text__body js-pb-editable-body" ${editAttrsBody} data-placeholder="(본문을 적어보세요)">${escHtml(body)}</p>
                 ${editHandlesHtml}
               </div>` : ''}
             </div>

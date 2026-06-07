@@ -1367,6 +1367,13 @@ exports.saveTextVariant = onCall(
       throw new HttpsError('invalid-argument', `variant '${variant}' 박지 X (s1 / s2 박음)`);
     }
 
+    /* mode: 'finalize'(Phase3 기본 — 전체 노드 새로 씀) | 'patchBody'(Phase4-C — 기존 메타 보존, body만 갱신).
+       patchBody는 기존 variant 노드를 읽어 body/basedOnBodyHash만 바꾸고 modifiedByUser/At/By 추가. */
+    const mode = String((req.data && req.data.mode) || 'finalize');
+    if (mode !== 'finalize' && mode !== 'patchBody') {
+      throw new HttpsError('invalid-argument', `mode '${mode}' 박지 X (finalize / patchBody 박음)`);
+    }
+
     /* 권한 게이트 통과(quota 검사 제외). mode=variant → aiSettings textS1/textS2 게이트 동일 적용. */
     const ctx = await _validateRequest(req, variant, { skipUsageLimits: true });
 
@@ -1424,19 +1431,54 @@ exports.saveTextVariant = onCall(
         logger.warn('[ai/saveVariant] 원본 body 읽기 실패(빈 값 처리)', { sceneId: sid, error: err && err.message });
         originalBody = '';
       }
-      const node = {
-        body: e.body,
-        basedOnBodyHash: _bodyHash(originalBody),
-        status: 'finalized',
-        finalizedBy: ctx.uid,
-        finalizedAt: now,
-        updatedAt: now,
-      };
-      /* 선택 메타(있을 때만 — RTDB는 null write 시 키 삭제이므로 null은 넣지 않음) */
-      if (typeof e.source === 'string') node.source = e.source;
-      if (typeof e.editedByUser === 'boolean') node.editedByUser = e.editedByUser;
-      if (e.addedElements && typeof e.addedElements === 'object') node.addedElements = e.addedElements;
-      if (typeof e.riskLevel === 'string') node.riskLevel = e.riskLevel;
+      let node;
+      if (mode === 'patchBody') {
+        /* 기존 노드 읽어 메타 보존 + body/basedOnBodyHash만 갱신. 노드 없으면 finalize처럼 새로 생성. */
+        let existing = null;
+        try {
+          const exSnap = await baseRef.child(`aiVariants/text/${sid}/${variant}`).once('value');
+          existing = exSnap.val();
+        } catch (err) {
+          logger.warn('[ai/saveVariant] 기존 variant 읽기 실패(새로 생성)', { sceneId: sid, variant, error: err && err.message });
+          existing = null;
+        }
+        if (existing && typeof existing === 'object') {
+          /* 메타 보존: source/generatedAt/finalizedAt/finalizedBy/model/addedElements/riskLevel/status/editedByUser 등 그대로 둠. */
+          node = Object.assign({}, existing);
+          node.body = e.body;
+          node.basedOnBodyHash = _bodyHash(originalBody);
+          node.modifiedByUser = true;
+          node.modifiedAt = now;
+          node.modifiedBy = ctx.uid;
+          node.updatedAt = now;
+        } else {
+          node = {
+            body: e.body,
+            basedOnBodyHash: _bodyHash(originalBody),
+            status: 'finalized',
+            finalizedBy: ctx.uid,
+            finalizedAt: now,
+            modifiedByUser: true,
+            modifiedAt: now,
+            modifiedBy: ctx.uid,
+            updatedAt: now,
+          };
+        }
+      } else {
+        node = {
+          body: e.body,
+          basedOnBodyHash: _bodyHash(originalBody),
+          status: 'finalized',
+          finalizedBy: ctx.uid,
+          finalizedAt: now,
+          updatedAt: now,
+        };
+        /* 선택 메타(있을 때만 — RTDB는 null write 시 키 삭제이므로 null은 넣지 않음) */
+        if (typeof e.source === 'string') node.source = e.source;
+        if (typeof e.editedByUser === 'boolean') node.editedByUser = e.editedByUser;
+        if (e.addedElements && typeof e.addedElements === 'object') node.addedElements = e.addedElements;
+        if (typeof e.riskLevel === 'string') node.riskLevel = e.riskLevel;
+      }
       update[`aiVariants/text/${sid}/${variant}`] = node;
       savedSceneIds.push(sid);
     }

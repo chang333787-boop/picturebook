@@ -1415,6 +1415,49 @@ function initEditInteractions() {
   /* W8: 그림책 본문/제목 contenteditable — viewer 화면에서 직접 수정.
      scene 데이터 → debounce 저장 → 다듬기 패널 textarea/input 양방향 동기화. */
   _attachPbEditableInteractions(frame);
+
+  /* Phase 4-C: s1/s2 보기 중 variant body 편집 — 원본 scene.body와 완전히 분리된 경로. */
+  _attachVariantBodyEditable(frame);
+}
+
+/* ─── Phase 4-C: variant body 편집 (s1/s2 보기 중) ──────────────
+   data-ai-variant-edit="s1|s2" element만 대상. 원본 scene.body는 절대 미수정.
+   입력/blur → window.viewerAi._queueVariantBodySave(별도 saveTextVariant patchBody 경로).
+   _attachPbEditableInteractions(generic [data-pb-editable])와 분리 — scene[field] 오염 방지. */
+function _attachVariantBodyEditable(frame) {
+  if (!ViewerState.editMode) return;
+  const scene = ViewerState.scenes[ViewerState.currentSceneId];
+  if (!scene) return;
+  const ai = (typeof window !== 'undefined') ? window.viewerAi : null;
+  if (!ai || typeof ai._queueVariantBodySave !== 'function') return;
+
+  frame.querySelectorAll('[data-ai-variant-edit]').forEach(el => {
+    const variantKey = el.dataset.aiVariantEdit;   /* 's1' | 's2' */
+    if (variantKey !== 's1' && variantKey !== 's2') return;
+    const sceneId = scene.id;
+
+    function _updatePlaceholder() {
+      const isEmpty = el.textContent.trim().length === 0;
+      el.classList.toggle('is-empty', isEmpty);
+    }
+    _updatePlaceholder();
+
+    el.addEventListener('input', () => {
+      /* 줄바꿈 보존 추출. scene.body는 절대 건드리지 않음 — variant 저장 경로로만. */
+      const text = _extractEditableText(el);
+      _updatePlaceholder();
+      ai._queueVariantBodySave(variantKey, sceneId, text);
+    });
+
+    el.addEventListener('focus', () => { el.classList.add('is-focused'); });
+    el.addEventListener('blur', () => {
+      el.classList.remove('is-focused');
+      _updatePlaceholder();
+      const text = _extractEditableText(el);
+      ai._queueVariantBodySave(variantKey, sceneId, text);
+      if (typeof ai._flushVariantBodySave === 'function') ai._flushVariantBodySave();   /* blur 즉시 flush */
+    });
+  });
 }
 
 /* v45: contenteditable의 줄바꿈 보존 추출.

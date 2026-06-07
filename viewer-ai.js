@@ -1286,6 +1286,172 @@
   }
 
   /* ════════════════════════════════════════════════════════════════
+     Phase 4-C: variant body 편집 저장 (s1/s2 보기 중 본문만 수정)
+     ──────────────────────────────────────────────────────────────
+     · 편집 대상 = variant body 1종만. 원본 scene.body는 절대 건드리지 않음.
+     · 낙관적 버퍼: 입력 즉시 FB 메모리 캐시 + localStorage 백업 갱신 → 재렌더해도 유지.
+     · 저장 = saveTextVariant(mode:'patchBody') — 기존 variant 메타 보존, body만 갱신.
+     · 성공 시 FB 캐시를 서버 정본으로 재동기화. 실패 시 버퍼 유지 + 재시도 큐.
+     · ViewerState.scenes[id].body는 어떤 경로에서도 수정 X.
+     ════════════════════════════════════════════════════════════════ */
+
+  /* 해당 장면에 그 variant 후보가 있는지(FB 캐시 또는 localStorage final). */
+  function _variantHasCandidate(variantKey, sceneId) {
+    const sid = String(sceneId);
+    if (_getFbVariantBody(variantKey, sid) != null) return true;
+    const v = _loadAiVariants();
+    const variant = (variantKey === 's2') ? v.textS2 : v.textS1;
+    if (variant && variant.status === 'finalized' && variant.final
+        && variant.final[sid] && typeof variant.final[sid].body === 'string') return true;
+    return false;
+  }
+
+  /* 현재 이 장면 body를 variant 편집할 수 있으면 variantKey('s1'|'s2') 반환, 아니면 null.
+     조건: editMode(감상자 X) + text/picturebook + aiS1/aiS2 보기 + 그 variant 후보 존재. */
+  function _aiVariantBodyEditAllowed(sceneId) {
+    if (!(typeof ViewerState !== 'undefined' && ViewerState.editMode)) return null;
+    if (!_aiToggleProjectTypeAllowed()) return null;
+    const mode = _getAiViewMode();
+    if (mode !== 'aiS1' && mode !== 'aiS2') return null;
+    const variantKey = (mode === 'aiS2') ? 's2' : 's1';
+    if (!_variantHasCandidate(variantKey, sceneId)) return null;
+    return variantKey;
+  }
+
+  /* 낙관적 버퍼 — FB 메모리 캐시 + localStorage 백업만 갱신. scene.body 절대 미수정. */
+  function _setVariantBodyBuffer(variantKey, sceneId, value) {
+    const sid = String(sceneId);
+    if (!_fbTextVariants) { _fbTextVariants = { s1: {}, s2: {} }; _fbTextVariantsKey = _fbVariantCacheKey(); }
+    if (!_fbTextVariants[variantKey]) _fbTextVariants[variantKey] = {};
+    _fbTextVariants[variantKey][sid] = value;
+    try {
+      const v = _loadAiVariants();
+      const tk = (variantKey === 's2') ? 'textS2' : 'textS1';
+      if (!v[tk]) v[tk] = { status: 'finalized', final: {} };
+      if (v[tk].status !== 'finalized') v[tk].status = 'finalized';
+      if (!v[tk].final) v[tk].final = {};
+      const prev = v[tk].final[sid] || {};
+      v[tk].final[sid] = Object.assign({}, prev, { body: value, editedByUser: true });
+      _saveAiVariants(v);
+    } catch (e) { /* noop */ }
+  }
+
+  /* 작은 인라인 상태 표시 — 토글 바 위쪽 고정(인스펙터가 잠겨도 보임). */
+  let _variantStatusTimer = null;
+  function _ensureVariantStatusEl() {
+    let el = document.getElementById('ai-variant-save-status');
+    if (el) return el;
+    el = document.createElement('div');
+    el.id = 'ai-variant-save-status';
+    el.className = 'ai-variant-save-status';
+    el.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:54px;z-index:60;'
+      + "font-family:'Jua',sans-serif;font-size:12px;color:#6b5638;background:rgba(251,246,234,0.96);"
+      + 'border:1px solid #e6d9bf;border-radius:14px;padding:5px 14px;box-shadow:0 2px 8px rgba(0,0,0,0.08);'
+      + 'pointer-events:none;opacity:0;transition:opacity .15s;max-width:80vw;text-align:center;';
+    document.body.appendChild(el);
+    return el;
+  }
+  function _showVariantSaveStatus(text, autoClearMs) {
+    try {
+      const el = _ensureVariantStatusEl();
+      el.textContent = text || '';
+      el.style.opacity = text ? '1' : '0';
+      if (_variantStatusTimer) { clearTimeout(_variantStatusTimer); _variantStatusTimer = null; }
+      if (autoClearMs && autoClearMs > 0) {
+        _variantStatusTimer = setTimeout(function () {
+          const c = document.getElementById('ai-variant-save-status');
+          if (c) c.style.opacity = '0';
+        }, autoClearMs);
+      }
+    } catch (e) { /* noop */ }
+  }
+
+  /* patchBody 저장 — 별도 경로. 원본 _flushPendingSave/saveSceneText 절대 재사용 X. */
+  async function _saveVariantBodyPatch(variantKey, scenesBodyMap) {
+    if (variantKey !== 's1' && variantKey !== 's2') return { ok: false, reason: 'bad-variant' };
+    const { classId, teamName } = _getCurrentClassIdTeamName();
+    if (!classId || !teamName) return { ok: false, reason: 'no-context' };
+    const scenes = {};
+    Object.keys(scenesBodyMap || {}).forEach(function (sid) {
+      const b = scenesBodyMap[sid] && scenesBodyMap[sid].body;
+      if (typeof b === 'string' && b.trim() !== '') scenes[sid] = { body: b };
+    });
+    if (Object.keys(scenes).length === 0) return { ok: false, reason: 'empty' };
+    const branchLineage = (typeof ViewerState !== 'undefined' && ViewerState.branchLineage) || {};
+    const payload = {
+      classId, teamName, workId: teamName,
+      rootBranchId: branchLineage.rootBranchId || null,
+      copyDepth: branchLineage.copyDepth || 0,
+      variant: variantKey,
+      mode: 'patchBody',
+      scenes: scenes,
+    };
+    try {
+      const data = await _callPhaseAFunction('saveTextVariant', payload);
+      if (data && data.blocked) return { ok: false, blocked: true, data: data };
+      return { ok: true, data: data };
+    } catch (e) {
+      return { ok: false, error: e && e.message };
+    }
+  }
+
+  /* 저장 큐 — pending[variantKey:sceneId] = {variantKey,sceneId,value}. */
+  const _variantSave = { pending: {}, timer: null, saving: false };
+
+  function _queueVariantBodySave(variantKey, sceneId, value) {
+    if (variantKey !== 's1' && variantKey !== 's2') return;
+    const sid = String(sceneId);
+    _setVariantBodyBuffer(variantKey, sid, value);
+    _variantSave.pending[variantKey + ':' + sid] = { variantKey: variantKey, sceneId: sid, value: value };
+    _showVariantSaveStatus('AI 버전을 수정 중입니다. 원본은 바뀌지 않습니다.', 0);
+    if (_variantSave.timer) clearTimeout(_variantSave.timer);
+    _variantSave.timer = setTimeout(function () { _flushVariantBodySave(); }, 600);
+  }
+
+  async function _flushVariantBodySave() {
+    if (_variantSave.timer) { clearTimeout(_variantSave.timer); _variantSave.timer = null; }
+    if (_variantSave.saving) return;             /* 진행 중이면 끝나고 자체 재호출됨 */
+    const keys = Object.keys(_variantSave.pending);
+    if (keys.length === 0) return;
+
+    const byVariant = { s1: {}, s2: {} };
+    keys.forEach(function (k) {
+      const p = _variantSave.pending[k];
+      byVariant[p.variantKey][p.sceneId] = { body: p.value };
+    });
+    const snapshot = _variantSave.pending;
+    _variantSave.pending = {};
+    _variantSave.saving = true;
+    _showVariantSaveStatus('저장 중…', 0);
+
+    let anyFail = false, blocked = false;
+    for (const vk of ['s1', 's2']) {
+      if (Object.keys(byVariant[vk]).length === 0) continue;
+      const res = await _saveVariantBodyPatch(vk, byVariant[vk]);   /* eslint-disable-line no-await-in-loop */
+      if (res && res.blocked) { blocked = true; anyFail = true; }
+      else if (!res || !res.ok) { anyFail = true; }
+    }
+    _variantSave.saving = false;
+
+    if (blocked) {
+      /* 차단 — 서버 미저장. 버퍼(낙관적 본문)는 유지해 사용자가 표현을 고칠 수 있게 함. */
+      _showVariantSaveStatus('AI 버전에 저장하기 어려운 표현이 있어요. 표현을 직접 바꾼 뒤 다시 시도해 주세요.', 5000);
+    } else if (anyFail) {
+      /* 실패 — 재시도 가능하도록 pending 복원(그 사이 새 입력이 우선). */
+      Object.keys(snapshot).forEach(function (k) {
+        if (!_variantSave.pending[k]) _variantSave.pending[k] = snapshot[k];
+      });
+      _showVariantSaveStatus('저장 실패 — 다시 시도해 주세요.', 4000);
+    } else {
+      /* 성공 — FB 캐시를 서버 정본으로 재동기화(제출값과 동일). 재렌더는 커서 보호 위해 생략. */
+      try { await _loadFirebaseTextVariants(true); } catch (e) { /* noop */ }
+      _showVariantSaveStatus('저장됨', 1500);
+    }
+    /* 저장 도중 들어온 새 입력 처리. */
+    if (Object.keys(_variantSave.pending).length > 0) _flushVariantBodySave();
+  }
+
+  /* ════════════════════════════════════════════════════════════════
      v140-step3: 편집 중 모달 (drafting)
      ──────────────────────────────────────────────────────────────
      사용자 결정 #C — 마감 후 aiDrafts.textS1 기본 정리. TEST MODE에서 보존/초기화 선택 가능.
@@ -1481,6 +1647,8 @@
         _flushPendingSave();
       }
     } catch (e) { /* noop */ }
+    /* Phase 4-C: variant body 편집 pending도 전환 전에 flush(변형 전환 시 유실 방지). */
+    try { _flushVariantBodySave(); } catch (e) { /* noop */ }
     try {
       if (mode === 'aiS1' || mode === 'aiS2') localStorage.setItem(_getMockViewModeKey(), mode);
       else localStorage.removeItem(_getMockViewModeKey());
@@ -2738,6 +2906,11 @@
       _loadFirebaseTextVariants:    _loadFirebaseTextVariants,
       _preloadFirebaseTextVariants: _preloadFirebaseTextVariants,
       _saveTextVariantToFirebase:   _saveTextVariantToFirebase,
+
+      /* Phase 4-C: variant body 편집 저장 — render 게이트 + edit 입력 라우팅 */
+      _aiVariantBodyEditAllowed:    _aiVariantBodyEditAllowed,
+      _queueVariantBodySave:        _queueVariantBodySave,
+      _flushVariantBodySave:        _flushVariantBodySave,
     };
 
     /* ────────────────────────────────────────────────────────────

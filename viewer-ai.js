@@ -1452,6 +1452,25 @@
     } catch (e) { /* noop */ }
   }
 
+  /* Phase 4-B 보강: 토글 전환 시 현재 장면을 즉시 직접 재렌더.
+     _scheduleViewerFrameReRender는 requestAnimationFrame 기반이라 백그라운드/숨김 탭에선
+     rAF가 정지(throttle)돼 변형 잠금 화면(contenteditable/핸들 제거)이 늦게 떠
+     그 사이 살아있는 contenteditable로 in-memory scene.body가 일시 변조될 수 있다.
+     hidden 상황에서만 보조 렌더를 돌려, 정상 탭에선 rAF 경로 그대로(중복 렌더 없음). */
+  function _forceCurrentSceneReRender() {
+    try {
+      const VS = (typeof ViewerState !== 'undefined')
+        ? ViewerState
+        : (typeof window !== 'undefined' ? window.ViewerState : null);
+      if (!VS || !VS.scenes) return;
+      const scene = VS.scenes[VS.currentSceneId];
+      const fn = (typeof renderScene === 'function')
+        ? renderScene
+        : (typeof window !== 'undefined' ? window.renderScene : null);
+      if (scene && typeof fn === 'function') fn(scene);
+    } catch (e) { /* noop */ }
+  }
+
   function _setAiViewMode(mode) {
     /* Phase 4-A: 모드 전환 전, 원본 보기에서 편집 중이던 pending save를 먼저 flush.
        전환 후엔 잠금 상태라 _flushPendingSave가 막히므로 반드시 변경 전에. */
@@ -1474,6 +1493,13 @@
     } else if (typeof _scheduleViewerFrameReRender === 'function') {
       _scheduleViewerFrameReRender();
     }
+    /* Phase 4-B 보강: rAF가 정지되는 숨김 탭에서만 보조 재렌더(비동기 → 재진입 안전).
+       정상 탭은 위 rAF 경로가 ~16ms 내 처리하므로 이 보조는 건너뛴다(중복 렌더 방지). */
+    try {
+      if (typeof document !== 'undefined' && document.hidden) {
+        setTimeout(_forceCurrentSceneReRender, 0);
+      }
+    } catch (e) { /* noop */ }
   }
 
   /* viewer-render.js 박은 거 박은 거 박은 본문 박은 거 박은 거 박은 거 박은 — 토글 mode에 따라 박은 거 박음 */

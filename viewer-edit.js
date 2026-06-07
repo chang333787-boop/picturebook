@@ -476,7 +476,19 @@ function _patchMovieAttr(kind, value) {
 
 /* 본문 텍스트 부분 갱신 — viewer 미리보기에 본문 노드만 갈아끼움.
    W8: 체험전시형 본문 노드 (.exp-body-panel p) 추가 — viewer-render.js 정합. */
+/* Phase 4-A: AI 변형(s1/s2) 보기 중인지. true면 원본 scenes/{id} 편집/저장을 전면 차단.
+   original 보기에서는 기존 편집/저장 흐름 그대로. */
+function _isVariantViewLocked() {
+  try {
+    return !!(typeof window !== 'undefined' && window.viewerAi
+      && typeof window.viewerAi._isAiVariantViewMode === 'function'
+      && window.viewerAi._isAiVariantViewMode());
+  } catch (e) { return false; }
+}
+
 function _patchSceneBody(value) {
+  /* Phase 4-A: s1/s2 보기 중엔 원본 본문 in-memory 갱신 금지. false 반환 → 호출부가 재렌더(변형 본문 복원). */
+  if (_isVariantViewLocked()) return false;
   const screen = _getSceneScreen();
   if (!screen) return false;
   /* 모드별 본문 노드 위치 — 4모드 모두 커버 (+ v78: 엔딩 .ending-user-body 추가) */
@@ -633,6 +645,8 @@ function _resolveViewerProjectType() {
 
 /* ── 저장 큐 추가 + debounce 예약 ── */
 function _queueSave(num, fields) {
+  /* Phase 4-A: s1/s2 보기 중엔 원본 scenes/{id} 저장 큐잉 금지. */
+  if (_isVariantViewLocked()) return;
   if (_editText.num !== num) return;
   Object.assign(_editText.pendingFields, fields);
   if (_editText.pendingSaveTimer) clearTimeout(_editText.pendingSaveTimer);
@@ -649,6 +663,8 @@ async function _flushPendingSave() {
     clearTimeout(_editText.pendingSaveTimer);
     _editText.pendingSaveTimer = null;
   }
+  /* Phase 4-A: s1/s2 보기 중엔 원본 scenes/{id} flush 금지. (원본 보기→변형 전환 시엔 전환 전에 flush됨.) */
+  if (_isVariantViewLocked()) return;
   const fields = _editText.pendingFields;
   const num    = _editText.num;
   if (!fields || !Object.keys(fields).length) return;
@@ -1626,6 +1642,8 @@ function _attachPbBodyBoxInteractions(overlay, frame) {
   const applyBox = (box) => {
     const s = getScene();
     if (!s) return;
+    /* Phase 4-A: s1/s2 보기 중엔 원본 layout(picturebookBodyBox) in-memory/저장 모두 금지. */
+    if (_isVariantViewLocked()) return;
     /* 메모리 박기 + DB 저장 큐 — _editText.num 매칭 안 되면 _queueSave 가드에 걸리므로
        saveSceneText 직접 호출 fallback. 둘 다 시도. */
     s.picturebookBodyBox = { ...box };
@@ -2785,6 +2803,9 @@ function _bindApplyStyleAllHandlers(panel, scene) {
       setTimeout(() => { btn.textContent = orig; }, 1500);
       return;
     }
+
+    /* Phase 4-A: s1/s2 보기 중엔 원본 scenes 일괄 저장 금지. */
+    if (_isVariantViewLocked()) { _showSaveStatus('AI 버전은 보기 전용입니다. 편집은 원본에서 해 주세요.', 2500); return; }
 
     const orig = btn.textContent;
     btn.disabled = true;
@@ -3997,6 +4018,8 @@ function _bindTypeSectionsEvents(panel, scene) {
     panel.querySelectorAll('.js-pb-submode').forEach(btn => {
       btn.addEventListener('click', () => {
         if (!_editText.editable) return;
+        /* Phase 4-A: s1/s2 보기 중엔 원본 scenes 일괄 저장 금지. */
+        if (_isVariantViewLocked()) { _showSaveStatus('AI 버전은 보기 전용입니다. 편집은 원본에서 해 주세요.', 2500); return; }
         const val = btn.dataset.val === 'imageCenter' ? 'imageCenter' : 'split';
 
         /* v122-fix3: UI 안내 "🔒 작품 전체 설정"과 일치하게 모든 장면에 일괄 적용.

@@ -1147,14 +1147,25 @@
     catch (e) { console.warn('[ai-mock] aiVariants save failed', e); }
   }
 
+  /* Phase 4-A: Firebase 캐시에 해당 variant 후보가 1개라도 있으면 true.
+     감상자는 localStorage가 없고 FB만 있으므로 토글 노출 판단에 FB도 봐야 함.
+     (_fbTextVariants는 아래에서 let 선언 — 런타임 호출 시점엔 이미 초기화됨) */
+  function _fbHasVariant(variantKey) {
+    if (!_fbTextVariants) return false;
+    const m = _fbTextVariants[variantKey];
+    return !!(m && Object.keys(m).length > 0);
+  }
+
   function _isS1Finalized() {
     const v = _loadAiVariants();
-    return !!(v.textS1 && v.textS1.status === 'finalized');
+    if (v.textS1 && v.textS1.status === 'finalized') return true;
+    return _fbHasVariant('s1');
   }
 
   function _isS2Finalized() {
     const v = _loadAiVariants();
-    return !!(v.textS2 && v.textS2.status === 'finalized');
+    if (v.textS2 && v.textS2.status === 'finalized') return true;
+    return _fbHasVariant('s2');
   }
 
   function _getS1FinalBody(sceneId) {
@@ -1220,6 +1231,10 @@
   async function _preloadFirebaseTextVariants() {
     const out = await _loadFirebaseTextVariants(false);
     if (out && (Object.keys(out.s1).length || Object.keys(out.s2).length)) {
+      /* Phase 4-A: FB 후보가 캐시에 들어왔으니 토글 바를 갱신(감상자도 노출되도록). */
+      if (typeof _showAiToggleBar === 'function') {
+        try { _showAiToggleBar(); } catch (e) { /* noop */ }
+      }
       if (typeof window._scheduleViewerFrameReRender === 'function') {
         window._scheduleViewerFrameReRender();
       } else if (typeof _scheduleViewerFrameReRender === 'function') {
@@ -1411,12 +1426,48 @@
     } catch (e) { return 'original'; }
   }
 
+  /* Phase 4-A: 현재 보기가 AI 변형(s1/s2)인지. viewer-edit.js가 편집/저장 잠금 판단에 사용. */
+  function _isAiVariantViewMode() {
+    const m = _getAiViewMode();
+    return m === 'aiS1' || m === 'aiS2';
+  }
+
+  /* Phase 4-A: AI 토글은 text/picturebook 작품에서만. movie/experience 절대 표시 X.
+     renderHUD의 AI 버튼 게이트(_aiPtypeAllowed)와 동일 기준. */
+  function _aiToggleProjectTypeAllowed() {
+    return !!(typeof ViewerState !== 'undefined' && ViewerState.project &&
+      (ViewerState.project.projectType === 'text' || ViewerState.project.projectType === 'picturebook'));
+  }
+
+  /* Phase 4-A: 변형(s1/s2) 보기 중엔 인스펙터(원본 편집 컨트롤) 비활성 — 원본 in-memory 변경까지 차단.
+     저장 자체는 viewer-edit.js의 잠금이 막지만, 패널 슬라이더가 scene 객체를 메모리에서 건드리는 것까지
+     원천 차단해 원본 layout이 세션 중 흔들리지 않게 함. 감상자는 패널이 없어 무관. */
+  function _applyVariantEditPanelLock() {
+    try {
+      const panel = document.getElementById('edit-panel');
+      if (!panel) return;
+      const locked = _isAiVariantViewMode();
+      panel.style.pointerEvents = locked ? 'none' : '';
+      panel.style.opacity = locked ? '0.5' : '';
+    } catch (e) { /* noop */ }
+  }
+
   function _setAiViewMode(mode) {
+    /* Phase 4-A: 모드 전환 전, 원본 보기에서 편집 중이던 pending save를 먼저 flush.
+       전환 후엔 잠금 상태라 _flushPendingSave가 막히므로 반드시 변경 전에. */
+    try {
+      if (typeof window !== 'undefined' && typeof window._flushPendingSave === 'function') {
+        window._flushPendingSave();
+      } else if (typeof _flushPendingSave === 'function') {
+        _flushPendingSave();
+      }
+    } catch (e) { /* noop */ }
     try {
       if (mode === 'aiS1' || mode === 'aiS2') localStorage.setItem(_getMockViewModeKey(), mode);
       else localStorage.removeItem(_getMockViewModeKey());
     } catch (e) { /* noop */ }
     _updateAiToggleBar();
+    _applyVariantEditPanelLock();
     /* viewer 본문 박은 거 박은 거 박은 거 박은 거 — v138 박은 _scheduleViewerFrameReRender 박은 거 박음 */
     if (typeof window._scheduleViewerFrameReRender === 'function') {
       window._scheduleViewerFrameReRender();
@@ -1443,13 +1494,14 @@
   }
 
   function _showAiToggleBar() {
-    /* 2026-06: 3-way. s1 또는 s2가 finalized면 표시. 변형 구성이 바뀔 수 있어 매번 재생성. */
+    /* Phase 4-A: text/picturebook 작품에서만. movie/experience엔 절대 표시 X. */
+    if (!_aiToggleProjectTypeAllowed()) { _hideAiToggleBar(); return; }
+    /* 2026-06: 3-way. s1 또는 s2가 finalized(localStorage) 또는 Firebase 후보 존재면 표시. */
     const hasS1 = _isS1Finalized();
     const hasS2 = _isS2Finalized();
     if (!hasS1 && !hasS2) { _hideAiToggleBar(); return; }
-    /* edit mode 박을 때만 박음 (감상 모드 박지 X) */
-    const isEdit = (typeof ViewerState !== 'undefined') && ViewerState.editMode;
-    if (!isEdit) { _hideAiToggleBar(); return; }
+    /* Phase 4-A: 감상자/편집자 공통 표시. (이전엔 editMode에서만 표시 → 감상자 토글 불가였음.)
+       감상자는 editMode=false라 편집 핸들/contenteditable이 원천적으로 없어 보기 전용으로 안전. */
 
     /* 현재 보기 mode가 더 이상 유효하지 않으면 원본으로 정리 (setMode가 재렌더+업데이트) */
     const cur = _getAiViewMode();
@@ -1473,6 +1525,7 @@
       });
     });
     _updateAiToggleBar();
+    _applyVariantEditPanelLock();
   }
 
   function _updateAiToggleBar() {
@@ -2646,6 +2699,7 @@
       _getDisplayBody:    _getDisplayBody,
       _getAiViewMode:     _getAiViewMode,
       _setAiViewMode:     _setAiViewMode,
+      _isAiVariantViewMode: _isAiVariantViewMode,   /* Phase 4-A: viewer-edit 편집 잠금 판단 */
       _showAiToggleBar:   _showAiToggleBar,
       _isS1Finalized:     _isS1Finalized,
 

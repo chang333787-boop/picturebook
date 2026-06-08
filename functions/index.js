@@ -63,6 +63,7 @@ const AI_TEST_ALLOWED = [
   { classId: 'class_2026_junglim_1', teamName: '0000' },
   { classId: 'class_2026_junglim_1', teamName: '은규' },
   { classId: 'class_2026_junglim_1', teamName: '예지유은인우' },
+  { classId: 'class_2026_junglim_1', teamName: '텍스트' },
 ];
 
 function isAiTestAllowed(classId, teamName) {
@@ -168,13 +169,13 @@ async function _validateRequest(req, mode, opts) {
 
   /* 1. Firebase auth (anonymous라도 박힘) */
   if (!req.auth || !req.auth.uid) {
-    throw new HttpsError('unauthenticated', '로그인 박은 거 박은 거 박은 박은 박지 X');
+    throw new HttpsError('unauthenticated', '로그인이 필요해요.');
   }
 
   /* 5. testMode 거부 — v140 핵심. client testMode 박혀있어도 실 API 박지 X */
   if (req.data && req.data.testMode === true) {
     logger.warn('[ai] testMode 우회 시도 박힘', { uid: req.auth.uid, data: req.data });
-    throw new HttpsError('permission-denied', 'testMode 박은 거 박은 거 박은 박은 실 API 박지 X');
+    throw new HttpsError('permission-denied', 'testMode로는 실제 AI를 사용할 수 없어요.');
   }
 
   /* 데이터 박은 거 박은 거 박은 박은 박음 */
@@ -186,7 +187,7 @@ async function _validateRequest(req, mode, opts) {
   const copyDepth = Number.isFinite(data.copyDepth) ? data.copyDepth : 0;
 
   if (!classId || !teamName) {
-    throw new HttpsError('invalid-argument', 'classId / teamName 박지 X');
+    throw new HttpsError('invalid-argument', 'classId / teamName이 없어요.');
   }
   /* workId 박은 거 박은 거 박은 박은 — 가지 데이터 모델 박은 거 박은 거 박은 박은 — team 자체 박은 거 박은 거 박은 박은 한 작품. workId 박지 X 박혀있으면 teamName 박음. */
   const workIdEffective = workId || teamName;
@@ -194,26 +195,26 @@ async function _validateRequest(req, mode, opts) {
   /* 2. 임시 허용 목록 (Phase A 박은 거 박은 거 박은 박은 박음) */
   if (!isAiTestAllowed(classId, teamName)) {
     throw new HttpsError('permission-denied',
-      'AI 사용 권한 박지 X (Phase A 테스트 대상 박지 X — ' + classId + '/' + teamName + ')');
+      'AI 사용 권한이 없어요 (Phase A 테스트 대상이 아니에요 — ' + classId + '/' + teamName + ')');
   }
 
   /* 4. copyDepth <= 1 (모/자식 브랜치만 박음 — 손자 박지 X) */
   if (copyDepth > 1) {
     throw new HttpsError('permission-denied',
-      'AI_BLOCKED_BY_DEPTH — copyDepth ' + copyDepth + ' (모/자식 브랜치만 박음)');
+      'AI_BLOCKED_BY_DEPTH — copyDepth ' + copyDepth + ' (모/자식 브랜치만 가능해요)');
   }
 
   /* 10. Origin 검증 (가지 도메인만) */
   const origin = (req.rawRequest && req.rawRequest.headers && req.rawRequest.headers.origin) || '';
   if (!isOriginAllowed(origin)) {
     logger.warn('[ai] origin 박지 X', { uid: req.auth.uid, origin });
-    throw new HttpsError('permission-denied', '허용 박지 X origin — ' + (origin || '(빈 값)'));
+    throw new HttpsError('permission-denied', '허용되지 않은 origin이에요 — ' + (origin || '(빈 값)'));
   }
 
   /* 11. kill switch (Firebase ai-kill-switch/enabled) */
   const killSnap = await admin.database().ref('ai-kill-switch/enabled').once('value');
   if (killSnap.val() === true) {
-    throw new HttpsError('unavailable', 'AI 박은 거 박은 거 박은 박은 잠시 박지 X. 운영자에게 박음.');
+    throw new HttpsError('unavailable', 'AI 기능을 잠시 사용할 수 없어요. 운영자에게 문의해 주세요.');
   }
 
   /* 3. 권한 게이트 (aiSettings 우선 / aiPermission fallback)
@@ -245,7 +246,7 @@ async function _validateRequest(req, mode, opts) {
     const perm = permSnap.val();
     if (perm) {
       if (perm.enabled !== true) {
-        throw new HttpsError('permission-denied', 'AI_NOT_ENABLED (교사가 AI 박지 X)');
+        throw new HttpsError('permission-denied', 'AI_NOT_ENABLED (교사가 아직 AI를 열지 않았어요)');
       }
       const allowed = perm.allowedModes && perm.allowedModes[mode];
       if (allowed !== true) {
@@ -265,7 +266,7 @@ async function _validateRequest(req, mode, opts) {
     const globalCalls = globalSnap.val() || 0;
     if (globalCalls >= GLOBAL_DAILY_LIMIT) {
       throw new HttpsError('resource-exhausted',
-        '오늘 전역 호출 한도 박은 거 박은 거 박은 박은 (' + GLOBAL_DAILY_LIMIT + '). 내일 박음.');
+        '오늘 전체 사용 한도에 도달했어요 (' + GLOBAL_DAILY_LIMIT + '). 내일 다시 시도해 주세요.');
     }
 
     /* 7. rootBranchId 묶음 quota */
@@ -274,7 +275,7 @@ async function _validateRequest(req, mode, opts) {
       const rootCalls = rootSnap.val() || 0;
       if (rootCalls >= ROOT_DAILY_LIMIT) {
         throw new HttpsError('resource-exhausted',
-          `이 작품 묶음(rootBranchId) 박은 거 박은 거 박은 박은 하루 한도 박힘 (${ROOT_DAILY_LIMIT}). 내일 박음.`);
+          `이 작품 묶음의 하루 사용 한도에 도달했어요 (${ROOT_DAILY_LIMIT}). 내일 다시 시도해 주세요.`);
       }
     }
 
@@ -285,11 +286,11 @@ async function _validateRequest(req, mode, opts) {
     used = usageSnap.val() || 0;
     quotaMax = QUOTA[mode] || 0;
     if (quotaMax === 0) {
-      throw new HttpsError('invalid-argument', `mode '${mode}' 박지 X (s1 / check 박음)`);
+      throw new HttpsError('invalid-argument', `mode '${mode}'가 올바르지 않아요 (s1 / s2 / check).`);
     }
     if (used >= quotaMax) {
       throw new HttpsError('resource-exhausted',
-        `이 작품의 ${mode} quota 박은 거 박은 거 박은 박은 박힘 (${used}/${quotaMax}).`);
+        `이 작품의 ${mode} 사용 횟수를 모두 사용했어요 (${used}/${quotaMax}).`);
     }
   }
 
@@ -609,7 +610,7 @@ async function _callAnthropic(apiKey, systemPrompt, userMessage, model) {
   /* 응답 박은 거 박은 거 박은 박은 text 박음 */
   const textBlock = (response.content || []).find(b => b.type === 'text');
   if (!textBlock || !textBlock.text) {
-    throw new Error('Anthropic 응답 박지 X — text block 박지 X');
+    throw new Error('Anthropic 응답이 없어요 — text block이 없어요');
   }
 
   const usage = response.usage || {};
@@ -822,18 +823,18 @@ function _checkLengthRatio(origLen, revisedLen) {
 function _validateS1Response(parsed, snapshot) {
   /* ─── 응답 최상위 구조 검증 (깨지면 전체 거부) ─── */
   if (!parsed || typeof parsed !== 'object') {
-    throw new Error('JSON 박지 X — object 박지 X');
+    throw new Error('JSON이 아니에요 — object가 아니에요');
   }
   if (parsed.strength !== 1) {
-    throw new Error(`strength 박지 X (${parsed.strength})`);
+    throw new Error(`strength가 올바르지 않아요 (${parsed.strength})`);
   }
   if (!parsed.results || typeof parsed.results !== 'object') {
-    throw new Error('results 박지 X');
+    throw new Error('results가 없어요');
   }
   /* sceneId 정규화 — 'scene_1' → '1', 존재하지 않는 sceneId 제거 */
   parsed.results = _normalizeResults(parsed.results, snapshot);
   if (Object.keys(parsed.results).length === 0) {
-    throw new Error('정규화 후 results 박지 X (모든 sceneId 박은 거 박은 거 박은 박은 유효하지 X)');
+    throw new Error('정규화 후 results가 없어요 (모든 sceneId가 유효하지 않아요)');
   }
 
   const sceneMap = snapshot || {};
@@ -872,7 +873,7 @@ function _validateS1Response(parsed, snapshot) {
 
     /* skip 아니고 revisedText도 비어있으면 응답 자체가 부족 — 기존 throw 유지 */
     if (typeof r.revisedText !== 'string' || r.revisedText.trim().length === 0) {
-      throw new Error(`장면 ${sceneId} — revisedText 박지 X`);
+      throw new Error(`장면 ${sceneId} — revisedText가 없어요`);
     }
 
     /* origBody — sceneMap의 body 또는 text 필드 사용 (snapshot 구조 양쪽 호환) */
@@ -960,10 +961,10 @@ function _validateS1Response(parsed, snapshot) {
 
 function _validateWorkCheckResponse(parsed) {
   if (!parsed || typeof parsed !== 'object') {
-    throw new Error('JSON 박지 X — object 박지 X');
+    throw new Error('JSON이 아니에요 — object가 아니에요');
   }
   if (!parsed.categories || typeof parsed.categories !== 'object') {
-    throw new Error('categories 박지 X');
+    throw new Error('categories가 없어요');
   }
   /* 본문 수정 결과 박혀있으면 거부 (검사 위반) */
   const cats = parsed.categories;
@@ -1023,17 +1024,17 @@ function _findAddedBigSetting(origBody, revised) {
    ════════════════════════════════════════════════════════════════ */
 function _validateS2Response(parsed, snapshot) {
   if (!parsed || typeof parsed !== 'object') {
-    throw new Error('JSON 박지 X — object 박지 X');
+    throw new Error('JSON이 아니에요 — object가 아니에요');
   }
   if (parsed.strength !== 2) {
-    throw new Error(`strength 박지 X (${parsed.strength})`);
+    throw new Error(`strength가 올바르지 않아요 (${parsed.strength})`);
   }
   if (!parsed.results || typeof parsed.results !== 'object') {
-    throw new Error('results 박지 X');
+    throw new Error('results가 없어요');
   }
   parsed.results = _normalizeResults(parsed.results, snapshot);
   if (Object.keys(parsed.results).length === 0) {
-    throw new Error('정규화 후 results 박지 X');
+    throw new Error('정규화 후 results가 없어요');
   }
 
   const sceneMap = snapshot || {};
@@ -1083,7 +1084,7 @@ function _validateS2Response(parsed, snapshot) {
     }
 
     if (typeof r.revisedText !== 'string' || r.revisedText.trim().length === 0) {
-      throw new Error(`장면 ${sceneId} — revisedText 박지 X`);
+      throw new Error(`장면 ${sceneId} — revisedText가 없어요`);
     }
 
     const origScene = sceneMap[sceneId] || {};
@@ -1176,7 +1177,7 @@ exports.callTextAiBatch = onCall(
     /* snapshot 박지 X 박혀있으면 거부 */
     const snapshot = (req.data && req.data.snapshot) || {};
     if (!snapshot || Object.keys(snapshot).length === 0) {
-      throw new HttpsError('invalid-argument', 'snapshot 박지 X (본문 박은 장면 X)');
+      throw new HttpsError('invalid-argument', 'snapshot이 없어요 (본문이 있는 장면이 없어요)');
     }
 
     logger.info('[ai/s1] 검증 통과', {
@@ -1384,7 +1385,7 @@ exports.callTextAiBatchS2 = onCall(
 
     const snapshot = (req.data && req.data.snapshot) || {};
     if (!snapshot || Object.keys(snapshot).length === 0) {
-      throw new HttpsError('invalid-argument', 'snapshot 박지 X (본문 박은 장면 X)');
+      throw new HttpsError('invalid-argument', 'snapshot이 없어요 (본문이 있는 장면이 없어요)');
     }
 
     /* T2-INFRA-1 — 장면 수 상한 검사 (precheck/quota/AI 호출 前).
@@ -1470,7 +1471,7 @@ exports.callWorkCheck = onCall(
 
     const snapshot = (req.data && req.data.snapshot) || {};
     if (!snapshot || Object.keys(snapshot).length === 0) {
-      throw new HttpsError('invalid-argument', 'snapshot 박지 X (본문 박은 장면 X)');
+      throw new HttpsError('invalid-argument', 'snapshot이 없어요 (본문이 있는 장면이 없어요)');
     }
 
     logger.info('[ai/check] 검증 통과', {
@@ -1547,7 +1548,7 @@ exports.saveTextVariant = onCall(
   async (req) => {
     const variant = String((req.data && req.data.variant) || '');
     if (variant !== 's1' && variant !== 's2') {
-      throw new HttpsError('invalid-argument', `variant '${variant}' 박지 X (s1 / s2 박음)`);
+      throw new HttpsError('invalid-argument', `variant '${variant}'가 올바르지 않아요 (s1 / s2).`);
     }
 
     /* mode: 'finalize'(Phase3 기본 — 전체 노드 새로 씀) | 'patchBody'(Phase4-C — 기존 메타 보존, body만 갱신)
@@ -1555,7 +1556,7 @@ exports.saveTextVariant = onCall(
        patchLayout은 텍스트를 건드리지 않으므로 safety 재검사 없음. scene.body/scenes layout 절대 미변경. */
     const mode = String((req.data && req.data.mode) || 'finalize');
     if (mode !== 'finalize' && mode !== 'patchBody' && mode !== 'patchLayout') {
-      throw new HttpsError('invalid-argument', `mode '${mode}' 박지 X (finalize / patchBody / patchLayout 박음)`);
+      throw new HttpsError('invalid-argument', `mode '${mode}'가 올바르지 않아요 (finalize / patchBody / patchLayout).`);
     }
     const isLayoutPatch = (mode === 'patchLayout');
 
@@ -1586,7 +1587,7 @@ exports.saveTextVariant = onCall(
     });
     const sceneIds = Object.keys(entries);
     if (sceneIds.length === 0) {
-      throw new HttpsError('invalid-argument', isLayoutPatch ? 'scenes 박지 X (저장할 layout X)' : 'scenes 박지 X (저장할 본문 X)');
+      throw new HttpsError('invalid-argument', isLayoutPatch ? 'scenes가 없어요 (저장할 layout이 없어요)' : 'scenes가 없어요 (저장할 본문이 없어요)');
     }
 
     logger.info('[ai/saveVariant] 검증 통과', {

@@ -375,10 +375,10 @@
 
   async function _callPhaseAFunction(fnName, payload) {
     if (typeof firebase === 'undefined' || !firebase.functions) {
-      throw new Error('Firebase Functions SDK 박지 X — viewer.html 박을 거');
+      throw new Error('Firebase Functions SDK가 없어요 — viewer.html을 확인해 주세요');
     }
     const app = _getViewerFirebaseApp();
-    if (!app) throw new Error('Firebase app 박지 X (viewer init 박지 X)');
+    if (!app) throw new Error('Firebase app이 없어요 (viewer 초기화가 안 됐어요)');
     /* auth 박지 X 박혀있으면 anonymous 박음 (Functions context.auth 박혀있어야) */
     await _ensureAnonymousAuth(app);
     /* 서울 region 박은 거 박은 거 박은 박은 — functions/index.js setGlobalOptions 박힘 */
@@ -885,7 +885,7 @@
     if (sceneCount === 0) {
       if (!useRealApiCheck) _refundQuota('s1');
       _setAiTextS1Status(count > 0 ? 'candidate_ready' : 'none');
-      alert('1단계 박을 본문 박은 장면 박혀있지 X.');
+      alert('1단계로 다듬을 본문이 있는 장면이 없어요.');
       return;
     }
     _showCallingModal(sceneCount);
@@ -947,7 +947,7 @@
       _hideCallingModal();
       _setAiTextS1Status(count > 0 ? 'candidate_ready' : 'none');
       const prefix = useRealApi ? '[Phase A]' : '[mock]';
-      alert(prefix + ' 후보 생성 실패: ' + (e && e.message || e) + '\n\n콘솔 박아 stack 박음.');
+      alert(prefix + ' 후보 생성 실패: ' + (e && e.message || e) + '\n\n잠시 후 다시 시도해 주세요.');
       return;
     }
 
@@ -969,7 +969,7 @@
     const inner = ''
       + '<div class="ai-quota-empty-modal">'
       +   '<div class="ai-quota-empty-modal__head">'
-      +     '<h3>1단계 테스트 횟수 박혀있지 X</h3>'
+      +     '<h3>1단계 테스트 횟수가 없어요</h3>'
       +     '<button type="button" class="ai-modal-close js-ai-qe-close" aria-label="닫기">×</button>'
       +   '</div>'
       +   '<div class="ai-quota-empty-modal__body">'
@@ -991,7 +991,7 @@
       resetEl.addEventListener('click', function () {
         _resetMockUsage();
         close();
-        alert('현재 팀 quota 초기화 박음 (' + ns + '). 다시 [1단계 정돈] 박음.');
+        alert('현재 팀 quota를 초기화했어요 (' + ns + '). 다시 [1단계 정돈]을 눌러 주세요.');
       });
     }
   }
@@ -1008,7 +1008,7 @@
       .sort(function (a, b) { return a - b; });
 
     if (attempts.length === 0) {
-      alert('후보 박혀있지 X.');
+      alert('후보가 없어요.');
       return;
     }
 
@@ -1026,7 +1026,7 @@
 
     const moreBtn = (remaining > 0 && !drafting)
       ? '<button type="button" class="ai-btn ai-btn--ghost js-ai-cand-more">[더 생성하기 (남은 ' + remaining + '회)]</button>'
-      : '<span class="ai-cand-quota-empty">' + (drafting ? '편집 중에는 추가 생성 X' : 'quota 박혀있지 X') + '</span>';
+      : '<span class="ai-cand-quota-empty">' + (drafting ? '편집 중에는 추가 생성할 수 없어요' : '남은 횟수가 없어요') + '</span>';
 
     const draftingNote = drafting
       ? '<div class="ai-cand-drafting-note">⚠️ AI 1단계 편집 중입니다. 먼저 저장/마감하거나 취소해주세요.</div>'
@@ -1057,7 +1057,7 @@
       const body = root.querySelector('.js-ai-cand-body');
       if (!body) return;
       const c = cands['attempt' + activeAttempt];
-      if (!c) { body.innerHTML = '<div class="ai-cand-empty">후보 박혀있지 X</div>'; return; }
+      if (!c) { body.innerHTML = '<div class="ai-cand-empty">후보가 없어요</div>'; return; }
       const snapshot = _buildWorkSnapshot();
       /* fix 2026-05-21: snapshot은 {sceneId: scene} 객체. Object.values 박음. */
       const scenes = Object.values(snapshot || {});
@@ -1075,20 +1075,20 @@
         /* 강한 경고 박혀있으면 — UI 표시. 적용 자체 박은 거 박은 거 박은 박은 박은 — _finalizeAiVariant 박을 때 차단 박음 */
         const strongWarn = (r.appliable === false || (Array.isArray(r.strongWarnings) && r.strongWarnings.length > 0));
         const strongLabel = strongWarn
-          ? '<div class="ai-cand-strong-warn">⚠️ 강한 경고 — 적용 박지 X (1단계 위반 가능: ' + _escapeHtml((r.strongWarnings || []).map(w => w.reason || w).join(', ')) + ')</div>'
+          ? '<div class="ai-cand-strong-warn">⚠️ 강한 경고 — 적용할 수 없어요 (1단계 위반 가능: ' + _escapeHtml((r.strongWarnings || []).map(w => w.reason || w).join(', ')) + ')</div>'
           : '';
         return ''
           + '<div class="ai-cand-row' + (strongWarn ? ' ai-cand-row--warn' : '') + '">'
           +   '<div class="ai-cand-scene-id">장면 ' + _escapeHtml(s.id) + '</div>'
           +   '<div class="ai-cand-split">'
           +     '<div class="ai-cand-col"><div class="ai-cand-col-label">원본</div><div class="ai-cand-col-text">' + _escapeHtml(s.body || '') + '</div></div>'
-          +     '<div class="ai-cand-col"><div class="ai-cand-col-label">후보 ' + activeAttempt + '회차' + (strongWarn ? ' (적용 X)' : '') + '</div><div class="ai-cand-col-text ai-cand-col-text--ai">' + _escapeHtml(r.revisedText || '') + '</div></div>'
+          +     '<div class="ai-cand-col"><div class="ai-cand-col-label">후보 ' + activeAttempt + '회차' + (strongWarn ? ' (적용 불가)' : '') + '</div><div class="ai-cand-col-text ai-cand-col-text--ai">' + _escapeHtml(r.revisedText || '') + '</div></div>'
           +   '</div>'
           +   strongLabel
           +   (r.summary ? '<div class="ai-cand-summary">' + _escapeHtml(r.summary) + '</div>' : '')
           + '</div>';
       }).join('');
-      body.innerHTML = rows || '<div class="ai-cand-empty">박혀있지 X</div>';
+      body.innerHTML = rows || '<div class="ai-cand-empty">결과가 없어요</div>';
     }
 
     renderBody();
@@ -1626,13 +1626,13 @@
   function _showDraftingPanel() {
     const d = _loadAiDrafts();
     if (!d.textS1 || d.textS1.status !== 'drafting' || !d.textS1.selectedAttempt) {
-      alert('편집 중 상태 박혀있지 X');
+      alert('편집 중인 상태가 없어요.');
       return;
     }
     const attemptN = d.textS1.selectedAttempt;
     const cand = d.textS1.candidates && d.textS1.candidates['attempt' + attemptN];
     if (!cand) {
-      alert('선택된 후보 박혀있지 X');
+      alert('선택된 후보가 없어요.');
       return;
     }
 
@@ -1646,7 +1646,7 @@
         return ''
           + '<div class="ai-draft-row ai-draft-row--none">'
           +   '<div class="ai-draft-scene-id">장면 ' + _escapeHtml(s.id) + '</div>'
-          +   '<div class="ai-draft-skip">(결과 박혀있지 X — 원본 박힘)</div>'
+          +   '<div class="ai-draft-skip">(결과 없음 — 원본 유지)</div>'
           + '</div>';
       }
       if (r.skip) {
@@ -1707,7 +1707,7 @@
     });
 
     root.querySelector('.js-ai-draft-cancel').addEventListener('click', function () {
-      if (!confirm('편집 박은 거 박지 X 박힐 거. 취소 박을지?')) return;
+      if (!confirm('편집한 내용이 저장되지 않아요. 취소할까요?')) return;
       _cancelDrafting();
       _removeModalRoot('ai-draft-modal-root');
     });
@@ -1715,7 +1715,7 @@
     root.querySelector('.js-ai-draft-finalize').addEventListener('click', function () {
       _finalizeAiVariant();
       _removeModalRoot('ai-draft-modal-root');
-      alert('AI 1단계 마감 박힘. viewer 상단 [원본] [AI 1단계] 토글 박힐 거 (v140-step4 박을 때 박힘).');
+      alert('AI 1단계를 저장했어요. viewer 상단 [원본] [AI 1단계] 토글로 전환할 수 있어요.');
     });
   }
 
@@ -1958,7 +1958,7 @@
 
     /* 사용자 결정 #C — 마감 후 aiDrafts 기본 정리. TEST MODE에서는 보존/초기화 선택 가능. */
     if (_isTestMode()) {
-      const keep = confirm('[TEST MODE] aiDrafts 박은 거 박은 거 박을지?\n\nOK = 박음 (3 후보 + 편집 상태 확인 가능)\n취소 = 정리 (운영 박은 거)');
+      const keep = confirm('[TEST MODE] aiDrafts를 보존할까요?\n\nOK = 보존 (3 후보 + 편집 상태 확인 가능)\n취소 = 정리 (운영과 동일)');
       if (!keep) {
         try { localStorage.removeItem(LS_AI_DRAFTS_KEY); } catch (e) { /* noop */ }
       } else {
@@ -2250,7 +2250,7 @@
     });
     const all = root.querySelector('.js-ai-tm-reset-team-all');
     if (all) all.addEventListener('click', function () {
-      if (!confirm('현재 팀(' + _getCurrentNamespace() + ')의 mock quota·후보·결과 박은 거 박은 거 박은 박은 — 모두 박은 거 박은 거 박은 박은 박지 X 박을 거. 박을지?')) return;
+      if (!confirm('현재 팀(' + _getCurrentNamespace() + ')의 mock quota·후보·결과를 모두 초기화할까요?')) return;
       _resetMockUsage();
       _resetMockDrafts();
       _resetMockVariants();
@@ -2333,7 +2333,7 @@
           revisedText: revised,
           summary: 'MOCK: 띄어쓰기·문장 부호 정리',
           changes: [
-            { type: 'mock_demo', description: 'MOCK 변경 — 실 AI 박지 X' },
+            { type: 'mock_demo', description: 'MOCK 변경 — 실 AI 아님' },
           ],
           safeAddition: [],
           creativeAddition: [],
@@ -2585,7 +2585,7 @@
         sceneId: id,
         wrong: idx === 0 ? '쫓긴다' : '도망갓다',
         correct: idx === 0 ? '쫓긴다' : '도망갔다',
-        note: 'MOCK 진단 — 실 AI 박지 X',
+        note: 'MOCK 진단 — 실 AI 아님',
       });
     });
 
@@ -2943,7 +2943,7 @@
     let msg = `✅ ${appliedCount}개 장면에 AI 다듬기 적용했어요.`;
     if (raceCount > 0) msg += `\n⚠ ${raceCount}개 장면은 본문이 바뀌어서 건너뛰었어요. 다시 생성해주세요.`;
     if (failedIds.length > 0) msg += `\n❌ ${failedIds.length}개 장면 저장 실패`;
-    msg += '\n\n⚠️ Phase 0.5 mock — 적용된 본문에 "※mock" 라벨 박힘. 다음 step에서 라벨 박지 X.';
+    msg += '\n\n⚠️ Phase 0.5 mock — 적용된 본문에 "※mock" 라벨이 붙어요. 다음 step에서 라벨이 빠져요.';
     alert(msg);
   }
 

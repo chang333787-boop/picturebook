@@ -748,7 +748,7 @@
       + '<div class="ai-modal__header"><div class="ai-modal__title">✨ AI 장면 발전 결과 — 2단계</div>'
       +   '<button class="ai-modal__close js-ai-modal-close" aria-label="닫기">✕</button></div>'
       + '<div class="ai-modal__body">'
-      +   '<p class="ai-mode-intro">원작의 핵심 사건과 선택지는 지키면서 장면을 더 생생하게 발전시킨 후보예요. 마음에 드는 장면만 적용할 수 있고, 원본은 그대로 남아요.</p>'
+      +   '<p class="ai-mode-intro">원작의 핵심 사건과 선택지는 지키면서 장면을 더 생생하게 발전시킨 후보예요. 마음에 드는 장면만 적용할 수 있고, 원본은 그대로 남아요. <b>AI가 원문에 없던 내용이나 어색한 표현을 만들 수 있으니, 반드시 다시 읽고 적용할지 선택하세요.</b></p>'
       +   '<div class="ai-s2-list">' + (rows || '<div class="ai-empty">발전할 장면이 없어요.</div>') + '</div>'
       + '</div>'
       + '<div class="ai-modal__footer">'
@@ -1021,6 +1021,8 @@
     const status = _getAiTextS1Status();
     const drafting = (status === 'drafting');
     const selected = (d.textS1 && d.textS1.selectedAttempt) || null;
+    /* T1-FINAL-FIX-2: 후보가 실제 mock인지 판정 — 하나라도 mock이면 (mock) 표기, 전부 실 API면 표기 없음 */
+    const s1IsMock = attempts.some(function (n) { return ((cands['attempt' + n] || {}).isMock === true); });
 
     const tabsHtml = attempts.map(function (n) {
       const active = (n === (selected || attempts[attempts.length - 1])) ? ' is-active' : '';
@@ -1038,10 +1040,11 @@
     const inner = ''
       + '<div class="ai-cand-modal">'
       +   '<div class="ai-cand-modal__head">'
-      +     '<h3>AI 1단계 후보 (mock)</h3>'
+      +     '<h3>AI 1단계 후보' + (s1IsMock ? ' (mock)' : '') + '</h3>'
       +     '<button type="button" class="ai-modal-close js-ai-cand-close" aria-label="닫기">×</button>'
       +   '</div>'
       +   draftingNote
+      +   '<div class="ai-cand-intro" style="margin:8px 0;padding:8px 10px;background:#f3f7ff;border-radius:8px;color:#3a5b8c;font-size:13px;line-height:1.5;">AI가 맞춤법·문장을 정돈한 제안이에요. 내용이 바뀌지 않았는지 확인하고 골라 주세요.</div>'
       +   '<div class="ai-cand-tabs">' + tabsHtml + '</div>'
       +   '<div class="ai-cand-tab-body js-ai-cand-body"></div>'
       +   '<div class="ai-cand-modal__foot">'
@@ -1066,7 +1069,14 @@
       const rows = scenes.map(function (s) {
         const r = c.results[s.id];   /* Functions가 sceneId 정규화 박음 — fallback 박지 X */
         if (!r) return '<div class="ai-cand-row ai-cand-row--none"><div class="ai-cand-scene-id">장면 ' + _escapeHtml(s.id) + '</div><div class="ai-cand-skip">(결과 없음)</div></div>';
-        if (r.skip) return '<div class="ai-cand-row ai-cand-row--skip"><div class="ai-cand-scene-id">장면 ' + _escapeHtml(s.id) + '</div><div class="ai-cand-skip">skip — ' + _escapeHtml(r.reason || '') + '</div></div>';
+        if (r.skip) return ''
+          + '<div class="ai-cand-row ai-cand-row--skip">'
+          +   '<div class="ai-cand-scene-id">장면 ' + _escapeHtml(s.id) + '</div>'
+          +   '<div class="ai-cand-skip">✅ 수정 없음 — 원본을 그대로 유지해도 좋아요.'
+          +     (r.reason ? '<span style="display:block;margin-top:2px;color:#8a8f98;font-size:12px;">이유: ' + _escapeHtml(r.reason) + '</span>' : '')
+          +   '</div>'
+          +   '<div style="margin-top:4px;color:#9aa0a6;font-size:12px;line-height:1.5;white-space:pre-wrap;">' + _escapeHtml(s.body || '') + '</div>'
+          + '</div>';
         /* 강한 경고 박혀있으면 — UI 표시. 적용 자체 박은 거 박은 거 박은 박은 박은 — _finalizeAiVariant 박을 때 차단 박음 */
         const strongWarn = (r.appliable === false || (Array.isArray(r.strongWarnings) && r.strongWarnings.length > 0));
         const strongLabel = strongWarn
@@ -1648,7 +1658,10 @@
         return ''
           + '<div class="ai-draft-row ai-draft-row--skip">'
           +   '<div class="ai-draft-scene-id">장면 ' + _escapeHtml(s.id) + '</div>'
-          +   '<div class="ai-draft-skip">skip — 원본 박힘 (' + _escapeHtml(r.reason || '') + ')</div>'
+          +   '<div class="ai-draft-skip">✅ 수정 없음 — 원본을 그대로 유지해도 좋아요.'
+          +     (r.reason ? '<span style="display:block;margin-top:2px;color:#8a8f98;font-size:12px;">이유: ' + _escapeHtml(r.reason) + '</span>' : '')
+          +   '</div>'
+          +   '<div style="margin-top:4px;color:#9aa0a6;font-size:12px;line-height:1.5;white-space:pre-wrap;">' + _escapeHtml(s.body || '') + '</div>'
           + '</div>';
       }
       const initialText = (s.id in edited) ? edited[s.id] : (r.revisedText || '');
@@ -1669,7 +1682,7 @@
     const inner = ''
       + '<div class="ai-draft-modal">'
       +   '<div class="ai-draft-modal__head">'
-      +     '<h3>AI 1단계 편집 중 — ' + attemptN + '회차 (mock)</h3>'
+      +     '<h3>AI 1단계 편집 중 — ' + attemptN + '회차' + (cand && cand.isMock ? ' (mock)' : '') + '</h3>'
       +     '<button type="button" class="ai-modal-close js-ai-draft-close" aria-label="닫기">×</button>'
       +   '</div>'
       +   '<div class="ai-draft-note">'
@@ -2708,6 +2721,7 @@
       <div class="ai-modal__body">
         <div class="ai-check-intro">
           AI는 <b>문제만 알려드려요</b>. 수정은 안 해드려요. 학생이 직접 보고 본인이 고치는 기능이에요.
+          <span style="display:block;margin-top:2px;color:#8a8f98;font-size:12px;">검사 결과는 참고용이며, 실제로 고칠지는 사람이 판단해요.</span>
         </div>
         ${sectionsHtml}
       </div>

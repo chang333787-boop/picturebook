@@ -1669,7 +1669,7 @@
         +   '</div>'
         +   '<div class="ai-draft-edit">'
         +     '<div class="ai-draft-label">AI ' + attemptN + '회차 (수정 가능 — 맞춤법·띄어쓰기·조사·문장 연결)</div>'
-        +     '<textarea class="ai-draft-textarea js-ai-draft-textarea" data-scene-id="' + _escapeHtml(s.id) + '" rows="3">' + _escapeHtml(initialText) + '</textarea>'
+        +     '<textarea class="ai-draft-textarea js-ai-draft-textarea" data-scene-id="' + _escapeHtml(s.id) + '" rows="3">' + _escapeHtmlText(_brToNewline(initialText)) + '</textarea>'
         +   '</div>'
         + '</div>';
     }).join('');
@@ -1836,16 +1836,18 @@
     const mode = _getAiViewMode();
     if (mode !== 'aiS1' && mode !== 'aiS2') return originalBody;
     const variantKey = (mode === 'aiS2') ? 's2' : 's1';
-    /* Firebase 우선 (정식 저장 — 캐시). 있으면 그대로. */
+    /* Firebase 우선 (정식 저장 — 캐시). 있으면 그대로.
+       BR-FIX-1: 옛 변형 데이터에 섞인 리터럴 <br/>를 실제 \n으로 정규화해 반환
+       (render escHtml + CSS white-space:pre-wrap에서 줄바꿈으로 보임). 원본은 미정규화 유지. */
     const fb = _getFbVariantBody(variantKey, sceneId);
-    if (typeof fb === 'string') return fb;
+    if (typeof fb === 'string') return _brToNewline(fb);
     /* localStorage fallback (임시 캐시/백업) */
     const v = _loadAiVariants();
     const variant = (mode === 'aiS2') ? v.textS2 : v.textS1;
     if (!variant || variant.status !== 'finalized') return originalBody;
     const f = variant.final && variant.final[sceneId];
     if (!f || typeof f.body !== 'string') return originalBody;
-    return f.body;
+    return _brToNewline(f.body);
   }
 
   function _showAiToggleBar() {
@@ -1932,7 +1934,9 @@
         return;
       }
       const isEdited = (s.id in edited);
-      const body = isEdited ? edited[s.id] : (r.revisedText || '');
+      /* BR-FIX-1: 옛 세션의 버그(textarea에 <br/> 주입)로 edited 버퍼에 리터럴 <br/>가
+         남아있을 수 있어 저장 직전 \n으로 정규화. 새 편집은 이미 깨끗. */
+      const body = _brToNewline(isEdited ? edited[s.id] : (r.revisedText || ''));
       final[s.id] = {
         body: body,
         source: 'attempt' + attemptN,
@@ -2990,6 +2994,22 @@
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;')
       .replace(/\n/g, '<br/>');
+  }
+
+  /* BR-FIX-1: <br> 계열 → 실제 줄바꿈(\n). 옛 데이터/편집 버퍼에 섞인 리터럴 <br/> 정규화 (null-safe).
+     원본 scene.body엔 <br/>가 없어 사실상 no-op. */
+  function _brToNewline(s) {
+    return String(s == null ? '' : s).replace(/<br\s*\/?>/gi, '\n');
+  }
+  /* BR-FIX-1: textarea/value 등 '텍스트' 컨텍스트 전용 이스케이프 — \n→<br/> 안 함.
+     (innerHTML 컨텍스트는 기존 _escapeHtml 유지: 거기선 \n→<br/>가 올바름.) */
+  function _escapeHtmlText(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
   /* ════════════════════════════════════════════════════════════════

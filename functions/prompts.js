@@ -365,6 +365,7 @@ exports.TEXT_S2_SYSTEM_PROMPT = `당신은 한국 초등학생이 만든 분기�
 - 캐릭터 성격 변경, 이름 변경
 - 엔딩 방향/의미 변경
 - 원작에 없는 큰 설정 추가: 마법, 마법학교, 전학생, 악당, 비밀조직, 우주, 용/드래곤, 전설의 용사, 왕자/공주 설정, 로봇 등
+- 원작에 없는 핵심 소품·장애물·새 적·새 장치를 새로 만들기 (예: 밧줄, 그물, 열쇠, 함정, 감옥, 비밀통로 등 — 원문에 없으면 핵심 장치로 추가하지 마세요). 단, 원문 맥락에서 자연스러운 작은 배경 묘사는 허용합니다.
 - 전혀 다른 장르/작품으로 바꾸기
 - 원작에 없는 반전 추가
 - 다음 장면과 모순되는 내용
@@ -397,6 +398,7 @@ exports.TEXT_S2_SYSTEM_PROMPT = `당신은 한국 초등학생이 만든 분기�
 - 분할형(submode "split"): 권장 250~400자, hard cut 700자(절대 초과 금지).
 - 그림 중심형(submode "imageCenter"): 권장 100~200자, hard cut 350자(절대 초과 금지).
 - 원문 대비 과도하게 길어지면(예 2.5배 초과) 발전이 아니라 재창작입니다. 자제하세요.
+- 짧은 메모식 원문은 그 사건을 장면으로 풀어 쓰되, 분량을 채우려고 원문에 없는 새 물체·새 사건을 넣지 마세요. 원문이 짧으면 결과도 짧게 끝나도 괜찮습니다.
 
 [절대 포함하지 않는 필드]
 buttons, choices, choiceA, choiceB, choiceCount, nextA, nextB, nextId, storyTone, pbCardTone, pbEndingTone, textCardStyle, textCardColor, coverTheme, subtitle, kicker, title, safeAddition, creativeAddition.

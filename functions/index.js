@@ -985,9 +985,9 @@ function _validateWorkCheckResponse(parsed) {
 /* s2 글자수 hard cut (발전이므로 s1보다 큼). 초과 시 전체 throw(환불). */
 const S2_MAXLEN = { split: 700, imageCenter: 350 };
 
-/* s2 글자수 비율 — 발전이므로 확장 허용, 폭주만 차단. 원문 20자 미만은 절대 증가량 기준. */
+/* s2 글자수 비율 — 발전이므로 확장 허용, 폭주만 차단. 원문 50자 미만은 절대 증가량 기준(T2-QA-1.5: 메모형 원문 과차단 방지로 20→50 확장). */
 function _checkLengthRatioS2(origLen, revisedLen) {
-  if (origLen < 20) {
+  if (origLen < 50) {
     const diff = revisedLen - origLen;
     if (diff > 220) return { strong: true, reason: `원문 짧음(${origLen}자) — 증가량 ${diff}자 (220자 초과)` };
     if (diff > 160) return { weak: true, reason: `원문 짧음(${origLen}자) — 증가량 ${diff}자 (160자 초과)` };

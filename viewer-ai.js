@@ -2360,7 +2360,7 @@
       strength: strength,
       scope: 'work',
       isMock: true,
-      globalSummary: `MOCK: ${totalScenes}개 장면 중 ${revisedCount}개 다듬을 제안 박혔어요. (${skipCount}개 skip)`,
+      globalSummary: `MOCK: ${totalScenes}개 장면 중 ${revisedCount}개에 다듬기 제안이 있어요. (${skipCount}개 skip)`,
       results: results,
       originalSnapshot: snapshot,    /* 적용 직전 race 검증용 */
       status: 'pending',
@@ -2682,11 +2682,13 @@
   /* 검사 결과 모달 — 수정 X. 진단만. "장면 X로 이동" 버튼만 박음. */
   function _showCheckResultModal(check) {
     const cats = check.categories || {};
+    /* CHECK-UI-1: real 응답 카테고리 키는 character, 구버전 mock은 characterConsistency.
+       존재하는 쪽을 읽어 누락·카운트 0 방지. (빈 배열도 truthy라 real character:[]가 우선) */
     const sections = [
-      { key: 'spelling',             icon: '📝', title: '맞춤법',           items: cats.spelling || [] },
-      { key: 'coherence',            icon: '🔗', title: '장면 간 유기성',    items: cats.coherence || [] },
-      { key: 'characterConsistency', icon: '👤', title: '캐릭터 일관성',     items: cats.characterConsistency || [] },
-      { key: 'branchFlow',           icon: '🌳', title: '분기 흐름',         items: cats.branchFlow || [] },
+      { key: 'spelling',   icon: '📝', title: '맞춤법',        items: cats.spelling || [] },
+      { key: 'coherence',  icon: '🔗', title: '장면 간 유기성', items: cats.coherence || [] },
+      { key: 'character',  icon: '👤', title: '캐릭터 일관성',  items: cats.character || cats.characterConsistency || [] },
+      { key: 'branchFlow', icon: '🌳', title: '분기 흐름',      items: cats.branchFlow || [] },
     ];
 
     const sectionsHtml = sections.map(sec => {
@@ -2748,28 +2750,58 @@
     });
   }
 
+  /* CHECK-UI-1: real(sceneId·message·where) + 구버전 mock(wrong/correct·sceneIdFrom/To·issue·scenes·character)
+     항목을 필드 존재 여부로 렌더. 누락 필드의 undefined·빈 "→" 노출을 막는다. catKey는 호환용으로만 받음. */
   function _renderCheckItem(catKey, item) {
-    let text = '';
-    let sceneId = '';
-    if (catKey === 'spelling') {
-      sceneId = item.sceneId || '';
-      text = `장면 ${sceneId}: <b>${_escapeHtml(item.wrong || '')}</b> → ${_escapeHtml(item.correct || '')}`;
-    } else if (catKey === 'coherence') {
-      sceneId = item.sceneIdFrom || '';
-      text = `장면 ${item.sceneIdFrom} → ${item.sceneIdTo}: ${_escapeHtml(item.issue || '')}`;
-    } else if (catKey === 'characterConsistency') {
-      sceneId = (item.scenes && item.scenes[0]) || '';
-      text = `<b>${_escapeHtml(item.character || '')}</b> (장면 ${(item.scenes || []).join(', ')}): ${_escapeHtml(item.issue || '')}`;
-    } else if (catKey === 'branchFlow') {
-      sceneId = item.sceneId || '';
-      text = sceneId ? `장면 ${sceneId}: ${_escapeHtml(item.issue || '')}` : _escapeHtml(item.issue || '');
+    item = item || {};
+
+    /* ── 장면 라벨 + 점프 타겟 ── (real: sceneId / 구 mock coherence: from→to / 구 mock character: scenes[]) */
+    const fromId = (item.sceneIdFrom != null && item.sceneIdFrom !== '') ? String(item.sceneIdFrom) : '';
+    const toId   = (item.sceneIdTo   != null && item.sceneIdTo   !== '') ? String(item.sceneIdTo)   : '';
+    let   oneId  = (item.sceneId     != null && item.sceneId     !== '') ? String(item.sceneId)     : '';
+    if (!oneId && Array.isArray(item.scenes) && item.scenes.length) {
+      oneId = String(item.scenes[0]);
     }
-    const jumpHtml = sceneId
-      ? `<button class="ai-check-item__jump js-ai-check-jump" data-scene-id="${sceneId}">장면 ${sceneId} 이동</button>`
+    let sceneLabel = '';
+    let jumpId = '';
+    if (fromId && toId) {
+      sceneLabel = `장면 ${_escapeHtml(fromId)} → ${_escapeHtml(toId)}`;
+      jumpId = fromId;
+    } else if (oneId) {
+      sceneLabel = `장면 ${_escapeHtml(oneId)}`;
+      jumpId = oneId;
+    }
+
+    /* ── 본문: message > issue > wrong/correct > 안전 fallback ── */
+    let body = '';
+    const msg = item.message || item.issue || '';
+    if (msg) {
+      body = _escapeHtml(msg);
+    } else if (item.wrong || item.correct) {
+      /* wrong/correct 둘 중 하나라도 있을 때만 "→" 표시 (빈 → 방지) */
+      body = `<b>${_escapeHtml(item.wrong || '')}</b> → ${_escapeHtml(item.correct || '')}`;
+    }
+    /* 구 mock characterConsistency: 인물명 prefix */
+    if (item.character) {
+      const charPrefix = `<b>${_escapeHtml(item.character)}</b>`;
+      body = body ? `${charPrefix}: ${body}` : charPrefix;
+    }
+    if (!body) {
+      body = '확인해 보세요.';
+    }
+
+    /* ── where 위치 설명 (있을 때만, 작게) ── */
+    const whereHtml = item.where
+      ? `<div class="ai-check-item__where" style="margin-top:2px;color:#8a8f98;font-size:12px;">${_escapeHtml(item.where)}</div>`
+      : '';
+
+    const textHtml = sceneLabel ? `${sceneLabel}: ${body}` : body;
+    const jumpHtml = jumpId
+      ? `<button class="ai-check-item__jump js-ai-check-jump" data-scene-id="${_escapeHtml(jumpId)}">장면 ${_escapeHtml(jumpId)} 이동</button>`
       : '';
     return `
       <div class="ai-check-item">
-        <div class="ai-check-item__text">${text}</div>
+        <div class="ai-check-item__text">${textHtml}${whereHtml}</div>
         ${jumpHtml}
       </div>
     `;

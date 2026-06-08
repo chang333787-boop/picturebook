@@ -65,21 +65,22 @@
   /* ════════════════════════════════════════════════════════════════
      v140-step1: 테스트 모드 (TEST MODE)
      ──────────────────────────────────────────────────────────────
-     진입 조건 (사용자 결정 #A):
-     - URL ?test=1
-     - localhost / 127.0.0.1 (개발 환경 자동)
+     진입 조건 (2026-06-08 정책 변경):
+     - URL ?test=1 일 때만 TEST MODE/mock 진입
+     - ?realApi=1 = 강제 실 API (TEST MODE 끔, 기존 호환용)
+     - 일반 maker/viewer 접속(localhost/preview 포함) = 실 API
+       (localhost 자동 TEST MODE 제거 — 평소 화면에서 실 결과로 품질 판단)
 
-     ⚠️ 실 API 호출에는 testMode 우회 절대 적용 X (Phase A 박힐 때 Functions 단에서 차단)
+     ⚠️ 실 API 호출에는 testMode 우회 절대 적용 X (Functions 단에서 차단)
      이 모듈은 mock 전용이라 자유롭게 박음.
      ════════════════════════════════════════════════════════════════ */
   function _isTestMode() {
     try {
       const p = new URLSearchParams(location.search);
-      /* 명시 우회: ?realApi=1 박혀있으면 localhost라도 실 API 박음 (사용자 명시 박힐 때) */
+      /* 명시 우회: ?realApi=1이면 실 API (TEST MODE 끔) */
       if (p.get('realApi') === '1') return false;
+      /* ?test=1일 때만 TEST MODE/mock. localhost 자동 진입은 제거됨. */
       if (p.get('test') === '1') return true;
-      const h = location.hostname;
-      if (h === 'localhost' || h === '127.0.0.1' || h === '0.0.0.0') return true;
     } catch (e) { /* noop */ }
     return false;
   }
@@ -389,19 +390,13 @@
 
   /* Phase A 박은 거 박은 거 박은 박은 진입 — 운영 모드만. TEST MODE 박혀있으면 mock 박음. */
   function _shouldUseRealApi() {
-    /* TEST MODE 박혀있으면 mock 박음 (단 ?realApi=1 박혀있으면 _isTestMode false 박힘) */
+    /* TEST MODE면 mock (단 ?realApi=1이면 _isTestMode가 false라 통과) */
     if (_isTestMode()) return false;
-    /* Firebase Functions SDK 박지 X 박혀있으면 mock fallback */
+    /* Firebase Functions SDK 없으면 mock fallback */
     if (typeof firebase === 'undefined' || !firebase.functions) return false;
-    /* ?realApi=1 박혀있으면 — auth 박지 X 박혀있어도 true 박음 (호출 직전 anonymous 박음) */
-    try {
-      const p = new URLSearchParams(location.search);
-      if (p.get('realApi') === '1') return true;
-    } catch (e) { /* noop */ }
-    /* 기본: auth 박혀있어야 박음 */
-    try {
-      if (!firebase.auth().currentUser) return false;
-    } catch (e) { return false; }
+    /* default app auth 확인 제거 (2026-06-08): viewer.html엔 default app이 없어
+       firebase.auth().currentUser가 항상 throw→false로 떨어져 일반 접속이 mock이 됐음.
+       실제 익명 인증은 호출 직전 _callPhaseAFunction()의 _ensureAnonymousAuth(viewer app)가 담당. */
     return true;
   }
 

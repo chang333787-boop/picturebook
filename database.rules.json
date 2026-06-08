@@ -35,6 +35,7 @@
         "teams": {
           ".read": true,
           "$team": {
+            ".write": "auth != null && !newData.exists() && (root.child('classes/' + $classId + '/meta/teacher_uid').val() === auth.uid || auth.token.role === 'super_admin')",
             "pin": {
               ".read": true,
               ".write": "auth != null && !data.exists()"

@@ -36,7 +36,7 @@ const { setGlobalOptions } = require('firebase-functions/v2');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
 const Anthropic = require('@anthropic-ai/sdk');
-const { TEXT_S1_SYSTEM_PROMPT, TEXT_S2_SYSTEM_PROMPT, WORK_CHECK_SYSTEM_PROMPT, buildUserMessage } = require('./prompts');
+const { TEXT_S1_SYSTEM_PROMPT, TEXT_S2_SYSTEM_PROMPT, WORK_CHECK_SYSTEM_PROMPT, buildUserMessage, buildUserMessageS2Chunk } = require('./prompts');
 
 /* Firebase Admin 초기화 — 1번만 */
 if (!admin.apps.length) {
@@ -578,6 +578,21 @@ const HAIKU_MODEL = 'claude-haiku-4-5';
 const S2_MODEL = HAIKU_MODEL;
 const MAX_TOKENS = 8000;
 const ANTHROPIC_TIMEOUT_MS = 50000;  /* Functions timeout 60s 박힘 — 여유 10s */
+
+/* ════════════════════════════════════════════════════════════════
+   텍스트 2단계 chunk 설정 (T2-INFRA-1) — 대형 작품 timeout 해결
+   ──────────────────────────────────────────────────────────────
+   문제: s2가 작품 전체 장면을 단일 Anthropic 호출의 출력으로 생성 →
+         장면 많으면 출력 생성이 ANTHROPIC_TIMEOUT_MS(50s)를 넘겨 timeout.
+   해법: 출력을 chunk(장면 N개)로 쪼개 각 호출은 일부 장면만 생성.
+         입력(작품 전체 맥락)은 매 chunk에 전부 제공 → 분기 흐름·일관성 유지.
+   정책: chunk size 4, 동시성 4(wave 단위), all-or-nothing(하나라도 실패→전체 환불).
+   상한: 본문 있는 장면 S2_MAX_SCENES 초과 시 quota 차감·AI 호출 前 차단.
+         (safety/cooldown 아님 — aiSafetyState 기록 없음, 단순 구조 제한 안내.)
+   ════════════════════════════════════════════════════════════════ */
+const S2_CHUNK_SIZE = 4;     /* chunk당 발전 대상 장면 수 — 출력 토큰 폭주/timeout 회피 */
+const S2_CONCURRENCY = 4;    /* 동시 Anthropic 호출 상한(wave). 초대형 작품 안정성 위해 제한 */
+const S2_MAX_SCENES = 24;    /* 본문 있는 장면 수 상한. 초과 시 호출 前 차단(quota 차감 X) */
 
 async function _callAnthropic(apiKey, systemPrompt, userMessage, model) {
   const client = new Anthropic({ apiKey, timeout: ANTHROPIC_TIMEOUT_MS });
@@ -1228,15 +1243,141 @@ exports.callTextAiBatch = onCall(
 );
 
 /* ════════════════════════════════════════════════════════════════
+   텍스트 2단계 chunk 인프라 (T2-INFRA-1) — 핸들러와 분리(테스트 가능)
+   ════════════════════════════════════════════════════════════════ */
+
+/* sceneId 배열을 size 단위 chunk로 나눔. (snapshot은 이미 본문 있는 장면만) */
+function _chunkSceneIds(ids, size) {
+  const out = [];
+  const n = Math.max(1, size | 0);
+  for (let i = 0; i < ids.length; i += n) out.push(ids.slice(i, i + n));
+  return out;
+}
+
+/* 동시성 상한 concurrency로 items를 fn(item, idx)로 실행.
+   all-or-nothing: 하나라도 reject되면 즉시 중단 신호(aborted) → 진행 중 외 새 작업 안 받고
+   첫 에러를 그대로 throw. (진행 중 호출은 취소 불가 — 결과만 버림.) */
+async function _runWithConcurrency(items, concurrency, fn) {
+  const results = new Array(items.length);
+  let nextIndex = 0;
+  let aborted = false;
+  async function worker() {
+    while (!aborted) {
+      const i = nextIndex++;
+      if (i >= items.length) return;
+      try {
+        results[i] = await fn(items[i], i);
+      } catch (e) {
+        aborted = true;
+        throw e;
+      }
+    }
+  }
+  const workerCount = Math.max(1, Math.min(concurrency | 0 || 1, items.length));
+  const workers = [];
+  for (let w = 0; w < workerCount; w++) workers.push(worker());
+  await Promise.all(workers);
+  return results;
+}
+
+/* s2 장면 수 상한 검사 — 초과면 block 객체(precheck와 같은 모양), 통과면 null.
+   호출 위치: callTextAiBatchS2 핸들러의 _runAiPrecheck/_consumeQuota 直前.
+   ⚠ safety/cooldown 아님: aiSafetyState 기록·consecutiveBlocks·cooldown 일절 없음.
+   ⚠ s2 전용: s1/check는 이 검사를 호출하지 않으므로 영향 없음. */
+function _checkS2SceneCap(snapshot) {
+  const n = Object.keys(snapshot || {}).length;
+  if (n > S2_MAX_SCENES) {
+    return {
+      ok: false, blocked: true, reasonCode: 'S2_TOO_LARGE',
+      categories: [], sceneIds: [],
+      sceneCount: n, maxScenes: S2_MAX_SCENES,
+      message: `이 작품은 본문이 있는 장면이 ${n}개라, 한 번에 텍스트 2단계로 발전시키기엔 너무 커요. 한 번에 최대 ${S2_MAX_SCENES}개 장면까지 발전시킬 수 있어요. 장면 수를 줄이거나 작품을 나눠서 다시 시도해 주세요.`,
+    };
+  }
+  return null;
+}
+
+/* s2 chunk 실행 + merge 코어 — onCall 핸들러와 분리(mock callFn으로 테스트 가능).
+   callFn: async (targetIds, userMessage, idx) => { text, inputTokens, outputTokens }
+   반환: { mergedResults, totalInputTokens, totalOutputTokens, chunkCount }
+   실패 시 throw(plain Error) — 호출자(핸들러)가 _refundQuota 처리. (all-or-nothing) */
+async function _runS2Chunks(snapshot, callFn) {
+  const allIds = Object.keys(snapshot || {});
+  const chunks = _chunkSceneIds(allIds, S2_CHUNK_SIZE);
+  let totalInputTokens = 0;
+  let totalOutputTokens = 0;
+
+  const pickedParts = await _runWithConcurrency(chunks, S2_CONCURRENCY, async (targetIds, idx) => {
+    const userMsg = buildUserMessageS2Chunk(snapshot, targetIds);
+    const ai = await callFn(targetIds, userMsg, idx);
+    totalInputTokens += (ai && ai.inputTokens) || 0;
+    totalOutputTokens += (ai && ai.outputTokens) || 0;
+
+    let parsed;
+    try {
+      parsed = _parseJsonStrict(ai && ai.text);
+    } catch (e) {
+      throw new Error(`chunk ${idx + 1}/${chunks.length} JSON 파싱 실패: ${e.message}`);
+    }
+    if (!parsed || typeof parsed !== 'object' || !parsed.results || typeof parsed.results !== 'object') {
+      throw new Error(`chunk ${idx + 1}/${chunks.length} results 구조 없음`);
+    }
+
+    /* 이 chunk의 target ID만 채택. scene_ 접두사 정규화 후, target 외(다른 chunk 장면·미존재
+       ID)는 drop → 최종 merge 오염 방지. */
+    const targetSet = new Set(targetIds.map(String));
+    const out = {};
+    let leaked = 0;
+    for (const rawKey of Object.keys(parsed.results)) {
+      let key = String(rawKey);
+      if (/^scene[_\-]?(\d+)$/i.test(key)) key = key.replace(/^scene[_\-]?/i, '');
+      if (targetSet.has(key)) out[key] = parsed.results[rawKey];
+      else leaked++;
+    }
+    if (leaked > 0) {
+      logger.warn('[ai/s2] chunk target 외 결과 drop', { chunk: idx + 1, leaked });
+    }
+
+    /* target 누락 검사 — 이 chunk의 모든 target이 결과에 있어야 함.
+       하나라도 빠지면 chunk 실패 → 전체 실패(환불). (skip:true도 키는 존재해야 함) */
+    const missing = targetIds.filter((id) => !(String(id) in out));
+    if (missing.length > 0) {
+      throw new Error(`chunk ${idx + 1}/${chunks.length} target 장면 누락: ${missing.join(', ')}`);
+    }
+    return out;
+  });
+
+  /* merge — target 분리로 중복은 없어야 하나, 방어적으로 first-wins + 경고. */
+  const mergedResults = {};
+  for (const part of pickedParts) {
+    if (!part) continue;
+    for (const sid of Object.keys(part)) {
+      if (sid in mergedResults) {
+        logger.warn('[ai/s2] merge 중복 sceneId — 첫 결과 유지', { sceneId: sid });
+        continue;
+      }
+      mergedResults[sid] = part[sid];
+    }
+  }
+
+  return { mergedResults, totalInputTokens, totalOutputTokens, chunkCount: chunks.length };
+}
+
+/* ════════════════════════════════════════════════════════════════
    callTextAiBatchS2 — 텍스트 2단계 (장면 발전)
    s1과 공유 헬퍼(_validateRequest/_consumeQuota/_refundQuota/_callAnthropic/_parseJsonStrict/
    _estimateCostUsd/_logUsageStats) 재사용. prompt=TEXT_S2_SYSTEM_PROMPT, 모델=S2_MODEL(기본 Haiku),
    검증=_validateS2Response. 기존 callTextAiBatch/callWorkCheck는 불변.
+   T2-INFRA-1: 대형 작품 timeout 회피를 위해 출력을 chunk로 쪼개 부분 장면만 생성하고
+   서버에서 merge. 사용자는 1회 호출/quota 1회로 느낌. 상한 초과는 호출 前 차단.
    ════════════════════════════════════════════════════════════════ */
 exports.callTextAiBatchS2 = onCall(
   {
     secrets: [ANTHROPIC_API_KEY],
     enforceAppCheck: false,
+    /* T2-INFRA-1: chunk 병렬(동시성 4)이라 단일 호출보다 길어질 수 있어 전역 60s보다 여유.
+       이 함수에만 적용 — 전역/ s1·check는 불변. */
+    timeoutSeconds: 120,
   },
   async (req) => {
     const ctx = await _validateRequest(req, 's2');
@@ -1244,6 +1385,15 @@ exports.callTextAiBatchS2 = onCall(
     const snapshot = (req.data && req.data.snapshot) || {};
     if (!snapshot || Object.keys(snapshot).length === 0) {
       throw new HttpsError('invalid-argument', 'snapshot 박지 X (본문 박은 장면 X)');
+    }
+
+    /* T2-INFRA-1 — 장면 수 상한 검사 (precheck/quota/AI 호출 前).
+       초과 시 precheck와 같은 모양의 block 반환 → 클라 _showAiPrecheckBlockedModal이 처리.
+       ⚠ safety/cooldown 아님: aiSafetyState 기록·quota 차감 없음. s2 전용(s1/check 영향 X). */
+    const capBlock = _checkS2SceneCap(snapshot);
+    if (capBlock) {
+      logger.info('[ai/s2] 장면 수 상한 초과 — 호출 前 차단', { sceneCount: capBlock.sceneCount, maxScenes: S2_MAX_SCENES });
+      return capBlock;
     }
 
     logger.info('[ai/s2] 검증 통과', {
@@ -1261,34 +1411,41 @@ exports.callTextAiBatchS2 = onCall(
     await _consumeQuota(ctx);
 
     try {
-      const userMsg = buildUserMessage(snapshot, 's2');
-      const ai = await _callAnthropic(ANTHROPIC_API_KEY.value(), TEXT_S2_SYSTEM_PROMPT, userMsg, S2_MODEL);
+      /* T2-INFRA-1 — chunk 분할 + 병렬 호출 + merge. 각 chunk는 작품 전체 맥락 + 일부 장면만 출력.
+         all-or-nothing: 한 chunk라도 실패하면 _runS2Chunks가 throw → 아래 catch에서 환불. */
+      const { mergedResults, totalInputTokens, totalOutputTokens, chunkCount } =
+        await _runS2Chunks(snapshot, (targetIds, userMsg) =>
+          _callAnthropic(ANTHROPIC_API_KEY.value(), TEXT_S2_SYSTEM_PROMPT, userMsg, S2_MODEL));
 
-      logger.info('[ai/s2] Anthropic 응답 박힘', {
-        model: S2_MODEL, inputTokens: ai.inputTokens, outputTokens: ai.outputTokens, stopReason: ai.stopReason,
+      logger.info('[ai/s2] 전체 chunk 응답 박힘', {
+        model: S2_MODEL, chunkCount, chunkSize: S2_CHUNK_SIZE,
+        totalInputTokens, totalOutputTokens, sceneCount: Object.keys(mergedResults).length,
       });
 
-      let parsed;
+      /* merge 후 한 번만 검증 — 반드시 FULL snapshot 기준(normalize/BIG_SETTING/길이 등). */
+      const merged = { ok: true, strength: 2, scope: 'work', globalSummary: '', results: mergedResults };
       try {
-        parsed = _parseJsonStrict(ai.text);
-        _validateS2Response(parsed, snapshot);
+        _validateS2Response(merged, snapshot);
       } catch (parseErr) {
         await _refundQuota(ctx);
-        logger.error('[ai/s2] schema 위반 — 환불 박음', { error: parseErr.message, text: ai.text.slice(0, 500) });
+        logger.error('[ai/s2] merge 검증 실패 — 환불 박음', { error: parseErr.message });
         throw new HttpsError('internal', 'AI 응답 검증 실패: ' + parseErr.message);
       }
 
-      const cost = _estimateCostUsd(ai.inputTokens, ai.outputTokens);
-      _logUsageStats(ctx, ai, cost).catch(e => logger.warn('stats 박지 X', e));
+      const cost = _estimateCostUsd(totalInputTokens, totalOutputTokens);
+      _logUsageStats(ctx, { inputTokens: totalInputTokens, outputTokens: totalOutputTokens }, cost)
+        .catch(e => logger.warn('stats 박지 X', e));
 
       return {
-        ...parsed,
+        ...merged,
         meta: {
           model: S2_MODEL,
-          inputTokens: ai.inputTokens,
-          outputTokens: ai.outputTokens,
+          inputTokens: totalInputTokens,
+          outputTokens: totalOutputTokens,
           estimatedCostUsd: cost,
           phase: 'phase-a',
+          chunkCount,
+          chunkSize: S2_CHUNK_SIZE,
         },
       };
     } catch (e) {
@@ -1617,8 +1774,17 @@ exports._internal = {
   _callAnthropic,
   _parseJsonStrict,
   _validateS1Response,
+  _validateS2Response,
   _validateWorkCheckResponse,
   _estimateCostUsd,
+  /* T2-INFRA-1 — s2 chunk 인프라 (하네스 테스트용) */
+  _chunkSceneIds,
+  _runWithConcurrency,
+  _checkS2SceneCap,
+  _runS2Chunks,
+  S2_CHUNK_SIZE,
+  S2_CONCURRENCY,
+  S2_MAX_SCENES,
   _normalizeForCompare,
   _findBannedKey,
   _checkPreserved,

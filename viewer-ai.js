@@ -843,8 +843,8 @@
   async function _startTextS1V140() {
     /* 사용자 결정 #F — drafting 중에는 다른 AI 호출 차단 */
     if (_isS1Drafting()) {
-      alert('AI 1단계 편집 중입니다. 먼저 저장/마감하거나 취소해주세요.');
-      _showCandidatesModal();   /* 편집 중 후보 박은 거 박음 — drafting 상태 박힌 모달 */
+      alert('AI 1단계 편집 중입니다. 편집 화면에서 저장/마감하거나 취소해주세요.');
+      _showDraftingPanel();   /* AI-STAB-2: 편집 패널로 복귀 — [취소]/[저장·마감]로 빠져나갈 수 있음 */
       return;
     }
 
@@ -1626,13 +1626,17 @@
   function _showDraftingPanel() {
     const d = _loadAiDrafts();
     if (!d.textS1 || d.textS1.status !== 'drafting' || !d.textS1.selectedAttempt) {
-      alert('편집 중인 상태가 없어요.');
+      /* AI-STAB-2: 편집 상태가 깨졌으면 drafting을 풀어 후보 화면으로 복귀(트랩 방지). */
+      if (d.textS1 && d.textS1.status === 'drafting') _cancelDrafting();
+      alert('편집 중인 상태가 없어요. 후보 화면으로 돌아갈게요.');
       return;
     }
     const attemptN = d.textS1.selectedAttempt;
     const cand = d.textS1.candidates && d.textS1.candidates['attempt' + attemptN];
     if (!cand) {
-      alert('선택된 후보가 없어요.');
+      /* AI-STAB-2: 선택 후보가 사라졌으면 drafting을 풀어 갇히지 않게 함. */
+      _cancelDrafting();
+      alert('선택된 후보가 없어요. 후보 화면으로 돌아갈게요.');
       return;
     }
 
@@ -1956,7 +1960,7 @@
 
     /* Phase 3 — 실 API 모드에서 Firebase 정식 저장(원본 scene.body 불변, 서버 경유).
        localStorage는 백업으로 유지. mock/테스트 모드는 Firebase 저장 생략(오염 방지). */
-    if (_shouldUseRealApi()) {
+    if (_shouldUseRealApi() && !cand.isMock) {   /* AI-STAB-2: mock 후보는 실 Firebase 저장 금지(오염 방지) */
       _saveTextVariantToFirebase('s1', final);   /* fire-and-forget */
     }
 
@@ -1964,14 +1968,16 @@
     if (_isTestMode()) {
       const keep = confirm('[TEST MODE] aiDrafts를 보존할까요?\n\nOK = 보존 (3 후보 + 편집 상태 확인 가능)\n취소 = 정리 (운영과 동일)');
       if (!keep) {
-        try { localStorage.removeItem(LS_AI_DRAFTS_KEY); } catch (e) { /* noop */ }
+        /* AI-STAB-2: namespaced 키로 정리(bare 키는 다른 팀 draft를 안 지움). */
+        try { localStorage.removeItem(_getMockDraftsKey()); } catch (e) { /* noop */ }
       } else {
         /* status는 finalized로 박음 (selectedAttempt 박은 거 박은 거 박힘) */
         d.textS1.status = 'finalized';
         _saveAiDrafts(d);
       }
     } else {
-      try { localStorage.removeItem(LS_AI_DRAFTS_KEY); } catch (e) { /* noop */ }
+      /* AI-STAB-2: namespaced 키로 정리(bare 키 제거 버그 → drafting 잔존 해소). */
+      try { localStorage.removeItem(_getMockDraftsKey()); } catch (e) { /* noop */ }
     }
 
     /* step4: 마감 박은 후 토글 바 박음 + viewer 박은 거 박은 거 박은 거 박은 다시 렌더 */

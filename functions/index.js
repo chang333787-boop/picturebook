@@ -207,15 +207,22 @@ function _sanitizePbBodyBox(raw) {
 }
 
 /* Phase 4-D-2A: variant textStyle 서버 sanitizer.
-   클라가 보낸 값은 신뢰하지 않고 allowlist + 클램프. viewer-data.js _normalizeTextStyle와 정합.
+   클라가 보낸 값은 신뢰하지 않고 allowlist + 클램프.
    허용 필드 = fontFamily / fontSize / color / weight (그 외 키 전부 제거).
    · fontFamily: VARIANT_TEXT_FONTS allowlist만(아니면 'gothic')
    · fontSize: 숫자 10~50 클램프(텍스트 슬라이더 50·그림책 28 모두 수용, 기본 18)
    · color: '' 또는 안전한 hex(#rgb/#rrggbb/#rrggbbaa)만 허용 — 그 외(임의 CSS) 전부 '' 로(injection 차단)
    · weight: 'bold' 아니면 'normal'
-   원본 scenes/{sceneId}/textStyle은 절대 미변경 — 이 값은 aiVariants 경로에만 저장된다. */
+   원본 scenes/{sceneId}/textStyle은 절대 미변경 — 이 값은 aiVariants 경로에만 저장된다.
+   P4-D-2C: allowlist를 viewer-edit.js FONTS(인스펙터 폰트 드롭다운 18종) / TEXT_FONT_FAMILIES
+   렌더 키와 정합시킴 — variant view에서 사용자가 고른 폰트가 gothic으로 sanitize되지 않도록.
+   값은 전부 고정 문자열 키(includes 매칭)라 CSS injection 위험 없음. */
 const VARIANT_TEXT_FONTS = [
+  /* 기존 8종 (P4-D-2A) */
   'gothic', 'batang', 'pen', 'gaegu', 'hanna', 'jua', 'galmuri', 'cormorant',
+  /* W9 확장 10종 — UI FONTS / TEXT_FONT_FAMILIES와 동일 */
+  'notosans', 'notoserif', 'dodum', 'dohyeon', 'himelody',
+  'yeonsung', 'dokdo', 'diphylleia', 'hahmlet', 'stylish',
 ];
 function _sanitizeVariantTextStyle(raw) {
   if (!raw || typeof raw !== 'object') return null;

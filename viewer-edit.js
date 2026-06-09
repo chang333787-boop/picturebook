@@ -486,6 +486,40 @@ function _isVariantViewLocked() {
   } catch (e) { return false; }
 }
 
+/* ─── P4-D-2B-FIX2: variant style 안정 scene key ──────────────────────────────
+   variant 저장(_queueVariantStyleSave)·조회(_getDisplayStyle)·렌더(viewer-render.js)는
+   모두 scene.id를 키로 쓴다(adaptScenes: id = String(raw.num)). 저장↔렌더 키가
+   반드시 일치해야 하므로 **scene.id 우선**, 없을 때만 num/currentSceneId로 fallback.
+   (viewer scene 객체엔 num 필드가 없어 사실상 scene.id로 수렴) */
+function _variantStyleSceneId(scene) {
+  if (!scene) return null;
+  const cand = (scene.id != null) ? scene.id
+    : (scene.num != null) ? scene.num
+    : ((typeof ViewerState !== 'undefined' && ViewerState.currentSceneId != null)
+        ? ViewerState.currentSceneId : null);
+  if (cand == null || cand === '') return null;
+  return String(cand);
+}
+
+/* P4-D-2B-FIX2: variant 보기에서 '글자 크기'만 즉시 화면 반영.
+   _patchTextStyle/_patchPbStyle은 원본 getTextStyle(scene)을 읽으므로 variant 값엔 쓸 수 없다.
+   여기선 변형 fontSize를 현재 .scene-screen의 CSS 변수에 직접 박아 슬라이더 조작 즉시 보이게 한다.
+   원본 scene.textStyle은 읽지도 쓰지도 않는다(원본 오염 0). 화면 타입은 클래스로 판별. */
+function _patchVariantFontSize(fontSize) {
+  if (typeof fontSize !== 'number' || isNaN(fontSize)) return false;
+  const screen = _getSceneScreen();
+  if (!screen) return false;
+  if (screen.classList.contains('scene-screen--text')) {
+    screen.style.setProperty('--text-fs-body', fontSize + 'px');
+    return true;
+  }
+  if (screen.classList.contains('scene-screen--pb')) {
+    screen.style.setProperty('--pb-fs-body', fontSize + 'px');
+    return true;
+  }
+  return false;
+}
+
 /* ─── Phase 4-D-2B(+FIX): variant 보기(aiS1/aiS2)에서는 '글자 크기'만 편집 ──────────
    핵심 안전망. 스타일 핸들러(폰트/크기/색/굵기)의 "원본 경로"(scene.textStyle 직접 수정 +
    _queueSave(...,{textStyle})) 진입 전에 이 함수를 호출한다.
@@ -521,13 +555,14 @@ function _applyVariantStyleOrBlock(scene, patch, onApply) {
   }
 
   /* fontSize 전용 게이트 — 후보 없는 장면에서도 stub 저장 허용(editMode + text/pb + aiS1/aiS2). */
-  const vk = (ai && typeof ai._aiVariantFontSizeEditAllowed === 'function')
-    ? ai._aiVariantFontSizeEditAllowed(scene.id) : null;
-  if (vk === 's1' || vk === 's2') {
+  const sid = _variantStyleSceneId(scene);
+  const vk = (ai && typeof ai._aiVariantFontSizeEditAllowed === 'function' && sid != null)
+    ? ai._aiVariantFontSizeEditAllowed(sid) : null;
+  if ((vk === 's1' || vk === 's2') && sid != null) {
     const orig = (typeof getTextStyle === 'function') ? getTextStyle(scene) : (scene.textStyle || {});
     let base = orig;
     if (ai && typeof ai._getDisplayStyle === 'function') {
-      base = ai._getDisplayStyle(scene.id, orig) || orig;
+      base = ai._getDisplayStyle(sid, orig) || orig;
     }
     /* base(원본/표시 variant style) 위에 fontSize만 덮어쓴 새 객체.
        fontFamily/color/weight는 base 그대로 유지(잠긴 컨트롤 값 주입 방지). base는 미변경. */
@@ -536,13 +571,16 @@ function _applyVariantStyleOrBlock(scene, patch, onApply) {
       base || {}, patch
     );
     if (typeof ai._queueVariantStyleSave === 'function') {
-      ai._queueVariantStyleSave(vk, scene.id, next);
+      ai._queueVariantStyleSave(vk, sid, next);
     }
     if (typeof onApply === 'function') { try { onApply(); } catch (e) { /* noop */ } }
-    /* variant style은 _getDisplayStyle을 거치는 통째 재렌더로만 반영(_patchTextStyle은 원본 style을 봄). */
+    /* P4-D-2B-FIX2: 즉시 화면 반영 — variant fontSize를 현재 .scene-screen CSS 변수에 직접 박음.
+       (_patchTextStyle/_patchPbStyle은 원본 style을 읽어 variant 값엔 못 씀.) */
+    if (typeof next.fontSize === 'number') _patchVariantFontSize(next.fontSize);
+    /* 보조: _getDisplayStyle을 거치는 통째 재렌더(즉시 패치 후에도 일관성 유지). */
     if (typeof _scheduleViewerFrameReRender === 'function') _scheduleViewerFrameReRender();
   }
-  /* vk null(편집 불가) → no-op. 어느 쪽이든 true → 원본 경로 차단. */
+  /* vk null(편집 불가)·sid 없음 → no-op(저장·원본 fallback 없음). 어느 쪽이든 true → 원본 경로 차단. */
   return true;
 }
 

@@ -129,6 +129,57 @@ function _bodyHash(str) {
   return (h >>> 0).toString(16).padStart(8, '0');
 }
 
+/* ════════════════════════════════════════════════════════════════
+   AI-STAB-3 — 작품검사 결과 서버 캐시용 해시
+   ──────────────────────────────────────────────────────────────
+   원본 작품(원본 scene 본문/구조) 기준으로 안정적 해시를 계산한다.
+   · 클라가 보낸 값은 신뢰하지 않고, 서버가 classes/{classId}/teams/{enc}/scenes를 직접 읽어 계산.
+   · 본문 + 흐름(선택지/연결)만 포함. layout/색/이미지/좌표/타임스탬프 등 검사와 무관한
+     필드는 제외 → 표지 색 변경 등 cosmetic 수정으로 불필요한 stale(재검사) 방지.
+   · aiVariant(s1/s2)·variant body 편집은 원본 scenes 노드를 바꾸지 않으므로 이 해시에 영향 없음
+     (= 작품검사 stale 판단은 원본 작품 기준이라는 원칙과 정합).
+   ════════════════════════════════════════════════════════════════ */
+function _normalizeSceneForCheckHash(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const buttons = Array.isArray(raw.buttons)
+    ? raw.buttons.map((b) => ({
+        label: String((b && b.label != null) ? b.label : ''),
+        nextId: (b && b.nextId != null) ? String(b.nextId) : '',
+      }))
+    : [];
+  return {
+    type: String(raw.type == null ? '' : raw.type),
+    title: String(raw.title == null ? '' : raw.title),
+    body: String(raw.body == null ? '' : raw.body),
+    choiceCount: (raw.choiceCount == null) ? '' : String(raw.choiceCount),
+    choiceA: String(raw.choiceA == null ? '' : raw.choiceA),
+    nextA: (raw.nextA == null) ? '' : String(raw.nextA),
+    choiceB: String(raw.choiceB == null ? '' : raw.choiceB),
+    nextB: (raw.nextB == null) ? '' : String(raw.nextB),
+    buttons,
+  };
+}
+
+/* scenes 노드(배열/객체 모두 가능 — Firebase는 숫자키를 배열로 반환)에서 정렬된 정규화 투영을 만들어
+   _bodyHash로 8자리 해시 + 유효 장면 수를 반환. 유효 장면이 없으면 hash=null(캐시 비활성 → 기존 동작 유지). */
+function _computeWorkCheckHash(scenesVal) {
+  const out = [];
+  if (scenesVal && typeof scenesVal === 'object') {
+    const keys = Object.keys(scenesVal).filter((k) => scenesVal[k] != null);
+    keys.sort((a, b) => {
+      const na = Number(a); const nb = Number(b);
+      if (isFinite(na) && isFinite(nb)) return na - nb;
+      return a < b ? -1 : (a > b ? 1 : 0);
+    });
+    keys.forEach((k) => {
+      const norm = _normalizeSceneForCheckHash(scenesVal[k]);
+      if (norm) out.push([String(k), norm]);
+    });
+  }
+  if (out.length === 0) return { hash: null, sceneCount: 0 };
+  return { hash: _bodyHash(JSON.stringify(out)), sceneCount: out.length };
+}
+
 /* Phase 4-D-1: variant layout(picturebookBodyBox) 서버 sanitizer.
    클라가 보낸 값은 신뢰하지 않고 클램프. viewer-data.js _normalizePbBodyBox와 동일 범위.
    x 0~80, y 0~80, width 20~95, height null(auto) | 12~90, backdropOpacity 0~1. */
@@ -1483,6 +1534,44 @@ exports.callWorkCheck = onCall(
       throw new HttpsError('invalid-argument', 'snapshot이 없어요 (본문이 있는 장면이 없어요)');
     }
 
+    /* AI-STAB-3 — 서버 권위 해시로 작품검사 결과 캐시.
+       _validateRequest(권한/copyDepth/origin/killswitch/aiSettings) 통과 후에만 캐시를 본다
+       → AI가 꺼진 학급이 과거 결과만 보는 상황 방지. 원본 scenes를 서버가 직접 읽어 해시 계산
+       (클라 snapshot 해시 신뢰 X). latest.snapshotHash와 같으면 AI 호출/quota 차감 없이 캐시 반환.
+       해시 계산 불가(scenes 읽기 실패/빈 작품)면 _curHash=null → 캐시 비활성(기존 동작 그대로). */
+    const _enc = encodeURIComponent(ctx.teamName);
+    const _cacheRef = admin.database().ref(`classes/${ctx.classId}/teams/${_enc}/aiChecks/workCheck/latest`);
+    let _curHash = null;
+    let _curSceneCount = 0;
+    try {
+      const _scenesSnap = await admin.database().ref(`classes/${ctx.classId}/teams/${_enc}/scenes`).once('value');
+      const _h = _computeWorkCheckHash(_scenesSnap.val());
+      _curHash = _h.hash;
+      _curSceneCount = _h.sceneCount;
+    } catch (e) {
+      logger.warn('[ai/check] scenes 해시 계산 실패 — 캐시 비활성(기존대로 진행)', { error: e && e.message });
+      _curHash = null;
+    }
+    if (_curHash) {
+      try {
+        const _cacheSnap = await _cacheRef.once('value');
+        const _cache = _cacheSnap.val();
+        if (_cache && _cache.snapshotHash === _curHash && _cache.result) {
+          logger.info('[ai/check] cache hit — AI/quota 생략', {
+            uid: ctx.uid, classId: ctx.classId, teamName: ctx.teamName,
+            snapshotHash: _curHash, checkedAt: _cache.checkedAt,
+          });
+          return {
+            ..._cache.result,
+            cached: true,
+            meta: Object.assign({}, _cache.result.meta || {}, { cached: true, cachedAt: _cache.checkedAt || null }),
+          };
+        }
+      } catch (e) {
+        logger.warn('[ai/check] cache read 실패 — 새 검사로 진행', { error: e && e.message });
+      }
+    }
+
     logger.info('[ai/check] 검증 통과', {
       uid: ctx.uid, classId: ctx.classId, teamName: ctx.teamName, workId: ctx.workId,
       used: ctx.used, quotaMax: ctx.quotaMax, sceneCount: Object.keys(snapshot).length,
@@ -1518,7 +1607,7 @@ exports.callWorkCheck = onCall(
       const cost = _estimateCostUsd(ai.inputTokens, ai.outputTokens);
       _logUsageStats(ctx, ai, cost).catch(e => logger.warn('stats 박지 X', e));
 
-      return {
+      const result = {
         ...parsed,
         meta: {
           model: HAIKU_MODEL,
@@ -1528,6 +1617,26 @@ exports.callWorkCheck = onCall(
           phase: 'phase-a',
         },
       };
+
+      /* AI-STAB-3 — 성공 결과만 latest에 저장(best-effort). 저장 실패는 결과 반환을 막지 않음(로그만).
+         AI 실패/schema 위반 시에는 위에서 throw(+환불) 되므로 여기 도달 X → 캐시 덮어쓰기 없음. */
+      if (_curHash) {
+        try {
+          await _cacheRef.set({
+            result,
+            snapshotHash: _curHash,
+            sceneCount: _curSceneCount,
+            checkedAt: Date.now(),
+            checkedBy: ctx.uid,
+            model: HAIKU_MODEL,
+            version: 'workCheckCacheV1',
+          });
+        } catch (e) {
+          logger.error('[ai/check] cache write 실패(결과는 정상 반환)', { error: e && e.message });
+        }
+      }
+
+      return { ...result, cached: false };
 
     } catch (e) {
       if (e instanceof HttpsError) throw e;
@@ -1814,4 +1923,7 @@ exports._internal = {
   _PRECHECK_MSG,
   /* Phase 3 — 텍스트 aiVariant 저장 */
   _bodyHash,
+  /* AI-STAB-3 — 작품검사 결과 캐시 해시 */
+  _computeWorkCheckHash,
+  _normalizeSceneForCheckHash,
 };

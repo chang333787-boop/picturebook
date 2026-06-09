@@ -2681,6 +2681,11 @@
     }
 
     _hideCallingModal();
+    /* AI-STAB-3: 서버가 캐시된 결과를 돌려줬으면(cached) 실 AI 호출·서버 quota 차감이 없었으므로
+       방금 낙관적으로 차감한 로컬 quota를 되돌려 viewer 카운트를 서버와 일치시킨다. (mock 경로는 cached 없음) */
+    if (result && result.cached) {
+      _refundQuota('check');
+    }
     /* Phase 2 — 서버 사전 검사 차단 응답이면 모달 안내 후 종료 (진단 없음) */
     if (result && result.blocked) {
       _showAiPrecheckBlockedModal(result, 'check');
@@ -2720,12 +2725,17 @@
       `;
     }).join('');
 
+    /* AI-STAB-3: 서버가 같은 작품 상태의 저장된 검사 결과를 그대로 돌려준 경우(cached) 작게 안내. */
+    const cachedNote = (check && check.cached)
+      ? '<div class="ai-check-cached" style="margin-bottom:8px;padding:6px 10px;background:#eef6ff;border:1px solid #cfe3fb;border-radius:8px;color:#3a6ea5;font-size:12px;">💾 저장된 검사 결과예요 — 작품이 바뀌지 않아 새로 검사하지 않았어요.</div>'
+      : '';
     const html = `
       <div class="ai-modal__header">
         <div class="ai-modal__title">🔍 작품 검사 결과</div>
         <button class="ai-modal__close js-ai-modal-close" aria-label="닫기">✕</button>
       </div>
       <div class="ai-modal__body">
+        ${cachedNote}
         <div class="ai-check-intro">
           AI는 <b>문제만 알려드려요</b>. 수정은 안 해드려요. 학생이 직접 보고 본인이 고치는 기능이에요.
           <span style="display:block;margin-top:2px;color:#8a8f98;font-size:12px;">검사 결과는 참고용이며, 실제로 고칠지는 사람이 판단해요.</span>

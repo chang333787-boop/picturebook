@@ -512,6 +512,10 @@
     if (typeof _preloadFirebaseImageVariants === 'function') {
       _preloadFirebaseImageVariants();
     }
+    /* P5-IMAGE-CLIENT-1 — 이미지 AI 진입 버튼 노출 재평가(aiSettings 로드 후 imageS1 게이트 반영). */
+    if (typeof _showImageAiEntryButton === 'function') {
+      try { _showImageAiEntryButton(); } catch (e) { /* noop */ }
+    }
     return _classAiSettings;
   }
 
@@ -2507,10 +2511,126 @@
     if (bar && bar.parentNode) bar.parentNode.removeChild(bar);
   }
 
+  /* ════════════════════════════════════════════════════════════════
+     P5-IMAGE-CLIENT-1: 이미지 AI 진입(AI 그림 정돈) — server skeleton 연결
+     ──────────────────────────────────────────────────────────────
+     · 후보 보기 토글(#ai-image-view-toggle-bar)과 역할 분리된 "요청" 버튼.
+     · 실제 이미지 생성/Storage 업로드/variant 저장 없음. callImageAiS1 skeleton만 호출.
+     · 응답이 notImplemented여도 성공 아님 — 안내만. variant cache·토글 상태 절대 안 바꿈.
+     · 노출 게이트: projectType(text/picturebook) + 교사 imageS1 권한 true.
+       (adminConsole에서 imageS1=soon이면 교사가 못 켜므로 운영에선 버튼이 안 보이는 게 정상.)
+     ════════════════════════════════════════════════════════════════ */
+  const IMAGE_AI_NOTICE = {
+    IMAGE_POLICY_REQUIRED: '그림 기준을 먼저 선택해 주세요.',
+    IMAGE_SOURCE_MISSING: '먼저 이 장면에 그림을 넣어 주세요.',
+    SCENE_NOT_FOUND: '장면 정보를 찾지 못했어요. 새로고침 후 다시 시도해 주세요.',
+    IMAGE_AI_NOT_IMPLEMENTED: '이미지 AI 서버 연결은 준비되었습니다.\n실제 그림 정돈 기능은 아직 열지 않았어요.\n원본 그림은 그대로 유지됩니다.',
+  };
+  let _imageAiS1Busy = false;
+
+  /* 응답 reasonCode → 사용자 안내(순수). 매핑 없으면 서버 message, 그것도 없으면 기본 준비중 문구. */
+  function _imageAiNoticeForResponse(res) {
+    const rc = res && res.reasonCode;
+    if (rc && IMAGE_AI_NOTICE[rc]) return IMAGE_AI_NOTICE[rc];
+    return (res && res.message) || '이미지 AI 기능은 준비 중입니다. 원본 그림은 그대로 유지됩니다.';
+  }
+
+  /* HttpsError code → 사용자 안내(순수). 매핑 없으면 null(일반 실패 문구로). */
+  function _imageAiNoticeForError(code) {
+    const c = String(code || '');
+    if (/unauthenticated/i.test(c)) return '다시 로그인해 주세요.';
+    if (/permission-denied/i.test(c)) return '선생님이 이미지 AI를 열어야 사용할 수 있어요.';
+    if (/invalid-argument/i.test(c)) return '요청 정보가 올바르지 않아요. 새로고침 후 다시 시도해 주세요.';
+    return null;
+  }
+
+  function _getCurrentSceneForImageAi() {
+    try {
+      if (typeof ViewerState === 'undefined' || !ViewerState || !ViewerState.scenes) return null;
+      const sid = ViewerState.currentSceneId;
+      if (sid == null) return null;
+      const scene = ViewerState.scenes[sid];
+      if (!scene) return null;
+      return { sid: sid, scene: scene };
+    } catch (e) { return null; }
+  }
+
+  async function _runImageAiS1Entry() {
+    if (_imageAiS1Busy) return;                       /* 중복 클릭 방지 */
+    if (!_aiToggleProjectTypeAllowed()) return;        /* 1. projectType gate */
+    if (!_isModeAllowedByTeacher('imageS1')) {         /* 2. teacher permission gate */
+      alert('선생님이 이미지 AI를 열어야 사용할 수 있어요.');
+      return;
+    }
+    /* 3. scene + 원본 이미지 존재 확인 (read만) */
+    const cur = _getCurrentSceneForImageAi();
+    if (!cur) { alert('장면 정보를 찾지 못했어요. 새로고침 후 다시 시도해 주세요.'); return; }
+    if (!(cur.scene.imageData || cur.scene.imageUrl)) {
+      alert('먼저 이 장면에 그림을 넣어 주세요.');
+      return;
+    }
+
+    const btn = document.getElementById('ai-image-entry-btn');
+    let prevLabel = null;
+    _imageAiS1Busy = true;
+    if (btn) { prevLabel = btn.textContent; btn.disabled = true; btn.textContent = '연결 중…'; }
+    try {
+      /* 4. imagePolicy ensure — P5-IMAGE-POLICY-1 모달 재사용. 취소/저장 실패 → 호출 안 함. */
+      const policy = await _ensureImagePolicyBeforeImageAi(cur.scene);
+      if (!policy) return;
+
+      /* 5. callImageAiS1 호출 — 원문 이미지(imageData/imageUrl)는 보내지 않음. 서버가 scene을 직접 read. */
+      const ctx = _getCurrentClassIdTeamName();
+      let res;
+      try {
+        res = await _callPhaseAFunction('callImageAiS1', {
+          classId: ctx.classId,
+          teamName: ctx.teamName,
+          sceneId: cur.sid,
+        });
+      } catch (e) {
+        const mapped = _imageAiNoticeForError(e && (e.code || e.message));
+        alert(mapped || ('이미지 AI 호출에 실패했어요. 잠시 후 다시 시도해 주세요.\n' + (e && e.message ? e.message : '')));
+        return;
+      }
+
+      /* 6. skeleton 응답 — notImplemented는 성공 아님. 안내만. fake 후보/토글 전환/캐시 write 절대 없음. */
+      alert(_imageAiNoticeForResponse(res));
+    } finally {
+      _imageAiS1Busy = false;
+      if (btn) { btn.disabled = false; if (prevLabel != null) btn.textContent = prevLabel; }
+    }
+  }
+
+  /* 진입 버튼 노출 — 게이트(projectType + 교사 imageS1)만 통과하면 표시. 이미지 존재는 클릭 시 확인. */
+  function _showImageAiEntryButton() {
+    if (!_aiToggleProjectTypeAllowed()) { _hideImageAiEntryButton(); return; }
+    if (!_isModeAllowedByTeacher('imageS1')) { _hideImageAiEntryButton(); return; }
+    _hideImageAiEntryButton();
+    const bar = document.createElement('div');
+    bar.id = 'ai-image-entry-btn-bar';
+    bar.className = 'ai-view-toggle-bar ai-view-toggle-bar--image-entry';
+    bar.style.top = '88px';  /* 텍스트(8px)·이미지 보기(48px) 토글 바 아래로 stack */
+    bar.innerHTML = '<span class="ai-view-toggle-bar__label">그림 AI:</span>'
+      + '<button type="button" class="ai-view-toggle-btn js-ai-image-entry" id="ai-image-entry-btn">AI 그림 정돈 준비</button>';
+    document.body.appendChild(bar);
+    const btn = bar.querySelector('.js-ai-image-entry');
+    if (btn) btn.addEventListener('click', _runImageAiS1Entry);
+  }
+
+  function _hideImageAiEntryButton() {
+    const bar = document.getElementById('ai-image-entry-btn-bar');
+    if (bar && bar.parentNode) bar.parentNode.removeChild(bar);
+  }
+
   /* DOMContentLoaded 박은 거 박은 거 박은 — finalized 박혀있고 edit 박혀있을 때만 박음 */
   function _bootstrapAiToggleBar() {
     const run = function () {
       _showAiToggleBar();
+      /* P5-IMAGE-CLIENT-1 — 이미지 AI 진입 버튼도 부트스트랩 시 노출 재평가(게이트 통과 시만). */
+      if (typeof _showImageAiEntryButton === 'function') {
+        try { _showImageAiEntryButton(); } catch (e) { /* noop */ }
+      }
       /* ViewerState 박은 거 박은 거 박은 거 박은 거 박은 — editMode 박은 거 박은 거 박은 거 박은 거 박은 거 박은 거.
          박은 거 박은 거 박은 거 박은 — viewer entry 박은 거 박은 거 박은 거 박은 거 박은 거. 박은 거 박은 거 — 박은 거 박은 거 박은 거 박은 거 박은 거 박은 거 박은 거 박은 거 박은 거 박은 거 박은 거 박은 거 박은 거 박은 거 박은 거 박은 거 박은 거 박은 거. */
     };
@@ -3760,6 +3880,13 @@
       saveImagePolicy:               _saveImagePolicy,
       ensureImagePolicyBeforeImageAi: _ensureImagePolicyBeforeImageAi,
       _openImageSourceModal:         _openImageSourceModal,
+
+      /* P5-IMAGE-CLIENT-1: 이미지 AI 진입(AI 그림 정돈) — server skeleton 연결. 생성 없음. */
+      _showImageAiEntryButton:       _showImageAiEntryButton,
+      _hideImageAiEntryButton:       _hideImageAiEntryButton,
+      _runImageAiS1Entry:            _runImageAiS1Entry,
+      _imageAiNoticeForResponse:     _imageAiNoticeForResponse,
+      _imageAiNoticeForError:        _imageAiNoticeForError,
 
       /* Phase 4-C: variant body 편집 저장 — render 게이트 + edit 입력 라우팅 */
       _aiVariantBodyEditAllowed:    _aiVariantBodyEditAllowed,

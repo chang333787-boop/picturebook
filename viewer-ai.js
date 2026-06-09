@@ -1758,6 +1758,18 @@
     return _aiVariantBodyEditAllowed(sceneId);
   }
 
+  /* P4-D-2B-FIX: 글자 크기(fontSize)만 variant 편집 허용 — 후보 유무와 무관.
+     조건: editMode + text/picturebook + aiS1/aiS2 보기. _variantHasCandidate 요구 안 함.
+     → 후보 없는 장면도 fontSize stub 저장(style-only, body 미생성) 가능.
+     fontFamily/color/weight는 이 게이트와 무관하게 _applyVariantStyleOrBlock에서 차단됨. */
+  function _aiVariantFontSizeEditAllowed(sceneId) {
+    if (!(typeof ViewerState !== 'undefined' && ViewerState.editMode)) return null;
+    if (!_aiToggleProjectTypeAllowed()) return null;
+    const mode = _getAiViewMode();
+    if (mode !== 'aiS1' && mode !== 'aiS2') return null;
+    return (mode === 'aiS2') ? 's2' : 's1';
+  }
+
   /* ════════════════════════════════════════════════════════════════
      v140-step3: 편집 중 모달 (drafting)
      ──────────────────────────────────────────────────────────────
@@ -1926,33 +1938,96 @@
     try {
       const panel = document.getElementById('edit-panel');
       if (!panel) return;
-      const locked = _isAiVariantViewMode();
-      panel.style.pointerEvents = locked ? 'none' : '';
-      panel.style.opacity = locked ? '0.5' : '';
 
-      /* Phase 4-D-2B: variant 보기에서 '글자 스타일' 섹션(폰트/크기/색/굵기)만 선택적으로 재활성.
-         - 현재 장면에 해당 variant 후보가 있을 때만 활성(없으면 계속 잠금 — 원본 fallback 사고 방지).
-         - 테마/효과/제목/선택지/구조 등 나머지 컨트롤은 panel 전체 잠금에 그대로 묶여 비활성 유지.
-         - 섹션 안에 들어있는 '전체 적용' 버튼(.js-apply-style-all)은 variant 보기에서 계속 비활성. */
-      const styleSecs = panel.querySelectorAll('.edit-text-style-section, .edit-pb-inline-style');
-      let allowStyle = false;
-      if (locked) {
-        try {
-          const VS = (typeof ViewerState !== 'undefined')
-            ? ViewerState
-            : (typeof window !== 'undefined' ? window.ViewerState : null);
-          const sid = VS ? VS.currentSceneId : null;
-          if (sid != null && _aiVariantStyleEditAllowed(sid)) allowStyle = true;
-        } catch (e) { allowStyle = false; }
+      /* P4-D-2B-FIX: 패널 전체를 opacity로 흐리지 않는다.
+         opacity는 조상→자손으로 곱해져, 부모(panel)가 0.5면 자식 슬라이더를 1로 올려도
+         실효 0.5라 "글자 크기만 밝게" 표현이 불가능했음(P4-D-2B UX 문제의 근본 원인).
+         대신: panel은 pointerEvents:none으로만 잠그고(원본 변형 차단 유지),
+         흐림은 잠긴 컨트롤마다 개별 적용. 글자 크기 슬라이더·상단 장면 이동은 밝게+활성. */
+
+      /* ── 0) 매 호출 리셋 (모드 토글 시 같은 DOM 재사용 → stale inline style 제거) ── */
+      panel.style.pointerEvents = '';
+      panel.style.opacity = '';
+      Array.prototype.forEach.call(panel.children, function (c) {
+        c.style.opacity = ''; c.style.pointerEvents = '';
+      });
+      const RESET_SEL = '.edit-nav, .edit-text-style-section, .edit-pb-inline-style,'
+        + ' .edit-text-theme-section, .edit-text-effect-section, .js-apply-style-all,'
+        + ' .edit-row, .js-text-style-toggle, .js-pb-inline-style-toggle';
+      panel.querySelectorAll(RESET_SEL).forEach(function (el) {
+        el.style.opacity = ''; el.style.pointerEvents = '';
+      });
+
+      const locked = _isAiVariantViewMode();
+      if (!locked) return;   /* 원본 보기 → 전부 활성(리셋만으로 끝) */
+
+      /* ── 1) 기본: panel 전체 pointerEvents 차단(원본 컨트롤 변형 원천 차단) ── */
+      panel.style.pointerEvents = 'none';
+
+      /* 조상 체인의 opacity를 1로 되돌림(panel 직전까지). 슬라이더/네비를 밝게 보이려면
+         그 조상이 흐려져 있으면 안 됨(opacity 곱셈 회피). */
+      function brightenChain(el) {
+        let n = el;
+        while (n && n !== panel) { n.style.opacity = '1'; n = n.parentElement; }
       }
-      styleSecs.forEach(function (sec) {
-        sec.style.pointerEvents = (locked && allowStyle) ? 'auto' : '';
-        sec.style.opacity = (locked && allowStyle) ? '1' : '';
-        /* 전체 적용 버튼은 variant 보기 동안 계속 비활성(섹션을 재활성해도). 핸들러에도 별도 가드 있음. */
-        sec.querySelectorAll('.js-apply-style-all').forEach(function (btn) {
-          if (locked) { btn.style.pointerEvents = 'none'; btn.style.opacity = '0.5'; }
-          else { btn.style.pointerEvents = ''; btn.style.opacity = ''; }
+
+      /* ── 2) 모든 직계 자식을 흐림(제목/선택지/구조/테마/효과 등 잠긴 영역) ── */
+      Array.prototype.forEach.call(panel.children, function (c) { c.style.opacity = '0.5'; });
+
+      /* ── 3) 상단 장면 이동(.edit-nav)은 밝게+활성 (탐색이며 원본 textStyle write 없음) ── */
+      panel.querySelectorAll('.edit-nav').forEach(function (nav) {
+        brightenChain(nav);
+        nav.style.pointerEvents = 'auto';
+        nav.style.opacity = '1';
+      });
+
+      /* ── 4) 글자 크기 슬라이더만 밝게+활성. 폰트/색/굵기 행은 흐림+잠금 유지 ── */
+      let allowFontSize = false;
+      try {
+        const VS = (typeof ViewerState !== 'undefined')
+          ? ViewerState
+          : (typeof window !== 'undefined' ? window.ViewerState : null);
+        const sid = VS ? VS.currentSceneId : null;
+        if (sid != null && _aiVariantFontSizeEditAllowed(sid)) allowFontSize = true;
+      } catch (e) { allowFontSize = false; }
+
+      [['.edit-text-style-section', '.js-text-style-toggle', '.js-edit-text-size'],
+       ['.edit-pb-inline-style', '.js-pb-inline-style-toggle', '.js-edit-pb-size']]
+        .forEach(function (trio) {
+          const sec = panel.querySelector(trio[0]);
+          if (!sec) return;
+          if (allowFontSize) {
+            /* 접기/펼치기 헤더는 항상 활성 — 섹션이 접혀 슬라이더가 없을 때도
+               펼쳐서 슬라이더에 닿을 수 있어야 함. (헤더 자체는 원본 textStyle write 없음) */
+            const toggle = sec.querySelector(trio[1]);
+            if (toggle) { brightenChain(toggle); toggle.style.pointerEvents = 'auto'; toggle.style.opacity = '1'; }
+            /* 슬라이더가 렌더돼 있으면(펼침) 그 행을 밝게+활성 */
+            const slider = sec.querySelector(trio[2]);
+            if (slider) {
+              const row = slider.closest('.edit-row') || slider;
+              brightenChain(row);
+              row.style.pointerEvents = 'auto';
+              row.style.opacity = '1';
+            }
+          }
+          /* 같은 섹션 안 폰트/색/굵기 행 흐림(체인 밝히기로 1이 됐을 수 있어 다시 0.5).
+             pointerEvents는 명시하지 않음 → panel의 none 상속으로 잠김 유지. */
+          sec.querySelectorAll('.edit-font-select, .edit-color-row, .edit-color-picker,'
+            + ' .js-edit-text-font, .js-edit-pb-font, .js-edit-text-color-pick, .js-edit-pb-color-pick,'
+            + ' .js-edit-text-weight, .js-edit-pb-weight').forEach(function (ctrl) {
+            const r = ctrl.closest('.edit-row');
+            if (r) r.style.opacity = '0.5';
+          });
+          /* 섹션 안 '전체 적용'(그림책)도 흐림+명시 잠금 */
+          sec.querySelectorAll('.js-apply-style-all').forEach(function (btn) {
+            btn.style.opacity = '0.5'; btn.style.pointerEvents = 'none';
+          });
         });
+
+      /* ── 5) 테마/효과 섹션·전체적용은 계속 흐림+잠금(체인으로 밝아졌을 수 있어 재차 0.5) ── */
+      panel.querySelectorAll('.edit-text-theme-section, .edit-text-effect-section,'
+        + ' .js-apply-style-all').forEach(function (el) {
+        el.style.opacity = '0.5'; el.style.pointerEvents = 'none';
       });
     } catch (e) { /* noop */ }
   }
@@ -3334,6 +3409,10 @@
 
       /* Phase 4-D-2B: variant 보기에서 글자 스타일 섹션만 선택적 잠금/해제 — viewer-edit renderEditPanel에서 재적용 */
       _applyVariantEditPanelLock:   _applyVariantEditPanelLock,
+
+      /* P4-D-2B-FIX: 글자 크기만 variant 편집 허용 게이트(후보 무관) + 안내 토스트 노출 */
+      _aiVariantFontSizeEditAllowed: _aiVariantFontSizeEditAllowed,
+      _showVariantSaveStatus:        _showVariantSaveStatus,
     };
 
     /* ────────────────────────────────────────────────────────────

@@ -486,34 +486,54 @@ function _isVariantViewLocked() {
   } catch (e) { return false; }
 }
 
-/* ─── Phase 4-D-2B: variant 보기(aiS1/aiS2)에서 textStyle 4필드만 편집 ──────────
+/* ─── Phase 4-D-2B(+FIX): variant 보기(aiS1/aiS2)에서는 '글자 크기'만 편집 ──────────
    핵심 안전망. 스타일 핸들러(폰트/크기/색/굵기)의 "원본 경로"(scene.textStyle 직접 수정 +
    _queueSave(...,{textStyle})) 진입 전에 이 함수를 호출한다.
+
+   P4-D-2B-FIX 설계 변경:
+   · variant 보기에서 허용 = fontSize(글자 크기) **단 하나**. fontFamily/color/weight는 잠금.
+   · fontSize는 그 장면에 s1/s2 본문 후보가 없어도 조정 가능(style stub만 저장, body 생성 X).
+   · fontFamily/color/weight 시도 시 저장도·원본 오염도 없이 차단하고 안내만 한다.
 
    반환값 의미:
    · false → 원본 보기 → 호출부가 기존(원본) 경로를 그대로 진행해도 됨.
    · true  → variant 보기 → 원본 경로를 절대 타면 안 됨(호출부는 즉시 return).
-             - 해당 장면에 그 variant 후보가 있으면: variant 저장 경로(_queueVariantStyleSave)로 저장 + 재렌더.
-             - 후보가 없으면(아직 안 만든 장면): no-op(아무것도 저장 안 함). 원본으로 fallback 금지.
+             - fontSize 패치 + 편집 가능 상황: variant 저장 경로(_queueVariantStyleSave)로 저장 + 재렌더.
+             - fontFamily/color/weight 패치: no-op(저장 X) + 안내. 원본으로 fallback 금지.
 
    원본 scene.textStyle은 절대 건드리지 않는다. base는 현재 표시 중인 variant style
-   (_getDisplayStyle: FB→local→원본 fallback)을 복제해 patch만 병합 → 항상 새 객체. */
+   (_getDisplayStyle: FB→local→원본 fallback)을 복제해 fontSize만 덮어쓴다 → 항상 새 객체. */
 function _applyVariantStyleOrBlock(scene, patch, onApply) {
   if (!scene) return false;
   if (!_isVariantViewLocked()) return false;   /* 원본 보기 → 기존 경로 진행 */
   const ai = (typeof window !== 'undefined') ? window.viewerAi : null;
-  const vk = (ai && typeof ai._aiVariantStyleEditAllowed === 'function')
-    ? ai._aiVariantStyleEditAllowed(scene.id) : null;
+
+  /* 허용 필드는 fontSize 단 하나. (patch가 정확히 {fontSize} 형태일 때만) */
+  const keys = patch ? Object.keys(patch) : [];
+  const isFontSizeOnly = keys.length === 1 && keys[0] === 'fontSize';
+
+  if (!isFontSizeOnly) {
+    /* fontFamily/color/weight 등 — variant 저장 안 함 + 원본 경로 차단 + 안내만. */
+    if (ai && typeof ai._showVariantSaveStatus === 'function') {
+      ai._showVariantSaveStatus('AI 문장에서는 글자 크기만 조정할 수 있어요.', 2500);
+    }
+    return true;
+  }
+
+  /* fontSize 전용 게이트 — 후보 없는 장면에서도 stub 저장 허용(editMode + text/pb + aiS1/aiS2). */
+  const vk = (ai && typeof ai._aiVariantFontSizeEditAllowed === 'function')
+    ? ai._aiVariantFontSizeEditAllowed(scene.id) : null;
   if (vk === 's1' || vk === 's2') {
     const orig = (typeof getTextStyle === 'function') ? getTextStyle(scene) : (scene.textStyle || {});
     let base = orig;
-    if (typeof ai._getDisplayStyle === 'function') {
+    if (ai && typeof ai._getDisplayStyle === 'function') {
       base = ai._getDisplayStyle(scene.id, orig) || orig;
     }
-    /* 항상 새 객체 — base(원본/캐시) 미변경. 기본값으로 결손 필드 보강. */
+    /* base(원본/표시 variant style) 위에 fontSize만 덮어쓴 새 객체.
+       fontFamily/color/weight는 base 그대로 유지(잠긴 컨트롤 값 주입 방지). base는 미변경. */
     const next = Object.assign(
       { fontFamily: 'gothic', fontSize: 16, color: '', weight: 'normal' },
-      base || {}, patch || {}
+      base || {}, patch
     );
     if (typeof ai._queueVariantStyleSave === 'function') {
       ai._queueVariantStyleSave(vk, scene.id, next);
@@ -522,7 +542,7 @@ function _applyVariantStyleOrBlock(scene, patch, onApply) {
     /* variant style은 _getDisplayStyle을 거치는 통째 재렌더로만 반영(_patchTextStyle은 원본 style을 봄). */
     if (typeof _scheduleViewerFrameReRender === 'function') _scheduleViewerFrameReRender();
   }
-  /* vk null(후보 없음) → no-op. 어느 쪽이든 true → 원본 경로 차단. */
+  /* vk null(편집 불가) → no-op. 어느 쪽이든 true → 원본 경로 차단. */
   return true;
 }
 

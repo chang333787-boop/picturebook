@@ -471,6 +471,14 @@
     return !!(s.modes && s.modes[key] === true);
   }
 
+  /* P5-IMAGE-CLIENT-1B: 그림 AI(imageS1)는 준비 중 기능이므로 fallback 없이
+     반드시 class aiSettings가 존재 + enabled===true + modes.imageS1===true 인 경우에만 허용.
+     (미로드 undefined / 노드없음 null / enabled 미설정 → 모두 false) */
+  function _isImageS1ExplicitlyEnabledByTeacher() {
+    const s = _classAiSettings;
+    return !!(s && s.enabled === true && s.modes && s.modes.imageS1 === true);
+  }
+
   async function _loadClassAiSettings() {
     const { classId } = _getCurrentClassIdTeamName();
     if (!classId) { _classAiSettings = null; _classAiSettingsClassId = null; return null; }   // v1/무클래스 → 기본 ON
@@ -2558,7 +2566,7 @@
   async function _runImageAiS1Entry() {
     if (_imageAiS1Busy) return;                       /* 중복 클릭 방지 */
     if (!_aiToggleProjectTypeAllowed()) return;        /* 1. projectType gate */
-    if (!_isModeAllowedByTeacher('imageS1')) {         /* 2. teacher permission gate */
+    if (!_isImageS1ExplicitlyEnabledByTeacher()) {     /* 2. teacher permission gate (명시적 imageS1=true 필요) */
       alert('선생님이 이미지 AI를 열어야 사용할 수 있어요.');
       return;
     }
@@ -2602,10 +2610,10 @@
     }
   }
 
-  /* 진입 버튼 노출 — 게이트(projectType + 교사 imageS1)만 통과하면 표시. 이미지 존재는 클릭 시 확인. */
+  /* 진입 버튼 노출 — 게이트(projectType + 교사 명시적 imageS1=true)만 통과하면 표시. 이미지 존재는 클릭 시 확인. */
   function _showImageAiEntryButton() {
     if (!_aiToggleProjectTypeAllowed()) { _hideImageAiEntryButton(); return; }
-    if (!_isModeAllowedByTeacher('imageS1')) { _hideImageAiEntryButton(); return; }
+    if (!_isImageS1ExplicitlyEnabledByTeacher()) { _hideImageAiEntryButton(); return; }
     _hideImageAiEntryButton();
     const bar = document.createElement('div');
     bar.id = 'ai-image-entry-btn-bar';

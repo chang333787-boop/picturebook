@@ -331,3 +331,85 @@ P5에서는 우선 **`callImageAiS1`만** 고려한다.
 - [ ] 팀/작품 삭제 시 ai-images cleanup 방식
 - [ ] Storage rules를 수정하지 않고 Admin SDK만 쓸지
 - [ ] imageS2를 언제 열지
+
+---
+
+## P5 skeleton 완료 상태 (2026-06)
+
+P5는 **실제 이미지 생성 이전의 "안전한 껍데기" 구조**까지 완료되었다. 이 섹션은 다음 실제 모델 연동(P6) 단계로 넘어가기 전에 기준선을 고정하기 위한 정리다.
+
+### 1. 완료된 commit 목록
+
+이미지 AI 관련 작업은 아래 순서로 누적되었다.
+
+- `80c1aa4` — P5 설계 문서화 (제약/원본 보호 원칙)
+- `52d43ae` — image AI variant view mode (original/s1/s2 독립 보기)
+- `8913a61` — AI image variant view에서 원본 이미지 편집 잠금
+- `2d8965c` — imagePolicy helper / sourceMode 선택 모달
+- `eef0010` — `callImageAiS1` server skeleton (모델 호출/Storage write 없음)
+- `0092e37` — image AI entry UI → server skeleton 연결
+- `1c6ab0b` — explicit `imageS1` true에서만 진입 버튼 노출
+
+### 2. 현재 가능한 것 (skeleton 범위)
+
+- `aiVariants/image` read-only preload 구조가 있다.
+- image original / s1 / s2 독립 view mode가 있다.
+- text AI view mode와 image view mode가 분리되어 있다.
+- image variant view에서 원본의 업로드/그리기/삭제/transform/crop/flatten이 모두 차단된다.
+- imagePolicy 저장/로드 helper가 있다.
+- imagePolicy `sourceMode`는 `upload` / `draw`만 허용한다.
+- `callImageAiS1` skeleton이 배포되어 있다 (asia-northeast3 callable).
+- client 진입 버튼은 **명시적으로 `aiSettings.enabled===true && modes.imageS1===true`** 일 때만 노출된다 (undefined/null/미설정 → 노출 안 함).
+- 버튼 클릭 흐름: image source check → imagePolicy ensure → `callImageAiS1` 호출 → `notImplemented` 안내. (fake 후보/토글 전환/캐시 write 없음)
+
+### 3. 아직 하지 않은 것
+
+- 실제 이미지 모델 호출이 없다.
+- 이미지 생성/편집 API가 없다.
+- SDK / secret이 없다.
+- Storage 업로드가 없다.
+- `aiVariants/image` write가 없다.
+- 실제 s1 후보 생성이 없다.
+- `imageS2`가 없다.
+- adminConsole의 `imageS1`은 여전히 `soon:true`다.
+- 일반 교사는 UI에서 `imageS1`을 켤 수 없다.
+- 실제 B/D/E 브라우저 QA는 `imageS1 true` 테스트 학급이 없어 미완료다.
+- `allowViewerToggle` enforcement가 없다.
+- imageTransform의 variant별 정책이 미결이다.
+- `ai-images` cleanup이 미구현이다.
+- `quota.imageS1` / `quota.imageS2`가 미정이다.
+
+### 4. 원본 보호 기준 (불변 원칙)
+
+- AI 결과는 **절대** `scene.imageData` / `scene.imageUrl`에 쓰지 않는다.
+- 기존 `viewerUploadImageToStorage` 및 `images/{cid}/{team}/scene_{N}.ext` 경로 재사용 금지.
+- AI 결과는 **별도 Storage path + `aiVariants/image` 서버 write**로만 가야 한다.
+- 현재 skeleton 단계에서는 Storage write / variant write 모두 없다.
+- 실패/준비중 안내에는 "원본 그림은 그대로 유지됩니다" 문구를 유지한다.
+
+### 5. 다음 의사결정
+
+1. **테스트 QA를 먼저 할지**
+   - 별도 승인하에 테스트 학급에만 `imageS1 true` 설정 필요
+   - imagePolicy write가 발생할 수 있음
+   - 운영 class는 건드리지 않음
+2. **adminConsole에서 `imageS1` soon 해제를 할지**
+   - 아직 실제 모델이 없으므로 비추천
+   - skeleton 단계에서는 일반 교사에게 열지 않는 것이 안전
+3. **모델 제공사 결정**
+   - OpenAI / Gemini / 기타
+   - SDK / secret / 비용 / quota / timeout 결정 필요
+4. **P6 실제 `imageS1` 구현**
+   - 원본 image fetch / download
+   - image safety / moderation
+   - image edit / generation model call
+   - Admin SDK Storage upload
+   - `aiVariants/image/{sceneId}/s1` server write
+   - stale hash comparison
+   - QA
+
+### 6. 현재 권장 결론
+
+> 현재 P5는 "실제 생성 전 안전한 껍데기" 단계까지 완료되었다.
+> 일반 사용자에게 `imageS1`을 열기 전에는 모델 제공사, quota, Storage 저장, moderation, 실패 안내, QA 계획을 확정해야 한다.
+> 따라서 adminConsole의 `imageS1` soon 해제는 아직 보류한다.

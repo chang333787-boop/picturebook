@@ -400,7 +400,12 @@ function _renderSceneText(stage, scene) {
      · inline style: 글자 스타일 (CSS 변수로 카드 안에 흘려넣음)
      · data-text-entrance/data-text-body: 효과 클래스 */
   const theme  = (typeof getTextTheme  === 'function') ? getTextTheme(scene)  : 'classic';
-  const style  = (typeof getTextStyle  === 'function') ? getTextStyle(scene)  : null;
+  let   style  = (typeof getTextStyle  === 'function') ? getTextStyle(scene)  : null;
+  /* Phase 4-D-2A: aiS1/aiS2 보기면 variant textStyle(있으면) 적용, 없으면 원본 style 그대로.
+     원본 보기에선 _getDisplayStyle이 원본 style을 그대로 반환 → 기존 렌더와 동일. 감상자/편집자 공통. */
+  if (typeof window !== 'undefined' && window.viewerAi && typeof window.viewerAi._getDisplayStyle === 'function') {
+    style = window.viewerAi._getDisplayStyle(scene.id, style);
+  }
   const effect = (typeof getTextEffect === 'function') ? getTextEffect(scene) : null;
 
   /* CSS 변수 — text-card에 적용. 빈 값은 CSS 기본값 사용. */
@@ -533,7 +538,12 @@ function _renderScenePicturebook(stage, scene, submode) {
   /* W8: textStyle 적용 — 그림책에도 글자 스타일 동일.
      변수는 --pb-* (CSS가 사용하는 변수, _patchPbStyle과 정합).
      사용자 보고: "굵게는 되는데 폰트·크기 안 됨" → 변수 이름 일치 + fontMap 정의 fix. */
-  const style = (typeof getTextStyle === 'function') ? getTextStyle(scene) : null;
+  let style = (typeof getTextStyle === 'function') ? getTextStyle(scene) : null;
+  /* Phase 4-D-2A: aiS1/aiS2 보기면 variant textStyle(있으면) 적용, 없으면 원본 style 그대로.
+     원본 보기에선 원본 style 그대로 반환 → 기존 렌더와 동일. 감상자/편집자 공통. */
+  if (typeof window !== 'undefined' && window.viewerAi && typeof window.viewerAi._getDisplayStyle === 'function') {
+    style = window.viewerAi._getDisplayStyle(scene.id, style);
+  }
   const fontMap = (typeof TEXT_FONT_FAMILIES === 'object') ? TEXT_FONT_FAMILIES : {};
   const cssVars = [];
   if (style) {
@@ -1552,7 +1562,12 @@ function _renderStoryEnding(stage, scene) {
      v77: textStyle 적용 — 엔딩 인스펙터에서 박은 글자 스타일을 --pb-* 변수로.
      사용자 박은 게 없으면 getTextStyle이 ENDING default(주아/20/#2b1f10/굵게) 반환.
      CSS .ending-user-body가 var() fallback으로 받음. */
-  const endStyle = (typeof getTextStyle === 'function') ? getTextStyle(scene) : null;
+  let endStyle = (typeof getTextStyle === 'function') ? getTextStyle(scene) : null;
+  /* Phase 4-D-2A: aiS1/aiS2 보기면 variant textStyle(있으면) 적용, 없으면 원본 endStyle 그대로.
+     원본 보기에선 원본 그대로 반환 → 기존 렌더와 동일. 감상자/편집자 공통. */
+  if (typeof window !== 'undefined' && window.viewerAi && typeof window.viewerAi._getDisplayStyle === 'function') {
+    endStyle = window.viewerAi._getDisplayStyle(scene.id, endStyle);
+  }
   const endFontMap = (typeof TEXT_FONT_FAMILIES === 'object') ? TEXT_FONT_FAMILIES : {};
   const endCssVars = [];
   if (endStyle) {
@@ -1666,7 +1681,12 @@ function _renderTextEnding(stage, scene) {
   /* 일반 텍스트 장면(_renderSceneText)과 100% 동일하게 — 테마/스타일/효과 같은 방식.
      컨테이너 class·data-* · CSS 변수를 일반 장면과 똑같이 써서 "같은 모드의 마지막 장면"으로 보이게 함. */
   const theme  = (typeof getTextTheme  === 'function') ? getTextTheme(scene)  : 'classic';
-  const style  = (typeof getTextStyle  === 'function') ? getTextStyle(scene)  : null;
+  let   style  = (typeof getTextStyle  === 'function') ? getTextStyle(scene)  : null;
+  /* Phase 4-D-2A: aiS1/aiS2 보기면 variant textStyle(있으면) 적용, 없으면 원본 style 그대로.
+     원본 보기에선 _getDisplayStyle이 원본 style을 그대로 반환 → 기존 렌더와 동일. 감상자/편집자 공통. */
+  if (typeof window !== 'undefined' && window.viewerAi && typeof window.viewerAi._getDisplayStyle === 'function') {
+    style = window.viewerAi._getDisplayStyle(scene.id, style);
+  }
   const effect = (typeof getTextEffect === 'function') ? getTextEffect(scene) : null;
   const cssVars = [];
   if (style) {

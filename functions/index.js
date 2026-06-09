@@ -206,6 +206,37 @@ function _sanitizePbBodyBox(raw) {
   return out;
 }
 
+/* Phase 4-D-2A: variant textStyle 서버 sanitizer.
+   클라가 보낸 값은 신뢰하지 않고 allowlist + 클램프. viewer-data.js _normalizeTextStyle와 정합.
+   허용 필드 = fontFamily / fontSize / color / weight (그 외 키 전부 제거).
+   · fontFamily: VARIANT_TEXT_FONTS allowlist만(아니면 'gothic')
+   · fontSize: 숫자 10~50 클램프(텍스트 슬라이더 50·그림책 28 모두 수용, 기본 18)
+   · color: '' 또는 안전한 hex(#rgb/#rrggbb/#rrggbbaa)만 허용 — 그 외(임의 CSS) 전부 '' 로(injection 차단)
+   · weight: 'bold' 아니면 'normal'
+   원본 scenes/{sceneId}/textStyle은 절대 미변경 — 이 값은 aiVariants 경로에만 저장된다. */
+const VARIANT_TEXT_FONTS = [
+  'gothic', 'batang', 'pen', 'gaegu', 'hanna', 'jua', 'galmuri', 'cormorant',
+];
+function _sanitizeVariantTextStyle(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const clampNum = (v, lo, hi, def) => {
+    const n = Number(v);
+    if (!isFinite(n)) return def;
+    return Math.min(hi, Math.max(lo, n));
+  };
+  const fontFamily = VARIANT_TEXT_FONTS.includes(raw.fontFamily) ? raw.fontFamily : 'gothic';
+  const fontSize = clampNum(raw.fontSize, 10, 50, 18);
+  let color = '';
+  if (typeof raw.color === 'string') {
+    const c = raw.color.trim();
+    if (c === '') color = '';
+    else if (/^#[0-9a-fA-F]{3}$|^#[0-9a-fA-F]{6}$|^#[0-9a-fA-F]{8}$/.test(c)) color = c;
+    else color = '';   /* 임의 CSS/named/함수형 색은 거부 → 기본(테마 색) */
+  }
+  const weight = (raw.weight === 'bold') ? 'bold' : 'normal';
+  return { fontFamily, fontSize, color, weight };
+}
+
 /* ════════════════════════════════════════════════════════════════
    11단 검증 — 호출 진입 단 박음
    ──────────────────────────────────────────────────────────────
@@ -1670,13 +1701,15 @@ exports.saveTextVariant = onCall(
     }
 
     /* mode: 'finalize'(Phase3 기본 — 전체 노드 새로 씀) | 'patchBody'(Phase4-C — 기존 메타 보존, body만 갱신)
-       | 'patchLayout'(Phase4-D-1 — 기존 노드 read-merge로 layout.picturebookBodyBox만 갱신, body/메타 보존).
-       patchLayout은 텍스트를 건드리지 않으므로 safety 재검사 없음. scene.body/scenes layout 절대 미변경. */
+       | 'patchLayout'(Phase4-D-1 — 기존 노드 read-merge로 layout.picturebookBodyBox만 갱신, body/메타 보존)
+       | 'patchStyle'(Phase4-D-2A — 기존 노드 read-merge로 style.textStyle만 갱신, body/layout/메타 보존).
+       patchLayout/patchStyle은 텍스트를 건드리지 않으므로 safety 재검사 없음. scene.body/scenes layout/textStyle 절대 미변경. */
     const mode = String((req.data && req.data.mode) || 'finalize');
-    if (mode !== 'finalize' && mode !== 'patchBody' && mode !== 'patchLayout') {
-      throw new HttpsError('invalid-argument', `mode '${mode}'가 올바르지 않아요 (finalize / patchBody / patchLayout).`);
+    if (mode !== 'finalize' && mode !== 'patchBody' && mode !== 'patchLayout' && mode !== 'patchStyle') {
+      throw new HttpsError('invalid-argument', `mode '${mode}'가 올바르지 않아요 (finalize / patchBody / patchLayout / patchStyle).`);
     }
     const isLayoutPatch = (mode === 'patchLayout');
+    const isStylePatch = (mode === 'patchStyle');
 
     /* 권한 게이트 통과(quota 검사 제외). mode=variant → aiSettings textS1/textS2 게이트 동일 적용. */
     const ctx = await _validateRequest(req, variant, { skipUsageLimits: true });
@@ -1684,6 +1717,7 @@ exports.saveTextVariant = onCall(
     /* scenes:
        - finalize/patchBody: { sceneId: { body, source?, editedByUser?, addedElements?, riskLevel? } }
        - patchLayout:        { sceneId: { layout: { picturebookBodyBox } } }  (body 없음)
+       - patchStyle:         { sceneId: { style: { textStyle } } }            (body 없음)
        (구버전 클라 호환: req.data.bodies = { sceneId: bodyString } 도 허용 — body 모드 전용.) */
     let rawScenes = (req.data && req.data.scenes) || null;
     if (!rawScenes && req.data && req.data.bodies) {
@@ -1699,21 +1733,29 @@ exports.saveTextVariant = onCall(
         if (e && e.layout && typeof e.layout === 'object' && e.layout.picturebookBodyBox && typeof e.layout.picturebookBodyBox === 'object') {
           entries[String(sid)] = e;
         }
+      } else if (isStylePatch) {
+        /* style 모드: style.textStyle 가 객체일 때만 채택. body 불요. */
+        if (e && e.style && typeof e.style === 'object' && e.style.textStyle && typeof e.style.textStyle === 'object') {
+          entries[String(sid)] = e;
+        }
       } else if (e && typeof e.body === 'string' && e.body.trim() !== '') {
         entries[String(sid)] = e;
       }
     });
     const sceneIds = Object.keys(entries);
     if (sceneIds.length === 0) {
-      throw new HttpsError('invalid-argument', isLayoutPatch ? 'scenes가 없어요 (저장할 layout이 없어요)' : 'scenes가 없어요 (저장할 본문이 없어요)');
+      const emptyMsg = isLayoutPatch ? 'scenes가 없어요 (저장할 layout이 없어요)'
+        : isStylePatch ? 'scenes가 없어요 (저장할 style이 없어요)'
+        : 'scenes가 없어요 (저장할 본문이 없어요)';
+      throw new HttpsError('invalid-argument', emptyMsg);
     }
 
     logger.info('[ai/saveVariant] 검증 통과', {
       uid: ctx.uid, classId: ctx.classId, teamName: ctx.teamName, variant, mode, sceneCount: sceneIds.length,
     });
 
-    /* safety 재검사 — body 모드만. patchLayout은 텍스트 미변경이므로 검사 생략. */
-    if (!isLayoutPatch) {
+    /* safety 재검사 — body 모드만. patchLayout/patchStyle은 텍스트 미변경이므로 검사 생략. */
+    if (!isLayoutPatch && !isStylePatch) {
       const pseudo = {};
       sceneIds.forEach((sid) => { pseudo[sid] = { body: entries[sid].body }; });
       const safety = _scanSafety(pseudo);
@@ -1760,6 +1802,37 @@ exports.saveTextVariant = onCall(
         node.layoutModifiedByUser = true;
         node.layoutModifiedAt = now;
         node.layoutModifiedBy = ctx.uid;
+        node.updatedAt = now;
+        update[`aiVariants/text/${sid}/${variant}`] = node;
+        savedSceneIds.push(sid);
+        continue;
+      }
+      if (isStylePatch) {
+        /* patchStyle — 기존 variant 노드 read-merge. body/layout/메타 보존, style.textStyle만 갱신.
+           원본 scenes/{sid}/body·textStyle 안 읽음(텍스트/원본 미변경). 노드 없으면 style만 가진 stub 생성. */
+        let existing = null;
+        try {
+          const exSnap = await baseRef.child(`aiVariants/text/${sid}/${variant}`).once('value');
+          existing = exSnap.val();
+        } catch (err) {
+          logger.warn('[ai/saveVariant] 기존 variant 읽기 실패(style stub 생성)', { sceneId: sid, variant, error: err && err.message });
+          existing = null;
+        }
+        const sanitizedStyle = _sanitizeVariantTextStyle(e.style.textStyle);
+        if (!sanitizedStyle) {
+          /* sanitize 불가(객체 아님) — 위 entries 필터에서 걸러지지만 방어. 이 sid는 skip. */
+          continue;
+        }
+        if (existing && typeof existing === 'object') {
+          node = Object.assign({}, existing);
+          node.style = Object.assign({}, existing.style || {}, { textStyle: sanitizedStyle });
+        } else {
+          /* variant 본문/레이아웃이 아직 없는 경우: style만 저장(body/layout 미포함 — 원본 fallback은 클라가 처리). */
+          node = { style: { textStyle: sanitizedStyle } };
+        }
+        node.styleModifiedByUser = true;
+        node.styleModifiedAt = now;
+        node.styleModifiedBy = ctx.uid;
         node.updatedAt = now;
         update[`aiVariants/text/${sid}/${variant}`] = node;
         savedSceneIds.push(sid);

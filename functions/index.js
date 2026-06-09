@@ -180,6 +180,72 @@ function _computeWorkCheckHash(scenesVal) {
   return { hash: _bodyHash(JSON.stringify(out)), sceneCount: out.length };
 }
 
+/* ════════════════════════════════════════════════════════════════
+   P5-IMAGE-SERVER-1 — 이미지 AI S1 서버 skeleton 헬퍼 (순수 함수)
+   ──────────────────────────────────────────────────────────────
+   · 실제 이미지 모델 호출 / Storage 업로드 / aiVariants/image write 없음.
+   · 원본 scene.imageData / scene.imageUrl 절대 write 안 함(읽기만).
+   · 이미 읽어둔 scene/policy 값으로 "계획"만 계산 → notImplemented skeleton 반환.
+     실제 onCall에서 Firebase read 후 이 순수 함수에 위임 → node에서 단독 테스트 가능.
+   ════════════════════════════════════════════════════════════════ */
+/* Firebase 키/경로 세그먼트 안전화. 비어있거나 . # $ [ ] / 제어문자 포함 → null(거부, path injection 차단). */
+function _sanitizeFbKeySegment(v) {
+  const s = String(v == null ? '' : v);
+  if (!s) return null;
+  if (/[.#$\[\]\/]/.test(s)) return null;
+  if (/[\x00-\x1F\x7F]/.test(s)) return null;
+  return s;
+}
+
+/* 안정적 해시 — sourceMode | sceneId | source원문 기반. 원문(base64/URL)은 응답/로그에 노출하지 않고 해시만 사용. */
+function _computeImageBasedHash(sourceStr, sceneId, sourceMode) {
+  return _bodyHash(String(sourceMode) + '|' + String(sceneId) + '|' + String(sourceStr == null ? '' : sourceStr));
+}
+
+/* 순수 — 이미 읽은 scene/policy로 imageS1 계획을 만든다(모델/Storage/DB write 없음).
+   실패는 {ok:false, reasonCode}. 성공 자리도 아직 notImplemented skeleton.
+   기존 images/.../scene_{N}.ext 경로는 절대 사용하지 않음(ai-images/... 별도 경로). */
+function _planImageS1Skeleton(opts) {
+  const o = opts || {};
+  const classId = String(o.classId || '');
+  const enc = String(o.enc || '');
+  const scene = o.scene;
+  const policy = o.policy;
+  const timestamp = Number.isFinite(o.timestamp) ? o.timestamp : Date.now();
+
+  const sid = _sanitizeFbKeySegment(o.sceneId);
+  if (!sid) return { ok: false, reasonCode: 'INVALID_ARGUMENT', message: 'sceneId가 올바르지 않아요.' };
+  if (!scene || typeof scene !== 'object') {
+    return { ok: false, reasonCode: 'SCENE_NOT_FOUND', sceneId: sid };
+  }
+  const imageSrc = scene.imageData || scene.imageUrl || null;
+  if (!imageSrc) {
+    return { ok: false, reasonCode: 'IMAGE_SOURCE_MISSING', sceneId: sid };
+  }
+  const sourceMode = policy && policy.sourceMode;
+  if (sourceMode !== 'upload' && sourceMode !== 'draw') {
+    return { ok: false, reasonCode: 'IMAGE_POLICY_REQUIRED', sceneId: sid };
+  }
+
+  const basedOnImageHash = _computeImageBasedHash(imageSrc, sid, sourceMode);
+  /* 실제 업로드/ write 없이 문자열만 생성. 원본 이미지 경로(images/.../scene_{N})와 절대 겹치지 않음. */
+  const plannedStoragePath = `ai-images/${classId}/${enc}/scene_${sid}_s1_${timestamp}.png`;
+  const plannedVariantPath = `classes/${classId}/teams/${enc}/aiVariants/image/${sid}/s1`;
+
+  return {
+    ok: false,
+    notImplemented: true,
+    reasonCode: 'IMAGE_AI_NOT_IMPLEMENTED',
+    stage: 'imageS1Skeleton',
+    sourceMode,
+    sceneId: sid,
+    basedOnImageHash,
+    plannedStoragePath,
+    plannedVariantPath,
+    message: '이미지 AI 서버 준비 중입니다. 원본 그림은 그대로 유지됩니다.',
+  };
+}
+
 /* Phase 4-D-1: variant layout(picturebookBodyBox) 서버 sanitizer.
    클라가 보낸 값은 신뢰하지 않고 클램프. viewer-data.js _normalizePbBodyBox와 동일 범위.
    x 0~80, y 0~80, width 20~95, height null(auto) | 12~90, backdropOpacity 0~1. */
@@ -1922,6 +1988,72 @@ exports.saveTextVariant = onCall(
 );
 
 /* ════════════════════════════════════════════════════════════════
+   callImageAiS1 — P5-IMAGE-SERVER-1: 이미지 AI S1 서버 skeleton
+   ──────────────────────────────────────────────────────────────
+   ⚠️ 이번 단계는 skeleton만. 실제 이미지 모델 호출 / Storage 업로드 /
+      aiVariants/image write / quota 차감 / 원본 scene write 전부 없음.
+   흐름:
+     1) _validateRequest(req, 'imageS1', {skipUsageLimits:true}) — 권한 게이트만(quota 차감 없음).
+        · aiSettings.modes.imageS1(또는 aiPermission.allowedModes.imageS1) === true 여야 통과.
+        · imageS2는 건드리지 않음.
+     2) sceneId sanitize(path injection 차단).
+     3) 서버가 원본 scene / viewer-meta.imagePolicy 를 read(읽기만).
+     4) 순수 _planImageS1Skeleton 에 위임 → notImplemented skeleton 반환.
+   실패 reasonCode: INVALID_ARGUMENT(throw) / PERMISSION_DENIED(throw, _validateRequest) /
+     SCENE_NOT_FOUND / IMAGE_SOURCE_MISSING / IMAGE_POLICY_REQUIRED / IMAGE_AI_NOT_IMPLEMENTED(정상 skeleton).
+   ════════════════════════════════════════════════════════════════ */
+exports.callImageAiS1 = onCall(
+  {
+    enforceAppCheck: false,
+  },
+  async (req) => {
+    /* 권한 게이트 먼저(auth/aiSettings/origin/killswitch). quota 차감 없음 — skeleton이므로 skipUsageLimits. */
+    const ctx = await _validateRequest(req, 'imageS1', { skipUsageLimits: true });
+
+    /* sceneId 필수 + sanitize. classId/teamName은 _validateRequest가 검증. */
+    const sid = _sanitizeFbKeySegment(req.data && req.data.sceneId);
+    if (!sid) {
+      throw new HttpsError('invalid-argument', 'sceneId가 없거나 올바르지 않아요.');
+    }
+
+    const enc = encodeURIComponent(ctx.teamName);
+    const baseRef = admin.database().ref(`classes/${ctx.classId}/teams/${enc}`);
+
+    /* 원본 scene read — 읽기만. scene.imageData/imageUrl 절대 write 안 함. */
+    let scene = null;
+    try {
+      const snap = await baseRef.child(`scenes/${sid}`).once('value');
+      scene = snap.val();
+    } catch (e) {
+      logger.warn('[ai/imageS1] scene 읽기 실패', { sceneId: sid, error: e && e.message });
+      scene = null;
+    }
+
+    /* imagePolicy read — viewer-meta/imagePolicy. 서버는 이 단계에서 imagePolicy를 저장하지 않음. */
+    let policy = null;
+    try {
+      const pSnap = await baseRef.child('viewer-meta/imagePolicy').once('value');
+      policy = pSnap.val();
+    } catch (e) {
+      logger.warn('[ai/imageS1] imagePolicy 읽기 실패', { error: e && e.message });
+      policy = null;
+    }
+
+    const plan = _planImageS1Skeleton({
+      classId: ctx.classId, enc, sceneId: sid, scene, policy, timestamp: Date.now(),
+    });
+
+    /* 로그에는 원문(base64/URL) 노출 X — reasonCode/sourceMode/sceneId만. */
+    logger.info('[ai/imageS1] skeleton', {
+      uid: ctx.uid, classId: ctx.classId, teamName: ctx.teamName,
+      sceneId: sid, reasonCode: plan.reasonCode, sourceMode: plan.sourceMode || null,
+    });
+
+    return plan;
+  }
+);
+
+/* ════════════════════════════════════════════════════════════════
    비용 추정 + stats (Cloud Logging 박음)
    ──────────────────────────────────────────────────────────────
    Haiku 4.5 단가 (2026-05 기준):
@@ -2006,4 +2138,8 @@ exports._internal = {
   /* AI-STAB-3 — 작품검사 결과 캐시 해시 */
   _computeWorkCheckHash,
   _normalizeSceneForCheckHash,
+  /* P5-IMAGE-SERVER-1 — 이미지 AI S1 skeleton (순수 함수, node 단독 테스트용) */
+  _sanitizeFbKeySegment,
+  _computeImageBasedHash,
+  _planImageS1Skeleton,
 };

@@ -1929,6 +1929,31 @@
       const locked = _isAiVariantViewMode();
       panel.style.pointerEvents = locked ? 'none' : '';
       panel.style.opacity = locked ? '0.5' : '';
+
+      /* Phase 4-D-2B: variant 보기에서 '글자 스타일' 섹션(폰트/크기/색/굵기)만 선택적으로 재활성.
+         - 현재 장면에 해당 variant 후보가 있을 때만 활성(없으면 계속 잠금 — 원본 fallback 사고 방지).
+         - 테마/효과/제목/선택지/구조 등 나머지 컨트롤은 panel 전체 잠금에 그대로 묶여 비활성 유지.
+         - 섹션 안에 들어있는 '전체 적용' 버튼(.js-apply-style-all)은 variant 보기에서 계속 비활성. */
+      const styleSecs = panel.querySelectorAll('.edit-text-style-section, .edit-pb-inline-style');
+      let allowStyle = false;
+      if (locked) {
+        try {
+          const VS = (typeof ViewerState !== 'undefined')
+            ? ViewerState
+            : (typeof window !== 'undefined' ? window.ViewerState : null);
+          const sid = VS ? VS.currentSceneId : null;
+          if (sid != null && _aiVariantStyleEditAllowed(sid)) allowStyle = true;
+        } catch (e) { allowStyle = false; }
+      }
+      styleSecs.forEach(function (sec) {
+        sec.style.pointerEvents = (locked && allowStyle) ? 'auto' : '';
+        sec.style.opacity = (locked && allowStyle) ? '1' : '';
+        /* 전체 적용 버튼은 variant 보기 동안 계속 비활성(섹션을 재활성해도). 핸들러에도 별도 가드 있음. */
+        sec.querySelectorAll('.js-apply-style-all').forEach(function (btn) {
+          if (locked) { btn.style.pointerEvents = 'none'; btn.style.opacity = '0.5'; }
+          else { btn.style.pointerEvents = ''; btn.style.opacity = ''; }
+        });
+      });
     } catch (e) { /* noop */ }
   }
 
@@ -3306,6 +3331,9 @@
       _aiVariantStyleEditAllowed:   _aiVariantStyleEditAllowed,
       _queueVariantStyleSave:       _queueVariantStyleSave,
       _flushVariantStyleSave:       _flushVariantStyleSave,
+
+      /* Phase 4-D-2B: variant 보기에서 글자 스타일 섹션만 선택적 잠금/해제 — viewer-edit renderEditPanel에서 재적용 */
+      _applyVariantEditPanelLock:   _applyVariantEditPanelLock,
     };
 
     /* ────────────────────────────────────────────────────────────

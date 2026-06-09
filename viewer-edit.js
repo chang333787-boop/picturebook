@@ -486,6 +486,46 @@ function _isVariantViewLocked() {
   } catch (e) { return false; }
 }
 
+/* ─── Phase 4-D-2B: variant 보기(aiS1/aiS2)에서 textStyle 4필드만 편집 ──────────
+   핵심 안전망. 스타일 핸들러(폰트/크기/색/굵기)의 "원본 경로"(scene.textStyle 직접 수정 +
+   _queueSave(...,{textStyle})) 진입 전에 이 함수를 호출한다.
+
+   반환값 의미:
+   · false → 원본 보기 → 호출부가 기존(원본) 경로를 그대로 진행해도 됨.
+   · true  → variant 보기 → 원본 경로를 절대 타면 안 됨(호출부는 즉시 return).
+             - 해당 장면에 그 variant 후보가 있으면: variant 저장 경로(_queueVariantStyleSave)로 저장 + 재렌더.
+             - 후보가 없으면(아직 안 만든 장면): no-op(아무것도 저장 안 함). 원본으로 fallback 금지.
+
+   원본 scene.textStyle은 절대 건드리지 않는다. base는 현재 표시 중인 variant style
+   (_getDisplayStyle: FB→local→원본 fallback)을 복제해 patch만 병합 → 항상 새 객체. */
+function _applyVariantStyleOrBlock(scene, patch, onApply) {
+  if (!scene) return false;
+  if (!_isVariantViewLocked()) return false;   /* 원본 보기 → 기존 경로 진행 */
+  const ai = (typeof window !== 'undefined') ? window.viewerAi : null;
+  const vk = (ai && typeof ai._aiVariantStyleEditAllowed === 'function')
+    ? ai._aiVariantStyleEditAllowed(scene.id) : null;
+  if (vk === 's1' || vk === 's2') {
+    const orig = (typeof getTextStyle === 'function') ? getTextStyle(scene) : (scene.textStyle || {});
+    let base = orig;
+    if (typeof ai._getDisplayStyle === 'function') {
+      base = ai._getDisplayStyle(scene.id, orig) || orig;
+    }
+    /* 항상 새 객체 — base(원본/캐시) 미변경. 기본값으로 결손 필드 보강. */
+    const next = Object.assign(
+      { fontFamily: 'gothic', fontSize: 16, color: '', weight: 'normal' },
+      base || {}, patch || {}
+    );
+    if (typeof ai._queueVariantStyleSave === 'function') {
+      ai._queueVariantStyleSave(vk, scene.id, next);
+    }
+    if (typeof onApply === 'function') { try { onApply(); } catch (e) { /* noop */ } }
+    /* variant style은 _getDisplayStyle을 거치는 통째 재렌더로만 반영(_patchTextStyle은 원본 style을 봄). */
+    if (typeof _scheduleViewerFrameReRender === 'function') _scheduleViewerFrameReRender();
+  }
+  /* vk null(후보 없음) → no-op. 어느 쪽이든 true → 원본 경로 차단. */
+  return true;
+}
+
 function _patchSceneBody(value) {
   /* Phase 4-A: s1/s2 보기 중엔 원본 본문 in-memory 갱신 금지. false 반환 → 호출부가 재렌더(변형 본문 복원). */
   if (_isVariantViewLocked()) return false;
@@ -4346,6 +4386,10 @@ function _bindTypeSectionsEvents(panel, scene) {
       sel.addEventListener('change', e => {
         if (!_editText.editable) return;
         const v = e.target.value || 'gothic';
+        /* P4-D-2B: variant 보기면 variant 저장 경로로만. */
+        if (_applyVariantStyleOrBlock(scene, { fontFamily: v }, () => {
+          e.target.style.fontFamily = `var(--font-${v})`;
+        })) return;
         const ts = _ensurePbTextStyle();
         if (ts.fontFamily === v) return;
         ts.fontFamily = v;
@@ -4361,6 +4405,11 @@ function _bindTypeSectionsEvents(panel, scene) {
       if (!_editText.editable) return;
       const v = parseInt(e.target.value, 10);
       if (isNaN(v)) return;
+      /* P4-D-2B: variant 보기면 variant 저장 경로로만 (라벨은 onApply로 갱신). */
+      if (_applyVariantStyleOrBlock(scene, { fontSize: v }, () => {
+        const ln = e.target.closest('.edit-row')?.querySelector('.edit-label-note');
+        if (ln) ln.textContent = `(${v}px)`;
+      })) return;
       const ts = _ensurePbTextStyle();
       ts.fontSize = v;
       _queueSave(scene.num || scene.id, { textStyle: { ...ts } });
@@ -4375,6 +4424,10 @@ function _bindTypeSectionsEvents(panel, scene) {
       btn.addEventListener('click', () => {
         if (!_editText.editable) return;
         const v = btn.dataset.val || '';
+        /* P4-D-2B: variant 보기면 variant 저장 경로로만. */
+        if (_applyVariantStyleOrBlock(scene, { color: v }, () => {
+          panel.querySelectorAll('.js-edit-pb-color').forEach(b => b.classList.toggle('active', b === btn));
+        })) return;
         const ts = _ensurePbTextStyle();
         ts.color = v;
         _queueSave(scene.num || scene.id, { textStyle: { ...ts } });
@@ -4387,6 +4440,10 @@ function _bindTypeSectionsEvents(panel, scene) {
     panel.querySelector('.js-edit-pb-color-pick')?.addEventListener('input', e => {
       if (!_editText.editable) return;
       const v = e.target.value || '';
+      /* P4-D-2B: variant 보기면 variant 저장 경로로만. */
+      if (_applyVariantStyleOrBlock(scene, { color: v }, () => {
+        panel.querySelectorAll('.js-edit-pb-color').forEach(b => b.classList.remove('active'));
+      })) return;
       const ts = _ensurePbTextStyle();
       ts.color = v;
       _queueSave(scene.num || scene.id, { textStyle: { ...ts } });
@@ -4399,6 +4456,10 @@ function _bindTypeSectionsEvents(panel, scene) {
       btn.addEventListener('click', () => {
         if (!_editText.editable) return;
         const v = btn.dataset.val === 'bold' ? 'bold' : 'normal';
+        /* P4-D-2B: variant 보기면 variant 저장 경로로만. */
+        if (_applyVariantStyleOrBlock(scene, { weight: v }, () => {
+          panel.querySelectorAll('.js-edit-pb-weight').forEach(b => b.classList.toggle('active', b === btn));
+        })) return;
         const ts = _ensurePbTextStyle();
         ts.weight = v;
         _queueSave(scene.num || scene.id, { textStyle: { ...ts } });
@@ -4705,6 +4766,10 @@ function _bindTypeSectionsEvents(panel, scene) {
       sel.addEventListener('change', e => {
         if (!_editText.editable) return;
         const v = e.target.value || 'gothic';
+        /* P4-D-2B: variant 보기면 원본 textStyle 미수정 — variant 저장 경로로만. */
+        if (_applyVariantStyleOrBlock(scene, { fontFamily: v }, () => {
+          e.target.style.fontFamily = `var(--font-${v})`;
+        })) return;
         const ts = _ensureTextStyle();
         if (ts.fontFamily === v) return;
         ts.fontFamily = v;
@@ -4724,6 +4789,11 @@ function _bindTypeSectionsEvents(panel, scene) {
         if (!_editText.editable) return;
         const v = parseInt(e.target.value, 10);
         if (isNaN(v)) return;
+        /* P4-D-2B: variant 보기면 variant 저장 경로로만 (라벨은 onApply로 갱신). */
+        if (_applyVariantStyleOrBlock(scene, { fontSize: v }, () => {
+          const ln = slider.closest('.edit-row')?.querySelector('.edit-label-note');
+          if (ln) ln.textContent = `(${v}px)`;
+        })) return;
         const ts = _ensureTextStyle();
         ts.fontSize = v;
         /* 라벨 갱신 (인접 .edit-label-note) */
@@ -4739,6 +4809,10 @@ function _bindTypeSectionsEvents(panel, scene) {
       btn.addEventListener('click', () => {
         if (!_editText.editable) return;
         const v = btn.dataset.val || '';
+        /* P4-D-2B: variant 보기면 variant 저장 경로로만. */
+        if (_applyVariantStyleOrBlock(scene, { color: v }, () => {
+          panel.querySelectorAll('.js-edit-text-color').forEach(b => b.classList.toggle('active', b === btn));
+        })) return;
         const ts = _ensureTextStyle();
         ts.color = v;
         _queueSave(scene.num || scene.id, { textStyle: { ...ts } });
@@ -4753,6 +4827,10 @@ function _bindTypeSectionsEvents(panel, scene) {
       input.addEventListener('change', e => {
         if (!_editText.editable) return;
         const v = e.target.value;
+        /* P4-D-2B: variant 보기면 variant 저장 경로로만. */
+        if (_applyVariantStyleOrBlock(scene, { color: v }, () => {
+          panel.querySelectorAll('.js-edit-text-color').forEach(b => b.classList.remove('active'));
+        })) return;
         const ts = _ensureTextStyle();
         ts.color = v;
         _queueSave(scene.num || scene.id, { textStyle: { ...ts } });
@@ -4768,6 +4846,10 @@ function _bindTypeSectionsEvents(panel, scene) {
       btn.addEventListener('click', () => {
         if (!_editText.editable) return;
         const v = btn.dataset.val === 'bold' ? 'bold' : 'normal';
+        /* P4-D-2B: variant 보기면 variant 저장 경로로만. */
+        if (_applyVariantStyleOrBlock(scene, { weight: v }, () => {
+          panel.querySelectorAll('.js-edit-text-weight').forEach(b => b.classList.toggle('active', b === btn));
+        })) return;
         const ts = _ensureTextStyle();
         ts.weight = v;
         _queueSave(scene.num || scene.id, { textStyle: { ...ts } });
@@ -4956,6 +5038,17 @@ function _bindTypeSectionsEvents(panel, scene) {
       });
     });
   }
+
+  /* P4-D-2B: 패널이 (재)렌더될 때마다 variant 보기의 선택적 잠금/해제를 다시 적용.
+     #edit-panel 요소 자체의 pointerEvents:none은 모드 전환 시 걸려 유지되지만,
+     스타일 섹션 자식 노드는 매 렌더마다 새로 생기므로 재활성을 다시 입혀야 한다.
+     (실 잠금 안전망은 핸들러의 _applyVariantStyleOrBlock — 이 호출은 UI 표시용.) */
+  try {
+    if (typeof window !== 'undefined' && window.viewerAi
+        && typeof window.viewerAi._applyVariantEditPanelLock === 'function') {
+      window.viewerAi._applyVariantEditPanelLock();
+    }
+  } catch (e) { /* noop */ }
 }
 
 /* ================================================================

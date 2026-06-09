@@ -1439,6 +1439,158 @@
     return out;
   }
 
+  /* ════════════════════════════════════════════════════════════════
+     P5-IMAGE-POLICY-1: 작품 단위 이미지 입력 방식(imagePolicy) 선택/저장
+     ──────────────────────────────────────────────────────────────
+     · 경로: classes/{cid}/teams/{enc}/viewer-meta/imagePolicy (v1 legacy: teams/{enc}/...).
+       imagePolicy child만 set — viewer-meta 다른 필드는 절대 건드리지 않음(통째 덮어쓰기 X).
+     · sourceMode는 'upload' | 'draw'만 허용. 그 외/없음 → null(미설정)로 취급. 자동 추정 금지.
+     · 최초 이미지 AI 사용 전 선택 모달로 결정. 한 번 정하면 작품 단위 lock.
+     · 이번 단계는 helper + 모달 준비까지. 실제 이미지 생성/모델 호출과 연결하지 않음.
+     · viewer-meta는 rules상 auth!=null이면 클라 write 가능 → 기존 write 구조 사용.
+       TODO(향후): lock 무결성 강화가 필요하면 서버 callable lock으로 격상 가능.
+     ════════════════════════════════════════════════════════════════ */
+  const IMAGE_SOURCE_MODES = ['upload', 'draw'];
+  let _imagePolicy = null;            /* { sourceMode, lockedAtSceneId, lockedAt, lockedBy } | null */
+  let _imagePolicyLoadedKey = null;   /* namespace 캐시 무효화 (null 결과도 '로드됨'으로 표기) */
+
+  /* upload/draw가 아니면 null. 그 외 필드는 안전 기본값으로 정규화. */
+  function _sanitizeImagePolicy(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    if (IMAGE_SOURCE_MODES.indexOf(raw.sourceMode) === -1) return null;
+    return {
+      sourceMode: raw.sourceMode,
+      lockedAtSceneId: (raw.lockedAtSceneId != null) ? raw.lockedAtSceneId : null,
+      lockedAt: (typeof raw.lockedAt === 'number' || typeof raw.lockedAt === 'string') ? raw.lockedAt : null,
+      lockedBy: (raw.lockedBy != null) ? raw.lockedBy : null,
+    };
+  }
+
+  /* viewer-data.js의 basePath 규칙과 동일(v2 classId / v1 legacy). teamName 없으면 null. */
+  function _imagePolicyBasePath() {
+    const { classId, teamName } = _getCurrentClassIdTeamName();
+    if (!teamName) return null;
+    const enc = encodeURIComponent(teamName);
+    return classId ? ('classes/' + classId + '/teams/' + enc) : ('teams/' + enc);
+  }
+
+  function _getImagePolicyLockedBy() {
+    try {
+      const app = _getViewerFirebaseApp();
+      if (app && typeof app.auth === 'function') {
+        const u = app.auth().currentUser;
+        if (u) return u.uid || u.email || null;
+      }
+    } catch (e) { /* noop */ }
+    try {
+      const c = _getCurrentClassIdTeamName();
+      return c.teamName ? ('team:' + c.teamName) : null;
+    } catch (e) { return null; }
+  }
+
+  /* 읽기 전용. 실패/미준비/없음 → 기존 캐시 유지(보통 null). */
+  async function _loadImagePolicy(force) {
+    const key = _fbVariantCacheKey();
+    if (!force && _imagePolicyLoadedKey === key) return _imagePolicy;
+    const base = _imagePolicyBasePath();
+    const app = _getViewerFirebaseApp();
+    if (!base || !app || !app.database) return _imagePolicy;  /* 미준비 — 로드 표기 안 함(재시도 가능) */
+    try {
+      const snap = await app.database().ref(base + '/viewer-meta/imagePolicy').once('value');
+      _imagePolicy = _sanitizeImagePolicy(snap.val());
+      _imagePolicyLoadedKey = key;
+      return _imagePolicy;
+    } catch (e) {
+      console.warn('[P5] imagePolicy 읽기 실패(미설정 취급)', e);
+      return _imagePolicy;
+    }
+  }
+
+  /* 동기 — 캐시에서만. 미로딩이면 null. */
+  function _getImagePolicy() {
+    return _imagePolicy;
+  }
+
+  /* imagePolicy child만 set. viewer-meta 다른 필드 불변. 실패해도 원본/variant 영향 없음. */
+  async function _saveImagePolicy(policy) {
+    const clean = _sanitizeImagePolicy(policy);
+    if (!clean) return { ok: false, reason: 'bad-sourceMode' };
+    const base = _imagePolicyBasePath();
+    const app = _getViewerFirebaseApp();
+    if (!base || !app || !app.database) return { ok: false, reason: 'no-context' };
+    try {
+      await app.database().ref(base + '/viewer-meta/imagePolicy').set(clean);
+      _imagePolicy = clean;
+      _imagePolicyLoadedKey = _fbVariantCacheKey();
+      return { ok: true, policy: clean };
+    } catch (e) {
+      console.warn('[P5] imagePolicy 저장 실패', e);
+      return { ok: false, reason: 'write-failed', error: e && e.message };
+    }
+  }
+
+  /* 최초 설정 선택 모달 — Promise<'upload'|'draw'|null('취소')>. 저장은 호출부(ensure)가 담당. */
+  function _openImageSourceModal() {
+    return new Promise(function (resolve) {
+      try {
+        const prev = document.getElementById('ai-image-source-modal');
+        if (prev && prev.parentNode) prev.parentNode.removeChild(prev);
+        const ov = document.createElement('div');
+        ov.id = 'ai-image-source-modal';
+        ov.style.cssText = 'position:fixed;inset:0;z-index:10010;display:flex;align-items:center;'
+          + 'justify-content:center;background:rgba(0,0,0,0.45);';
+        const btnCss = 'appearance:none;border:1px solid #e8dcc4;border-radius:12px;padding:12px 14px;'
+          + 'font-family:\'Jua\',sans-serif;font-size:14px;cursor:pointer;text-align:left;';
+        ov.innerHTML = '<div style="background:#fffaee;border-radius:18px;max-width:420px;width:90%;'
+          + 'padding:24px 22px;box-shadow:0 12px 40px rgba(0,0,0,0.25);font-family:\'Jua\',sans-serif;color:#5b4a30;">'
+          + '<div style="font-size:18px;margin-bottom:8px;">이 작품의 그림은 어떻게 만들었나요?</div>'
+          + '<div style="font-size:13px;line-height:1.6;color:#8a7a5e;margin-bottom:18px;">'
+          + '한 번 선택하면 이 작품의 이미지 AI 기준으로 사용됩니다.<br/>원본 그림은 그대로 유지됩니다.</div>'
+          + '<div style="display:flex;flex-direction:column;gap:10px;">'
+          + '<button type="button" class="js-ai-imgsrc-upload" style="' + btnCss + 'background:#f3e7cc;color:#6b5638;">'
+          + '📷 업로드한 이미지/사진 기준으로 정돈</button>'
+          + '<button type="button" class="js-ai-imgsrc-draw" style="' + btnCss + 'background:#f3e7cc;color:#6b5638;">'
+          + '✏️ 그림판에서 그린 그림 기준으로 정돈</button>'
+          + '<button type="button" class="js-ai-imgsrc-cancel" style="' + btnCss + 'background:transparent;color:#8a7a5e;border-color:transparent;text-align:center;">'
+          + '취소</button>'
+          + '</div></div>';
+        document.body.appendChild(ov);
+        let settled = false;
+        function done(val) {
+          if (settled) return;
+          settled = true;
+          if (ov.parentNode) ov.parentNode.removeChild(ov);
+          resolve(val);
+        }
+        ov.querySelector('.js-ai-imgsrc-upload').addEventListener('click', function () { done('upload'); });
+        ov.querySelector('.js-ai-imgsrc-draw').addEventListener('click', function () { done('draw'); });
+        ov.querySelector('.js-ai-imgsrc-cancel').addEventListener('click', function () { done(null); });
+        ov.addEventListener('click', function (e) { if (e.target === ov) done(null); });
+      } catch (e) { resolve(null); }
+    });
+  }
+
+  /* 이미지 AI 호출 전 게이트. 이미 lock돼 있으면 모달 없이 그 정책 반환.
+     미설정이면 모달 → 선택 시 저장 후 정책 반환, 취소/실패면 null.
+     ⚠️ 이번 단계에서는 어떤 UI 버튼과도 연결하지 않음(준비만). */
+  async function _ensureImagePolicyBeforeImageAi(scene) {
+    let cur = _getImagePolicy();
+    if (!cur || IMAGE_SOURCE_MODES.indexOf(cur.sourceMode) === -1) {
+      cur = await _loadImagePolicy(true);
+    }
+    if (cur && IMAGE_SOURCE_MODES.indexOf(cur.sourceMode) !== -1) return cur;
+    const choice = await _openImageSourceModal();
+    if (choice !== 'upload' && choice !== 'draw') return null;  /* 취소 → 저장 안 함 */
+    const sid = scene ? ((scene.id != null) ? scene.id : (scene.num != null ? scene.num : null)) : null;
+    const res = await _saveImagePolicy({
+      sourceMode: choice,
+      lockedAtSceneId: sid,
+      lockedAt: Date.now(),
+      lockedBy: _getImagePolicyLockedBy(),
+    });
+    return res.ok ? res.policy : null;
+  }
+
   /* finalMap: {sceneId:{body,...}} (localStorage final 형태). 실 API 모드에서만 호출. */
   async function _saveTextVariantToFirebase(variantKey, finalMap) {
     if (variantKey !== 's1' && variantKey !== 's2') return { ok: false, reason: 'bad-variant' };
@@ -3600,6 +3752,14 @@
       _showAiImageToggleBar:         _showAiImageToggleBar,
       _hasImageVariantS1:            _hasImageVariantS1,
       _hasImageVariantS2:            _hasImageVariantS2,
+
+      /* P5-IMAGE-POLICY-1: 작품 단위 이미지 입력 방식(upload/draw) 선택·저장 helper.
+         생성 단계(imageS1)에서 호출 예정 — 이번 단계는 어떤 UI와도 연결 안 함(준비만). */
+      getImagePolicy:                _getImagePolicy,
+      loadImagePolicy:               _loadImagePolicy,
+      saveImagePolicy:               _saveImagePolicy,
+      ensureImagePolicyBeforeImageAi: _ensureImagePolicyBeforeImageAi,
+      _openImageSourceModal:         _openImageSourceModal,
 
       /* Phase 4-C: variant body 편집 저장 — render 게이트 + edit 입력 라우팅 */
       _aiVariantBodyEditAllowed:    _aiVariantBodyEditAllowed,

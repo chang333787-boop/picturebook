@@ -2297,6 +2297,13 @@
     } else if (typeof _scheduleViewerFrameReRender === 'function') {
       _scheduleViewerFrameReRender();
     }
+    /* P5-IMAGE-LOCK-1: 이미지 보기 모드 전환 시 편집 패널의 원본 이미지 편집 잠금 즉시 동기화
+       (편집 패널은 재렌더되지 않으므로 명시 호출). viewer-edit.js 전역 함수. */
+    try {
+      if (typeof window !== 'undefined' && typeof window._applyAiImageVariantEditLock === 'function') {
+        window._applyAiImageVariantEditLock();
+      }
+    } catch (e) { /* noop */ }
   }
 
   function _showAiImageToggleBar() {

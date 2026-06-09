@@ -1260,6 +1260,56 @@ function _bindNavEvents(panel) {
 }
 
 /* ================================================================
+   P5-IMAGE-LOCK-1: AI 이미지 보기(aiS1/aiS2) 중 원본 이미지 편집 잠금
+   ────────────────────────────────────────────────────────────────
+   · viewer-ai.js의 _getAiImageViewMode(이미지 전용 보기 모드)를 읽어 판정.
+     텍스트 aiViewMode와는 완전 분리(혼동 금지).
+   · 함수 없음/에러 시 false → 기존 original 동작을 깨지 않음.
+   · 원본 scene.imageData / imageUrl 저장 로직은 일절 변경하지 않고, 진입부만 막는다.
+   ================================================================ */
+var _AI_IMAGE_LOCK_MSG = 'AI 이미지 보기 중에는 원본 그림을 바꿀 수 없습니다.\n원본 이미지로 전환한 뒤 수정해 주세요.';
+
+function _isAiImageVariantViewActive() {
+  try {
+    return !!(typeof window !== 'undefined' && window.viewerAi
+      && typeof window.viewerAi._getAiImageViewMode === 'function'
+      && window.viewerAi._getAiImageViewMode() !== 'original');
+  } catch (e) { return false; }
+}
+
+/* 핸들러 진입부 가드 — 잠금 상태면 안내 후 true(호출부가 즉시 return). */
+function _aiImageVariantBlocksOriginalEdit(opts) {
+  if (!_isAiImageVariantViewActive()) return false;
+  if (!opts || !opts.silent) {
+    try { alert(_AI_IMAGE_LOCK_MSG); } catch (e) { /* noop */ }
+  }
+  return true;
+}
+
+/* UI 표시 잠금 — .edit-pb-image-actions 컨테이너를 통째로 비활성(개별 버튼의
+   hasImage 조건부 disabled와 충돌하지 않도록 컨테이너 레벨 inline 스타일만 토글).
+   원본 보기로 돌아오면 inline 스타일을 제거해 기존 상태 복원. */
+function _applyAiImageVariantEditLock() {
+  try {
+    const panel = document.getElementById('edit-panel');
+    if (!panel) return;
+    const box = panel.querySelector('.edit-pb-image-actions');
+    if (!box) return;
+    if (_isAiImageVariantViewActive()) {
+      box.style.pointerEvents = 'none';
+      box.style.opacity = '0.5';
+      box.setAttribute('aria-disabled', 'true');
+      box.setAttribute('title', _AI_IMAGE_LOCK_MSG);
+    } else {
+      box.style.pointerEvents = '';
+      box.style.opacity = '';
+      box.removeAttribute('aria-disabled');
+      box.removeAttribute('title');
+    }
+  } catch (e) { /* noop */ }
+}
+
+/* ================================================================
    edit panel 렌더 (메인)
    ================================================================ */
 function renderEditPanel() {
@@ -4305,6 +4355,8 @@ function _bindTypeSectionsEvents(panel, scene) {
     panel.querySelectorAll('.js-pb-image-upload-input').forEach(input => {
       input.addEventListener('change', async e => {
         if (!_editText.editable) return;
+        /* P5-IMAGE-LOCK-1: AI 이미지 보기 중엔 원본 업로드 차단(파일 input 초기화 후 종료). */
+        if (_aiImageVariantBlocksOriginalEdit()) { e.target.value = ''; return; }
         const file = e.target.files && e.target.files[0];
         if (!file) return;
         if (!file.type.startsWith('image/')) {
@@ -4375,6 +4427,8 @@ function _bindTypeSectionsEvents(panel, scene) {
     panel.querySelectorAll('.js-pb-image-remove').forEach(btn => {
       btn.addEventListener('click', () => {
         if (!_editText.editable) return;
+        /* P5-IMAGE-LOCK-1: AI 이미지 보기 중엔 원본 삭제 차단. */
+        if (_aiImageVariantBlocksOriginalEdit()) return;
         if (!confirm('이 장면의 그림을 삭제할까요?')) return;
         scene.imageData = null;
         if (typeof _queueSave === 'function') {
@@ -4390,6 +4444,8 @@ function _bindTypeSectionsEvents(panel, scene) {
     panel.querySelectorAll('.js-pb-image-draw').forEach(btn => {
       btn.addEventListener('click', () => {
         if (!_editText.editable) return;
+        /* P5-IMAGE-LOCK-1: AI 이미지 보기 중엔 그리기 진입 차단. */
+        if (_aiImageVariantBlocksOriginalEdit()) return;
         /* W9 (v13): 그리기는 사진이 없을 때만 사용 가능 (사용자 결정).
            disabled 상태에선 click 안 들어옴. 방어적으로 hasImage 한 번 더 체크. */
         if (scene.imageData) return;
@@ -4401,6 +4457,8 @@ function _bindTypeSectionsEvents(panel, scene) {
     panel.querySelectorAll('.js-pb-image-transform').forEach(btn => {
       btn.addEventListener('click', () => {
         if (!_editText.editable) return;
+        /* P5-IMAGE-LOCK-1: AI 이미지 보기 중엔 원본 크기·이동(transform) 차단. */
+        if (_aiImageVariantBlocksOriginalEdit()) return;
         if (typeof enterImageTransformEdit === 'function') {
           enterImageTransformEdit();
         }
@@ -4411,6 +4469,8 @@ function _bindTypeSectionsEvents(panel, scene) {
     panel.querySelectorAll('.js-pb-image-crop').forEach(btn => {
       btn.addEventListener('click', () => {
         if (!_editText.editable) return;
+        /* P5-IMAGE-LOCK-1: AI 이미지 보기 중엔 원본 자르기(crop) 차단. */
+        if (_aiImageVariantBlocksOriginalEdit()) return;
         if (typeof enterImageCropEdit === 'function') {
           enterImageCropEdit();
         }
@@ -5174,6 +5234,10 @@ function _bindTypeSectionsEvents(panel, scene) {
       window.viewerAi._applyVariantEditPanelLock();
     }
   } catch (e) { /* noop */ }
+
+  /* P5-IMAGE-LOCK-1: AI 이미지 보기 중이면 원본 이미지 편집 버튼군을 비활성 표시.
+     실 차단 안전망은 각 핸들러의 _aiImageVariantBlocksOriginalEdit 가드(이 호출은 UI 표시용). */
+  try { _applyAiImageVariantEditLock(); } catch (e) { /* noop */ }
 }
 
 /* ================================================================
@@ -5916,6 +5980,9 @@ async function _flattenImageTransform(imageDataUrl, transform) {
 }
 
 async function _saveFlattenedImage(sceneNum, newImageDataUrl) {
+  /* P5-IMAGE-LOCK-1: AI 이미지 보기 중엔 flatten 저장(원본 imageData write) 차단.
+     ※ 현재 flatten 경로는 v13에서 폐기되어 호출처가 없으나, 원본 보호 안전망으로 진입부 가드 유지. */
+  if (_aiImageVariantBlocksOriginalEdit({ silent: true })) return;
   try {
     const teamName = ViewerState.project.teamName;
     const classId  = ViewerState.project.classId;
@@ -7264,6 +7331,8 @@ function _openPbDrawModal(scene) {
   /* 저장 — 캔버스 → data URL → Storage 업로드 → URL을 scene.imageData에 박음.
      v114: base64 RTDB 폭탄 차단. 그림 그리기도 Storage 박음. */
   modal.querySelector('.js-pb-draw-save')?.addEventListener('click', async () => {
+    /* P5-IMAGE-LOCK-1: AI 이미지 보기 중엔 그림판 저장(원본 imageData write) 차단. */
+    if (_aiImageVariantBlocksOriginalEdit()) return;
     try {
       const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
       let storageUrl;

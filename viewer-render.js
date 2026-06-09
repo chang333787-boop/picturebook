@@ -381,7 +381,12 @@ function renderScene(scene) {
    분할 없음. textBox 시스템으로 카드 위치/크기 자유조정 가능. */
 function _renderSceneText(stage, scene) {
   const choices  = Array.isArray(scene.choices) ? scene.choices : [];
-  const bgImage  = scene.imageData || null;
+  let bgImage  = scene.imageData || null;
+  /* P5-IMAGE-VARIANT-1: 이미지 보기 모드(aiS1/aiS2)면 variant url로 표시. 원본 보기면 그대로(동작 변화 0).
+     원본 scene.imageData/imageUrl은 절대 변경하지 않음(read-only hook). */
+  if (typeof window !== 'undefined' && window.viewerAi && typeof window.viewerAi._getDisplayImageSrc === 'function') {
+    bgImage = window.viewerAi._getDisplayImageSrc(scene, bgImage);
+  }
 
   /* 배경 — 이미지 있으면 분위기 배경, 없으면 단색 (분위기 슬롯 자리) */
   const bgHtml = bgImage
@@ -525,7 +530,11 @@ function _renderScenePicturebook(stage, scene, submode) {
   const choices = Array.isArray(scene.choices) ? scene.choices : [];
   /* W4 디버그: 그림 데이터 소스 — viewer-edit은 imageData||imageUrl 둘 다 보고
      viewer-render는 이전엔 imageData만 봤음. 데이터 소스 일치를 위해 둘 다 본다. */
-  const bgImage = scene.imageData || scene.imageUrl || null;
+  let bgImage = scene.imageData || scene.imageUrl || null;
+  /* P5-IMAGE-VARIANT-1: 이미지 보기 모드면 variant url로 표시(원본 보기는 그대로·동작 변화 0). 원본 필드 불변. */
+  if (typeof window !== 'undefined' && window.viewerAi && typeof window.viewerAi._getDisplayImageSrc === 'function') {
+    bgImage = window.viewerAi._getDisplayImageSrc(scene, bgImage);
+  }
   const isEditMode = !!(ViewerState && ViewerState.editMode);
 
   /* 4단계 분기 — 새 명시 필드 picturebookSubmode 기반.
@@ -1470,7 +1479,11 @@ function _renderStoryEnding(stage, scene) {
   /* v37: 메인 장면(picturebook split)과 동일 구조 — 위 그림 / 아래 텍스트.
      사용자 결정: "엔딩도 그림 있고 본문 아래 + 행동 버튼 자리에 결말 문구".
      scene.imageData 있으면 위 그림, 없으면 placeholder. 텍스트 영역에 엔딩 콘텐츠. */
-  const endingImage = scene.imageData || null;
+  let endingImage = scene.imageData || null;
+  /* P5-IMAGE-VARIANT-1: 이미지 보기 모드면 variant url로 표시(원본 보기는 그대로·동작 변화 0). 원본 필드 불변. */
+  if (typeof window !== 'undefined' && window.viewerAi && typeof window.viewerAi._getDisplayImageSrc === 'function') {
+    endingImage = window.viewerAi._getDisplayImageSrc(scene, endingImage);
+  }
   const endingIllustHtml = endingImage
     ? `<div class="pb-illust" data-pb-illust="1">
          <div class="pb-illust__photo" data-pb-photo="1">

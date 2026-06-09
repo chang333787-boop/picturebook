@@ -45,6 +45,8 @@
   const LS_AI_DRAFTS_KEY = 'pb_ai_drafts_v140';          /* aiDrafts.textS1 (mock) */
   const LS_AI_VARIANTS_KEY = 'pb_ai_variants_v140';      /* aiVariants.textS1.final (mock) */
   const LS_AI_VIEW_MODE_KEY = 'pb_ai_view_mode_v140';    /* 'original' | 'aiS1' (mock) */
+  /* P5-IMAGE-VARIANT-1: 이미지 보기 모드는 텍스트와 완전 분리(독립 토글). */
+  const LS_AI_IMAGE_VIEW_MODE_KEY = 'pb_ai_image_view_mode_v140'; /* 'original' | 'aiS1' | 'aiS2' (이미지 전용) */
   const LS_TEST_MODE_BYPASS_KEY = 'pb_ai_test_bypass_v140'; /* TEST MODE 우회 토글 (mock) */
 
   /* mock quota 초기값 (사용자 결정 박힌 AI_DECISIONS_FINAL.md #5 추천값) */
@@ -178,6 +180,10 @@
   function _getMockViewModeKey() {
     return LS_AI_VIEW_MODE_KEY + '__' + _getCurrentNamespace();
   }
+  /* P5-IMAGE-VARIANT-1: 이미지 보기 모드 키 — 텍스트 viewMode 키와 분리(팀별 namespace). */
+  function _getMockImageViewModeKey() {
+    return LS_AI_IMAGE_VIEW_MODE_KEY + '__' + _getCurrentNamespace();
+  }
 
   /* ════════════════════════════════════════════════════════════════
      v140-step1: reset 함수 (사용자 결정 #B + v140 namespace fix)
@@ -233,9 +239,12 @@
     try {
       localStorage.removeItem(_getMockVariantsKey());
       localStorage.removeItem(_getMockViewModeKey());
+      /* P5-IMAGE-VARIANT-1: 이미지 보기 모드도 함께 초기화 */
+      localStorage.removeItem(_getMockImageViewModeKey());
       /* 옛 공통 키 박지 X */
       localStorage.removeItem(LS_AI_VARIANTS_KEY);
       localStorage.removeItem(LS_AI_VIEW_MODE_KEY);
+      localStorage.removeItem(LS_AI_IMAGE_VIEW_MODE_KEY);
       console.log('[ai-mock] variants reset (' + _getCurrentNamespace() + ')');
     } catch (e) { console.warn('[ai-mock] variants reset failed', e); }
   }
@@ -263,6 +272,7 @@
         if (!k) continue;
         if (k === LS_AI_VARIANTS_KEY || k.indexOf(LS_AI_VARIANTS_KEY + '__') === 0) keys.push(k);
         else if (k === LS_AI_VIEW_MODE_KEY || k.indexOf(LS_AI_VIEW_MODE_KEY + '__') === 0) keys.push(k);
+        else if (k === LS_AI_IMAGE_VIEW_MODE_KEY || k.indexOf(LS_AI_IMAGE_VIEW_MODE_KEY + '__') === 0) keys.push(k);
       }
       keys.forEach(function (k) { localStorage.removeItem(k); removed.push(k); });
       console.log('[ai-mock] variants reset ALL — ' + removed.length + ' keys', removed);
@@ -497,6 +507,10 @@
     /* Phase 3 — 텍스트 aiVariant Firebase 캐시 로딩(fire-and-forget). 로딩되면 프레임 재렌더. */
     if (typeof _preloadFirebaseTextVariants === 'function') {
       _preloadFirebaseTextVariants();
+    }
+    /* P5-IMAGE-VARIANT-1 — 이미지 aiVariant 캐시 로딩(fire-and-forget·읽기 전용). */
+    if (typeof _preloadFirebaseImageVariants === 'function') {
+      _preloadFirebaseImageVariants();
     }
     return _classAiSettings;
   }
@@ -1316,6 +1330,105 @@
       /* Phase 4-A: FB 후보가 캐시에 들어왔으니 토글 바를 갱신(감상자도 노출되도록). */
       if (typeof _showAiToggleBar === 'function') {
         try { _showAiToggleBar(); } catch (e) { /* noop */ }
+      }
+      if (typeof window._scheduleViewerFrameReRender === 'function') {
+        window._scheduleViewerFrameReRender();
+      } else if (typeof _scheduleViewerFrameReRender === 'function') {
+        _scheduleViewerFrameReRender();
+      }
+    }
+    return out;
+  }
+
+  /* ════════════════════════════════════════════════════════════════
+     P5-IMAGE-VARIANT-1: 이미지 aiVariant Firebase 읽기 + 표시 hook
+     ──────────────────────────────────────────────────────────────
+     · 텍스트 variant와 완전 분리(별도 캐시·별도 보기 모드·별도 토글 바).
+     · 읽기 전용: classes/{cid}/teams/{enc}/aiVariants/image/{sid}/{s1|s2}.
+       (aiVariants.write:false — 클라 write 불가. 생성/저장은 서버 단계에서.)
+     · 원본 보호: scene.imageData / scene.imageUrl은 절대 읽기만 하고 건드리지 않음.
+       이 단계는 "이미지 생성/모델 호출 없음" — 후보가 이미 있다고 가정한 표시 구조만.
+     ════════════════════════════════════════════════════════════════ */
+  let _fbImageVariants = null;     /* { s1:{sid:{url,storagePath,stale}}, s2:{...} } | null(미로딩) */
+  let _fbImageVariantsKey = null;  /* 'classId__teamName' — 팀 바뀌면 캐시 무효화 */
+
+  async function _loadFirebaseImageVariants(force) {
+    const key = _fbVariantCacheKey();
+    if (!force && _fbImageVariants && _fbImageVariantsKey === key) return _fbImageVariants;
+    const { classId, teamName } = _getCurrentClassIdTeamName();
+    if (!classId || !teamName) return null;
+    const app = _getViewerFirebaseApp();
+    if (!app || !app.database) return null;
+    const enc = encodeURIComponent(teamName);
+    try {
+      const snap = await app.database().ref('classes/' + classId + '/teams/' + enc + '/aiVariants/image').once('value');
+      const raw = snap.val() || {};
+      const out = { s1: {}, s2: {} };
+      Object.keys(raw).forEach(function (sid) {
+        const node = raw[sid] || {};
+        if (node.s1 && typeof node.s1.url === 'string' && node.s1.url) {
+          out.s1[sid] = { url: node.s1.url, storagePath: node.s1.storagePath || null, stale: !!node.s1.stale };
+        }
+        if (node.s2 && typeof node.s2.url === 'string' && node.s2.url) {
+          out.s2[sid] = { url: node.s2.url, storagePath: node.s2.storagePath || null, stale: !!node.s2.stale };
+        }
+      });
+      _fbImageVariants = out;
+      _fbImageVariantsKey = key;
+      return out;
+    } catch (e) {
+      console.warn('[P5] aiVariants/image 읽기 실패(원본 fallback)', e);
+      return null;
+    }
+  }
+
+  /* 동기 — 캐시에서만. 미로딩/없음이면 null(호출부가 원본 fallback). */
+  function _getFbImageVariantUrl(variantKey, sceneId) {
+    if (!_fbImageVariants) return null;
+    const m = _fbImageVariants[variantKey];
+    if (!m) return null;
+    const v = m[String(sceneId)];
+    return (v && typeof v.url === 'string' && v.url) ? v.url : null;
+  }
+
+  function _hasImageVariantS1() {
+    return !!(_fbImageVariants && _fbImageVariants.s1 && Object.keys(_fbImageVariants.s1).length);
+  }
+  function _hasImageVariantS2() {
+    return !!(_fbImageVariants && _fbImageVariants.s2 && Object.keys(_fbImageVariants.s2).length);
+  }
+
+  /* 이미지 보기 모드 — 텍스트(_getAiViewMode)와 독립. 별도 localStorage 키. */
+  function _getAiImageViewMode() {
+    try {
+      const v = localStorage.getItem(_getMockImageViewModeKey());
+      return (v === 'aiS1' || v === 'aiS2') ? v : 'original';
+    } catch (e) { return 'original'; }
+  }
+
+  /* 렌더 통합 진입점 — 호출부가 이미 해석한 originalSrc(scene.imageData||scene.imageUrl 등)를 그대로 전달.
+     원본 보기 → originalSrc 그대로 반환(각 렌더 사이트의 fallback 체인을 그대로 보존 → 동작 변화 0).
+     aiS1/aiS2 보기 → 해당 variant url 있으면 그것, 없으면 originalSrc fallback.
+     원본 scene.imageData/imageUrl은 절대 변경하지 않음(read-only). */
+  function _getDisplayImageSrc(scene, originalSrc) {
+    try {
+      const mode = _getAiImageViewMode();
+      if (mode !== 'aiS1' && mode !== 'aiS2') return originalSrc;
+      if (!scene) return originalSrc;
+      const sid = (scene.id != null) ? scene.id : scene.sceneId;
+      if (sid == null) return originalSrc;
+      const variantKey = (mode === 'aiS2') ? 's2' : 's1';
+      const url = _getFbImageVariantUrl(variantKey, sid);
+      return (typeof url === 'string' && url) ? url : originalSrc;
+    } catch (e) { return originalSrc; }
+  }
+
+  /* HUD/부트스트랩 preload에서 fire-and-forget. 후보 있으면 토글 바 노출 + 프레임 재렌더. */
+  async function _preloadFirebaseImageVariants() {
+    const out = await _loadFirebaseImageVariants(false);
+    if (out && (Object.keys(out.s1).length || Object.keys(out.s2).length)) {
+      if (typeof _showAiImageToggleBar === 'function') {
+        try { _showAiImageToggleBar(); } catch (e) { /* noop */ }
       }
       if (typeof window._scheduleViewerFrameReRender === 'function') {
         window._scheduleViewerFrameReRender();
@@ -2161,6 +2274,77 @@
 
   function _hideAiToggleBar() {
     const bar = document.getElementById('ai-view-toggle-bar');
+    if (bar && bar.parentNode) bar.parentNode.removeChild(bar);
+  }
+
+  /* ════════════════════════════════════════════════════════════════
+     P5-IMAGE-VARIANT-1: 이미지 보기 토글 바 (텍스트 토글과 독립)
+     ──────────────────────────────────────────────────────────────
+     · 별도 바(#ai-image-view-toggle-bar). 텍스트 바 아래로 inline top 오프셋.
+     · text/picturebook 작품에서만. 이미지 후보가 1개 이상 있을 때만 노출.
+       (생성이 아직 없으므로 현재 환경에선 후보 0 → 바가 뜨지 않음 = 기존 화면 변화 없음.)
+     · 후보 없는 variant 버튼은 "후보 없음"으로 disabled. 생성 버튼 없음.
+     ════════════════════════════════════════════════════════════════ */
+  function _setAiImageViewMode(mode) {
+    try {
+      if (mode === 'aiS1' || mode === 'aiS2') localStorage.setItem(_getMockImageViewModeKey(), mode);
+      else localStorage.removeItem(_getMockImageViewModeKey());
+    } catch (e) { /* noop */ }
+    _updateAiImageToggleBar();
+    /* 본문 프레임 재렌더 → _getDisplayImageSrc가 새 모드 반영. 원본 필드는 불변. */
+    if (typeof window._scheduleViewerFrameReRender === 'function') {
+      window._scheduleViewerFrameReRender();
+    } else if (typeof _scheduleViewerFrameReRender === 'function') {
+      _scheduleViewerFrameReRender();
+    }
+  }
+
+  function _showAiImageToggleBar() {
+    if (!_aiToggleProjectTypeAllowed()) { _hideAiImageToggleBar(); return; }
+    const hasS1 = _hasImageVariantS1();
+    const hasS2 = _hasImageVariantS2();
+    if (!hasS1 && !hasS2) { _hideAiImageToggleBar(); return; }
+
+    /* 현재 이미지 보기 모드가 더 이상 유효하지 않으면 원본으로 정리 */
+    const cur = _getAiImageViewMode();
+    if ((cur === 'aiS1' && !hasS1) || (cur === 'aiS2' && !hasS2)) {
+      _setAiImageViewMode('original');
+    }
+
+    _hideAiImageToggleBar();
+    const bar = document.createElement('div');
+    bar.id = 'ai-image-view-toggle-bar';
+    /* 텍스트 토글 바와 동일 스타일 재사용 + 아래로 stack(inline top — CSS 미수정). */
+    bar.className = 'ai-view-toggle-bar ai-view-toggle-bar--image';
+    bar.style.top = '48px';
+    let html = '<span class="ai-view-toggle-bar__label">그림 보기:</span>'
+      + '<button type="button" class="ai-view-toggle-btn js-ai-image-view-original" data-mode="original">원본</button>';
+    if (hasS1) html += '<button type="button" class="ai-view-toggle-btn js-ai-image-view-ais1" data-mode="aiS1">AI 그림 정돈</button>';
+    else html += '<button type="button" class="ai-view-toggle-btn" data-mode="aiS1" disabled>AI 그림 정돈(후보 없음)</button>';
+    if (hasS2) html += '<button type="button" class="ai-view-toggle-btn js-ai-image-view-ais2" data-mode="aiS2">AI 그림 발전</button>';
+    else html += '<button type="button" class="ai-view-toggle-btn" data-mode="aiS2" disabled>AI 그림 발전(후보 없음)</button>';
+    bar.innerHTML = html;
+    document.body.appendChild(bar);
+    bar.querySelectorAll('.ai-view-toggle-btn').forEach(function (btn) {
+      if (btn.disabled) return;
+      btn.addEventListener('click', function () {
+        _setAiImageViewMode(btn.getAttribute('data-mode'));
+      });
+    });
+    _updateAiImageToggleBar();
+  }
+
+  function _updateAiImageToggleBar() {
+    const bar = document.getElementById('ai-image-view-toggle-bar');
+    if (!bar) return;
+    const mode = _getAiImageViewMode();
+    bar.querySelectorAll('.ai-view-toggle-btn').forEach(function (btn) {
+      btn.classList.toggle('is-active', !btn.disabled && btn.getAttribute('data-mode') === mode);
+    });
+  }
+
+  function _hideAiImageToggleBar() {
+    const bar = document.getElementById('ai-image-view-toggle-bar');
     if (bar && bar.parentNode) bar.parentNode.removeChild(bar);
   }
 
@@ -3344,6 +3528,8 @@
       Promise.resolve()
         .then(function () { return _preloadFirebaseTextVariants(); })
         .then(function (out) {
+          /* P5-IMAGE-VARIANT-1: 같은 컨텍스트 준비 시점에 이미지 variant도 1회 preload(읽기 전용). */
+          try { _preloadFirebaseImageVariants(); } catch (e) { /* noop */ }
           if (out) return;          /* 로드 완료(데이터 유무 무관) → 종료 */
           if (tries < MAX) setTimeout(tick, 400);
         })
@@ -3397,6 +3583,16 @@
       _loadFirebaseTextVariants:    _loadFirebaseTextVariants,
       _preloadFirebaseTextVariants: _preloadFirebaseTextVariants,
       _saveTextVariantToFirebase:   _saveTextVariantToFirebase,
+
+      /* P5-IMAGE-VARIANT-1: 이미지 aiVariant 읽기/표시(생성 없음·원본 불변) — viewer-render.js 이미지 사이트에서 사용 */
+      _loadFirebaseImageVariants:    _loadFirebaseImageVariants,
+      _preloadFirebaseImageVariants: _preloadFirebaseImageVariants,
+      _getDisplayImageSrc:           _getDisplayImageSrc,
+      _getAiImageViewMode:           _getAiImageViewMode,
+      _setAiImageViewMode:           _setAiImageViewMode,
+      _showAiImageToggleBar:         _showAiImageToggleBar,
+      _hasImageVariantS1:            _hasImageVariantS1,
+      _hasImageVariantS2:            _hasImageVariantS2,
 
       /* Phase 4-C: variant body 편집 저장 — render 게이트 + edit 입력 라우팅 */
       _aiVariantBodyEditAllowed:    _aiVariantBodyEditAllowed,

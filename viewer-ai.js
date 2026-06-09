@@ -2079,6 +2079,14 @@
     } else if (typeof _scheduleViewerFrameReRender === 'function') {
       _scheduleViewerFrameReRender();
     }
+    /* P4-D-2B-FIX4: 패널은 재렌더되지 않으므로(슬라이더 DOM 값이 직전 모드에 머묾) 글자 크기
+       슬라이더 value/라벨 + 본문 CSS 변수를 새 보기 모드의 표시 style로 다시 동기화한다.
+       원본 scene.textStyle은 건드리지 않는다(viewer-edit.js 전역 함수). */
+    try {
+      if (typeof window !== 'undefined' && typeof window._resyncFontSizeUiToViewMode === 'function') {
+        window._resyncFontSizeUiToViewMode();
+      }
+    } catch (e) { /* noop */ }
     /* Phase 4-B 보강: rAF가 정지되는 숨김 탭에서만 보조 재렌더(비동기 → 재진입 안전).
        정상 탭은 위 rAF 경로가 ~16ms 내 처리하므로 이 보조는 건너뛴다(중복 렌더 방지). */
     try {

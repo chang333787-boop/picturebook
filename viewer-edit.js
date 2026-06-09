@@ -501,6 +501,25 @@ function _variantStyleSceneId(scene) {
   return String(cand);
 }
 
+/* P4-D-2B-FIX4: 현재 보기 모드(원본/aiS1/aiS2)에서 '표시할 글자 크기' 한 값을 돌려준다.
+   · 원본 보기 → _getDisplayStyle가 originalStyle을 그대로 반환 → 원본 fontSize.
+   · aiS1/aiS2 보기 → variant style(FB→local) fontSize, 없으면 원본 fallback.
+   슬라이더 value/라벨(편집 패널)과 본문 CSS 변수(_patchVariantFontSize)가 같은 출처를 쓰게 해
+   모드 전환 후 슬라이더↔본문 값이 어긋나는 문제를 막는다. 원본 scene.textStyle은 읽기만 한다.
+   viewerAi 미로딩/타입 이상 시 원본 fontSize로 안전 fallback. */
+function _displayFontSize(scene, originalStyle) {
+  const orig = originalStyle || {};
+  const ai = (typeof window !== 'undefined') ? window.viewerAi : null;
+  const sid = _variantStyleSceneId(scene);
+  let disp = orig;
+  if (ai && typeof ai._getDisplayStyle === 'function' && sid != null) {
+    disp = ai._getDisplayStyle(sid, orig) || orig;
+  }
+  const fs = disp && disp.fontSize;
+  if (typeof fs === 'number' && !isNaN(fs)) return fs;
+  return (typeof orig.fontSize === 'number' && !isNaN(orig.fontSize)) ? orig.fontSize : null;
+}
+
 /* P4-D-2B-FIX2: variant 보기에서 '글자 크기'만 즉시 화면 반영.
    _patchTextStyle/_patchPbStyle은 원본 getTextStyle(scene)을 읽으므로 variant 값엔 쓸 수 없다.
    여기선 변형 fontSize를 현재 .scene-screen의 CSS 변수에 직접 박아 슬라이더 조작 즉시 보이게 한다.
@@ -518,6 +537,41 @@ function _patchVariantFontSize(fontSize) {
     return true;
   }
   return false;
+}
+
+/* P4-D-2B-FIX4: 보기 모드(원본/aiS1/aiS2) 전환 직후 동기화.
+   _setAiViewMode는 본문(viewer-frame)만 재렌더하고 편집 패널은 재렌더하지 않으므로,
+   글자 크기 슬라이더 DOM 값/라벨이 직전 모드 값에 머물러 본문↔슬라이더가 어긋난다(FIX4 핵심 증상).
+   현재 모드의 표시 fontSize로 (1) 슬라이더 value + (NNpx) 라벨을 다시 맞추고,
+   (2) 본문 CSS 변수도 재렌더 직후 한 번 더 박아 본문도 같은 값으로 보장한다.
+   원본 scene.textStyle은 읽기만 하고 절대 수정하지 않는다. 패널/슬라이더 없으면 조용히 패스. */
+function _resyncFontSizeUiToViewMode() {
+  if (typeof ViewerState === 'undefined' || !ViewerState.scenes) return;
+  const scene = ViewerState.scenes[ViewerState.currentSceneId];
+  if (!scene) return;
+  const orig = (typeof getTextStyle === 'function') ? getTextStyle(scene) : (scene.textStyle || {});
+  const fs = _displayFontSize(scene, orig);
+  if (typeof fs !== 'number' || isNaN(fs)) return;
+  /* (1) 편집 패널 슬라이더 + 라벨 동기화 (패널은 그대로 유지되므로 DOM 직접 갱신) */
+  const panel = (typeof document !== 'undefined') ? document.getElementById('edit-panel') : null;
+  if (panel) {
+    ['js-edit-text-size', 'js-edit-pb-size'].forEach(function (cls) {
+      const slider = panel.querySelector('.' + cls);
+      if (!slider) return;
+      slider.value = String(fs);
+      const row = (typeof slider.closest === 'function') ? slider.closest('.edit-row') : null;
+      const note = row ? row.querySelector('.edit-label-note') : null;
+      if (note) note.textContent = '(' + fs + 'px)';
+    });
+  }
+  /* (2) 본문 CSS 변수 보강 — _scheduleViewerFrameReRender(rAF)가 새 .scene-screen을 만든 '뒤'에
+     박혀야 하므로 rAF로 한 틱 미룬다(FIFO: 재렌더 rAF가 먼저, 이 patch가 뒤). 원본 모드면
+     fs=원본값이라 동일값 재설정(무해), variant 모드면 표시 variant값으로 본문 강제 동기화. */
+  if (typeof requestAnimationFrame === 'function') {
+    requestAnimationFrame(function () { _patchVariantFontSize(fs); });
+  } else {
+    _patchVariantFontSize(fs);
+  }
 }
 
 /* ─── Phase 4-D-2B(+FIX): variant 보기(aiS1/aiS2)에서는 '글자 크기'만 편집 ──────────
@@ -574,11 +628,18 @@ function _applyVariantStyleOrBlock(scene, patch, onApply) {
       ai._queueVariantStyleSave(vk, sid, next);
     }
     if (typeof onApply === 'function') { try { onApply(); } catch (e) { /* noop */ } }
-    /* P4-D-2B-FIX2: 즉시 화면 반영 — variant fontSize를 현재 .scene-screen CSS 변수에 직접 박음.
-       (_patchTextStyle/_patchPbStyle은 원본 style을 읽어 variant 값엔 못 씀.) */
-    if (typeof next.fontSize === 'number') _patchVariantFontSize(next.fontSize);
-    /* 보조: _getDisplayStyle을 거치는 통째 재렌더(즉시 패치 후에도 일관성 유지). */
-    if (typeof _scheduleViewerFrameReRender === 'function') _scheduleViewerFrameReRender();
+    /* P4-D-2B-FIX3: 즉시 화면 반영 — variant fontSize를 현재 .scene-screen CSS 변수에 직접 박음.
+       원본 경로(_patchTextStyle)와 100% 동일하게 "CSS 변수 패치 성공 시 통째 재렌더 안 함".
+       ── FIX2의 버그: 패치 후 _scheduleViewerFrameReRender를 '무조건' 호출했는데, 이 함수는
+       renderScene→_stageReplaceScene으로 **1.2초(_sceneTransMs(50)=1200ms) 장면 전환 애니메이션**을
+       일으킨다. 슬라이더를 움직일 때마다 화면이 통째로 전환돼(잠깐 바뀐 뒤 전환되며 원래대로 보이고
+       PB는 무거운 레이아웃 전환에 변경이 묻혀 "적용 안 됨"처럼 보였다).
+       ── 수정: _patchVariantFontSize가 성공(true)하면 재렌더하지 않는다. CSS 변수는 즉시 박히고,
+       버퍼(_fbTextVariantStyles/localStorage final.style)가 이후 실제 재렌더(장면 이동/F5)에서
+       _getDisplayStyle로 동일 값을 복원하므로 통째 재렌더는 불필요. 패치 실패(노드 없음/타입 불일치/NaN)일
+       때만 재렌더 fallback. (_patchTextStyle/_patchPbStyle은 원본 style을 읽어 variant 값엔 못 쓰므로 전용 패치 사용.) */
+    const _vPatched = (typeof next.fontSize === 'number') ? _patchVariantFontSize(next.fontSize) : false;
+    if (!_vPatched && typeof _scheduleViewerFrameReRender === 'function') _scheduleViewerFrameReRender();
   }
   /* vk null(편집 불가)·sid 없음 → no-op(저장·원본 fallback 없음). 어느 쪽이든 true → 원본 경로 차단. */
   return true;
@@ -3107,6 +3168,10 @@ function _typeSectionTextHtml(scene) {
   const style  = (typeof getTextStyle  === 'function') ? getTextStyle(scene)  : { fontFamily: 'gothic', fontSize: 16, color: '', weight: 'normal' };
   const theme  = (typeof getTextTheme  === 'function') ? getTextTheme(scene)  : 'classic';
   const effect = (typeof getTextEffect === 'function') ? getTextEffect(scene) : { entrance: 'none', body: 'none' };
+  /* P4-D-2B-FIX4: 글자 크기 슬라이더 값/라벨은 현재 보기 모드(원본/aiS1/aiS2) 표시 fontSize를 따른다.
+     원본 보기면 원본값, variant 보기면 variant fontSize(없으면 원본). 폰트/색/굵기는 variant에서
+     잠겨 있으므로 style(원본) 그대로 표시. */
+  const _fsDisp = (function () { const v = _displayFontSize(scene, style); return (typeof v === 'number' && !isNaN(v)) ? v : style.fontSize; })();
 
   /* W9 폰트 18종 + UI select dropdown — 그림책 인라인과 동일 구성 */
   const FONTS = [
@@ -3209,9 +3274,9 @@ function _typeSectionTextHtml(scene) {
           </div>
 
           <div class="edit-row">
-            <label class="edit-label">글자 크기 <span class="edit-label-note">(${style.fontSize}px)</span></label>
+            <label class="edit-label">글자 크기 <span class="edit-label-note">(${_fsDisp}px)</span></label>
             <input type="range" class="edit-slider js-edit-text-size"
-              min="12" max="50" step="1" value="${style.fontSize}">
+              min="12" max="50" step="1" value="${_fsDisp}">
           </div>
 
           <div class="edit-row">
@@ -3607,6 +3672,8 @@ function _pbInlineStyleHtml(scene) {
   const style = (typeof getTextStyle === 'function')
     ? getTextStyle(scene)
     : { fontFamily: 'gothic', fontSize: 16, color: '', weight: 'normal' };
+  /* P4-D-2B-FIX4: 글자 크기 슬라이더 값/라벨은 현재 보기 모드 표시 fontSize(원본/variant)를 따른다. */
+  const _fsDisp = (function () { const v = _displayFontSize(scene, style); return (typeof v === 'number' && !isNaN(v)) ? v : style.fontSize; })();
   /* W9: 폰트 18종으로 확장 + UI는 select dropdown (한글 프로그램 스타일).
      인스펙터 가로폭 절약 + 폰트 많을 때도 깔끔. 각 option의 font-family도 해당 폰트로
      박아 펼친 dropdown에서 실제 모양 미리 보임 (Chromium/Firefox 지원). */
@@ -3671,9 +3738,9 @@ function _pbInlineStyleHtml(scene) {
               style="font-family:${(TEXT_FONT_FAMILIES && TEXT_FONT_FAMILIES[style.fontFamily || 'gothic']) || 'inherit'}">${fontOptions}</select>
           </div>
           <div class="edit-row edit-row--compact edit-row--inline">
-            <label class="edit-label">글자 크기 <span class="edit-label-note">(${style.fontSize}px)</span></label>
+            <label class="edit-label">글자 크기 <span class="edit-label-note">(${_fsDisp}px)</span></label>
             <input type="range" class="edit-slider js-edit-pb-size"
-              min="12" max="28" step="1" value="${style.fontSize}">
+              min="12" max="28" step="1" value="${_fsDisp}">
           </div>
           <div class="edit-row edit-row--compact">
             <label class="edit-label">글자 색</label>

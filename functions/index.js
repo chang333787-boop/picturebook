@@ -192,8 +192,14 @@ async function _validateRequest(req, mode, opts) {
   /* workId 박은 거 박은 거 박은 박은 — 가지 데이터 모델 박은 거 박은 거 박은 박은 — team 자체 박은 거 박은 거 박은 박은 한 작품. workId 박지 X 박혀있으면 teamName 박음. */
   const workIdEffective = workId || teamName;
 
-  /* 2. 임시 허용 목록 (Phase A 박은 거 박은 거 박은 박은 박음) */
-  if (!isAiTestAllowed(classId, teamName)) {
+  /* 2. 권한 1차 — aiSettings 우선 모델 (AI-STAB-1).
+     · aiSettings가 있는 학급 → 교사 설정(enabled + modes[modeKey])이 최종 권한 → 임시 허용목록(AI_TEST_ALLOWED) 무시.
+     · aiSettings가 없는 학급(레거시/타 학급) → 기존 임시 허용목록 하드게이트 + aiPermission fallback 그대로.
+     aiSettings를 여기서 먼저 읽어 allowlist 분기만 결정한다. 실제 enabled/modes 판정은 killswitch 뒤(아래 3번)
+     기존 위치에서 수행 → aiSettings 없는 학급의 검사 순서/에러 우선순위는 오늘과 동일. */
+  const aiSettingsSnap = await admin.database().ref(`classes/${classId}/aiSettings`).once('value');
+  const aiSettings = aiSettingsSnap.val();
+  if (!aiSettings && !isAiTestAllowed(classId, teamName)) {
     throw new HttpsError('permission-denied',
       'AI 사용 권한이 없어요 (Phase A 테스트 대상이 아니에요 — ' + classId + '/' + teamName + ')');
   }
@@ -229,8 +235,7 @@ async function _validateRequest(req, mode, opts) {
        (d) 둘 다 없음 → 기본 ON (Phase A 호환).
      모든 검사는 quota 차감(_consumeQuota, 핸들러) 전에 수행됨. */
   const MODE_KEY_MAP = { s1: 'textS1', s2: 'textS2', check: 'workCheck', imageS1: 'imageS1', imageS2: 'imageS2' };
-  const aiSettingsSnap = await admin.database().ref(`classes/${classId}/aiSettings`).once('value');
-  const aiSettings = aiSettingsSnap.val();
+  /* aiSettings는 위(2번)에서 이미 읽음(AI-STAB-1) — 재읽기 없이 재사용. 게이트 판정은 여기서 기존 그대로. */
   if (aiSettings) {
     if (aiSettings.enabled !== true) {
       throw new HttpsError('permission-denied', 'AI_NOT_ENABLED_CLASS (선생님이 AI를 아직 열어주지 않았어요)');

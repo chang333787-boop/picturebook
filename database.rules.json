@@ -32,6 +32,13 @@
           ".read": true,
           ".write": "auth != null && (root.child('classes/' + $classId + '/meta/teacher_uid').val() === auth.uid || auth.token.role === 'super_admin')"
         },
+        "settings": {
+          ".read": true,
+          ".write": "auth != null && (root.child('classes/' + $classId + '/meta/teacher_uid').val() === auth.uid || auth.token.role === 'super_admin')",
+          "teamCreationMode": {
+            ".validate": "newData.isString() && (newData.val() === 'legacy_open' || newData.val() === 'teacher_managed' || newData.val() === 'locked')"
+          }
+        },
         "teams": {
           ".read": true,
           "$team": {

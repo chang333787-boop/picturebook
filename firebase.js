@@ -431,6 +431,53 @@ async function _joinTeamV2() {
     const encodedName = encodeURIComponent(val);
     const teamRef     = db.ref(getTeamPath(encodedName, foundClassId));
 
+    /* ════════════════════════════════════════════════════════════════
+       ADMIN-1C: 팀 생성 방식(teamCreationMode) 반영
+       ──────────────────────────────────────────────────────────────
+       · 기본값/오류 폴백 = legacy_open → 기존 학급 입장 절대 안 깨짐
+       · legacy_open: 기존 pin 흐름 그대로 (없으면 새 PIN 생성 가능)
+       · teacher_managed: 교사 등록 account만 입장, 자동 팀 생성 금지
+       · locked: 입장 차단
+       ════════════════════════════════════════════════════════════════ */
+    const mode = await _readTeamCreationMode(foundClassId);
+
+    if (mode === 'locked') {
+      errEl.textContent = '지금은 선생님이 입장을 잠시 닫아 두었어요.';
+      return;
+    }
+
+    if (mode === 'teacher_managed') {
+      /* account 읽기 — 실패는 네트워크성 오류로 안내(차단), null은 미등록 안내 */
+      let account;
+      try {
+        const accSnap = await teamRef.child('account').once('value');
+        account = accSnap.val();
+      } catch (e) {
+        errEl.textContent = '⚠️ 팀 정보를 확인하지 못했어요. 잠시 후 다시 시도해 주세요';
+        return;
+      }
+      if (!account) {
+        errEl.textContent = '선생님이 등록한 팀만 들어갈 수 있어요. 팀 이름과 PIN을 다시 확인해 주세요.';
+        document.getElementById('join-pin').value = '';
+        return;
+      }
+      if (account.status === 'locked') {
+        errEl.textContent = '이 팀은 선생님이 잠시 잠가 두었어요.';
+        return;
+      }
+      if (String(account.pin) !== pin) {
+        errEl.textContent = 'PIN이 맞지 않아요. 선생님께 받은 PIN을 다시 입력해 주세요.';
+        document.getElementById('join-pin').value = '';
+        document.getElementById('join-pin').focus();
+        return;
+      }
+      /* 통과 — 새 팀 자동 생성/legacy pin 쓰기 절대 안 함 */
+      classId = foundClassId;
+      _enterTeam(val, teamRef);
+      return;
+    }
+
+    /* ── legacy_open (기본) — 기존 흐름 그대로 유지 ── */
     const snap     = await teamRef.child('pin').once('value');
     const savedPin = snap.val();
 
@@ -452,6 +499,21 @@ async function _joinTeamV2() {
   }
 }
 
+/* ── ADMIN-1C: 팀 생성 방식 조회 헬퍼 ──
+   classes/{classId}/settings/teamCreationMode 를 읽어 반환.
+   설정 없음/읽기 실패/알 수 없는 값 → 안전하게 'legacy_open' 폴백. */
+async function _readTeamCreationMode(classId) {
+  if (!classId) return 'legacy_open';
+  try {
+    const snap = await db.ref(`classes/${classId}/settings/teamCreationMode`).once('value');
+    const m = snap.val();
+    if (m === 'teacher_managed' || m === 'locked' || m === 'legacy_open') return m;
+    return 'legacy_open';
+  } catch (e) {
+    return 'legacy_open';
+  }
+}
+
 /* ── resume: sessionStorage 컨텍스트로 입장 화면 건너뛰기 ──
    code lookup 건너뛰고 classId로 바로 입장. PIN 재검증 포함. */
 async function _resumeTeamFromSession(ctx) {
@@ -470,6 +532,37 @@ async function _resumeTeamFromSession(ctx) {
       classId = ctx.classId;
     } else {
       teamRef = db.ref(getTeamPath(encodedName));
+    }
+
+    /* ADMIN-1C: teacher_managed/locked 고려 (v2 + classId일 때만 의미 있음).
+       기본/오류 폴백 = legacy_open → 기존 재입장 흐름 유지. */
+    if (ctx.classId && DATA_PATH_VERSION === 'v2') {
+      const mode = await _readTeamCreationMode(ctx.classId);
+
+      if (mode === 'locked') {
+        /* 입장 닫힘 → 재입장 중단, 일반 화면으로 (거기서 안내) */
+        sessionStorage.removeItem('makerSession');
+        return false;
+      }
+
+      if (mode === 'teacher_managed') {
+        let account;
+        try {
+          const accSnap = await teamRef.child('account').once('value');
+          account = accSnap.val();
+        } catch (e) {
+          /* 확인 실패 → 안전하게 재입장 중단(앱은 join 화면으로 폴백) */
+          return false;
+        }
+        /* account 없음/잠김/PIN 불일치 → 재입장 중단(join 화면에서 재확인) */
+        if (!account || account.status === 'locked' || String(account.pin) !== String(ctx.pin)) {
+          sessionStorage.removeItem('makerSession');
+          return false;
+        }
+        _enterTeam(ctx.teamName, teamRef, { skipPtypeScreenIfExisting: true });
+        return true;
+      }
+      /* legacy_open → 아래 기존 pin 재검증 흐름으로 진행 */
     }
 
     /* PIN 재검증 — sessionStorage가 어쨌든 조작될 수 있으므로 반드시 확인 */

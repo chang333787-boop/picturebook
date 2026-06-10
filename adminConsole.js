@@ -224,6 +224,8 @@ async function _loadAdminDataV2() {
   _renderClassBar(resolvedClassId);
   /* Phase 1: 학급 AI 설정 패널 */
   _renderAiSettingsPanel(resolvedClassId);
+  /* ADMIN-1C: 학생 팀 생성 방식 설정 패널 (계정 생성 카드 위) */
+  _renderTeamModePanel(resolvedClassId);
   /* ADMIN-1B: 교사 팀/학생 계정 사전 생성 패널 */
   _renderTeamCreatePanel(resolvedClassId);
 
@@ -450,6 +452,103 @@ async function _saveAiSettings(classId, state, panel, saveBtn, statusEl) {
     saveBtn.disabled = false;
     saveBtn.textContent = '저장';
     alert('❌ AI 설정 저장 실패: ' + err.message);
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   ADMIN-1C: 학생 팀 생성 방식 설정 패널
+   ──────────────────────────────────────────────────────────────
+   · classes/{classId}/settings/teamCreationMode 만 set (settings 전체 set 금지)
+   · 옵션: legacy_open(기존 방식) / teacher_managed(교사 등록 팀만)
+   · locked는 이번 단계 UI 비노출(준비 중) — 학생 입장 코드엔 방어 존재
+   · 설정 없으면 legacy_open으로 표시. 기존 학급에 기본값 일괄 쓰지 않음.
+   ════════════════════════════════════════════════════════════════ */
+async function _renderTeamModePanel(classId) {
+  const panel = document.getElementById('admin-team-mode');
+  if (!panel || !classId) return;
+
+  /* 현재 저장값 로드 — 없으면 legacy_open 기본 */
+  let mode = 'legacy_open';
+  try {
+    const snap = await db.ref(`classes/${classId}/settings/teamCreationMode`).once('value');
+    const m = snap.val();
+    if (m === 'teacher_managed' || m === 'locked' || m === 'legacy_open') mode = m;
+  } catch (e) { /* 읽기 실패 시 기본값 유지 */ }
+
+  /* locked가 저장돼 있으면 라디오는 일단 teacher_managed로 표시하되 안내 문구 노출 */
+  const lockedNote = (mode === 'locked')
+    ? '<div class="admin-tm-locked">현재 입장이 잠겨 있어요(준비 중 기능). 아래에서 방식을 바꾸면 잠금이 풀립니다.</div>'
+    : '';
+  const sel = (mode === 'locked') ? 'teacher_managed' : mode;
+
+  panel.style.display = 'block';
+  panel.innerHTML = `
+    <div class="admin-tm-head">
+      <div class="admin-tm-title">🚪 학생 팀 생성 방식</div>
+      <div class="admin-tm-desc">학생이 입장할 때 팀을 직접 만들 수 있게 할지, 선생님이 등록한 팀만 들어오게 할지 정해요.</div>
+    </div>
+    <div class="admin-tm-options">
+      <label class="admin-tm-opt">
+        <input type="radio" name="admin-tm" value="legacy_open" ${sel === 'legacy_open' ? 'checked' : ''}>
+        <span class="admin-tm-opt-body">
+          <span class="admin-tm-opt-title">기존 방식</span>
+          <span class="admin-tm-opt-text">학생이 팀 이름과 PIN을 입력하면 새 팀을 만들 수 있습니다.</span>
+        </span>
+      </label>
+      <label class="admin-tm-opt">
+        <input type="radio" name="admin-tm" value="teacher_managed" ${sel === 'teacher_managed' ? 'checked' : ''}>
+        <span class="admin-tm-opt-body">
+          <span class="admin-tm-opt-title">교사 등록 팀만</span>
+          <span class="admin-tm-opt-text">교사가 미리 만든 팀만 입장할 수 있어요. 오타나 장난 팀 생성을 막을 수 있습니다.</span>
+        </span>
+      </label>
+    </div>
+    ${lockedNote}
+    <div class="admin-tm-foot">
+      <span id="admin-tm-status" class="admin-tc-status"></span>
+      <button id="admin-tm-save" class="admin-tc-btn" style="margin-left:auto;">저장</button>
+    </div>
+  `;
+
+  const saveBtn  = panel.querySelector('#admin-tm-save');
+  const statusEl = panel.querySelector('#admin-tm-status');
+  if (saveBtn) saveBtn.addEventListener('click', () => {
+    const picked = panel.querySelector('input[name="admin-tm"]:checked');
+    const value  = picked ? picked.value : 'legacy_open';
+    _saveTeamCreationMode(classId, value, saveBtn, statusEl);
+  });
+}
+
+async function _saveTeamCreationMode(classId, value, btn, statusEl) {
+  if (!adminState.verified || !classId) return;
+  /* 화이트리스트 — UI에서 노출하는 2개만 저장 허용 */
+  if (value !== 'legacy_open' && value !== 'teacher_managed') {
+    _tcSetStatus(statusEl, 'err', '알 수 없는 설정이에요.');
+    return;
+  }
+
+  btn.disabled = true;
+  const prev = btn.textContent;
+  btn.textContent = '저장 중...';
+  try {
+    /* ⚠️ teamCreationMode child만 set — settings 전체/aiSettings 미접근 */
+    await db.ref(`classes/${classId}/settings/teamCreationMode`).set(value);
+    const msg = (value === 'teacher_managed')
+      ? '✓ 저장됨 — 이제 선생님이 등록한 팀만 입장할 수 있어요.'
+      : '✓ 저장됨 — 학생이 직접 팀을 만들 수 있어요.';
+    _tcSetStatus(statusEl, 'ok', msg);
+    _invalidateAdminCache('team-mode-save');
+    btn.disabled = false;
+    btn.textContent = prev;
+  } catch (err) {
+    const errMsg = (err && (err.code || err.message)) ? String(err.code || err.message) : '';
+    if (/PERMISSION_DENIED|permission[_ ]?denied/i.test(errMsg)) {
+      _tcSetStatus(statusEl, 'err', '저장 권한이 없어요. (보안 규칙 확인 필요)');
+    } else {
+      _tcSetStatus(statusEl, 'err', '저장 실패: ' + (err.message || err.code || '알 수 없는 오류'));
+    }
+    btn.disabled = false;
+    btn.textContent = prev;
   }
 }
 

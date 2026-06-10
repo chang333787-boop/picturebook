@@ -2937,6 +2937,10 @@
             remaining: null,
           })}
         </div>
+        <div class="ai-mode-history" style="margin-top:14px;padding-top:14px;border-top:1px solid #ecdfc4;text-align:center;">
+          <button type="button" class="ai-btn ai-btn--ghost js-ai-show-latest-check">🔍 최근 검사 결과 보기</button>
+          <div style="margin-top:6px;color:#8a7a5e;font-size:12px;">AI를 다시 부르지 않고 마지막 작품 검사 결과를 보여줘요.</div>
+        </div>
         <div class="ai-mode-footer">
           🎨 그림 다듬기 기능은 준비 중이에요.
         </div>
@@ -2977,6 +2981,13 @@
           _startWorkCheck();
         }
       });
+    });
+
+    /* WORKCHECK-HISTORY-1: 저장된 마지막 작품검사 결과를 다시 보기 — AI 재호출/quota 없음, DB read만 */
+    const latestBtn = root.querySelector('.js-ai-show-latest-check');
+    if (latestBtn) latestBtn.addEventListener('click', function () {
+      _removeModalRoot('ai-mode-modal');
+      _showLatestWorkCheck();
     });
 
     /* v140 fix 2026-05-21: TEST MODE reset 박은 거 박은 거 박은 박은 — 4 버튼. reset 후 모달 다시 렌더 박음 (남은 횟수 갱신) */
@@ -3371,6 +3382,49 @@
     };
   }
 
+  /* WORKCHECK-HISTORY-1: 검사 시각 사람이 읽기 좋은 한국어 포맷. */
+  function _formatCheckedAt(ts) {
+    const n = Number(ts);
+    if (!n || isNaN(n)) return '';
+    try {
+      return new Date(n).toLocaleString('ko-KR', {
+        year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit',
+      });
+    } catch (e) { return ''; }
+  }
+
+  /* WORKCHECK-HISTORY-1: DB에 저장된 마지막 작품검사 결과를 다시 표시.
+     AI 함수 호출 없음, quota 사용 없음, DB write 없음 — aiChecks/workCheck/latest read만. */
+  async function _showLatestWorkCheck() {
+    const { classId, teamName } = _getCurrentClassIdTeamName();
+    if (!classId || !teamName) { alert('현재 작품 정보를 확인하지 못했어요.'); return; }
+    const app = _getViewerFirebaseApp();
+    if (!app || !app.database) { alert('연결 상태를 확인하지 못했어요. 잠시 후 다시 시도해 주세요.'); return; }
+    const enc = encodeURIComponent(teamName);
+    let latest = null;
+    try {
+      const snap = await app.database()
+        .ref('classes/' + classId + '/teams/' + enc + '/aiChecks/workCheck/latest')
+        .once('value');
+      latest = snap.val();
+    } catch (e) {
+      console.warn('[WORKCHECK-HISTORY] latest 읽기 실패', e);
+      alert('저장된 검사 결과를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.');
+      return;
+    }
+    if (!latest || !latest.result) {
+      alert('아직 저장된 검사 결과가 없어요. 먼저 작품 검사를 실행해 주세요.');
+      return;
+    }
+    const modalResult = Object.assign({}, latest.result, {
+      latestLoaded: true,
+      checkedAt: latest.checkedAt || null,
+      sceneCount: latest.sceneCount || null,
+      model: latest.model || null,
+    });
+    _showCheckResultModal(modalResult);
+  }
+
   async function _startWorkCheck() {
     /* quota 검사 */
     if (_getRemaining('check') <= 0) {
@@ -3467,6 +3521,12 @@
     const cachedNote = (check && check.cached)
       ? '<div class="ai-check-cached" style="margin-bottom:8px;padding:6px 10px;background:#eef6ff;border:1px solid #cfe3fb;border-radius:8px;color:#3a6ea5;font-size:12px;">💾 저장된 검사 결과예요 — 작품이 바뀌지 않아 새로 검사하지 않았어요.</div>'
       : '';
+    /* WORKCHECK-HISTORY-1: DB에 저장된 마지막 검사 결과를 그대로 다시 본 경우(AI 재호출 없음). */
+    const latestNote = (check && check.latestLoaded)
+      ? ('<div class="ai-check-latest" style="margin-bottom:8px;padding:6px 10px;background:#fff6e6;border:1px solid #f0dcae;border-radius:8px;color:#8a6d2f;font-size:12px;">💾 저장된 검사 결과입니다. 작품을 수정했다면 다시 검사해 주세요.'
+          + (check.checkedAt ? ('<span style="display:block;margin-top:2px;color:#a8895a;">마지막 검사: ' + _formatCheckedAt(check.checkedAt) + '</span>') : '')
+          + '</div>')
+      : '';
     const html = `
       <div class="ai-modal__header">
         <div class="ai-modal__title">🔍 작품 검사 결과</div>
@@ -3474,6 +3534,7 @@
       </div>
       <div class="ai-modal__body">
         ${cachedNote}
+        ${latestNote}
         <div class="ai-check-intro">
           AI는 <b>문제만 알려드려요</b>. 수정은 안 해드려요. 학생이 직접 보고 본인이 고치는 기능이에요.
           <span style="display:block;margin-top:2px;color:#8a8f98;font-size:12px;">검사 결과는 참고용이며, 실제로 고칠지는 사람이 판단해요.</span>

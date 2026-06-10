@@ -66,6 +66,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const issueBtn    = e.target.closest('.js-admin-issue-code');
     const pinBtn      = e.target.closest('.js-admin-pin');     // ADMIN-1D: 등록 팀 PIN 변경
     const lockBtn     = e.target.closest('.js-admin-lock');    // ADMIN-1D: 등록 팀 잠금/해제
+    const regBtn      = e.target.closest('.js-admin-register'); // ADMIN-1E: 기존 팀 관리팀 등록
 
     if (makerBtn)  _openMaker(makerBtn.dataset.name);
     if (viewerBtn) _openViewer(viewerBtn.dataset.name);
@@ -76,6 +77,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (issueBtn)  _issueCopyCodeFlow(issueBtn.dataset.encoded, issueBtn.dataset.name);
     if (pinBtn)    _changeTeamPin(pinBtn.dataset.encoded, pinBtn.dataset.name);
     if (lockBtn)   _toggleTeamLock(lockBtn.dataset.encoded, lockBtn.dataset.name, lockBtn.dataset.status);
+    if (regBtn)    _registerExistingTeam(regBtn.dataset.encoded, regBtn.dataset.name);
   });
 
   /* 2026-06: 수동 새로고침 — 캐시 무효화 후 강제 재읽기. summary bar는 정적 요소라
@@ -1091,13 +1093,15 @@ function _teamCardHtml(t) {
   </button>`;
   const detailBtn = `<button class="admin-action-btn admin-action-btn--detail js-admin-detail" data-encoded="${t.encodedName}" title="상세 보기">상세</button>`;
   /* ADMIN-1D: account가 있는 등록 팀에만 PIN 변경 / 잠금·해제 메뉴 노출.
-     account 없는 기존 팀에는 절대 표시하지 않음(버튼 숨김). */
+     ADMIN-1E: account 없는 기존 팀에는 '관리팀으로 등록'만 노출.
+     (교사 등록 팀만 입장 모드에서는 account 있는 팀만 입장 가능하므로,
+      기존 자율 생성 팀을 삭제 없이 관리팀으로 편입할 수 있게 함.) */
   const accountMenuItems = t.registered
     ? `<button class="admin-more-item js-admin-pin" data-encoded="${t.encodedName}" data-name="${t.name}">🔑 PIN 변경</button>
       ${t.accountStatus === 'locked'
         ? `<button class="admin-more-item js-admin-lock" data-encoded="${t.encodedName}" data-name="${t.name}" data-status="locked">🔓 잠금 해제</button>`
         : `<button class="admin-more-item js-admin-lock" data-encoded="${t.encodedName}" data-name="${t.name}" data-status="active">🔒 잠금</button>`}`
-    : '';
+    : `<button class="admin-more-item js-admin-register" data-encoded="${t.encodedName}" data-name="${t.name}">🧩 관리팀으로 등록</button>`;
 
   const moreBtn   = `<button class="admin-action-btn admin-action-btn--more js-admin-more" title="더 보기">⋯</button>
     <div class="admin-more-menu" style="display:none;">
@@ -1265,6 +1269,64 @@ async function _toggleTeamLock(encodedName, displayName, currentStatus) {
       : `🔓 "${displayName}" 팀의 잠금을 풀었어요.`);
   } catch (err) {
     _adminAccountErr(err, (newStatus === 'locked') ? '잠금' : '잠금 해제');
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   ADMIN-1E: account 없는 기존 팀을 관리팀으로 등록
+   ──────────────────────────────────────────────────────────────
+   · 학생이 기존 방식으로 만든 팀(account 없음)을 teacher_managed에서도
+     쓸 수 있게, 기존 작품을 그대로 둔 채 account child만 새로 생성.
+   · 기존 teams/{teamKey}/pin · scenes · viewer-meta 는 절대 미접근.
+   · account가 이미 있으면 중단(set은 account 없을 때만).
+   ════════════════════════════════════════════════════════════════ */
+async function _registerExistingTeam(encodedName, displayName) {
+  if (!adminState.verified) return;
+  const ref = _accountRef(encodedName);
+  if (!ref) { alert('이 팀의 계정 정보를 찾을 수 없어요.'); return; }
+
+  if (!confirm(`"${displayName}" 팀을 관리팀으로 등록할까요?\n기존 작품은 그대로 두고, 이 팀에 새 PIN을 부여해 교사 관리팀으로 등록합니다.`)) return;
+
+  const input = prompt(`"${displayName}" 팀에 부여할 새 PIN을 숫자 4~6자리로 입력해 주세요.`);
+  if (input === null) return;                 /* 취소 → 아무것도 안 함 */
+  const newPin = input.trim();
+  if (!/^[0-9]{4,6}$/.test(newPin)) {
+    alert('PIN은 숫자 4~6자리로 입력해 주세요. 등록을 취소했어요.');
+    return;
+  }
+
+  try {
+    /* account 재확인 — 이미 있으면 중단(중복 set 방지) */
+    const snap = await ref.once('value');
+    if (snap.exists()) {
+      alert('이미 등록된 팀이에요. 목록을 새로고침할게요.');
+      _invalidateAdminCache('register-existing-exists');
+      loadAdminData();
+      return;
+    }
+
+    const uid = (typeof auth !== 'undefined' && auth.currentUser) ? auth.currentUser.uid : null;
+    const now = Date.now();
+    /* ⚠️ account child만 set — 기존 pin/scenes/viewer-meta 미접근.
+       account가 없을 때만 도달하므로 전체 set 허용. */
+    await ref.set({
+      displayName,
+      pin: newPin,
+      status: 'active',
+      createdBy: uid,
+      createdAt: now,
+      updatedAt: now,
+      migratedFromLegacy: true,
+    });
+
+    /* 카드 즉시 갱신 — 등록됨 배지/관리 버튼 반영 */
+    const team = adminState.allTeams.find(t => t.encodedName === encodedName);
+    if (team) { team.registered = true; team.accountStatus = 'active'; }
+    _invalidateAdminCache('register-existing-team');
+    _renderTeamList();
+    alert(`✅ "${displayName}" 팀을 관리팀으로 등록했어요. (PIN: ${newPin})`);
+  } catch (err) {
+    _adminAccountErr(err, '관리팀 등록');
   }
 }
 

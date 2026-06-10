@@ -36,6 +36,16 @@
           ".read": true,
           "$team": {
             ".write": "auth != null && !newData.exists() && (root.child('classes/' + $classId + '/meta/teacher_uid').val() === auth.uid || auth.token.role === 'super_admin')",
+            "account": {
+              ".read": true,
+              ".write": "auth != null && (root.child('classes/' + $classId + '/meta/teacher_uid').val() === auth.uid || auth.token.role === 'super_admin')",
+              "displayName": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 30" },
+              "pin":         { ".validate": "newData.isString() && newData.val().length >= 4 && newData.val().length <= 12" },
+              "status":      { ".validate": "newData.isString() && (newData.val() === 'active' || newData.val() === 'locked')" },
+              "createdBy":   { ".validate": "newData.isString()" },
+              "createdAt":   { ".validate": "newData.isNumber()" },
+              "updatedAt":   { ".validate": "newData.isNumber()" }
+            },
             "pin": {
               ".read": true,
               ".write": "auth != null && !data.exists()"

@@ -376,6 +376,9 @@
    세로 = 1열 행 스택 / 가로 = 좌(로고)·우(카드 목록) 분할.
    ════════════════════════════════════════════════ */
 
+/* 짧은 설명(.--short)은 기본 숨김 — 모바일에서만 노출. 데스크톱/태블릿은 기존 긴 설명 유지. */
+.v .wh-card__desc--short { display: none; }
+
 /* ── 카드 자체를 compact 가로 행으로 (모바일 세로 + 모바일 가로 공통) ──
    [아이콘]  제목 / 짧은 설명 ……… [버튼] */
 @media (max-width: 640px) and (orientation: portrait),
@@ -387,10 +390,10 @@
       "icon title cta"
       "icon desc  cta";
     align-items: center;
-    column-gap: 12px;
+    column-gap: 14px;
     row-gap: 2px;
     min-height: 0;
-    padding: 12px 14px;
+    padding: 11px 14px;
     border-radius: 18px;
   }
   .v .wh-card--make { min-height: 0; }
@@ -400,36 +403,42 @@
   .v .wh-card__kicker { display: none; }
   .v .wh-card__title {
     grid-area: title; margin: 0;
-    font-size: 18px; line-height: 1.2; word-break: keep-all;
+    font-size: 17px; line-height: 1.2; word-break: keep-all;
   }
-  .v .wh-card__desc {
-    grid-area: desc; margin: 0; flex: none;
-    font-size: 12.5px; line-height: 1.35; color: var(--ink-2);
+  /* 긴 설명(데스크톱용) 숨기고 짧은 설명 노출 — 버튼과 충돌 방지 */
+  .v .wh-card__desc { display: none; }
+  .v .wh-card__desc--short {
+    display: block;
+    grid-area: desc; align-self: start; margin: 1px 0 0;
+    font-size: 12.5px; line-height: 1.3; color: var(--ink-2);
     word-break: keep-all;
-    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
   }
   .v .wh-card__cta {
     grid-area: cta; align-self: center; margin: 0;
-    white-space: nowrap; font-size: 13px; padding: 6px 12px;
+    white-space: nowrap; font-size: 12.5px; padding: 5px 11px;
   }
 }
 
 /* ── 모바일 세로: compact 카드 1열 세로 스택 ── */
 @media (max-width: 640px) and (orientation: portrait) {
   .v .w-screen { overflow-y: auto; }
-  .v .wh { padding: var(--s6) var(--s4); justify-content: flex-start; }
-  .v .wh__main { gap: var(--s5); max-width: 100%; }
-  .v .wh__title { font-size: clamp(34px, 11vw, 44px); }
-  .v .wh__sub { font-size: 15px; line-height: 1.7; }
+  /* 상단 로고/여백 축소 → 메뉴 카드가 더 위에서 시작 */
+  .v .wh { padding: 18px var(--s4) var(--s5); justify-content: flex-start; }
+  .v .wh__main { gap: 16px; max-width: 100%; }
+  .v .wh__eyebrow { font-size: 18px; margin-bottom: 2px; }
+  .v .wh__title { font-size: clamp(30px, 9.5vw, 38px); margin-bottom: 10px; }
+  .v .wh__sub { font-size: 13.5px; line-height: 1.55; }
   .v .wh__cards { grid-template-columns: 1fr; gap: var(--s3); }
 
-  /* 학급 코드 입력 — 화면 폭 안에 + 줄바꿈 허용 */
+  /* 학급 코드 박스 compact — 점선 유지, padding/높이 축소 + 폭 안에 수용 */
   .v .wh__quick {
     flex-wrap: wrap; justify-content: center;
-    gap: var(--s2) var(--s3); padding: var(--s4); width: 100%;
+    gap: 8px 10px; padding: 8px 14px; width: 100%; margin-top: 2px;
   }
-  .v .wh__quick-input { width: auto; flex: 1 1 140px; min-width: 0; }
+  .v .wh__quick-label { font-size: 13px; }
+  .v .wh__quick-input { width: auto; flex: 1 1 140px; min-width: 0; font-size: 14px; }
   .v .wh__quick-divider { display: none; }
+  .v .wh__quick .btn--sm { height: 30px; padding: 0 14px; font-size: 13px; }
 }
 
 /* ── 모바일 가로(낮은 높이): 좌(로고)·우(카드 목록) 분할 — 하단 잘림 방지 ── */
@@ -448,10 +457,14 @@
     gap: 8px 22px;
     max-width: 900px;
   }
-  .v .wh__hero { grid-area: hero; align-self: center; }
+  /* 로고 묶음 위쪽 정렬 — 아래로 무겁지 않게 */
+  .v .wh__hero { grid-area: hero; align-self: start; padding-top: 2px; }
   .v .wh__eyebrow { font-size: 16px; margin-bottom: 2px; }
   .v .wh__title { font-size: clamp(26px, 6.5vw, 40px); margin-bottom: 6px; }
   .v .wh__sub { font-size: 12.5px; line-height: 1.4; }
+  /* 둘째 문장 숨김 → 오른쪽 메뉴가 주인공 */
+  .v .wh__sub-extra { display: none; }
+  .v .wh__sub br { display: none; }
   .v .wh__cards {
     grid-area: cards;
     display: grid; grid-template-columns: 1fr; gap: 8px;

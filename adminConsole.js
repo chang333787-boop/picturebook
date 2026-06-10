@@ -571,13 +571,14 @@ function _renderTeamCreatePanel(classId) {
   panel.innerHTML = `
     <div class="admin-tc-head">
       <div class="admin-tc-title">👥 학생/팀 계정 미리 만들기</div>
-      <div class="admin-tc-desc">팀 이름과 PIN을 정해 두면 학생들이 같은 이름으로 들어올 수 있어요.</div>
+      <div class="admin-tc-desc">팀 이름과 PIN을 정해 두면 학생들이 같은 이름으로 들어올 수 있어요. PIN은 학생이 입력할 숫자 4~6자리로 정해 주세요.</div>
     </div>
     <div class="admin-tc-form">
       <input id="admin-tc-name" class="admin-tc-input" type="text" maxlength="30"
         placeholder="팀 이름 (예: 2모둠)" autocomplete="off"/>
-      <input id="admin-tc-pin" class="admin-tc-input admin-tc-input--pin" type="text" maxlength="12"
-        placeholder="PIN (4~12자)" autocomplete="off"/>
+      <input id="admin-tc-pin" class="admin-tc-input admin-tc-input--pin" type="text"
+        inputmode="numeric" pattern="[0-9]{4,6}" maxlength="6"
+        placeholder="PIN (숫자 4~6자리)" autocomplete="off"/>
       <button id="admin-tc-create" class="admin-tc-btn">팀 만들기</button>
     </div>
     <div id="admin-tc-status" class="admin-tc-status"></div>
@@ -604,11 +605,11 @@ async function _createTeamAccount(classId, nameEl, pinEl, btn, statusEl) {
   const name = ((nameEl && nameEl.value) || '').trim();
   const pin  = ((pinEl && pinEl.value) || '').trim();
 
-  /* 최소 검증 — 팀 이름 1~30자, PIN 4~12자 */
+  /* 최소 검증 — 팀 이름 1~30자, PIN 숫자 4~6자리(학생 입력 조건과 정합) */
   if (!name) { _tcSetStatus(statusEl, 'err', '팀 이름을 입력해주세요.'); if (nameEl) nameEl.focus(); return; }
   if (name.length > 30) { _tcSetStatus(statusEl, 'err', '팀 이름은 30자 이내로 입력해주세요.'); return; }
   if (!pin)  { _tcSetStatus(statusEl, 'err', 'PIN을 입력해주세요.'); if (pinEl) pinEl.focus(); return; }
-  if (pin.length < 4 || pin.length > 12) { _tcSetStatus(statusEl, 'err', 'PIN은 4~12자로 입력해주세요.'); return; }
+  if (!/^[0-9]{4,6}$/.test(pin)) { _tcSetStatus(statusEl, 'err', 'PIN은 숫자 4~6자리로 입력해 주세요.'); if (pinEl) pinEl.focus(); return; }
 
   /* 학생 입장과 동일 인코딩 재사용 — teamKey 일치 보장 */
   const teamKey = encodeURIComponent(name);

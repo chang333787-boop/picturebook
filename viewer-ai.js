@@ -2238,8 +2238,14 @@
       const locked = _isAiVariantViewMode();
       if (!locked) return;   /* 원본 보기 → 전부 활성(리셋만으로 끝) */
 
-      /* ── 1) 기본: panel 전체 pointerEvents 차단(원본 컨트롤 변형 원천 차단) ── */
-      panel.style.pointerEvents = 'none';
+      /* ── 1) 기본: 컨트롤 영역(.edit-panel-inner)만 pointerEvents 차단(원본 컨트롤 변형 원천 차단).
+         ⚠ #edit-panel(=overflow-y:auto 스크롤 컨테이너)에는 걸지 않는다. 컨테이너에 걸면
+         AI 문장점검/장면발전 보기에서 패널이 길어질 때 휠/터치가 컨테이너에 닿지 못해
+         세로 스크롤이 통째로 막힌다(URGENT-UI-FIX-AI-SIDEPANEL). 모든 컨트롤은 inner 안에
+         있으므로 잠금 효과는 동일(자식 재활성도 inner의 none 상속/auto 오버라이드로 그대로 동작).
+         실 저장 차단 안전망은 핸들러 가드(_isVariantViewLocked 등)라 보안에도 영향 없음. */
+      const lockTarget = panel.querySelector('.edit-panel-inner') || panel;
+      lockTarget.style.pointerEvents = 'none';
 
       /* 조상 체인의 opacity를 1로 되돌림(panel 직전까지). 슬라이더/네비를 밝게 보이려면
          그 조상이 흐려져 있으면 안 됨(opacity 곱셈 회피). */
@@ -2288,7 +2294,7 @@
             }
           }
           /* 같은 섹션 안 폰트/색/굵기 행 흐림(체인 밝히기로 1이 됐을 수 있어 다시 0.5).
-             pointerEvents는 명시하지 않음 → panel의 none 상속으로 잠김 유지. */
+             pointerEvents는 명시하지 않음 → inner의 none 상속으로 잠김 유지. */
           sec.querySelectorAll('.edit-font-select, .edit-color-row, .edit-color-picker,'
             + ' .js-edit-text-font, .js-edit-pb-font, .js-edit-text-color-pick, .js-edit-pb-color-pick,'
             + ' .js-edit-text-weight, .js-edit-pb-weight').forEach(function (ctrl) {

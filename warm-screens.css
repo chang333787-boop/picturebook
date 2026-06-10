@@ -340,3 +340,88 @@
   padding: var(--s5) 0 var(--s2);
   display: flex; justify-content: center; gap: var(--s3);
 }
+
+/* ════════════════════════════════════════════════
+   HOME-RESPONSIVE-1 (2026-06-10) — 첫 화면 반응형
+   대상: .wh* (index.html 홈 전용 — 이 파일은 index.html에서만 로드됨)
+   maker/viewer/admin/AI/데이터 무관 · 순수 레이아웃 CSS
+   ════════════════════════════════════════════════ */
+
+/* ── 좁은 데스크톱 · 태블릿 세로: 패딩/간격/카드 footprint 정리 ── */
+@media (max-width: 980px) {
+  .v .wh { padding: var(--s7) var(--s5); }
+  .v .wh__main { gap: var(--s6); max-width: 760px; }
+  .v .wh__title { font-size: 46px; }
+  .v .wh__cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--s4);
+  }
+  .v .wh-card { padding: var(--s5) var(--s4) var(--s4); }
+  .v .wh-card--make { min-height: 0; }
+  .v .wh-card__title { font-size: 21px; }
+  .v .wh-card__desc { font-size: 13px; line-height: 1.6; }
+  .v .wh-card__icon { width: 48px; height: 48px; font-size: 24px; }
+}
+
+/* ── 가로 화면이 낮을 때(태블릿 가로 포함): 위에서부터 흐르게 + 스크롤 허용 ──
+   center 정렬이 뷰포트보다 큰 내용을 위아래로 밀어 하단이 잘리는 현상 방지. */
+@media (orientation: landscape) and (max-height: 860px) {
+  .v .w-screen { overflow-y: auto; }
+  .v .wh { justify-content: flex-start; padding-top: var(--s6); padding-bottom: var(--s6); }
+}
+
+/* ── 모바일 세로: 3카드 → 1열 세로 카드 (가로로 찢어지는 글자 방지) ── */
+@media (max-width: 640px) and (orientation: portrait) {
+  .v .w-screen { overflow-y: auto; }
+  .v .wh { padding: var(--s6) var(--s4); justify-content: flex-start; }
+  .v .wh__main { gap: var(--s5); max-width: 100%; }
+  .v .wh__title { font-size: 40px; }
+  .v .wh__sub { font-size: 15px; line-height: 1.7; }
+  .v .wh__cards {
+    grid-template-columns: 1fr;
+    gap: var(--s4);
+  }
+  .v .wh-card {
+    width: 100%;
+    min-height: 0;
+  }
+  .v .wh-card__title,
+  .v .wh-card__desc,
+  .v .wh-card__kicker { word-break: keep-all; }
+
+  /* 학급 코드 입력 — 화면 폭 안에 들어오게 + 줄바꿈 허용 */
+  .v .wh__quick {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--s2) var(--s3);
+    padding: var(--s4);
+    width: 100%;
+  }
+  .v .wh__quick-input { width: auto; flex: 1 1 140px; min-width: 0; }
+  .v .wh__quick-divider { display: none; }
+}
+
+/* ── 모바일 가로(낮은 높이): 카드 가로 스크롤 + compact ── */
+@media (orientation: landscape) and (max-height: 560px) {
+  .v .wh { padding: var(--s5); }
+  .v .wh__main { gap: var(--s4); max-width: 100%; }
+  .v .wh__eyebrow { font-size: 17px; margin-bottom: 0; }
+  .v .wh__title { font-size: 34px; margin-bottom: var(--s2); }
+  .v .wh__sub { font-size: 13px; line-height: 1.5; }
+  .v .wh__cards {
+    display: flex;
+    overflow-x: auto;
+    gap: var(--s4);
+    scroll-snap-type: x mandatory;
+    padding-bottom: var(--s2);
+    -webkit-overflow-scrolling: touch;
+  }
+  .v .wh-card {
+    flex: 0 0 min(260px, 74vw);
+    min-height: 0;
+    scroll-snap-align: start;
+    padding: var(--s4);
+  }
+  .v .wh-card__icon { width: 40px; height: 40px; font-size: 20px; }
+  .v .wh-card__desc { font-size: 12px; line-height: 1.5; }
+}

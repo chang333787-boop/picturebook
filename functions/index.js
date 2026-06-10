@@ -91,6 +91,9 @@ const ALLOWED_ORIGINS = [
   /* 'https://branch-picturebook.web.app', */
   /* 'https://branch-picturebook.firebaseapp.com', */
 
+  /* 운영 — GitHub Pages (location.origin = 경로/슬래시 없는 scheme+host) */
+  'https://chang333787-boop.github.io',
+
   /* 로컬 개발 */
   'http://localhost:8765',
   'http://localhost:8000',

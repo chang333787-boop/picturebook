@@ -64,6 +64,8 @@ window.addEventListener('DOMContentLoaded', () => {
     const moreBtn     = e.target.closest('.js-admin-more');
     const publicBtn   = e.target.closest('.js-admin-toggle-public');
     const issueBtn    = e.target.closest('.js-admin-issue-code');
+    const pinBtn      = e.target.closest('.js-admin-pin');     // ADMIN-1D: 등록 팀 PIN 변경
+    const lockBtn     = e.target.closest('.js-admin-lock');    // ADMIN-1D: 등록 팀 잠금/해제
 
     if (makerBtn)  _openMaker(makerBtn.dataset.name);
     if (viewerBtn) _openViewer(viewerBtn.dataset.name);
@@ -72,6 +74,8 @@ window.addEventListener('DOMContentLoaded', () => {
     if (moreBtn)   _toggleMoreMenu(moreBtn);
     if (publicBtn) _toggleIsPublic(publicBtn.dataset.encoded, publicBtn.dataset.name, publicBtn.dataset.public === 'true');
     if (issueBtn)  _issueCopyCodeFlow(issueBtn.dataset.encoded, issueBtn.dataset.name);
+    if (pinBtn)    _changeTeamPin(pinBtn.dataset.encoded, pinBtn.dataset.name);
+    if (lockBtn)   _toggleTeamLock(lockBtn.dataset.encoded, lockBtn.dataset.name, lockBtn.dataset.status);
   });
 
   /* 2026-06: 수동 새로고침 — 캐시 무효화 후 강제 재읽기. summary bar는 정적 요소라
@@ -1086,8 +1090,18 @@ function _teamCardHtml(t) {
     ${t.isPublic ? '🌐 공개 중' : '🔒 비공개'}
   </button>`;
   const detailBtn = `<button class="admin-action-btn admin-action-btn--detail js-admin-detail" data-encoded="${t.encodedName}" title="상세 보기">상세</button>`;
+  /* ADMIN-1D: account가 있는 등록 팀에만 PIN 변경 / 잠금·해제 메뉴 노출.
+     account 없는 기존 팀에는 절대 표시하지 않음(버튼 숨김). */
+  const accountMenuItems = t.registered
+    ? `<button class="admin-more-item js-admin-pin" data-encoded="${t.encodedName}" data-name="${t.name}">🔑 PIN 변경</button>
+      ${t.accountStatus === 'locked'
+        ? `<button class="admin-more-item js-admin-lock" data-encoded="${t.encodedName}" data-name="${t.name}" data-status="locked">🔓 잠금 해제</button>`
+        : `<button class="admin-more-item js-admin-lock" data-encoded="${t.encodedName}" data-name="${t.name}" data-status="active">🔒 잠금</button>`}`
+    : '';
+
   const moreBtn   = `<button class="admin-action-btn admin-action-btn--more js-admin-more" title="더 보기">⋯</button>
     <div class="admin-more-menu" style="display:none;">
+      ${accountMenuItems}
       <button class="admin-more-item js-admin-issue-code" data-encoded="${t.encodedName}" data-name="${t.name}">📤 복사 코드 발급</button>
       <button class="admin-more-item js-admin-delete" data-encoded="${t.encodedName}" data-name="${t.name}">🗑 팀 삭제</button>
     </div>`;
@@ -1176,6 +1190,81 @@ async function _toggleIsPublic(encodedName, teamName, currentIsPublic) {
     _renderTeamList();
   } catch (err) {
     alert(`❌ ${label} 전환 실패: ${err.message}`);
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   ADMIN-1D: 등록 팀 account 관리 — PIN 변경 / 잠금·해제
+   ──────────────────────────────────────────────────────────────
+   · account child(pin/status/updatedAt)만 update. account 전체 set 금지.
+   · 기존 teams/{teamKey}/pin · scenes · viewer-meta 등 절대 미접근.
+   · 잠금은 팀 삭제가 아님 — 작품 데이터 유지, 학생 입장만 차단(teacher_managed
+     입장 로직이 account.status === 'locked'를 이미 막음).
+   ════════════════════════════════════════════════════════════════ */
+function _accountRef(encodedName) {
+  /* v2 + classId일 때만 account 경로가 유효. (등록 팀은 v2 전제) */
+  if (DATA_PATH_VERSION === 'v2' && adminState.adminClassId) {
+    return db.ref(`classes/${adminState.adminClassId}/teams/${encodedName}/account`);
+  }
+  return null;
+}
+
+function _adminAccountErr(err, fallbackLabel) {
+  const errMsg = (err && (err.code || err.message)) ? String(err.code || err.message) : '';
+  if (/PERMISSION_DENIED|permission[_ ]?denied/i.test(errMsg)) {
+    alert('권한이 없어 ' + fallbackLabel + '을(를) 못 했어요. (보안 규칙 확인이 필요해요)');
+  } else {
+    alert('❌ ' + fallbackLabel + ' 실패: ' + (err.message || err.code || '알 수 없는 오류'));
+  }
+}
+
+async function _changeTeamPin(encodedName, displayName) {
+  if (!adminState.verified) return;
+  const ref = _accountRef(encodedName);
+  if (!ref) { alert('이 팀의 계정 정보를 찾을 수 없어요.'); return; }
+
+  const input = prompt(`"${displayName}" 팀의 새 PIN을 숫자 4~6자리로 입력해 주세요.`);
+  if (input === null) return;                 /* 취소 → 아무것도 안 함 */
+  const newPin = input.trim();
+  if (!/^[0-9]{4,6}$/.test(newPin)) {
+    alert('PIN은 숫자 4~6자리로 입력해 주세요. 변경을 취소했어요.');
+    return;
+  }
+
+  try {
+    /* ⚠️ pin·updatedAt child만 update */
+    await ref.update({ pin: newPin, updatedAt: Date.now() });
+    alert(`✅ "${displayName}" 팀의 PIN을 바꿨어요. (새 PIN: ${newPin})`);
+    _invalidateAdminCache('change-team-pin');
+  } catch (err) {
+    _adminAccountErr(err, 'PIN 변경');
+  }
+}
+
+async function _toggleTeamLock(encodedName, displayName, currentStatus) {
+  if (!adminState.verified) return;
+  const ref = _accountRef(encodedName);
+  if (!ref) { alert('이 팀의 계정 정보를 찾을 수 없어요.'); return; }
+
+  const newStatus = (currentStatus === 'locked') ? 'active' : 'locked';
+  const confirmMsg = (newStatus === 'locked')
+    ? `"${displayName}" 팀을 잠글까요?\n잠금 상태에서는 학생이 이 팀으로 입장할 수 없어요. (작품 데이터는 그대로 유지돼요.)`
+    : `"${displayName}" 팀의 잠금을 해제할까요?\n해제하면 학생이 다시 입장할 수 있어요.`;
+  if (!confirm(confirmMsg)) return;
+
+  try {
+    /* ⚠️ status·updatedAt child만 update */
+    await ref.update({ status: newStatus, updatedAt: Date.now() });
+    /* 카드 즉시 갱신 — allTeams 상태 반영 후 리렌더 */
+    const team = adminState.allTeams.find(t => t.encodedName === encodedName);
+    if (team) team.accountStatus = newStatus;
+    _invalidateAdminCache('toggle-team-lock');
+    _renderTeamList();
+    alert(newStatus === 'locked'
+      ? `🔒 "${displayName}" 팀을 잠갔어요.`
+      : `🔓 "${displayName}" 팀의 잠금을 풀었어요.`);
+  } catch (err) {
+    _adminAccountErr(err, (newStatus === 'locked') ? '잠금' : '잠금 해제');
   }
 }
 

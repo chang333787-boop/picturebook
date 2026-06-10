@@ -224,6 +224,8 @@ async function _loadAdminDataV2() {
   _renderClassBar(resolvedClassId);
   /* Phase 1: 학급 AI 설정 패널 */
   _renderAiSettingsPanel(resolvedClassId);
+  /* ADMIN-1B: 교사 팀/학생 계정 사전 생성 패널 */
+  _renderTeamCreatePanel(resolvedClassId);
 
   list.innerHTML = '<div class="admin-loading">팀 목록을 불러오는 중...</div>';
 
@@ -240,7 +242,8 @@ async function _loadAdminDataV2() {
       const scenes   = Object.values(teamData.scenes || {});
       const isPublic = teamData['viewer-meta']?.isPublic === true;
       const meta     = teamData['viewer-meta'] || {};
-      return _analyzeTeam(encodedName, scenes, isPublic, meta);
+      const account  = teamData.account || null;   // ADMIN-1B: 교사 사전 등록 메타
+      return _analyzeTeam(encodedName, scenes, isPublic, meta, account);
     });
     /* 2026-06 캐시 기록 — 성공 로드 시각/대상 classId. 다음 60초간 재진입 시 재읽기 생략. */
     adminState.allTeamsLoadedAt = Date.now();
@@ -450,6 +453,118 @@ async function _saveAiSettings(classId, state, panel, saveBtn, statusEl) {
   }
 }
 
+/* ════════════════════════════════════════════════════════════════
+   ADMIN-1B: 교사 팀/학생 계정 사전 생성 패널
+   ──────────────────────────────────────────────────────────────
+   · 교사가 팀명 + PIN을 미리 등록 → classes/{classId}/teams/{teamKey}/account
+   · account child만 set. 기존 scenes/viewer-meta/pin 등은 건드리지 않음.
+   · 완전히 새 teamKey(팀 노드 없음)에만 생성. 기존 팀이면 생성 중단(안전 우선).
+   · teamKey는 학생 입장과 동일하게 encodeURIComponent(팀명) — 키 일치 보장.
+   · 학생 입장 로직은 아직 account를 읽지 않음 — 연결은 ADMIN-1C에서.
+   ⚠️ 현재 database.rules.json에는 teams/$team/account 쓰기 규칙이 없어,
+      실제 write는 규칙 적용(다음 단계) 전까지 PERMISSION_DENIED일 수 있음.
+      → 에러 핸들러가 이를 교사 친화 문구로 안내.
+   ════════════════════════════════════════════════════════════════ */
+function _renderTeamCreatePanel(classId) {
+  const panel = document.getElementById('admin-team-create');
+  if (!panel || !classId) return;
+  panel.style.display = 'block';
+  panel.innerHTML = `
+    <div class="admin-tc-head">
+      <div class="admin-tc-title">👥 학생/팀 계정 미리 만들기</div>
+      <div class="admin-tc-desc">팀 이름과 PIN을 정해 두면 학생들이 같은 이름으로 들어올 수 있어요.</div>
+    </div>
+    <div class="admin-tc-form">
+      <input id="admin-tc-name" class="admin-tc-input" type="text" maxlength="30"
+        placeholder="팀 이름 (예: 2모둠)" autocomplete="off"/>
+      <input id="admin-tc-pin" class="admin-tc-input admin-tc-input--pin" type="text" maxlength="12"
+        placeholder="PIN (4~12자)" autocomplete="off"/>
+      <button id="admin-tc-create" class="admin-tc-btn">팀 만들기</button>
+    </div>
+    <div id="admin-tc-status" class="admin-tc-status"></div>
+  `;
+  const nameEl   = document.getElementById('admin-tc-name');
+  const pinEl    = document.getElementById('admin-tc-pin');
+  const btn      = document.getElementById('admin-tc-create');
+  const statusEl = document.getElementById('admin-tc-status');
+  if (!btn) return;
+  btn.addEventListener('click', () => _createTeamAccount(classId, nameEl, pinEl, btn, statusEl));
+  [nameEl, pinEl].forEach(el => el && el.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); btn.click(); }
+  }));
+}
+
+function _tcSetStatus(statusEl, kind, msg) {
+  if (!statusEl) return;
+  statusEl.className = 'admin-tc-status admin-tc-status--' + kind;
+  statusEl.textContent = msg;
+}
+
+async function _createTeamAccount(classId, nameEl, pinEl, btn, statusEl) {
+  if (!adminState.verified || !classId) return;
+  const name = ((nameEl && nameEl.value) || '').trim();
+  const pin  = ((pinEl && pinEl.value) || '').trim();
+
+  /* 최소 검증 — 팀 이름 1~30자, PIN 4~12자 */
+  if (!name) { _tcSetStatus(statusEl, 'err', '팀 이름을 입력해주세요.'); if (nameEl) nameEl.focus(); return; }
+  if (name.length > 30) { _tcSetStatus(statusEl, 'err', '팀 이름은 30자 이내로 입력해주세요.'); return; }
+  if (!pin)  { _tcSetStatus(statusEl, 'err', 'PIN을 입력해주세요.'); if (pinEl) pinEl.focus(); return; }
+  if (pin.length < 4 || pin.length > 12) { _tcSetStatus(statusEl, 'err', 'PIN은 4~12자로 입력해주세요.'); return; }
+
+  /* 학생 입장과 동일 인코딩 재사용 — teamKey 일치 보장 */
+  const teamKey = encodeURIComponent(name);
+  const uid = (typeof auth !== 'undefined' && auth.currentUser) ? auth.currentUser.uid : null;
+
+  btn.disabled = true;
+  const prevLabel = btn.textContent;
+  btn.textContent = '만드는 중...';
+  _tcSetStatus(statusEl, 'info', '');
+
+  try {
+    const teamRef = db.ref(`classes/${classId}/teams/${teamKey}`);
+    const snap = await teamRef.once('value');
+
+    /* 안전 정책: 완전히 새 teamKey에만 account 생성. 기존 팀이면 중단. */
+    if (snap.exists()) {
+      const v = snap.val() || {};
+      if (v.account) {
+        _tcSetStatus(statusEl, 'err', `"${name}" 은(는) 이미 등록된 팀이에요.`);
+      } else {
+        _tcSetStatus(statusEl, 'err', `"${name}" 은(는) 이미 작품 데이터가 있는 팀이에요. 기존 팀 등록은 다음 단계에서 처리해요.`);
+      }
+      btn.disabled = false; btn.textContent = prevLabel;
+      return;
+    }
+
+    const now = Date.now();
+    /* ⚠️ account child만 set — 기존 scenes/viewer-meta/pin 등 미접근 */
+    await teamRef.child('account').set({
+      displayName: name,
+      pin,
+      status:    'active',
+      createdBy: uid,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    _tcSetStatus(statusEl, 'ok', `✓ "${name}" 팀을 만들었어요. (PIN: ${pin})`);
+    if (nameEl) nameEl.value = '';
+    if (pinEl)  pinEl.value = '';
+    btn.disabled = false; btn.textContent = prevLabel;
+    _invalidateAdminCache('create-team-account');
+    /* 1.5초 후 목록 새로고침 — 성공 문구를 잠시 보여주고 재렌더 */
+    setTimeout(() => loadAdminData(), 1500);
+  } catch (err) {
+    const errMsg = (err && (err.code || err.message)) ? String(err.code || err.message) : '';
+    if (/PERMISSION_DENIED|permission[_ ]?denied/i.test(errMsg)) {
+      _tcSetStatus(statusEl, 'err', '아직 보안 규칙이 적용되지 않아 팀을 만들 수 없어요. (다음 단계에서 규칙 적용 후 사용 가능)');
+    } else {
+      _tcSetStatus(statusEl, 'err', '팀 만들기 실패: ' + (err.message || err.code || '알 수 없는 오류'));
+    }
+    btn.disabled = false; btn.textContent = prevLabel;
+  }
+}
+
 /* v94: 빈 상태 — 작품 없을 때 학생 안내 */
 function _renderEmptyGuide() {
   const list = document.getElementById('admin-team-list');
@@ -486,7 +601,7 @@ function _escHtml(s) {
    · entry/replay는 명시 설정(meta) 우선 → 없으면 start scene fallback
    · entryValid/replayValid = 실제 scenes에 존재하는 장면을 가리키는지
    ================================================================ */
-function _analyzeTeam(encodedName, scenes, isPublic = false, meta = {}) {
+function _analyzeTeam(encodedName, scenes, isPublic = false, meta = {}, account = null) {
   const name     = decodeURIComponent(encodedName);
   const total    = scenes.length;
   const endings  = scenes.filter(s => s.type === 'ending').length;
@@ -608,6 +723,9 @@ function _analyzeTeam(encodedName, scenes, isPublic = false, meta = {}) {
     projectType, modeLabel,
     /* 2026-05-29 admin 3차: 미연결 버튼 수 박은 거 — 카드 배지 + problems 박힘 */
     unconnectedButtons,
+    /* ADMIN-1B: 교사 사전 등록(account) 여부/상태 — 카드 배지 표시용 */
+    registered:    !!account,
+    accountStatus: (account && account.status) ? account.status : null,
   };
 }
 
@@ -840,6 +958,10 @@ function _teamCardHtml(t) {
   /* 2026-05-29 admin 1차: 작품 모드 배지 — 카드 첫 자리에 박음 (가장 자주 박는 정보).
      모드 박혀있을 때만 박음 — 미선택은 박지 X (시각 잡음 차단). */
   if (t.projectType) badges.push(`<span class="admin-badge admin-badge--mode">📚 ${_escHtml(t.modeLabel)}</span>`);
+  /* ADMIN-1B: 교사 사전 등록 팀 배지 (account 존재 시). 상태 locked면 잠김 표시. */
+  if (t.registered) badges.push(t.accountStatus === 'locked'
+    ? '<span class="admin-badge admin-badge--locked">🔒 잠김</span>'
+    : '<span class="admin-badge admin-badge--registered">✅ 등록됨</span>');
   if (t.trueEnds > 0) badges.push('<span class="admin-badge admin-badge--true">⭐ 진엔딩</span>');
   if (t.hasImage)     badges.push('<span class="admin-badge admin-badge--img">🖼 이미지</span>');
   if (t.status === 'in-progress' && t.total > 0)

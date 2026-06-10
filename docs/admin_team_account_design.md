@@ -289,6 +289,86 @@ classes/{classId}/settings/allowStudentTeamCreate = true | false
 
 ---
 
-- **문서 상태:** 설계(design) — 구현 전. 본 문서는 ADMIN-1A.
-- **기준 HEAD:** `2080f20`
-- **다음 단계 후보:** ADMIN-1B (adminConsole 팀 계정 생성 UI)
+## 14. ADMIN-1B~1E 완료 상태 (관리모드 1차 마감)
+
+> ✅ **이 섹션은 마감(closeout) 기록입니다.** 위 1~13장은 설계 청사진이고,
+> 아래는 실제 구현·QA가 끝난 현재 상태를 정리한 것입니다.
+
+### 14-1. 완료 범위 — ADMIN-1B~1E 관리모드 1차 완료
+
+- 교사 관리화면에서 **팀/학생 계정 사전 생성** (ADMIN-1B)
+- **교사 등록 팀만 입장** 모드 설정 (`teamCreationMode`, ADMIN-1C)
+- teacher_managed에서 **미등록 팀 자동 생성 차단** (ADMIN-1C)
+- 등록 팀 **PIN 변경** (ADMIN-1D)
+- 등록 팀 **잠금/해제** (ADMIN-1D)
+- account 없는 **기존 팀을 관리팀으로 등록** (ADMIN-1E)
+- **실화면 QA 통과** (1C-QA / 1D-QA / 1E-QA)
+
+### 14-2. 현재 최신 HEAD
+
+```
+1620c46
+```
+
+### 14-3. 단계별 커밋 이력
+
+| 단계 | 내용 | commit |
+|---|---|---|
+| ADMIN-1A | 설계 문서(본 문서) | `9564039` |
+| ADMIN-1B | 교사 팀/학생 계정 사전 생성 UI | `e2b5a25` |
+| ADMIN-1B-RULES | `teams/{key}/account` write rule + 배포 | `90493de` |
+| ADMIN-1C-RULES | `settings/teamCreationMode` rule + 배포 | `e0e6cb7` |
+| ADMIN-1C | teacher_managed 학생 입장/재입장 | `7baf9c2` |
+| ADMIN-1C-PINFIX | admin/학생 PIN 조건 숫자 4~6자리 통일 | `dc2e6df` |
+| ADMIN-1D | 등록 팀 PIN 변경 / 잠금·해제 | `acc8206` |
+| ADMIN-1E | 기존 무계정 팀 → 관리팀 등록 | `1620c46` |
+
+> 참고: rules는 `database`만 배포됨(account write, teamCreationMode). functions/storage/hosting은 무변경.
+> 학생 입장 로직 변경은 ADMIN-1C(`firebase.js`) 1건뿐이며 기본/오류 폴백은 항상 `legacy_open`.
+
+### 14-4. 운영 가능 흐름
+
+```
+교사 팀 사전 생성
+  → 학생에게 팀명/PIN 안내
+  → "교사 등록 팀만" 입장 설정(teamCreationMode = teacher_managed)
+  → 학생은 등록 팀/PIN으로 입장
+  → PIN 분실 시 교사가 PIN 변경
+  → 필요 시 팀 잠금/해제
+  → 기존 팀도 "관리팀으로 등록" 가능
+```
+
+데이터 모델: `classes/{classId}/teams/{teamKey}/account = { displayName, pin, status, createdBy, createdAt, updatedAt, (migratedFromLegacy) }`.
+입장 정책: `classes/{classId}/settings/teamCreationMode ∈ { legacy_open(기본), teacher_managed, locked }`.
+
+### 14-5. 아직 하지 않은 것
+
+- **PIN hash 미적용** (단기 평문 유지)
+- **rules hardening 미완료** (account.pin/displayName validate를 더 좁히지 않음, 현 단계는 UI 제한 위주)
+- **scenes write isolation 미완료** (팀 간 scenes 격리는 rules 기반 membership 매핑 필요)
+- **Storage orphan cleanup 미완료** (팀 삭제 시 이미지 정리 Function 없음)
+- **마스터 관리자 기능 미구현**
+- **교사 승인/정지 기능 미구현**
+
+### 14-6. 다음 로드맵
+
+```
+MASTER-0: 마스터 관리자 설계 조사
+MASTER-1: 마스터 권한 모델 설계
+MASTER-2: 마스터 read-only 대시보드
+MASTER-3: 교사 승인/정지
+ADMIN-1F: rules 강화 — 운영데이터 영향으로 별도 안전 단계로 보류
+```
+
+### 14-7. 주의사항
+
+> **ADMIN-1F(rules 강화)는 바로 하지 않는다.** 운영데이터 영향이 있으므로
+> read-only 조사 + 백업/검증 계획을 먼저 세운 뒤 별도 안전 단계로 진행한다.
+> (account.pin을 숫자 4~6자리로 좁히기, scenes 격리 등은 기존 테스트/운영 데이터와
+> 충돌 위험이 있어 UI 제한이 우선이고 rules는 나중.)
+
+---
+
+- **문서 상태:** 설계(1~13장) + 마감 기록(14장). ADMIN-1B~1E 구현·QA 완료.
+- **설계 기준 HEAD:** `2080f20` · **마감 기준 HEAD:** `1620c46`
+- **다음 단계:** MASTER-0 (마스터 관리자 설계 조사)

@@ -183,6 +183,7 @@
     .ptype-sub{
       font-size:15px;color:#4a3820;
       margin:0 auto 40px;line-height:1.7;max-width:520px;
+      word-break:keep-all;   /* 한글 단어 중간 끊김 방지 (예: '작/업해요' → 어절 단위 줄바꿈) */
     }
     .ptype-grid{
       display:grid;grid-template-columns:repeat(2,1fr);
@@ -275,6 +276,7 @@
     }
     .ptype-card-desc{
       font-size:13px;color:#4a3820;line-height:1.7;margin:0;
+      word-break:keep-all;   /* 카드 설명도 어절 단위 줄바꿈 */
     }
     /* 이전에 선택한 모드 — 코랄 보더 + "이전 선택" 배지 */
     .ptype-card.previously-selected{
@@ -309,6 +311,29 @@
       filter:grayscale(0.4);
     }
     .ptype-card.is-disabled:hover{ transform:none; }
+
+    /* 2026-06-10 모바일 보정 (PTYPE-MOBILE-A 콤팩트 세로카드).
+       ⚠️ 이 블록은 위 .ptype-* 기본 정의보다 "뒤"에 있어야 override 가 먹습니다
+          (동일 특이성 → 나중 소스 우선). 위쪽 @media(max-width:700px)의 grid 1열 규칙과 별개.
+       ① 핵심 버그 픽스 — align-items:center 가 넘치는 콘텐츠 윗부분을 화면 밖으로 밀어내
+          제목이 안 보이고 스크롤로도 위로 못 가던 문제 → flex-start(위 정렬)로 전환.
+       ② 카드/헤더 콤팩트화로 세로 길이 절감. 모드별 커버 무드(노트줄·파스텔·필름)는 유지.
+       태블릿/데스크톱(>700px) 무영향. */
+    @media (max-width:700px){
+      #ptype-screen{ align-items:flex-start; padding:20px 16px 28px; }
+      #ptype-screen::before{ top:14px; }   /* 종이 테이프 위로 — 위 정렬 시 로고와 겹침 방지 */
+      .ptype-grid{ gap:12px; margin-bottom:8px; }
+      .ptype-logo{ font-size:19px; margin-bottom:2px; }
+      .ptype-title{ font-size:26px; margin:0 0 6px; }
+      .ptype-sub{ font-size:13px; line-height:1.55; margin:0 auto 18px; max-width:340px; }
+      .ptype-card{ grid-template-rows:84px 1fr; border-radius:16px; }
+      .ptype-card::before{ height:84px; }
+      .ptype-card-icon{ font-size:38px; }
+      .ptype-card-body{ padding:11px 16px 13px; gap:3px; }
+      .ptype-card-name{ font-size:18px; }
+      .ptype-card-desc{ font-size:12.5px; line-height:1.4; }
+      .ptype-card-prev-badge{ top:10px; right:10px; font-size:10px; padding:2px 8px; }
+    }
 
     /* v40: 복사 코드 모달 (발급/받기 공용) */
     .copy-code-modal{
@@ -2461,7 +2486,7 @@
   <div class="join-card">
     <p class="join-logo">ㅡ 함께 만들어요 ㅡ</p>
     <h1 class="join-title">작품 <span class="join-title-accent">만들기</span></h1>
-    <p class="join-sub">클래스 코드·팀 이름·PIN을 입력해요</p>
+    <p class="join-sub">선생님이 알려준 클래스 코드, 팀 이름, PIN을 입력해요</p>
 
     <!-- 클래스 코드 입력 (v2에서만 표시 — js로 토글) -->
     <div id="join-code-wrap" style="display:none;">
@@ -2475,8 +2500,8 @@
     <div id="join-error" class="join-error"></div>
     <button class="join-btn" id="btn-join">입장하기 →</button>
     <div class="join-hint">
-      처음 입장하는 팀이면 입력한 PIN으로 새로 만들어져요<br>
-      같은 팀은 같은 클래스 코드·팀 이름·PIN으로 이어서 작업해요
+      선생님이 안내한 팀 이름과 PIN으로 들어가요<br>
+      같은 팀은 같은 정보로 다시 이어서 작업할 수 있어요
     </div>
     <p style="text-align:center;margin:14px 0 0;font-size:12px;">
       <a href="./privacy.html" target="_blank" rel="noopener"

@@ -370,58 +370,99 @@
   .v .wh { justify-content: flex-start; padding-top: var(--s6); padding-bottom: var(--s6); }
 }
 
-/* ── 모바일 세로: 3카드 → 1열 세로 카드 (가로로 찢어지는 글자 방지) ── */
+/* ════════════════════════════════════════════════
+   HOME-MOBILE-UX-1 (2026-06-10) — 모바일 전용 첫 화면
+   데스크톱 큰 카드를 억지로 줄이지 않고, 모바일은 compact "가로 행" 메뉴로 전환.
+   세로 = 1열 행 스택 / 가로 = 좌(로고)·우(카드 목록) 분할.
+   ════════════════════════════════════════════════ */
+
+/* ── 카드 자체를 compact 가로 행으로 (모바일 세로 + 모바일 가로 공통) ──
+   [아이콘]  제목 / 짧은 설명 ……… [버튼] */
+@media (max-width: 640px) and (orientation: portrait),
+       (orientation: landscape) and (max-height: 560px) {
+  .v .wh-card {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas:
+      "icon title cta"
+      "icon desc  cta";
+    align-items: center;
+    column-gap: 12px;
+    row-gap: 2px;
+    min-height: 0;
+    padding: 12px 14px;
+    border-radius: 18px;
+  }
+  .v .wh-card--make { min-height: 0; }
+  .v .wh-card__head { grid-area: icon; display: block; align-self: center; }
+  .v .wh-card .badge { display: none; }
+  .v .wh-card__icon { width: 40px; height: 40px; font-size: 20px; }
+  .v .wh-card__kicker { display: none; }
+  .v .wh-card__title {
+    grid-area: title; margin: 0;
+    font-size: 18px; line-height: 1.2; word-break: keep-all;
+  }
+  .v .wh-card__desc {
+    grid-area: desc; margin: 0; flex: none;
+    font-size: 12.5px; line-height: 1.35; color: var(--ink-2);
+    word-break: keep-all;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .v .wh-card__cta {
+    grid-area: cta; align-self: center; margin: 0;
+    white-space: nowrap; font-size: 13px; padding: 6px 12px;
+  }
+}
+
+/* ── 모바일 세로: compact 카드 1열 세로 스택 ── */
 @media (max-width: 640px) and (orientation: portrait) {
   .v .w-screen { overflow-y: auto; }
   .v .wh { padding: var(--s6) var(--s4); justify-content: flex-start; }
   .v .wh__main { gap: var(--s5); max-width: 100%; }
-  .v .wh__title { font-size: 40px; }
+  .v .wh__title { font-size: clamp(34px, 11vw, 44px); }
   .v .wh__sub { font-size: 15px; line-height: 1.7; }
-  .v .wh__cards {
-    grid-template-columns: 1fr;
-    gap: var(--s4);
-  }
-  .v .wh-card {
-    width: 100%;
-    min-height: 0;
-  }
-  .v .wh-card__title,
-  .v .wh-card__desc,
-  .v .wh-card__kicker { word-break: keep-all; }
+  .v .wh__cards { grid-template-columns: 1fr; gap: var(--s3); }
 
-  /* 학급 코드 입력 — 화면 폭 안에 들어오게 + 줄바꿈 허용 */
+  /* 학급 코드 입력 — 화면 폭 안에 + 줄바꿈 허용 */
   .v .wh__quick {
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: var(--s2) var(--s3);
-    padding: var(--s4);
-    width: 100%;
+    flex-wrap: wrap; justify-content: center;
+    gap: var(--s2) var(--s3); padding: var(--s4); width: 100%;
   }
   .v .wh__quick-input { width: auto; flex: 1 1 140px; min-width: 0; }
   .v .wh__quick-divider { display: none; }
 }
 
-/* ── 모바일 가로(낮은 높이): 카드 가로 스크롤 + compact ── */
+/* ── 모바일 가로(낮은 높이): 좌(로고)·우(카드 목록) 분할 — 하단 잘림 방지 ── */
 @media (orientation: landscape) and (max-height: 560px) {
-  .v .wh { padding: var(--s5); }
-  .v .wh__main { gap: var(--s4); max-width: 100%; }
-  .v .wh__eyebrow { font-size: 17px; margin-bottom: 0; }
-  .v .wh__title { font-size: 34px; margin-bottom: var(--s2); }
-  .v .wh__sub { font-size: 13px; line-height: 1.5; }
+  .v .w-screen { overflow-y: auto; }
+  .v .wh { padding: 12px 18px; justify-content: center; align-items: center; }
+  .v .wh__main {
+    display: grid;
+    grid-template-columns: 0.82fr 1.18fr;
+    grid-template-areas:
+      "hero cards"
+      "hero quick"
+      "hero privacy";
+    align-content: center;
+    align-items: center;
+    gap: 8px 22px;
+    max-width: 900px;
+  }
+  .v .wh__hero { grid-area: hero; align-self: center; }
+  .v .wh__eyebrow { font-size: 16px; margin-bottom: 2px; }
+  .v .wh__title { font-size: clamp(26px, 6.5vw, 40px); margin-bottom: 6px; }
+  .v .wh__sub { font-size: 12.5px; line-height: 1.4; }
   .v .wh__cards {
-    display: flex;
-    overflow-x: auto;
-    gap: var(--s4);
-    scroll-snap-type: x mandatory;
-    padding-bottom: var(--s2);
-    -webkit-overflow-scrolling: touch;
+    grid-area: cards;
+    display: grid; grid-template-columns: 1fr; gap: 8px;
+    max-height: calc(100dvh - 32px); overflow-y: auto;
   }
-  .v .wh-card {
-    flex: 0 0 min(260px, 74vw);
-    min-height: 0;
-    scroll-snap-align: start;
-    padding: var(--s4);
+  .v .wh__quick {
+    grid-area: quick; width: 100%;
+    flex-wrap: wrap; justify-content: center;
+    gap: var(--s2) var(--s3); padding: var(--s3) var(--s4);
   }
-  .v .wh-card__icon { width: 40px; height: 40px; font-size: 20px; }
-  .v .wh-card__desc { font-size: 12px; line-height: 1.5; }
+  .v .wh__quick-input { width: auto; flex: 1 1 120px; min-width: 0; }
+  .v .wh__quick-divider { display: none; }
+  .v .wh__main > p { grid-area: privacy; margin: 2px 0 0 !important; }
 }

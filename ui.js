@@ -780,6 +780,13 @@ window.addEventListener('DOMContentLoaded', () => {
       }
     }
   });
+  /* BASE10-2-FIX: projectType 확정 시 좌측 목록 재렌더.
+     빈 작품 로드 시 scenes 리스너가 projectType 도착 전에 빈 목록을 그려서
+     "기본 틀로 시작하기"(텍스트형 전용)가 안 보이는 로드순서 문제 보정.
+     firebase.js가 메타 도착마다 쏘는 mtb-project-ready 이벤트를 PC도 청취. */
+  window.addEventListener('mtb-project-ready', () => {
+    if (typeof renderSideList === 'function') renderSideList();
+  });
   document.getElementById('btn-check')      ?.addEventListener('click', checkStructure);
   document.getElementById('btn-export')     ?.addEventListener('click', exportJSON);
   document.getElementById('btn-import')     ?.addEventListener('click', () =>

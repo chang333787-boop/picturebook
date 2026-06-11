@@ -405,8 +405,8 @@ function _mtbRenderImpl(reason) {
       if (sc.trueEnding || sc.isTrueEnd) node.classList.add('mtb-node--true-ending');
     }
     if (isolatedSet.has(id)) node.classList.add('mtb-node--isolated');
-    /* 숫자 (num 또는 id) */
-    node.textContent = sc.num || id;
+    /* 숫자 (num 또는 id) — BASE10-1F: 기본 틀이면 표시명 보정(표지/1..8/결말) */
+    node.textContent = _mtbSceneDisplayLabel(sc, id, { short: true });
     /* v107: 노드 배지 — 분기수 (2~6) + 미완성 ⚠ (단 미연결 노드는 점선과 시각 중복 피해 ⚠ 박지 X) */
     const stat = nodeStats && nodeStats[id];
     if (stat) {
@@ -648,7 +648,8 @@ function _mtbEditPopulate(sc) {
   const subtitleIn = document.getElementById('mtb-edit-scene-subtitle');
 
   const isCover = (sc.type === 'cover' || sc.isCover);
-  if (titleEl) titleEl.textContent = isCover ? '표지' : `장면 ${sc.num || sc.id}`;
+  /* BASE10-1F: 표지/결말/장면 N 표시 보정 (데이터 키 불변) */
+  if (titleEl) titleEl.textContent = _mtbSceneDisplayLabel(sc, sc.num || sc.id);
   if (cardType) {
     cardType.className = 'mtb-edit-card-type';
     if (isCover) {
@@ -715,8 +716,12 @@ function _mtbEditRenderActions(sc) {
     const row = document.createElement('div');
     row.className = 'mtb-edit-action';
     /* v103: 연결 없으면 "+ 새 장면" 박음, 연결 있으면 "→ 장면 N" 박음 (탭 시 그 장면 편집 진입) */
+    /* BASE10-1F: 연결 대상 표시명 보정 (nextId 키는 그대로, 화면 라벨만) */
+    const nextLabel = btn.nextId
+      ? _mtbSceneDisplayLabel(scenes && scenes[btn.nextId], btn.nextId)
+      : '';
     const nextHtml = btn.nextId
-      ? `<span class="mtb-edit-action-next" data-idx="${idx}" title="장면 ${btn.nextId} 편집으로 이동">→ 장면 ${btn.nextId}</span>`
+      ? `<span class="mtb-edit-action-next" data-idx="${idx}" title="${_mtbEsc(nextLabel)} 편집으로 이동">→ ${_mtbEsc(nextLabel)}</span>`
       : `<button class="mtb-edit-action-new" data-idx="${idx}" title="새 장면 만들고 이어서 작성">+ 새 장면</button>`;
     row.innerHTML = `
       <div class="mtb-edit-action-num">${idx + 1}</div>
@@ -793,6 +798,27 @@ function _mtbEsc(s) {
   return String(s).replace(/[&<>"']/g, c => ({
     '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
   }[c]));
+}
+
+/* BASE10-1F: 표시명 보정 — 데이터/키는 그대로(1~10), 화면 라벨만 자연스럽게.
+   기본 틀(key1=표지 cover)인 경우 일반 장면 key N → "장면 (N-1)"로 당겨 표시.
+   cover→'표지', ending→'결말'. 비숫자/예외는 기존 값 그대로 폴백.
+   ⚠ nextId/Firebase 키/저장·삭제 id/정렬에는 절대 쓰지 말 것. 표시 전용. */
+function _mtbSceneDisplayLabel(scene, id, opts) {
+  const short = opts && opts.short;
+  if (!scene) return short ? String(id) : `장면 ${id}`;
+  if (scene.type === 'cover' || scene.isCover) return '표지';
+  if (scene.type === 'ending' || scene.isEnding) return '결말';
+  const numericId = Number(id != null ? id : scene.num);
+  const hasCoverAsOne = (typeof scenes === 'object' && scenes && scenes[1]
+    && (scenes[1].type === 'cover' || scenes[1].isCover));
+  let display;
+  if (!isNaN(numericId)) {
+    display = (hasCoverAsOne && numericId > 1) ? (numericId - 1) : numericId;
+  } else {
+    display = scene.num || id;
+  }
+  return short ? String(display) : `장면 ${display}`;
 }
 
 /* v106: buttons[] ↔ choiceA/B/nextA/B 동기화.
@@ -1071,7 +1097,7 @@ async function _mtbHandleMenuAction(sceneId, action, idx) {
           confirmText: '삭제하기',
           danger: true,
         })
-      : confirm(`장면 ${sc.num || sceneId} 삭제할까요?\n다른 장면에서 이 장면으로 연결된 게 끊어져요.`);
+      : confirm(`${_mtbSceneDisplayLabel(sc, sc.num || sceneId)} 삭제할까요?\n다른 장면에서 이 장면으로 연결된 게 끊어져요.`);
     if (!ok) return;
     if (typeof removeScene === 'function') {
       removeScene(sceneId);

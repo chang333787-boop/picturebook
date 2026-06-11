@@ -40,6 +40,31 @@ function _sceneRolesMaker(scene) {
   };
 }
 
+/* ================================================================
+   _getOutgoingIds — 한 장면의 다음 장면 id 목록 (CHECK-BUTTONS-1)
+   ─────────────────────────────────────────────────────────────
+   findAllRoutes의 분기 추출과 동일 우선순위로 outgoing을 판정.
+   · buttons[]가 있으면 buttons 기준 (최대 6개, nextId 있는 것만)
+   · buttons[]가 없으면 legacy nextA/nextB fallback
+       - nextA: 항상
+       - nextB: choiceCount > 1 일 때만
+   · 반환은 문자열 id 배열. 존재 여부 필터는 호출 측에서 (broken은 별도 검사).
+   ※ DOM 접근 없음 — scene 객체만 참조 */
+function _getOutgoingIds(scene) {
+  if (!scene) return [];
+  if (Array.isArray(scene.buttons) && scene.buttons.length) {
+    return scene.buttons
+      .slice(0, 6)
+      .map(b => b && b.nextId)
+      .filter(Boolean)
+      .map(String);
+  }
+  const out = [];
+  if (scene.nextA) out.push(String(scene.nextA));
+  if ((scene.choiceCount || 2) > 1 && scene.nextB) out.push(String(scene.nextB));
+  return out;
+}
+
 /* 모든 루트를 DFS로 탐색해 반환
    반환: [ [ step, ... ], ... ]
    step 종류:
@@ -190,8 +215,9 @@ function analyzeStructure() {
   if (!endings.length) items.push({ cls: 'check-error', msg: '❌ 엔딩 장면이 없어요.' });
   else items.push({ cls: 'check-ok', msg: `✅ 엔딩: ${endings.length}개 (${endings.map(e => e.num).join(', ')})` });
 
-  /* ── 연결 검사 (엔딩 아닌 장면 중 다음이 없는 것) ── */
-  const noConn = sceneArr.filter(s => s.type !== 'ending' && !s.nextA && !s.nextB);
+  /* ── 연결 검사 (엔딩 아닌 장면 중 다음이 없는 것) ──
+     CHECK-BUTTONS-1: buttons[].nextId 기반 작품도 인식 (legacy nextA/nextB fallback 유지). */
+  const noConn = sceneArr.filter(s => s.type !== 'ending' && _getOutgoingIds(s).length === 0);
   if (noConn.length) {
     items.push({
       cls: 'check-warn',
@@ -202,11 +228,13 @@ function analyzeStructure() {
     items.push({ cls: 'check-ok', msg: '✅ 모든 장면의 다음이 연결돼 있어요.' });
   }
 
-  /* ── 존재하지 않는 장면을 가리키는 링크 ── */
+  /* ── 존재하지 않는 장면을 가리키는 링크 ──
+     CHECK-BUTTONS-1: buttons[].nextId 도 broken 검사 (legacy nextA/nextB fallback은 helper가 처리). */
   const broken = [];
   sceneArr.forEach(s => {
-    if (s.nextA && !scenes[s.nextA]) broken.push(`장면 ${s.num} A → 없는 장면 ${s.nextA}`);
-    if (s.nextB && !scenes[s.nextB]) broken.push(`장면 ${s.num} B → 없는 장면 ${s.nextB}`);
+    _getOutgoingIds(s).forEach(id => {
+      if (!scenes[id]) broken.push(`장면 ${s.num} → 없는 장면 ${id}`);
+    });
   });
   broken.forEach(b => items.push({ cls: 'check-error', msg: '❌ ' + b }));
 
@@ -220,8 +248,8 @@ function analyzeStructure() {
       const s = scenes[n];
       if (!s) continue;
       reachable.add(n);
-      if (s.nextA && scenes[s.nextA]) stack.push(Number(s.nextA));
-      if (s.nextB && scenes[s.nextB]) stack.push(Number(s.nextB));
+      /* CHECK-BUTTONS-1: buttons[].nextId 까지 따라가 도달 가능성 계산 (legacy fallback 포함). */
+      _getOutgoingIds(s).forEach(id => { if (scenes[id]) stack.push(Number(id)); });
     }
     const unreachable = sceneArr.filter(s => !reachable.has(Number(s.num)));
     if (unreachable.length) {
@@ -239,8 +267,9 @@ function analyzeStructure() {
     const endingRoutes  = routes.filter(r => r[r.length-1].scene?.type === 'ending');
     const sceneCounts   = routes.map(r => r.filter(step => step.scene).length);
     const minLen        = Math.min(...sceneCounts), maxLen = Math.max(...sceneCounts);
+    /* CHECK-BUTTONS-1: 갈림길 = 유효한(존재하는) 다음 장면이 2개 이상 (buttons[]/legacy 공통). */
     const branchPoints  = sceneArr.filter(s =>
-      s.type !== 'ending' && s.nextA && s.nextB && scenes[s.nextA] && scenes[s.nextB]);
+      s.type !== 'ending' && _getOutgoingIds(s).filter(id => scenes[id]).length >= 2);
     const shortRoutes   = routes.filter(r => r.filter(s => s.scene).length <= 3);
 
     items.push({ cls: 'check-divider', msg: '── 작품 깊이 분석 ──' });

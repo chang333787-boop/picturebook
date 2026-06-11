@@ -1703,6 +1703,44 @@ function _mtbApplyThemeToAll(themeId) {
   if (typeof _mtbRender === 'function') setTimeout(_mtbRender, 100);
 }
 
+/* 단순 완료 알림 toast — 브라우저 alert 대신 화면 하단에 잠깐 떴다 사라짐.
+   maker.html은 pb-ai.css를 로드하지 않으므로 스타일을 1회만 자체 주입. */
+let _mtbToastTimer = null;
+function _mtbToast(message, ms) {
+  ms = typeof ms === 'number' ? ms : 2600;
+  if (!document.getElementById('mtb-toast-style')) {
+    const st = document.createElement('style');
+    st.id = 'mtb-toast-style';
+    st.textContent =
+      '.mtb-toast{position:fixed;left:50%;bottom:28px;transform:translate(-50%,16px);z-index:9999;'
+      + 'display:flex;align-items:center;gap:8px;max-width:min(92vw,420px);padding:12px 18px;'
+      + 'border-radius:14px;background:#eef7ec;border:1px solid #cfe6c7;'
+      + 'box-shadow:0 10px 30px rgba(43,31,16,0.18);font-family:\'Nanum Gothic\',sans-serif;'
+      + 'font-size:14px;font-weight:700;color:#2f5132;opacity:0;pointer-events:none;'
+      + 'transition:opacity .22s ease,transform .22s ease;}'
+      + '.mtb-toast.is-show{opacity:1;transform:translate(-50%,0);pointer-events:auto;cursor:pointer;}'
+      + '@media(max-width:480px){.mtb-toast{bottom:20px;padding:11px 16px;font-size:13.5px;}}';
+    document.head.appendChild(st);
+  }
+  const old = document.getElementById('mtb-toast-root');
+  if (old) old.remove();
+  if (_mtbToastTimer) { clearTimeout(_mtbToastTimer); _mtbToastTimer = null; }
+  const el = document.createElement('div');
+  el.id = 'mtb-toast-root';
+  el.className = 'mtb-toast';
+  el.setAttribute('role', 'status');
+  el.setAttribute('aria-live', 'polite');
+  el.textContent = '✅ ' + message;
+  document.body.appendChild(el);
+  requestAnimationFrame(() => el.classList.add('is-show'));
+  function dismiss() {
+    el.classList.remove('is-show');
+    setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 240);
+  }
+  _mtbToastTimer = setTimeout(dismiss, ms);
+  el.addEventListener('click', dismiss);
+}
+
 /* "모든 이야기 장면에 적용" — 현재 장면의 textStyle을 cover/ending 제외하고 박음 */
 function _mtbApplyTextStyleToAll() {
   if (typeof scenes !== 'object' || !scenes) return;
@@ -1735,7 +1773,7 @@ function _mtbApplyTextStyleToAll() {
     scenes[id].textStyle = { ...style };
     if (typeof pushToFirebase === 'function') pushToFirebase(id);
   });
-  alert(`✅ ${targets.length}개 장면에 적용했어요.`);
+  _mtbToast(`${targets.length}개 장면에 적용했어요.`);
 }
 
 function _mtbUpdateStyle(field, value) {

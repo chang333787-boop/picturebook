@@ -816,7 +816,7 @@
 
     _setAiViewMode('aiS2');
     _showAiToggleBar();
-    alert('✅ ' + appliedCount + '개 장면에 AI 장면 발전을 적용했어요. 원본은 그대로 보호돼요. 위쪽 보기 모드에서 원본/문장 정돈/장면 발전을 전환할 수 있어요.');
+    showAiToast(appliedCount + '개 장면에 장면 발전을 적용했어요. 원본은 그대로예요.');
   }
 
   /* ════════════════════════════════════════════════════════════════
@@ -1016,7 +1016,7 @@
       resetEl.addEventListener('click', function () {
         _resetMockUsage();
         close();
-        alert('이 팀의 AI 사용 횟수를 초기화했어요. 다시 [1단계 정돈]을 눌러 주세요.');
+        showAiToast('AI 사용 횟수를 초기화했어요.');
       });
     }
   }
@@ -2158,7 +2158,7 @@
     root.querySelector('.js-ai-draft-finalize').addEventListener('click', function () {
       _finalizeAiVariant();
       _removeModalRoot('ai-draft-modal-root');
-      alert('AI 1단계를 저장했어요. viewer 상단 [원본] [AI 1단계] 토글로 전환할 수 있어요.');
+      showAiToast('AI 1단계를 저장했어요. 상단 토글로 전환할 수 있어요.');
     });
   }
 
@@ -2866,6 +2866,37 @@
     const okBtn = root.querySelector('.ai-notice-ok');
     if (okBtn) { okBtn.addEventListener('click', close); try { okBtn.focus(); } catch (_) {} }
     return root;
+  }
+
+  /* ────────────────────────────────────────────────────────────────
+     showAiToast — 단순 완료/성공 알림. 브라우저 alert 대신 화면 하단에
+     잠깐 떴다가 자동으로 사라짐(확인 버튼 불필요). 위험/실패는 쓰지 X.
+     ──────────────────────────────────────────────────────────────── */
+  let _aiToastTimer = null;
+  function showAiToast(message, options) {
+    options = options || {};
+    const ms = typeof options.duration === 'number' ? options.duration : 2600;
+    const ID = 'ai-toast-root';
+    const old = document.getElementById(ID);
+    if (old) old.remove();
+    if (_aiToastTimer) { clearTimeout(_aiToastTimer); _aiToastTimer = null; }
+    const el = document.createElement('div');
+    el.id = ID;
+    el.className = 'ai-toast';
+    el.setAttribute('role', 'status');
+    el.setAttribute('aria-live', 'polite');
+    el.innerHTML = '<span class="ai-toast-icon">✅</span>'
+      + '<span class="ai-toast-text">' + _escapeHtml(message) + '</span>';
+    document.body.appendChild(el);
+    /* 진입 애니메이션 트리거 */
+    requestAnimationFrame(function () { el.classList.add('is-show'); });
+    function dismiss() {
+      el.classList.remove('is-show');
+      setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 240);
+    }
+    _aiToastTimer = setTimeout(dismiss, ms);
+    el.addEventListener('click', dismiss);
+    return el;
   }
 
   /* ════════════════════════════════════════════════════════════════

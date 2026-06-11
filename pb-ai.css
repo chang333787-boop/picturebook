@@ -1190,3 +1190,43 @@
   .ai-notice-message { font-size: 14px; }
   .ai-notice-ok { width: 100%; }
 }
+
+/* ════════════════════════════════════════════════════════════════
+   AI 완료 toast (showAiToast) — 단순 성공 알림.
+   확인 버튼 없이 화면 하단에 잠깐 떴다가 자동으로 사라짐.
+   ════════════════════════════════════════════════════════════════ */
+.ai-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translate(-50%, 16px);
+  z-index: 760;            /* 안내 카드(700)보다 위 — 잠깐 뜨는 알림 */
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(92vw, 420px);
+  padding: 12px 18px;
+  border-radius: 14px;
+  background: #eef7ec;      /* 부드러운 초록빛 크림 */
+  border: 1px solid #cfe6c7;
+  box-shadow: 0 10px 30px rgba(43, 31, 16, 0.18);
+  font-family: 'Nanum Gothic', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: #2f5132;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.22s ease, transform 0.22s ease;
+  cursor: default;
+}
+.ai-toast.is-show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+  pointer-events: auto;
+  cursor: pointer;         /* 탭하면 바로 닫힘 */
+}
+.ai-toast-icon { flex: 0 0 auto; font-size: 15px; }
+.ai-toast-text { line-height: 1.45; word-break: keep-all; }
+@media (max-width: 480px) {
+  .ai-toast { bottom: 20px; padding: 11px 16px; font-size: 13.5px; }
+}

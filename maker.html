@@ -877,7 +877,9 @@
     /* 카드 본체 — W8 Phase A-2: 종이톤 통일 */
     .scene-card{position:absolute;width:200px;background:var(--panel);border-radius:var(--radius);box-shadow:0 4px 16px var(--shadow);border:2px solid rgba(80,50,20,0.12);cursor:grab;user-select:none;overflow:hidden;touch-action:none;}
     /* v119: 드래그 중 transition 박지 X — 카드가 손가락 박은 거 즉시 따라옴 */
-    .scene-card.dragging{box-shadow:0 12px 32px rgba(120,90,50,.18);cursor:grabbing;z-index:999;transition:none !important;}
+    /* DRAG-FEEDBACK-1: 잡힌·떠있는 느낌 강화 — 살짝 눌림(scale)+그림자 리프트+강조 외곽선+약한 어두움.
+       위치는 left/top 기준이라 transform:scale은 위치를 깨지 않음(중앙 기준 ~1.5% 축소). */
+    .scene-card.dragging{box-shadow:0 16px 36px rgba(120,70,35,.30);cursor:grabbing;z-index:999;transform:scale(0.985);outline:2px solid rgba(208,104,63,0.60);outline-offset:1px;filter:brightness(0.97);transition:none !important;}
     /* v119: 태블릿(coarse pointer + 768px 이상) CSS 가벼움 — box-shadow/transition 박은 거 줄임.
        PC(마우스)나 모바일 폰(768 미만)은 영향 없음. 태블릿 페인트 비용 박지 X. */
     @media (pointer: coarse) and (min-width: 768px) {
@@ -885,8 +887,15 @@
         box-shadow: 0 2px 6px rgba(120,90,50,.15);
         transition: none;
       }
+      /* DRAG-FEEDBACK-1(태블릿): blur 큰 그림자 대신 값싼 외곽선+살짝 눌림으로 "잡힘" 표시.
+         페인트 비용 작은 outline/scale만 추가 — 저사양에서도 조작 중임이 눈에 보임. */
       .scene-card.dragging {
-        box-shadow: 0 6px 16px rgba(120,90,50,.18);
+        box-shadow: 0 6px 16px rgba(120,90,50,.20);
+        cursor: grabbing;
+        z-index: 999;
+        transform: scale(0.985);
+        outline: 2px solid rgba(208,104,63,0.60);
+        outline-offset: 1px;
       }
       .port-dot {
         box-shadow: none;
@@ -2981,7 +2990,7 @@
 <script src="projectSettings.js?v=114copyfix1"></script>
 <script src="ui.js?v=109copyfix2c2base10bfix"></script>
 <!-- v95: 모바일 텍스트형 브랜치 전용 (텍스트 작품 + 모바일에서만 활성) -->
-<script src="mobileTextBranch.js?v=115wintab3abase10c"></script>
+<script src="mobileTextBranch.js?v=115wintab3abase10pos"></script>
 
 </body>
 </html>

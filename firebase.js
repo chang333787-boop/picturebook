@@ -41,6 +41,12 @@ const auth = firebase.auth();
    firebase-storage-compat.js가 maker.html/viewer.html에 로드되어 있으면 활성화. */
 const storage = (typeof firebase.storage === 'function') ? firebase.storage() : null;
 
+/* BASE10-1: scenes 첫 스냅샷 도착 여부 helper. _enterTeam에서 false 초기화 →
+   dbRef.on('value') 첫 발화 시 true. 기본 틀(BASE10) 가드 전용. */
+window.isBranchScenesLoaded = function () {
+  return !!window.__branchScenesLoaded;
+};
+
 /* ================================================================
    W7-B: 영상 업로드/삭제 헬퍼 (Firebase Storage)
    ─────────────────────────────────────────────────────────────
@@ -615,6 +621,12 @@ function _enterTeam(val, teamRef, opts) {
 
   dbRef = teamRef.child('scenes');
 
+  /* BASE10-1: scenes 첫 스냅샷 도착 플래그.
+     "로드 전 scenes={}를 빈 작품으로 오판"하는 위험을 막기 위해, 아래 dbRef.on('value')
+     콜백이 최소 1회 실행된 뒤에만 true가 된다. 팀(재)입장마다 여기서 먼저 false로 초기화.
+     기본 틀(BASE10) 버튼 표시/생성 가드 전용. 다른 로직은 이 플래그를 쓰지 않는다. */
+  window.__branchScenesLoaded = false;
+
   /* W7 신규 흐름 강화: 입장 직후 ptype-screen 노출 — 사용자가 작품 유형 선택.
      · viewer-meta/projectType once 조회 → 기존 유형 있으면 그 카드에 "이전 선택" 강조
        (다른 카드 누르면 ui.js의 _onPtypeCardClick에서 alert 후 강제 진입)
@@ -645,6 +657,8 @@ function _enterTeam(val, teamRef, opts) {
   dbRef.on('value', snapshot => {
     isRemote = true;
     scenes   = snapshot.val() || {};
+    /* BASE10-1: 첫 스냅샷(이후 모든 스냅샷)에서 true. 이 시점부터 scenes는 DB 실측값. */
+    window.__branchScenesLoaded = true;
     /* ★ buttons 호환 보존 (옵션 2 — viewer-edit가 v0.3 N개 버튼 저장 시):
        snapshot.val()은 DB 노드 본체를 통째로 받아오므로, viewer-edit가 저장한
        buttons[] 배열이 scenes[num].buttons로 자동 들어와 있다.

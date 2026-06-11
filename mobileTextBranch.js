@@ -2084,6 +2084,117 @@ function _mtbOpenCoverScene() {
   }, 120);
 }
 
+/* ── BASE10-1: 완전히 빈 텍스트 작품 → 기본 10장면 틀 생성 ──
+   적용 범위: 모바일 텍스트형 + 빈 작품 + 사용자가 #mtb-start-template 직접 클릭.
+   자동 생성 절대 없음. 그림책/무비/PC 빈 캔버스/ptype-screen 미적용.
+   구조: 표지(key 1) → 이야기 장면(key 2~9, normal) → 엔딩(key 10). 총 10.
+   연결: 1→2→3→…→10. 본문/제목은 빈 채(학생이 직접 작성).
+   장면 shape은 sceneRenderer.js addScene과 동일하게 맞춤
+   (presentationMode:'picturebook' — 작품 단위 projectType='text' lock이 우선이라 표시엔 영향 없음). */
+let _mtbBase10Creating = false;
+
+function _mtbBuildBase10Scenes() {
+  const out = {};
+  /* 표지 = key 1 */
+  out['1'] = {
+    num: 1, title: '', body: '', type: 'cover',
+    subtitle: '', coverTheme: 'default', titleVerticalPosition: 50,
+    buttons: [{ label: '▶ 시작하기', nextId: '2' }],
+    choiceA: '', choiceB: '', choiceCount: 1,
+    _hasBody: true, presentationMode: 'picturebook',
+    x: 120, y: 120,
+  };
+  /* 이야기 장면 — key 2~9 normal (다음 장면으로 연결) */
+  for (let n = 2; n <= 9; n++) {
+    out[String(n)] = {
+      num: n, title: '', body: '', type: 'normal',
+      buttons: [{ label: '다음으로 가기', nextId: String(n + 1) }],
+      choiceA: '', choiceB: '', choiceCount: 1,
+      _hasBody: true, presentationMode: 'picturebook',
+      x: 120, y: 120 + (n - 1) * 120,
+    };
+  }
+  /* 마지막 = key 10 엔딩 (감상 흐름이 자연스럽게 끝남) */
+  out['10'] = {
+    num: 10, title: '', body: '', type: 'ending', trueEnding: false,
+    buttons: [],
+    choiceA: '', choiceB: '', choiceCount: 1,
+    _hasBody: true, presentationMode: 'picturebook',
+    x: 120, y: 120 + 9 * 120,
+  };
+  return out;
+}
+
+async function _mtbCreateBase10Template() {
+  const btn = document.getElementById('mtb-start-template');
+
+  /* 가드 1: 중복 클릭(동시 생성) 방지 */
+  if (_mtbBase10Creating) return;
+
+  /* 가드 2: scenes 첫 스냅샷 도착 전이면 중단 — "로드 전 빈 객체" 오판 차단 */
+  const loaded = (typeof window.isBranchScenesLoaded === 'function')
+    ? window.isBranchScenesLoaded() : !!window.__branchScenesLoaded;
+  if (!loaded) {
+    _mtbToast('아직 작품을 불러오는 중이에요. 잠시 후 다시 시도해 주세요.');
+    return;
+  }
+
+  /* 가드 3: 모바일 텍스트형 활성 상태가 아니면 중단 (PC/그림책/무비/admin 차단) */
+  if (typeof _mtbShouldActivate === 'function' && !_mtbShouldActivate()) return;
+
+  /* 가드 4: 메모리상 이미 장면이 하나라도 있으면 중단 */
+  if (typeof scenes === 'object' && scenes && Object.keys(scenes).length > 0) {
+    _mtbToast('이미 장면이 있는 작품에는 기본 틀을 만들 수 없어요.');
+    return;
+  }
+
+  /* 가드 5: dbRef 없으면 중단 */
+  if (typeof dbRef === 'undefined' || !dbRef) {
+    _mtbToast('작품 정보가 아직 준비되지 않았어요. 잠시 후 다시 시도해 주세요.');
+    return;
+  }
+
+  /* 사용자 확인 — 명시적 의도 한 번 더 */
+  const ok = window.showMakerConfirm
+    ? await window.showMakerConfirm({
+        title: '기본 틀로 시작할까요?',
+        message: '표지와 이야기 장면 9개를 한 번에 만들어요. 내용은 나중에 자유롭게 바꿀 수 있어요.',
+        confirmText: '만들기',
+        danger: false,
+      })
+    : confirm('표지와 이야기 장면 9개를 한 번에 만들까요?');
+  if (!ok) return;
+
+  _mtbBase10Creating = true;
+  if (btn) { btn.disabled = true; btn.textContent = '만드는 중…'; }
+
+  try {
+    /* 저장 직전 Firebase 재확인 — 다른 기기가 먼저 만들었으면 중복 생성 차단 */
+    const snap = await dbRef.once('value');
+    const latest = snap.val() || {};
+    if (Object.keys(latest).length > 0) {
+      _mtbToast('다른 곳에서 이미 장면이 만들어졌어요. 새로고침 후 확인해 주세요.');
+      return;
+    }
+
+    /* 10장면 1회 원자적 기록 (set 전체 덮어쓰기 X — update 사용) */
+    const raw = _mtbBuildBase10Scenes();
+    const payload = {};
+    Object.keys(raw).forEach(k => {
+      payload[k] = (typeof _sceneToDbShape === 'function') ? _sceneToDbShape(raw[k]) : raw[k];
+    });
+    await dbRef.update(payload);
+
+    /* local scenes / 노드 렌더는 dbRef.on('value') 리스너가 갱신 (firebase.js) */
+    _mtbToast('기본 이야기 틀을 만들었어요.');
+  } catch (e) {
+    _mtbToast('기본 틀을 만들지 못했어요. 잠시 후 다시 시도해 주세요.');
+  } finally {
+    _mtbBase10Creating = false;
+    if (btn) { btn.disabled = false; btn.textContent = '기본 틀로 시작하기'; }
+  }
+}
+
 /* ── 초기화 ── */
 function _mtbInit() {
   /* PC 토글 — 모바일로 돌아가려면 새로고침 안내 */
@@ -2186,6 +2297,12 @@ function _mtbInit() {
         alert('아직 사용할 수 없는 기능이에요.');
       }
     });
+  }
+
+  /* BASE10-1: 빈 상태 카드의 "기본 틀로 시작하기" 버튼 (없으면 조용히 통과) */
+  const tplBtn = document.getElementById('mtb-start-template');
+  if (tplBtn) {
+    tplBtn.addEventListener('click', _mtbCreateBase10Template);
   }
 
   /* 작품 로드 완료 이벤트 listen — state.projectType 박힌 후 mtbRefresh */

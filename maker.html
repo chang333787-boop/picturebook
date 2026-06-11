@@ -1673,6 +1673,24 @@
     .mtb-canvas-empty-icon { font-size:48px;margin-bottom:12px; }
     .mtb-canvas-empty-title { font-family:'Jua',sans-serif;font-size:17px;color:#2b1f10;margin-bottom:6px; }
     .mtb-canvas-empty-text { font-size:13px;line-height:1.5; }
+    /* BASE10-1: 기본 틀 시작 버튼 — 부모(.mtb-canvas-empty)가 pointer-events:none이라 auto 복구 */
+    .mtb-empty-template-btn {
+      pointer-events:auto;
+      margin-top:18px;
+      min-height:48px;padding:12px 26px;
+      font-family:'Jua',sans-serif;font-size:16px;
+      color:#fff;background:#c66f4a;border:none;border-radius:12px;
+      box-shadow:0 4px 14px rgba(198,111,74,.32);cursor:pointer;
+      transition:filter .12s, transform .08s;
+    }
+    .mtb-empty-template-btn:hover { filter:brightness(1.06); }
+    .mtb-empty-template-btn:active { transform:scale(0.97); }
+    .mtb-empty-template-btn:disabled { opacity:.55;cursor:default;filter:none;transform:none; }
+    .mtb-empty-template-help {
+      pointer-events:none;
+      margin:10px auto 0;max-width:240px;
+      font-size:12px;line-height:1.5;color:#8a7355;
+    }
     .mtb-fab {
       position:absolute;bottom:24px;right:24px;
       width:56px;height:56px;border-radius:50%;
@@ -2246,6 +2264,13 @@
       <div class="mtb-canvas-empty-text">
         오른쪽 아래 <strong>+</strong> 버튼을 눌러 첫 장면을 만들어요.
       </div>
+      <!-- BASE10-1: 완전히 빈 텍스트 작품에서만 보이는 기본 틀 시작 버튼 -->
+      <button id="mtb-start-template" type="button" class="mtb-empty-template-btn">
+        기본 틀로 시작하기
+      </button>
+      <p class="mtb-empty-template-help">
+        표지와 이야기 장면 9개가 한 번에 준비돼요. 내용은 나중에 자유롭게 바꿀 수 있어요.
+      </p>
     </div>
     <!-- v100: 줌 컨트롤 (핀치 없는 환경 대비) -->
     <div class="mtb-zoom-controls">
@@ -2934,7 +2959,7 @@
 <!-- v37f 캐시 — 표지 사이드/구조 색 -->
 <script src="state.js?v=96"></script>
 <script src="locks.js?v=96"></script>
-<script src="firebase.js?v=141admin1c"></script>
+<script src="firebase.js?v=141admin1cbase10a"></script>
 <script src="canvasInteraction.js?v=120"></script>
 <script src="sceneRenderer.js?v=119"></script>
 <script src="storyAnalyzer.js?v=136"></script>
@@ -2944,7 +2969,7 @@
 <script src="projectSettings.js?v=114copyfix1"></script>
 <script src="ui.js?v=109copyfix2c2"></script>
 <!-- v95: 모바일 텍스트형 브랜치 전용 (텍스트 작품 + 모바일에서만 활성) -->
-<script src="mobileTextBranch.js?v=115wintab3a"></script>
+<script src="mobileTextBranch.js?v=115wintab3abase10a"></script>
 
 </body>
 </html>

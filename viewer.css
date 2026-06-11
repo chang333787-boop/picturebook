@@ -466,6 +466,14 @@ body.edit-mode-active #stage-wrap {
   box-shadow: 0 6px 24px rgba(0,0,0,0.15);
 }
 
+/* WIN-TAB-2: 감상(view-only) 상태에서 스테이지 더블탭 줌 지연 제거 → 태블릿 탭 반응 개선.
+   manipulation은 핀치줌·스크롤은 그대로 두고 더블탭 줌/300ms 탭 지연만 없앤다.
+   다듬기(edit-mode-active)일 땐 제외 — 이미지 이동/리사이즈·그림판 드래그는
+   각자 touch-action을 직접 지정하므로 부모에서 건드리지 않는다. */
+body:not(.edit-mode-active) #viewer-frame {
+  touch-action: manipulation;
+}
+
 /* v63/v64: 장면 전환 — 5개 효과 + 작품 단위 viewer-meta.sceneTransition.
    v73: 속도는 CSS 변수 --scene-trans-duration (ms, JS에서 0~100 → 400~3500ms 매핑).
    기본 = fade (살짝 slide-up). 표지 → 첫 장면 등 모든 scene 진입 시 적용. */

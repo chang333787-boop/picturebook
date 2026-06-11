@@ -6244,6 +6244,31 @@ body[data-page-orientation="portrait"] .terminal-screen--story .ending-page {
   color: var(--v03-fg);
   margin: 0 0 14px;
 }
+/* ADV-EDIT-ABSORB-TITLE-1: 텍스트형 '+ 제목 추가' 칩 — 다듬기 모드, 제목 없는 장면에만 노출.
+   감상 모드에는 마크업 자체가 렌더되지 않음(_textTitleHtml 게이트). 작게·점선·본문 위. */
+.scene-screen--text .text-title-add-chip {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  margin: 0 0 12px;
+  padding: 7px 13px;
+  min-height: 36px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--v03-fg);
+  background: rgba(127, 127, 127, 0.08);
+  border: 1px dashed rgba(127, 127, 127, 0.45);
+  border-radius: 8px;
+  cursor: pointer;
+  opacity: 0.72;
+  transition: opacity 0.15s, background 0.15s, border-color 0.15s;
+}
+.scene-screen--text .text-title-add-chip:hover {
+  opacity: 1;
+  background: rgba(127, 127, 127, 0.14);
+  border-color: rgba(127, 127, 127, 0.7);
+}
 .scene-screen--text .text-card__body {
   font-size: 15px;
   line-height: 1.7;

@@ -463,6 +463,27 @@ function _renderSceneText(stage, scene) {
     </div>`);
 }
 
+/* ADV-EDIT-ABSORB-TITLE-1: 텍스트형 제목(title) 렌더 — 직접편집 흡수.
+   · 감상 모드(allowEdit=false): 기존 정책 그대로 — title 있으면 <h3>, 없으면 미렌더.
+     (AI 변형 보기 중에도 allowEdit=false → 원본 title 잠금 유지)
+   · 다듬기(원본 보기, allowEdit=true) + title 있음 또는 '제목 추가' draft 활성:
+       contenteditable <h3 data-pb-editable="title"> — 기존 저장 경로(_attachPbEditableInteractions) 재사용.
+   · 다듬기 + title 없음 + draft 비활성: 빈 제목칸 대신 작은 '+ 제목 추가' 칩만 표시.
+       (칩 클릭 → viewer-edit.js가 draft 활성 + 재렌더 + focus)
+   text 모드 전용 helper (text 일반 장면 + text 엔딩에서만 호출). DB에 placeholder 저장 안 함. */
+function _textTitleHtml(scene, allowEdit) {
+  const t = String(scene.title || '').trim();
+  if (!allowEdit) {
+    return t ? `<h3 class="text-card__title">${escHtml(t)}</h3>` : '';
+  }
+  const sid = String(scene.id);
+  const draftActive = (typeof _isTextTitleDraftActive === 'function') && _isTextTitleDraftActive(sid);
+  if (t || draftActive) {
+    return `<h3 class="text-card__title js-pb-editable-title" contenteditable="true" data-pb-editable="title" data-placeholder="(제목을 적어보세요)">${escHtml(t)}</h3>`;
+  }
+  return `<button type="button" class="text-title-add-chip js-text-title-add" data-scene-id="${escHtml(sid)}">+ 제목 추가</button>`;
+}
+
 /* 텍스트 카드 안 내용 — 제목 → 본문 → 버튼 */
 function _renderSceneCard(scene, choices) {
   const title = String(scene.title || '').trim();
@@ -471,8 +492,7 @@ function _renderSceneCard(scene, choices) {
   const body = (window.viewerAi && window.viewerAi._getDisplayBody) ? window.viewerAi._getDisplayBody(scene.id, _orig) : _orig;
   const isLong = scene.textLength === 'long';
 
-  const titleHtml = title
-    ? `<h3 class="text-card__title">${escHtml(title)}</h3>` : '';
+  /* ADV-EDIT-ABSORB-TITLE-1: titleHtml은 _allowTcEdit 계산 후 아래에서 _textTitleHtml로 생성. */
   /* 2026-05-31 Text-2B: edit 모드면 본문 직접 입력 — contenteditable + placeholder.
      · 감상 모드: 옛대로 빈 본문이면 <p> 미렌더 (시각 변화 0).
      · edit 모드: 빈 본문도 <p> 렌더 → 클릭 가능 + placeholder("(본문을 적어보세요)").
@@ -492,6 +512,7 @@ function _renderSceneCard(scene, choices) {
                              && typeof window.viewerAi._aiVariantBodyEditAllowed === 'function')
     ? window.viewerAi._aiVariantBodyEditAllowed(scene.id) : null;
   const _bodyEditable = _allowTcEdit || !!_variantBodyKeyTc;
+  const titleHtml = _textTitleHtml(scene, _allowTcEdit);
   let bodyHtml = '';
   if (body || _isEditMode) {
     const scrollCls = isLong ? ' text-card__body--scroll' : '';
@@ -1744,10 +1765,9 @@ function _renderTextEnding(stage, scene) {
   const _allowInlineEdit = _isEdit && _aiViewMode === 'original';
   const hasBack = ViewerState.historyStack.length > 0;
 
-  /* 제목·본문은 일반 장면(_renderSceneCard)과 동일 class — 별도 엔딩 스타일 X. */
-  const titleHtml = userTitle
-    ? `<h3 class="text-card__title">${escHtml(userTitle)}</h3>`
-    : '';
+  /* 제목·본문은 일반 장면(_renderSceneCard)과 동일 class — 별도 엔딩 스타일 X.
+     ADV-EDIT-ABSORB-TITLE-1: 제목도 일반 장면과 동일하게 직접편집 흡수(_textTitleHtml). */
+  const titleHtml = _textTitleHtml(scene, _allowInlineEdit);
   const bodyHtml = (userBody || _allowInlineEdit)
     ? `<p class="text-card__body${_allowInlineEdit ? ' js-pb-editable-body' : ''}"`
       + `${_allowInlineEdit ? ' contenteditable="true" data-pb-editable="body"' : ''}`

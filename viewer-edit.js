@@ -120,6 +120,15 @@ let _textEffectSecCollapsed = true;
    localStorage 저장 X — 새로고침 시 default 복귀. */
 let _textEditCollapsed = null;
 
+/* ADV-EDIT-ABSORB-TITLE-1: 텍스트형 '제목 추가' 임시 편집 상태 (local only — DB 저장 X).
+   · '+ 제목 추가' 칩 클릭 → sceneId 추가 → 재렌더 시 빈 제목도 contenteditable h3로 노출 + focus.
+   · 제목 비운 채 blur → 제거 → 다시 칩. 새로고침하면 비워짐(default 칩).
+   viewer-render.js의 _textTitleHtml이 이 상태를 읽어 칩/제목칸을 분기. */
+const _textTitleDraftScenes = new Set();
+function _isTextTitleDraftActive(sceneId) {
+  return _textTitleDraftScenes.has(String(sceneId));
+}
+
 /* ================================================================
    W7-B: 영상 업로드 (viewer 쪽 자체 정의)
    ─────────────────────────────────────────────────────────────
@@ -1677,6 +1686,23 @@ function initEditInteractions() {
     _attachConnectObjectInteractions(el, frame);
   });
 
+  /* ADV-EDIT-ABSORB-TITLE-1: 텍스트형 '+ 제목 추가' 칩 → 제목칸 펼침 + 포커스.
+     draft 활성 후 재렌더 → _textTitleHtml이 빈 제목도 contenteditable h3로 렌더 →
+     _attachPbEditableInteractions가 기존 title 저장 경로로 바인딩. (새 저장 함수 X) */
+  frame.querySelectorAll('.js-text-title-add').forEach(chip => {
+    chip.addEventListener('click', () => {
+      if (!_editText.editable) return;
+      const sid = chip.dataset.sceneId || String(ViewerState.currentSceneId);
+      _textTitleDraftScenes.add(String(sid));
+      const scene = ViewerState.scenes[ViewerState.currentSceneId];
+      if (scene && typeof renderScene === 'function') {
+        renderScene(scene);
+        const titleEl = document.querySelector('#viewer-frame .text-card__title[contenteditable="true"]');
+        if (titleEl) titleEl.focus();
+      }
+    });
+  });
+
   /* W8: 그림책 본문/제목 contenteditable — viewer 화면에서 직접 수정.
      scene 데이터 → debounce 저장 → 다듬기 패널 textarea/input 양방향 동기화. */
   _attachPbEditableInteractions(frame);
@@ -1827,6 +1853,12 @@ function _attachPbEditableInteractions(frame) {
       if (typeof _queueSave === 'function') {
         _queueSave(scene.num || scene.id, patch);
         if (typeof _flushPendingSave === 'function') _flushPendingSave();
+      }
+      /* ADV-EDIT-ABSORB-TITLE-1: 텍스트형 제목칸을 빈 채로 blur → draft 해제 + 재렌더(→ 다시 '+ 제목 추가' 칩).
+         text-card__title(텍스트형 전용 class)에만 적용 — picturebook/cover/movie 제목엔 영향 X. */
+      if (field === 'title' && el.classList.contains('text-card__title') && !text.trim()) {
+        _textTitleDraftScenes.delete(String(scene.id));
+        if (typeof _scheduleViewerFrameReRender === 'function') _scheduleViewerFrameReRender();
       }
     });
 

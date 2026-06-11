@@ -757,49 +757,17 @@ window.addEventListener('DOMContentLoaded', () => {
     if (e.key === 'Enter') joinTeam();
   });
 
-  /* 툴바 — v37: + 장면 추가는 3-way 메뉴 토글 */
+  /* 툴바 — ADD-SCENE-1: 3-way 드롭다운 제거. 표지/장면 버튼 2개로 직접 추가.
+     · ＋ 표지 추가 → addScene('cover') (표지 중복 차단은 addScene 내부에 위임)
+     · ＋ 장면 추가 → 일반 장면 바로 추가
+     · 엔딩은 상단에서 제거 — 장면 카드의 일반/엔딩 토글로 처리(ENDING-GUARD-1 유지) */
+  document.getElementById('btn-add-cover')?.addEventListener('click', e => {
+    e.stopPropagation();
+    addScene('cover');
+  });
   document.getElementById('btn-add-scene')?.addEventListener('click', e => {
     e.stopPropagation();
-    const menu = document.getElementById('tb-add-menu');
-    if (!menu) return;
-    const isOpen = menu.style.display !== 'none';
-    menu.style.display = isOpen ? 'none' : 'flex';
-    /* 표지 이미 있으면 disabled */
-    const hasCover = Object.values(scenes).some(s => s.type === 'cover');
-    const coverBtn = menu.querySelector('.js-add-cover');
-    if (coverBtn) {
-      coverBtn.disabled = hasCover;
-      coverBtn.title = hasCover ? '표지는 작품당 하나만 만들 수 있어요' : '책 표지 만들기';
-    }
-  });
-  /* 메뉴 항목 클릭 — type 인자로 addScene 호출 + 메뉴 닫기 */
-  document.querySelectorAll('#tb-add-menu .tb-add-menu__item').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      if (btn.disabled) return;
-      const t = btn.dataset.type || 'normal';
-      /* v69: 표지 중복 안전 검증 — disabled 외에 클릭 핸들러에서도 한 번 더 차단 */
-      if (t === 'cover') {
-        const hasCover = Object.values(scenes).some(s => s.type === 'cover');
-        if (hasCover) {
-          alert('표지는 작품당 하나만 만들 수 있어요.');
-          const menu = document.getElementById('tb-add-menu');
-          if (menu) menu.style.display = 'none';
-          return;
-        }
-      }
-      addScene(t);
-      const menu = document.getElementById('tb-add-menu');
-      if (menu) menu.style.display = 'none';
-    });
-  });
-  /* 메뉴 외부 클릭 시 닫기 */
-  document.addEventListener('click', e => {
-    const menu = document.getElementById('tb-add-menu');
-    if (!menu || menu.style.display === 'none') return;
-    if (!menu.contains(e.target) && !e.target.closest('#btn-add-scene')) {
-      menu.style.display = 'none';
-    }
+    addScene('normal');
   });
   /* W8 Phase B: 좌측 사이드 "＋ 새 장면" 버튼 — 기본 일반 장면 */
   document.getElementById('ss-add-btn')?.addEventListener('click', () => addScene('normal'));

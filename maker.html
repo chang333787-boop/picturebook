@@ -457,7 +457,9 @@
     /* v37: + 장면 추가 3-way 메뉴 (표지/장면/엔딩) */
     .tb-add-wrap {
       position: relative;
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
     }
     .tb-add-menu {
       position: absolute;
@@ -2644,13 +2646,10 @@
   <!-- ── 중앙: 핵심 행동 (+ 장면 추가 + 감상 테스트) ── -->
   <div class="tb-section tb-section--center">
     <div class="tb-action-group">
+      <!-- ADD-SCENE-1: 드롭다운 제거 — 표지/장면 버튼 2개로 분리. 엔딩은 카드의 일반/엔딩 토글로 처리. -->
       <div class="tb-add-wrap">
-        <button class="tb-btn tb-btn-add" id="btn-add-scene">＋ 장면 추가 ▾</button>
-        <div class="tb-add-menu" id="tb-add-menu" style="display:none;">
-          <button type="button" class="tb-add-menu__item js-add-cover" data-type="cover">📖 표지</button>
-          <button type="button" class="tb-add-menu__item js-add-normal" data-type="normal">🎬 장면</button>
-          <button type="button" class="tb-add-menu__item js-add-ending" data-type="ending">🏁 엔딩</button>
-        </div>
+        <button class="tb-btn tb-btn-add" id="btn-add-cover" title="책 표지 만들기">＋ 표지 추가</button>
+        <button class="tb-btn tb-btn-add" id="btn-add-scene" title="일반 장면 추가">＋ 장면 추가</button>
       </div>
       <!-- W8: 다음 단계 — 상단 바에 자연스럽게 녹임 (floating 패널 폐기) -->
       <a class="tb-btn tb-btn-test" id="btn-open-viewer" href="#" target="_blank"
@@ -2988,7 +2987,7 @@
 <script src="adminConsole.js?v=103copyfix1"></script>
 <script src="preview.js?v=96"></script>
 <script src="projectSettings.js?v=114copyfix1"></script>
-<script src="ui.js?v=109copyfix2c2base10bfixendingguard1"></script>
+<script src="ui.js?v=109copyfix2c2base10bfixendingguard1addscene1"></script>
 <!-- v95: 모바일 텍스트형 브랜치 전용 (텍스트 작품 + 모바일에서만 활성) -->
 <script src="mobileTextBranch.js?v=115wintab3abase10pos"></script>
 

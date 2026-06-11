@@ -1118,3 +1118,75 @@
   font-size: 13px;
   font-weight: 600;
 }
+
+/* ════════════════════════════════════════════════════════════════
+   AI 안내 카드 (showAiNotice) — 브라우저 기본 alert 대체
+   기존 .ai-modal 톤(warm paper #fffaee, 코랄 #c66f4a) 따름.
+   ════════════════════════════════════════════════════════════════ */
+.ai-notice-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(43, 31, 16, 0.42);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+  z-index: 700;            /* 호출 lock 모달(600)보다 위 — 안내는 항상 보이게 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: ai-overlay-fade-in 0.16s ease-out;
+}
+.ai-notice-card {
+  background: #fffaee;
+  border-radius: 18px;
+  width: 100%;
+  max-width: 400px;
+  padding: 24px 24px 20px;
+  box-shadow: 0 18px 50px rgba(43, 31, 16, 0.28);
+  font-family: 'Nanum Gothic', sans-serif;
+  color: #2b1f10;
+  text-align: center;
+  animation: ai-modal-pop 0.2s ease-out;
+}
+.ai-notice-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: #c66f4a;
+  margin-bottom: 12px;
+  line-height: 1.35;
+  word-break: keep-all;
+}
+.ai-notice-message {
+  font-size: 14.5px;
+  line-height: 1.65;
+  color: #4a3a26;
+  word-break: keep-all;
+  white-space: normal;
+}
+.ai-notice-actions {
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
+}
+.ai-notice-ok {
+  min-width: 120px;
+  padding: 11px 22px;
+  border: none;
+  border-radius: 12px;
+  background: #c66f4a;
+  color: #fffaee;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.ai-notice-ok:hover { background: #b25f3c; }
+.ai-notice-ok:focus-visible { outline: 3px solid rgba(198, 111, 74, 0.4); outline-offset: 2px; }
+
+@media (max-width: 480px) {
+  .ai-notice-card { max-width: 340px; padding: 20px 18px 16px; border-radius: 16px; }
+  .ai-notice-title { font-size: 17px; }
+  .ai-notice-message { font-size: 14px; }
+  .ai-notice-ok { width: 100%; }
+}

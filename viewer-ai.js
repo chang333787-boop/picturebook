@@ -599,7 +599,7 @@
     }
     const useRealApi = _shouldUseRealApi();
     if (!useRealApi && _getRemaining('s2') <= 0) {
-      alert('이번 작품에서 텍스트 2단계를 사용할 수 있는 횟수를 모두 사용했어요.');
+      showAiNotice('이 작품에서 사용할 수 있는 ‘장면 발전’ 횟수를 모두 사용했어요.\n다른 장면은 직접 이어서 써 보거나, 나중에 다시 사용해 주세요.');
       return;
     }
     _showCallingModal(sceneCount);
@@ -615,7 +615,7 @@
     } catch (e) {
       _hideCallingModal();
       console.error('[Phase A] 텍스트 2단계 실패', e);
-      alert('AI 장면 발전에 실패했어요. 잠시 후 다시 시도해주세요.\n' + (e && e.message ? e.message : ''));
+      showAiNotice('AI 장면 발전에 실패했어요. 잠시 후 다시 시도해 주세요.\n' + (e && e.message ? e.message : ''));
       return;
     }
     _hideCallingModal();
@@ -972,8 +972,7 @@
       }
       _hideCallingModal();
       _setAiTextS1Status(count > 0 ? 'candidate_ready' : 'none');
-      const prefix = useRealApi ? '[Phase A]' : '[mock]';
-      alert(prefix + ' 후보 생성 실패: ' + (e && e.message || e) + '\n\n잠시 후 다시 시도해 주세요.');
+      showAiNotice('AI 문장 정돈에 실패했어요. 잠시 후 다시 시도해 주세요.\n' + (e && e.message ? e.message : ''));
       return;
     }
 
@@ -2822,6 +2821,54 @@
   }
 
   /* ════════════════════════════════════════════════════════════════
+     AI 안내 카드 — 브라우저 기본 alert 대체 (사용 횟수/실패/사용 불가 안내)
+     · 비차단(non-blocking). 호출부는 보여준 뒤 그대로 return.
+     · 제목은 message 내용으로 자동 판별(또는 options.title로 지정).
+     ════════════════════════════════════════════════════════════════ */
+  function _aiNoticeTitleFor(message) {
+    const m = String(message || '');
+    let mode = '';
+    if (/장면 발전|텍스트 2단계/.test(m)) mode = '장면 발전';
+    else if (/문장 정돈|텍스트 1단계/.test(m)) mode = '문장 정돈';
+    else if (/작품 검사/.test(m)) mode = '작품 검사';
+    if (/횟수를 모두 사용/.test(m)) return (mode ? mode + ' ' : '') + '사용 횟수를 모두 사용했어요';
+    if (mode) return mode + ' 안내';
+    return 'AI 안내';
+  }
+  function showAiNotice(message, options) {
+    options = options || {};
+    const title = options.title || _aiNoticeTitleFor(message);
+    const okLabel = options.okLabel || '확인';
+    const ID = 'ai-notice-root';
+    const old = document.getElementById(ID);
+    if (old) old.remove();
+
+    const root = document.createElement('div');
+    root.id = ID;
+    root.className = 'ai-notice-backdrop';
+    root.innerHTML =
+      '<div class="ai-notice-card" role="dialog" aria-modal="true">'
+      +   '<div class="ai-notice-title">' + _escapeHtml(title) + '</div>'
+      +   '<div class="ai-notice-message">' + _escapeHtml(message) + '</div>'
+      +   '<div class="ai-notice-actions">'
+      +     '<button type="button" class="ai-notice-ok">' + _escapeHtml(okLabel) + '</button>'
+      +   '</div>'
+      + '</div>';
+    document.body.appendChild(root);
+
+    function close() {
+      root.remove();
+      document.removeEventListener('keydown', onKey);
+    }
+    function onKey(e) { if (e.key === 'Escape') close(); }
+    root.addEventListener('click', function (e) { if (e.target === root) close(); });
+    document.addEventListener('keydown', onKey);
+    const okBtn = root.querySelector('.ai-notice-ok');
+    if (okBtn) { okBtn.addEventListener('click', close); try { okBtn.focus(); } catch (_) {} }
+    return root;
+  }
+
+  /* ════════════════════════════════════════════════════════════════
      첫 안내 모달
      ════════════════════════════════════════════════════════════════ */
   function _showOnboardingModal(onConfirm) {
@@ -3271,12 +3318,12 @@
   async function _startTextS1() {
     /* quota 검사 */
     if (_getRemaining('s1') <= 0) {
-      alert('이번 작품에서 사용할 수 있는 텍스트 1단계 횟수를 모두 사용했어요.');
+      showAiNotice('이 작품에서 사용할 수 있는 ‘문장 정돈’ 횟수를 모두 사용했어요.\n직접 문장을 고치거나, 나중에 다시 사용해 주세요.');
       return;
     }
     /* 잠금 검사 */
     if (typeof _editText !== 'undefined' && _editText.editable === false) {
-      alert('다른 사용자가 잠금을 잡고 있어서 AI를 사용할 수 없어요.');
+      showAiNotice('다른 사용자가 편집 중이라 지금은 AI를 사용할 수 없어요.\n잠시 후 다시 시도해 주세요.', { title: '지금은 AI를 사용할 수 없어요' });
       return;
     }
     /* 입력 큐 비우기 (v138 함수 재사용) */
@@ -3309,7 +3356,7 @@
       }
       /* 모델/네트워크 실패 — quota 환불 */
       _refundQuota('s1');
-      alert('AI 호출 실패: ' + (e && e.message ? e.message : '알 수 없는 오류'));
+      showAiNotice('AI 호출에 실패했어요. 잠시 후 다시 시도해 주세요.\n' + (e && e.message ? e.message : ''), { title: '문장 정돈 안내' });
       return;
     }
 
@@ -3428,12 +3475,12 @@
   async function _startWorkCheck() {
     /* quota 검사 */
     if (_getRemaining('check') <= 0) {
-      alert('이번 작품에서 사용할 수 있는 작품 검사 횟수를 모두 사용했어요.');
+      showAiNotice('이 작품에서 사용할 수 있는 ‘작품 검사’ 횟수를 모두 사용했어요.\n최근 검사 결과가 있다면 먼저 확인해 보세요.');
       return;
     }
     /* 잠금 검사 (검사도 박힌 데이터 기반이라 잠금 확인) */
     if (typeof _editText !== 'undefined' && _editText.editable === false) {
-      alert('다른 사용자가 잠금을 잡고 있어서 AI를 사용할 수 없어요.');
+      showAiNotice('다른 사용자가 편집 중이라 지금은 AI를 사용할 수 없어요.\n잠시 후 다시 시도해 주세요.', { title: '지금은 AI를 사용할 수 없어요' });
       return;
     }
     if (typeof _flushPendingSave === 'function') {
@@ -3467,8 +3514,7 @@
         _refundQuota('check');
       }
       console.error('[v140 / Phase A] 작품 검사 실패', e);
-      const prefix = useRealApi ? '[Phase A]' : '[mock]';
-      alert(prefix + ' 작품 검사 실패: ' + (e && e.message ? e.message : '알 수 없는 오류'));
+      showAiNotice('작품 검사에 실패했어요. 잠시 후 다시 시도해 주세요.\n' + (e && e.message ? e.message : ''));
       return;
     }
 

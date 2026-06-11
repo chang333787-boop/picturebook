@@ -1384,7 +1384,7 @@ function renderEditPanel() {
     const _ptype = _resolveViewerProjectType();
     const tabs = _editTabsForMode(_ptype, /*hasChoice*/ false);
     panel.innerHTML = `
-      <div class="edit-panel-inner${_ptype === 'movie' ? ' edit-panel-inner--movie' : ''}">
+      <div class="edit-panel-inner${_ptype === 'movie' ? ' edit-panel-inner--movie' : ''}${_ptype === 'picturebook' ? ' edit-panel-inner--picturebook' : ''}">
         ${_editActionsHtml()}
         ${_editNavHtml(scene)}
 
@@ -1521,7 +1521,7 @@ function renderEditPanel() {
 
   const tabs = _editTabsForMode(_ptypeForLegacy, /*hasChoice*/ !!legacyChoiceSectionHtml);
   panel.innerHTML = `
-    <div class="edit-panel-inner${_ptypeForLegacy === 'movie' ? ' edit-panel-inner--movie' : ''}">
+    <div class="edit-panel-inner${_ptypeForLegacy === 'movie' ? ' edit-panel-inner--movie' : ''}${_ptypeForLegacy === 'picturebook' ? ' edit-panel-inner--picturebook' : ''}">
       <!-- 상단 고정 바 (액션 + 네비) -->
       ${_editActionsHtml()}
       ${_editNavHtml(scene)}

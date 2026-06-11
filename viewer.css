@@ -922,6 +922,23 @@ body[data-page-orientation="portrait"] #stage-wrap.letterbox-v #viewer-frame {
   }
 }
 
+/* 2026-06-11 (ADV-EDIT-HIDE-1): 그림책형도 "내용 고급 편집"(content 탭)을 사용자 UI에서 숨김.
+   제목/본문/선택지 라벨은 미리보기 직접입력, 연결·개수는 1단 패널로 흡수됨 → content 탭 중복.
+   content DOM/핸들러/저장은 유지(삭제 아님), 가시성만 차단. picturebook 스코프만 — text/movie 영향 없음. */
+#edit-panel .edit-panel-inner--picturebook > .edit-tab-panel[data-panel="content"] {
+  display: none;
+}
+/* 좁은 화면 탭바에서도 content 탭 버튼 숨김(진입 차단) */
+.edit-panel-inner--picturebook > .edit-tabs .edit-tab[data-tab="content"] {
+  display: none;
+}
+@media (min-width: 1025px) {
+  /* 데스크탑 2컬럼 grid — content 숨김이므로 mode panel을 풀폭(1컬럼)으로 */
+  #edit-panel .edit-panel-inner--picturebook {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 /* W9: 데스크탑 — 탭 폐기 + 2컬럼 grid. */
 @media (min-width: 1025px) {
   #edit-panel .edit-panel-inner {

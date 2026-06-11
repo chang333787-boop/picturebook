@@ -1303,10 +1303,10 @@ function renderSideList() {
 
   /* 빈 상태 */
   if (all.length === 0) {
-    /* BASE10-2: 텍스트형 빈 작품(PC)에서만 "기본 틀로 시작하기" 버튼 노출.
-       그림책/무비/체험형엔 표시 X. 클릭은 #ss-list 위임(ui.js)에서 처리. */
-    const isText = pm.projectType === 'text';
-    const tplHtml = isText
+    /* BASE10-2 / BASE10-3A: 텍스트·그림책형 빈 작품(PC)에서 "기본 틀로 시작하기" 버튼 노출.
+       무비/체험형엔 표시 X. 전체 삭제 후 재생성 진입점. 클릭은 #ss-list 위임(ui.js)에서 처리. */
+    const isStarter = (pm.projectType === 'text' || pm.projectType === 'picturebook');
+    const tplHtml = isStarter
       ? `<button id="ss-start-template" type="button" class="ss-empty-template-btn">기본 틀로 시작하기</button>
          <div class="ss-empty-template-help">표지와 장면 1~9가 한 번에 준비돼요.<br/>내용은 나중에 자유롭게 바꿀 수 있어요.</div>`
       : '';

@@ -2175,20 +2175,77 @@ function _mtbBuildBase10Scenes(opts) {
   return out;
 }
 
-/* BASE10-2: 모바일·PC 공통 생성 코어.
-   build 함수(_mtbBuildBase10Scenes)는 그대로 재사용해 구조 일치를 보장하고,
+/* BASE10-3A: 실제 쓰기 코어 — 확인 모달/버튼 UI와 분리.
+   수동 버튼 경로(_runBase10Creation)와 자동 생성 경로(createStarterTemplateForNewProject)가
+   같은 안전 로직(loaded/empty/once-recheck/lock)을 공유한다.
+   · build 함수(_mtbBuildBase10Scenes)는 그대로 재사용 → 구조/좌표 일치 보장.
+   · dbRef.update만 사용(set 전체 덮어쓰기 금지).
+   · markInitialized=true면 성공 후 viewer-meta/starterTemplateInitialized=true 기록(merge).
+   반환: { ok:boolean, reason?:string }. */
+async function _writeBase10IfEmpty(opts) {
+  opts = opts || {};
+  const source = opts.source || 'desktop';
+
+  /* 가드: 중복(동시) 생성 방지 — 모듈 전역 락 공유 */
+  if (_mtbBase10Creating) return { ok: false, reason: 'busy' };
+
+  /* 가드: scenes 첫 스냅샷 도착 전이면 중단 — "로드 전 빈 객체" 오판 차단 */
+  const loaded = (typeof window.isBranchScenesLoaded === 'function')
+    ? window.isBranchScenesLoaded() : !!window.__branchScenesLoaded;
+  if (!loaded) return { ok: false, reason: 'not-loaded' };
+
+  /* 가드: 메모리상 이미 장면이 하나라도 있으면 중단 */
+  if (typeof scenes === 'object' && scenes && Object.keys(scenes).length > 0) {
+    return { ok: false, reason: 'not-empty' };
+  }
+
+  /* 가드: dbRef 없으면 중단 */
+  if (typeof dbRef === 'undefined' || !dbRef) return { ok: false, reason: 'no-dbref' };
+
+  _mtbBase10Creating = true;
+  try {
+    /* 저장 직전 Firebase 재확인 — 다른 기기가 먼저 만들었으면 중복 생성 차단 */
+    const snap = await dbRef.once('value');
+    const latest = snap.val() || {};
+    if (Object.keys(latest).length > 0) return { ok: false, reason: 'remote-exists' };
+
+    /* 10장면 1회 기록 (set 전체 덮어쓰기 X — update 사용) */
+    const raw = _mtbBuildBase10Scenes({ source });
+    const payload = {};
+    Object.keys(raw).forEach(k => {
+      payload[k] = (typeof _sceneToDbShape === 'function') ? _sceneToDbShape(raw[k]) : raw[k];
+    });
+    await dbRef.update(payload);
+
+    /* 자동 생성: 재생성 차단용 meta 플래그 기록 (update=merge — projectType 등 보존).
+       플래그 기록 실패해도 장면 생성은 유효 — 다음 진입에서 once-recheck가 중복 차단. */
+    if (opts.markInitialized && window._metaRef && typeof window._metaRef.update === 'function') {
+      try { await window._metaRef.update({ starterTemplateInitialized: true }); }
+      catch (_) { /* noop — 장면 생성 성공이 우선 */ }
+    }
+
+    /* local scenes / 노드 렌더는 dbRef.on('value') 리스너가 갱신 (firebase.js) */
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, reason: 'error' };
+  } finally {
+    _mtbBase10Creating = false;
+  }
+}
+
+/* BASE10-2: 모바일·PC 공통 "수동 버튼" 생성 경로 — 확인 모달 유지.
    source별 활성 조건만 호출자가 gateOk로 넘긴다(모바일=_mtbShouldActivate,
-   PC=텍스트형+비admin). dbRef.update만 사용(set 전체 덮어쓰기 금지). */
+   PC=텍스트/그림책형+비admin). 실제 쓰기는 _writeBase10IfEmpty가 담당. */
 async function _runBase10Creation(opts) {
   opts = opts || {};
   const btn = opts.btn || null;
   const idleText = opts.idleText || '기본 틀로 시작하기';
   const busyText = opts.busyText || '만드는 중…';
 
-  /* 가드 1: 중복 클릭(동시 생성) 방지 — 모듈 전역 락 공유(모바일·PC) */
+  /* 가드 1: 중복 클릭(동시 생성) 방지 */
   if (_mtbBase10Creating) return false;
 
-  /* 가드 2: scenes 첫 스냅샷 도착 전이면 중단 — "로드 전 빈 객체" 오판 차단 */
+  /* 가드 2: scenes 첫 스냅샷 도착 전이면 중단 */
   const loaded = (typeof window.isBranchScenesLoaded === 'function')
     ? window.isBranchScenesLoaded() : !!window.__branchScenesLoaded;
   if (!loaded) {
@@ -2196,7 +2253,7 @@ async function _runBase10Creation(opts) {
     return false;
   }
 
-  /* 가드 3: source별 활성 조건 불충족이면 조용히 중단 (PC/그림책/무비/admin 차단) */
+  /* 가드 3: source별 활성 조건 불충족이면 조용히 중단 (무비/체험형/admin 차단) */
   if (opts.gateOk === false) return false;
 
   /* 가드 4: 메모리상 이미 장면이 하나라도 있으면 중단 */
@@ -2211,7 +2268,7 @@ async function _runBase10Creation(opts) {
     return false;
   }
 
-  /* 사용자 확인 — 명시적 의도 한 번 더 */
+  /* 사용자 확인 — 수동 경로는 명시적 의도 모달 유지 */
   const ok = window.showMakerConfirm
     ? await window.showMakerConfirm({
         title: '기본 이야기 틀을 만들까요?',
@@ -2223,37 +2280,83 @@ async function _runBase10Creation(opts) {
     : confirm('표지와 이야기 장면 9개를 한 번에 만들까요?');
   if (!ok) return false;
 
-  _mtbBase10Creating = true;
   if (btn) { btn.disabled = true; btn.textContent = busyText; }
-
   try {
-    /* 저장 직전 Firebase 재확인 — 다른 기기가 먼저 만들었으면 중복 생성 차단 */
-    const snap = await dbRef.once('value');
-    const latest = snap.val() || {};
-    if (Object.keys(latest).length > 0) {
-      _mtbToast('다른 곳에서 이미 장면이 만들어졌어요. 새로고침 후 확인해 주세요.');
-      return false;
+    /* 수동 경로는 meta 플래그 기록 안 함(markInitialized:false) — 정책상 플래그는 자동 생성 전용 */
+    const res = await _writeBase10IfEmpty({ source: opts.source || 'mobile', markInitialized: false });
+    if (res.ok) {
+      _mtbToast('기본 이야기 틀을 만들었어요.');
+      return true;
     }
-
-    /* 10장면 1회 원자적 기록 (set 전체 덮어쓰기 X — update 사용) */
-    const raw = _mtbBuildBase10Scenes({ source: opts.source || 'mobile' });
-    const payload = {};
-    Object.keys(raw).forEach(k => {
-      payload[k] = (typeof _sceneToDbShape === 'function') ? _sceneToDbShape(raw[k]) : raw[k];
-    });
-    await dbRef.update(payload);
-
-    /* local scenes / 노드 렌더는 dbRef.on('value') 리스너가 갱신 (firebase.js) */
-    _mtbToast('기본 이야기 틀을 만들었어요.');
-    return true;
-  } catch (e) {
-    _mtbToast('기본 틀을 만들지 못했어요. 잠시 후 다시 시도해 주세요.');
+    if (res.reason === 'remote-exists') {
+      _mtbToast('다른 곳에서 이미 장면이 만들어졌어요. 새로고침 후 확인해 주세요.');
+    } else if (res.reason === 'not-empty') {
+      _mtbToast('이미 장면이 있는 작품에는 기본 틀을 만들 수 없어요.');
+    } else if (res.reason === 'error') {
+      _mtbToast('기본 틀을 만들지 못했어요. 잠시 후 다시 시도해 주세요.');
+    }
     return false;
   } finally {
-    _mtbBase10Creating = false;
     if (btn) { btn.disabled = false; btn.textContent = idleText; }
   }
 }
+
+/* BASE10-3A: scenes 첫 스냅샷 로드를 최대 timeoutMs 동안 대기.
+   ptype 선택 직후 첫 on('value')가 아직 안 왔을 수 있어 짧게 기다렸다 자동 생성 실행. */
+function _waitBranchScenesLoaded(timeoutMs) {
+  timeoutMs = typeof timeoutMs === 'number' ? timeoutMs : 4000;
+  const isLoaded = () => (typeof window.isBranchScenesLoaded === 'function')
+    ? window.isBranchScenesLoaded() : !!window.__branchScenesLoaded;
+  if (isLoaded()) return Promise.resolve(true);
+  return new Promise(resolve => {
+    const start = Date.now();
+    const timer = setInterval(() => {
+      if (isLoaded()) { clearInterval(timer); resolve(true); }
+      else if (Date.now() - start > timeoutMs) { clearInterval(timer); resolve(false); }
+    }, 80);
+  });
+}
+
+/* BASE10-3A: viewer-meta/starterTemplateInitialized === true 인지 서버에서 직접 확인.
+   projectMeta 캐시는 이 필드를 담지 않으므로 _metaRef로 once 조회(fallback 오판 회피). */
+async function _isStarterTemplateInitialized() {
+  try {
+    if (!window._metaRef || typeof window._metaRef.child !== 'function') return false;
+    const snap = await window._metaRef.child('starterTemplateInitialized').once('value');
+    return snap.val() === true;
+  } catch (_) { return false; }
+}
+
+/* BASE10-3A: 신규 text/그림책 작품 첫 projectType 선택 직후 자동 생성(모달 없음).
+   ui.js _enterMakerAfterPtypeSelected의 신규(!_ptypeExistingType) 분기에서만 호출.
+   ★ projectMeta fallback(DEFAULT='picturebook')에 의존하지 않고 호출자가 넘긴
+     명시 ptype만 신뢰한다 → 유형 미설정/로딩중 작품 오판 차단.
+   movie/experience·기존작품·전체삭제후(meta 플래그)·비어있지 않음은 내부 가드로 제외. */
+async function createStarterTemplateForNewProject(explicitPtype) {
+  /* 1. 명시 유형이 text/picturebook일 때만 (movie/experience/기타 차단) */
+  if (explicitPtype !== 'text' && explicitPtype !== 'picturebook') return false;
+
+  /* 2. admin 미리보기는 자동 생성 안 함 (수동 버튼과 동일 정책) */
+  const isAdmin = new URLSearchParams(location.search).get('admin') === '1';
+  if (isAdmin) return false;
+
+  /* 3. scenes 로드 대기 — 선택 직후 첫 스냅샷이 아직이면 잠깐 기다림 */
+  const ready = await _waitBranchScenesLoaded(4000);
+  if (!ready) return false;
+
+  /* 4. 이미 초기화된 작품이면 자동 생성 안 함 — 전체삭제 후 재생성 차단 */
+  const already = await _isStarterTemplateInitialized();
+  if (already) return false;
+
+  /* 5. 쓰기 코어 — empty 재확인 + once-recheck + 생성 + 플래그 기록(모달 없음) */
+  const res = await _writeBase10IfEmpty({ source: 'desktop', markInitialized: true });
+  if (res.ok) {
+    _mtbToast('기본 이야기 틀이 준비됐어요.');
+    return true;
+  }
+  return false;
+}
+window.createStarterTemplateForNewProject = createStarterTemplateForNewProject;
 
 /* 모바일 텍스트 브랜치 빈 화면(#mtb-start-template) 핸들러 */
 async function _mtbCreateBase10Template() {
@@ -2262,14 +2365,15 @@ async function _mtbCreateBase10Template() {
   return _runBase10Creation({ btn, gateOk, source: 'mobile' });
 }
 
-/* BASE10-2: PC maker 빈 캔버스(좌측 장면 목록 #ss-start-template) 핸들러.
-   모바일 활성과 무관 — 텍스트형 + 비admin일 때만 동작(빈 작품 여부는 코어가 재확인). */
+/* BASE10-2 / BASE10-3A: PC maker 빈 캔버스(좌측 장면 목록 #ss-start-template) 수동 핸들러.
+   모바일 활성과 무관 — 텍스트/그림책형 + 비admin일 때만 동작(빈 작품 여부는 코어가 재확인).
+   BASE10-3A: 그림책형도 수동 버튼 허용(전체 삭제 후 재생성용). */
 async function _createBase10FromDesktop() {
   const btn = document.getElementById('ss-start-template');
   const isAdmin = new URLSearchParams(location.search).get('admin') === '1';
-  const isText = (typeof projectMeta !== 'undefined' && projectMeta
-    && projectMeta.projectType === 'text');
-  return _runBase10Creation({ btn, gateOk: (isText && !isAdmin), source: 'desktop' });
+  const pt = (typeof projectMeta !== 'undefined' && projectMeta) ? projectMeta.projectType : null;
+  const isStarter = (pt === 'text' || pt === 'picturebook');
+  return _runBase10Creation({ btn, gateOk: (isStarter && !isAdmin), source: 'desktop' });
 }
 
 /* PC 쪽(ui.js)에서 위임 호출 — build 함수도 함께 노출(구조 일치 보장용) */

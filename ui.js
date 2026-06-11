@@ -565,6 +565,7 @@ async function _enterMakerAfterPtypeSelected(ptype) {
      이 흐름이 옛 작품 lock 정상화의 핵심:
      · 사용자 캡처에서 projectType이 undefined인 작품도 이 진입에서 박힘
      · 다음부턴 viewer-data가 valid한 'movie'를 읽음 → 그림책 fallback 안 함. */
+  let savedNewProjectType = false;
   if (!_ptypeExistingType) {
     if (typeof db !== 'undefined' && typeof teamName === 'string' && teamName) {
       try {
@@ -576,6 +577,7 @@ async function _enterMakerAfterPtypeSelected(ptype) {
           await db.ref(basePath + '/viewer-meta/projectType').set(ptype);
           /* 저장 성공 → 메모리 _ptypeExistingType 갱신 (이번 세션 안 한번 더 클릭해도 저장 스킵) */
           _ptypeExistingType = ptype;
+          savedNewProjectType = true;
         } catch (saveErr) {
           alert('작품 유형 저장에 실패했어요. 네트워크를 확인하고 다시 시도해주세요.');
           return;   // ptype 화면 유지 (잘못된 모드로 진입 차단)
@@ -584,6 +586,18 @@ async function _enterMakerAfterPtypeSelected(ptype) {
     }
   }
   hidePtypeScreen();
+
+  /* BASE10-3A: 신규 작품 projectType 저장이 "성공"했고(savedNewProjectType),
+     명시 유형이 text/picturebook일 때만 기본 10장면 자동 생성(모달 없음).
+     · 기존 작품 재진입(savedNewProjectType=false) → 실행 안 됨
+     · movie/experience/기타 → 명시 ptype 필터로 제외
+     · 전체삭제 후 빈 작품 / 로딩 전 빈 상태 → 함수 내부 가드(meta 플래그 + once-recheck)로 제외
+     자동 생성 실패해도 maker 진입은 정상 진행. */
+  if (savedNewProjectType && (ptype === 'text' || ptype === 'picturebook')
+      && typeof window.createStarterTemplateForNewProject === 'function') {
+    try { await window.createStarterTemplateForNewProject(ptype); }
+    catch (_) { /* noop */ }
+  }
 }
 
 /* ================================================================

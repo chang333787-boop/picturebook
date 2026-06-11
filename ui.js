@@ -418,7 +418,8 @@ function importJSON(e) {
       _afterMutation();
       alert(`✅ "${file.name}" 불러오기 완료!`);
     } catch (err) {
-      alert(`❌ 올바른 가지 파일이 아니에요.\n${err && err.message ? err.message : ''}`);
+      console.error('[ui] 가지 파일 불러오기 실패:', err);
+      alert('❌ 올바른 가지 파일이 아니에요.');
     }
   };
   reader.readAsText(file); e.target.value = '';

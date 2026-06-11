@@ -140,7 +140,8 @@ async function handleCoverImageUpload(input) {
     /* 즉시 저장 — 이미지는 양이 크고, 업로드 후 잃으면 곤란 */
     await pushProjectMetaToFirebase({ coverImageData: coverUrl });
   } catch (err) {
-    alert(`❌ 이미지 업로드 실패: ${err.message || err}`);
+    console.error('[projectSettings] 표지 이미지 업로드 실패:', err);
+    alert('❌ 이미지를 올리지 못했어요. 잠시 후 다시 시도해 주세요.');
     if (empty) { empty.style.display = 'flex'; empty.textContent = '표지 이미지 없음'; }
   }
   input.value = '';
@@ -159,7 +160,8 @@ async function removeCoverImage() {
   try {
     await pushProjectMetaToFirebase({ coverImageData: null });
   } catch (err) {
-    alert(`❌ 저장 실패: ${err.message || err}`);
+    console.error('[projectSettings] 표지 삭제 저장 실패:', err);
+    alert('❌ 저장하지 못했어요. 잠시 후 다시 시도해 주세요.');
   }
 }
 
@@ -196,7 +198,8 @@ async function saveProjectSettings() {
     });
     closeProjectSettings();
   } catch (err) {
-    alert(`❌ 저장 실패: ${err.message || err}`);
+    console.error('[projectSettings] 설정 저장 실패:', err);
+    alert('❌ 저장하지 못했어요. 잠시 후 다시 시도해 주세요.');
   }
 }
 

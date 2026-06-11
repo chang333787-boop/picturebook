@@ -553,7 +553,7 @@ function _mtbNewSceneAndConnect(fromSceneId, btnIdx) {
   const sc = scenes[fromSceneId];
   if (!sc) return;
   if (typeof addScene !== 'function') {
-    alert('장면 추가 함수가 박혀있지 않아요.');
+    alert('장면을 추가할 수 없어요. 새로고침 후 다시 시도해 주세요.');
     return;
   }
   const beforeIds = new Set(Object.keys(scenes));
@@ -976,7 +976,7 @@ function _mtbHandleMenuAction(sceneId, action, idx) {
 
   if (action === 'new-and-connect') {
     if (typeof addScene !== 'function') {
-      alert('장면 추가 함수가 박혀있지 않아요.');
+      alert('장면을 추가할 수 없어요. 새로고침 후 다시 시도해 주세요.');
       return;
     }
     /* 새 scene 박음 — 박힌 후 num 추정 */
@@ -1710,7 +1710,7 @@ function _mtbApplyTextStyleToAll() {
   if (curId === null) return;
   const cur = scenes[curId];
   if (!cur || !cur.textStyle) {
-    alert('현재 장면에 박힌 글자 스타일이 없어요.');
+    alert('현재 장면에 적용된 글자 스타일이 없어요.');
     return;
   }
   const style = { ...cur.textStyle };
@@ -1735,7 +1735,7 @@ function _mtbApplyTextStyleToAll() {
     scenes[id].textStyle = { ...style };
     if (typeof pushToFirebase === 'function') pushToFirebase(id);
   });
-  alert(`✅ ${targets.length}개 장면에 박혔어요.`);
+  alert(`✅ ${targets.length}개 장면에 적용했어요.`);
 }
 
 function _mtbUpdateStyle(field, value) {
@@ -1853,7 +1853,7 @@ function _mtbOpenCoverScene() {
     return;
   }
   if (typeof addScene !== 'function') {
-    alert('표지 만들기 기능을 박을 수 없어요.');
+    alert('표지 만들기 기능을 사용할 수 없어요.');
     return;
   }
   addScene('cover');
@@ -1973,7 +1973,7 @@ function _mtbInit() {
         addScene();
         setTimeout(_mtbRender, 200);
       } else {
-        alert('장면 추가 함수 못 찾았어요. Step 3에서 박을 거예요.');
+        alert('아직 사용할 수 없는 기능이에요.');
       }
     });
   }

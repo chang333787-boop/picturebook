@@ -599,7 +599,7 @@
     }
     const useRealApi = _shouldUseRealApi();
     if (!useRealApi && _getRemaining('s2') <= 0) {
-      alert('이번 작품에서 텍스트 2단계를 사용할 수 있는 횟수를 모두 사용했어요. (테스트 모드)');
+      alert('이번 작품에서 텍스트 2단계를 사용할 수 있는 횟수를 모두 사용했어요.');
       return;
     }
     _showCallingModal(sceneCount);
@@ -1017,7 +1017,7 @@
       resetEl.addEventListener('click', function () {
         _resetMockUsage();
         close();
-        alert('현재 팀 quota를 초기화했어요 (' + ns + '). 다시 [1단계 정돈]을 눌러 주세요.');
+        alert('이 팀의 AI 사용 횟수를 초기화했어요. 다시 [1단계 정돈]을 눌러 주세요.');
       });
     }
   }
@@ -3009,7 +3009,7 @@
     });
     const all = root.querySelector('.js-ai-tm-reset-team-all');
     if (all) all.addEventListener('click', function () {
-      if (!confirm('현재 팀(' + _getCurrentNamespace() + ')의 mock quota·후보·결과를 모두 초기화할까요?')) return;
+      if (!confirm('현재 팀(' + _getCurrentNamespace() + ')의 AI 사용 기록·후보·결과를 모두 초기화할까요?')) return;
       _resetMockUsage();
       _resetMockDrafts();
       _resetMockVariants();
@@ -3287,7 +3287,7 @@
     const snapshot = _buildWorkSnapshot();
     const sceneCount = Object.keys(snapshot).length;
     if (sceneCount === 0) {
-      alert('본문이 박힌 장면이 없어요. 먼저 작품을 작성해주세요.');
+      alert('본문이 있는 장면이 없어요. 먼저 작품을 작성해 주세요.');
       return;
     }
 
@@ -3443,7 +3443,7 @@
     const snapshot = _buildWorkSnapshot();
     const sceneCount = Object.keys(snapshot).length;
     if (sceneCount < 2) {
-      alert('본문이 박힌 장면이 2개 이상 필요해요.');
+      alert('본문이 있는 장면이 2개 이상 필요해요.');
       return;
     }
 

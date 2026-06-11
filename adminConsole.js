@@ -455,9 +455,10 @@ async function _saveAiSettings(classId, state, panel, saveBtn, statusEl) {
       saveBtn.disabled = false;
     }, 1600);
   } catch (err) {
+    console.error('[admin] AI 설정 저장 실패:', err);
     saveBtn.disabled = false;
     saveBtn.textContent = '저장';
-    alert('❌ AI 설정 저장 실패: ' + err.message);
+    alert('❌ AI 설정을 저장하지 못했어요. 잠시 후 다시 시도해 주세요.');
   }
 }
 
@@ -547,11 +548,12 @@ async function _saveTeamCreationMode(classId, value, btn, statusEl) {
     btn.disabled = false;
     btn.textContent = prev;
   } catch (err) {
+    console.error('[admin] 계정 저장 실패:', err);
     const errMsg = (err && (err.code || err.message)) ? String(err.code || err.message) : '';
     if (/PERMISSION_DENIED|permission[_ ]?denied/i.test(errMsg)) {
-      _tcSetStatus(statusEl, 'err', '저장 권한이 없어요. (보안 규칙 확인 필요)');
+      _tcSetStatus(statusEl, 'err', '저장 권한이 없어요. 관리자에게 문의해 주세요.');
     } else {
-      _tcSetStatus(statusEl, 'err', '저장 실패: ' + (err.message || err.code || '알 수 없는 오류'));
+      _tcSetStatus(statusEl, 'err', '저장하지 못했어요. 잠시 후 다시 시도해 주세요.');
     }
     btn.disabled = false;
     btn.textContent = prev;
@@ -661,11 +663,12 @@ async function _createTeamAccount(classId, nameEl, pinEl, btn, statusEl) {
     /* 1.5초 후 목록 새로고침 — 성공 문구를 잠시 보여주고 재렌더 */
     setTimeout(() => loadAdminData(), 1500);
   } catch (err) {
+    console.error('[admin] 팀 만들기 실패:', err);
     const errMsg = (err && (err.code || err.message)) ? String(err.code || err.message) : '';
     if (/PERMISSION_DENIED|permission[_ ]?denied/i.test(errMsg)) {
-      _tcSetStatus(statusEl, 'err', '아직 보안 규칙이 적용되지 않아 팀을 만들 수 없어요. (다음 단계에서 규칙 적용 후 사용 가능)');
+      _tcSetStatus(statusEl, 'err', '아직 팀을 만들 수 없어요. 관리자에게 문의해 주세요.');
     } else {
-      _tcSetStatus(statusEl, 'err', '팀 만들기 실패: ' + (err.message || err.code || '알 수 없는 오류'));
+      _tcSetStatus(statusEl, 'err', '팀을 만들지 못했어요. 잠시 후 다시 시도해 주세요.');
     }
     btn.disabled = false; btn.textContent = prevLabel;
   }
@@ -1193,7 +1196,8 @@ async function _toggleIsPublic(encodedName, teamName, currentIsPublic) {
     _invalidateAdminCache('toggle-public');   // 상태 변경 — 다음 재진입 때 fresh 읽기
     _renderTeamList();
   } catch (err) {
-    alert(`❌ ${label} 전환 실패: ${err.message}`);
+    console.error('[admin] ' + label + ' 전환 실패:', err);
+    alert(`❌ ${label} 전환을 처리하지 못했어요. 잠시 후 다시 시도해 주세요.`);
   }
 }
 
@@ -1214,11 +1218,12 @@ function _accountRef(encodedName) {
 }
 
 function _adminAccountErr(err, fallbackLabel) {
+  console.error('[admin] ' + fallbackLabel + ' 실패:', err);
   const errMsg = (err && (err.code || err.message)) ? String(err.code || err.message) : '';
   if (/PERMISSION_DENIED|permission[_ ]?denied/i.test(errMsg)) {
-    alert('권한이 없어 ' + fallbackLabel + '을(를) 못 했어요. (보안 규칙 확인이 필요해요)');
+    alert('권한이 없어 ' + fallbackLabel + '을(를) 처리하지 못했어요. 관리자에게 문의해 주세요.');
   } else {
-    alert('❌ ' + fallbackLabel + ' 실패: ' + (err.message || err.code || '알 수 없는 오류'));
+    alert('❌ ' + fallbackLabel + '을(를) 처리하지 못했어요. 잠시 후 다시 시도해 주세요.');
   }
 }
 
@@ -1361,7 +1366,8 @@ async function _issueCopyCodeFlow(encodedName, teamName) {
     const { code, expiresAt } = await issueCopyCode(adminState.adminClassId, encodedName);
     _showCopyCodeModal(teamName, code, expiresAt);
   } catch (err) {
-    alert(`❌ 코드 발급 실패: ${err.message}`);
+    console.error('[admin] 코드 발급 실패:', err);
+    alert(`❌ 코드 발급에 실패했어요. 잠시 후 다시 시도해 주세요.`);
   }
 }
 
@@ -1523,16 +1529,17 @@ function _deleteTeam(encodedName, displayName) {
          · Firebase RTDB 규칙상 admin 화면에서 직접 박지 X 박을 수 있음
          · 원문 에러 박지 X — 교사 친화 문구 박음
          · 권한 박는 거 박지 X (database.rules.json 박지 X) */
+      console.error('[admin] 팀 삭제 실패:', err);
       const errMsg  = (err && (err.code || err.message)) ? String(err.code || err.message) : '';
       const isPermDenied = /PERMISSION_DENIED|permission[_ ]?denied/i.test(errMsg);
       if (isPermDenied) {
         alert(
           '⚠️ 삭제 권한이 없어 삭제되지 않았어요.\n\n' +
-          '현재 보안 규칙상 관리자 화면에서 팀 데이터를 직접 삭제할 수 없어요.\n' +
+          '현재 관리자 화면에서는 팀 데이터를 직접 삭제할 수 없어요.\n' +
           '관리자에게 별도 처리 부탁드려요.'
         );
       } else {
-        alert('❌ 삭제 실패: ' + (err.message || err.code || '알 수 없는 오류'));
+        alert('❌ 삭제하지 못했어요. 잠시 후 다시 시도해 주세요.');
       }
     });
 }

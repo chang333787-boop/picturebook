@@ -4400,8 +4400,9 @@ function _bindTypeSectionsEvents(panel, scene) {
             const r = await viewerUploadImageToStorage(finalUrl, scene.num || scene.id);
             storageUrl = r.downloadURL;
           } catch (e) {
+            console.error('[viewer-edit] 이미지 업로드 실패:', e);
             if (lbl && lbl.firstChild) lbl.firstChild.nodeValue = prevText;
-            alert(`❌ 이미지 업로드 실패: ${e.message || e}\n\n잠시 후 다시 시도해주세요.`);
+            alert('❌ 이미지를 올리지 못했어요. 잠시 후 다시 시도해 주세요.');
             e.target.value = '';
             return;
           }
@@ -4416,8 +4417,9 @@ function _bindTypeSectionsEvents(panel, scene) {
           /* viewer 미리보기 재렌더 — 그림 즉시 반영 */
           _scheduleViewerFrameReRender();
         } catch (err) {
+          console.error('[viewer-edit] 이미지 처리 실패:', err);
           if (lbl && lbl.firstChild) lbl.firstChild.nodeValue = prevText;
-          alert(`이미지 처리 실패: ${err.message || err}`);
+          alert('이미지를 처리하지 못했어요. 잠시 후 다시 시도해 주세요.');
         }
         e.target.value = '';  /* 같은 파일 다시 선택 가능하도록 reset */
       });
@@ -4869,7 +4871,8 @@ function _bindTypeSectionsEvents(panel, scene) {
               const r = await viewerUploadImageToStorage(dataUrl, scene.num || scene.id);
               storageUrl = r.downloadURL;
             } catch (err) {
-              alert(`❌ 포스터 업로드 실패: ${err.message || err}\n\n잠시 후 다시 시도해주세요.`);
+              console.error('[viewer-edit] 포스터 업로드 실패:', err);
+              alert('❌ 포스터를 올리지 못했어요. 잠시 후 다시 시도해 주세요.');
               return;
             }
             scene.imageData = storageUrl;
@@ -5147,7 +5150,7 @@ function _bindTypeSectionsEvents(panel, scene) {
   if (ptype === 'experience') {
     panel.querySelectorAll('.js-exp-bg-upload').forEach(btn => {
       btn.addEventListener('click', () => {
-        alert('배경 업로드 정식 흐름은 다음 단계에서 연결됩니다.');
+        alert('아직 사용할 수 없는 기능이에요.');
       });
     });
 
@@ -5734,18 +5737,18 @@ function _moviePanelHtml(scene) {
       <!-- 영상 / 포스터 슬롯 (비활성 — 연결 예정) -->
       <div class="edit-movie-slots">
         <div class="edit-movie-slot edit-movie-slot--video is-disabled"
-             aria-disabled="true" title="영상 업로드는 다음 단계에서 연결됩니다">
-          <div class="edit-movie-slot-locked-badge">🔒 연결 예정</div>
+             aria-disabled="true" title="영상 업로드는 준비 중이에요">
+          <div class="edit-movie-slot-locked-badge">🔒 준비 중</div>
           <div class="edit-movie-slot-icon">🎞</div>
           <div class="edit-movie-slot-title">영상 파일</div>
-          <div class="edit-movie-slot-note">다음 단계에서 업로드 연결</div>
+          <div class="edit-movie-slot-note">업로드 준비 중</div>
         </div>
         <div class="edit-movie-slot edit-movie-slot--poster${hasPoster ? ' has-source' : ' is-disabled'}"
-             ${hasPoster ? '' : 'aria-disabled="true" title="포스터 업로드는 다음 단계. 지금은 장면 이미지가 자동으로 쓰여요."'}>
+             ${hasPoster ? '' : 'aria-disabled="true" title="포스터 업로드는 준비 중이에요. 지금은 장면 이미지가 자동으로 쓰여요."'}>
           ${hasPoster
             ? `<img src="${escHtml(posterSrc)}" alt="포스터 미리보기" class="edit-movie-poster-preview">
                <div class="edit-movie-slot-overlay-label">포스터 (장면 이미지 사용 중)</div>`
-            : `<div class="edit-movie-slot-locked-badge">🔒 연결 예정</div>
+            : `<div class="edit-movie-slot-locked-badge">🔒 준비 중</div>
                <div class="edit-movie-slot-icon">🖼</div>
                <div class="edit-movie-slot-title">포스터 이미지</div>
                <div class="edit-movie-slot-note">없으면 장면 이미지가 대신 쓰여요</div>`}
@@ -6000,7 +6003,7 @@ async function _saveFlattenedImage(sceneNum, newImageDataUrl) {
       storageUrl = r.downloadURL;
     } catch (e) {
       console.error('[flatten save] Storage 업로드 실패:', e);
-      alert(`이미지 저장 실패: ${e.message || e}\n잠시 후 다시 시도해주세요.`);
+      alert('이미지를 저장하지 못했어요. 잠시 후 다시 시도해 주세요.');
       return;
     }
 
@@ -7340,7 +7343,8 @@ function _openPbDrawModal(scene) {
         const r = await viewerUploadImageToStorage(dataUrl, scene.num || scene.id);
         storageUrl = r.downloadURL;
       } catch (e) {
-        alert(`❌ 그림 업로드 실패: ${e.message || e}\n\n잠시 후 다시 시도해주세요.`);
+        console.error('[viewer-edit] 그림 업로드 실패:', e);
+        alert('❌ 그림을 올리지 못했어요. 잠시 후 다시 시도해 주세요.');
         return;
       }
       scene.imageData = storageUrl;
@@ -7352,7 +7356,8 @@ function _openPbDrawModal(scene) {
       _scheduleViewerFrameReRender();
       _close();
     } catch (err) {
-      alert(`저장 실패: ${err.message || err}`);
+      console.error('[viewer-edit] 그림 저장 실패:', err);
+      alert('저장하지 못했어요. 잠시 후 다시 시도해 주세요.');
     }
   });
 }

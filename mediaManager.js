@@ -213,8 +213,9 @@ async function _uploadImageFile(num, file) {
       const r = await uploadImageToStorage(finalDataUrl, num);
       imageUrl = r.downloadURL;
     } catch (e) {
+      console.error('[mediaManager] 이미지 업로드 실패:', e);
       mediaState.uploading.delete(num);
-      alert(`❌ 이미지 업로드 실패: ${e.message || e}\n\n잠시 후 다시 시도해주세요.`);
+      alert('❌ 이미지를 올리지 못했어요. 잠시 후 다시 시도해 주세요.');
       if (scenes[num]) renderCard(scenes[num]);
       return;
     }
@@ -227,8 +228,9 @@ async function _uploadImageFile(num, file) {
     drawArrows();
     pushToFirebase(num);
   } catch (err) {
+    console.error('[mediaManager] 이미지 처리 실패:', err);
     mediaState.uploading.delete(num);
-    alert(`❌ 이미지 처리 실패: ${err.message || err}`);
+    alert('❌ 이미지를 처리하지 못했어요. 잠시 후 다시 시도해 주세요.');
     if (scenes[num]) renderCard(scenes[num]);
   }
 }

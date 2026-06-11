@@ -538,7 +538,7 @@ async function _onImgSave() {
     }
   } catch (err) {
     console.error('[imageTransform] 저장 실패:', err);
-    alert('저장 실패: ' + err.message);
+    alert('저장하지 못했어요. 잠시 후 다시 시도해 주세요.');
   }
 
   _exitImageEdit();

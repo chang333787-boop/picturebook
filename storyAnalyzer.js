@@ -189,26 +189,26 @@ function analyzeStructure() {
 
   const endings = sceneArr.filter(s => s.type === 'ending');
 
-  /* ── 첫 감상 시작점 ── */
+  /* ── 처음 시작 장면 ── */
   if (entryNum == null) {
-    items.push({ cls: 'check-error', msg: '❌ 첫 감상 시작점이 지정되지 않았어요.' });
+    items.push({ cls: 'check-error', msg: '❌ 처음 시작 장면이 지정되지 않았어요.' });
   } else if (entryMetaSet && !entryExplicit) {
-    items.push({ cls: 'check-error', msg: `❌ 첫 감상 시작점이 존재하지 않는 장면을 가리켜요 (장면 ${pm.entrySceneId}).` });
+    items.push({ cls: 'check-error', msg: `❌ 처음 시작 장면이 존재하지 않는 장면을 가리켜요 (장면 ${pm.entrySceneId}).` });
   } else if (!entryExplicit) {
-    items.push({ cls: 'check-warn', msg: `⚠️ 첫 감상 시작점이 지정되지 않아 자동으로 장면 ${entryNum}에서 시작해요.` });
+    items.push({ cls: 'check-warn', msg: `⚠️ 처음 시작 장면이 지정되지 않아 자동으로 장면 ${entryNum}에서 시작해요.` });
   } else {
-    items.push({ cls: 'check-ok', msg: `✅ 첫 감상 시작점: 장면 ${entryNum}` });
+    items.push({ cls: 'check-ok', msg: `✅ 처음 시작 장면: 장면 ${entryNum}` });
   }
 
-  /* ── 다시 시작점 ── */
+  /* ── 다시 할 때 시작 장면 ── */
   if (replayNum == null) {
-    items.push({ cls: 'check-error', msg: '❌ 다시 시작점이 지정되지 않았어요.' });
+    items.push({ cls: 'check-error', msg: '❌ 다시 할 때 시작 장면이 지정되지 않았어요.' });
   } else if (replayMetaSet && !replayExplicit) {
-    items.push({ cls: 'check-error', msg: `❌ 다시 시작점이 존재하지 않는 장면을 가리켜요 (장면 ${pm.replaySceneId}).` });
+    items.push({ cls: 'check-error', msg: `❌ 다시 할 때 시작 장면이 존재하지 않는 장면을 가리켜요 (장면 ${pm.replaySceneId}).` });
   } else if (!replayExplicit) {
-    items.push({ cls: 'check-warn', msg: `⚠️ 다시 시작점이 지정되지 않아 첫 감상 시작점(장면 ${replayNum})과 동일하게 동작해요.` });
+    items.push({ cls: 'check-warn', msg: `⚠️ 다시 할 때 시작 장면이 지정되지 않아 처음 시작 장면(장면 ${replayNum})과 동일하게 동작해요.` });
   } else {
-    items.push({ cls: 'check-ok', msg: `✅ 다시 시작점: 장면 ${replayNum}` });
+    items.push({ cls: 'check-ok', msg: `✅ 다시 할 때 시작 장면: 장면 ${replayNum}` });
   }
 
   /* ── 엔딩 ── */
@@ -238,7 +238,7 @@ function analyzeStructure() {
   });
   broken.forEach(b => items.push({ cls: 'check-error', msg: '❌ ' + b }));
 
-  /* ── 첫 감상 시작점에서 도달 불가능한 장면 ── */
+  /* ── 처음 시작 장면에서 도달 불가능한 장면 ── */
   if (entryNum != null) {
     const reachable = new Set();
     const stack = [entryNum];
@@ -255,7 +255,7 @@ function analyzeStructure() {
     if (unreachable.length) {
       items.push({
         cls: 'check-warn',
-        msg: `⚠️ 첫 감상 시작점에서 도달할 수 없는 장면이 ${unreachable.length}개 있어요: ${unreachable.map(s => s.num).join(', ')}`,
+        msg: `⚠️ 처음 시작 장면에서 도달할 수 없는 장면이 ${unreachable.length}개 있어요: ${unreachable.map(s => s.num).join(', ')}`,
         errorNums: unreachable.map(s => s.num)
       });
     }
@@ -368,8 +368,8 @@ function _rtScenePrefix(scene) {
   const isTrue  = isEnd && scene.trueEnding;
   if (isTrue)         return `장면 ${scene.num} · ⭐ 진엔딩`;
   if (isEnd)          return `장면 ${scene.num} · 🏁 엔딩`;
-  if (roles.isEntry)  return `장면 ${scene.num} · 🟢 첫 감상 시작`;
-  if (roles.isReplay) return `장면 ${scene.num} · 🔁 다시 시작점`;
+  if (roles.isEntry)  return `장면 ${scene.num} · 🟢 처음 시작 장면`;
+  if (roles.isReplay) return `장면 ${scene.num} · 🔁 다시 할 때 시작 장면`;
   return `장면 ${scene.num}`;
 }
 
@@ -829,8 +829,8 @@ function renderRoutePanel() {
   tabsEl.innerHTML = `
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;width:100%;">
       <span style="font-size:11px;color:#9b4dca;font-family:var(--font-h);">시작 기준</span>
-      ${modeBtn('entry',  '🟢 첫 감상', entryNum)}
-      ${modeBtn('replay', '🔁 다시 시작', replayNum)}
+      ${modeBtn('entry',  '🟢 처음 시작', entryNum)}
+      ${modeBtn('replay', '🔁 다시 할 때', replayNum)}
       <span style="flex:1;"></span>
       <span style="font-size:11px;color:var(--muted);">엔딩별 이야기 흐름 점검</span>
     </div>`;
@@ -838,8 +838,8 @@ function renderRoutePanel() {
   /* 본문 — 시작점 유효성 */
   if (curStart == null) {
     contentEl.innerHTML = `<div style="color:var(--muted);text-align:center;padding:24px;">
-      ${_routeMode === 'entry' ? '첫 감상 시작점' : '다시 시작점'}이 지정되지 않았어요.<br>
-      <span style="font-size:11px;">[⚙ 표지·시작점]에서 설정하거나 장면을 먼저 만들어 주세요.</span>
+      ${_routeMode === 'entry' ? '처음 시작 장면' : '다시 할 때 시작 장면'}이 지정되지 않았어요.<br>
+      <span style="font-size:11px;">[⚙ 시작점]에서 설정하거나 장면을 먼저 만들어 주세요.</span>
     </div>`;
     return;
   }

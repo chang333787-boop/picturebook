@@ -6130,7 +6130,7 @@ function _bindHudEditActions() {
      변환 어댑터 필수. */
   document.querySelector('.js-edit-open-routes')?.addEventListener('click', () => {
     if (typeof openRoutePanel !== 'function') {
-      alert('루트보기 기능을 불러오지 못했어요. 페이지를 새로고침해 주세요.');
+      alert('루트 보기 기능을 불러오지 못했어요. 페이지를 새로고침해 주세요.');
       return;
     }
     /* ViewerState.scenes → maker 형식으로 변환:
@@ -6370,7 +6370,7 @@ function openStructureMap() {
   overlay.innerHTML = `
     <div class="structure-map-panel">
       <div class="structure-map-header">
-        <h3 class="structure-map-title">🗺 장면 구조</h3>
+        <h3 class="structure-map-title">🔍 장면 구조</h3>
         <div class="structure-map-hint">노드를 누르면 해당 장면으로 이동해요</div>
         <button class="structure-map-close js-structure-map-close" title="닫기">✕</button>
       </div>

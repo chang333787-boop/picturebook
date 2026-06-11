@@ -1393,7 +1393,7 @@ function renderEditPanel() {
     const _ptype = _resolveViewerProjectType();
     const tabs = _editTabsForMode(_ptype, /*hasChoice*/ false);
     panel.innerHTML = `
-      <div class="edit-panel-inner${_ptype === 'movie' ? ' edit-panel-inner--movie' : ''}${_ptype === 'picturebook' ? ' edit-panel-inner--picturebook' : ''}">
+      <div class="edit-panel-inner${_ptype === 'movie' ? ' edit-panel-inner--movie' : ''}${_ptype === 'picturebook' ? ' edit-panel-inner--picturebook' : ''}${_ptype === 'text' ? ' edit-panel-inner--text' : ''}">
         ${_editActionsHtml()}
         ${_editNavHtml(scene)}
 
@@ -1530,7 +1530,7 @@ function renderEditPanel() {
 
   const tabs = _editTabsForMode(_ptypeForLegacy, /*hasChoice*/ !!legacyChoiceSectionHtml);
   panel.innerHTML = `
-    <div class="edit-panel-inner${_ptypeForLegacy === 'movie' ? ' edit-panel-inner--movie' : ''}${_ptypeForLegacy === 'picturebook' ? ' edit-panel-inner--picturebook' : ''}">
+    <div class="edit-panel-inner${_ptypeForLegacy === 'movie' ? ' edit-panel-inner--movie' : ''}${_ptypeForLegacy === 'picturebook' ? ' edit-panel-inner--picturebook' : ''}${_ptypeForLegacy === 'text' ? ' edit-panel-inner--text' : ''}">
       <!-- 상단 고정 바 (액션 + 네비) -->
       ${_editActionsHtml()}
       ${_editNavHtml(scene)}
@@ -6611,10 +6611,11 @@ function _editTabsForMode(ptype, hasChoice) {
       modeTab = { key: 'mode', label: '🎨 스타일', html: (s, p) => _typeSectionsHtml(s, p) };
       break;
   }
-  /* 우선순위: 그림책/무비/체험은 모드가 핵심 → 모드 먼저. 텍스트는 내용 먼저. */
-  const tabs = (ptype === 'text')
-    ? [contentTab, modeTab]
-    : [modeTab, contentTab];
+  /* 우선순위: 그림책/무비/체험은 모드가 핵심 → 모드 먼저.
+     2026-06-11 (ADV-EDIT-HIDE-TEXT-1): 텍스트도 '내용 고급 편집'(content 탭)을 숨기므로
+     모드(🎨 스타일) 먼저 = 기본 활성 탭. 좁은 화면에서 숨긴 content 탭이 기본 활성이 되어
+     빈 패널이 보이던 문제 차단. content 탭 자체는 DOM 유지(숨김만) — movie/picturebook과 동일. */
+  const tabs = [modeTab, contentTab];
 
   if (hasChoice) {
     tabs.push({ key: 'choice', label: '🔘 선택지', html: null /* legacyChoiceSectionHtml로 채움 */ });

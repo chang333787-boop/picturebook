@@ -1230,3 +1230,90 @@
 @media (max-width: 480px) {
   .ai-toast { bottom: 20px; padding: 11px 16px; font-size: 13.5px; }
 }
+
+/* ════════════════════════════════════════════════════════════════
+   viewer 커스텀 확인 모달 (showViewerConfirm) — 브라우저 기본 confirm 대체.
+   .ai-notice 톤(warm paper #fffaee) 따름. 위험 작업은 .is-danger 강조.
+   ════════════════════════════════════════════════════════════════ */
+.viewer-confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(43, 31, 16, 0.42);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+  z-index: 720;            /* 안내 카드(700)보다 위 — 선택을 요구하므로 우선 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: ai-overlay-fade-in 0.16s ease-out;
+}
+.viewer-confirm-card {
+  background: #fffaee;
+  border-radius: 18px;
+  width: 100%;
+  max-width: 400px;
+  padding: 24px 24px 20px;
+  box-shadow: 0 18px 50px rgba(43, 31, 16, 0.28);
+  font-family: 'Nanum Gothic', sans-serif;
+  color: #2b1f10;
+  text-align: center;
+  animation: ai-modal-pop 0.2s ease-out;
+}
+.viewer-confirm-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: #c66f4a;
+  margin-bottom: 12px;
+  line-height: 1.35;
+  word-break: keep-all;
+}
+.viewer-confirm-message {
+  font-size: 14.5px;
+  line-height: 1.65;
+  color: #4a3a26;
+  word-break: keep-all;
+}
+.viewer-confirm-actions {
+  margin-top: 22px;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+.viewer-confirm-cancel,
+.viewer-confirm-ok {
+  min-width: 110px;
+  padding: 11px 20px;
+  border: none;
+  border-radius: 12px;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.viewer-confirm-cancel {
+  background: #efe6d4;
+  color: #6b5638;
+}
+.viewer-confirm-cancel:hover { background: #e5d9c2; }
+.viewer-confirm-ok {
+  background: #c66f4a;
+  color: #fffaee;
+}
+.viewer-confirm-ok:hover { background: #b25f3c; }
+.viewer-confirm-ok.is-danger { background: #d2503c; }
+.viewer-confirm-ok.is-danger:hover { background: #bd4231; }
+.viewer-confirm-cancel:focus-visible,
+.viewer-confirm-ok:focus-visible {
+  outline: 3px solid rgba(198, 111, 74, 0.4);
+  outline-offset: 2px;
+}
+@media (max-width: 480px) {
+  .viewer-confirm-card { max-width: 340px; padding: 20px 18px 16px; border-radius: 16px; }
+  .viewer-confirm-title { font-size: 17px; }
+  .viewer-confirm-message { font-size: 14px; }
+  .viewer-confirm-actions { flex-direction: column-reverse; gap: 8px; }
+  .viewer-confirm-cancel,
+  .viewer-confirm-ok { width: 100%; }
+}

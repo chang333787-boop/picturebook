@@ -2149,8 +2149,19 @@
       _removeModalRoot('ai-draft-modal-root');
     });
 
-    root.querySelector('.js-ai-draft-cancel').addEventListener('click', function () {
-      if (!confirm('편집한 내용이 저장되지 않아요. 취소할까요?')) return;
+    root.querySelector('.js-ai-draft-cancel').addEventListener('click', async function () {
+      if (typeof window !== 'undefined' && typeof window.showViewerConfirm === 'function') {
+        const ok = await window.showViewerConfirm({
+          title: 'AI 제안 편집을 취소할까요?',
+          message: '저장하지 않은 편집 내용은 사라져요.',
+          confirmText: '취소하기',
+          cancelText: '계속 편집',
+          danger: true,
+        });
+        if (!ok) return;
+      } else if (!confirm('편집한 내용이 저장되지 않아요. 취소할까요?')) {
+        return;
+      }
       _cancelDrafting();
       _removeModalRoot('ai-draft-modal-root');
     });

@@ -30,6 +30,63 @@ const _editText = {
 if (typeof window !== 'undefined') {
   window._editText = _editText;
 }
+
+/* COPY-FIX-2C-1: 브라우저 기본 confirm 대체 — 화면 안 커스텀 확인 카드.
+   Promise<boolean> 반환 (확인 = true / 취소·ESC·배경클릭 = false).
+   viewer.html 컨텍스트 공용이라 window에 명시 노출(const는 자동 노출 X).
+   삭제·초기화 같은 위험 작업은 danger:true로 확인 버튼을 빨갛게 강조.
+   기본 포커스는 취소 버튼 — Enter로 실수 삭제 방지. */
+function showViewerConfirm(opts) {
+  opts = opts || {};
+  const title = opts.title || '확인할까요?';
+  const message = opts.message || '';
+  const confirmText = opts.confirmText || '확인';
+  const cancelText = opts.cancelText || '취소';
+  const danger = !!opts.danger;
+  return new Promise(function (resolve) {
+    const ID = 'viewer-confirm-root';
+    const old = document.getElementById(ID);
+    if (old) old.remove();
+    function esc(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/\n/g, '<br/>');
+    }
+    const root = document.createElement('div');
+    root.id = ID;
+    root.className = 'viewer-confirm-backdrop';
+    root.innerHTML =
+      '<div class="viewer-confirm-card" role="dialog" aria-modal="true">'
+      +   '<div class="viewer-confirm-title">' + esc(title) + '</div>'
+      +   (message ? '<div class="viewer-confirm-message">' + esc(message) + '</div>' : '')
+      +   '<div class="viewer-confirm-actions">'
+      +     '<button type="button" class="viewer-confirm-cancel">' + esc(cancelText) + '</button>'
+      +     '<button type="button" class="viewer-confirm-ok' + (danger ? ' is-danger' : '') + '">' + esc(confirmText) + '</button>'
+      +   '</div>'
+      + '</div>';
+    document.body.appendChild(root);
+    let done = false;
+    function finish(val) {
+      if (done) return;
+      done = true;
+      if (root.parentNode) root.parentNode.removeChild(root);
+      document.removeEventListener('keydown', onKey);
+      resolve(val);
+    }
+    function onKey(e) { if (e.key === 'Escape') finish(false); }
+    root.addEventListener('click', function (e) { if (e.target === root) finish(false); });
+    document.addEventListener('keydown', onKey);
+    const okBtn = root.querySelector('.viewer-confirm-ok');
+    const cancelBtn = root.querySelector('.viewer-confirm-cancel');
+    if (okBtn) okBtn.addEventListener('click', function () { finish(true); });
+    if (cancelBtn) cancelBtn.addEventListener('click', function () { finish(false); });
+    try { (cancelBtn || okBtn).focus(); } catch (_) {}
+  });
+}
+if (typeof window !== 'undefined') {
+  window.showViewerConfirm = showViewerConfirm;
+}
+
 const EDIT_SAVE_DEBOUNCE_MS = 800;
 
 /* W9 (v3): 양옆 마감 테마 collapsible 상태.
@@ -958,7 +1015,13 @@ function _applyEditLockUI() {
         banner.querySelector('.js-edit-lock-force-takeover')
           ?.addEventListener('click', async () => {
             if (_editText.num == null) return;
-            const ok = confirm('다른 친구가 이 장면을 수정 중일 수 있어요.\n그래도 내가 수정할까요?');
+            const ok = await showViewerConfirm({
+              title: '그래도 편집할까요?',
+              message: '다른 친구가 이 장면을 수정 중일 수 있어요. 동시에 고치면 내용이 겹칠 수 있어요.',
+              confirmText: '편집하기',
+              cancelText: '돌아가기',
+              danger: true,
+            });
             if (!ok) return;
             const taken = (typeof viewerForceTakeoverLock === 'function')
               ? await viewerForceTakeoverLock(_editText.num) : false;
@@ -4427,11 +4490,17 @@ function _bindTypeSectionsEvents(panel, scene) {
 
     /* 그림 삭제 */
     panel.querySelectorAll('.js-pb-image-remove').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', async () => {
         if (!_editText.editable) return;
         /* P5-IMAGE-LOCK-1: AI 이미지 보기 중엔 원본 삭제 차단. */
         if (_aiImageVariantBlocksOriginalEdit()) return;
-        if (!confirm('이 장면의 그림을 삭제할까요?')) return;
+        const ok = await showViewerConfirm({
+          title: '그림을 삭제할까요?',
+          message: '이 장면의 그림을 삭제하면 되돌릴 수 없어요.',
+          confirmText: '삭제하기',
+          danger: true,
+        });
+        if (!ok) return;
         scene.imageData = null;
         if (typeof _queueSave === 'function') {
           _queueSave(scene.num || scene.id, { imageData: null });
@@ -4830,7 +4899,13 @@ function _bindTypeSectionsEvents(panel, scene) {
     panel.querySelectorAll('.js-movie-video-delete').forEach(btn => {
       btn.addEventListener('click', async () => {
         if (!_editText.editable) return;
-        if (!confirm('영상을 삭제할까요? Storage에서도 함께 지워집니다.')) return;
+        const ok = await showViewerConfirm({
+          title: '영상을 삭제할까요?',
+          message: '저장된 영상 파일도 함께 삭제될 수 있어요.',
+          confirmText: '삭제하기',
+          danger: true,
+        });
+        if (!ok) return;
         const md = scene.movieData || {};
         const storagePath = md.videoStoragePath || null;
         /* DB 필드 먼저 null로 (UI 즉시 반영) */
@@ -4891,9 +4966,15 @@ function _bindTypeSectionsEvents(panel, scene) {
 
     /* W7-A: 포스터 삭제 */
     panel.querySelectorAll('.js-movie-poster-delete').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', async () => {
         if (!_editText.editable) return;
-        if (!confirm('포스터 이미지를 삭제할까요?')) return;
+        const ok = await showViewerConfirm({
+          title: '포스터 이미지를 삭제할까요?',
+          message: '삭제하면 되돌릴 수 없어요.',
+          confirmText: '삭제하기',
+          danger: true,
+        });
+        if (!ok) return;
         scene.imageData = null;
         const md = _ensureMovieData();
         md.posterImage = null;
@@ -7276,8 +7357,14 @@ function _openPbDrawModal(scene) {
   /* 다시 실행 */
   modal.querySelector('.js-pb-draw-redo')?.addEventListener('click', _redo);
   /* 전체 지우기 */
-  modal.querySelector('.js-pb-draw-clear')?.addEventListener('click', () => {
-    if (!confirm('지금까지 그린 그림이 모두 지워집니다. 계속할까요?')) return;
+  modal.querySelector('.js-pb-draw-clear')?.addEventListener('click', async () => {
+    const ok = await showViewerConfirm({
+      title: '그린 그림을 모두 지울까요?',
+      message: '지금 그린 내용이 모두 지워져요.',
+      confirmText: '지우기',
+      danger: true,
+    });
+    if (!ok) return;
     _snapshot();
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -7317,16 +7404,28 @@ function _openPbDrawModal(scene) {
     modal.remove();
   }
   modal.querySelectorAll('.js-pb-draw-cancel').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       if (state.history.length > 1) {
-        if (!confirm('그린 그림이 저장되지 않습니다. 취소할까요?')) return;
+        const ok = await showViewerConfirm({
+          title: '저장하지 않고 닫을까요?',
+          message: '저장하지 않은 그림은 사라져요.',
+          confirmText: '닫기',
+          danger: true,
+        });
+        if (!ok) return;
       }
       _close();
     });
   });
-  modal.querySelector('.pb-draw-backdrop')?.addEventListener('click', () => {
+  modal.querySelector('.pb-draw-backdrop')?.addEventListener('click', async () => {
     if (state.history.length > 1) {
-      if (!confirm('그린 그림이 저장되지 않습니다. 취소할까요?')) return;
+      const ok = await showViewerConfirm({
+        title: '저장하지 않고 닫을까요?',
+        message: '저장하지 않은 그림은 사라져요.',
+        confirmText: '닫기',
+        danger: true,
+      });
+      if (!ok) return;
     }
     _close();
   });

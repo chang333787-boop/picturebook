@@ -2119,34 +2119,56 @@ function _mtbOpenCoverScene() {
    (presentationMode:'picturebook' — 작품 단위 projectType='text' lock이 우선이라 표시엔 영향 없음). */
 let _mtbBase10Creating = false;
 
-function _mtbBuildBase10Scenes() {
+/* BASE10-2F: 기본 10장면의 x/y만 source별로 결정.
+   · mobile = 기존 세로 계단식(절대 불변).
+   · desktop = 표지가 적당히 아래에서 시작해 오른쪽으로 6개, 7~10은 둘째 줄.
+   구조/키/연결/type엔 일절 관여하지 않음(좌표만). */
+function _base10PositionFor(num, source) {
+  if (source === 'desktop') {
+    const D = {
+      1: { x: 180, y: 320 }, 2: { x: 500, y: 320 }, 3: { x: 820, y: 320 },
+      4: { x: 1140, y: 320 }, 5: { x: 1460, y: 320 }, 6: { x: 1780, y: 320 },
+      7: { x: 500, y: 640 }, 8: { x: 820, y: 640 }, 9: { x: 1140, y: 640 },
+      10: { x: 1460, y: 640 },
+    };
+    return D[num] || { x: 180 + (num - 1) * 320, y: 320 };
+  }
+  /* mobile (기존 좌표 그대로 — 변경 금지) */
+  return { x: 120, y: 120 + (num - 1) * 120 };
+}
+
+function _mtbBuildBase10Scenes(opts) {
+  const source = (opts && opts.source) || 'mobile';
   const out = {};
   /* 표지 = key 1 */
+  const p1 = _base10PositionFor(1, source);
   out['1'] = {
     num: 1, title: '', body: '', type: 'cover',
     subtitle: '', coverTheme: 'default', titleVerticalPosition: 50,
     buttons: [{ label: '▶ 시작하기', nextId: '2' }],
     choiceA: '', choiceB: '', choiceCount: 1,
     _hasBody: true, presentationMode: 'picturebook',
-    x: 120, y: 120,
+    x: p1.x, y: p1.y,
   };
   /* 이야기 장면 — key 2~9 normal (다음 장면으로 연결) */
   for (let n = 2; n <= 9; n++) {
+    const p = _base10PositionFor(n, source);
     out[String(n)] = {
       num: n, title: '', body: '', type: 'normal',
       buttons: [{ label: '다음으로 가기', nextId: String(n + 1) }],
       choiceA: '', choiceB: '', choiceCount: 1,
       _hasBody: true, presentationMode: 'picturebook',
-      x: 120, y: 120 + (n - 1) * 120,
+      x: p.x, y: p.y,
     };
   }
   /* 마지막 = key 10 엔딩 (감상 흐름이 자연스럽게 끝남) */
+  const p10 = _base10PositionFor(10, source);
   out['10'] = {
     num: 10, title: '', body: '', type: 'ending', trueEnding: false,
     buttons: [],
     choiceA: '', choiceB: '', choiceCount: 1,
     _hasBody: true, presentationMode: 'picturebook',
-    x: 120, y: 120 + 9 * 120,
+    x: p10.x, y: p10.y,
   };
   return out;
 }
@@ -2212,7 +2234,7 @@ async function _runBase10Creation(opts) {
     }
 
     /* 10장면 1회 원자적 기록 (set 전체 덮어쓰기 X — update 사용) */
-    const raw = _mtbBuildBase10Scenes();
+    const raw = _mtbBuildBase10Scenes({ source: opts.source || 'mobile' });
     const payload = {};
     Object.keys(raw).forEach(k => {
       payload[k] = (typeof _sceneToDbShape === 'function') ? _sceneToDbShape(raw[k]) : raw[k];
@@ -2235,7 +2257,7 @@ async function _runBase10Creation(opts) {
 async function _mtbCreateBase10Template() {
   const btn = document.getElementById('mtb-start-template');
   const gateOk = (typeof _mtbShouldActivate === 'function') ? _mtbShouldActivate() : false;
-  return _runBase10Creation({ btn, gateOk });
+  return _runBase10Creation({ btn, gateOk, source: 'mobile' });
 }
 
 /* BASE10-2: PC maker 빈 캔버스(좌측 장면 목록 #ss-start-template) 핸들러.
@@ -2245,7 +2267,7 @@ async function _createBase10FromDesktop() {
   const isAdmin = new URLSearchParams(location.search).get('admin') === '1';
   const isText = (typeof projectMeta !== 'undefined' && projectMeta
     && projectMeta.projectType === 'text');
-  return _runBase10Creation({ btn, gateOk: (isText && !isAdmin) });
+  return _runBase10Creation({ btn, gateOk: (isText && !isAdmin), source: 'desktop' });
 }
 
 /* PC 쪽(ui.js)에서 위임 호출 — build 함수도 함께 노출(구조 일치 보장용) */

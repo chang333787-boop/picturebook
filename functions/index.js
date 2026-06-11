@@ -78,6 +78,13 @@ const QUOTA = {
   s2: 2,         /* 2단계 — 브랜치당 2회 (발전은 무겁고 신중) */
   check: 5,      /* 작품 검사 — 브랜치당 5회 */
 };
+/* AI mode 내부값(s1/s2/check)을 사용자용 이름으로 — 사용자 메시지에 raw mode 노출 방지 */
+function _aiModeLabel(mode) {
+  if (mode === 's1') return '문장 정돈';
+  if (mode === 's2') return '장면 발전';
+  if (mode === 'check') return '작품 검사';
+  return 'AI 기능';
+}
 const ROOT_DAILY_LIMIT = 50;       /* rootBranchId 묶음 — 하루 50회 */
 const GLOBAL_DAILY_LIMIT = 500;    /* 전역 일일 hard cap */
 
@@ -453,7 +460,7 @@ async function _validateRequest(req, mode, opts) {
     }
     if (used >= quotaMax) {
       throw new HttpsError('resource-exhausted',
-        `이 작품의 ${mode} 사용 횟수를 모두 사용했어요 (${used}/${quotaMax}).`);
+        `이 작품에서 사용할 수 있는 ‘${_aiModeLabel(mode)}’ 횟수를 모두 사용했어요. (${used}/${quotaMax})`);
     }
   }
 

@@ -171,7 +171,10 @@ async function saveProjectSettings() {
   const entryEl  = document.getElementById('ps-entry-select');
   const replayEl = document.getElementById('ps-replay-select');
 
-  const coverTitle    = titleEl  ? titleEl.value.trim() : '';
+  /* COVER-START-2: 표지 제목 input은 모달에서 제거됨 → titleEl이 없으면 coverTitle을
+     건드리지 않음(기존 projectMeta.coverTitle/DB 값 보존, 빈 값 덮어쓰기 방지). */
+  const hasTitleInput = !!titleEl;
+  const coverTitle    = hasTitleInput ? titleEl.value.trim() : null;
   const entrySceneId  = entryEl  ? entryEl.value  : '';
   const replaySceneId = replayEl ? replayEl.value : '';
 
@@ -185,17 +188,19 @@ async function saveProjectSettings() {
     return;
   }
 
-  /* 로컬 캐시 업데이트 (coverImageData는 이미 업로드 시점에 저장됨) */
-  projectMeta.coverTitle    = coverTitle;
+  /* 로컬 캐시 업데이트 (coverImageData는 업로드 시점에 저장됨 — 여기서 미접촉) */
+  if (hasTitleInput) projectMeta.coverTitle = coverTitle;
   projectMeta.entrySceneId  = entrySceneId  || null;
   projectMeta.replaySceneId = replaySceneId || null;
 
   try {
-    await pushProjectMetaToFirebase({
-      coverTitle:    coverTitle,
+    const payload = {
       entrySceneId:  entrySceneId  || null,
       replaySceneId: replaySceneId || null,
-    });
+    };
+    /* titleEl이 있을 때만 coverTitle 포함 — update는 merge라 미포함 시 기존 값 유지 */
+    if (hasTitleInput) payload.coverTitle = coverTitle;
+    await pushProjectMetaToFirebase(payload);
     closeProjectSettings();
   } catch (err) {
     console.error('[projectSettings] 설정 저장 실패:', err);

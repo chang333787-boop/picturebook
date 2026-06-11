@@ -31,6 +31,26 @@ function renderCurrentScene() {
   const effectiveTemplate = scene.layoutTemplate || ViewerState.project.template;
   stage.dataset.template = effectiveTemplate;
 
+  /* WIN-TAB-1: 감상 모드 장면 전환 동안만 body에 class 부여.
+     전환 애니메이션이 도는 동안에만 무거운 backdrop blur를 CSS에서 축소해
+     Windows/태블릿 GPU 합성 부담을 줄인다(평상시 디자인은 그대로).
+     전환 시간(dataset.sceneSpeedPct 기반)만큼 뒤 제거 — 누적 timer 방지로 clearTimeout. */
+  try {
+    if (!ViewerState.editMode) {
+      const _sPct = parseInt(stage.dataset.sceneSpeedPct, 10);
+      const _switchMs = (typeof _sceneTransMs === 'function')
+        ? _sceneTransMs(isNaN(_sPct) ? 50 : _sPct) : 600;
+      document.body.classList.add('pb-is-scene-switching');
+      if (window.__pbSwitchTimer) clearTimeout(window.__pbSwitchTimer);
+      window.__pbSwitchTimer = setTimeout(function () {
+        document.body.classList.remove('pb-is-scene-switching');
+        window.__pbSwitchTimer = null;
+      }, _switchMs + 80);
+    } else if (document.body.classList.contains('pb-is-scene-switching')) {
+      document.body.classList.remove('pb-is-scene-switching');
+    }
+  } catch (e) { /* noop */ }
+
   /* edit 모드: safe-area 힌트 표시 + frame 클래스 + body 클래스 (전역 CSS용) */
   const safeHint = document.getElementById('safe-area-hint');
   if (safeHint) safeHint.classList.toggle('hidden', !ViewerState.editMode);
@@ -187,7 +207,7 @@ function renderCover() {
           <div class="pb-frame">
             <div class="pb-illust" data-pb-illust="1">
               <div class="pb-illust__photo" data-pb-photo="1">
-                <img class="pb-illust__inner" src="${imageData}" draggable="false" alt="" decoding="async">
+                <img class="pb-illust__inner" src="${imageData}" draggable="false" alt="" decoding="async" fetchpriority="high">
               </div>
             </div>
             <div class="pb-text pb-text--cover">
@@ -632,7 +652,7 @@ function _renderScenePicturebook(stage, scene, submode) {
   const illustHtml = bgImage
     ? `<div class="pb-illust" data-pb-illust="1">
          <div class="pb-illust__photo" style="${photoVars}" data-pb-photo="1">
-           <img class="pb-illust__inner" src="${bgImage}" draggable="false" alt="" decoding="async">
+           <img class="pb-illust__inner" src="${bgImage}" draggable="false" alt="" decoding="async" fetchpriority="high">
          </div>
          ${titleOverlayInIllustHtml}
        </div>`
@@ -1487,7 +1507,7 @@ function _renderStoryEnding(stage, scene) {
   const endingIllustHtml = endingImage
     ? `<div class="pb-illust" data-pb-illust="1">
          <div class="pb-illust__photo" data-pb-photo="1">
-           <img class="pb-illust__inner" src="${endingImage}" draggable="false" alt="" decoding="async">
+           <img class="pb-illust__inner" src="${endingImage}" draggable="false" alt="" decoding="async" fetchpriority="high">
          </div>
        </div>`
     : `<div class="pb-illust pb-illust--empty">

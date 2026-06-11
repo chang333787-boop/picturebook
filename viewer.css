@@ -21,8 +21,8 @@
   --explore:     #5a8a4a;      /* 종이톤 진녹 */
 
   /* 타이포 */
-  --font-story:  'Nanum Gothic', 'Apple SD Gothic Neo', sans-serif;
-  --font-ui:     'Jua', 'Nanum Gothic', sans-serif;
+  --font-story:  'Nanum Gothic', 'Apple SD Gothic Neo', 'Malgun Gothic', '맑은 고딕', sans-serif;
+  --font-ui:     'Jua', 'Nanum Gothic', 'Malgun Gothic', sans-serif;
 
   /* 애니메이션 */
   --t-fast:  0.15s;
@@ -7289,4 +7289,27 @@ body[data-page-orientation="portrait"] .terminal-screen--story .ending-page {
     gap: 10px;
     margin-top: 10px;
   }
+}
+
+/* ════════════════════════════════════════════════════════════
+   WIN-TAB-1 — 장면 전환 중 backdrop-filter 합성 부담 완화
+   ────────────────────────────────────────────────────────────
+   renderCurrentScene가 감상 모드 전환 시 body.pb-is-scene-switching를
+   부여하고 전환 시간만큼 뒤 제거한다. 전환 애니메이션이 도는 동안에만
+   본문/선택지의 무거운 blur를 축소해 Windows/태블릿 GPU 스터터를 줄인다.
+   · 평상시(전환 종료 후) 디자인은 기존과 동일.
+   · 대비 안전장치(brightness)는 유지하고 blur 반경만 축소 → 가독성 보존.
+   ════════════════════════════════════════════════════════════ */
+body.pb-is-scene-switching .text-box {
+  backdrop-filter: blur(3px) saturate(110%);
+  -webkit-backdrop-filter: blur(3px) saturate(110%);
+}
+body.pb-is-scene-switching .choice-btn--overlay {
+  backdrop-filter: brightness(0.72);
+  -webkit-backdrop-filter: brightness(0.72);
+}
+body.pb-is-scene-switching .choice-preset--basic,
+body.pb-is-scene-switching .choice-preset--ghost {
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
 }

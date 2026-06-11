@@ -2258,19 +2258,19 @@ body.edit-mode-active:not(.viewer-test-active) .scene-screen--movie[data-played=
 
 /* 폰트 변수 — 사용자 메모리 기반 + W9 확장 (총 18종) */
 :root {
-  --font-gothic:     'Nanum Gothic', 'Apple SD Gothic Neo', sans-serif;
-  --font-batang:     'Gowun Batang', 'Apple SD Gothic Neo', serif;
-  --font-jua:        'Jua', 'Apple SD Gothic Neo', sans-serif;
+  --font-gothic:     'Nanum Gothic', 'Apple SD Gothic Neo', 'Malgun Gothic', '맑은 고딕', sans-serif;
+  --font-batang:     'Gowun Batang', 'Apple SD Gothic Neo', 'Batang', '바탕', serif;
+  --font-jua:        'Jua', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
   --font-hanna:      'Black Han Sans', 'Jua', sans-serif;
   --font-pen:        'Nanum Pen Script', 'Gaegu', cursive;
   --font-gaegu:      'Gaegu', 'Nanum Pen Script', cursive;
   --font-galmuri:    'Galmuri7', 'Galmuri', monospace;
   --font-cormorant:  'Cormorant Garamond', 'Gowun Batang', serif;
   /* W9 추가 10종 (구글 폰트 OFL) */
-  --font-notosans:   'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif;
-  --font-notoserif:  'Noto Serif KR', 'Apple SD Gothic Neo', serif;
+  --font-notosans:   'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', '맑은 고딕', sans-serif;
+  --font-notoserif:  'Noto Serif KR', 'Apple SD Gothic Neo', 'Batang', '바탕', serif;
   --font-dohyeon:    'Do Hyeon', 'Jua', sans-serif;
-  --font-dodum:      'Gowun Dodum', 'Apple SD Gothic Neo', sans-serif;
+  --font-dodum:      'Gowun Dodum', 'Apple SD Gothic Neo', 'Malgun Gothic', '맑은 고딕', sans-serif;
   --font-himelody:   'Hi Melody', 'Gaegu', cursive;
   --font-yeonsung:   'Yeon Sung', 'Gaegu', cursive;
   --font-dokdo:      'East Sea Dokdo', 'Nanum Pen Script', cursive;

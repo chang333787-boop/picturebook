@@ -2181,16 +2181,6 @@ body[data-page-orientation="portrait"] .cover-page {
   letter-spacing: 0.3px;
   font-weight: 500;
 }
-.edit-nav-role--entry {
-  background: rgba(86, 211, 100, 0.18);
-  color: #56d364;
-  border: 1px solid rgba(86, 211, 100, 0.4);
-}
-.edit-nav-role--replay {
-  background: rgba(88, 166, 255, 0.16);
-  color: #58a6ff;
-  border: 1px solid rgba(88, 166, 255, 0.38);
-}
 .edit-nav-info-title {
   color: var(--text);
   font-size: 13px;

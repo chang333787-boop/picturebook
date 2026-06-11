@@ -1251,11 +1251,10 @@ function _editNavHtml(scene) {
                   : scene.isEnding ? 'edit-nav-badge--ending'
                                     : 'edit-nav-badge--normal';
 
-  /* 역할 배지 HTML — 첫 감상 시작(녹색) / 다시 시작점(파랑) */
-  const roleBadgesHtml = [
-    roles.isEntry  ? '<span class="edit-nav-role edit-nav-role--entry" title="첫 감상자가 시작하는 장면">첫 감상 시작</span>' : '',
-    roles.isReplay ? '<span class="edit-nav-role edit-nav-role--replay" title="다른 결말 찾기에서 시작하는 장면">다시 시작점</span>' : '',
-  ].join('');
+  /* COVER-START-1: 다듬기 nav의 '첫 감상 시작'/'다시 시작점' 역할 배지 표시 제거.
+     roles(_sceneRoles) 계산은 유지 — 화면 표시만 끔. */
+  void roles;
+  const roleBadgesHtml = '';
 
   /* 장면 목록 option — v39: 표지 최우선 / 엔딩 마지막 / 그 외 id순.
      ←/→ 이동은 _editSceneList() 원본(id순) 그대로 사용 — 드롭다운 정렬만 별도. */
@@ -1266,15 +1265,9 @@ function _editNavHtml(scene) {
     return Number(a.id) - Number(b.id);
   }).map(s => {
     const t     = _sceneTypeLabel(s);
-    const r     = _sceneRoles(s);
-    const roleTxt = [
-      r.isEntry  ? '[첫 감상]'   : '',
-      r.isReplay ? '[다시 시작점]' : '',
-    ].filter(Boolean).join(' ');
+    /* COVER-START-1: 드롭다운 option의 [첫 감상]/[다시 시작점] 표시 제거. */
     const titleTxt = s.title ? s.title.slice(0, 20) : '(제목 없음)';
-    const label = roleTxt
-      ? `${s.id} · ${titleTxt} · ${t} ${roleTxt}`
-      : `${s.id} · ${titleTxt} · ${t}`;
+    const label = `${s.id} · ${titleTxt} · ${t}`;
     const sel   = s.id === scene.id ? 'selected' : '';
     return `<option value="${escHtml(s.id)}" ${sel}>${escHtml(label)}</option>`;
   }).join('');

@@ -2677,12 +2677,7 @@
     <div class="legend adv-only">
       <div class="legend-item"><div class="legend-dot" style="background:var(--primary)"></div>일반</div>
       <div class="legend-item"><div class="legend-dot" style="background:var(--ending)"></div>엔딩</div>
-      <div class="legend-item" title="첫 감상자가 시작하는 장면">
-        <div class="legend-dot" style="background:#2e7d32"></div>첫 감상
-      </div>
-      <div class="legend-item" title="다른 결말 찾기에서 시작하는 장면">
-        <div class="legend-dot" style="background:#1565c0"></div>다시 시작점
-      </div>
+      <!-- COVER-START-1: '첫 감상'/'다시 시작점' 범례 제거 (배지 표시 제거와 함께 개념 노출 차단) -->
     </div>
   </div>
 
@@ -2707,8 +2702,8 @@
     </div>
   </div>
   <div class="ss-footer">
-    <div class="ss-foot-row"><span>시작점</span><span id="ss-foot-entry">—</span></div>
-    <div class="ss-foot-row"><span>다시 시작점</span><span id="ss-foot-replay">—</span></div>
+    <!-- COVER-START-1: '시작점'/'다시 시작점' 요약 행 제거 (정보 표시 전용, 학생 혼란 방지).
+         sceneRenderer.renderSideList의 fEntry/fReplay 세팅은 null-guard로 안전. -->
     <div class="ss-foot-row"><span>엔딩</span><span id="ss-foot-endings">0개</span></div>
   </div>
 </aside>
@@ -2944,7 +2939,7 @@
 <script src="locks.js?v=96"></script>
 <script src="firebase.js?v=141admin1cbase10a"></script>
 <script src="canvasInteraction.js?v=120"></script>
-<script src="sceneRenderer.js?v=119base10bbase10auto1"></script>
+<script src="sceneRenderer.js?v=119base10bbase10auto1coverstart1"></script>
 <script src="storyAnalyzer.js?v=136checkbuttons1"></script>
 <script src="mediaManager.js?v=114copyfix1"></script>
 <script src="adminConsole.js?v=103copyfix1"></script>

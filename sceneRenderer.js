@@ -239,12 +239,10 @@ function buildCardHTML(s) {
                     && String(pm.entrySceneId)  === String(s.num);
   const isReplay    = pm.replaySceneId !== null && pm.replaySceneId !== undefined
                     && String(pm.replaySceneId) === String(s.num);
-  /* W7 시작점/다시시작점 배지: 포스터/본문사용과 같은 .card-meta-badge 클래스 그대로 사용.
-     사용자: "저밑에 포스터 본문사용처럼 넣어주지않으렴". 톤 자동 통일. */
-  const roleBadges = [
-    isEntry  ? '<span class="card-meta-badge card-meta-badge--entry" title="첫 감상자가 시작하는 장면">🚪 시작점</span>' : '',
-    isReplay ? '<span class="card-meta-badge card-meta-badge--replay" title="다른 결말 찾기에서 시작하는 장면">🔄 다시 시작</span>' : '',
-  ].join('');
+  /* COVER-START-1: [첫 감상]/[다시 시작점] 카드 배지 표시 제거 (학생 UI 혼란 방지).
+     entrySceneId/replaySceneId 값·계산(isEntry/isReplay)은 그대로 유지 — 화면 표시만 끔. */
+  void isEntry; void isReplay;
+  const roleBadges = '';
 
   /* ─── 작품 유형별 카드 얼굴 (2단계) ───────────────────────────
      원칙:
@@ -1340,11 +1338,10 @@ function renderSideList() {
     const dotClass = isCover ? 'ss-dot--cover'
                    : isEntry ? 'ss-dot--entry'
                    : (isEnd ? 'ss-dot--ending' : '');
+    /* COVER-START-1: 사이드 목록의 '시작'/'다시' 배지 표시 제거 (entry/replay 계산은 유지). */
     let badges = '';
     if (isCover) badges += '<span class="ss-badge ss-badge--cover">표지</span>';
-    if (isEntry && !isCover)  badges += '<span class="ss-badge ss-badge--entry">시작</span>';
-    if (isReplay) badges += '<span class="ss-badge ss-badge--entry">다시</span>';
-    if (isEnd && !isEntry && !isReplay) badges += '<span class="ss-badge ss-badge--ending">엔딩</span>';
+    if (isEnd)   badges += '<span class="ss-badge ss-badge--ending">엔딩</span>';
 
     const num2 = String(s.num).padStart(2, '0');
     return `

@@ -771,6 +771,15 @@ window.addEventListener('DOMContentLoaded', () => {
   });
   /* W8 Phase B: 좌측 사이드 "＋ 새 장면" 버튼 — 기본 일반 장면 */
   document.getElementById('ss-add-btn')?.addEventListener('click', () => addScene('normal'));
+  /* BASE10-2: 빈 캔버스 "기본 틀로 시작하기" — ss-empty는 renderSideList가 매번
+     다시 그리므로 안정 부모(#ss-list)에 위임 바인딩(중복 리스너 방지). */
+  document.getElementById('ss-list')?.addEventListener('click', (e) => {
+    if (e.target && e.target.closest('#ss-start-template')) {
+      if (typeof window.createBase10StarterScenes === 'function') {
+        window.createBase10StarterScenes();
+      }
+    }
+  });
   document.getElementById('btn-check')      ?.addEventListener('click', checkStructure);
   document.getElementById('btn-export')     ?.addEventListener('click', exportJSON);
   document.getElementById('btn-import')     ?.addEventListener('click', () =>

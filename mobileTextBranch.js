@@ -2151,48 +2151,56 @@ function _mtbBuildBase10Scenes() {
   return out;
 }
 
-async function _mtbCreateBase10Template() {
-  const btn = document.getElementById('mtb-start-template');
+/* BASE10-2: 모바일·PC 공통 생성 코어.
+   build 함수(_mtbBuildBase10Scenes)는 그대로 재사용해 구조 일치를 보장하고,
+   source별 활성 조건만 호출자가 gateOk로 넘긴다(모바일=_mtbShouldActivate,
+   PC=텍스트형+비admin). dbRef.update만 사용(set 전체 덮어쓰기 금지). */
+async function _runBase10Creation(opts) {
+  opts = opts || {};
+  const btn = opts.btn || null;
+  const idleText = opts.idleText || '기본 틀로 시작하기';
+  const busyText = opts.busyText || '만드는 중…';
 
-  /* 가드 1: 중복 클릭(동시 생성) 방지 */
-  if (_mtbBase10Creating) return;
+  /* 가드 1: 중복 클릭(동시 생성) 방지 — 모듈 전역 락 공유(모바일·PC) */
+  if (_mtbBase10Creating) return false;
 
   /* 가드 2: scenes 첫 스냅샷 도착 전이면 중단 — "로드 전 빈 객체" 오판 차단 */
   const loaded = (typeof window.isBranchScenesLoaded === 'function')
     ? window.isBranchScenesLoaded() : !!window.__branchScenesLoaded;
   if (!loaded) {
     _mtbToast('아직 작품을 불러오는 중이에요. 잠시 후 다시 시도해 주세요.');
-    return;
+    return false;
   }
 
-  /* 가드 3: 모바일 텍스트형 활성 상태가 아니면 중단 (PC/그림책/무비/admin 차단) */
-  if (typeof _mtbShouldActivate === 'function' && !_mtbShouldActivate()) return;
+  /* 가드 3: source별 활성 조건 불충족이면 조용히 중단 (PC/그림책/무비/admin 차단) */
+  if (opts.gateOk === false) return false;
 
   /* 가드 4: 메모리상 이미 장면이 하나라도 있으면 중단 */
   if (typeof scenes === 'object' && scenes && Object.keys(scenes).length > 0) {
     _mtbToast('이미 장면이 있는 작품에는 기본 틀을 만들 수 없어요.');
-    return;
+    return false;
   }
 
   /* 가드 5: dbRef 없으면 중단 */
   if (typeof dbRef === 'undefined' || !dbRef) {
     _mtbToast('작품 정보가 아직 준비되지 않았어요. 잠시 후 다시 시도해 주세요.');
-    return;
+    return false;
   }
 
   /* 사용자 확인 — 명시적 의도 한 번 더 */
   const ok = window.showMakerConfirm
     ? await window.showMakerConfirm({
-        title: '기본 틀로 시작할까요?',
-        message: '표지와 이야기 장면 9개를 한 번에 만들어요. 내용은 나중에 자유롭게 바꿀 수 있어요.',
+        title: '기본 이야기 틀을 만들까요?',
+        message: '표지와 장면 1~9가 한 번에 준비돼요. 내용은 나중에 자유롭게 바꿀 수 있어요.',
         confirmText: '만들기',
+        cancelText: '취소',
         danger: false,
       })
     : confirm('표지와 이야기 장면 9개를 한 번에 만들까요?');
-  if (!ok) return;
+  if (!ok) return false;
 
   _mtbBase10Creating = true;
-  if (btn) { btn.disabled = true; btn.textContent = '만드는 중…'; }
+  if (btn) { btn.disabled = true; btn.textContent = busyText; }
 
   try {
     /* 저장 직전 Firebase 재확인 — 다른 기기가 먼저 만들었으면 중복 생성 차단 */
@@ -2200,7 +2208,7 @@ async function _mtbCreateBase10Template() {
     const latest = snap.val() || {};
     if (Object.keys(latest).length > 0) {
       _mtbToast('다른 곳에서 이미 장면이 만들어졌어요. 새로고침 후 확인해 주세요.');
-      return;
+      return false;
     }
 
     /* 10장면 1회 원자적 기록 (set 전체 덮어쓰기 X — update 사용) */
@@ -2213,13 +2221,36 @@ async function _mtbCreateBase10Template() {
 
     /* local scenes / 노드 렌더는 dbRef.on('value') 리스너가 갱신 (firebase.js) */
     _mtbToast('기본 이야기 틀을 만들었어요.');
+    return true;
   } catch (e) {
     _mtbToast('기본 틀을 만들지 못했어요. 잠시 후 다시 시도해 주세요.');
+    return false;
   } finally {
     _mtbBase10Creating = false;
-    if (btn) { btn.disabled = false; btn.textContent = '기본 틀로 시작하기'; }
+    if (btn) { btn.disabled = false; btn.textContent = idleText; }
   }
 }
+
+/* 모바일 텍스트 브랜치 빈 화면(#mtb-start-template) 핸들러 */
+async function _mtbCreateBase10Template() {
+  const btn = document.getElementById('mtb-start-template');
+  const gateOk = (typeof _mtbShouldActivate === 'function') ? _mtbShouldActivate() : false;
+  return _runBase10Creation({ btn, gateOk });
+}
+
+/* BASE10-2: PC maker 빈 캔버스(좌측 장면 목록 #ss-start-template) 핸들러.
+   모바일 활성과 무관 — 텍스트형 + 비admin일 때만 동작(빈 작품 여부는 코어가 재확인). */
+async function _createBase10FromDesktop() {
+  const btn = document.getElementById('ss-start-template');
+  const isAdmin = new URLSearchParams(location.search).get('admin') === '1';
+  const isText = (typeof projectMeta !== 'undefined' && projectMeta
+    && projectMeta.projectType === 'text');
+  return _runBase10Creation({ btn, gateOk: (isText && !isAdmin) });
+}
+
+/* PC 쪽(ui.js)에서 위임 호출 — build 함수도 함께 노출(구조 일치 보장용) */
+window.createBase10StarterScenes = _createBase10FromDesktop;
+window.buildBase10StarterScenes = _mtbBuildBase10Scenes;
 
 /* ── 초기화 ── */
 function _mtbInit() {

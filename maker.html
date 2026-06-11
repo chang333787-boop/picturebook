@@ -855,6 +855,18 @@
       line-height: 1.6;
     }
     .ss-empty-hint { font-family: 'Nanum Pen Script', cursive; font-size: 14px; margin-top: 6px; }
+    /* BASE10-2: PC 빈 캔버스 기본 틀 시작 버튼 (텍스트형에서만 렌더) */
+    .ss-empty-template-btn {
+      display: inline-block; margin-top: 14px; min-height: 40px; padding: 9px 18px;
+      font-family: 'Jua', sans-serif; font-size: 14px; color: #fff;
+      background: #c66f4a; border: none; border-radius: 10px;
+      box-shadow: 0 3px 11px rgba(198,111,74,.30); cursor: pointer;
+      transition: filter .12s, transform .08s;
+    }
+    .ss-empty-template-btn:hover { filter: brightness(1.06); }
+    .ss-empty-template-btn:active { transform: scale(0.97); }
+    .ss-empty-template-btn:disabled { opacity:.55; cursor:default; filter:none; transform:none; }
+    .ss-empty-template-help { margin-top: 8px; font-size: 11px; line-height: 1.5; color: #8a7355; }
 
     /* 캔버스 영역 — */
     #canvas-wrap{flex:1;position:relative;overflow:hidden;background:radial-gradient(circle,#c8d8f022 1px,transparent 1px);background-size:28px 28px;touch-action:none;}
@@ -2961,15 +2973,15 @@
 <script src="locks.js?v=96"></script>
 <script src="firebase.js?v=141admin1cbase10a"></script>
 <script src="canvasInteraction.js?v=120"></script>
-<script src="sceneRenderer.js?v=119"></script>
+<script src="sceneRenderer.js?v=119base10b"></script>
 <script src="storyAnalyzer.js?v=136"></script>
 <script src="mediaManager.js?v=114copyfix1"></script>
 <script src="adminConsole.js?v=103copyfix1"></script>
 <script src="preview.js?v=96"></script>
 <script src="projectSettings.js?v=114copyfix1"></script>
-<script src="ui.js?v=109copyfix2c2"></script>
+<script src="ui.js?v=109copyfix2c2base10b"></script>
 <!-- v95: 모바일 텍스트형 브랜치 전용 (텍스트 작품 + 모바일에서만 활성) -->
-<script src="mobileTextBranch.js?v=115wintab3abase10f"></script>
+<script src="mobileTextBranch.js?v=115wintab3abase10b"></script>
 
 </body>
 </html>

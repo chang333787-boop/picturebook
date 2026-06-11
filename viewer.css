@@ -364,8 +364,68 @@ body.edit-mode-active #edit-panel.is-collapsed ~ .edit-panel-toggle,
 body.edit-mode-active .edit-panel-toggle.is-panel-collapsed {
   right: 0;
 }
+/* TOP-TOOLBAR-1: 태블릿/모바일 — 하단 다듬기 시트 접기/펼치기 복원.
+   데스크탑(≥1025)은 우측 패널 슬라이드 토글(위 @media) 그대로 유지.
+   좁은 화면에선 #edit-panel이 하단 시트(55vh/50vh)라 본문/그림/행동버튼을 가림 →
+   토글로 접어 작품 영역을 넓게. JS는 기존 #edit-panel.is-collapsed /
+   .edit-panel-toggle.is-panel-collapsed 토글(viewer-entry.js)을 그대로 재사용,
+   여기선 CSS로 표시·위치·접힘 동작만 정의(기능/저장/도구 이동 없음). */
 @media (max-width: 1024px) {
-  body.edit-mode-active .edit-panel-toggle { display: none; }
+  body.edit-mode-active #edit-panel {
+    transition: max-height 0.25s ease;
+  }
+  /* 접힘 = 시트 높이 0 → stage-wrap(flex:1)이 늘어나 본문/그림/버튼이 넓게 보임.
+     다듬기 모드는 viewer-frame이 stage를 100%/100%로 채우므로 별도 letterbox 재계산 불요. */
+  body.edit-mode-active #edit-panel.is-collapsed {
+    max-height: 0;
+    min-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    border-top: none;
+    overflow: hidden;
+  }
+  /* 접기 핸들 — 시트 상단 중앙 가로 pill. 펼침 시 시트 윗가장자리(bottom:55vh),
+     접힘 시 화면 맨 아래(bottom:0)에 떠 항상 다시 열 수 있음(발견성 유지). */
+  body.edit-mode-active .edit-panel-toggle {
+    display: flex;
+    position: fixed;
+    top: auto;
+    right: auto;
+    left: 50%;
+    bottom: 55vh;
+    transform: translateX(-50%);
+    width: auto;
+    height: auto;
+    min-width: 132px;
+    padding: 6px 20px;
+    border: 1px solid var(--border, rgba(80,50,20,0.18));
+    border-bottom: none;
+    border-radius: 12px 12px 0 0;
+    box-shadow: 0 -4px 12px rgba(80,50,20,0.14);
+    font-size: 0;            /* JS가 박는 ▶/◀ 글자 숨김 — 가로 핸들엔 ::after 라벨 사용 */
+    z-index: 60;
+    transition: bottom 0.25s ease;
+  }
+  body.edit-mode-active .edit-panel-toggle::after {
+    content: '⌄ 접기';
+    font-size: 13px;
+    font-family: var(--font-ui, 'Jua', sans-serif);
+    color: var(--text, #2b1f10);
+    letter-spacing: 0.02em;
+  }
+  body.edit-mode-active .edit-panel-toggle.is-panel-collapsed {
+    bottom: 0;
+    right: auto;   /* 위 데스크탑용 .is-panel-collapsed{right:0} 무력화 — 가로 pill 유지 */
+  }
+  body.edit-mode-active .edit-panel-toggle.is-panel-collapsed::after {
+    content: '⌃ 설정 열기';
+  }
+  /* 시트 안 장면 nav 슬림화 — 세로 여백만 줄임(구조/이벤트/이동 로직 불변). */
+  body.edit-mode-active #edit-panel .edit-nav {
+    padding: 8px 0 6px;
+    gap: 6px;
+    margin-bottom: 6px;
+  }
 }
 
 /* ── v129: 읽기전용 상태 — 잠금 박은 거 박혀있는데 "내가 수정하기" 누르기 전 상태 ──
@@ -2613,6 +2673,8 @@ body[data-page-orientation="portrait"] .cover-page {
   .text-box       { padding: 18px 20px; }
   #edit-panel     { width: 100%; min-width: unset; max-height: 50vh; border-left: none; border-top: 1px solid var(--border); }
   .player-body    { flex-direction: column; }
+  /* TOP-TOOLBAR-1: 모바일 시트는 50vh → 펼침 핸들도 그 윗가장자리에 맞춤(접힘은 위 규칙대로 bottom:0). */
+  body.edit-mode-active .edit-panel-toggle { bottom: 50vh; }
 }
 
 /* 태블릿 — 다듬기 인스펙터 패널만 하단 시트.

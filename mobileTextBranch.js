@@ -78,7 +78,7 @@ function _mtbActivate() {
   if (toolbar) toolbar.style.display = 'none';
   MTB.active = true;
   /* v96: 진입 시 노드 렌더 */
-  _mtbRender();
+  _mtbRender('enter');
   /* v103: 작품 진입 시 첫 장면 편집 화면 자동 열림 — 사용자 박은 의도:
      "기본은 장면 편집 중심, 브랜치는 구조 정리할 때만". 한 번만 박음 (재진입 시 X). */
   if (!MTB._autoOpenedOnce) {
@@ -252,7 +252,51 @@ function _mtbBuildLayout() {
   return { layout, entryId, depths, sceneIds, isolated, isolatedSet, nodeStats, totals };
 }
 
-function _mtbRender() {
+/* ────────────────────────────────────────────────────────────────
+   WIN-TAB-3A — dev-only 브랜치 렌더 성능 계측 (기본 OFF).
+   활성: URL ?perf=1  또는  localStorage.branchPerf === '1'.
+   production 기본 접속에선 측정/로그 전혀 없음(_mtbRender 동작 동일).
+   ──────────────────────────────────────────────────────────────── */
+const BRANCH_PERF = (function () {
+  try {
+    return new URLSearchParams(location.search).get('perf') === '1'
+        || localStorage.getItem('branchPerf') === '1';
+  } catch (e) { return false; }
+})();
+const _mtbPerf = { count: 0, mStart: 0, mLayout: 0, mEdges: 0, mNodes: 0 };
+
+/* 외부에서 동일 시그니처로 호출. BRANCH_PERF OFF면 곧장 impl 호출(오버헤드 0). */
+function _mtbRender(reason) {
+  if (!BRANCH_PERF) return _mtbRenderImpl(reason);
+  _mtbPerf.count++;
+  _mtbPerf.mStart = _mtbPerf.mLayout = _mtbPerf.mEdges = _mtbPerf.mNodes = performance.now();
+  const ret = _mtbRenderImpl(reason);
+  const t1 = performance.now();
+  try {
+    const svg     = document.getElementById('mtb-svg');
+    const nodesEl = document.getElementById('mtb-nodes');
+    const edges = svg ? svg.querySelectorAll('path.mtb-edge').length : 0;
+    const nodes = nodesEl ? nodesEl.querySelectorAll('.mtb-node').length : 0;
+    const total = (t1 - _mtbPerf.mStart);
+    const dLayout = (_mtbPerf.mLayout - _mtbPerf.mStart);
+    const dEdges  = (_mtbPerf.mEdges  - _mtbPerf.mLayout);
+    const dNodes  = (_mtbPerf.mNodes  - _mtbPerf.mEdges);
+    const dRest   = (t1 - _mtbPerf.mNodes);
+    console.log(
+      '[branch-perf] mtbRender ' + total.toFixed(1) + 'ms'
+      + ' nodes=' + nodes + ' edges=' + edges
+      + ' reason=' + (reason || 'unknown')
+      + ' | layout=' + dLayout.toFixed(1)
+      + ' svg=' + dEdges.toFixed(1)
+      + ' nodes=' + dNodes.toFixed(1)
+      + ' rest=' + dRest.toFixed(1)
+      + ' (#' + _mtbPerf.count + ')'
+    );
+  } catch (e) { /* 계측 실패는 무시 */ }
+  return ret;
+}
+
+function _mtbRenderImpl(reason) {
   if (!MTB.active) return;
   const empty   = document.getElementById('mtb-empty');
   const nodesEl = document.getElementById('mtb-nodes');
@@ -294,6 +338,8 @@ function _mtbRender() {
     </defs>
   `;
 
+  if (BRANCH_PERF) _mtbPerf.mLayout = performance.now();
+
   /* 연결선 박기 */
   Object.entries(layout).forEach(([fromId, fromPos]) => {
     const sc = scenes[fromId];
@@ -334,6 +380,8 @@ function _mtbRender() {
       svg.appendChild(label);
     });
   });
+
+  if (BRANCH_PERF) _mtbPerf.mEdges = performance.now();
 
   /* 노드 박기 */
   const firstRender = !nodesEl.querySelector('.mtb-node');
@@ -401,6 +449,8 @@ function _mtbRender() {
     }
     nodesEl.appendChild(node);
   });
+
+  if (BRANCH_PERF) _mtbPerf.mNodes = performance.now();
 
   /* v107: 상단 요약 바 업데이트 */
   _mtbRenderSummary(built);
@@ -502,7 +552,7 @@ function _mtbInitSummary() {
   });
 }
 
-window.mtbRender = _mtbRender; /* 외부 호출 (저장 후 새로 그릴 때) */
+window.mtbRender = function (reason) { return _mtbRender(reason || 'external'); }; /* 외부 호출 (저장 후 새로 그릴 때) */
 
 /* ================================================================
    v97: 모바일 장면 편집 화면 (WYSIWYG)
@@ -587,7 +637,7 @@ function _mtbCloseEditScene() {
   const view = document.getElementById('mtb-edit-view');
   if (view) view.classList.remove('is-open');
   /* 노드 화면 다시 그리기 — 본문/제목 변경 반영 안 됐지만 구조(연결)는 동일 */
-  _mtbRender();
+  _mtbRender('edit-close');
 }
 
 function _mtbEditPopulate(sc) {
@@ -992,7 +1042,7 @@ async function _mtbHandleMenuAction(sceneId, action, idx) {
     addScene();
     setTimeout(() => {
       const newId = Object.keys(scenes).find(id => !beforeIds.has(id));
-      if (!newId) { _mtbRender(); return; }
+      if (!newId) { _mtbRender('scene-add'); return; }
       /* 현재 scene의 빈 행동 버튼 자리에 박음 (없으면 새로 추가) */
       if (!Array.isArray(sc.buttons)) sc.buttons = [];
       let slot = sc.buttons.findIndex(b => !b.nextId);
@@ -1008,7 +1058,7 @@ async function _mtbHandleMenuAction(sceneId, action, idx) {
           pushToFirebase(newId);
         }
       }
-      _mtbRender();
+      _mtbRender('scene-add-connect');
     }, 200);
     return;
   }
@@ -1052,7 +1102,7 @@ function _mtbConnectStart(fromId, btnIdx) {
 
   document.getElementById('mobile-text-branch')?.classList.add('is-connecting');
   _mtbShowConnectBanner(fromId, btnIdx);
-  _mtbRender(); /* 다시 그려서 source 노드 강조 */
+  _mtbRender('connect-start'); /* 다시 그려서 source 노드 강조 */
 }
 
 function _mtbConnectCancel() {
@@ -1061,7 +1111,7 @@ function _mtbConnectCancel() {
   MTB_CONNECT.btnIdx = -1;
   document.getElementById('mobile-text-branch')?.classList.remove('is-connecting');
   document.getElementById('mtb-connect-banner')?.remove();
-  _mtbRender();
+  _mtbRender('connect-finish');
 }
 
 async function _mtbConnectFinish(toId) {
@@ -1144,7 +1194,7 @@ function _mtbTogglePlaceMode() {
   if (btn) btn.classList.toggle('is-active', MTB.placeMode);
   if (MTB.placeMode) _mtbShowPlaceBanner();
   else _mtbHidePlaceBanner();
-  _mtbRender();
+  _mtbRender('place-toggle');
 }
 
 function _mtbShowPlaceBanner() {
@@ -2026,7 +2076,7 @@ function _mtbOpenCoverScene() {
           if (typeof pushToFirebase === 'function') pushToFirebase(newId);
         }
       } catch (e) { /* 마이그 실패해도 진입은 계속 */ }
-      _mtbRender();
+      _mtbRender('first-scene-create');
       _mtbOpenEditScene(newId);
     } else {
       alert('표지 만들기에 실패했어요.');

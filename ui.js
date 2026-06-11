@@ -328,7 +328,15 @@ async function renameScene(num) {
 }
 
 async function deleteScene(num) {
-  if (!confirm(`장면 ${num}을(를) 삭제할까요?\n삭제한 뒤에는 되돌릴 수 없어요.`)) return;
+  const ok = window.showMakerConfirm
+    ? await window.showMakerConfirm({
+        title: '장면을 삭제할까요?',
+        message: '이 장면을 삭제하면 되돌릴 수 없어요.',
+        confirmText: '삭제하기',
+        danger: true,
+      })
+    : confirm(`장면 ${num}을(를) 삭제할까요?\n삭제한 뒤에는 되돌릴 수 없어요.`);
+  if (!ok) return;
   if (!await ensureEditable(num)) {
     alert(`다른 사람이 장면 ${num}을(를) 편집 중이에요.`); return;
   }

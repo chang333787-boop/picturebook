@@ -2191,8 +2191,16 @@
   document.addEventListener('DOMContentLoaded', function () {
     var btn = document.getElementById('btn-switch-team');
     if (!btn) return;
-    btn.addEventListener('click', function () {
-      var ok = confirm('다른 모둠으로 다시 로그인할까요?\n저장된 작품은 그대로 남아 있어요.');
+    btn.addEventListener('click', async function () {
+      var ok = window.showMakerConfirm
+        ? await window.showMakerConfirm({
+            title: '다른 모둠으로 들어갈까요?',
+            message: '현재 모둠 화면에서 나가고 입장 화면으로 돌아가요.',
+            confirmText: '나가기',
+            cancelText: '계속하기',
+            danger: false,
+          })
+        : confirm('다른 모둠으로 다시 로그인할까요?\n저장된 작품은 그대로 남아 있어요.');
       if (!ok) return;
       try { sessionStorage.removeItem('makerSession'); } catch (e) {}
       try { localStorage.removeItem('branchReturnContext'); } catch (e) {}
@@ -2934,9 +2942,9 @@
 <script src="adminConsole.js?v=103copyfix1"></script>
 <script src="preview.js?v=96"></script>
 <script src="projectSettings.js?v=114copyfix1"></script>
-<script src="ui.js?v=109copyfix1"></script>
+<script src="ui.js?v=109copyfix2c2"></script>
 <!-- v95: 모바일 텍스트형 브랜치 전용 (텍스트 작품 + 모바일에서만 활성) -->
-<script src="mobileTextBranch.js?v=115copyfix2b"></script>
+<script src="mobileTextBranch.js?v=115copyfix2c2"></script>
 
 </body>
 </html>

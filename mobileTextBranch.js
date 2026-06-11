@@ -695,8 +695,16 @@ function _mtbEditRenderActions(sc) {
       _mtbNewSceneAndConnect(MTB_EDIT.currentId, idx);
     });
     /* 삭제 */
-    row.querySelector('.mtb-edit-action-del').addEventListener('click', () => {
-      if (!confirm(`행동 ${idx + 1} 삭제할까요?`)) return;
+    row.querySelector('.mtb-edit-action-del').addEventListener('click', async () => {
+      const ok = window.showMakerConfirm
+        ? await window.showMakerConfirm({
+            title: '행동을 삭제할까요?',
+            message: '이 행동으로 이어진 연결이 사라져요.',
+            confirmText: '삭제하기',
+            danger: true,
+          })
+        : confirm(`행동 ${idx + 1} 삭제할까요?`);
+      if (!ok) return;
       buttons.splice(idx, 1);
       _mtbSyncChoiceLabels(sc); /* v106 */
       _mtbQueueSave();
@@ -960,7 +968,7 @@ function _mtbHideContextMenuOnce(e) {
   if (!e.target.closest('#mtb-context-menu')) _mtbHideContextMenu();
 }
 
-function _mtbHandleMenuAction(sceneId, action, idx) {
+async function _mtbHandleMenuAction(sceneId, action, idx) {
   const sc = scenes[sceneId];
   if (!sc) return;
 
@@ -1006,7 +1014,15 @@ function _mtbHandleMenuAction(sceneId, action, idx) {
   }
 
   if (action === 'delete') {
-    if (!confirm(`장면 ${sc.num || sceneId} 삭제할까요?\n다른 장면에서 이 장면으로 연결된 게 끊어져요.`)) return;
+    const ok = window.showMakerConfirm
+      ? await window.showMakerConfirm({
+          title: '장면을 삭제할까요?',
+          message: '이 장면을 삭제하면 이어진 연결이 끊어져요.',
+          confirmText: '삭제하기',
+          danger: true,
+        })
+      : confirm(`장면 ${sc.num || sceneId} 삭제할까요?\n다른 장면에서 이 장면으로 연결된 게 끊어져요.`);
+    if (!ok) return;
     if (typeof removeScene === 'function') {
       removeScene(sceneId);
     } else if (typeof deleteScene === 'function') {
@@ -1048,7 +1064,7 @@ function _mtbConnectCancel() {
   _mtbRender();
 }
 
-function _mtbConnectFinish(toId) {
+async function _mtbConnectFinish(toId) {
   if (!MTB_CONNECT.active) return;
   const fromId = MTB_CONNECT.fromId;
   const idx    = MTB_CONNECT.btnIdx;
@@ -1057,7 +1073,15 @@ function _mtbConnectFinish(toId) {
 
   /* 자기 자신 연결 차단 — 사용자가 의도일 수도 있지만 보통 실수 */
   if (String(toId) === String(fromId)) {
-    if (!confirm('같은 장면으로 연결할까요? (자기 자신 루프)')) {
+    const ok = window.showMakerConfirm
+      ? await window.showMakerConfirm({
+          title: '같은 장면으로 연결할까요?',
+          message: '독자가 이 행동을 누르면 다시 같은 장면으로 돌아와요.',
+          confirmText: '연결하기',
+          danger: false,
+        })
+      : confirm('같은 장면으로 연결할까요? (자기 자신 루프)');
+    if (!ok) {
       _mtbConnectCancel();
       return;
     }
@@ -1741,8 +1765,91 @@ function _mtbToast(message, ms) {
   el.addEventListener('click', dismiss);
 }
 
+/* COPY-FIX-2C-2: maker 전용 커스텀 확인 모달 — 브라우저 기본 confirm 대체.
+   Promise<boolean> 반환 (확인 = true / 취소·ESC·배경클릭 = false).
+   maker.html은 pb-ai.css를 로드하지 않으므로 _mtbToast처럼 스타일 1회 자체 주입.
+   ui.js·maker.html에서도 쓸 수 있게 window.showMakerConfirm으로 노출.
+   기본 포커스는 취소 버튼 — Enter 실수 진행 방지. */
+function showMakerConfirm(opts) {
+  opts = opts || {};
+  const title = opts.title || '확인할까요?';
+  const message = opts.message || '';
+  const confirmText = opts.confirmText || '확인';
+  const cancelText = opts.cancelText || '취소';
+  const danger = !!opts.danger;
+  if (!document.getElementById('maker-confirm-style')) {
+    const st = document.createElement('style');
+    st.id = 'maker-confirm-style';
+    st.textContent =
+      '.maker-confirm-backdrop{position:fixed;inset:0;background:rgba(43,31,16,0.42);'
+      + '-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);z-index:10000;'
+      + 'display:flex;align-items:center;justify-content:center;padding:20px;}'
+      + '.maker-confirm-card{background:#fffaee;border-radius:18px;width:100%;max-width:400px;'
+      + 'padding:24px 24px 20px;box-shadow:0 18px 50px rgba(43,31,16,0.28);'
+      + 'font-family:\'Nanum Gothic\',sans-serif;color:#2b1f10;text-align:center;}'
+      + '.maker-confirm-title{font-size:18px;font-weight:800;color:#c66f4a;margin-bottom:12px;'
+      + 'line-height:1.35;word-break:keep-all;}'
+      + '.maker-confirm-message{font-size:14.5px;line-height:1.65;color:#4a3a26;word-break:keep-all;}'
+      + '.maker-confirm-actions{margin-top:22px;display:flex;gap:10px;justify-content:center;}'
+      + '.maker-confirm-cancel,.maker-confirm-ok{min-width:110px;padding:11px 20px;border:none;'
+      + 'border-radius:12px;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;'
+      + 'transition:background .15s ease;}'
+      + '.maker-confirm-cancel{background:#efe6d4;color:#6b5638;}'
+      + '.maker-confirm-cancel:hover{background:#e5d9c2;}'
+      + '.maker-confirm-ok{background:#c66f4a;color:#fffaee;}'
+      + '.maker-confirm-ok:hover{background:#b25f3c;}'
+      + '.maker-confirm-ok.is-danger{background:#d2503c;}'
+      + '.maker-confirm-ok.is-danger:hover{background:#bd4231;}'
+      + '@media(max-width:480px){.maker-confirm-card{max-width:340px;padding:20px 18px 16px;}'
+      + '.maker-confirm-actions{flex-direction:column-reverse;gap:8px;}'
+      + '.maker-confirm-cancel,.maker-confirm-ok{width:100%;}}';
+    document.head.appendChild(st);
+  }
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/\n/g, '<br/>');
+  }
+  return new Promise((resolve) => {
+    const old = document.getElementById('maker-confirm-root');
+    if (old) old.remove();
+    const root = document.createElement('div');
+    root.id = 'maker-confirm-root';
+    root.className = 'maker-confirm-backdrop';
+    root.innerHTML =
+      '<div class="maker-confirm-card" role="dialog" aria-modal="true">'
+      +   '<div class="maker-confirm-title">' + esc(title) + '</div>'
+      +   (message ? '<div class="maker-confirm-message">' + esc(message) + '</div>' : '')
+      +   '<div class="maker-confirm-actions">'
+      +     '<button type="button" class="maker-confirm-cancel">' + esc(cancelText) + '</button>'
+      +     '<button type="button" class="maker-confirm-ok' + (danger ? ' is-danger' : '') + '">' + esc(confirmText) + '</button>'
+      +   '</div>'
+      + '</div>';
+    document.body.appendChild(root);
+    let done = false;
+    function finish(val) {
+      if (done) return;
+      done = true;
+      if (root.parentNode) root.parentNode.removeChild(root);
+      document.removeEventListener('keydown', onKey);
+      resolve(val);
+    }
+    function onKey(e) { if (e.key === 'Escape') finish(false); }
+    root.addEventListener('click', (e) => { if (e.target === root) finish(false); });
+    document.addEventListener('keydown', onKey);
+    const okBtn = root.querySelector('.maker-confirm-ok');
+    const cancelBtn = root.querySelector('.maker-confirm-cancel');
+    if (okBtn) okBtn.addEventListener('click', () => finish(true));
+    if (cancelBtn) cancelBtn.addEventListener('click', () => finish(false));
+    try { (cancelBtn || okBtn).focus(); } catch (_) {}
+  });
+}
+if (typeof window !== 'undefined') {
+  window.showMakerConfirm = showMakerConfirm;
+}
+
 /* "모든 이야기 장면에 적용" — 현재 장면의 textStyle을 cover/ending 제외하고 박음 */
-function _mtbApplyTextStyleToAll() {
+async function _mtbApplyTextStyleToAll() {
   if (typeof scenes !== 'object' || !scenes) return;
   const curId = MTB_EDIT.currentId;
   if (curId === null) return;
@@ -1767,7 +1874,15 @@ function _mtbApplyTextStyleToAll() {
     alert('적용할 다른 이야기 장면이 없어요.');
     return;
   }
-  if (!confirm(`현재 글자 스타일을 ${targets.length}개의 다른 이야기 장면에 적용할까요?\n(표지·엔딩은 제외)`)) return;
+  const ok = window.showMakerConfirm
+    ? await window.showMakerConfirm({
+        title: '글자 스타일을 적용할까요?',
+        message: '현재 글자 스타일을 선택한 장면들에 적용해요.',
+        confirmText: '적용하기',
+        danger: false,
+      })
+    : confirm(`현재 글자 스타일을 ${targets.length}개의 다른 이야기 장면에 적용할까요?\n(표지·엔딩은 제외)`);
+  if (!ok) return;
 
   targets.forEach(id => {
     scenes[id].textStyle = { ...style };
@@ -1924,8 +2039,15 @@ function _mtbInit() {
   /* PC 토글 — 모바일로 돌아가려면 새로고침 안내 */
   const pcBtn = document.getElementById('mtb-pc-toggle');
   if (pcBtn) {
-    pcBtn.addEventListener('click', () => {
-      const ok = confirm('PC 버전으로 전환할까요?\n\n모바일로 다시 돌아가려면 페이지를 새로고침해주세요 (Cmd+R 또는 Ctrl+R).');
+    pcBtn.addEventListener('click', async () => {
+      const ok = window.showMakerConfirm
+        ? await window.showMakerConfirm({
+            title: 'PC 버전으로 전환할까요?',
+            message: '현재 화면을 PC 편집 화면으로 바꿔요.',
+            confirmText: '전환하기',
+            danger: false,
+          })
+        : confirm('PC 버전으로 전환할까요?\n\n모바일로 다시 돌아가려면 페이지를 새로고침해주세요 (Cmd+R 또는 Ctrl+R).');
       if (!ok) return;
       MTB.pcOverride = true;
       mtbRefresh();

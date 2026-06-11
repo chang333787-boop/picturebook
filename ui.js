@@ -233,7 +233,39 @@ function flushTitleSaves(num) {
 window.addEventListener('beforeunload', () => { flushTitleSaves(); flushBodySaves(); });
 window.addEventListener('pagehide',    () => { flushTitleSaves(); flushBodySaves(); });
 
+/* ENDING-GUARD-1: drawArrows()와 동일한 우선순위로 "뒤로 이어지는 연결" 유무 판정.
+   buttons[]가 있으면 buttons[i].nextId(앞 6개), 없으면 legacy nextA/(choiceCount>1 시)nextB.
+   화면 화살표가 그려지는 조건과 정확히 일치 → 안내가 사용자 눈에 보이는 연결과 어긋나지 않음. */
+function _sceneHasOutgoingLink(s) {
+  if (!s) return false;
+  const buttons = Array.isArray(s.buttons) ? s.buttons : [];
+  if (buttons.length > 0) {
+    return buttons.slice(0, 6).some(b => b && b.nextId);
+  }
+  if (s.nextA) return true;
+  if (s.nextB && (s.choiceCount || 2) > 1) return true;
+  return false;
+}
+
 async function updateType(num, type) {
+  /* ENDING-GUARD-1: 일반→엔딩 전환 시, 뒤로 이어지는 연결이 남아 있으면 차단.
+     · normal → ending 전환만 막음. 이미 ending인 장면을 일반으로 되돌리는 건 허용.
+     · 연결(buttons[].nextId)·뒤 장면을 자동으로 지우지 않음 — 먼저 연결을 지우라고 안내만.
+     · 라디오가 시각적으로 '엔딩'에 튀어 있으므로 실제 type으로 renderCard 복원. */
+  const s = scenes[num];
+  if (s && type === 'ending' && s.type !== 'ending' && _sceneHasOutgoingLink(s)) {
+    if (typeof renderCard === 'function') renderCard(s);
+    const title = '아직 뒤로 이어져 있어요';
+    const message = '이 장면은 다음 장면으로 이어지는 길이 남아 있어요.\n\n'
+      + '엔딩으로 바꾸려면 먼저 이 장면의 ‘다음으로 가기’ 연결을 지워 주세요.';
+    if (window.showMakerConfirm) {
+      try { await window.showMakerConfirm({ title, message, confirmText: '알겠어요', cancelText: '닫기' }); }
+      catch (_) {}
+    } else {
+      alert(title + '\n\n' + message);
+    }
+    return;
+  }
   await mutateScene(num, { type }, { needsArrows: true });
 }
 

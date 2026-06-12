@@ -3278,8 +3278,11 @@ function _coverThemeRowHtml(scene) {
       data-val="${t.id}"
       style="background:${t.color};"
       title="${t.label}"></button>`).join('');
+  /* TOP-TOOLBAR-3B: wrapper에 modifier class 추가 — 우측 표지 패널(#edit-panel)에서만
+     이 row를 숨기기 위한 scope hook. 팝오버 사본도 같은 class를 갖지만 #edit-panel 밖이라
+     숨김 대상 아님(2B의 edit-row--pb-choice-* 패턴과 동일). 시각/저장 영향 없음. */
   return `
-    <div class="edit-row">
+    <div class="edit-row edit-row--cover-theme">
       <label class="edit-label">🎨 표지 색</label>
       <div class="edit-cover-theme-row">${themePills}</div>
     </div>`;

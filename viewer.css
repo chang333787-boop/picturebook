@@ -564,6 +564,15 @@ body.viewer-edit-readonly .edit-cover-popover button:not(.edit-cover-popover__cl
   display: none !important;
 }
 
+/* ── TOP-TOOLBAR-3B: 우측 표지 패널의 중복 표지색 row 숨김 ──
+   표지색 편집은 이제 상단 🎨 표지 팝오버가 주 동선. 같은 helper(_coverThemeRowHtml)를
+   상단 팝오버(#edit-cover-popover)도 재사용하므로 반드시 #edit-panel로 scope 제한 →
+   팝오버 사본은 살린다. 삭제가 아니라 가시성만 숨김. 제목 높낮이·양옆 마감 테마·
+   작품 전환효과 등 표지 패널의 다른 도구는 그대로 유지. */
+#edit-panel .edit-row--cover-theme {
+  display: none !important;
+}
+
 /* ── v129: 읽기전용 상태 — 잠금 박은 거 박혀있는데 "내가 수정하기" 누르기 전 상태 ──
    원인 사건: 다른 친구가 수정 중이라 잠금 박혔는데 인스펙터 버튼/표지 입력칸이 눌리던 문제.
    허용: 잠금 배너 액션 / 장면 이동 nav / HUD 액션(감상테스트·루트·구조·브랜치로) / 단순 보기·확대·스크롤.

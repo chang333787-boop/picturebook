@@ -491,6 +491,19 @@ body.viewer-edit-readonly .edit-choice-popover button:not(.edit-choice-popover-c
   filter: grayscale(0.25);
 }
 
+/* ── TOP-TOOLBAR-2B: 우측 1단 패널의 중복 버튼 도구 숨김 ──
+   행동 버튼 개수 / 선택지 연결 편집은 이제 상단 🔗 버튼 팝오버가 주 동선.
+   같은 helper HTML(_pbChoiceCountSectionHtml/_pbChoiceLinkSectionHtml)을
+   상단 팝오버(#edit-choice-popover)도 재사용하므로, 반드시 #edit-panel로
+   scope를 제한해 팝오버 사본은 살린다. 삭제가 아니라 가시성만 숨김 —
+   DOM/핸들러/저장(_queueSaveButtons) 경로 모두 유지(회귀 방지).
+   text/picturebook/movie 일반 장면 1단 모두 대상. 표지/엔딩은 원래 helper가
+   빈 문자열이라 영향 없음. */
+#edit-panel .edit-row--pb-choice-count,
+#edit-panel .edit-row--pb-choice-link {
+  display: none !important;
+}
+
 /* ── v129: 읽기전용 상태 — 잠금 박은 거 박혀있는데 "내가 수정하기" 누르기 전 상태 ──
    원인 사건: 다른 친구가 수정 중이라 잠금 박혔는데 인스펙터 버튼/표지 입력칸이 눌리던 문제.
    허용: 잠금 배너 액션 / 장면 이동 nav / HUD 액션(감상테스트·루트·구조·브랜치로) / 단순 보기·확대·스크롤.

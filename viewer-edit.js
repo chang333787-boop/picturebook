@@ -3293,8 +3293,11 @@ function _coverThemeRowHtml(scene) {
    min/max/step/value·label 구조 무변경. 저장·핸들러는 기존 그대로(_queueSave titleVerticalPosition). */
 function _coverTitleYRowHtml(scene) {
   const titleY = (scene && typeof scene.titleVerticalPosition === 'number') ? scene.titleVerticalPosition : 50;
+  /* TOP-TOOLBAR-4B: wrapper에 modifier class 추가 — 우측 표지 패널(#edit-panel)에서만
+     이 row를 숨기기 위한 scope hook. 팝오버 사본도 같은 class를 갖지만 #edit-panel 밖이라
+     숨김 대상 아님(3B의 edit-row--cover-theme 패턴과 동일). edit-row--compact 유지. */
   return `
-    <div class="edit-row edit-row--compact">
+    <div class="edit-row edit-row--compact edit-row--cover-title-y">
       <label class="edit-label">↕ 제목 높낮이 <span class="edit-label-note">(${titleY}%)</span></label>
       <input type="range" class="edit-slider js-cover-title-y"
         min="20" max="80" step="5" value="${titleY}">

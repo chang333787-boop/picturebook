@@ -2052,6 +2052,8 @@ function renderHUD() {
      — 트리거가 새로 그려지고, 표지/엔딩으로 이동하면 노출 조건이 바뀌므로 stale 방지.
      (팝오버 열기/내부 액션은 renderHUD를 호출하지 않으므로 자기 자신을 닫지 않음.) */
   if (typeof _closeChoicePopover === 'function') _closeChoicePopover();
+  /* TOP-TOOLBAR-3A: 표지 "🎨 표지" 팝오버도 HUD 재렌더 시 닫음(같은 stale 방지). */
+  if (typeof _closeCoverPopover === 'function') _closeCoverPopover();
 
   const mode      = ViewerState.project.mode;
   const canBack   = ViewerState.historyStack.length > 0;
@@ -2083,6 +2085,10 @@ function renderHUD() {
   const _isNormalHudScene = !!(_hudScene
     && _hudScene.type !== 'cover' && !_hudScene.isCover
     && _hudScene.type !== 'ending' && !_hudScene.isEnding);
+  /* TOP-TOOLBAR-3A: 표지 장면에서만 "🎨 표지" 트리거 노출 — 🔗 버튼과 상호배타
+     (표지=🎨 표지 / 일반=🔗 버튼 / 엔딩=둘 다 없음) → HUD 과밀 방지. */
+  const _isCoverHudScene = !!(_hudScene
+    && (_hudScene.type === 'cover' || _hudScene.isCover));
   const makerBarHtml = fromMaker ? `
     <div class="maker-return-bar ${isEdit ? 'maker-return-bar--editing' : ''}">
       <span class="maker-return-label">${isEdit ? '🎨 마감 편집 중' : '✏️ 제작자 테스트 중'}</span>
@@ -2091,6 +2097,7 @@ function renderHUD() {
           <button class="maker-return-btn maker-return-btn--test js-edit-preview-test" title="실제 관람자 화면으로 확인">▶ 감상 테스트</button>
           ${_aiAllowed ? '<button class="maker-return-btn maker-return-btn--ai js-ai-trigger" title="작품 전체 AI 다듬기 — 문장 정돈·작품 검사">🤖 AI 작품 다듬기</button>' : ''}
           ${_isNormalHudScene ? '<button class="maker-return-btn js-edit-choice-popover" title="행동 버튼과 연결 장면을 편집합니다" aria-label="행동 버튼과 연결 장면을 편집합니다">🔗 버튼</button>' : ''}
+          ${_isCoverHudScene ? '<button class="maker-return-btn js-edit-cover-popover" title="표지 색과 표지 느낌을 편집합니다" aria-label="표지 색과 표지 느낌을 편집합니다">🎨 표지</button>' : ''}
           <button class="maker-return-btn js-edit-open-routes" title="엔딩별 이야기 흐름 점검">🛤 루트 보기</button>
           <button class="maker-return-btn js-edit-open-map" title="장면 연결을 한눈에 확인">🔍 구조 보기</button>
           <button class="maker-return-btn js-edit-return-maker" title="브랜치 화면으로 돌아가기">← 브랜치 화면으로</button>

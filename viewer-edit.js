@@ -3254,7 +3254,10 @@ async function _saveProjectMetaField(field, value) {
 
 /* v37: 표지 전용 인스펙터 — 제목 + 한 줄 소개 + 표지 색 + 제목 높낮이.
    사용자 결정: 표지는 별도 레이아웃, 그림·선택지 X. 항상 가운데 정렬. */
-function _typeSectionCoverHtml(scene) {
+/* TOP-TOOLBAR-3A: 표지 색 row helper — 우측 표지 인스펙터(_typeSectionCoverHtml)와
+   상단 "🎨 표지" 팝오버가 같은 HTML을 재사용한다. HTML 이동만 — 색 목록/active/
+   class(js-cover-theme)/data-val 무변경. 저장·핸들러는 기존 그대로(_queueSave coverTheme). */
+function _coverThemeRowHtml(scene) {
   /* v67: 5 → 10개로 확장. 색 풍부하게. */
   const COVER_THEMES = [
     { id: 'default', label: '기본',   color: '#fffaee' },
@@ -3268,20 +3271,25 @@ function _typeSectionCoverHtml(scene) {
     { id: 'lemon',   label: '레몬',   color: '#fbf2c4' },
     { id: 'rose',    label: '장미',   color: '#f5d0d0' },
   ];
-  const curTheme = scene.coverTheme || 'default';
-  const titleY = typeof scene.titleVerticalPosition === 'number' ? scene.titleVerticalPosition : 50;
+  const curTheme = (scene && scene.coverTheme) || 'default';
   const themePills = COVER_THEMES.map(t => `
     <button type="button"
       class="edit-cover-theme js-cover-theme ${curTheme === t.id ? 'active' : ''}"
       data-val="${t.id}"
       style="background:${t.color};"
       title="${t.label}"></button>`).join('');
-
   return `
     <div class="edit-row">
       <label class="edit-label">🎨 표지 색</label>
       <div class="edit-cover-theme-row">${themePills}</div>
-    </div>
+    </div>`;
+}
+
+function _typeSectionCoverHtml(scene) {
+  const titleY = typeof scene.titleVerticalPosition === 'number' ? scene.titleVerticalPosition : 50;
+
+  return `
+    ${_coverThemeRowHtml(scene)}
     <div class="edit-row edit-row--compact">
       <label class="edit-label">↕ 제목 높낮이 <span class="edit-label-note">(${titleY}%)</span></label>
       <input type="range" class="edit-slider js-cover-title-y"
@@ -6236,6 +6244,11 @@ function _bindHudEditActions() {
   document.querySelector('.js-edit-choice-popover')?.addEventListener('click', () => {
     _toggleChoicePopover();
   });
+
+  /* TOP-TOOLBAR-3A: 🎨 표지 — 표지 장면 표지색 상단 팝오버 토글. */
+  document.querySelector('.js-edit-cover-popover')?.addEventListener('click', () => {
+    _toggleCoverPopover();
+  });
 }
 
 /* ================================================================
@@ -6401,6 +6414,134 @@ function _choicePopoverOutside(e) {
 
 function _choicePopoverEsc(e) {
   if (e.key === 'Escape') _closeChoicePopover();
+}
+
+/* ================================================================
+   TOP-TOOLBAR-3A: 표지 장면 "🎨 표지" 상단 팝오버 (복제)
+   ─────────────────────────────────────────────────────────────
+   · 우측 표지 인스펙터의 🎨 표지 색을 상단에서도 조작.
+   · _coverThemeRowHtml(scene) HTML 그대로 재사용(class js-cover-theme + data-val만 사용).
+   · 저장은 기존 표지 핸들러(viewer-edit.js _bindEditPanelEvents 표지 분기)와 동일 경로 —
+     scene.coverTheme = val → _queueSave(scene.num||id,{coverTheme}) → _flushPendingSave.
+     새 저장 로직 없음. titleVerticalPosition은 이번 단계에서 건드리지 않음(표지색만).
+   · 팝오버 = 두 번째 사본 → 클릭 후 self-refresh + renderEditPanel(우측 패널 동기화).
+   · 🔗 choice 팝오버와 상호배타(열 때 상대 팝오버 닫음). 우측 표지 패널은 3A에서 유지.
+   ================================================================ */
+function _coverPopoverEl() { return document.getElementById('edit-cover-popover'); }
+
+function _isCoverEditScene(scene) {
+  return !!(scene && (scene.type === 'cover' || scene.isCover));
+}
+
+function _renderCoverPopoverBody(scene) {
+  return `
+    <div class="edit-cover-popover__head">
+      <span class="edit-cover-popover__title">🎨 표지 색</span>
+      <button type="button" class="edit-cover-popover__close js-cover-popover-close"
+        title="닫기" aria-label="닫기">✕</button>
+    </div>
+    <div class="edit-cover-popover__body">
+      ${_coverThemeRowHtml(scene)}
+    </div>`;
+}
+
+function _refreshCoverPopover() {
+  const pop = _coverPopoverEl();
+  if (!pop || pop.hidden) return;
+  const scene = ViewerState.scenes[ViewerState.currentSceneId];
+  if (!scene || !_isCoverEditScene(scene)) { _closeCoverPopover(); return; }
+  pop.innerHTML = _renderCoverPopoverBody(scene);
+  _bindCoverPopover(pop);
+}
+
+function _bindCoverPopover(pop) {
+  pop.querySelector('.js-cover-popover-close')
+    ?.addEventListener('click', _closeCoverPopover);
+
+  /* 매 클릭마다 현재 장면을 새로 읽음(트리거 시점 캡처 X) — 정합 보호. */
+  const _curScene = () => ViewerState.scenes[ViewerState.currentSceneId];
+
+  /* 표지 색 pill — 우측 표지 분기 핸들러와 동일 저장 경로. 클릭 후 우측 패널 사본도
+     renderEditPanel로 동기화하고, 팝오버 자신은 self-refresh로 active pill 갱신. */
+  pop.querySelectorAll('.js-cover-theme').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (!_editText.editable) return;
+      const s = _curScene();
+      if (!s || !_isCoverEditScene(s)) return;
+      const val = btn.dataset.val || 'default';
+      s.coverTheme = val;
+      if (typeof _queueSave === 'function') {
+        _queueSave(s.num || s.id, { coverTheme: val });
+        if (typeof _flushPendingSave === 'function') _flushPendingSave();
+      }
+      if (typeof renderEditPanel === 'function') renderEditPanel();
+      if (typeof _scheduleViewerFrameReRender === 'function') _scheduleViewerFrameReRender();
+      _refreshCoverPopover();
+    });
+  });
+}
+
+function _positionCoverPopover(pop) {
+  const trigger = document.querySelector('.js-edit-cover-popover');
+  if (!trigger) return;
+  const r = trigger.getBoundingClientRect();
+  pop.style.top = (r.bottom + 8) + 'px';
+  const popW = pop.offsetWidth || 320;
+  let left = r.left;
+  const maxLeft = window.innerWidth - popW - 12;
+  if (left > maxLeft) left = Math.max(12, maxLeft);
+  pop.style.left = left + 'px';
+}
+
+function _openCoverPopover() {
+  const pop = _coverPopoverEl();
+  if (!pop) return;
+  const scene = ViewerState.scenes[ViewerState.currentSceneId];
+  if (!scene || !_isCoverEditScene(scene)) return;
+  /* 상호배타: 🔗 choice 팝오버가 열려 있으면 닫음(동시 노출 방지). */
+  if (typeof _closeChoicePopover === 'function') _closeChoicePopover();
+  pop.innerHTML = _renderCoverPopoverBody(scene);
+  pop.hidden = false;
+  _bindCoverPopover(pop);
+  _positionCoverPopover(pop);
+  document.querySelector('.js-edit-cover-popover')?.classList.add('is-active');
+  /* 바깥 클릭 / ESC 닫기 — setTimeout(0)로 현재 트리거 클릭이 즉시 닫지 않게 함. */
+  setTimeout(() => {
+    document.addEventListener('click', _coverPopoverOutside, true);
+    document.addEventListener('keydown', _coverPopoverEsc, true);
+  }, 0);
+}
+
+function _closeCoverPopover() {
+  const pop = _coverPopoverEl();
+  if (!pop || pop.hidden) return;
+  pop.hidden = true;
+  pop.innerHTML = '';
+  pop.style.left = '';
+  pop.style.top  = '';
+  document.querySelector('.js-edit-cover-popover')?.classList.remove('is-active');
+  document.removeEventListener('click', _coverPopoverOutside, true);
+  document.removeEventListener('keydown', _coverPopoverEsc, true);
+}
+
+function _toggleCoverPopover() {
+  const pop = _coverPopoverEl();
+  if (!pop) return;
+  if (pop.hidden) _openCoverPopover();
+  else _closeCoverPopover();
+}
+
+function _coverPopoverOutside(e) {
+  const pop = _coverPopoverEl();
+  if (!pop || pop.hidden) return;
+  if (pop.contains(e.target)) return;
+  /* 트리거 클릭은 토글 핸들러가 처리 — 여기서 닫지 않음(이중 토글 방지). */
+  if (e.target.closest && e.target.closest('.js-edit-cover-popover')) return;
+  _closeCoverPopover();
+}
+
+function _coverPopoverEsc(e) {
+  if (e.key === 'Escape') _closeCoverPopover();
 }
 
 /* ================================================================

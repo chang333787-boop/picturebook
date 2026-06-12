@@ -538,12 +538,16 @@ body.viewer-edit-readonly .edit-choice-popover button:not(.edit-choice-popover-c
 }
 .edit-cover-popover__close:hover { background: rgba(255, 255, 255, 0.36); }
 .edit-cover-popover__body { padding: 12px 14px 0; }
+/* TOP-TOOLBAR-4A: 팝오버 내부 제목 높낮이 슬라이더 — 좁은 팝오버(340px)에서 넓게 보이게. */
+.edit-cover-popover .edit-slider { width: 100%; }
 /* 트리거 활성 상태 강조 */
 .maker-return-btn.js-edit-cover-popover.is-active {
   background: #b06a2e;
   color: #fff;
 }
-/* 읽기전용: 표지 인스펙터와 동일하게 팝오버 pill/버튼 차단(닫기 버튼만 살림). */
+/* 읽기전용: 표지 인스펙터와 동일하게 팝오버 pill/버튼/슬라이더 차단(닫기 버튼만 살림).
+   TOP-TOOLBAR-4A: 제목 높낮이 input range 추가 → input도 차단 대상에 포함. */
+body.viewer-edit-readonly .edit-cover-popover input,
 body.viewer-edit-readonly .edit-cover-popover button:not(.edit-cover-popover__close) {
   pointer-events: none !important;
   opacity: 0.55 !important;

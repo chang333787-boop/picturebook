@@ -3288,17 +3288,24 @@ function _coverThemeRowHtml(scene) {
     </div>`;
 }
 
-function _typeSectionCoverHtml(scene) {
-  const titleY = typeof scene.titleVerticalPosition === 'number' ? scene.titleVerticalPosition : 50;
-
+/* TOP-TOOLBAR-4A: 제목 높낮이 row helper — 우측 표지 인스펙터(_typeSectionCoverHtml)와
+   상단 "🎨 표지" 팝오버가 같은 HTML을 재사용한다. HTML 이동만 — class(js-cover-title-y)·
+   min/max/step/value·label 구조 무변경. 저장·핸들러는 기존 그대로(_queueSave titleVerticalPosition). */
+function _coverTitleYRowHtml(scene) {
+  const titleY = (scene && typeof scene.titleVerticalPosition === 'number') ? scene.titleVerticalPosition : 50;
   return `
-    ${_coverThemeRowHtml(scene)}
     <div class="edit-row edit-row--compact">
       <label class="edit-label">↕ 제목 높낮이 <span class="edit-label-note">(${titleY}%)</span></label>
       <input type="range" class="edit-slider js-cover-title-y"
         min="20" max="80" step="5" value="${titleY}">
       <div class="edit-section-hint">위쪽(20) ↔ 가운데(50) ↔ 아래쪽(80). 가운데 정렬은 유지.</div>
-    </div>
+    </div>`;
+}
+
+function _typeSectionCoverHtml(scene) {
+  return `
+    ${_coverThemeRowHtml(scene)}
+    ${_coverTitleYRowHtml(scene)}
     <div class="edit-section-hint edit-section-hint--lock">
       📖 표지는 작품 입구예요. 제목·한 줄 소개·표지 색·높낮이만 다듬을 수 있어요.
     </div>
@@ -6439,12 +6446,13 @@ function _isCoverEditScene(scene) {
 function _renderCoverPopoverBody(scene) {
   return `
     <div class="edit-cover-popover__head">
-      <span class="edit-cover-popover__title">🎨 표지 색</span>
+      <span class="edit-cover-popover__title">🎨 표지</span>
       <button type="button" class="edit-cover-popover__close js-cover-popover-close"
         title="닫기" aria-label="닫기">✕</button>
     </div>
     <div class="edit-cover-popover__body">
       ${_coverThemeRowHtml(scene)}
+      ${_coverTitleYRowHtml(scene)}
     </div>`;
 }
 
@@ -6482,6 +6490,32 @@ function _bindCoverPopover(pop) {
       _refreshCoverPopover();
     });
   });
+
+  /* TOP-TOOLBAR-4A: 제목 높낮이 슬라이더 — 우측 표지 패널 js-cover-title-y 핸들러와 동일 저장 경로.
+     ★ 슬라이더는 드래그(연속 input)라 표지색 pill과 달리 self-refresh 금지 — input 중
+        _refreshCoverPopover를 부르면 슬라이더 DOM이 재생성돼 드래그가 끊긴다.
+        대신 팝오버 내부 라벨만 직접 갱신하고, change(드래그 끝)에서만 _flush. */
+  const yRange = pop.querySelector('.js-cover-title-y');
+  if (yRange) {
+    yRange.addEventListener('input', () => {
+      if (!_editText.editable) return;
+      const s = _curScene();
+      if (!s || !_isCoverEditScene(s)) return;
+      const val = parseInt(yRange.value, 10) || 50;
+      s.titleVerticalPosition = val;
+      /* 팝오버 라벨만 직접 갱신(우측 패널 사본은 팝오버 닫힘/재렌더 시 일치) */
+      const labelNote = yRange.closest('.edit-row')?.querySelector('.edit-label-note');
+      if (labelNote) labelNote.textContent = `(${val}%)`;
+      if (typeof _queueSave === 'function') {
+        _queueSave(s.num || s.id, { titleVerticalPosition: val });
+      }
+      if (typeof _scheduleViewerFrameReRender === 'function') _scheduleViewerFrameReRender();
+    });
+    yRange.addEventListener('change', () => {
+      if (!_editText.editable) return;
+      if (typeof _flushPendingSave === 'function') _flushPendingSave();
+    });
+  }
 }
 
 function _positionCoverPopover(pop) {

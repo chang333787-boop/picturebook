@@ -6602,7 +6602,9 @@ function _coverPopoverEsc(e) {
 function _projectPopoverEl() { return document.getElementById('edit-project-popover'); }
 
 function _renderProjectPopoverBody() {
-  /* 1A 빈 셸 — 안내만. 실제 입력/버튼/슬라이더는 1B에서. */
+  /* PROJECT-SETTINGS-1B: 작품 전체 설정 복제 — 양옆 마감 테마 + 작품 전환효과.
+     기존 helper(_pbThemeSectionHtml / _workSettingsSectionHtml)를 그대로 재사용
+     (둘 다 인자 없이 ViewerState.project를 읽음 → 장면 무관, 모든 장면 타입에서 동일). */
   return `
     <div class="edit-project-popover__head">
       <span class="edit-project-popover__title">⚙ 작품 설정</span>
@@ -6610,16 +6612,66 @@ function _renderProjectPopoverBody() {
         title="닫기" aria-label="닫기">✕</button>
     </div>
     <div class="edit-project-popover__body">
-      <p class="edit-project-popover__hint">
-        이곳에는 <b>양옆 마감 테마</b>, <b>작품 전환효과</b>처럼 작품 전체에 적용되는 설정이 들어갑니다.
-      </p>
-      <p class="edit-project-popover__note">현재 장면 하나가 아니라 작품 전체에 적용돼요.</p>
+      <p class="edit-project-popover__note">현재 장면 하나가 아니라 <b>작품 전체</b>에 적용돼요.</p>
+      ${_pbThemeSectionHtml()}
+      <div class="edit-divider"></div>
+      ${_workSettingsSectionHtml()}
     </div>`;
+}
+
+function _refreshProjectPopover() {
+  const pop = _projectPopoverEl();
+  if (!pop || pop.hidden) return;
+  pop.innerHTML = _renderProjectPopoverBody();
+  _bindProjectPopover(pop);
 }
 
 function _bindProjectPopover(pop) {
   pop.querySelector('.js-project-popover-close')
     ?.addEventListener('click', _closeProjectPopover);
+
+  /* 양옆 마감 테마 collapsible 토글 — 우측 패널은 renderEditPanel로 갱신하지만, 팝오버는
+     #edit-panel 밖이라 팝오버 self-refresh로 처리(기존 _bindPbThemeHandlers의 toggle은
+     renderEditPanel을 부르므로 팝오버엔 부적합 → 토글만 팝오버 전용으로 분리). */
+  pop.querySelectorAll('.js-pb-theme-toggle').forEach(btn => {
+    btn.addEventListener('click', () => {
+      _pbThemeCollapsed = !_getPbThemeCollapsed();
+      _refreshProjectPopover();
+    });
+  });
+
+  /* 양옆 마감 테마 카드 — 우측 패널 _bindPbThemeHandlers 카드와 동일 저장 경로
+     (viewer-meta.pbTheme update). 클릭 후 active만 팝오버 내부에서 갱신(재렌더 X). */
+  pop.querySelectorAll('.js-pb-theme').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!_editText.editable) return;
+      const PB_THEMES = ['classic-book', 'paper-desk', 'minimal-cream', 'sketch-note', 'library-card', 'night-tale'];
+      const val = PB_THEMES.includes(btn.dataset.val) ? btn.dataset.val : 'classic-book';
+      if (ViewerState.project.pbTheme === val) return;   // no-op
+      ViewerState.project.pbTheme = val;
+      if (document.body) document.body.dataset.pbTheme = val;
+      pop.querySelectorAll('.js-pb-theme').forEach(b => b.classList.toggle('active', b === btn));
+      try {
+        const teamName = ViewerState.project.teamName;
+        const classId  = ViewerState.project.classId;
+        if (teamName && typeof getViewerDb === 'function') {
+          const encodedName = encodeURIComponent(teamName);
+          const basePath = classId
+            ? `classes/${classId}/teams/${encodedName}`
+            : `teams/${encodedName}`;
+          await getViewerDb().ref(`${basePath}/viewer-meta`).update({ pbTheme: val });
+        }
+      } catch (e) {
+        console.error('[pbTheme] 저장 실패:', e);
+      }
+    });
+  });
+
+  /* 작품 전환효과/속도/텍스트등장/속도 — 기존 panel-scoped 핸들러를 팝오버에 그대로 적용.
+     _bindWorkSettingsHandlers는 panel 인자를 받아 panel.querySelector로 동작하고
+     renderEditPanel을 호출하지 않으며, 슬라이더(_bindSpeedSlider)는 이미 4A 패턴
+     (input=라벨만·미리보기 throttle / change=저장)이라 드래그가 끊기지 않음. 완전 재사용. */
+  if (typeof _bindWorkSettingsHandlers === 'function') _bindWorkSettingsHandlers(pop);
 }
 
 function _positionProjectPopover(pop) {

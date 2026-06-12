@@ -562,8 +562,8 @@ body.viewer-edit-readonly .edit-cover-popover button:not(.edit-cover-popover__cl
 .edit-project-popover {
   position: fixed;
   z-index: 120;
-  width: min(320px, calc(100vw - 24px));
-  max-height: min(60vh, 480px);
+  width: min(380px, calc(100vw - 24px));
+  max-height: min(72vh, 600px);
   overflow: auto;
   background: #fffdf8;
   border: 1px solid #cdddd9;
@@ -614,10 +614,20 @@ body.viewer-edit-readonly .edit-cover-popover button:not(.edit-cover-popover__cl
   font-size: 12px;
   color: #8a7d6b;
 }
+/* PROJECT-SETTINGS-1B: 팝오버 내부 슬라이더(전환/텍스트 속도)는 폭 안에서 넓게. */
+.edit-project-popover .edit-slider { width: 100%; }
 /* 트리거 활성 상태 강조 — 헤더 색과 동일 계열 */
 .maker-return-btn.js-edit-project-popover.is-active {
   background: #3f7d76;
   color: #fff;
+}
+/* 읽기전용: 표지/선택지 팝오버와 동일하게 작품 설정 입력/버튼/슬라이더 차단(닫기만 살림). */
+body.viewer-edit-readonly .edit-project-popover input,
+body.viewer-edit-readonly .edit-project-popover button:not(.edit-project-popover__close) {
+  pointer-events: none !important;
+  opacity: 0.55 !important;
+  cursor: not-allowed !important;
+  filter: grayscale(0.25);
 }
 
 /* ── TOP-TOOLBAR-2B: 우측 1단 패널의 중복 버튼 도구 숨김 ──

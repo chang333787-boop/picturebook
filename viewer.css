@@ -555,6 +555,71 @@ body.viewer-edit-readonly .edit-cover-popover button:not(.edit-cover-popover__cl
   filter: grayscale(0.25);
 }
 
+/* ── PROJECT-SETTINGS-1A: "⚙ 작품 설정" 상단 팝오버 ──
+   choice/cover 팝오버와 같은 골격(position:fixed, HUD 아래 anchor)이되 class 분리.
+   장면 도구(따뜻한 갈색 헤더)와 구분되도록 헤더만 차분한 청록 계열 — "작품 전체"임을
+   살짝 드러냄. z-index는 다른 팝오버와 동일 레벨(상호배타라 동시 노출 없음). */
+.edit-project-popover {
+  position: fixed;
+  z-index: 120;
+  width: min(320px, calc(100vw - 24px));
+  max-height: min(60vh, 480px);
+  overflow: auto;
+  background: #fffdf8;
+  border: 1px solid #cdddd9;
+  border-radius: 14px;
+  box-shadow: 0 14px 40px rgba(30, 55, 50, 0.26);
+  padding: 0 0 12px;
+}
+.edit-project-popover[hidden] { display: none; }
+.edit-project-popover__head {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  background: linear-gradient(135deg, #3f7d76, #5fa89c);
+  border-radius: 14px 14px 0 0;
+}
+.edit-project-popover__title {
+  font-family: 'Jua', sans-serif;
+  font-size: 15px;
+  color: #fff;
+  letter-spacing: 0.02em;
+}
+.edit-project-popover__close {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+.edit-project-popover__close:hover { background: rgba(255, 255, 255, 0.36); }
+.edit-project-popover__body { padding: 14px; }
+.edit-project-popover__hint {
+  margin: 0 0 8px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #4a4035;
+}
+.edit-project-popover__note {
+  margin: 0;
+  font-size: 12px;
+  color: #8a7d6b;
+}
+/* 트리거 활성 상태 강조 — 헤더 색과 동일 계열 */
+.maker-return-btn.js-edit-project-popover.is-active {
+  background: #3f7d76;
+  color: #fff;
+}
+
 /* ── TOP-TOOLBAR-2B: 우측 1단 패널의 중복 버튼 도구 숨김 ──
    행동 버튼 개수 / 선택지 연결 편집은 이제 상단 🔗 버튼 팝오버가 주 동선.
    같은 helper HTML(_pbChoiceCountSectionHtml/_pbChoiceLinkSectionHtml)을

@@ -2054,6 +2054,8 @@ function renderHUD() {
   if (typeof _closeChoicePopover === 'function') _closeChoicePopover();
   /* TOP-TOOLBAR-3A: 표지 "🎨 표지" 팝오버도 HUD 재렌더 시 닫음(같은 stale 방지). */
   if (typeof _closeCoverPopover === 'function') _closeCoverPopover();
+  /* PROJECT-SETTINGS-1A: "⚙ 작품 설정" 팝오버도 HUD 재렌더 시 닫음(같은 stale 방지). */
+  if (typeof _closeProjectPopover === 'function') _closeProjectPopover();
 
   const mode      = ViewerState.project.mode;
   const canBack   = ViewerState.historyStack.length > 0;
@@ -2098,6 +2100,7 @@ function renderHUD() {
           ${_aiAllowed ? '<button class="maker-return-btn maker-return-btn--ai js-ai-trigger" title="작품 전체 AI 다듬기 — 문장 정돈·작품 검사">🤖 AI 작품 다듬기</button>' : ''}
           ${_isNormalHudScene ? '<button class="maker-return-btn js-edit-choice-popover" title="행동 버튼과 연결 장면을 편집합니다" aria-label="행동 버튼과 연결 장면을 편집합니다">🔗 버튼</button>' : ''}
           ${_isCoverHudScene ? '<button class="maker-return-btn js-edit-cover-popover" title="표지 색과 표지 느낌을 편집합니다" aria-label="표지 색과 표지 느낌을 편집합니다">🎨 표지</button>' : ''}
+          <button class="maker-return-btn js-edit-project-popover" title="작품 전체에 적용되는 설정이에요" aria-label="작품 전체에 적용되는 설정이에요">⚙ 작품 설정</button>
           <button class="maker-return-btn js-edit-open-routes" title="엔딩별 이야기 흐름 점검">🛤 루트 보기</button>
           <button class="maker-return-btn js-edit-open-map" title="장면 연결을 한눈에 확인">🔍 구조 보기</button>
           <button class="maker-return-btn js-edit-return-maker" title="브랜치 화면으로 돌아가기">← 브랜치 화면으로</button>

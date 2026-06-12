@@ -6262,6 +6262,11 @@ function _bindHudEditActions() {
   document.querySelector('.js-edit-cover-popover')?.addEventListener('click', () => {
     _toggleCoverPopover();
   });
+
+  /* PROJECT-SETTINGS-1A: ⚙ 작품 설정 — 작품 전체 설정 상단 팝오버 토글(모든 장면 타입). */
+  document.querySelector('.js-edit-project-popover')?.addEventListener('click', () => {
+    _toggleProjectPopover();
+  });
 }
 
 /* ================================================================
@@ -6582,6 +6587,101 @@ function _coverPopoverOutside(e) {
 
 function _coverPopoverEsc(e) {
   if (e.key === 'Escape') _closeCoverPopover();
+}
+
+/* ================================================================
+   PROJECT-SETTINGS-1A: "⚙ 작품 설정" 상단 팝오버 (빈 셸)
+   ─────────────────────────────────────────────────────────────
+   · 작품 전체 설정(양옆 마감 테마·작품 전환효과 등)이 향후 들어갈 자리.
+   · 1A는 빈 셸 — 안내 문구만. 실제 기능 복제는 PROJECT-SETTINGS-1B.
+   · 장면 도구(🔗/🎨)와 달리 "작품 전체"라 모든 장면 타입에서 노출(조건부 아님).
+   · 상호배타: 열 때 🔗/🎨 팝오버를 닫음. 반대(🔗/🎨를 열면 ⚙ 닫힘)는 ⚙ 팝오버의
+     바깥클릭 핸들러가 트리거 클릭을 잡아 자동 처리(기존 팝오버 로직 무수정).
+   · edit-choice/cover-popover 패턴 그대로 재사용(열기/닫기/바깥클릭/ESC/HUD재렌더 close).
+   ================================================================ */
+function _projectPopoverEl() { return document.getElementById('edit-project-popover'); }
+
+function _renderProjectPopoverBody() {
+  /* 1A 빈 셸 — 안내만. 실제 입력/버튼/슬라이더는 1B에서. */
+  return `
+    <div class="edit-project-popover__head">
+      <span class="edit-project-popover__title">⚙ 작품 설정</span>
+      <button type="button" class="edit-project-popover__close js-project-popover-close"
+        title="닫기" aria-label="닫기">✕</button>
+    </div>
+    <div class="edit-project-popover__body">
+      <p class="edit-project-popover__hint">
+        이곳에는 <b>양옆 마감 테마</b>, <b>작품 전환효과</b>처럼 작품 전체에 적용되는 설정이 들어갑니다.
+      </p>
+      <p class="edit-project-popover__note">현재 장면 하나가 아니라 작품 전체에 적용돼요.</p>
+    </div>`;
+}
+
+function _bindProjectPopover(pop) {
+  pop.querySelector('.js-project-popover-close')
+    ?.addEventListener('click', _closeProjectPopover);
+}
+
+function _positionProjectPopover(pop) {
+  const trigger = document.querySelector('.js-edit-project-popover');
+  if (!trigger) return;
+  const r = trigger.getBoundingClientRect();
+  pop.style.top = (r.bottom + 8) + 'px';
+  const popW = pop.offsetWidth || 320;
+  let left = r.left;
+  const maxLeft = window.innerWidth - popW - 12;
+  if (left > maxLeft) left = Math.max(12, maxLeft);
+  pop.style.left = left + 'px';
+}
+
+function _openProjectPopover() {
+  const pop = _projectPopoverEl();
+  if (!pop) return;
+  /* 상호배타: 장면 도구 팝오버(🔗/🎨)가 열려 있으면 닫음(동시 노출 방지). */
+  if (typeof _closeChoicePopover === 'function') _closeChoicePopover();
+  if (typeof _closeCoverPopover === 'function') _closeCoverPopover();
+  pop.innerHTML = _renderProjectPopoverBody();
+  pop.hidden = false;
+  _bindProjectPopover(pop);
+  _positionProjectPopover(pop);
+  document.querySelector('.js-edit-project-popover')?.classList.add('is-active');
+  /* 바깥 클릭 / ESC 닫기 — setTimeout(0)로 현재 트리거 클릭이 즉시 닫지 않게 함. */
+  setTimeout(() => {
+    document.addEventListener('click', _projectPopoverOutside, true);
+    document.addEventListener('keydown', _projectPopoverEsc, true);
+  }, 0);
+}
+
+function _closeProjectPopover() {
+  const pop = _projectPopoverEl();
+  if (!pop || pop.hidden) return;
+  pop.hidden = true;
+  pop.innerHTML = '';
+  pop.style.left = '';
+  pop.style.top  = '';
+  document.querySelector('.js-edit-project-popover')?.classList.remove('is-active');
+  document.removeEventListener('click', _projectPopoverOutside, true);
+  document.removeEventListener('keydown', _projectPopoverEsc, true);
+}
+
+function _toggleProjectPopover() {
+  const pop = _projectPopoverEl();
+  if (!pop) return;
+  if (pop.hidden) _openProjectPopover();
+  else _closeProjectPopover();
+}
+
+function _projectPopoverOutside(e) {
+  const pop = _projectPopoverEl();
+  if (!pop || pop.hidden) return;
+  if (pop.contains(e.target)) return;
+  /* 트리거 클릭은 토글 핸들러가 처리 — 여기서 닫지 않음(이중 토글 방지). */
+  if (e.target.closest && e.target.closest('.js-edit-project-popover')) return;
+  _closeProjectPopover();
+}
+
+function _projectPopoverEsc(e) {
+  if (e.key === 'Escape') _closeProjectPopover();
 }
 
 /* ================================================================

@@ -2048,6 +2048,11 @@ function renderHUD() {
   const hud = document.getElementById('hud');
   if (!hud) return;
 
+  /* TOP-TOOLBAR-2A: HUD 재렌더(장면 이동/모드 전환) 시 열린 🔗 팝오버는 닫음
+     — 트리거가 새로 그려지고, 표지/엔딩으로 이동하면 노출 조건이 바뀌므로 stale 방지.
+     (팝오버 열기/내부 액션은 renderHUD를 호출하지 않으므로 자기 자신을 닫지 않음.) */
+  if (typeof _closeChoicePopover === 'function') _closeChoicePopover();
+
   const mode      = ViewerState.project.mode;
   const canBack   = ViewerState.historyStack.length > 0;
   const fromMaker = ViewerState.fromMaker;
@@ -2072,6 +2077,12 @@ function renderHUD() {
   const _aiHardOff = !!(window.viewerAi && typeof window.viewerAi.isClassAiHardOff === 'function'
     && window.viewerAi.isClassAiHardOff());
   const _aiAllowed = _aiPtypeAllowed && !_aiHardOff;
+  /* TOP-TOOLBAR-2A: 일반 장면(표지/엔딩 제외)에서만 "🔗 버튼" 트리거 노출.
+     표지/엔딩은 선택지 도구가 없으므로 숨김(렌더 자체 안 함). */
+  const _hudScene = ViewerState.scenes ? ViewerState.scenes[ViewerState.currentSceneId] : null;
+  const _isNormalHudScene = !!(_hudScene
+    && _hudScene.type !== 'cover' && !_hudScene.isCover
+    && _hudScene.type !== 'ending' && !_hudScene.isEnding);
   const makerBarHtml = fromMaker ? `
     <div class="maker-return-bar ${isEdit ? 'maker-return-bar--editing' : ''}">
       <span class="maker-return-label">${isEdit ? '🎨 마감 편집 중' : '✏️ 제작자 테스트 중'}</span>
@@ -2079,6 +2090,7 @@ function renderHUD() {
         ${isEdit ? `
           <button class="maker-return-btn maker-return-btn--test js-edit-preview-test" title="실제 관람자 화면으로 확인">▶ 감상 테스트</button>
           ${_aiAllowed ? '<button class="maker-return-btn maker-return-btn--ai js-ai-trigger" title="작품 전체 AI 다듬기 — 문장 정돈·작품 검사">🤖 AI 작품 다듬기</button>' : ''}
+          ${_isNormalHudScene ? '<button class="maker-return-btn js-edit-choice-popover" title="행동 버튼과 연결 장면을 편집합니다" aria-label="행동 버튼과 연결 장면을 편집합니다">🔗 버튼</button>' : ''}
           <button class="maker-return-btn js-edit-open-routes" title="엔딩별 이야기 흐름 점검">🛤 루트 보기</button>
           <button class="maker-return-btn js-edit-open-map" title="장면 연결을 한눈에 확인">🔍 구조 보기</button>
           <button class="maker-return-btn js-edit-return-maker" title="브랜치 화면으로 돌아가기">← 브랜치 화면으로</button>

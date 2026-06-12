@@ -6231,6 +6231,176 @@ function _bindHudEditActions() {
   document.querySelector('.js-edit-save')?.addEventListener('click', () => {
     if (typeof _doSave === 'function') _doSave(document);
   });
+
+  /* TOP-TOOLBAR-2A: 🔗 버튼 — 일반 장면 행동버튼/연결 상단 팝오버 토글. */
+  document.querySelector('.js-edit-choice-popover')?.addEventListener('click', () => {
+    _toggleChoicePopover();
+  });
+}
+
+/* ================================================================
+   TOP-TOOLBAR-2A: 일반 장면 "🔗 버튼" 상단 팝오버 (복제)
+   ─────────────────────────────────────────────────────────────
+   · 우측 1단 패널의 행동버튼 개수/선택지 연결을 상단에서도 조작.
+   · 기존 _pbChoiceCountSectionHtml / _pbChoiceLinkSectionHtml HTML 그대로 재사용
+     (둘 다 클래스+data-idx만 사용 → id 충돌 없음).
+   · add/remove는 기존 _pbAddChoiceForScene / _pbRemoveLastChoiceForScene /
+     _pbRemoveChoiceAtForScene 재사용(내부에서 _queueSaveButtons + renderEditPanel +
+     미리보기 재렌더까지 수행) → 새 저장 로직 없음.
+   · 팝오버 = 두 번째 사본 → 액션 후 self-refresh 필요(renderEditPanel은 #edit-panel만 갱신).
+   · 우측 1단 패널은 이번 단계에서 그대로 유지(중복). 2B에서 가시성 축소 예정.
+   ================================================================ */
+function _choicePopoverEl() { return document.getElementById('edit-choice-popover'); }
+
+function _isNormalEditScene(scene) {
+  return !!(scene
+    && scene.type !== 'cover'  && !scene.isCover
+    && scene.type !== 'ending' && !scene.isEnding);
+}
+
+function _renderChoicePopoverBody(scene) {
+  const ptype = (typeof _resolveViewerProjectType === 'function') ? _resolveViewerProjectType() : null;
+  const rowDelete = (ptype === 'movie');   /* movie는 1단과 동일하게 행별 × 활성 */
+  return `
+    <div class="edit-choice-popover-head">
+      <span class="edit-choice-popover-title">🔗 행동 버튼 · 연결</span>
+      <button type="button" class="edit-choice-popover-close js-choice-popover-close"
+        title="닫기" aria-label="닫기">✕</button>
+    </div>
+    <div class="edit-choice-popover-body">
+      ${_pbChoiceCountSectionHtml(scene)}
+      ${_pbChoiceLinkSectionHtml(scene, rowDelete)}
+    </div>`;
+}
+
+function _refreshChoicePopover() {
+  const pop = _choicePopoverEl();
+  if (!pop || pop.hidden) return;
+  const scene = ViewerState.scenes[ViewerState.currentSceneId];
+  if (!scene || !_isNormalEditScene(scene)) { _closeChoicePopover(); return; }
+  pop.innerHTML = _renderChoicePopoverBody(scene);
+  _bindChoicePopover(pop);
+}
+
+function _bindChoicePopover(pop) {
+  pop.querySelector('.js-choice-popover-close')
+    ?.addEventListener('click', _closeChoicePopover);
+
+  /* 매 액션마다 현재 장면을 새로 읽음(트리거 시점 캡처 X) — 정합 보호. */
+  const _curScene = () => ViewerState.scenes[ViewerState.currentSceneId];
+
+  /* 행동 버튼 추가 — 1단과 동일 helper(저장+패널 재렌더 포함) 후 팝오버 self-refresh */
+  pop.querySelector('.js-pb-choice-add')?.addEventListener('click', () => {
+    if (!_editText.editable) return;
+    const s = _curScene(); if (!s) return;
+    _pbAddChoiceForScene(s);
+    _refreshChoicePopover();
+  });
+
+  /* 마지막 버튼 삭제 */
+  const rmLast = pop.querySelector('.js-pb-choice-remove-last');
+  if (rmLast) {
+    rmLast.addEventListener('click', () => {
+      if (!_editText.editable) return;
+      if (rmLast.disabled) return;
+      const s = _curScene(); if (!s) return;
+      _pbRemoveLastChoiceForScene(s);
+      _refreshChoicePopover();
+    });
+  }
+
+  /* movie 행별 삭제(×) — 1단과 동일 helper */
+  pop.querySelectorAll('.js-pb-choice-remove').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (!_editText.editable) return;
+      const idx = parseInt(btn.dataset.idx, 10);
+      if (isNaN(idx)) return;
+      const s = _curScene(); if (!s) return;
+      _pbRemoveChoiceAtForScene(s, idx);
+      _refreshChoicePopover();
+    });
+  });
+
+  /* 선택지 연결 select — 1단 핸들러(viewer-edit.js:4385~)와 동일 데이터 경로.
+     scene.choices[idx].nextId/nextNum 갱신 → _queueSaveButtons → 미리보기 재렌더.
+     우측 패널 사본도 renderEditPanel로 동기화. */
+  pop.querySelectorAll('.js-pb-choice-link').forEach(sel => {
+    sel.addEventListener('change', () => {
+      if (!_editText.editable) return;
+      const idx = parseInt(sel.dataset.idx, 10);
+      const s = _curScene();
+      if (isNaN(idx) || !s || !s.choices || !s.choices[idx]) return;
+      const val = sel.value || '';
+      s.choices[idx].nextId  = val || null;
+      s.choices[idx].nextNum = val ? Number(val) : null;
+      _queueSaveButtons(s);
+      _flushPendingSave();
+      if (typeof _scheduleViewerFrameReRender === 'function') _scheduleViewerFrameReRender();
+      if (typeof renderEditPanel === 'function') renderEditPanel();
+      _refreshChoicePopover();
+    });
+  });
+}
+
+function _positionChoicePopover(pop) {
+  const trigger = document.querySelector('.js-edit-choice-popover');
+  if (!trigger) return;
+  const r = trigger.getBoundingClientRect();
+  pop.style.top = (r.bottom + 8) + 'px';
+  const popW = pop.offsetWidth || 360;
+  let left = r.left;
+  const maxLeft = window.innerWidth - popW - 12;
+  if (left > maxLeft) left = Math.max(12, maxLeft);
+  pop.style.left = left + 'px';
+}
+
+function _openChoicePopover() {
+  const pop = _choicePopoverEl();
+  if (!pop) return;
+  const scene = ViewerState.scenes[ViewerState.currentSceneId];
+  if (!scene || !_isNormalEditScene(scene)) return;
+  pop.innerHTML = _renderChoicePopoverBody(scene);
+  pop.hidden = false;
+  _bindChoicePopover(pop);
+  _positionChoicePopover(pop);
+  document.querySelector('.js-edit-choice-popover')?.classList.add('is-active');
+  /* 바깥 클릭 / ESC 닫기 — setTimeout(0)로 현재 트리거 클릭이 즉시 닫지 않게 함. */
+  setTimeout(() => {
+    document.addEventListener('click', _choicePopoverOutside, true);
+    document.addEventListener('keydown', _choicePopoverEsc, true);
+  }, 0);
+}
+
+function _closeChoicePopover() {
+  const pop = _choicePopoverEl();
+  if (!pop || pop.hidden) return;
+  pop.hidden = true;
+  pop.innerHTML = '';
+  pop.style.left = '';
+  pop.style.top  = '';
+  document.querySelector('.js-edit-choice-popover')?.classList.remove('is-active');
+  document.removeEventListener('click', _choicePopoverOutside, true);
+  document.removeEventListener('keydown', _choicePopoverEsc, true);
+}
+
+function _toggleChoicePopover() {
+  const pop = _choicePopoverEl();
+  if (!pop) return;
+  if (pop.hidden) _openChoicePopover();
+  else _closeChoicePopover();
+}
+
+function _choicePopoverOutside(e) {
+  const pop = _choicePopoverEl();
+  if (!pop || pop.hidden) return;
+  if (pop.contains(e.target)) return;
+  /* 트리거 클릭은 토글 핸들러가 처리 — 여기서 닫지 않음(이중 토글 방지). */
+  if (e.target.closest && e.target.closest('.js-edit-choice-popover')) return;
+  _closeChoicePopover();
+}
+
+function _choicePopoverEsc(e) {
+  if (e.key === 'Escape') _closeChoicePopover();
 }
 
 /* ================================================================

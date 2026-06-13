@@ -232,6 +232,14 @@ html, body {
   border-bottom: none;
   flex-shrink: 0;
 }
+/* TOP-HUD-AI-LAYOUT-1B: AI 보기모드 바(#ai-view-toggle-bar)는 position:fixed; top:8px;
+   left:50%로 뷰포트 최상단 중앙에 떠 있다(z-index 10005). 버튼이 늘며 wrap되는
+   maker-return-bar와 겹치는 문제를, 바가 있을 때(body.has-ai-view-toggle)만 #hud
+   상단에 바 높이(≈32px)+여백만큼 공간을 예약해 해결. magic top값 대신 공간 예약이라
+   버튼이 더 늘어도 안정. 바가 사라지면 class 해제로 여백 회수(레이아웃만, 기능 무관). */
+body.has-ai-view-toggle #hud {
+  padding-top: 44px;
+}
 .hud-inner {
   display: flex;
   align-items: center;

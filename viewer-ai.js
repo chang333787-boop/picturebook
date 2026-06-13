@@ -2434,6 +2434,11 @@
     if (hasS2) html += '<button type="button" class="ai-view-toggle-btn js-ai-view-ais2" data-mode="aiS2">AI 장면 발전</button>';
     bar.innerHTML = html;
     document.body.appendChild(bar);
+    /* TOP-HUD-AI-LAYOUT-1B: AI 보기모드 바가 떠 있을 때만 body에 상태 class.
+       CSS가 이 class로 #hud 상단에 바 높이만큼 공간을 예약 → maker-return-bar 버튼이
+       늘어/wrap돼도 상단 중앙 고정 AI바와 겹치지 않음. 레이아웃 상태 표시 전용
+       (AI 호출/프롬프트/저장/보기모드 데이터와 무관). 제거는 _hideAiToggleBar에서. */
+    document.body.classList.add('has-ai-view-toggle');
     bar.querySelectorAll('.ai-view-toggle-btn').forEach(function (btn) {
       btn.addEventListener('click', function () {
         _setAiViewMode(btn.getAttribute('data-mode'));
@@ -2455,6 +2460,9 @@
   function _hideAiToggleBar() {
     const bar = document.getElementById('ai-view-toggle-bar');
     if (bar && bar.parentNode) bar.parentNode.removeChild(bar);
+    /* TOP-HUD-AI-LAYOUT-1B: 바 제거 시 상태 class도 해제 → HUD 상단 예약 공간 회수.
+       _hideAiToggleBar는 모든 숨김/early-return 경로의 단일 정리 지점이라 누락 없음. */
+    document.body.classList.remove('has-ai-view-toggle');
   }
 
   /* ════════════════════════════════════════════════════════════════

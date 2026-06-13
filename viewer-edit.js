@@ -6609,6 +6609,22 @@ function _coverPopoverEsc(e) {
    ================================================================ */
 function _projectPopoverEl() { return document.getElementById('edit-project-popover'); }
 
+/* PROJECT-SETTINGS-2A: ⚙ 작품 설정 팝오버용 페이지 방향 row. 작품 전체 viewer-meta.
+   pageOrientation을 가로/세로로 조절. class(js-pb-orientation)·data-val·저장 경로는
+   우측 패널과 동일. 팝오버는 "작품 전체"라 항상 편집 가능(우측의 첫장면 잠금 없음). */
+function _pageOrientationSectionHtml() {
+  const isPortrait = !!(ViewerState.project && ViewerState.project.pageOrientation === 'portrait');
+  return `
+    <div class="edit-row edit-row--compact">
+      <label class="edit-label">📐 페이지 방향 <span class="edit-label-note">(작품 전체)</span></label>
+      <div class="edit-toggle-group">
+        <button type="button" class="edit-toggle js-pb-orientation ${isPortrait ? '' : 'active'}" data-val="landscape">가로</button>
+        <button type="button" class="edit-toggle js-pb-orientation ${isPortrait ? 'active' : ''}" data-val="portrait">세로</button>
+      </div>
+      <div class="edit-section-hint">작품 전체 화면 방향을 정해요.</div>
+    </div>`;
+}
+
 function _renderProjectPopoverBody() {
   /* PROJECT-SETTINGS-1B: 작품 전체 설정 복제 — 양옆 마감 테마 + 작품 전환효과.
      기존 helper(_pbThemeSectionHtml / _workSettingsSectionHtml)를 그대로 재사용
@@ -6621,6 +6637,8 @@ function _renderProjectPopoverBody() {
     </div>
     <div class="edit-project-popover__body">
       <p class="edit-project-popover__note">현재 장면 하나가 아니라 <b>작품 전체</b>에 적용돼요.</p>
+      ${_pageOrientationSectionHtml()}
+      <div class="edit-divider"></div>
       ${_pbThemeSectionHtml()}
       <div class="edit-divider"></div>
       ${_workSettingsSectionHtml()}
@@ -6637,6 +6655,36 @@ function _refreshProjectPopover() {
 function _bindProjectPopover(pop) {
   pop.querySelector('.js-project-popover-close')
     ?.addEventListener('click', _closeProjectPopover);
+
+  /* PROJECT-SETTINGS-2A: 페이지 방향 — 우측 _bindPageOrientationToggle과 동일 저장 경로
+     (viewer-meta.pageOrientation). 단 우측 핸들러는 renderEditPanel을 부르므로 팝오버엔
+     부적합 → 팝오버 전용으로 저장+letterbox+프레임 재렌더 후 _refreshProjectPopover로 active 갱신.
+     우측 패널 바인딩(_bindPageOrientationToggle)은 무수정. */
+  pop.querySelectorAll('.js-pb-orientation').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!_editText.editable) return;
+      const val = btn.dataset.val === 'portrait' ? 'portrait' : 'landscape';
+      if (ViewerState.project.pageOrientation === val) return;   // no-op
+      ViewerState.project.pageOrientation = val;
+      if (document.body) document.body.dataset.pageOrientation = val;
+      if (typeof window._applyLetterbox === 'function') window._applyLetterbox();
+      if (typeof _scheduleViewerFrameReRender === 'function') _scheduleViewerFrameReRender();
+      _refreshProjectPopover();
+      try {
+        const teamName = ViewerState.project.teamName;
+        const classId  = ViewerState.project.classId;
+        if (teamName && typeof getViewerDb === 'function') {
+          const encodedName = encodeURIComponent(teamName);
+          const basePath = classId
+            ? `classes/${classId}/teams/${encodedName}`
+            : `teams/${encodedName}`;
+          await getViewerDb().ref(`${basePath}/viewer-meta`).update({ pageOrientation: val });
+        }
+      } catch (e) {
+        console.error('[pageOrientation] 저장 실패:', e);
+      }
+    });
+  });
 
   /* 양옆 마감 테마 collapsible 토글 — 우측 패널은 renderEditPanel로 갱신하지만, 팝오버는
      #edit-panel 밖이라 팝오버 self-refresh로 처리(기존 _bindPbThemeHandlers의 toggle은

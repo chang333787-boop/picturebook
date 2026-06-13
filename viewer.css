@@ -890,6 +890,14 @@ body.viewer-edit-readonly .edit-scene-style-popover button:not(.edit-scene-style
 #edit-panel .edit-text-dup-style-sections {
   display: none !important;
 }
+
+/* ── MOVIE-SETTINGS-1: movie 우측의 중복 작품 설정(무비 선택지 표시방식) 숨김 ──
+   이제 상단 ⚙ 작품 설정이 주 동선(movie-gated). 화면 방향은 이미 edit-project-dup-orientation(2B)로 숨김.
+   js-movie-deco는 우측 핸들러(_bindMovieDecoToggle)도 동일 class라, 우측 row에만 hook class를 달아
+   #edit-panel scope로 숨김 → ⚙ 팝오버 사본(#edit-panel 밖)은 노출. 영상 업로드·본문 ON/OFF는 미접촉. */
+#edit-panel .edit-movie-dup-project-settings {
+  display: none !important;
+}
 /* 🎭 팝오버 내 "모든 장면 적용" 상단 여백(글자 스타일 컨트롤과 구분). */
 .edit-scene-style-apply-all { margin-top: 4px; }
 

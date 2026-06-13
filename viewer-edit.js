@@ -4121,7 +4121,7 @@ function _typeSectionMovieHtml(scene) {
     <h4 class="edit-section-title edit-section-title--major">② 무비형 설정</h4>
     <div class="edit-section-hint">영상이 끝난 뒤 본문과 선택지가 나타납니다.</div>
 
-    <div class="edit-row">
+    <div class="edit-row edit-movie-dup-project-settings">
       <label class="edit-label">💬 선택지 표시 방식 <span class="edit-label-note">(작품 전체)</span></label>
       <div class="edit-toggle-group">
         <button type="button" ${_orientLockedAttr}
@@ -6826,6 +6826,25 @@ function _pageOrientationSectionHtml() {
     </div>`;
 }
 
+/* MOVIE-SETTINGS-1: ⚙ 작품 설정 팝오버용 무비 선택지 표시방식(작품단위 viewer-meta.movieDecisionStyle).
+   우측 js-movie-deco와 동일 class/data-val/저장 경로. movie 작품에서만 노출(text/pb/cover '').
+   팝오버는 작품 전체라 첫장면 잠금 없이 항상 편집 가능. */
+function _movieDecisionSectionHtml() {
+  const ptype = (typeof _resolveViewerProjectType === 'function') ? _resolveViewerProjectType() : null;
+  if (ptype !== 'movie') return '';
+  const isCard = !!(ViewerState.project && ViewerState.project.movieDecisionStyle === 'card');
+  return `
+    <div class="edit-row edit-row--compact">
+      <label class="edit-label">💬 무비 선택지 표시 <span class="edit-label-note">(작품 전체)</span></label>
+      <div class="edit-toggle-group">
+        <button type="button" class="edit-toggle js-movie-deco ${isCard ? '' : 'active'}" data-val="panel">하단 패널</button>
+        <button type="button" class="edit-toggle js-movie-deco ${isCard ? 'active' : ''}" data-val="card">중앙 카드</button>
+      </div>
+      <div class="edit-section-hint">영상 종료 후 선택지가 나타나는 위치예요.</div>
+    </div>
+    <div class="edit-divider"></div>`;
+}
+
 function _renderProjectPopoverBody() {
   /* PROJECT-SETTINGS-1B: 작품 전체 설정 복제 — 양옆 마감 테마 + 작품 전환효과.
      기존 helper(_pbThemeSectionHtml / _workSettingsSectionHtml)를 그대로 재사용
@@ -6840,6 +6859,7 @@ function _renderProjectPopoverBody() {
       <p class="edit-project-popover__note">현재 장면 하나가 아니라 <b>작품 전체</b>에 적용돼요.</p>
       ${_pageOrientationSectionHtml()}
       <div class="edit-divider"></div>
+      ${_movieDecisionSectionHtml()}
       ${_pbProjectCardStyleSectionHtml()}
       ${_pbThemeSectionHtml()}
       <div class="edit-divider"></div>
@@ -6892,6 +6912,33 @@ function _bindProjectPopover(pop) {
         }
       } catch (e) {
         console.error('[pageOrientation] 저장 실패:', e);
+      }
+    });
+  });
+
+  /* MOVIE-SETTINGS-1: 무비 선택지 표시방식 — 우측 _bindMovieDecoToggle과 동일 저장 경로
+     (viewer-meta.movieDecisionStyle). 우측 핸들러는 renderEditPanel을 부르므로 팝오버엔 부적합 →
+     팝오버 전용으로 저장+프레임 재렌더 후 _refreshProjectPopover로 active 갱신. 우측 바인딩 무수정. */
+  pop.querySelectorAll('.js-movie-deco').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!_editText.editable) return;
+      const val = btn.dataset.val === 'card' ? 'card' : 'panel';
+      if ((ViewerState.project.movieDecisionStyle || 'panel') === val) return;   // no-op
+      ViewerState.project.movieDecisionStyle = val;
+      if (typeof _scheduleViewerFrameReRender === 'function') _scheduleViewerFrameReRender();
+      _refreshProjectPopover();
+      try {
+        const teamName = ViewerState.project.teamName;
+        const classId  = ViewerState.project.classId;
+        if (teamName && typeof getViewerDb === 'function') {
+          const encodedName = encodeURIComponent(teamName);
+          const basePath = classId
+            ? `classes/${classId}/teams/${encodedName}`
+            : `teams/${encodedName}`;
+          await getViewerDb().ref(`${basePath}/viewer-meta`).update({ movieDecisionStyle: val });
+        }
+      } catch (e) {
+        console.error('[movieDecisionStyle] 저장 실패:', e);
       }
     });
   });

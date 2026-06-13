@@ -841,6 +841,16 @@ body.viewer-edit-readonly .edit-scene-style-popover button:not(.edit-scene-style
   display: none !important;
 }
 
+/* ── MOVIE-TOOL-1D: 🎬 무비 모달로 복제된 우측 중복 도구(영상 업로드/교체/삭제 · 본문 ON/OFF) 숨김 ──
+   영상/본문 컨트롤은 이제 🎬 무비 모달(#movie-tool-modal, #edit-panel 밖)이 주 동선.
+   _typeSectionMovieHtml 호출부에만 hook class를 달아 #edit-panel scope로 숨김 →
+   모달 사본(.movie-tool-video-section)·우측 미디어 상태 badge는 영향 없음.
+   삭제가 아니라 가시성만 숨김(DOM/handler/Storage helper/bodyEnabled 저장 유지). */
+#edit-panel .edit-movie-dup-video-tools,
+#edit-panel .edit-movie-dup-body-toggle {
+  display: none !important;
+}
+
 /* ── PROJECT-SETTINGS-2C-C: picturebook 첫장면 우측의 중복 본문 카드 스타일/색계열(작품단위) 숨김 ──
    이제 상단 ⚙ 작품 설정이 주 동선. _pbToneSectionHtml 안에서 작품단위 row(card-style/color)만
    site-specific wrapper로 감싸 #edit-panel scope로 숨김 → 장면단위 카드톤/엔딩톤(wrapper 밖)·

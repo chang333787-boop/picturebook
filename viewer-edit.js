@@ -4159,8 +4159,10 @@ function _typeSectionMovieHtml(scene) {
         <span class="edit-movie-media-badge">${mediaLabel}</span>
       </div>
 
-      <!-- W7-B: 영상 업로드 (Firebase Storage) -->
-      <div class="edit-movie-video-section">
+      <!-- W7-B: 영상 업로드 (Firebase Storage)
+           MOVIE-TOOL-1D: 🎬 무비 모달로 복제됨 → 우측 중복 도구 숨김(edit-movie-dup-video-tools).
+           handler·Storage helper는 무수정 유지(hidden DOM에 바인딩돼도 무해). -->
+      <div class="edit-movie-video-section edit-movie-dup-video-tools">
         <div class="edit-section-hint" style="margin:8px 0 6px;font-weight:600;color:#c8dcf2;">🎬 영상 (mp4, 1분 이내, 50MB)</div>
         <div class="edit-toggle-group">
           <button type="button" class="edit-toggle js-movie-video-upload">${hasVideo ? '🎬 영상 교체' : '🎬 영상 업로드'}</button>
@@ -4178,7 +4180,9 @@ function _typeSectionMovieHtml(scene) {
            js-movie-poster-upload/-delete 핸들러는 UI 없어 inert. -->
     </div>
 
-    <div class="edit-row">
+    <!-- MOVIE-TOOL-1D: 본문 ON/OFF는 🎬 무비 모달로 복제됨 → 우측 중복 row 숨김
+         (edit-movie-dup-body-toggle). js-movie-body-enabled handler·bodyEnabled 저장 무수정. -->
+    <div class="edit-row edit-movie-dup-body-toggle">
       <label class="edit-label">본문 사용</label>
       <div class="edit-toggle-group">
         <button type="button"

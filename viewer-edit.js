@@ -3329,23 +3329,14 @@ function _typeSectionCoverHtml(scene) {
     </div>`;
 }
 
-/* ── 1) 텍스트형 전용 섹션 ─────────────────────────────────────
-   기준 노출: 글자박스 편집(폰트/크기/색/굵기), 효과, 테마
-   3단계 범위: 진입점 자리만 잡고 "추후 추가" 안내. 미구현 기능은 발명 안 함. */
-function _typeSectionTextHtml(scene) {
-  /* W5: 텍스트형 본격 보강 — placeholder 폐기, 정식 편집 UI.
-     · 글자 스타일: 폰트(8종) / 크기(슬라이더) / 색(팔레트 + 자유) / 굵기
-     · 테마: 8종 카드 (데이터로는 textTheme, viewer는 data-text-theme 분기 → CSS) 
-     · 효과: 진입 / 본문 (1차는 진입 구조만) */
-  const style  = (typeof getTextStyle  === 'function') ? getTextStyle(scene)  : { fontFamily: 'gothic', fontSize: 16, color: '', weight: 'normal' };
-  const theme  = (typeof getTextTheme  === 'function') ? getTextTheme(scene)  : 'classic';
-  const effect = (typeof getTextEffect === 'function') ? getTextEffect(scene) : { entrance: 'none', body: 'none' };
-  /* P4-D-2B-FIX4: 글자 크기 슬라이더 값/라벨은 현재 보기 모드(원본/aiS1/aiS2) 표시 fontSize를 따른다.
-     원본 보기면 원본값, variant 보기면 variant fontSize(없으면 원본). 폰트/색/굵기는 variant에서
-     잠겨 있으므로 style(원본) 그대로 표시. */
+/* TEXT-MODE-1B: text 모드 글자 스타일/테마/효과 컨트롤을 순수 HTML helper로 분리.
+   _typeSectionTextHtml 인라인(접이식 body 내용)을 그대로 추출 — class/selector/data
+   (js-edit-text-*) 무변경, 렌더 결과 동일. 접이식 wrapper/header는 _typeSectionTextHtml에
+   유지. "모든 장면 적용"은 helper 제외. 다음 단계(1C)에서 🎭 팝오버가 같은 helper 재사용.
+   저장/핸들러/variant 로직 무관(HTML만). */
+function _textGlyphStyleSectionHtml(scene) {
+  const style = (typeof getTextStyle === 'function') ? getTextStyle(scene) : { fontFamily: 'gothic', fontSize: 16, color: '', weight: 'normal' };
   const _fsDisp = (function () { const v = _displayFontSize(scene, style); return (typeof v === 'number' && !isNaN(v)) ? v : style.fontSize; })();
-
-  /* W9 폰트 18종 + UI select dropdown — 그림책 인라인과 동일 구성 */
   const FONTS = [
     { id: 'gothic',     label: '나눔고딕' },
     { id: 'notosans',   label: 'Noto Sans (본문)' },
@@ -3366,17 +3357,12 @@ function _typeSectionTextHtml(scene) {
     { id: 'cormorant',  label: 'Cormorant' },
     { id: 'galmuri',    label: '갈무리 (픽셀)' },
   ];
-  /* v36: var(--font-X) 대신 실제 폰트명 inline 박음 — select option은 CSS 변수
-     cascading이 OS 네이티브 렌더링 때문에 적용 안 되는 경우 있음. 직접 값으로 robust. */
   const fontOptions = FONTS.map(f => {
     const ff = (TEXT_FONT_FAMILIES && TEXT_FONT_FAMILIES[f.id]) || 'inherit';
     return `<option value="${f.id}"
       style="font-family:${ff}"
       ${style.fontFamily === f.id ? 'selected' : ''}>${f.label}</option>`;
   }).join('');
-
-  /* 색 팔레트 (8개) — + 자유 입력 */
-  /* v36: 범용 색 4개 추가 (14개) — 회색·하늘색·연두·살색 */
   const COLORS = ['', '#1a1a1a', '#d4453d', '#e87a2a', '#f2b417', '#4a7d3a', '#2c6cb4', '#6a3eb0', '#c94785', '#6a3814', '#7a7a7a', '#5cb0d4', '#a8d65c', '#f4cba8'];
   const colorBtns = COLORS.map(c => {
     const isActive = (style.color || '') === c;
@@ -3388,8 +3374,37 @@ function _typeSectionTextHtml(scene) {
       title="${c || '기본 (테마 색)'}"
       >${label}</button>`;
   }).join('');
+  return `
+          <div class="edit-row">
+            <label class="edit-label">폰트</label>
+            <select class="edit-font-select js-edit-text-font"
+              style="font-family:var(--font-${style.fontFamily || 'gothic'})">${fontOptions}</select>
+          </div>
 
-  /* 테마 8종 카드 */
+          <div class="edit-row">
+            <label class="edit-label">글자 크기 <span class="edit-label-note">(${_fsDisp}px)</span></label>
+            <input type="range" class="edit-slider js-edit-text-size"
+              min="12" max="50" step="1" value="${_fsDisp}">
+          </div>
+
+          <div class="edit-row">
+            <label class="edit-label">글자 색</label>
+            <div class="edit-color-row">${colorBtns}</div>
+            <input type="color" class="edit-color-picker js-edit-text-color-pick"
+              value="${style.color || '#1a1a1a'}" title="자유 색 선택">
+          </div>
+
+          <div class="edit-row">
+            <label class="edit-label">굵기</label>
+            <div class="edit-toggle-group">
+              <button type="button" class="edit-toggle js-edit-text-weight ${style.weight === 'normal' ? 'active' : ''}" data-val="normal">보통</button>
+              <button type="button" class="edit-toggle js-edit-text-weight ${style.weight === 'bold' ? 'active' : ''}" data-val="bold">굵게</button>
+            </div>
+          </div>`;
+}
+
+function _textThemeSectionHtml(scene) {
+  const theme = (typeof getTextTheme === 'function') ? getTextTheme(scene) : 'classic';
   const THEMES = [
     { id: 'classic',     label: '클래식',   desc: '깔끔한 흰 배경' },
     { id: 'novel',       label: '소설',     desc: '베이지 배경 + 명조' },
@@ -3407,7 +3422,34 @@ function _typeSectionTextHtml(scene) {
       <div class="edit-theme-card-name">${t.label}</div>
       <div class="edit-theme-card-desc">${t.desc}</div>
     </button>`).join('');
+  return `
+          <div class="edit-theme-grid">${themeCards}</div>
+          <div class="edit-section-hint">테마는 카드 배경/테두리/기본 폰트 톤을 결정합니다. 폰트·크기·색은 위에서 별도 조절 가능.</div>`;
+}
 
+function _textEffectSectionHtml(scene) {
+  const effect = (typeof getTextEffect === 'function') ? getTextEffect(scene) : { entrance: 'none', body: 'none' };
+  return `
+          <div class="edit-section-hint" style="margin-bottom:6px;">장면 진입 효과</div>
+          <div class="edit-toggle-group">
+            <button type="button" class="edit-toggle js-edit-text-entrance ${effect.entrance === 'none' ? 'active' : ''}" data-val="none">없음</button>
+            <button type="button" class="edit-toggle js-edit-text-entrance ${effect.entrance === 'fade' ? 'active' : ''}" data-val="fade">페이드인</button>
+            <button type="button" class="edit-toggle js-edit-text-entrance ${effect.entrance === 'slide' ? 'active' : ''}" data-val="slide">슬라이드</button>
+          </div>
+          <div class="edit-section-hint" style="margin:10px 0 6px;">본문 표시 효과</div>
+          <div class="edit-toggle-group">
+            <button type="button" class="edit-toggle js-edit-text-body-effect ${effect.body === 'none' ? 'active' : ''}" data-val="none">없음</button>
+            <button type="button" class="edit-toggle js-edit-text-body-effect ${effect.body === 'typewriter' ? 'active' : ''}" data-val="typewriter">타자기</button>
+          </div>`;
+}
+
+/* ── 1) 텍스트형 전용 섹션 ─────────────────────────────────────
+   기준 노출: 글자박스 편집(폰트/크기/색/굵기), 효과, 테마
+   3단계 범위: 진입점 자리만 잡고 "추후 추가" 안내. 미구현 기능은 발명 안 함. */
+function _typeSectionTextHtml(scene) {
+  /* W5: 텍스트형 본격 보강 — 글자 스타일/테마/효과 컨트롤은 helper로 분리(TEXT-MODE-1B).
+     아래 접이식 섹션 body에서 _textGlyphStyleSectionHtml / _textThemeSectionHtml /
+     _textEffectSectionHtml 호출 — 렌더 결과·핸들러·저장 동일. */
   /* 2026-05-31 Text-3B: 스타일/테마/효과를 접이식 섹션으로 정리 (UI 표시만, 기능·핸들러·저장 불변).
      · 글자 스타일 = 기본 펼침(주 동선), 테마/효과 = 기본 접힘.
      · 생성 collapsible 패턴(.edit-collapsible-header/.edit-collapsible-body) 재사용 — 그림책과 동일.
@@ -3439,32 +3481,7 @@ function _typeSectionTextHtml(scene) {
       </button>
       ${_sc ? '' : `
         <div class="edit-collapsible-body">
-          <div class="edit-row">
-            <label class="edit-label">폰트</label>
-            <select class="edit-font-select js-edit-text-font"
-              style="font-family:var(--font-${style.fontFamily || 'gothic'})">${fontOptions}</select>
-          </div>
-
-          <div class="edit-row">
-            <label class="edit-label">글자 크기 <span class="edit-label-note">(${_fsDisp}px)</span></label>
-            <input type="range" class="edit-slider js-edit-text-size"
-              min="12" max="50" step="1" value="${_fsDisp}">
-          </div>
-
-          <div class="edit-row">
-            <label class="edit-label">글자 색</label>
-            <div class="edit-color-row">${colorBtns}</div>
-            <input type="color" class="edit-color-picker js-edit-text-color-pick"
-              value="${style.color || '#1a1a1a'}" title="자유 색 선택">
-          </div>
-
-          <div class="edit-row">
-            <label class="edit-label">굵기</label>
-            <div class="edit-toggle-group">
-              <button type="button" class="edit-toggle js-edit-text-weight ${style.weight === 'normal' ? 'active' : ''}" data-val="normal">보통</button>
-              <button type="button" class="edit-toggle js-edit-text-weight ${style.weight === 'bold' ? 'active' : ''}" data-val="bold">굵게</button>
-            </div>
-          </div>
+          ${_textGlyphStyleSectionHtml(scene)}
         </div>`}
     </div>
 
@@ -3479,8 +3496,7 @@ function _typeSectionTextHtml(scene) {
       </button>
       ${_tc ? '' : `
         <div class="edit-collapsible-body">
-          <div class="edit-theme-grid">${themeCards}</div>
-          <div class="edit-section-hint">테마는 카드 배경/테두리/기본 폰트 톤을 결정합니다. 폰트·크기·색은 위에서 별도 조절 가능.</div>
+          ${_textThemeSectionHtml(scene)}
         </div>`}
     </div>
 
@@ -3497,17 +3513,7 @@ function _typeSectionTextHtml(scene) {
       </button>
       ${_ec ? '' : `
         <div class="edit-collapsible-body">
-          <div class="edit-section-hint" style="margin-bottom:6px;">장면 진입 효과</div>
-          <div class="edit-toggle-group">
-            <button type="button" class="edit-toggle js-edit-text-entrance ${effect.entrance === 'none' ? 'active' : ''}" data-val="none">없음</button>
-            <button type="button" class="edit-toggle js-edit-text-entrance ${effect.entrance === 'fade' ? 'active' : ''}" data-val="fade">페이드인</button>
-            <button type="button" class="edit-toggle js-edit-text-entrance ${effect.entrance === 'slide' ? 'active' : ''}" data-val="slide">슬라이드</button>
-          </div>
-          <div class="edit-section-hint" style="margin:10px 0 6px;">본문 표시 효과</div>
-          <div class="edit-toggle-group">
-            <button type="button" class="edit-toggle js-edit-text-body-effect ${effect.body === 'none' ? 'active' : ''}" data-val="none">없음</button>
-            <button type="button" class="edit-toggle js-edit-text-body-effect ${effect.body === 'typewriter' ? 'active' : ''}" data-val="typewriter">타자기</button>
-          </div>
+          ${_textEffectSectionHtml(scene)}
         </div>`}
     </div>`;
 }

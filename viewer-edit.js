@@ -5711,9 +5711,14 @@ function _pbToneSectionHtml(scene) {
       </button>
       ${collapsed ? '' : `
         <div class="edit-collapsible-body edit-pb-tone-body">
-          ${startNote}
-          ${styleRowHtml}
-          ${colorRowHtml}
+          <!-- PROJECT-SETTINGS-2C-C: 작품단위(카드 스타일/색계열)는 상단 ⚙ 작품 설정이 주 동선 →
+               site-specific wrapper로 감싸 #edit-panel scope 숨김. 장면단위(카드톤/엔딩톤)는
+               wrapper 밖에 둬 우측 유지. 공용 _pbToneRowHtml엔 class 안 달음. -->
+          <div class="edit-project-dup-cardstyle">
+            ${startNote}
+            ${styleRowHtml}
+            ${colorRowHtml}
+          </div>
           ${sceneRowHtml}
           ${endRowHtml}
         </div>`}

@@ -690,6 +690,14 @@ body.viewer-edit-readonly .edit-project-popover button:not(.edit-project-popover
   display: none !important;
 }
 
+/* ── PROJECT-SETTINGS-2C-C: picturebook 첫장면 우측의 중복 본문 카드 스타일/색계열(작품단위) 숨김 ──
+   이제 상단 ⚙ 작품 설정이 주 동선. _pbToneSectionHtml 안에서 작품단위 row(card-style/color)만
+   site-specific wrapper로 감싸 #edit-panel scope로 숨김 → 장면단위 카드톤/엔딩톤(wrapper 밖)·
+   ⚙ 팝오버 사본(#edit-panel 밖)은 영향 없음. 가시성만 숨김(저장/핸들러 유지). */
+#edit-panel .edit-project-dup-cardstyle {
+  display: none !important;
+}
+
 /* ── v129: 읽기전용 상태 — 잠금 박은 거 박혀있는데 "내가 수정하기" 누르기 전 상태 ──
    원인 사건: 다른 친구가 수정 중이라 잠금 박혔는데 인스펙터 버튼/표지 입력칸이 눌리던 문제.
    허용: 잠금 배너 액션 / 장면 이동 nav / HUD 액션(감상테스트·루트·구조·브랜치로) / 단순 보기·확대·스크롤.

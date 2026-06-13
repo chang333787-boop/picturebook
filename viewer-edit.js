@@ -6284,6 +6284,11 @@ function _bindHudEditActions() {
   document.querySelector('.js-edit-project-popover')?.addEventListener('click', () => {
     _toggleProjectPopover();
   });
+
+  /* PB-IMAGE-1B: 🖼 그림 — picturebook 장면 그림 도구 상단 팝오버 토글(1B는 빈 셸). */
+  document.querySelector('.js-edit-image-popover')?.addEventListener('click', () => {
+    _toggleImagePopover();
+  });
 }
 
 /* ================================================================
@@ -6833,6 +6838,98 @@ function _projectPopoverOutside(e) {
 
 function _projectPopoverEsc(e) {
   if (e.key === 'Escape') _closeProjectPopover();
+}
+
+/* ================================================================
+   PB-IMAGE-1B: picturebook "🖼 그림" 상단 팝오버 (빈 셸)
+   ─────────────────────────────────────────────────────────────
+   · 장면 그림 도구(업로드·삭제·그리기·크기이동·자르기)가 향후 들어갈 자리.
+   · 1B는 빈 셸 — 안내 문구만. 실제 진입 버튼 복제는 PB-IMAGE-1C.
+   · picturebook 비표지 장면에서만 트리거 노출(renderHUD의 _isPbImageHudScene).
+   · 상호배타: 열 때 🔗/🎨/⚙ 팝오버를 닫음. 반대는 🖼 팝오버 바깥클릭 핸들러가 자동 처리.
+   · edit-choice/cover/project-popover 패턴 그대로 재사용(열기/닫기/바깥클릭/ESC/HUD재렌더 close).
+   ================================================================ */
+function _imagePopoverEl() { return document.getElementById('edit-image-popover'); }
+
+function _renderImagePopoverBody() {
+  /* 1B 빈 셸 — 안내만. 실제 업로드/그리기/자르기 진입 버튼은 1C에서. */
+  return `
+    <div class="edit-image-popover__head">
+      <span class="edit-image-popover__title">🖼 그림</span>
+      <button type="button" class="edit-image-popover__close js-image-popover-close"
+        title="닫기" aria-label="닫기">✕</button>
+    </div>
+    <div class="edit-image-popover__body">
+      <p class="edit-image-popover__hint">🖼 그림 도구 준비 중</p>
+      <p class="edit-image-popover__note">업로드·그리기·자르기 도구를 이곳으로 옮길 예정이에요.</p>
+    </div>`;
+}
+
+function _bindImagePopover(pop) {
+  pop.querySelector('.js-image-popover-close')
+    ?.addEventListener('click', _closeImagePopover);
+}
+
+function _positionImagePopover(pop) {
+  const trigger = document.querySelector('.js-edit-image-popover');
+  if (!trigger) return;
+  const r = trigger.getBoundingClientRect();
+  pop.style.top = (r.bottom + 8) + 'px';
+  const popW = pop.offsetWidth || 300;
+  let left = r.left;
+  const maxLeft = window.innerWidth - popW - 12;
+  if (left > maxLeft) left = Math.max(12, maxLeft);
+  pop.style.left = left + 'px';
+}
+
+function _openImagePopover() {
+  const pop = _imagePopoverEl();
+  if (!pop) return;
+  /* 상호배타: 다른 팝오버가 열려 있으면 닫음(동시 노출 방지). */
+  if (typeof _closeChoicePopover === 'function') _closeChoicePopover();
+  if (typeof _closeCoverPopover === 'function') _closeCoverPopover();
+  if (typeof _closeProjectPopover === 'function') _closeProjectPopover();
+  pop.innerHTML = _renderImagePopoverBody();
+  pop.hidden = false;
+  _bindImagePopover(pop);
+  _positionImagePopover(pop);
+  document.querySelector('.js-edit-image-popover')?.classList.add('is-active');
+  setTimeout(() => {
+    document.addEventListener('click', _imagePopoverOutside, true);
+    document.addEventListener('keydown', _imagePopoverEsc, true);
+  }, 0);
+}
+
+function _closeImagePopover() {
+  const pop = _imagePopoverEl();
+  if (!pop || pop.hidden) return;
+  pop.hidden = true;
+  pop.innerHTML = '';
+  pop.style.left = '';
+  pop.style.top  = '';
+  document.querySelector('.js-edit-image-popover')?.classList.remove('is-active');
+  document.removeEventListener('click', _imagePopoverOutside, true);
+  document.removeEventListener('keydown', _imagePopoverEsc, true);
+}
+
+function _toggleImagePopover() {
+  const pop = _imagePopoverEl();
+  if (!pop) return;
+  if (pop.hidden) _openImagePopover();
+  else _closeImagePopover();
+}
+
+function _imagePopoverOutside(e) {
+  const pop = _imagePopoverEl();
+  if (!pop || pop.hidden) return;
+  if (pop.contains(e.target)) return;
+  /* 트리거 클릭은 토글 핸들러가 처리 — 여기서 닫지 않음(이중 토글 방지). */
+  if (e.target.closest && e.target.closest('.js-edit-image-popover')) return;
+  _closeImagePopover();
+}
+
+function _imagePopoverEsc(e) {
+  if (e.key === 'Escape') _closeImagePopover();
 }
 
 /* ================================================================

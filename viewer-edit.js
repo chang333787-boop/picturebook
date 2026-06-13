@@ -3750,7 +3750,7 @@ function _typeSectionPicturebookHtml(scene) {
      왼쪽 첫 줄(페이지 방향+하위 모드)이 오른쪽 첫 줄(제목)과 baseline 정렬. */
   return `
     <div class="edit-pb-row-pair">
-      <div class="edit-row edit-row--compact edit-row--pair-cell">
+      <div class="edit-row edit-row--compact edit-row--pair-cell edit-project-dup-orientation">
         <label class="edit-label">📖 페이지 방향</label>
         <div class="edit-toggle-group">
           <button type="button" ${lockedAttr}
@@ -3775,7 +3775,7 @@ function _typeSectionPicturebookHtml(scene) {
     </div>
     ${lockHint}
 
-    ${_isFirstNormalScene(scene) ? _pbThemeSectionHtml() : ''}
+    ${_isFirstNormalScene(scene) ? `<div class="edit-project-dup-pbtheme">${_pbThemeSectionHtml()}</div>` : ''}
 
     ${isImageCenter ? (() => {
       const bb = (typeof getPicturebookBodyBox === 'function')
@@ -3994,7 +3994,7 @@ function _typeSectionMovieHtml(scene) {
       <div class="edit-field-hint">영상 종료 후 선택지가 나타납니다.${_isFirstMovieScene ? '' : ' (첫 장면에서만)'}</div>
     </div>
 
-    <div class="edit-row">
+    <div class="edit-row edit-project-dup-orientation">
       <label class="edit-label">🎬 화면 방향 <span class="edit-label-note">(작품 전체)</span></label>
       <div class="edit-toggle-group">
         <button type="button" ${_orientLockedAttr}

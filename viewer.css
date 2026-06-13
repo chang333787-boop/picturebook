@@ -764,6 +764,18 @@ body.viewer-edit-readonly .edit-image-popover button:not(.edit-image-popover__cl
   font-size: 12px;
   color: #8a7d6b;
 }
+/* GLYPH-STYLE-1C: 팝오버 내 톤↔글자 스타일 구분 divider + 소제목. */
+.edit-scene-style-divider {
+  height: 1px;
+  background: #efe6d6;
+  margin: 12px 0;
+}
+.edit-scene-style-subtitle {
+  font-family: 'Jua', sans-serif;
+  font-size: 13px;
+  color: #6b5638;
+  margin: 0 0 8px;
+}
 /* 트리거 활성 상태 강조 — 헤더 색과 동일 계열 */
 .maker-return-btn.js-edit-scene-style-popover.is-active {
   background: #a6517e;

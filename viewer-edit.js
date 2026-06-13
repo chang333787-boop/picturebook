@@ -3931,6 +3931,101 @@ function _pbGlyphStyleSectionHtml(scene) {
           </div>`;
 }
 
+/* GLYPH-STYLE-1C: 🎭 장면 스타일 팝오버용 picturebook 글자 스타일 바인딩(root scope).
+   우측 인스펙터의 pb 글자 핸들러(_bindEditPanelEvents picturebook 분기)와 **완전히 동일한 경로**를
+   호출 — _applyVariantStyleOrBlock(variant면 fontSize만 허용·나머지 차단) → 원본이면 textStyle
+   ensure + _queueSave + _patchPbStyle/재렌더. 새 저장 로직 없음. 우측 핸들러는 무수정(panel scope).
+   input은 라벨/CSS변수만(저장 폭주 X), change에서 _flush. _ensurePbTextStyle은 우측 로컬이라 동일 로직 inline. */
+function _bindPbGlyphStyleActions(root, scene) {
+  if (!root || !scene) return;
+  const _ensureTs = () => {
+    if (!scene.textStyle || typeof scene.textStyle !== 'object') {
+      scene.textStyle = { fontFamily: 'gothic', fontSize: 16, color: '', weight: 'normal' };
+    }
+    return scene.textStyle;
+  };
+  /* 폰트 */
+  root.querySelectorAll('.js-edit-pb-font').forEach(sel => {
+    sel.addEventListener('change', e => {
+      if (!_editText.editable) return;
+      const v = e.target.value || 'gothic';
+      if (_applyVariantStyleOrBlock(scene, { fontFamily: v }, () => {
+        e.target.style.fontFamily = `var(--font-${v})`;
+      })) return;
+      const ts = _ensureTs();
+      if (ts.fontFamily === v) return;
+      ts.fontFamily = v;
+      _queueSave(scene.num || scene.id, { textStyle: { ...ts } });
+      _flushPendingSave();
+      e.target.style.fontFamily = `var(--font-${v})`;
+      if (!_patchPbStyle()) _scheduleViewerFrameReRender();
+    });
+  });
+  /* 크기 */
+  root.querySelector('.js-edit-pb-size')?.addEventListener('input', e => {
+    if (!_editText.editable) return;
+    const v = parseInt(e.target.value, 10);
+    if (isNaN(v)) return;
+    if (_applyVariantStyleOrBlock(scene, { fontSize: v }, () => {
+      const ln = e.target.closest('.edit-row')?.querySelector('.edit-label-note');
+      if (ln) ln.textContent = `(${v}px)`;
+    })) return;
+    const ts = _ensureTs();
+    ts.fontSize = v;
+    _queueSave(scene.num || scene.id, { textStyle: { ...ts } });
+    const labelNote = e.target.closest('.edit-row')?.querySelector('.edit-label-note');
+    if (labelNote) labelNote.textContent = `(${v}px)`;
+    if (!_patchPbStyle()) _scheduleViewerFrameReRender();
+  });
+  root.querySelector('.js-edit-pb-size')?.addEventListener('change', () => _flushPendingSave());
+  /* 색 팔레트 */
+  root.querySelectorAll('.js-edit-pb-color').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (!_editText.editable) return;
+      const v = btn.dataset.val || '';
+      if (_applyVariantStyleOrBlock(scene, { color: v }, () => {
+        root.querySelectorAll('.js-edit-pb-color').forEach(b => b.classList.toggle('active', b === btn));
+      })) return;
+      const ts = _ensureTs();
+      ts.color = v;
+      _queueSave(scene.num || scene.id, { textStyle: { ...ts } });
+      _flushPendingSave();
+      root.querySelectorAll('.js-edit-pb-color').forEach(b => b.classList.toggle('active', b === btn));
+      if (!_patchPbStyle()) _scheduleViewerFrameReRender();
+    });
+  });
+  /* 자유 색 */
+  root.querySelector('.js-edit-pb-color-pick')?.addEventListener('input', e => {
+    if (!_editText.editable) return;
+    const v = e.target.value || '';
+    if (_applyVariantStyleOrBlock(scene, { color: v }, () => {
+      root.querySelectorAll('.js-edit-pb-color').forEach(b => b.classList.remove('active'));
+    })) return;
+    const ts = _ensureTs();
+    ts.color = v;
+    _queueSave(scene.num || scene.id, { textStyle: { ...ts } });
+    root.querySelectorAll('.js-edit-pb-color').forEach(b => b.classList.remove('active'));
+    if (!_patchPbStyle()) _scheduleViewerFrameReRender();
+  });
+  root.querySelector('.js-edit-pb-color-pick')?.addEventListener('change', () => _flushPendingSave());
+  /* 굵기 */
+  root.querySelectorAll('.js-edit-pb-weight').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (!_editText.editable) return;
+      const v = btn.dataset.val === 'bold' ? 'bold' : 'normal';
+      if (_applyVariantStyleOrBlock(scene, { weight: v }, () => {
+        root.querySelectorAll('.js-edit-pb-weight').forEach(b => b.classList.toggle('active', b === btn));
+      })) return;
+      const ts = _ensureTs();
+      ts.weight = v;
+      _queueSave(scene.num || scene.id, { textStyle: { ...ts } });
+      _flushPendingSave();
+      root.querySelectorAll('.js-edit-pb-weight').forEach(b => b.classList.toggle('active', b === btn));
+      if (!_patchPbStyle()) _scheduleViewerFrameReRender();
+    });
+  });
+}
+
 function _pbInlineStyleHtml(scene) {
   /* 2026-05-25 Phase 1: 섹션 collapsible 토글(.edit-collapsible-header/.edit-collapsible-body).
      GLYPH-STYLE-1B: 컨트롤 마크업은 _pbGlyphStyleSectionHtml로 분리(렌더 결과 동일).
@@ -7131,6 +7226,9 @@ function _renderSceneStylePopoverBody() {
     <div class="edit-scene-style-popover__body">
       <p class="edit-scene-style-popover__note">지금 보고 있는 <b>이 장면</b>에만 적용돼요.</p>
       ${scene ? _pbSceneToneSectionHtml(scene) : ''}
+      <div class="edit-scene-style-divider"></div>
+      <div class="edit-scene-style-subtitle">🅰 글자 스타일</div>
+      ${scene ? _pbGlyphStyleSectionHtml(scene) : ''}
     </div>`;
 }
 
@@ -7140,6 +7238,9 @@ function _bindSceneStylePopover(pop) {
   /* SCENE-STYLE-1: 톤 버튼 바인딩 — 우측과 동일 _bindPbToneEvents 재사용(새 저장 로직 X). */
   const scene = ViewerState.scenes[ViewerState.currentSceneId];
   if (scene && typeof _bindPbToneEvents === 'function') _bindPbToneEvents(pop, scene);
+  /* GLYPH-STYLE-1C: 글자 스타일 바인딩 — 우측 pb 글자 핸들러와 동일 경로(_applyVariantStyleOrBlock
+     + _ensure textStyle + _queueSave + _patchPbStyle). root(pop) scope 전용. 새 저장 로직 X. */
+  if (scene && typeof _bindPbGlyphStyleActions === 'function') _bindPbGlyphStyleActions(pop, scene);
 }
 
 function _positionSceneStylePopover(pop) {

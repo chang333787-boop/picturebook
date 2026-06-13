@@ -7234,6 +7234,29 @@ function _sceneStylePopoverEl() { return document.getElementById('edit-scene-sty
 
 function _renderSceneStylePopoverBody() {
   const scene = ViewerState.scenes[ViewerState.currentSceneId];
+  const ptype = (typeof _resolveViewerProjectType === 'function') ? _resolveViewerProjectType() : null;
+  /* TEXT-MODE-1C: ptype별 분기 — text는 글자/테마/효과, picturebook은 기존(톤+글자+모든장면적용). */
+  let bodyInner;
+  if (ptype === 'text') {
+    bodyInner = `
+      <div class="edit-scene-style-subtitle">🅰 글자 스타일</div>
+      ${scene ? _textGlyphStyleSectionHtml(scene) : ''}
+      <div class="edit-scene-style-divider"></div>
+      <div class="edit-scene-style-subtitle">🎨 테마</div>
+      ${scene ? _textThemeSectionHtml(scene) : ''}
+      <div class="edit-scene-style-divider"></div>
+      <div class="edit-scene-style-subtitle">✨ 효과</div>
+      ${scene ? _textEffectSectionHtml(scene) : ''}`;
+  } else {
+    bodyInner = `
+      ${scene ? _pbSceneToneSectionHtml(scene) : ''}
+      <div class="edit-scene-style-divider"></div>
+      <div class="edit-scene-style-subtitle">🅰 글자 스타일</div>
+      ${scene ? _pbGlyphStyleSectionHtml(scene) : ''}
+      <div class="edit-scene-style-apply-all">
+        ${scene ? _applyStyleAllButtonHtml(scene) : ''}
+      </div>`;
+  }
   return `
     <div class="edit-scene-style-popover__head">
       <span class="edit-scene-style-popover__title">🎭 장면 스타일</span>
@@ -7242,28 +7265,172 @@ function _renderSceneStylePopoverBody() {
     </div>
     <div class="edit-scene-style-popover__body">
       <p class="edit-scene-style-popover__note">지금 보고 있는 <b>이 장면</b>에만 적용돼요.</p>
-      ${scene ? _pbSceneToneSectionHtml(scene) : ''}
-      <div class="edit-scene-style-divider"></div>
-      <div class="edit-scene-style-subtitle">🅰 글자 스타일</div>
-      ${scene ? _pbGlyphStyleSectionHtml(scene) : ''}
-      <div class="edit-scene-style-apply-all">
-        ${scene ? _applyStyleAllButtonHtml(scene) : ''}
-      </div>
+      ${bodyInner}
     </div>`;
 }
 
 function _bindSceneStylePopover(pop) {
   pop.querySelector('.js-scene-style-popover-close')
     ?.addEventListener('click', _closeSceneStylePopover);
-  /* SCENE-STYLE-1: 톤 버튼 바인딩 — 우측과 동일 _bindPbToneEvents 재사용(새 저장 로직 X). */
   const scene = ViewerState.scenes[ViewerState.currentSceneId];
-  if (scene && typeof _bindPbToneEvents === 'function') _bindPbToneEvents(pop, scene);
+  if (!scene) return;
+  const ptype = (typeof _resolveViewerProjectType === 'function') ? _resolveViewerProjectType() : null;
+  if (ptype === 'text') {
+    /* TEXT-MODE-1C: text 글자/테마/효과 — 우측 text 핸들러와 동일 경로의 root-scope 복제. */
+    if (typeof _bindTextSceneStyleActions === 'function') _bindTextSceneStyleActions(pop, scene);
+    return;
+  }
+  /* picturebook (기존) */
+  /* SCENE-STYLE-1: 톤 버튼 바인딩 — 우측과 동일 _bindPbToneEvents 재사용(새 저장 로직 X). */
+  if (typeof _bindPbToneEvents === 'function') _bindPbToneEvents(pop, scene);
   /* GLYPH-STYLE-1C: 글자 스타일 바인딩 — 우측 pb 글자 핸들러와 동일 경로(_applyVariantStyleOrBlock
      + _ensure textStyle + _queueSave + _patchPbStyle). root(pop) scope 전용. 새 저장 로직 X. */
-  if (scene && typeof _bindPbGlyphStyleActions === 'function') _bindPbGlyphStyleActions(pop, scene);
+  if (typeof _bindPbGlyphStyleActions === 'function') _bindPbGlyphStyleActions(pop, scene);
   /* GLYPH-APPLYALL: "모든 장면 적용" 바인딩 — 우측 _bindApplyStyleAllHandlers를 root(pop)에
      그대로 재사용(panel 인자 받는 구조). textStyle+textTheme 전 장면 적용 경로 무수정. */
-  if (scene && typeof _bindApplyStyleAllHandlers === 'function') _bindApplyStyleAllHandlers(pop, scene);
+  if (typeof _bindApplyStyleAllHandlers === 'function') _bindApplyStyleAllHandlers(pop, scene);
+}
+
+/* TEXT-MODE-1C: 🎭 장면 스타일 팝오버용 text 글자/테마/효과 바인딩(root scope).
+   우측 text 핸들러(_bindEditPanelEvents text 분기)와 **동일 경로** 호출 —
+   글자: _applyVariantStyleOrBlock(variant면 fontSize만) → 원본이면 textStyle ensure + _queueSave + _patchTextStyle.
+   테마: scene.textTheme + _queueSave + _patchTextTheme. 효과: scene.textEffect + _queueSave + _patchTextEffect.
+   renderEditPanel/collapsible 토글 미복제. 우측 핸들러 무수정. _ensureTextStyle/_ensureTextEffect는 우측 로컬이라 인라인. */
+function _bindTextSceneStyleActions(root, scene) {
+  if (!root || !scene) return;
+  const _ensureTs = () => {
+    if (!scene.textStyle || typeof scene.textStyle !== 'object') {
+      scene.textStyle = { fontFamily: 'gothic', fontSize: 16, color: '', weight: 'normal' };
+    }
+    return scene.textStyle;
+  };
+  const _ensureTe = () => {
+    if (!scene.textEffect || typeof scene.textEffect !== 'object') {
+      scene.textEffect = { entrance: 'none', body: 'none' };
+    }
+    return scene.textEffect;
+  };
+  /* 폰트 */
+  root.querySelectorAll('.js-edit-text-font').forEach(sel => {
+    sel.addEventListener('change', e => {
+      if (!_editText.editable) return;
+      const v = e.target.value || 'gothic';
+      if (_applyVariantStyleOrBlock(scene, { fontFamily: v }, () => {
+        e.target.style.fontFamily = `var(--font-${v})`;
+      })) return;
+      const ts = _ensureTs();
+      if (ts.fontFamily === v) return;
+      ts.fontFamily = v;
+      _queueSave(scene.num || scene.id, { textStyle: { ...ts } });
+      _flushPendingSave();
+      e.target.style.fontFamily = `var(--font-${v})`;
+      if (!_patchTextStyle()) _scheduleViewerFrameReRender();
+    });
+  });
+  /* 글자 크기 */
+  root.querySelectorAll('.js-edit-text-size').forEach(slider => {
+    slider.addEventListener('input', e => {
+      if (!_editText.editable) return;
+      const v = parseInt(e.target.value, 10);
+      if (isNaN(v)) return;
+      if (_applyVariantStyleOrBlock(scene, { fontSize: v }, () => {
+        const ln = slider.closest('.edit-row')?.querySelector('.edit-label-note');
+        if (ln) ln.textContent = `(${v}px)`;
+      })) return;
+      const ts = _ensureTs();
+      ts.fontSize = v;
+      const labelNote = slider.closest('.edit-row')?.querySelector('.edit-label-note');
+      if (labelNote) labelNote.textContent = `(${v}px)`;
+      _queueSave(scene.num || scene.id, { textStyle: { ...ts } });
+      if (!_patchTextStyle()) _scheduleViewerFrameReRender();
+    });
+  });
+  /* 색 팔레트 */
+  root.querySelectorAll('.js-edit-text-color').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (!_editText.editable) return;
+      const v = btn.dataset.val || '';
+      if (_applyVariantStyleOrBlock(scene, { color: v }, () => {
+        root.querySelectorAll('.js-edit-text-color').forEach(b => b.classList.toggle('active', b === btn));
+      })) return;
+      const ts = _ensureTs();
+      ts.color = v;
+      _queueSave(scene.num || scene.id, { textStyle: { ...ts } });
+      _flushPendingSave();
+      root.querySelectorAll('.js-edit-text-color').forEach(b => b.classList.toggle('active', b === btn));
+      if (!_patchTextStyle()) _scheduleViewerFrameReRender();
+    });
+  });
+  /* 자유 색 */
+  root.querySelectorAll('.js-edit-text-color-pick').forEach(input => {
+    input.addEventListener('change', e => {
+      if (!_editText.editable) return;
+      const v = e.target.value;
+      if (_applyVariantStyleOrBlock(scene, { color: v }, () => {
+        root.querySelectorAll('.js-edit-text-color').forEach(b => b.classList.remove('active'));
+      })) return;
+      const ts = _ensureTs();
+      ts.color = v;
+      _queueSave(scene.num || scene.id, { textStyle: { ...ts } });
+      _flushPendingSave();
+      root.querySelectorAll('.js-edit-text-color').forEach(b => b.classList.remove('active'));
+      if (!_patchTextStyle()) _scheduleViewerFrameReRender();
+    });
+  });
+  /* 굵기 */
+  root.querySelectorAll('.js-edit-text-weight').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (!_editText.editable) return;
+      const v = btn.dataset.val === 'bold' ? 'bold' : 'normal';
+      if (_applyVariantStyleOrBlock(scene, { weight: v }, () => {
+        root.querySelectorAll('.js-edit-text-weight').forEach(b => b.classList.toggle('active', b === btn));
+      })) return;
+      const ts = _ensureTs();
+      ts.weight = v;
+      _queueSave(scene.num || scene.id, { textStyle: { ...ts } });
+      _flushPendingSave();
+      root.querySelectorAll('.js-edit-text-weight').forEach(b => b.classList.toggle('active', b === btn));
+      if (!_patchTextStyle()) _scheduleViewerFrameReRender();
+    });
+  });
+  /* 테마 */
+  root.querySelectorAll('.js-edit-text-theme').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (!_editText.editable) return;
+      const v = btn.dataset.val || 'classic';
+      scene.textTheme = v;
+      _queueSave(scene.num || scene.id, { textTheme: v });
+      _flushPendingSave();
+      root.querySelectorAll('.js-edit-text-theme').forEach(b => b.classList.toggle('active', b === btn));
+      if (!_patchTextTheme()) _scheduleViewerFrameReRender();
+    });
+  });
+  /* 진입 효과 */
+  root.querySelectorAll('.js-edit-text-entrance').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (!_editText.editable) return;
+      const v = btn.dataset.val || 'none';
+      const te = _ensureTe();
+      te.entrance = v;
+      _queueSave(scene.num || scene.id, { textEffect: { ...te } });
+      _flushPendingSave();
+      root.querySelectorAll('.js-edit-text-entrance').forEach(b => b.classList.toggle('active', b === btn));
+      if (!_patchTextEffect()) _scheduleViewerFrameReRender();
+    });
+  });
+  /* 본문 표시 효과 */
+  root.querySelectorAll('.js-edit-text-body-effect').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (!_editText.editable) return;
+      const v = btn.dataset.val || 'none';
+      const te = _ensureTe();
+      te.body = v;
+      _queueSave(scene.num || scene.id, { textEffect: { ...te } });
+      _flushPendingSave();
+      root.querySelectorAll('.js-edit-text-body-effect').forEach(b => b.classList.toggle('active', b === btn));
+      if (!_patchTextEffect()) _scheduleViewerFrameReRender();
+    });
+  });
 }
 
 function _positionSceneStylePopover(pop) {

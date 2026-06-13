@@ -2101,6 +2101,12 @@ function renderHUD() {
   const _isPbImageHudScene = !!(_hudScene
     && ViewerState.project && ViewerState.project.projectType === 'picturebook'
     && _hudScene.type !== 'cover' && !_hudScene.isCover);
+  /* TEXT-MODE-1C: "🎭 장면 스타일"은 picturebook(톤+글자) OR text(글자+테마+효과) 비표지 장면에 노출.
+     🖼 그림은 위 _isPbImageHudScene(picturebook 전용) 그대로 — text엔 안 뜸. */
+  const _isSceneStyleHudScene = !!(_hudScene
+    && ViewerState.project
+    && (ViewerState.project.projectType === 'picturebook' || ViewerState.project.projectType === 'text')
+    && _hudScene.type !== 'cover' && !_hudScene.isCover);
   const makerBarHtml = fromMaker ? `
     <div class="maker-return-bar ${isEdit ? 'maker-return-bar--editing' : ''}">
       <span class="maker-return-label">${isEdit ? '🎨 마감 편집 중' : '✏️ 제작자 테스트 중'}</span>
@@ -2111,7 +2117,7 @@ function renderHUD() {
           ${_isNormalHudScene ? '<button class="maker-return-btn js-edit-choice-popover" title="행동 버튼과 연결 장면을 편집합니다" aria-label="행동 버튼과 연결 장면을 편집합니다">🔗 버튼</button>' : ''}
           ${_isCoverHudScene ? '<button class="maker-return-btn js-edit-cover-popover" title="표지 색과 표지 느낌을 편집합니다" aria-label="표지 색과 표지 느낌을 편집합니다">🎨 표지</button>' : ''}
           ${_isPbImageHudScene ? '<button class="maker-return-btn js-edit-image-popover" title="장면 그림을 편집합니다 — 업로드·그리기·자르기" aria-label="장면 그림을 편집합니다">🖼 그림</button>' : ''}
-          ${_isPbImageHudScene ? '<button class="maker-return-btn js-edit-scene-style-popover" title="이 장면의 카드 톤을 편집합니다" aria-label="이 장면의 카드 톤을 편집합니다">🎭 장면 스타일</button>' : ''}
+          ${_isSceneStyleHudScene ? '<button class="maker-return-btn js-edit-scene-style-popover" title="이 장면의 스타일을 편집합니다" aria-label="이 장면의 스타일을 편집합니다">🎭 장면 스타일</button>' : ''}
           <button class="maker-return-btn js-edit-project-popover" title="작품 전체에 적용되는 설정이에요" aria-label="작품 전체에 적용되는 설정이에요">⚙ 작품 설정</button>
           <button class="maker-return-btn js-edit-open-routes" title="엔딩별 이야기 흐름 점검">🛤 루트 보기</button>
           <button class="maker-return-btn js-edit-open-map" title="장면 연결을 한눈에 확인">🔍 구조 보기</button>

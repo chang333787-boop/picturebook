@@ -7564,10 +7564,11 @@ function _sceneStylePopoverEsc(e) {
 }
 
 /* ================================================================
-   MOVIE-TOOL-1A/1B: "🎬 무비" 도구 모달 (셸 + 본문 ON/OFF)
+   MOVIE-TOOL-1A/1B/1C: "🎬 무비" 도구 모달 (셸 + 본문 ON/OFF + 영상)
    ─────────────────────────────────────────────────────────────
-   · movie 비표지 장면의 영상·본문 표시 설정. 1A/1B는 본문 ON/OFF만 복제(저위험).
-   · 영상 업로드/삭제(Storage·progress·renderEditPanel)는 1C에서 별도 — 여기선 안내 placeholder.
+   · movie 비표지 장면의 영상·본문 표시 설정. 1A/1B는 본문 ON/OFF, 1C는 영상 업로드/교체/삭제.
+   · 영상(1C): 우측 js-movie-video-upload/-delete와 동일 경로(Storage 함수 무수정 호출).
+     progress/error는 모달 섹션-scoped, 성공/삭제 후 renderEditPanel 대신 섹션 self-refresh.
    · 본문 ON/OFF: 우측 js-movie-body-enabled 핸들러와 동일 경로(scene.bodyEnabled + _queueSave +
      active 토글 + 프레임 재렌더). renderEditPanel 미호출. modal root scope 바인딩(우측과 분리).
    · 모달은 #movie-tool-modal(#edit-panel 밖). 우측 핸들러·우측 row 무수정.
@@ -7611,7 +7612,8 @@ function _openMovieToolModal(scene) {
         </div>
         <div class="movie-tool-section">
           <div class="movie-tool-section-title">🎬 영상</div>
-          <div class="movie-tool-hint">영상 업로드·교체·삭제는 다음 단계에서 이곳으로 옮겨질 예정이에요. 지금은 오른쪽 패널에서 사용하세요.</div>
+          <div class="movie-tool-video-section">${_movieToolVideoSectionInner(scene)}</div>
+          <div class="movie-tool-hint">mp4 영상을 올려 무비 장면에 보여줄 수 있어요.</div>
         </div>
       </div>
     </div>`;
@@ -7638,6 +7640,146 @@ function _bindMovieToolModalActions(modal, scene) {
         b.classList.toggle('active', (b.dataset.val === 'on') === enabled);
       });
       if (typeof _scheduleViewerFrameReRender === 'function') _scheduleViewerFrameReRender();
+    });
+  });
+  /* MOVIE-TOOL-1C: 영상 업로드/교체/삭제 */
+  _bindMovieToolVideoActions(modal, scene);
+}
+
+/* MOVIE-TOOL-1C: 모달 영상 섹션 내부 HTML — 우측 edit-movie-video-section과 동일 구조/클래스
+   (CSS·progress·error 그대로 재사용). hasVideo로 업로드↔교체 라벨 + 삭제 버튼 노출 결정. */
+function _movieToolVideoSectionInner(scene) {
+  const md = (typeof getMovieData === 'function') ? getMovieData(scene) : (scene.movieData || {});
+  const hasVideo = !!(md && md.videoUrl);
+  return `
+    <div class="edit-toggle-group">
+      <button type="button" class="edit-toggle js-movie-video-upload">${hasVideo ? '🎬 영상 교체' : '🎬 영상 업로드'}</button>
+      ${hasVideo ? `<button type="button" class="edit-toggle js-movie-video-delete">🗑 영상 삭제</button>` : ''}
+    </div>
+    <div class="js-movie-video-progress edit-movie-progress" style="display:none;">
+      <div class="edit-movie-progress-bar"><div class="edit-movie-progress-fill js-movie-progress-fill"></div></div>
+      <div class="edit-movie-progress-text js-movie-progress-text">업로드 중… 0%</div>
+    </div>
+    <div class="js-movie-video-error edit-movie-error" style="display:none;"></div>`;
+}
+
+/* MOVIE-TOOL-1C: 모달 전용 영상 업로드/교체/삭제 바인딩.
+   · 로직은 우측 js-movie-video-upload/-delete 핸들러와 동일 경로(viewerUploadVideoToStorage·
+     viewerDeleteVideoFromStorage·_queueSave·_flushPendingSave 무수정 호출).
+   · 차이: progress/error를 모달 .movie-tool-video-section 내부로 scope, 성공/삭제 후
+     renderEditPanel 대신 섹션 self-refresh(_movieToolVideoSectionInner 재렌더 + 재바인딩).
+   · 우측 핸들러·우측 row 무수정. */
+function _bindMovieToolVideoActions(modal, scene) {
+  const section = modal && modal.querySelector('.movie-tool-video-section');
+  if (!section) return;
+  function refresh() {
+    section.innerHTML = _movieToolVideoSectionInner(scene);
+    _bindMovieToolVideoActions(modal, scene);
+  }
+
+  /* 업로드/교체 */
+  section.querySelectorAll('.js-movie-video-upload').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (!_editText.editable) return;
+      const errEl  = section.querySelector('.js-movie-video-error');
+      const progEl = section.querySelector('.js-movie-video-progress');
+      const fillEl = section.querySelector('.js-movie-progress-fill');
+      const textEl = section.querySelector('.js-movie-progress-text');
+      function showErr(msg) {
+        if (!errEl) { alert(msg); return; }
+        errEl.textContent = '⚠ ' + msg;
+        errEl.style.display = 'block';
+        setTimeout(() => { errEl.style.display = 'none'; }, 6000);
+      }
+      function hideProgress() {
+        if (progEl) progEl.style.display = 'none';
+      }
+
+      const fileInput = document.createElement('input');
+      fileInput.type = 'file';
+      fileInput.accept = 'video/mp4,video/*';
+      fileInput.style.display = 'none';
+      fileInput.addEventListener('change', async e => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        if (typeof viewerUploadVideoToStorage !== 'function') {
+          showErr('영상 업로드가 활성화되지 않았어요. 페이지를 새로고침해주세요.');
+          return;
+        }
+
+        if (progEl) {
+          progEl.style.display = 'block';
+          if (fillEl) fillEl.style.width = '0%';
+          if (textEl) textEl.textContent = '업로드 준비 중…';
+        }
+        btn.disabled = true;
+        btn.style.opacity = '0.5';
+
+        try {
+          const result = await viewerUploadVideoToStorage(file, (scene.num || scene.id), {
+            onProgress: pct => {
+              if (fillEl) fillEl.style.width = pct + '%';
+              if (textEl) textEl.textContent = '업로드 중… ' + pct + '%';
+            },
+          });
+          const _oldStoragePath = (scene.movieData && scene.movieData.videoStoragePath) || null;
+
+          if (!scene.movieData || typeof scene.movieData !== 'object') {
+            scene.movieData = { videoUrl: null, posterImage: null, captionMode: 'overlay', choiceReveal: 'end' };
+          }
+          scene.movieData.videoUrl = result.downloadURL;
+          scene.movieData.videoStoragePath = result.storagePath;
+          _queueSave(scene.num || scene.id, { movieData: { ...scene.movieData } });
+          _flushPendingSave();
+          if (textEl) textEl.textContent = '✓ 업로드 완료';
+
+          if (_oldStoragePath && _oldStoragePath !== result.storagePath &&
+              typeof viewerDeleteVideoFromStorage === 'function') {
+            viewerDeleteVideoFromStorage(_oldStoragePath);
+          }
+
+          setTimeout(() => {
+            refresh();
+            if (typeof _scheduleViewerFrameReRender === 'function') _scheduleViewerFrameReRender();
+          }, 600);
+        } catch (err) {
+          hideProgress();
+          const msg = (err && err.message) ? err.message : '업로드에 실패했어요.';
+          showErr(msg);
+          btn.disabled = false;
+          btn.style.opacity = '';
+        }
+      });
+      document.body.appendChild(fileInput);
+      fileInput.click();
+      setTimeout(() => fileInput.remove(), 1000);
+    });
+  });
+
+  /* 삭제 */
+  section.querySelectorAll('.js-movie-video-delete').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!_editText.editable) return;
+      const ok = await showViewerConfirm({
+        title: '영상을 삭제할까요?',
+        message: '저장된 영상 파일도 함께 삭제될 수 있어요.',
+        confirmText: '삭제하기',
+        danger: true,
+      });
+      if (!ok) return;
+      const md = scene.movieData || {};
+      const storagePath = md.videoStoragePath || null;
+      if (scene.movieData) {
+        scene.movieData.videoUrl = null;
+        scene.movieData.videoStoragePath = null;
+      }
+      _queueSave(scene.num || scene.id, { movieData: { ...scene.movieData } });
+      _flushPendingSave();
+      refresh();
+      if (typeof _scheduleViewerFrameReRender === 'function') _scheduleViewerFrameReRender();
+      if (storagePath && typeof viewerDeleteVideoFromStorage === 'function') {
+        viewerDeleteVideoFromStorage(storagePath);
+      }
     });
   });
 }

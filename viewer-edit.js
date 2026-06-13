@@ -3853,15 +3853,18 @@ function _typeSectionPicturebookHtml(scene) {
    사용자 보고: 폰트↔내용 탭 왕복 불편 → 본문 옆에 글자 스타일 통합.
    textStyle 데이터 모델 재사용 (한 작품 = 한 모드라 충돌 없음).
    ──────────────────────────────────────────── */
-function _pbInlineStyleHtml(scene) {
+/* GLYPH-STYLE-1B: picturebook 글자 스타일 컨트롤(폰트/크기/색/굵기) 순수 HTML helper.
+   _pbInlineStyleHtml(우측 접이식)에서 컨트롤만 분리 — 향후 🎭 장면 스타일 팝오버가 같은
+   컨트롤을 재사용하기 위함. class/selector/data(js-edit-pb-font/-size/-color/-color-pick/-weight)
+   무변경. "모든 장면 적용"은 제외(우측 _pbInlineStyleHtml에 그대로 유지). 저장/핸들러/variant
+   로직 무관(HTML만). _fsDisp는 _displayFontSize(현재 보기모드)를 따름 — 기존과 동일. */
+function _pbGlyphStyleSectionHtml(scene) {
   const style = (typeof getTextStyle === 'function')
     ? getTextStyle(scene)
     : { fontFamily: 'gothic', fontSize: 16, color: '', weight: 'normal' };
   /* P4-D-2B-FIX4: 글자 크기 슬라이더 값/라벨은 현재 보기 모드 표시 fontSize(원본/variant)를 따른다. */
   const _fsDisp = (function () { const v = _displayFontSize(scene, style); return (typeof v === 'number' && !isNaN(v)) ? v : style.fontSize; })();
-  /* W9: 폰트 18종으로 확장 + UI는 select dropdown (한글 프로그램 스타일).
-     인스펙터 가로폭 절약 + 폰트 많을 때도 깔끔. 각 option의 font-family도 해당 폰트로
-     박아 펼친 dropdown에서 실제 모양 미리 보임 (Chromium/Firefox 지원). */
+  /* W9: 폰트 18종. 각 option의 font-family도 inline으로 박아 dropdown 미리보기. */
   const FONTS = [
     { id: 'gothic',     label: '나눔고딕' },
     { id: 'notosans',   label: 'Noto Sans (본문)' },
@@ -3882,15 +3885,13 @@ function _pbInlineStyleHtml(scene) {
     { id: 'cormorant',  label: 'Cormorant' },
     { id: 'galmuri',    label: '갈무리 (픽셀)' },
   ];
-  /* v36: var(--font-X) 대신 실제 폰트명 inline 박음 — select option은 CSS 변수
-     cascading이 OS 네이티브 렌더링 때문에 적용 안 되는 경우 있음. 직접 값으로 robust. */
   const fontOptions = FONTS.map(f => {
     const ff = (TEXT_FONT_FAMILIES && TEXT_FONT_FAMILIES[f.id]) || 'inherit';
     return `<option value="${f.id}"
       style="font-family:${ff}"
       ${style.fontFamily === f.id ? 'selected' : ''}>${f.label}</option>`;
   }).join('');
-  /* v36: 범용 색 4개 추가 (14개) — 회색·하늘색·연두·살색 */
+  /* v36: 범용 색 14개 */
   const COLORS = ['', '#1a1a1a', '#d4453d', '#e87a2a', '#f2b417', '#4a7d3a', '#2c6cb4', '#6a3eb0', '#c94785', '#6a3814', '#7a7a7a', '#5cb0d4', '#a8d65c', '#f4cba8'];
   const colorBtns = COLORS.map(c => {
     const isActive = (style.color || '') === c;
@@ -3902,21 +3903,7 @@ function _pbInlineStyleHtml(scene) {
       title="${c || '기본 (테마 색)'}"
       >${label}</button>`;
   }).join('');
-  /* 2026-05-25 Phase 1 (fix): 섹션 collapsible 토글.
-     · wrapper (.edit-pb-inline-style)가 이미 카드 자체 (background + border + padding) →
-       그 안의 헤더는 평면적이어야 자연스러움. 양옆 마감 테마의 흰 박스 토글과 분리.
-     · 새 class .edit-collapsible-header / .edit-collapsible-body 박힘. */
-  const collapsed = _pbInlineStyleCollapsed;
   return `
-    <div class="edit-pb-inline-style">
-      <button type="button"
-        class="edit-collapsible-header js-pb-inline-style-toggle ${collapsed ? 'is-collapsed' : 'is-expanded'}"
-        aria-expanded="${!collapsed}">
-        <span class="edit-collapsible-header-text">🅰 글자 스타일</span>
-        <span class="edit-collapsible-header-chev">${collapsed ? '▼' : '▲'}</span>
-      </button>
-      ${collapsed ? '' : `
-        <div class="edit-collapsible-body edit-pb-inline-style-body">
           <div class="edit-row edit-row--compact">
             <label class="edit-label">폰트</label>
             <select class="edit-font-select js-edit-pb-font"
@@ -3941,7 +3928,25 @@ function _pbInlineStyleHtml(scene) {
               <button type="button" class="edit-toggle js-edit-pb-weight ${style.weight === 'normal' ? 'active' : ''}" data-val="normal">보통</button>
               <button type="button" class="edit-toggle js-edit-pb-weight ${style.weight === 'bold' ? 'active' : ''}" data-val="bold">굵게</button>
             </div>
-          </div>
+          </div>`;
+}
+
+function _pbInlineStyleHtml(scene) {
+  /* 2026-05-25 Phase 1: 섹션 collapsible 토글(.edit-collapsible-header/.edit-collapsible-body).
+     GLYPH-STYLE-1B: 컨트롤 마크업은 _pbGlyphStyleSectionHtml로 분리(렌더 결과 동일).
+     "모든 장면 적용"은 여기 우측 전용으로 유지. */
+  const collapsed = _pbInlineStyleCollapsed;
+  return `
+    <div class="edit-pb-inline-style">
+      <button type="button"
+        class="edit-collapsible-header js-pb-inline-style-toggle ${collapsed ? 'is-collapsed' : 'is-expanded'}"
+        aria-expanded="${!collapsed}">
+        <span class="edit-collapsible-header-text">🅰 글자 스타일</span>
+        <span class="edit-collapsible-header-chev">${collapsed ? '▼' : '▲'}</span>
+      </button>
+      ${collapsed ? '' : `
+        <div class="edit-collapsible-body edit-pb-inline-style-body">
+          ${_pbGlyphStyleSectionHtml(scene)}
           ${_applyStyleAllButtonHtml(scene)}
         </div>`}
     </div>`;

@@ -5742,6 +5742,22 @@ function _pbToneSectionHtml(scene) {
     </div>`;
 }
 
+/* SCENE-STYLE-1: 🎭 장면 스타일 팝오버용 — 현재 장면의 장면단위 톤 row만.
+   비엔딩=본문 카드 톤(pbCardTone) / 엔딩=엔딩 마감톤(pbEndingTone). 기존 순수 _pbToneRowHtml
+   + 기존 const 재사용. axis(card-tone/card-end-tone)·저장 경로(_queueSave)는 우측과 동일.
+   ★ 작품단위 card-style/card-color는 포함하지 않음(그건 ⚙ 작품 설정). _pbToneSectionHtml 무수정. */
+function _pbSceneToneSectionHtml(scene) {
+  if (!scene || scene.type === 'cover' || scene.isCover) return '';
+  const isEnding = !!scene.isEnding;
+  return isEnding
+    ? _pbToneRowHtml('card-end-tone', '엔딩 마감톤',
+        '결말의 느낌에 맞게 마감 분위기를 정해요.',
+        _PB_TONE_ENDING_TONES, scene.pbEndingTone || '')
+    : _pbToneRowHtml('card-tone', '본문 카드 톤',
+        '본문 카드의 색감 정도를 조절해요. 숫자가 높을수록 색감이 더 진해져요. 학생 그림과 선택 버튼은 바뀌지 않아요.',
+        _PB_TONE_SCENE_TONES, scene.pbCardTone || '');
+}
+
 function _pbToneRowHtml(axis, label, hint, options, current) {
   /* v138-fix6: HTML disabled 박지 X. 잠금 시각은 body.viewer-edit-readonly로
      CSS 처리. 클릭 차단은 _bindPbToneEvents에서 _editText.editable 검사. */
@@ -6301,6 +6317,11 @@ function _bindHudEditActions() {
   /* PB-IMAGE-1B: 🖼 그림 — picturebook 장면 그림 도구 상단 팝오버 토글(1B는 빈 셸). */
   document.querySelector('.js-edit-image-popover')?.addEventListener('click', () => {
     _toggleImagePopover();
+  });
+
+  /* SCENE-STYLE-1: 🎭 장면 스타일 — picturebook 장면 카드톤/엔딩톤 상단 팝오버 토글. */
+  document.querySelector('.js-edit-scene-style-popover')?.addEventListener('click', () => {
+    _toggleSceneStylePopover();
   });
 }
 
@@ -7075,6 +7096,104 @@ function _imagePopoverOutside(e) {
 
 function _imagePopoverEsc(e) {
   if (e.key === 'Escape') _closeImagePopover();
+}
+
+/* ================================================================
+   SCENE-STYLE-1: picturebook "🎭 장면 스타일" 상단 팝오버
+   ─────────────────────────────────────────────────────────────
+   · 현재 장면의 장면단위 톤(본문 카드 톤 / 엔딩 마감톤). 작품 설정 아님 → ⚙ 아닌 별도 도구.
+   · 내용은 _pbSceneToneSectionHtml(scene), 바인딩은 2C에서 검증된 _bindPbToneEvents(pop, scene)
+     그대로 재사용(renderEditPanel 부작용 없음·active grid-scope·_queueSave 동일·variant-lock 없음).
+   · 상호배타: 열 때 🔗/🎨/⚙/🖼 팝오버 닫음. 반대는 바깥클릭 핸들러가 자동 처리.
+   · 트리거는 picturebook 비표지 장면에서만(renderHUD의 _isPbImageHudScene 재사용).
+   ================================================================ */
+function _sceneStylePopoverEl() { return document.getElementById('edit-scene-style-popover'); }
+
+function _renderSceneStylePopoverBody() {
+  const scene = ViewerState.scenes[ViewerState.currentSceneId];
+  return `
+    <div class="edit-scene-style-popover__head">
+      <span class="edit-scene-style-popover__title">🎭 장면 스타일</span>
+      <button type="button" class="edit-scene-style-popover__close js-scene-style-popover-close"
+        title="닫기" aria-label="닫기">✕</button>
+    </div>
+    <div class="edit-scene-style-popover__body">
+      <p class="edit-scene-style-popover__note">지금 보고 있는 <b>이 장면</b>에만 적용돼요.</p>
+      ${scene ? _pbSceneToneSectionHtml(scene) : ''}
+    </div>`;
+}
+
+function _bindSceneStylePopover(pop) {
+  pop.querySelector('.js-scene-style-popover-close')
+    ?.addEventListener('click', _closeSceneStylePopover);
+  /* SCENE-STYLE-1: 톤 버튼 바인딩 — 우측과 동일 _bindPbToneEvents 재사용(새 저장 로직 X). */
+  const scene = ViewerState.scenes[ViewerState.currentSceneId];
+  if (scene && typeof _bindPbToneEvents === 'function') _bindPbToneEvents(pop, scene);
+}
+
+function _positionSceneStylePopover(pop) {
+  const trigger = document.querySelector('.js-edit-scene-style-popover');
+  if (!trigger) return;
+  const r = trigger.getBoundingClientRect();
+  pop.style.top = (r.bottom + 8) + 'px';
+  const popW = pop.offsetWidth || 320;
+  let left = r.left;
+  const maxLeft = window.innerWidth - popW - 12;
+  if (left > maxLeft) left = Math.max(12, maxLeft);
+  pop.style.left = left + 'px';
+}
+
+function _openSceneStylePopover() {
+  const pop = _sceneStylePopoverEl();
+  if (!pop) return;
+  const scene = ViewerState.scenes[ViewerState.currentSceneId];
+  if (!scene || scene.type === 'cover' || scene.isCover) return;
+  /* 상호배타: 다른 팝오버가 열려 있으면 닫음(동시 노출 방지). */
+  if (typeof _closeChoicePopover === 'function') _closeChoicePopover();
+  if (typeof _closeCoverPopover === 'function') _closeCoverPopover();
+  if (typeof _closeProjectPopover === 'function') _closeProjectPopover();
+  if (typeof _closeImagePopover === 'function') _closeImagePopover();
+  pop.innerHTML = _renderSceneStylePopoverBody();
+  pop.hidden = false;
+  _bindSceneStylePopover(pop);
+  _positionSceneStylePopover(pop);
+  document.querySelector('.js-edit-scene-style-popover')?.classList.add('is-active');
+  setTimeout(() => {
+    document.addEventListener('click', _sceneStylePopoverOutside, true);
+    document.addEventListener('keydown', _sceneStylePopoverEsc, true);
+  }, 0);
+}
+
+function _closeSceneStylePopover() {
+  const pop = _sceneStylePopoverEl();
+  if (!pop || pop.hidden) return;
+  pop.hidden = true;
+  pop.innerHTML = '';
+  pop.style.left = '';
+  pop.style.top  = '';
+  document.querySelector('.js-edit-scene-style-popover')?.classList.remove('is-active');
+  document.removeEventListener('click', _sceneStylePopoverOutside, true);
+  document.removeEventListener('keydown', _sceneStylePopoverEsc, true);
+}
+
+function _toggleSceneStylePopover() {
+  const pop = _sceneStylePopoverEl();
+  if (!pop) return;
+  if (pop.hidden) _openSceneStylePopover();
+  else _closeSceneStylePopover();
+}
+
+function _sceneStylePopoverOutside(e) {
+  const pop = _sceneStylePopoverEl();
+  if (!pop || pop.hidden) return;
+  if (pop.contains(e.target)) return;
+  /* 트리거 클릭은 토글 핸들러가 처리 — 여기서 닫지 않음(이중 토글 방지). */
+  if (e.target.closest && e.target.closest('.js-edit-scene-style-popover')) return;
+  _closeSceneStylePopover();
+}
+
+function _sceneStylePopoverEsc(e) {
+  if (e.key === 'Escape') _closeSceneStylePopover();
 }
 
 /* ================================================================

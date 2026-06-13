@@ -712,6 +712,71 @@ body.viewer-edit-readonly .edit-image-popover button:not(.edit-image-popover__cl
   filter: grayscale(0.25);
 }
 
+/* ── SCENE-STYLE-1: picturebook "🎭 장면 스타일" 상단 팝오버 ──
+   다른 팝오버와 같은 골격(position:fixed, HUD 아래 anchor)이되 class 분리.
+   장면 단위 스타일이라 헤더만 차분한 자홍 계열로 구분. z-index는 동일 레벨(상호배타). */
+.edit-scene-style-popover {
+  position: fixed;
+  z-index: 120;
+  width: min(320px, calc(100vw - 24px));
+  max-height: min(60vh, 480px);
+  overflow: auto;
+  background: #fffdf8;
+  border: 1px solid #e2cdd8;
+  border-radius: 14px;
+  box-shadow: 0 14px 40px rgba(65, 35, 50, 0.26);
+  padding: 0 0 12px;
+}
+.edit-scene-style-popover[hidden] { display: none; }
+.edit-scene-style-popover__head {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  background: linear-gradient(135deg, #a6517e, #c47ba0);
+  border-radius: 14px 14px 0 0;
+}
+.edit-scene-style-popover__title {
+  font-family: 'Jua', sans-serif;
+  font-size: 15px;
+  color: #fff;
+  letter-spacing: 0.02em;
+}
+.edit-scene-style-popover__close {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+.edit-scene-style-popover__close:hover { background: rgba(255, 255, 255, 0.36); }
+.edit-scene-style-popover__body { padding: 14px; }
+.edit-scene-style-popover__note {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: #8a7d6b;
+}
+/* 트리거 활성 상태 강조 — 헤더 색과 동일 계열 */
+.maker-return-btn.js-edit-scene-style-popover.is-active {
+  background: #a6517e;
+  color: #fff;
+}
+/* 읽기전용: 다른 팝오버와 동일하게 톤 버튼 차단(닫기만 살림). */
+body.viewer-edit-readonly .edit-scene-style-popover button:not(.edit-scene-style-popover__close) {
+  pointer-events: none !important;
+  opacity: 0.55 !important;
+  cursor: not-allowed !important;
+  filter: grayscale(0.25);
+}
+
 /* ── TOP-TOOLBAR-2B: 우측 1단 패널의 중복 버튼 도구 숨김 ──
    행동 버튼 개수 / 선택지 연결 편집은 이제 상단 🔗 버튼 팝오버가 주 동선.
    같은 helper HTML(_pbChoiceCountSectionHtml/_pbChoiceLinkSectionHtml)을

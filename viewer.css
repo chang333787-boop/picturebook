@@ -702,6 +702,15 @@ body.viewer-edit-readonly .edit-project-popover button:not(.edit-project-popover
   background: #6a5aa6;
   color: #fff;
 }
+/* 읽기전용: 다른 팝오버와 동일하게 그림 도구 입력/버튼 차단(닫기만 살림).
+   AI variant 시각 잠금은 PB-IMAGE-1A가 .edit-pb-image-actions 전체에 별도 적용. */
+body.viewer-edit-readonly .edit-image-popover input,
+body.viewer-edit-readonly .edit-image-popover button:not(.edit-image-popover__close) {
+  pointer-events: none !important;
+  opacity: 0.55 !important;
+  cursor: not-allowed !important;
+  filter: grayscale(0.25);
+}
 
 /* ── TOP-TOOLBAR-2B: 우측 1단 패널의 중복 버튼 도구 숨김 ──
    행동 버튼 개수 / 선택지 연결 편집은 이제 상단 🔗 버튼 팝오버가 주 동선.

@@ -3727,11 +3727,35 @@ function _pbChoiceLinkSectionHtml(scene, rowDelete) {
    · 하위 모드 토글 (분할형 / 그림 중심형)
    · 이미지 업로드 진입점 / 바로 그리기 진입점
    · 그림 중심형 전용: 본문 글상자 / 배경막 (3단계는 진입점만) */
+/* PB-IMAGE-1C: 장면 그림 진입 버튼(.edit-pb-image-actions) HTML helper — 우측 인스펙터와
+   상단 🖼 그림 팝오버가 같은 HTML 재사용. class/구조/input(class 기반, id 없음) 무변경.
+   1D에서 우측 호출부만 wrapper로 감싸 숨기기 쉽게 분리. */
+function _pbImageActionsHtml(scene) {
+  const hasImage = !!(scene && (scene.imageData || scene.imageUrl));
+  return `
+    <div class="edit-row">
+      <label class="edit-label">🖼 장면 그림 ${hasImage ? '<span class="edit-label-note">(있음)</span>' : '<span class="edit-label-note">(없음)</span>'}</label>
+      <div class="edit-pb-image-actions">
+        <label class="edit-toggle js-pb-image-upload-label" style="cursor:pointer;">
+          ${hasImage ? '🔄 바꾸기' : '🖼 업로드'}
+          <input type="file" accept="image/*" class="js-pb-image-upload-input" style="display:none;">
+        </label>
+        ${hasImage
+          ? `<button type="button" class="edit-toggle js-pb-image-remove" style="color:#c66f4a;">🗑 삭제</button>`
+          : `<button type="button" class="edit-toggle js-pb-image-remove" disabled style="opacity:0.4;">🗑 삭제</button>`}
+        ${hasImage
+          ? `<button type="button" class="edit-toggle js-pb-image-draw" disabled style="opacity:0.4;" title="사진이 있을 땐 그리기를 사용할 수 없어요. 삭제 후 다시 그릴 수 있어요.">✏️ 그리기</button>`
+          : `<button type="button" class="edit-toggle js-pb-image-draw">✏️ 그리기</button>`}
+        <button type="button" class="edit-toggle js-pb-image-transform" ${hasImage ? '' : 'disabled style="opacity:0.4;"'}>✂️ 크기·이동</button>
+        <button type="button" class="edit-toggle js-pb-image-crop" ${hasImage ? '' : 'disabled style="opacity:0.4;"'}>✄ 자르기</button>
+      </div>
+    </div>`;
+}
+
 function _typeSectionPicturebookHtml(scene) {
   /* 하위 모드 — scene.picturebookSubmode 명시 필드 (3단계 신규) */
   const sub = (scene.picturebookSubmode === 'imageCenter') ? 'imageCenter' : 'split';
   const isImageCenter = sub === 'imageCenter';
-  const hasImage = !!(scene.imageData || scene.imageUrl);
 
   const pbStyleInlineHtml = (typeof _pbInlineStyleHtml === 'function')
     ? _pbInlineStyleHtml(scene) : '';
@@ -3802,23 +3826,7 @@ function _typeSectionPicturebookHtml(scene) {
     </div>`;
     })() : ''}
 
-    <div class="edit-row">
-      <label class="edit-label">🖼 장면 그림 ${hasImage ? '<span class="edit-label-note">(있음)</span>' : '<span class="edit-label-note">(없음)</span>'}</label>
-      <div class="edit-pb-image-actions">
-        <label class="edit-toggle js-pb-image-upload-label" style="cursor:pointer;">
-          ${hasImage ? '🔄 바꾸기' : '🖼 업로드'}
-          <input type="file" accept="image/*" class="js-pb-image-upload-input" style="display:none;">
-        </label>
-        ${hasImage
-          ? `<button type="button" class="edit-toggle js-pb-image-remove" style="color:#c66f4a;">🗑 삭제</button>`
-          : `<button type="button" class="edit-toggle js-pb-image-remove" disabled style="opacity:0.4;">🗑 삭제</button>`}
-        ${hasImage
-          ? `<button type="button" class="edit-toggle js-pb-image-draw" disabled style="opacity:0.4;" title="사진이 있을 땐 그리기를 사용할 수 없어요. 삭제 후 다시 그릴 수 있어요.">✏️ 그리기</button>`
-          : `<button type="button" class="edit-toggle js-pb-image-draw">✏️ 그리기</button>`}
-        <button type="button" class="edit-toggle js-pb-image-transform" ${hasImage ? '' : 'disabled style="opacity:0.4;"'}>✂️ 크기·이동</button>
-        <button type="button" class="edit-toggle js-pb-image-crop" ${hasImage ? '' : 'disabled style="opacity:0.4;"'}>✄ 자르기</button>
-      </div>
-    </div>
+    ${_pbImageActionsHtml(scene)}
 
     ${_pbChoiceCountSectionHtml(scene)}
 
@@ -6852,7 +6860,9 @@ function _projectPopoverEsc(e) {
 function _imagePopoverEl() { return document.getElementById('edit-image-popover'); }
 
 function _renderImagePopoverBody() {
-  /* 1B 빈 셸 — 안내만. 실제 업로드/그리기/자르기 진입 버튼은 1C에서. */
+  /* PB-IMAGE-1C: 우측 인스펙터와 동일한 _pbImageActionsHtml 재사용(같은 class/구조).
+     현재 장면 기준으로 imageData 유무에 따라 버튼 구성. 실제 동작은 기존 함수만 호출(1C). */
+  const scene = ViewerState.scenes[ViewerState.currentSceneId];
   return `
     <div class="edit-image-popover__head">
       <span class="edit-image-popover__title">🖼 그림</span>
@@ -6860,14 +6870,144 @@ function _renderImagePopoverBody() {
         title="닫기" aria-label="닫기">✕</button>
     </div>
     <div class="edit-image-popover__body">
-      <p class="edit-image-popover__hint">🖼 그림 도구 준비 중</p>
-      <p class="edit-image-popover__note">업로드·그리기·자르기 도구를 이곳으로 옮길 예정이에요.</p>
+      <p class="edit-image-popover__note">장면 그림을 올리거나, 직접 그리고, 위치를 다듬을 수 있어요.</p>
+      ${scene ? _pbImageActionsHtml(scene) : ''}
     </div>`;
 }
 
 function _bindImagePopover(pop) {
   pop.querySelector('.js-image-popover-close')
     ?.addEventListener('click', _closeImagePopover);
+  /* PB-IMAGE-1C: 이미지 진입 버튼 바인딩 — 우측과 동일 함수/흐름 호출(새 저장 로직 X). */
+  const scene = ViewerState.scenes[ViewerState.currentSceneId];
+  if (scene) _bindPbImageActions(pop, scene);
+  /* PB-IMAGE-1A 시각 잠금을 새로 렌더된 팝오버 그룹에도 즉시 반영(AI variant 보기 중이면 grey-out). */
+  if (typeof _applyAiImageVariantEditLock === 'function') _applyAiImageVariantEditLock();
+}
+
+/* PB-IMAGE-1C: 🖼 팝오버 전용 이미지 진입 버튼 바인딩.
+   우측 인스펙터 핸들러(viewer-edit.js _bindEditPanelEvents picturebook 분기)와 동일한
+   기존 함수/흐름을 그대로 호출 — viewerUploadImageToStorage / _openPbDrawModal /
+   enterImageTransformEdit / enterImageCropEdit / _queueSave. 새 저장 로직 없음.
+   우측 핸들러는 무수정(별도 panel-scoped 바인딩 유지). 가드(_editText.editable +
+   _aiImageVariantBlocksOriginalEdit)도 동일. 액션 후에는 팝오버를 닫아 stale 상태 방지. */
+function _bindPbImageActions(root, scene) {
+  if (!root || !scene) return;
+  const _closeIfPopover = () => {
+    if (root.id === 'edit-image-popover' && typeof _closeImagePopover === 'function') _closeImagePopover();
+  };
+
+  root.querySelectorAll('.js-pb-image-upload-input').forEach(input => {
+    input.addEventListener('change', async e => {
+      if (!_editText.editable) return;
+      if (_aiImageVariantBlocksOriginalEdit()) { e.target.value = ''; return; }
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      if (!file.type.startsWith('image/')) {
+        alert('이미지 파일만 업로드할 수 있어요.');
+        e.target.value = '';
+        return;
+      }
+      const lbl = e.target.closest('.js-pb-image-upload-label');
+      const prevText = lbl ? lbl.firstChild.nodeValue : '';
+      if (lbl && lbl.firstChild) lbl.firstChild.nodeValue = '⏳ 처리 중… ';
+      try {
+        const dataUrl = await new Promise((resolve, reject) => {
+          const r = new FileReader();
+          r.onload = () => resolve(r.result);
+          r.onerror = () => reject(new Error('파일 읽기 실패'));
+          r.readAsDataURL(file);
+        });
+        const SOFT_LIMIT = 5 * 1024 * 1024;
+        let finalUrl = dataUrl;
+        if (file.size > SOFT_LIMIT && typeof _compressImageDataURL === 'function') {
+          try {
+            finalUrl = await _compressImageDataURL(dataUrl, {
+              maxDimension: 1600,
+              transparent: file.type === 'image/png' || file.type === 'image/webp',
+              quality: 0.85,
+            });
+          } catch (compressErr) {
+            finalUrl = dataUrl;
+          }
+        }
+        let storageUrl;
+        try {
+          const r = await viewerUploadImageToStorage(finalUrl, scene.num || scene.id);
+          storageUrl = r.downloadURL;
+        } catch (e) {
+          console.error('[viewer-edit] 이미지 업로드 실패:', e);
+          if (lbl && lbl.firstChild) lbl.firstChild.nodeValue = prevText;
+          alert('❌ 이미지를 올리지 못했어요. 잠시 후 다시 시도해 주세요.');
+          e.target.value = '';
+          return;
+        }
+        scene.imageData = storageUrl;
+        if (typeof _queueSave === 'function') {
+          _queueSave(scene.num || scene.id, { imageData: storageUrl });
+          if (typeof _flushPendingSave === 'function') _flushPendingSave();
+        }
+        renderEditPanel();
+        _scheduleViewerFrameReRender();
+        _closeIfPopover();   /* 업로드 완료 → 팝오버 닫아 버튼 상태 stale 방지 */
+      } catch (err) {
+        console.error('[viewer-edit] 이미지 처리 실패:', err);
+        if (lbl && lbl.firstChild) lbl.firstChild.nodeValue = prevText;
+        alert('이미지를 처리하지 못했어요. 잠시 후 다시 시도해 주세요.');
+      }
+      e.target.value = '';
+    });
+  });
+
+  root.querySelectorAll('.js-pb-image-remove').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!_editText.editable) return;
+      if (_aiImageVariantBlocksOriginalEdit()) return;
+      const ok = await showViewerConfirm({
+        title: '그림을 삭제할까요?',
+        message: '이 장면의 그림을 삭제하면 되돌릴 수 없어요.',
+        confirmText: '삭제하기',
+        danger: true,
+      });
+      if (!ok) return;
+      scene.imageData = null;
+      if (typeof _queueSave === 'function') {
+        _queueSave(scene.num || scene.id, { imageData: null });
+        if (typeof _flushPendingSave === 'function') _flushPendingSave();
+      }
+      renderEditPanel();
+      _scheduleViewerFrameReRender();
+      _closeIfPopover();
+    });
+  });
+
+  root.querySelectorAll('.js-pb-image-draw').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (!_editText.editable) return;
+      if (_aiImageVariantBlocksOriginalEdit()) return;
+      if (scene.imageData) return;
+      _closeIfPopover();   /* 모달 진입 전 팝오버 닫음 */
+      _openPbDrawModal(scene);
+    });
+  });
+
+  root.querySelectorAll('.js-pb-image-transform').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (!_editText.editable) return;
+      if (_aiImageVariantBlocksOriginalEdit()) return;
+      _closeIfPopover();   /* 오버레이 진입 전 팝오버 닫음 */
+      if (typeof enterImageTransformEdit === 'function') enterImageTransformEdit();
+    });
+  });
+
+  root.querySelectorAll('.js-pb-image-crop').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (!_editText.editable) return;
+      if (_aiImageVariantBlocksOriginalEdit()) return;
+      _closeIfPopover();   /* 오버레이 진입 전 팝오버 닫음 */
+      if (typeof enterImageCropEdit === 'function') enterImageCropEdit();
+    });
+  });
 }
 
 function _positionImagePopover(pop) {

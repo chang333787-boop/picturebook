@@ -1353,24 +1353,28 @@ function _aiImageVariantBlocksOriginalEdit(opts) {
 
 /* UI 표시 잠금 — .edit-pb-image-actions 컨테이너를 통째로 비활성(개별 버튼의
    hasImage 조건부 disabled와 충돌하지 않도록 컨테이너 레벨 inline 스타일만 토글).
-   원본 보기로 돌아오면 inline 스타일을 제거해 기존 상태 복원. */
+   원본 보기로 돌아오면 inline 스타일을 제거해 기존 상태 복원.
+   PB-IMAGE-1A: #edit-panel 단일 의존 제거 → 문서 전체의 모든 .edit-pb-image-actions에
+   적용. 향후 상단 🖼 그림 팝오버로 진입 버튼을 복제해도 같은 grey-out 잠금이 적용되게 하는
+   선행 작업. 기능 차단(_aiImageVariantBlocksOriginalEdit)은 상태 기반이라 그대로(무수정). */
 function _applyAiImageVariantEditLock() {
   try {
-    const panel = document.getElementById('edit-panel');
-    if (!panel) return;
-    const box = panel.querySelector('.edit-pb-image-actions');
-    if (!box) return;
-    if (_isAiImageVariantViewActive()) {
-      box.style.pointerEvents = 'none';
-      box.style.opacity = '0.5';
-      box.setAttribute('aria-disabled', 'true');
-      box.setAttribute('title', _AI_IMAGE_LOCK_MSG);
-    } else {
-      box.style.pointerEvents = '';
-      box.style.opacity = '';
-      box.removeAttribute('aria-disabled');
-      box.removeAttribute('title');
-    }
+    const actionGroups = Array.from(document.querySelectorAll('.edit-pb-image-actions'));
+    if (!actionGroups.length) return;
+    const isLocked = _isAiImageVariantViewActive();
+    actionGroups.forEach((box) => {
+      if (isLocked) {
+        box.style.pointerEvents = 'none';
+        box.style.opacity = '0.5';
+        box.setAttribute('aria-disabled', 'true');
+        box.setAttribute('title', _AI_IMAGE_LOCK_MSG);
+      } else {
+        box.style.pointerEvents = '';
+        box.style.opacity = '';
+        box.removeAttribute('aria-disabled');
+        box.removeAttribute('title');
+      }
+    });
   } catch (e) { /* noop */ }
 }
 

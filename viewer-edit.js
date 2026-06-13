@@ -3838,7 +3838,12 @@ function _typeSectionPicturebookHtml(scene) {
 
     ${_pbChoiceLinkSectionHtml(scene)}
 
-    ${pbStyleInlineHtml}
+    <!-- GLYPH-APPLYALL: 글자 스타일 컨트롤(1D)·모든 장면 적용 모두 🎭 장면 스타일 팝오버로
+         이관됨 → 우측 _pbInlineStyleHtml 전체를 이 호출부 wrapper로 감싸 #edit-panel scope 숨김.
+         공용 _pbInlineStyleHtml helper엔 class 안 달음(text/다른 경로 무영향). 빈 collapsible wart 제거. -->
+    <div class="edit-pb-dup-inline-style">
+      ${pbStyleInlineHtml}
+    </div>
 
     ${(() => {
       /* v138-fix14 (v135-4 그림 중심형 확장): 그림책형 모든 하위 모드에서 톤
@@ -7235,6 +7240,9 @@ function _renderSceneStylePopoverBody() {
       <div class="edit-scene-style-divider"></div>
       <div class="edit-scene-style-subtitle">🅰 글자 스타일</div>
       ${scene ? _pbGlyphStyleSectionHtml(scene) : ''}
+      <div class="edit-scene-style-apply-all">
+        ${scene ? _applyStyleAllButtonHtml(scene) : ''}
+      </div>
     </div>`;
 }
 
@@ -7247,6 +7255,9 @@ function _bindSceneStylePopover(pop) {
   /* GLYPH-STYLE-1C: 글자 스타일 바인딩 — 우측 pb 글자 핸들러와 동일 경로(_applyVariantStyleOrBlock
      + _ensure textStyle + _queueSave + _patchPbStyle). root(pop) scope 전용. 새 저장 로직 X. */
   if (scene && typeof _bindPbGlyphStyleActions === 'function') _bindPbGlyphStyleActions(pop, scene);
+  /* GLYPH-APPLYALL: "모든 장면 적용" 바인딩 — 우측 _bindApplyStyleAllHandlers를 root(pop)에
+     그대로 재사용(panel 인자 받는 구조). textStyle+textTheme 전 장면 적용 경로 무수정. */
+  if (scene && typeof _bindApplyStyleAllHandlers === 'function') _bindApplyStyleAllHandlers(pop, scene);
 }
 
 function _positionSceneStylePopover(pop) {

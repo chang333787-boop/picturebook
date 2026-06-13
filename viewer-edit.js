@@ -6609,6 +6609,31 @@ function _coverPopoverEsc(e) {
    ================================================================ */
 function _projectPopoverEl() { return document.getElementById('edit-project-popover'); }
 
+/* PROJECT-SETTINGS-2C: ⚙ 작품 설정 팝오버용 본문 카드 스타일/색계열 섹션(작품단위).
+   우측 _pbToneSectionHtml의 card-style/card-color row를 같은 순수 helper(_pbToneRowHtml)+
+   같은 const(_PB_TONE_CARD_STYLES/COLORS)로 재구성. axis(card-style/card-color)·class
+   (js-pb-tone-btn)·저장 경로(proj.textCardStyle/Color + saveViewerMeta)는 우측과 동일.
+   ★ 장면단위 pbCardTone/pbEndingTone은 포함하지 않음(우측 유지).
+   ★ 본문 카드는 picturebook 전용 → 그림책 작품에서만 노출(text/movie엔 '' 반환). */
+function _pbProjectCardStyleSectionHtml() {
+  const ptype = (typeof _resolveViewerProjectType === 'function') ? _resolveViewerProjectType() : null;
+  if (ptype !== 'picturebook') return '';
+  const proj = (ViewerState && ViewerState.project) || {};
+  const styleRow = _pbToneRowHtml('card-style', '본문 카드 스타일',
+    '질감·테두리 형태·둥글기. 색은 별도예요.',
+    _PB_TONE_CARD_STYLES, proj.textCardStyle || '');
+  const colorRow = _pbToneRowHtml('card-color', '색계열',
+    '본문 카드의 기본 색 방향.',
+    _PB_TONE_CARD_COLORS, proj.textCardColor || '');
+  return `
+    <div class="edit-row edit-row--compact">
+      <label class="edit-label">🎨 본문 카드 <span class="edit-label-note">(작품 전체)</span></label>
+      ${styleRow}
+      ${colorRow}
+    </div>
+    <div class="edit-divider"></div>`;
+}
+
 /* PROJECT-SETTINGS-2A: ⚙ 작품 설정 팝오버용 페이지 방향 row. 작품 전체 viewer-meta.
    pageOrientation을 가로/세로로 조절. class(js-pb-orientation)·data-val·저장 경로는
    우측 패널과 동일. 팝오버는 "작품 전체"라 항상 편집 가능(우측의 첫장면 잠금 없음). */
@@ -6639,6 +6664,7 @@ function _renderProjectPopoverBody() {
       <p class="edit-project-popover__note">현재 장면 하나가 아니라 <b>작품 전체</b>에 적용돼요.</p>
       ${_pageOrientationSectionHtml()}
       <div class="edit-divider"></div>
+      ${_pbProjectCardStyleSectionHtml()}
       ${_pbThemeSectionHtml()}
       <div class="edit-divider"></div>
       ${_workSettingsSectionHtml()}
@@ -6655,6 +6681,14 @@ function _refreshProjectPopover() {
 function _bindProjectPopover(pop) {
   pop.querySelector('.js-project-popover-close')
     ?.addEventListener('click', _closeProjectPopover);
+
+  /* PROJECT-SETTINGS-2C: 본문 카드 스타일/색계열(작품단위) — 우측 _bindPbToneEvents 그대로 재사용.
+     이 핸들러는 renderEditPanel 부작용이 없고 active 토글이 grid-scope, 저장은 axis별
+     (card-style/card-color → proj + saveViewerMeta). 팝오버엔 card-style/color row만 있어
+     card-tone/card-end-tone 분기는 미발동(버튼 없음). 우측 패널 바인딩은 무수정. 새 저장 함수 X. */
+  if (typeof _bindPbToneEvents === 'function') {
+    _bindPbToneEvents(pop, ViewerState.scenes[ViewerState.currentSceneId]);
+  }
 
   /* PROJECT-SETTINGS-2A: 페이지 방향 — 우측 _bindPageOrientationToggle과 동일 저장 경로
      (viewer-meta.pageOrientation). 단 우측 핸들러는 renderEditPanel을 부르므로 팝오버엔

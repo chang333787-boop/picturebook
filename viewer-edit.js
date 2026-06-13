@@ -5736,8 +5736,13 @@ function _pbToneSectionHtml(scene) {
             ${styleRowHtml}
             ${colorRowHtml}
           </div>
-          ${sceneRowHtml}
-          ${endRowHtml}
+          <!-- SCENE-STYLE-1C: 장면단위 톤(카드톤/엔딩톤)은 상단 🎭 장면 스타일이 주 동선 →
+               이 우측 호출부만 별도 wrapper로 감싸 #edit-panel scope 숨김. 공용 _pbToneRowHtml엔
+               class 안 달음 → 팝오버 사본(_pbSceneToneSectionHtml)은 그대로 노출. 작품단위 wrapper와 분리. -->
+          <div class="edit-scene-dup-tone">
+            ${sceneRowHtml}
+            ${endRowHtml}
+          </div>
         </div>`}
     </div>`;
 }

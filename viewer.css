@@ -845,6 +845,15 @@ body.viewer-edit-readonly .edit-scene-style-popover button:not(.edit-scene-style
   display: none !important;
 }
 
+/* ── SCENE-STYLE-1C: picturebook 우측의 중복 장면톤(카드톤/엔딩톤) 숨김 ──
+   이제 상단 🎭 장면 스타일이 주 동선. 공용 _pbToneRowHtml은 우측·팝오버가 함께 쓰므로
+   우측 _pbToneSectionHtml 호출부만 감싼 wrapper에 한정해 #edit-panel scope로 숨김 →
+   팝오버 사본(#edit-scene-style-popover, #edit-panel 밖)은 그대로 노출.
+   작품단위 카드스타일/색계열(edit-project-dup-cardstyle)과는 별개 wrapper. 가시성만 숨김. */
+#edit-panel .edit-scene-dup-tone {
+  display: none !important;
+}
+
 /* ── v129: 읽기전용 상태 — 잠금 박은 거 박혀있는데 "내가 수정하기" 누르기 전 상태 ──
    원인 사건: 다른 친구가 수정 중이라 잠금 박혔는데 인스펙터 버튼/표지 입력칸이 눌리던 문제.
    허용: 잠금 배너 액션 / 장면 이동 nav / HUD 액션(감상테스트·루트·구조·브랜치로) / 단순 보기·확대·스크롤.

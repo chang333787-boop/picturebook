@@ -618,18 +618,19 @@ function _resyncFontSizeUiToViewMode() {
   const orig = (typeof getTextStyle === 'function') ? getTextStyle(scene) : (scene.textStyle || {});
   const fs = _displayFontSize(scene, orig);
   if (typeof fs !== 'number' || isNaN(fs)) return;
-  /* (1) 편집 패널 슬라이더 + 라벨 동기화 (패널은 그대로 유지되므로 DOM 직접 갱신) */
-  const panel = (typeof document !== 'undefined') ? document.getElementById('edit-panel') : null;
-  if (panel) {
-    ['js-edit-text-size', 'js-edit-pb-size'].forEach(function (cls) {
-      const slider = panel.querySelector('.' + cls);
-      if (!slider) return;
-      slider.value = String(fs);
-      const row = (typeof slider.closest === 'function') ? slider.closest('.edit-row') : null;
-      const note = row ? row.querySelector('.edit-label-note') : null;
-      if (note) note.textContent = '(' + fs + 'px)';
-    });
-  }
+  /* (1) 글자 크기 슬라이더 + 라벨 동기화 (DOM 그대로 유지되므로 직접 갱신).
+     GLYPH-STYLE-1A: #edit-panel 단일 의존 제거 → 문서 전체의 .js-edit-text-size /
+     .js-edit-pb-size를 모두 동기화(향후 🎭 장면 스타일 팝오버 슬라이더가 생겨도 자동 포함).
+     저장/이벤트 바인딩 없음 — 슬라이더 value + (Npx) 라벨만 갱신(PB-IMAGE-1A와 동일 안전 패턴). */
+  const sliders = (typeof document !== 'undefined')
+    ? Array.from(document.querySelectorAll('.js-edit-text-size, .js-edit-pb-size'))
+    : [];
+  sliders.forEach(function (slider) {
+    slider.value = String(fs);
+    const row = (typeof slider.closest === 'function') ? slider.closest('.edit-row') : null;
+    const note = row ? row.querySelector('.edit-label-note') : null;
+    if (note) note.textContent = '(' + fs + 'px)';
+  });
   /* (2) 본문 CSS 변수 보강 — _scheduleViewerFrameReRender(rAF)가 새 .scene-screen을 만든 '뒤'에
      박혀야 하므로 rAF로 한 틱 미룬다(FIFO: 재렌더 rAF가 먼저, 이 patch가 뒤). 원본 모드면
      fs=원본값이라 동일값 재설정(무해), variant 모드면 표시 variant값으로 본문 강제 동기화. */

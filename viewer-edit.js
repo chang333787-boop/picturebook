@@ -4041,7 +4041,13 @@ function _pbInlineStyleHtml(scene) {
       </button>
       ${collapsed ? '' : `
         <div class="edit-collapsible-body edit-pb-inline-style-body">
-          ${_pbGlyphStyleSectionHtml(scene)}
+          <!-- GLYPH-STYLE-1D: 우측 글자 스타일 컨트롤은 상단 🎭 장면 스타일이 주 동선 → 이 우측
+               호출부만 wrapper로 감싸 #edit-panel scope 숨김. 공용 _pbGlyphStyleSectionHtml엔 class
+               안 달음 → 팝오버 사본(#edit-scene-style-popover, #edit-panel 밖)은 그대로 노출.
+               "모든 장면 적용"은 wrapper 밖에 둬 우측 유지. 핸들러/저장 무수정. -->
+          <div class="edit-pb-dup-glyph-controls">
+            ${_pbGlyphStyleSectionHtml(scene)}
+          </div>
           ${_applyStyleAllButtonHtml(scene)}
         </div>`}
     </div>`;

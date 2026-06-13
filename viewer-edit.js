@@ -3470,6 +3470,10 @@ function _typeSectionTextHtml(scene) {
     ${_pbChoiceCountSectionHtml(scene)}
     ${_pbChoiceLinkSectionHtml(scene)}
 
+    <!-- TEXT-MODE-1D: 글자 스타일/테마/효과/모든 장면 적용이 🎭 장면 스타일 팝오버로 이관됨 →
+         이 중복 스타일 영역만 site-specific wrapper로 감싸 #edit-panel scope 숨김. 공용 helper엔
+         class 안 달음 → 팝오버 사본·picturebook 무영향. 헤더/선택지 영역은 wrapper 밖(유지). -->
+    <div class="edit-text-dup-style-sections">
     <div class="edit-divider"></div>
 
     <div class="edit-text-style-section">
@@ -3515,6 +3519,7 @@ function _typeSectionTextHtml(scene) {
         <div class="edit-collapsible-body">
           ${_textEffectSectionHtml(scene)}
         </div>`}
+    </div>
     </div>`;
 }
 
@@ -7246,7 +7251,10 @@ function _renderSceneStylePopoverBody() {
       ${scene ? _textThemeSectionHtml(scene) : ''}
       <div class="edit-scene-style-divider"></div>
       <div class="edit-scene-style-subtitle">✨ 효과</div>
-      ${scene ? _textEffectSectionHtml(scene) : ''}`;
+      ${scene ? _textEffectSectionHtml(scene) : ''}
+      <div class="edit-scene-style-apply-all">
+        ${scene ? _applyStyleAllButtonHtml(scene) : ''}
+      </div>`;
   } else {
     bodyInner = `
       ${scene ? _pbSceneToneSectionHtml(scene) : ''}
@@ -7278,6 +7286,9 @@ function _bindSceneStylePopover(pop) {
   if (ptype === 'text') {
     /* TEXT-MODE-1C: text 글자/테마/효과 — 우측 text 핸들러와 동일 경로의 root-scope 복제. */
     if (typeof _bindTextSceneStyleActions === 'function') _bindTextSceneStyleActions(pop, scene);
+    /* TEXT-MODE-1D: "모든 장면 적용" — 우측 _bindApplyStyleAllHandlers를 root(pop)에 재사용
+       (textStyle+textTheme 전 장면, textEffect 미포함 — 정책 무수정). */
+    if (typeof _bindApplyStyleAllHandlers === 'function') _bindApplyStyleAllHandlers(pop, scene);
     return;
   }
   /* picturebook (기존) */

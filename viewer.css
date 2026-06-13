@@ -882,6 +882,14 @@ body.viewer-edit-readonly .edit-scene-style-popover button:not(.edit-scene-style
 #edit-panel .edit-pb-dup-inline-style {
   display: none !important;
 }
+
+/* ── TEXT-MODE-1D: text 우측의 중복 글자 스타일/테마/효과/모든 장면 적용 영역 숨김 ──
+   전부 🎭 장면 스타일 팝오버로 이관됨. _typeSectionTextHtml 호출부 wrapper만 #edit-panel scope로
+   숨김 → 팝오버 사본(#edit-scene-style-popover, #edit-panel 밖)·picturebook 무영향. 헤더/선택지
+   영역은 wrapper 밖이라 유지. 공용 helper엔 class 미부착. 가시성만 숨김(핸들러/저장 유지). */
+#edit-panel .edit-text-dup-style-sections {
+  display: none !important;
+}
 /* 🎭 팝오버 내 "모든 장면 적용" 상단 여백(글자 스타일 컨트롤과 구분). */
 .edit-scene-style-apply-all { margin-top: 4px; }
 

@@ -3826,7 +3826,12 @@ function _typeSectionPicturebookHtml(scene) {
     </div>`;
     })() : ''}
 
-    ${_pbImageActionsHtml(scene)}
+    <!-- PB-IMAGE-1D: 우측 이미지 진입 버튼은 상단 🖼 그림 팝오버가 주 동선 → 이 우측 호출부만
+         site-specific wrapper로 감싸 #edit-panel scope 숨김. 공용 _pbImageActionsHtml엔 class 안 달음
+         → 팝오버 사본(#edit-image-popover, #edit-panel 밖)은 그대로 노출. 핸들러/저장 무수정. -->
+    <div class="edit-project-dup-image-actions">
+      ${_pbImageActionsHtml(scene)}
+    </div>
 
     ${_pbChoiceCountSectionHtml(scene)}
 

@@ -661,6 +661,16 @@ body.viewer-edit-readonly .edit-project-popover button:not(.edit-project-popover
   display: none !important;
 }
 
+/* ── PROJECT-SETTINGS-1C: 우측 표지 1단의 중복 작품 설정(양옆 마감 테마 + 작품 전환효과) 숨김 ──
+   이 둘은 이제 상단 ⚙ 작품 설정 팝오버가 주 동선. 공용 helper(_pbThemeSectionHtml/
+   _workSettingsSectionHtml)를 표지에서만 감싼 wrapper에 한정해 #edit-panel scope로 숨김 →
+   picturebook/movie 첫장면의 같은 helper는 영향 없음(SETTINGS-2/3에서 별도 처리).
+   삭제가 아니라 가시성만 숨김(DOM/핸들러/viewer-meta 저장 경로 유지). 표지 1단은 이로써
+   조작 가능한 작품 설정이 모두 비워짐(상단 🎨 표지·⚙ 작품 설정으로 일원화). */
+#edit-panel .edit-cover-worksettings-dup {
+  display: none !important;
+}
+
 /* ── v129: 읽기전용 상태 — 잠금 박은 거 박혀있는데 "내가 수정하기" 누르기 전 상태 ──
    원인 사건: 다른 친구가 수정 중이라 잠금 박혔는데 인스펙터 버튼/표지 입력칸이 눌리던 문제.
    허용: 잠금 배너 액션 / 장면 이동 nav / HUD 액션(감상테스트·루트·구조·브랜치로) / 단순 보기·확대·스크롤.

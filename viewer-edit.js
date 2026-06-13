@@ -3306,14 +3306,22 @@ function _coverTitleYRowHtml(scene) {
 }
 
 function _typeSectionCoverHtml(scene) {
+  /* PROJECT-SETTINGS-1C: 표지 1단의 양옆 마감 테마 + 작품 전환효과는 상단 ⚙ 작품 설정
+     팝오버가 주 동선이 됨 → cover 전용 wrapper로 감싸 #edit-panel scope로 숨김.
+     ★ _pbThemeSectionHtml / _workSettingsSectionHtml은 picturebook 첫장면 등에서도
+       쓰이는 공용 helper라, helper에 modifier를 달면 그쪽까지 숨는다. 따라서 표지에서만
+       두는 이 wrapper(edit-cover-worksettings-dup)에만 class를 달아 cover 한정으로 숨김.
+       picturebook/movie 첫장면 작품 설정은 SETTINGS-2/3에서 별도 처리(여기 영향 없음). */
   return `
     ${_coverThemeRowHtml(scene)}
     ${_coverTitleYRowHtml(scene)}
     <div class="edit-section-hint edit-section-hint--lock">
       📖 표지는 작품 입구예요. 제목·한 줄 소개·표지 색·높낮이만 다듬을 수 있어요.
     </div>
-    ${_pbThemeSectionHtml()}
-    ${_workSettingsSectionHtml()}`;
+    <div class="edit-cover-worksettings-dup">
+      ${_pbThemeSectionHtml()}
+      ${_workSettingsSectionHtml()}
+    </div>`;
 }
 
 /* ── 1) 텍스트형 전용 섹션 ─────────────────────────────────────

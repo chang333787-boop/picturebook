@@ -3316,7 +3316,7 @@ function _typeSectionCoverHtml(scene) {
     ${_coverThemeRowHtml(scene)}
     ${_coverTitleYRowHtml(scene)}
     <div class="edit-section-hint edit-section-hint--lock">
-      📖 표지는 작품 입구예요. 제목·한 줄 소개·표지 색·높낮이만 다듬을 수 있어요.
+      📖 표지는 작품의 입구예요. 제목·소개는 화면에서 바로 고치고, 표지 꾸미기와 작품 전체 설정은 상단 🎨/⚙ 버튼에서 다듬어요.
     </div>
     <div class="edit-cover-worksettings-dup">
       ${_pbThemeSectionHtml()}

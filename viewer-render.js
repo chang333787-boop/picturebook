@@ -2060,6 +2060,8 @@ function renderHUD() {
   if (typeof _closeImagePopover === 'function') _closeImagePopover();
   /* SCENE-STYLE-1: "🎭 장면 스타일" 팝오버도 HUD 재렌더 시 닫음(같은 stale 방지). */
   if (typeof _closeSceneStylePopover === 'function') _closeSceneStylePopover();
+  /* MOVIE-TOOL-1A: "🎬 무비" 모달도 HUD 재렌더(장면 이동) 시 닫음(stale 방지). */
+  if (typeof _closeMovieToolModal === 'function') _closeMovieToolModal();
 
   const mode      = ViewerState.project.mode;
   const canBack   = ViewerState.historyStack.length > 0;
@@ -2107,6 +2109,11 @@ function renderHUD() {
     && ViewerState.project
     && (ViewerState.project.projectType === 'picturebook' || ViewerState.project.projectType === 'text')
     && _hudScene.type !== 'cover' && !_hudScene.isCover);
+  /* MOVIE-TOOL-1A: "🎬 무비" 트리거 — movie 비표지 장면(영상·본문 표시 도구 모달). text/pb 미노출.
+     🖼/🎭 조건은 무수정(movie엔 둘 다 안 뜸). */
+  const _isMovieToolHudScene = !!(_hudScene
+    && ViewerState.project && ViewerState.project.projectType === 'movie'
+    && _hudScene.type !== 'cover' && !_hudScene.isCover);
   const makerBarHtml = fromMaker ? `
     <div class="maker-return-bar ${isEdit ? 'maker-return-bar--editing' : ''}">
       <span class="maker-return-label">${isEdit ? '🎨 마감 편집 중' : '✏️ 제작자 테스트 중'}</span>
@@ -2118,6 +2125,7 @@ function renderHUD() {
           ${_isCoverHudScene ? '<button class="maker-return-btn js-edit-cover-popover" title="표지 색과 표지 느낌을 편집합니다" aria-label="표지 색과 표지 느낌을 편집합니다">🎨 표지</button>' : ''}
           ${_isPbImageHudScene ? '<button class="maker-return-btn js-edit-image-popover" title="장면 그림을 편집합니다 — 업로드·그리기·자르기" aria-label="장면 그림을 편집합니다">🖼 그림</button>' : ''}
           ${_isSceneStyleHudScene ? '<button class="maker-return-btn js-edit-scene-style-popover" title="이 장면의 스타일을 편집합니다" aria-label="이 장면의 스타일을 편집합니다">🎭 장면 스타일</button>' : ''}
+          ${_isMovieToolHudScene ? '<button class="maker-return-btn js-edit-movie-tool-modal" title="이 장면의 영상과 본문 표시를 설정합니다" aria-label="이 장면의 영상과 본문 표시를 설정합니다">🎬 무비</button>' : ''}
           <button class="maker-return-btn js-edit-project-popover" title="작품 전체에 적용되는 설정이에요" aria-label="작품 전체에 적용되는 설정이에요">⚙ 작품 설정</button>
           <button class="maker-return-btn js-edit-open-routes" title="엔딩별 이야기 흐름 점검">🛤 루트 보기</button>
           <button class="maker-return-btn js-edit-open-map" title="장면 연결을 한눈에 확인">🔍 구조 보기</button>

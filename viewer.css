@@ -7430,6 +7430,73 @@ body[data-page-orientation="portrait"] .terminal-screen--story .ending-page {
 }
 .pb-draw-close:hover { background: rgba(80,50,20,0.08); }
 
+/* ── MOVIE-TOOL-1A/1B: 🎬 무비 도구 모달 (pb-draw-modal 패턴 축소판) ── */
+.movie-tool-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.movie-tool-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(43, 31, 16, 0.55);
+  backdrop-filter: blur(2px);
+}
+.movie-tool-dialog {
+  position: relative;
+  width: min(420px, calc(100vw - 32px));
+  max-height: 88vh;
+  overflow: auto;
+  background: var(--surface, #fbf6ea);
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+.movie-tool-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 18px;
+  background: linear-gradient(135deg, #2c3e66, #4a6aa0);
+  border-radius: 16px 16px 0 0;
+}
+.movie-tool-title {
+  font-family: 'Jua', sans-serif;
+  font-size: 16px;
+  color: #fff;
+}
+.movie-tool-close {
+  flex: none;
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+  font-size: 16px;
+  cursor: pointer;
+}
+.movie-tool-close:hover { background: rgba(255, 255, 255, 0.36); }
+.movie-tool-body { padding: 16px 18px 20px; }
+.movie-tool-note { margin: 0 0 12px; font-size: 13px; color: #6b5638; }
+.movie-tool-section { margin-bottom: 16px; }
+.movie-tool-section-title {
+  font-family: 'Jua', sans-serif;
+  font-size: 14px;
+  color: #2b1f10;
+  margin-bottom: 8px;
+}
+.movie-tool-hint { margin-top: 6px; font-size: 12px; color: #8a7d6b; }
+/* 읽기전용: 모달 입력/버튼 차단(닫기 제외). */
+body.viewer-edit-readonly .movie-tool-modal button:not(.movie-tool-close) {
+  pointer-events: none !important;
+  opacity: 0.55 !important;
+  cursor: not-allowed !important;
+  filter: grayscale(0.25);
+}
+
 .pb-draw-toolbar {
   display: flex;
   flex-wrap: wrap;

@@ -6451,6 +6451,13 @@ function _bindHudEditActions() {
   document.querySelector('.js-edit-scene-style-popover')?.addEventListener('click', () => {
     _toggleSceneStylePopover();
   });
+
+  /* MOVIE-TOOL-1A: 🎬 무비 — movie 장면 영상·본문 표시 모달 열기. */
+  document.querySelector('.js-edit-movie-tool-modal')?.addEventListener('click', () => {
+    if (typeof _openMovieToolModal === 'function') {
+      _openMovieToolModal(ViewerState.scenes[ViewerState.currentSceneId]);
+    }
+  });
 }
 
 /* ================================================================
@@ -7554,6 +7561,85 @@ function _sceneStylePopoverOutside(e) {
 
 function _sceneStylePopoverEsc(e) {
   if (e.key === 'Escape') _closeSceneStylePopover();
+}
+
+/* ================================================================
+   MOVIE-TOOL-1A/1B: "🎬 무비" 도구 모달 (셸 + 본문 ON/OFF)
+   ─────────────────────────────────────────────────────────────
+   · movie 비표지 장면의 영상·본문 표시 설정. 1A/1B는 본문 ON/OFF만 복제(저위험).
+   · 영상 업로드/삭제(Storage·progress·renderEditPanel)는 1C에서 별도 — 여기선 안내 placeholder.
+   · 본문 ON/OFF: 우측 js-movie-body-enabled 핸들러와 동일 경로(scene.bodyEnabled + _queueSave +
+     active 토글 + 프레임 재렌더). renderEditPanel 미호출. modal root scope 바인딩(우측과 분리).
+   · 모달은 #movie-tool-modal(#edit-panel 밖). 우측 핸들러·우측 row 무수정.
+   ================================================================ */
+function _closeMovieToolModal() {
+  const m = document.getElementById('movie-tool-modal');
+  if (m && m.parentNode) m.parentNode.removeChild(m);
+  document.removeEventListener('keydown', _movieToolModalEsc, true);
+}
+
+function _movieToolModalEsc(e) {
+  if (e.key === 'Escape') _closeMovieToolModal();
+}
+
+function _openMovieToolModal(scene) {
+  if (!scene || scene.type === 'cover' || scene.isCover) return;
+  if (document.getElementById('movie-tool-modal')) return;
+  /* 본문 사용 상태 — 우측 _typeSectionMovieHtml과 동일 산출. */
+  const bodyEnabled = (scene.bodyEnabled === true) ? true
+                    : (scene.bodyEnabled === false) ? false
+                    : !!(scene.body && String(scene.body).trim());
+  const modal = document.createElement('div');
+  modal.id = 'movie-tool-modal';
+  modal.className = 'movie-tool-modal';
+  modal.innerHTML = `
+    <div class="movie-tool-backdrop js-movie-tool-close"></div>
+    <div class="movie-tool-dialog" role="dialog" aria-label="무비 도구">
+      <div class="movie-tool-head">
+        <span class="movie-tool-title">🎬 무비 도구</span>
+        <button type="button" class="movie-tool-close js-movie-tool-close" title="닫기" aria-label="닫기">✕</button>
+      </div>
+      <div class="movie-tool-body">
+        <p class="movie-tool-note">이 장면의 영상과 본문 표시를 설정해요.</p>
+        <div class="movie-tool-section">
+          <div class="movie-tool-section-title">📝 본문 표시</div>
+          <div class="edit-toggle-group">
+            <button type="button" class="edit-toggle js-movie-body-enabled ${bodyEnabled ? 'active' : ''}" data-val="on">📝 본문 사용</button>
+            <button type="button" class="edit-toggle js-movie-body-enabled ${!bodyEnabled ? 'active' : ''}" data-val="off">— 본문 없음</button>
+          </div>
+          <div class="movie-tool-hint">본문을 함께 보여줄지 정해요.</div>
+        </div>
+        <div class="movie-tool-section">
+          <div class="movie-tool-section-title">🎬 영상</div>
+          <div class="movie-tool-hint">영상 업로드·교체·삭제는 다음 단계에서 이곳으로 옮겨질 예정이에요. 지금은 오른쪽 패널에서 사용하세요.</div>
+        </div>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  modal.querySelectorAll('.js-movie-tool-close').forEach(el => {
+    el.addEventListener('click', _closeMovieToolModal);
+  });
+  _bindMovieToolModalActions(modal, scene);
+  setTimeout(() => { document.addEventListener('keydown', _movieToolModalEsc, true); }, 0);
+}
+
+/* MOVIE-TOOL-1B: 모달 전용 본문 ON/OFF 바인딩 — 우측 js-movie-body-enabled 핸들러와 동일 경로.
+   active 토글은 modal root scope, renderEditPanel 미호출. 우측 핸들러 무수정. 새 저장 로직 X. */
+function _bindMovieToolModalActions(modal, scene) {
+  if (!modal || !scene) return;
+  modal.querySelectorAll('.js-movie-body-enabled').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (!_editText.editable) return;
+      const enabled = btn.dataset.val === 'on';
+      scene.bodyEnabled = enabled;
+      _queueSave(scene.num || scene.id, { bodyEnabled: enabled });
+      _flushPendingSave();
+      modal.querySelectorAll('.js-movie-body-enabled').forEach(b => {
+        b.classList.toggle('active', (b.dataset.val === 'on') === enabled);
+      });
+      if (typeof _scheduleViewerFrameReRender === 'function') _scheduleViewerFrameReRender();
+    });
+  });
 }
 
 /* ================================================================

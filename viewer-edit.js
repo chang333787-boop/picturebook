@@ -2453,11 +2453,9 @@ function _textEditHtml(scene) {
   /* 엔딩 장면 + 체험전시형은 버튼 편집 UI 없음 */
   const buttonsBlock = (isEnding || isExperience) ? '' : _buttonsEditHtml(choices);
 
-  /* W8: 그림책 모드일 때 [내용] 탭 안에 글자 스타일 UI 통합.
-     사용자 보고: 폰트↔내용 탭 왕복 불편 → 본문 옆에 폰트·크기·색·굵기 항상 보이게.
-     그림책 모드에만 추가 (텍스트형은 별도 처리 — 텍스트형 글자 스타일은 [스타일] 탭 안에 풍부히). */
-  const isPicturebookMode = _ptypeForButtons === 'picturebook';
-  const pbStyleInlineHtml = isPicturebookMode ? _pbInlineStyleHtml(scene) : '';
+  /* PANEL-EMPTY-1: 그림책 글자 스타일 인라인(_pbInlineStyleHtml)은 🎭 장면 스타일로 이관 완료 →
+     내용 탭의 dead 계산(isPicturebookMode/pbStyleInlineHtml = 출력 안 됨) 제거. title/body/button
+     편집 흐름은 무수정. */
 
   /* 2026-05-27 Phase 4-D-1: 우측 2단 (📝 내용) 접이식 wrapper.
      · 표지 / 그림책 외 모드(텍스트/무비/체험) → 강제 펼침 — 이 분기는 2단 의존성 큼
@@ -3440,28 +3438,11 @@ function _textEffectSectionHtml(scene) {
    기준 노출: 글자박스 편집(폰트/크기/색/굵기), 효과, 테마
    3단계 범위: 진입점 자리만 잡고 "추후 추가" 안내. 미구현 기능은 발명 안 함. */
 function _typeSectionTextHtml(scene) {
-  /* W5: 텍스트형 본격 보강 — 글자 스타일/테마/효과 컨트롤은 helper로 분리(TEXT-MODE-1B).
-     아래 접이식 섹션 body에서 _textGlyphStyleSectionHtml / _textThemeSectionHtml /
-     _textEffectSectionHtml 호출 — 렌더 결과·핸들러·저장 동일. */
-  /* 2026-05-31 Text-3B: 스타일/테마/효과를 접이식 섹션으로 정리 (UI 표시만, 기능·핸들러·저장 불변).
-     · 글자 스타일 = 기본 펼침(주 동선), 테마/효과 = 기본 접힘.
-     · 생성 collapsible 패턴(.edit-collapsible-header/.edit-collapsible-body) 재사용 — 그림책과 동일.
-     · 내부 컨트롤 클래스(js-edit-text-*)·전체 적용 버튼은 그대로 → 기존 핸들러 그대로 바인딩. */
-  const _sc = _textStyleSecCollapsed;
-  const _tc = _textThemeSecCollapsed;
-  const _ec = _textEffectSecCollapsed;
-  return `
-    <div class="edit-divider"></div>
-    <h4 class="edit-section-title edit-section-title--major">② 텍스트형 설정</h4>
-    <div class="edit-section-hint">
-      텍스트형은 글이 주인공입니다. 본문 위계가 가장 크고, 제목은 보조, 선택지는 카드 하단입니다.
-    </div>
-
-    <!-- PANEL-CLEANUP-1A: 선택지 개수/연결 + 글자 스타일/테마/효과/모든 장면 적용 우측 중복 렌더 제거.
-         선택지 → 🔗 버튼 도구, 스타일 → 🎭 장면 스타일 팝오버가 주 동선. 공용 helper
-         (_pbChoiceCountSectionHtml·_pbChoiceLinkSectionHtml·_textGlyphStyleSectionHtml·
-         _textThemeSectionHtml·_textEffectSectionHtml·_applyStyleAllButtonHtml)는 팝오버가
-         계속 사용 → 무삭제. 우측엔 ② 헤더 + 안내만 남김(빈 헤더/안내 정리는 PANEL-EMPTY-1). -->`;
+  /* PANEL-EMPTY-1: 텍스트형 우측 1단 빈 껍데기 정리. 글자/테마/효과/모든 장면 적용→🎭 장면 스타일,
+     선택지→🔗 버튼, 본문/제목→미리보기 직접 편집이 주 동선 → 우측엔 조작 컨트롤 0. '② 텍스트형 설정'
+     헤더·안내(빈 껍데기)와 dead 로컬(_sc/_tc/_ec)을 제거. 공용 helper(_textGlyphStyleSectionHtml 등)·
+     핸들러·모듈 상태(_textStyleSecCollapsed 등)는 🎭 팝오버가 계속 사용 → 무수정. */
+  return '';
 }
 
 /* ────────────────────────────────────────────────────────────
@@ -3771,36 +3752,12 @@ function _pbBodyBoxOpacitySectionHtml(scene) {
 }
 
 function _typeSectionPicturebookHtml(scene) {
-  /* PANEL-CLEANUP-1B: 우측 글자 스타일(_pbInlineStyleHtml) 렌더 제거 → pbStyleInlineHtml const 삭제.
-     글자 스타일/모든 장면 적용은 🎭 장면 스타일 팝오버가 주 동선(_pbGlyphStyleSectionHtml 사용). */
-
-  /* W9 (v5)+PANEL-CLEANUP/PB-LAYOUT: 페이지 방향·하위 모드·양옆 마감 테마 등 작품 단위 설정은
-     모두 상단 ⚙ 작품 설정으로 이관됨 → 우측 picturebook 1단엔 글상자 진하기(그림 중심형)만 남음. */
-  return `
-    <!-- PB-LAYOUT-1C: 하위 모드(_pbSubmodeSectionHtml = 분할형/그림 중심형 + lockHint) 우측 렌더 제거 —
-         ⚙ 작품 설정 팝오버가 주 동선(_renderProjectPopoverBody). helper 본체·팝오버 핸들러·전 장면
-         picturebookSubmode 저장 모델·우측 js-pb-submode 핸들러는 무수정. 글상자 진하기는 아래 그대로 유지. -->
-
-    <!-- PANEL-CLEANUP-1B: 양옆 마감 테마(edit-project-dup-pbtheme) 우측 중복 렌더 제거 — ⚙ 작품 설정이
-         주 동선. 공용 _pbThemeSectionHtml은 ⚙ 팝오버·cover가 계속 사용 → 무삭제. -->
-
-    <!-- PB-BODYBOX-1C: 글상자 진하기(_pbBodyBoxOpacitySectionHtml) 우측 렌더 제거 — 🎭 장면 스타일
-         팝오버가 주 동선(_renderSceneStylePopoverBody picturebook 분기 + _bindPbBodyBoxOpacity).
-         helper 본체·🎭 핸들러·우측 _pbBbBindRange(op)·위치/크기 오버레이(js-pb-body-move/-resize)·
-         picturebookBodyBox 저장은 무수정. 위치/크기는 미리보기 오버레이로 패널 독립 유지. -->
-
-    <!-- PANEL-CLEANUP-1B: 우측 중복 렌더 일괄 제거 —
-         · 이미지 진입버튼(edit-project-dup-image-actions, _pbImageActionsHtml) → 🖼 그림 팝오버
-         · 선택지 개수/연결(_pbChoiceCountSectionHtml/_pbChoiceLinkSectionHtml) → 🔗 버튼 팝오버
-         · 글자 스타일/모든 장면 적용(edit-pb-dup-inline-style, _pbInlineStyleHtml) → 🎭 장면 스타일
-         · 카드톤/엔딩톤·카드스타일/색계열(_pbToneSectionHtml = edit-scene-dup-tone +
-           edit-project-dup-cardstyle) → 🎭 장면 스타일 / ⚙ 작품 설정
-         공용 helper(_pbImageActionsHtml·_pbChoice*·_pbThemeSectionHtml·_pbGlyphStyleSectionHtml·
-         _pbToneRowHtml·_pbSceneToneSectionHtml)는 팝오버가 계속 사용 → 무삭제. _pbToneSectionHtml/
-         _pbInlineStyleHtml(우패널 전용)은 본체 보존(호출부만 제거).
-         ★ 하위 모드(js-pb-submode)→⚙ 작품 설정(PB-LAYOUT-1C), 글상자 진하기(js-pb-bb-op)→🎭 장면
-           스타일(PB-BODYBOX-1C) 이관 완료. 우측 picturebook 1단엔 조작 가능한 실기능 없음(빈 껍데기
-           헤더/안내 정리는 PANEL-EMPTY-1). -->`;
+  /* PANEL-EMPTY-1: 그림책형 우측 1단 빈 껍데기 정리. 작품 설정·하위 모드→⚙ 작품 설정,
+     글자/톤→🎭 장면 스타일, 이미지→🖼 그림, 글상자 진하기→🎭, 선택지→🔗 버튼, 본문→미리보기.
+     글상자 위치/크기는 미리보기 오버레이(✥/⤡)로 패널 독립 → 우측엔 조작 컨트롤 0.
+     helper(_pbGlyphStyleSectionHtml·_pbSceneToneSectionHtml·_pbImageActionsHtml 등)·핸들러·
+     오버레이·picturebookBodyBox 저장은 팝오버·오버레이가 계속 사용 → 무수정. */
+  return '';
 }
 
 /* ────────────────────────────────────────────
@@ -4013,14 +3970,14 @@ function _pbInlineStyleHtml(scene) {
    · 미디어 타입 배지 + 업로드 진입점
    · 본문 사용 ON/OFF (scene.bodyEnabled 명시 필드 — 3단계 신규) */
 function _typeSectionMovieHtml(scene) {
-  /* W7: 무비형 본격 보강 — 포스터/자막/선택지 노출 시점 사용자 조절.
-     · scene.imageData = 포스터 이미지 (resolveMoviePoster의 fallback 진입점)
-     · md.captionMode = overlay | caption-bar
-     · md.choiceReveal = end | always
-     · scene.bodyEnabled = 본문 ON/OFF (이미 있음) */
+  /* PANEL-EMPTY-1: 무비형 우측 1단 빈 껍데기 정리. '② 무비형 설정' 헤더·안내(빈 껍데기)와
+     dead 로컬(bodyEnabled/captionMode/choiceReveal/_isCardDeco)을 제거. 영상/본문 ON/OFF→🎬 무비
+     모달, 선택지→🔗 버튼, 선택지 표시방식→⚙ 작품 설정이 주 동선. 미디어 상태 badge는 정보 표시로 유지.
+     화면 방향 row는 ⚙ 작품 설정과 중복이라 CSS(edit-project-dup-orientation)로 숨김 유지 — js-pb-orientation
+     핸들러·viewer-meta.pageOrientation 저장은 ⚙ 경로와 공유(무수정). 저장 데이터(captionMode/choiceReveal)는 보존. */
   const md = (typeof getMovieData === 'function')
     ? getMovieData(scene)
-    : { captionMode: 'overlay', choiceReveal: 'end', videoUrl: null, posterImage: null };
+    : { videoUrl: null, posterImage: null };
 
   /* 미디어 상태 표시 */
   const hasVideo = !!md.videoUrl;
@@ -4030,20 +3987,7 @@ function _typeSectionMovieHtml(scene) {
   else if (hasPoster)  mediaLabel = '🖼 포스터 이미지';
   else                 mediaLabel = '⚪ 미디어 없음';
 
-  /* 본문 사용 ON/OFF — scene.bodyEnabled 명시 필드 */
-  const bodyEnabled = (scene.bodyEnabled === true) ? true
-                    : (scene.bodyEnabled === false) ? false
-                    : !!(scene.body && String(scene.body).trim());
-
-  /* 자막 모드 — overlay (영상 위 떠있음) / caption-bar (영상 아래 별도 띠) */
-  const captionMode = md.captionMode || 'overlay';
-
-  /* 선택지 노출 시점 — end (영상 종료 후) / always (즉시 보임) */
-  const choiceReveal = md.choiceReveal || 'end';
-
-  /* 2026-05-31 Movie-B-2: 화면 방향(가로/세로)은 작품 단위 — 첫 장면(entrySceneId)에서만 변경.
-     그림책과 동일 정책·핸들러(js-pb-orientation), 저장은 viewer-meta.pageOrientation.
-     Movie-B-1의 .movie-stage가 portrait 비율(210:297)을 실제 적용. */
+  /* 화면 방향(가로/세로) — 작품 단위 viewer-meta.pageOrientation. 첫 장면에서만 변경(js-pb-orientation). */
   const _entryId = ViewerState.project && ViewerState.project.entrySceneId;
   const _isFirstMovieScene = _entryId
     ? String(scene.id) === String(_entryId)
@@ -4051,18 +3995,10 @@ function _typeSectionMovieHtml(scene) {
   const _orientLockedAttr  = _isFirstMovieScene ? '' : 'disabled';
   const _orientLockedClass = _isFirstMovieScene ? '' : ' edit-toggle--locked';
   const _isPortrait = (ViewerState.project && ViewerState.project.pageOrientation === 'portrait');
-  /* 2026-06-01 Movie-H: 선택지 표시 방식 — 작품 단위 viewer-meta.movieDecisionStyle.
-     panel(기본 하단 패널) | card(중앙 카드). 첫 장면에서만 변경(화면 방향과 동일 정책). */
-  const _isCardDeco = (ViewerState.project && ViewerState.project.movieDecisionStyle === 'card');
 
   return `
-    <div class="edit-divider"></div>
-    <h4 class="edit-section-title edit-section-title--major">② 무비형 설정</h4>
-    <div class="edit-section-hint">영상이 끝난 뒤 본문과 선택지가 나타납니다.</div>
-
-    <!-- PANEL-CLEANUP-1A: '선택지 표시 방식'(js-movie-deco) 우측 중복 row 제거 — ⚙ 작품 설정이 주 동선.
-         js-movie-deco 핸들러·저장은 ⚙ 팝오버 경로 유지. 화면 방향(edit-project-dup-orientation, 공용
-         class)은 picturebook과 공유라 이번 범위 밖 — 숨김 유지. -->
+    <!-- 화면 방향 row: ⚙ 작품 설정과 중복 → edit-project-dup-orientation으로 #edit-panel scope 숨김 유지.
+         js-pb-orientation 핸들러·viewer-meta 저장은 ⚙ 경로 공유(무수정). -->
     <div class="edit-row edit-project-dup-orientation">
       <label class="edit-label">🎬 화면 방향 <span class="edit-label-note">(작품 전체)</span></label>
       <div class="edit-toggle-group">
@@ -4076,28 +4012,12 @@ function _typeSectionMovieHtml(scene) {
       <div class="edit-field-hint">작품 전체 화면 방향입니다. 영상은 잘리지 않습니다.${_isFirstMovieScene ? '' : ' (첫 장면에서만)'}</div>
     </div>
 
-    <!-- PANEL-CLEANUP-1A: 선택지 개수/연결 우측 중복 row 제거 — 🔗 버튼 도구가 주 동선.
-         공용 _pbChoiceCountSectionHtml/_pbChoiceLinkSectionHtml은 picturebook·🔗 팝오버가 계속 사용 → 무삭제. -->
     <div class="edit-row">
       <label class="edit-label">미디어</label>
       <div class="edit-movie-media-row">
         <span class="edit-movie-media-badge">${mediaLabel}</span>
       </div>
-
-      <!-- PANEL-CLEANUP-1A: 영상 업로드/교체/삭제 우측 중복 section 제거 — 🎬 무비 모달이 주 동선.
-           js-movie-video-upload/-delete 핸들러·Storage helper(viewerUploadVideoToStorage 등)·
-           모달 사본(_movieToolVideoSectionInner)은 무수정 유지. 미디어 status badge는 위에 유지. -->
-
-      <!-- 2026-05-31 Movie-F: 포스터 이미지 업로드/교체 UI 제거 — 무비형은 영상 중심.
-           posterImage/scene.imageData 데이터·resolveMoviePoster 렌더 fallback은 유지(하위호환).
-           js-movie-poster-upload/-delete 핸들러는 UI 없어 inert. -->
-    </div>
-
-    <!-- PANEL-CLEANUP-1A: 본문 ON/OFF 우측 중복 row 제거 — 🎬 무비 모달이 주 동선.
-         js-movie-body-enabled 핸들러·bodyEnabled 저장·모달 _bindMovieToolModalActions는 무수정 유지. -->`;
-  /* 2026-05-31 Movie-C: 무비형 단순화 — "자막 표시 방식(captionMode)" · "선택지 노출 시점
-     (choiceReveal)" 토글 UI 제거. 마감 규칙은 항상 "영상 끝난 뒤 본문/선택지 노출"(렌더에서
-     data-movie-reveal="end" 강제). captionMode/choiceReveal 저장 데이터는 보존(필드 삭제 X). */
+    </div>`;
 }
 
 /* ── 4) 체험전시형 전용 섹션 ────────────────────────────────────

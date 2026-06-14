@@ -6751,6 +6751,16 @@ function _renderProjectPopoverBody() {
   /* PROJECT-SETTINGS-1B: 작품 전체 설정 복제 — 양옆 마감 테마 + 작품 전환효과.
      기존 helper(_pbThemeSectionHtml / _workSettingsSectionHtml)를 그대로 재사용
      (둘 다 인자 없이 ViewerState.project를 읽음 → 장면 무관, 모든 장면 타입에서 동일). */
+  /* PB-LAYOUT-1B: picturebook일 때만 하위 모드(분할형/그림 중심형)를 페이지 방향 아래 복제.
+     _pbSubmodeSectionHtml(scene)는 우측과 동일 helper(first-scene gating·lockHint 포함) → 현재 장면
+     (ViewerState.currentSceneId) 기준. 게이팅은 _pbProjectCardStyleSectionHtml과 동일 패턴
+     (_resolveViewerProjectType). 저장은 _bindProjectPopover의 팝오버 전용 핸들러가 처리. */
+  const _pbSubmodeBlock = (function () {
+    const _ptype = (typeof _resolveViewerProjectType === 'function') ? _resolveViewerProjectType() : null;
+    if (_ptype !== 'picturebook') return '';
+    const _scene = ViewerState.scenes[ViewerState.currentSceneId];
+    return _scene ? `<div class="edit-divider"></div>${_pbSubmodeSectionHtml(_scene)}` : '';
+  })();
   return `
     <div class="edit-project-popover__head">
       <span class="edit-project-popover__title">⚙ 작품 설정</span>
@@ -6760,6 +6770,7 @@ function _renderProjectPopoverBody() {
     <div class="edit-project-popover__body">
       <p class="edit-project-popover__note">현재 장면 하나가 아니라 <b>작품 전체</b>에 적용돼요.</p>
       ${_pageOrientationSectionHtml()}
+      ${_pbSubmodeBlock}
       <div class="edit-divider"></div>
       ${_movieDecisionSectionHtml()}
       ${_pbProjectCardStyleSectionHtml()}
@@ -6815,6 +6826,43 @@ function _bindProjectPopover(pop) {
       } catch (e) {
         console.error('[pageOrientation] 저장 실패:', e);
       }
+    });
+  });
+
+  /* PB-LAYOUT-1B: picturebook 하위 모드 — 우측 .js-pb-submode 핸들러(전 장면 picturebookSubmode
+     일괄 저장)와 동일 저장 경로/모델. 우측은 renderEditPanel을 부르므로 팝오버엔 부적합 → flush +
+     프레임 재렌더 후 _refreshProjectPopover로 active 갱신. 우측 바인딩·저장 모델은 무수정.
+     first-scene gating은 _pbSubmodeSectionHtml의 disabled로 그대로 적용(비첫장면은 클릭 불가). */
+  pop.querySelectorAll('.js-pb-submode').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (!_editText.editable) return;
+      /* Phase 4-A: s1/s2 보기 중엔 원본 scenes 일괄 저장 금지(우측과 동일). */
+      if (_isVariantViewLocked()) { _showSaveStatus('AI 버전은 보기 전용입니다. 편집은 원본에서 해 주세요.', 2500); return; }
+      const val = btn.dataset.val === 'imageCenter' ? 'imageCenter' : 'split';
+      const _scene = ViewerState.scenes[ViewerState.currentSceneId];
+      const curId = _scene ? (_scene.num || _scene.id) : null;
+      let failCount = 0;
+      Object.values(ViewerState.scenes).forEach(s => {
+        if (!s) return;
+        const id = s.num || s.id;
+        if (id == null) return;
+        s.picturebookSubmode = val; /* 메모리 즉시 반영 */
+        if (curId != null && String(id) === String(curId)) {
+          /* 현재 장면 = 옛 흐름 (debounce → flush) */
+          _queueSave(id, { picturebookSubmode: val });
+        } else {
+          /* 다른 장면 = saveSceneText 직접 호출 (편집 잠금 없이 patch). 작품 단위라 충돌 거의 없음. */
+          if (typeof saveSceneText === 'function') {
+            saveSceneText(id, { picturebookSubmode: val }).catch(e => {
+              failCount++;
+              console.warn('[pb-submode 일괄·팝오버] 장면', id, '저장 실패:', e);
+            });
+          }
+        }
+      });
+      _flushPendingSave();
+      if (typeof _scheduleViewerFrameReRender === 'function') _scheduleViewerFrameReRender();
+      _refreshProjectPopover();
     });
   });
 

@@ -7262,8 +7262,12 @@ function _renderSceneStylePopoverBody() {
         ${scene ? _applyStyleAllButtonHtml(scene) : ''}
       </div>`;
   } else {
+    /* PB-BODYBOX-1B: 글상자 진하기(_pbBodyBoxOpacitySectionHtml)를 톤 아래 복제.
+       helper가 imageCenter(그림 중심형) 아닐 때 ''를 반환 → split/표지/엔딩엔 미표시. 저장은
+       _bindSceneStylePopover의 팝오버 전용 js-pb-bb-op 핸들러가 처리(우측 슬라이더는 그대로 유지). */
     bodyInner = `
       ${scene ? _pbSceneToneSectionHtml(scene) : ''}
+      ${scene ? _pbBodyBoxOpacitySectionHtml(scene) : ''}
       <div class="edit-scene-style-divider"></div>
       <div class="edit-scene-style-subtitle">🅰 글자 스타일</div>
       ${scene ? _pbGlyphStyleSectionHtml(scene) : ''}
@@ -7306,6 +7310,47 @@ function _bindSceneStylePopover(pop) {
   /* GLYPH-APPLYALL: "모든 장면 적용" 바인딩 — 우측 _bindApplyStyleAllHandlers를 root(pop)에
      그대로 재사용(panel 인자 받는 구조). textStyle+textTheme 전 장면 적용 경로 무수정. */
   if (typeof _bindApplyStyleAllHandlers === 'function') _bindApplyStyleAllHandlers(pop, scene);
+
+  /* PB-BODYBOX-1B: 글상자 진하기(backdropOpacity) — 우측 _pbBbBindRange의 op 슬라이더와 동일 저장 경로
+     (scene.picturebookBodyBox + _queueSave + _flushPendingSave). 우측 _pbBbBindRange는 panel 클로저라
+     재사용 불가 → root(pop) scope로 최소 복제. ★ 우측엔 없던 variant 가드 추가: AI(s1/s2) 보기 중엔
+     원본 picturebookBodyBox 미변경(input=무동작, change=안내). 위치/크기 오버레이·variant layout
+     save는 무관·무수정. renderEditPanel 미호출(값 라벨만 갱신). helper가 imageCenter 아닐 땐 슬라이더
+     자체를 안 그려 range null → no-op. */
+  (function _bindPbBodyBoxOpacity() {
+    const range = pop.querySelector('.js-pb-bb-op');
+    const valEl = pop.querySelector('.js-pb-bb-op-val');
+    if (!range) return;
+    const _ensureBb = () => {
+      const pbBb = (typeof getPicturebookBodyBox === 'function')
+        ? getPicturebookBodyBox(scene)
+        : { x: 15, y: 25, width: 55, height: null, backdropOpacity: 0.85 };
+      if (!scene.picturebookBodyBox || typeof scene.picturebookBodyBox !== 'object') {
+        scene.picturebookBodyBox = { ...pbBb };
+      }
+      return scene.picturebookBodyBox;
+    };
+    range.addEventListener('input', () => {
+      if (!_editText.editable) return;
+      /* AI 보기 중엔 원본 미변경 — toast 스팸 방지로 input은 조용히 무동작(안내는 change에서). */
+      if (typeof _isVariantViewLocked === 'function' && _isVariantViewLocked()) return;
+      const bb = _ensureBb();
+      const numeric = Number(range.value);
+      bb.backdropOpacity = numeric / 100;
+      if (valEl) valEl.textContent = `${numeric}%`;
+      if (typeof _scheduleViewerFrameReRender === 'function') _scheduleViewerFrameReRender();
+    });
+    range.addEventListener('change', () => {
+      if (!_editText.editable) return;
+      if (typeof _isVariantViewLocked === 'function' && _isVariantViewLocked()) {
+        _showSaveStatus('AI 버전은 보기 전용입니다. 편집은 원본에서 해 주세요.', 2500);
+        return;
+      }
+      const bb = _ensureBb();
+      _queueSave(scene.num || scene.id, { picturebookBodyBox: { ...bb } });
+      _flushPendingSave();
+    });
+  })();
 }
 
 /* TEXT-MODE-1C: 🎭 장면 스타일 팝오버용 text 글자/테마/효과 바인딩(root scope).

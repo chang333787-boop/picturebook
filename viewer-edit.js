@@ -3742,28 +3742,18 @@ function _pbSubmodeSectionHtml(scene) {
     ${lockHint}`;
 }
 
-function _typeSectionPicturebookHtml(scene) {
-  /* 하위 모드 표시 분기 — 글상자(그림 중심형) 노출 판단에 사용. UI는 _pbSubmodeSectionHtml로 추출(PB-LAYOUT-1A). */
-  const isImageCenter = scene.picturebookSubmode === 'imageCenter';
-
-  /* PANEL-CLEANUP-1B: 우측 글자 스타일(_pbInlineStyleHtml) 렌더 제거 → pbStyleInlineHtml const 삭제.
-     글자 스타일/모든 장면 적용은 🎭 장면 스타일 팝오버가 주 동선(_pbGlyphStyleSectionHtml 사용). */
-
-  /* W9 (v5)+PANEL-CLEANUP/PB-LAYOUT: 페이지 방향·하위 모드·양옆 마감 테마 등 작품 단위 설정은
-     모두 상단 ⚙ 작품 설정으로 이관됨 → 우측 picturebook 1단엔 글상자 진하기(그림 중심형)만 남음. */
+/* PB-BODYBOX-1A: picturebook 글상자 진하기(backdropOpacity) 순수 HTML helper.
+   _typeSectionPicturebookHtml 인라인을 그대로 추출 — imageCenter(그림 중심형)일 때만 렌더(아니면 ''),
+   class/selector/value(js-pb-bb-op·js-pb-bb-op-val)·안내 문구 무변경, 렌더 결과 동일.
+   저장/preview 핸들러(_pbBbBindRange)·위치/크기 오버레이(js-pb-body-move/-resize)·variant
+   layout save는 무관(HTML만). 향후 PB-BODYBOX-1B에서 🎭 장면 스타일 팝오버가 이 helper를 재사용 예정. */
+function _pbBodyBoxOpacitySectionHtml(scene) {
+  const isImageCenter = scene && scene.picturebookSubmode === 'imageCenter';
+  if (!isImageCenter) return '';
+  const bb = (typeof getPicturebookBodyBox === 'function')
+    ? getPicturebookBodyBox(scene)
+    : { x: 15, y: 25, width: 55, height: null, backdropOpacity: 0.85 };
   return `
-    <!-- PB-LAYOUT-1C: 하위 모드(_pbSubmodeSectionHtml = 분할형/그림 중심형 + lockHint) 우측 렌더 제거 —
-         ⚙ 작품 설정 팝오버가 주 동선(_renderProjectPopoverBody). helper 본체·팝오버 핸들러·전 장면
-         picturebookSubmode 저장 모델·우측 js-pb-submode 핸들러는 무수정. 글상자 진하기는 아래 그대로 유지. -->
-
-    <!-- PANEL-CLEANUP-1B: 양옆 마감 테마(edit-project-dup-pbtheme) 우측 중복 렌더 제거 — ⚙ 작품 설정이
-         주 동선. 공용 _pbThemeSectionHtml은 ⚙ 팝오버·cover가 계속 사용 → 무삭제. -->
-
-    ${isImageCenter ? (() => {
-      const bb = (typeof getPicturebookBodyBox === 'function')
-        ? getPicturebookBodyBox(scene)
-        : { x: 15, y: 25, width: 55, height: null, backdropOpacity: 0.85 };
-      return `
     <div class="edit-row">
       <label class="edit-label">💬 글상자 진하기</label>
       <div class="edit-pb-bodybox-grid">
@@ -3778,7 +3768,26 @@ function _typeSectionPicturebookHtml(scene) {
         본문 글상자의 위치와 크기는 미리보기에서 ✥로 이동, 모서리 ⤡로 크기 조절하세요.
       </div>
     </div>`;
-    })() : ''}
+}
+
+function _typeSectionPicturebookHtml(scene) {
+  /* PANEL-CLEANUP-1B: 우측 글자 스타일(_pbInlineStyleHtml) 렌더 제거 → pbStyleInlineHtml const 삭제.
+     글자 스타일/모든 장면 적용은 🎭 장면 스타일 팝오버가 주 동선(_pbGlyphStyleSectionHtml 사용). */
+
+  /* W9 (v5)+PANEL-CLEANUP/PB-LAYOUT: 페이지 방향·하위 모드·양옆 마감 테마 등 작품 단위 설정은
+     모두 상단 ⚙ 작품 설정으로 이관됨 → 우측 picturebook 1단엔 글상자 진하기(그림 중심형)만 남음. */
+  return `
+    <!-- PB-LAYOUT-1C: 하위 모드(_pbSubmodeSectionHtml = 분할형/그림 중심형 + lockHint) 우측 렌더 제거 —
+         ⚙ 작품 설정 팝오버가 주 동선(_renderProjectPopoverBody). helper 본체·팝오버 핸들러·전 장면
+         picturebookSubmode 저장 모델·우측 js-pb-submode 핸들러는 무수정. 글상자 진하기는 아래 그대로 유지. -->
+
+    <!-- PANEL-CLEANUP-1B: 양옆 마감 테마(edit-project-dup-pbtheme) 우측 중복 렌더 제거 — ⚙ 작품 설정이
+         주 동선. 공용 _pbThemeSectionHtml은 ⚙ 팝오버·cover가 계속 사용 → 무삭제. -->
+
+    <!-- PB-BODYBOX-1A: 글상자 진하기 UI는 _pbBodyBoxOpacitySectionHtml로 추출(imageCenter 게이트 내장·
+         렌더 결과 동일). js-pb-bb-op 핸들러·위치/크기 오버레이(js-pb-body-move/-resize)는 무수정.
+         향후 1B에서 🎭 장면 스타일 팝오버가 재사용. -->
+    ${_pbBodyBoxOpacitySectionHtml(scene)}
 
     <!-- PANEL-CLEANUP-1B: 우측 중복 렌더 일괄 제거 —
          · 이미지 진입버튼(edit-project-dup-image-actions, _pbImageActionsHtml) → 🖼 그림 팝오버

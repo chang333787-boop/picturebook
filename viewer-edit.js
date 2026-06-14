@@ -3749,13 +3749,12 @@ function _typeSectionPicturebookHtml(scene) {
   /* PANEL-CLEANUP-1B: 우측 글자 스타일(_pbInlineStyleHtml) 렌더 제거 → pbStyleInlineHtml const 삭제.
      글자 스타일/모든 장면 적용은 🎭 장면 스타일 팝오버가 주 동선(_pbGlyphStyleSectionHtml 사용). */
 
-  /* W9 (v5): 사용자 재구성 — 작품 전체 헤더 폐기, sub-divider 폐기.
-     순서: [페이지 방향 | 하위 모드] (한 줄) → 양옆 마감 테마 → 글상자(그림 중심형) → 장면 그림 → 글자 스타일.
-     왼쪽 첫 줄(페이지 방향+하위 모드)이 오른쪽 첫 줄(제목)과 baseline 정렬. */
+  /* W9 (v5)+PANEL-CLEANUP/PB-LAYOUT: 페이지 방향·하위 모드·양옆 마감 테마 등 작품 단위 설정은
+     모두 상단 ⚙ 작품 설정으로 이관됨 → 우측 picturebook 1단엔 글상자 진하기(그림 중심형)만 남음. */
   return `
-    <!-- PB-LAYOUT-1A: 하위 모드 UI는 _pbSubmodeSectionHtml로 추출(렌더 결과 동일). js-pb-submode
-         핸들러·전 장면 picturebookSubmode 저장은 무수정. 향후 1B에서 ⚙ 작품 설정 팝오버가 재사용. -->
-    ${_pbSubmodeSectionHtml(scene)}
+    <!-- PB-LAYOUT-1C: 하위 모드(_pbSubmodeSectionHtml = 분할형/그림 중심형 + lockHint) 우측 렌더 제거 —
+         ⚙ 작품 설정 팝오버가 주 동선(_renderProjectPopoverBody). helper 본체·팝오버 핸들러·전 장면
+         picturebookSubmode 저장 모델·우측 js-pb-submode 핸들러는 무수정. 글상자 진하기는 아래 그대로 유지. -->
 
     <!-- PANEL-CLEANUP-1B: 양옆 마감 테마(edit-project-dup-pbtheme) 우측 중복 렌더 제거 — ⚙ 작품 설정이
          주 동선. 공용 _pbThemeSectionHtml은 ⚙ 팝오버·cover가 계속 사용 → 무삭제. -->
@@ -3790,7 +3789,8 @@ function _typeSectionPicturebookHtml(scene) {
          공용 helper(_pbImageActionsHtml·_pbChoice*·_pbThemeSectionHtml·_pbGlyphStyleSectionHtml·
          _pbToneRowHtml·_pbSceneToneSectionHtml)는 팝오버가 계속 사용 → 무삭제. _pbToneSectionHtml/
          _pbInlineStyleHtml(우패널 전용)은 본체 보존(호출부만 제거).
-         ★ 하위 모드(js-pb-submode)·글상자 진하기(js-pb-bb-op)는 위에 그대로 유지. -->`;
+         ★ 하위 모드(js-pb-submode)는 PB-LAYOUT-1C에서 ⚙ 작품 설정으로 이관·우측 제거.
+           글상자 진하기(js-pb-bb-op·그림 중심형)만 우측 picturebook 1단에 남음. -->`;
 }
 
 /* ────────────────────────────────────────────

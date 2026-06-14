@@ -3784,10 +3784,10 @@ function _typeSectionPicturebookHtml(scene) {
     <!-- PANEL-CLEANUP-1B: 양옆 마감 테마(edit-project-dup-pbtheme) 우측 중복 렌더 제거 — ⚙ 작품 설정이
          주 동선. 공용 _pbThemeSectionHtml은 ⚙ 팝오버·cover가 계속 사용 → 무삭제. -->
 
-    <!-- PB-BODYBOX-1A: 글상자 진하기 UI는 _pbBodyBoxOpacitySectionHtml로 추출(imageCenter 게이트 내장·
-         렌더 결과 동일). js-pb-bb-op 핸들러·위치/크기 오버레이(js-pb-body-move/-resize)는 무수정.
-         향후 1B에서 🎭 장면 스타일 팝오버가 재사용. -->
-    ${_pbBodyBoxOpacitySectionHtml(scene)}
+    <!-- PB-BODYBOX-1C: 글상자 진하기(_pbBodyBoxOpacitySectionHtml) 우측 렌더 제거 — 🎭 장면 스타일
+         팝오버가 주 동선(_renderSceneStylePopoverBody picturebook 분기 + _bindPbBodyBoxOpacity).
+         helper 본체·🎭 핸들러·우측 _pbBbBindRange(op)·위치/크기 오버레이(js-pb-body-move/-resize)·
+         picturebookBodyBox 저장은 무수정. 위치/크기는 미리보기 오버레이로 패널 독립 유지. -->
 
     <!-- PANEL-CLEANUP-1B: 우측 중복 렌더 일괄 제거 —
          · 이미지 진입버튼(edit-project-dup-image-actions, _pbImageActionsHtml) → 🖼 그림 팝오버
@@ -3798,8 +3798,9 @@ function _typeSectionPicturebookHtml(scene) {
          공용 helper(_pbImageActionsHtml·_pbChoice*·_pbThemeSectionHtml·_pbGlyphStyleSectionHtml·
          _pbToneRowHtml·_pbSceneToneSectionHtml)는 팝오버가 계속 사용 → 무삭제. _pbToneSectionHtml/
          _pbInlineStyleHtml(우패널 전용)은 본체 보존(호출부만 제거).
-         ★ 하위 모드(js-pb-submode)는 PB-LAYOUT-1C에서 ⚙ 작품 설정으로 이관·우측 제거.
-           글상자 진하기(js-pb-bb-op·그림 중심형)만 우측 picturebook 1단에 남음. -->`;
+         ★ 하위 모드(js-pb-submode)→⚙ 작품 설정(PB-LAYOUT-1C), 글상자 진하기(js-pb-bb-op)→🎭 장면
+           스타일(PB-BODYBOX-1C) 이관 완료. 우측 picturebook 1단엔 조작 가능한 실기능 없음(빈 껍데기
+           헤더/안내 정리는 PANEL-EMPTY-1). -->`;
 }
 
 /* ────────────────────────────────────────────

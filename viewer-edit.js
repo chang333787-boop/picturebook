@@ -3705,14 +3705,14 @@ function _pbImageActionsHtml(scene) {
     </div>`;
 }
 
-function _typeSectionPicturebookHtml(scene) {
-  /* 하위 모드 — scene.picturebookSubmode 명시 필드 (3단계 신규) */
+/* PB-LAYOUT-1A: picturebook 하위 모드(split/imageCenter) 순수 HTML helper.
+   _typeSectionPicturebookHtml 인라인을 그대로 추출 — class/selector/data(js-pb-submode·data-val)·
+   first-scene disabled(lockedAttr/lockedClass)·lockHint 무변경, 렌더 결과 동일. 저장/핸들러
+   (.js-pb-submode 바인딩·전 장면 picturebookSubmode 저장·variant lock)는 무관(HTML만).
+   향후 PB-LAYOUT-1B에서 ⚙ 작품 설정 팝오버가 이 helper를 재사용 예정.
+   ※ dead path인 _picturebookSubmodeHtml(spread/stage)과는 별개 — 혼동 금지. */
+function _pbSubmodeSectionHtml(scene) {
   const sub = (scene.picturebookSubmode === 'imageCenter') ? 'imageCenter' : 'split';
-  const isImageCenter = sub === 'imageCenter';
-
-  /* PANEL-CLEANUP-1B: 우측 글자 스타일(_pbInlineStyleHtml) 렌더 제거 → pbStyleInlineHtml const 삭제.
-     글자 스타일/모든 장면 적용은 🎭 장면 스타일 팝오버가 주 동선(_pbGlyphStyleSectionHtml 사용). */
-
   /* v37: 페이지 방향·하위 모드는 첫 장면(entrySceneId)에서만 변경 가능.
      장면 2부터는 토글 비활성 + 안내. "작품 전체 설정"이 한 곳에서만 박힘. */
   const entryId = ViewerState.project && ViewerState.project.entrySceneId;
@@ -3725,13 +3725,7 @@ function _typeSectionPicturebookHtml(scene) {
     <div class="edit-section-hint edit-section-hint--lock">
       🔒 페이지 방향·하위 모드는 첫 장면에서만 바꿀 수 있어요 (작품 전체 설정).
     </div>`;
-
-  /* W9 (v5): 사용자 재구성 — 작품 전체 헤더 폐기, sub-divider 폐기.
-     순서: [페이지 방향 | 하위 모드] (한 줄) → 양옆 마감 테마 → 글상자(그림 중심형) → 장면 그림 → 글자 스타일.
-     왼쪽 첫 줄(페이지 방향+하위 모드)이 오른쪽 첫 줄(제목)과 baseline 정렬. */
   return `
-    <!-- PANEL-CLEANUP-1B: 페이지 방향(edit-project-dup-orientation) 우측 중복 cell 제거 — ⚙ 작품 설정이
-         주 동선. js-pb-orientation 핸들러·저장은 ⚙ 팝오버 경로 유지. 하위 모드(js-pb-submode)는 유지. -->
     <div class="edit-pb-row-pair">
       <div class="edit-row edit-row--compact edit-row--pair-cell">
         <label class="edit-label">📐 하위 모드</label>
@@ -3745,7 +3739,23 @@ function _typeSectionPicturebookHtml(scene) {
         </div>
       </div>
     </div>
-    ${lockHint}
+    ${lockHint}`;
+}
+
+function _typeSectionPicturebookHtml(scene) {
+  /* 하위 모드 표시 분기 — 글상자(그림 중심형) 노출 판단에 사용. UI는 _pbSubmodeSectionHtml로 추출(PB-LAYOUT-1A). */
+  const isImageCenter = scene.picturebookSubmode === 'imageCenter';
+
+  /* PANEL-CLEANUP-1B: 우측 글자 스타일(_pbInlineStyleHtml) 렌더 제거 → pbStyleInlineHtml const 삭제.
+     글자 스타일/모든 장면 적용은 🎭 장면 스타일 팝오버가 주 동선(_pbGlyphStyleSectionHtml 사용). */
+
+  /* W9 (v5): 사용자 재구성 — 작품 전체 헤더 폐기, sub-divider 폐기.
+     순서: [페이지 방향 | 하위 모드] (한 줄) → 양옆 마감 테마 → 글상자(그림 중심형) → 장면 그림 → 글자 스타일.
+     왼쪽 첫 줄(페이지 방향+하위 모드)이 오른쪽 첫 줄(제목)과 baseline 정렬. */
+  return `
+    <!-- PB-LAYOUT-1A: 하위 모드 UI는 _pbSubmodeSectionHtml로 추출(렌더 결과 동일). js-pb-submode
+         핸들러·전 장면 picturebookSubmode 저장은 무수정. 향후 1B에서 ⚙ 작품 설정 팝오버가 재사용. -->
+    ${_pbSubmodeSectionHtml(scene)}
 
     <!-- PANEL-CLEANUP-1B: 양옆 마감 테마(edit-project-dup-pbtheme) 우측 중복 렌더 제거 — ⚙ 작품 설정이
          주 동선. 공용 _pbThemeSectionHtml은 ⚙ 팝오버·cover가 계속 사용 → 무삭제. -->

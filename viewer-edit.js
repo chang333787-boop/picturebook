@@ -3717,8 +3717,8 @@ function _typeSectionPicturebookHtml(scene) {
   const sub = (scene.picturebookSubmode === 'imageCenter') ? 'imageCenter' : 'split';
   const isImageCenter = sub === 'imageCenter';
 
-  const pbStyleInlineHtml = (typeof _pbInlineStyleHtml === 'function')
-    ? _pbInlineStyleHtml(scene) : '';
+  /* PANEL-CLEANUP-1B: 우측 글자 스타일(_pbInlineStyleHtml) 렌더 제거 → pbStyleInlineHtml const 삭제.
+     글자 스타일/모든 장면 적용은 🎭 장면 스타일 팝오버가 주 동선(_pbGlyphStyleSectionHtml 사용). */
 
   /* v37: 페이지 방향·하위 모드는 첫 장면(entrySceneId)에서만 변경 가능.
      장면 2부터는 토글 비활성 + 안내. "작품 전체 설정"이 한 곳에서만 박힘. */
@@ -3737,18 +3737,9 @@ function _typeSectionPicturebookHtml(scene) {
      순서: [페이지 방향 | 하위 모드] (한 줄) → 양옆 마감 테마 → 글상자(그림 중심형) → 장면 그림 → 글자 스타일.
      왼쪽 첫 줄(페이지 방향+하위 모드)이 오른쪽 첫 줄(제목)과 baseline 정렬. */
   return `
+    <!-- PANEL-CLEANUP-1B: 페이지 방향(edit-project-dup-orientation) 우측 중복 cell 제거 — ⚙ 작품 설정이
+         주 동선. js-pb-orientation 핸들러·저장은 ⚙ 팝오버 경로 유지. 하위 모드(js-pb-submode)는 유지. -->
     <div class="edit-pb-row-pair">
-      <div class="edit-row edit-row--compact edit-row--pair-cell edit-project-dup-orientation">
-        <label class="edit-label">📖 페이지 방향</label>
-        <div class="edit-toggle-group">
-          <button type="button" ${lockedAttr}
-            class="edit-toggle js-pb-orientation${lockedClass} ${(ViewerState.project.pageOrientation === 'portrait') ? '' : 'active'}"
-            data-val="landscape">가로</button>
-          <button type="button" ${lockedAttr}
-            class="edit-toggle js-pb-orientation${lockedClass} ${(ViewerState.project.pageOrientation === 'portrait') ? 'active' : ''}"
-            data-val="portrait">세로</button>
-        </div>
-      </div>
       <div class="edit-row edit-row--compact edit-row--pair-cell">
         <label class="edit-label">📐 하위 모드</label>
         <div class="edit-toggle-group">
@@ -3763,7 +3754,8 @@ function _typeSectionPicturebookHtml(scene) {
     </div>
     ${lockHint}
 
-    ${_isFirstNormalScene(scene) ? `<div class="edit-project-dup-pbtheme">${_pbThemeSectionHtml()}</div>` : ''}
+    <!-- PANEL-CLEANUP-1B: 양옆 마감 테마(edit-project-dup-pbtheme) 우측 중복 렌더 제거 — ⚙ 작품 설정이
+         주 동선. 공용 _pbThemeSectionHtml은 ⚙ 팝오버·cover가 계속 사용 → 무삭제. -->
 
     ${isImageCenter ? (() => {
       const bb = (typeof getPicturebookBodyBox === 'function')
@@ -3786,30 +3778,16 @@ function _typeSectionPicturebookHtml(scene) {
     </div>`;
     })() : ''}
 
-    <!-- PB-IMAGE-1D: 우측 이미지 진입 버튼은 상단 🖼 그림 팝오버가 주 동선 → 이 우측 호출부만
-         site-specific wrapper로 감싸 #edit-panel scope 숨김. 공용 _pbImageActionsHtml엔 class 안 달음
-         → 팝오버 사본(#edit-image-popover, #edit-panel 밖)은 그대로 노출. 핸들러/저장 무수정. -->
-    <div class="edit-project-dup-image-actions">
-      ${_pbImageActionsHtml(scene)}
-    </div>
-
-    ${_pbChoiceCountSectionHtml(scene)}
-
-    ${_pbChoiceLinkSectionHtml(scene)}
-
-    <!-- GLYPH-APPLYALL: 글자 스타일 컨트롤(1D)·모든 장면 적용 모두 🎭 장면 스타일 팝오버로
-         이관됨 → 우측 _pbInlineStyleHtml 전체를 이 호출부 wrapper로 감싸 #edit-panel scope 숨김.
-         공용 _pbInlineStyleHtml helper엔 class 안 달음(text/다른 경로 무영향). 빈 collapsible wart 제거. -->
-    <div class="edit-pb-dup-inline-style">
-      ${pbStyleInlineHtml}
-    </div>
-
-    ${(() => {
-      /* v138-fix14 (v135-4 그림 중심형 확장): 그림책형 모든 하위 모드에서 톤
-         UI 박음. 분할형(split) + 그림 중심형(imageCenter) + 엔딩 모두 포함.
-         _pbToneSectionHtml 자체에 cover early return 박혀있어 표지 안전. */
-      return _pbToneSectionHtml(scene);
-    })()}`;
+    <!-- PANEL-CLEANUP-1B: 우측 중복 렌더 일괄 제거 —
+         · 이미지 진입버튼(edit-project-dup-image-actions, _pbImageActionsHtml) → 🖼 그림 팝오버
+         · 선택지 개수/연결(_pbChoiceCountSectionHtml/_pbChoiceLinkSectionHtml) → 🔗 버튼 팝오버
+         · 글자 스타일/모든 장면 적용(edit-pb-dup-inline-style, _pbInlineStyleHtml) → 🎭 장면 스타일
+         · 카드톤/엔딩톤·카드스타일/색계열(_pbToneSectionHtml = edit-scene-dup-tone +
+           edit-project-dup-cardstyle) → 🎭 장면 스타일 / ⚙ 작품 설정
+         공용 helper(_pbImageActionsHtml·_pbChoice*·_pbThemeSectionHtml·_pbGlyphStyleSectionHtml·
+         _pbToneRowHtml·_pbSceneToneSectionHtml)는 팝오버가 계속 사용 → 무삭제. _pbToneSectionHtml/
+         _pbInlineStyleHtml(우패널 전용)은 본체 보존(호출부만 제거).
+         ★ 하위 모드(js-pb-submode)·글상자 진하기(js-pb-bb-op)는 위에 그대로 유지. -->`;
 }
 
 /* ────────────────────────────────────────────

@@ -789,18 +789,9 @@ body.viewer-edit-readonly .edit-scene-style-popover button:not(.edit-scene-style
   filter: grayscale(0.25);
 }
 
-/* ── TOP-TOOLBAR-2B: 우측 1단 패널의 중복 버튼 도구 숨김 ──
-   행동 버튼 개수 / 선택지 연결 편집은 이제 상단 🔗 버튼 팝오버가 주 동선.
-   같은 helper HTML(_pbChoiceCountSectionHtml/_pbChoiceLinkSectionHtml)을
-   상단 팝오버(#edit-choice-popover)도 재사용하므로, 반드시 #edit-panel로
-   scope를 제한해 팝오버 사본은 살린다. 삭제가 아니라 가시성만 숨김 —
-   DOM/핸들러/저장(_queueSaveButtons) 경로 모두 유지(회귀 방지).
-   text/picturebook/movie 일반 장면 1단 모두 대상. 표지/엔딩은 원래 helper가
-   빈 문자열이라 영향 없음. */
-#edit-panel .edit-row--pb-choice-count,
-#edit-panel .edit-row--pb-choice-link {
-  display: none !important;
-}
+/* ── PANEL-CLEANUP-1A/1B: 행동버튼 개수/선택지 연결 우측 중복 렌더가 text(1A)·movie(1A)·
+   picturebook(1B) 모두 실제 제거됨 → TOP-TOOLBAR-2B dead hide rule(.edit-row--pb-choice-count/
+   -link) 제거. 공용 helper는 🔗 #edit-choice-popover(#edit-panel 밖, viewer.html:151)가 계속 사용. */
 
 /* ── TOP-TOOLBAR-3B: 우측 표지 패널의 중복 표지색 row 숨김 ──
    표지색 편집은 이제 상단 🎨 표지 팝오버가 주 동선. 같은 helper(_coverThemeRowHtml)를
@@ -830,14 +821,11 @@ body.viewer-edit-readonly .edit-scene-style-popover button:not(.edit-scene-style
   display: none !important;
 }
 
-/* ── PROJECT-SETTINGS-2B: picturebook/movie 첫장면 우측의 중복 작품 설정 숨김 ──
-   페이지 방향(pageOrientation)·양옆 마감 테마(pbTheme)는 이제 상단 ⚙ 작품 설정이 주 동선.
-   공용 helper/inline에 전역 class를 달지 않고, 각 우측 렌더 위치(pb pair-cell / movie row /
-   pb 첫장면 pbTheme 호출부)에만 hook class를 달아 #edit-panel scope로 숨김 →
-   ⚙ 팝오버(#edit-project-popover, #edit-panel 밖)·표지 wrapper·하위모드는 영향 없음.
-   삭제가 아니라 가시성만 숨김(DOM/핸들러/viewer-meta 저장 유지). */
-#edit-panel .edit-project-dup-orientation,
-#edit-panel .edit-project-dup-pbtheme {
+/* ── PROJECT-SETTINGS-2B (+ PANEL-CLEANUP-1B): 화면 방향 우측 중복 숨김.
+   pbtheme(picturebook 양옆 마감 테마)는 1B에서 우측 렌더 제거됨 → 셀렉터에서 빠짐.
+   orientation은 movie 우측(_typeSectionMovieHtml)이 아직 hidden 렌더하므로 rule 유지 →
+   ⚙ 작품 설정이 주 동선. ⚙ 팝오버(#edit-panel 밖)·하위모드는 영향 없음. */
+#edit-panel .edit-project-dup-orientation {
   display: none !important;
 }
 
@@ -845,47 +833,11 @@ body.viewer-edit-readonly .edit-scene-style-popover button:not(.edit-scene-style
    → MOVIE-TOOL-1D dead hide rule(.edit-movie-dup-video-tools/.edit-movie-dup-body-toggle) 제거.
    모달 사본(.movie-tool-video-section)·핸들러·Storage helper는 무관(유지). */
 
-/* ── PROJECT-SETTINGS-2C-C: picturebook 첫장면 우측의 중복 본문 카드 스타일/색계열(작품단위) 숨김 ──
-   이제 상단 ⚙ 작품 설정이 주 동선. _pbToneSectionHtml 안에서 작품단위 row(card-style/color)만
-   site-specific wrapper로 감싸 #edit-panel scope로 숨김 → 장면단위 카드톤/엔딩톤(wrapper 밖)·
-   ⚙ 팝오버 사본(#edit-panel 밖)은 영향 없음. 가시성만 숨김(저장/핸들러 유지). */
-#edit-panel .edit-project-dup-cardstyle {
-  display: none !important;
-}
-
-/* ── PB-IMAGE-1D: picturebook 우측의 중복 이미지 진입 버튼 행 숨김 ──
-   이제 상단 🖼 그림 팝오버가 주 동선. 공용 _pbImageActionsHtml은 우측·팝오버가 함께 쓰므로
-   우측 호출부만 감싼 wrapper에 한정해 #edit-panel scope로 숨김 → 팝오버 사본(#edit-image-popover,
-   #edit-panel 밖)은 그대로 노출. 가시성만 숨김(핸들러/Storage/저장 유지). */
-#edit-panel .edit-project-dup-image-actions {
-  display: none !important;
-}
-
-/* ── SCENE-STYLE-1C: picturebook 우측의 중복 장면톤(카드톤/엔딩톤) 숨김 ──
-   이제 상단 🎭 장면 스타일이 주 동선. 공용 _pbToneRowHtml은 우측·팝오버가 함께 쓰므로
-   우측 _pbToneSectionHtml 호출부만 감싼 wrapper에 한정해 #edit-panel scope로 숨김 →
-   팝오버 사본(#edit-scene-style-popover, #edit-panel 밖)은 그대로 노출.
-   작품단위 카드스타일/색계열(edit-project-dup-cardstyle)과는 별개 wrapper. 가시성만 숨김. */
-#edit-panel .edit-scene-dup-tone {
-  display: none !important;
-}
-
-/* ── GLYPH-STYLE-1D: picturebook 우측의 중복 글자 스타일 컨트롤(폰트/크기/색/굵기) 숨김 ──
-   이제 상단 🎭 장면 스타일이 주 동선. 공용 _pbGlyphStyleSectionHtml은 우측·팝오버가 함께 쓰므로
-   우측 _pbInlineStyleHtml 호출부만 감싼 wrapper에 한정해 #edit-panel scope로 숨김 →
-   팝오버 사본(#edit-scene-style-popover, #edit-panel 밖)은 그대로 노출.
-   "모든 장면 적용"은 wrapper 밖이라 우측 유지. 가시성만 숨김(핸들러/저장/variant 유지). */
-#edit-panel .edit-pb-dup-glyph-controls {
-  display: none !important;
-}
-
-/* ── GLYPH-APPLYALL: picturebook 우측의 글자 스타일 collapsible 전체 숨김 ──
-   글자 스타일 컨트롤(1D)·"모든 장면 적용" 모두 🎭 장면 스타일 팝오버로 이관됨 → 우측
-   _pbInlineStyleHtml 호출부 wrapper만 #edit-panel scope로 숨김(빈 collapsible wart 제거).
-   공용 helper엔 class 미부착 → text/다른 경로·팝오버 사본(#edit-panel 밖) 무영향. */
-#edit-panel .edit-pb-dup-inline-style {
-  display: none !important;
-}
+/* ── PANEL-CLEANUP-1B: picturebook 우측 중복 렌더가 실제 제거됨(호출부 삭제) → dead hide rule 제거:
+   PROJECT-SETTINGS-2C-C(.edit-project-dup-cardstyle) · PB-IMAGE-1D(.edit-project-dup-image-actions)
+   · SCENE-STYLE-1C(.edit-scene-dup-tone) · GLYPH-STYLE-1D(.edit-pb-dup-glyph-controls)
+   · GLYPH-APPLYALL(.edit-pb-dup-inline-style). 공용 helper는 🖼/🎭/⚙ 팝오버(#edit-panel 밖)가
+   계속 사용. _pbToneSectionHtml/_pbInlineStyleHtml 본체는 보존(우패널 전용 dead, handler 정리는 별도). */
 
 /* ── PANEL-CLEANUP-1A: text/movie 우측 중복 렌더가 실제 제거됨(호출부 삭제) →
    TEXT-MODE-1D(.edit-text-dup-style-sections)·MOVIE-SETTINGS-1(.edit-movie-dup-project-settings)

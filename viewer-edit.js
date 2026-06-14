@@ -3311,21 +3311,14 @@ function _coverTitleYRowHtml(scene) {
 }
 
 function _typeSectionCoverHtml(scene) {
-  /* PROJECT-SETTINGS-1C: 표지 1단의 양옆 마감 테마 + 작품 전환효과는 상단 ⚙ 작품 설정
-     팝오버가 주 동선이 됨 → cover 전용 wrapper로 감싸 #edit-panel scope로 숨김.
-     ★ _pbThemeSectionHtml / _workSettingsSectionHtml은 picturebook 첫장면 등에서도
-       쓰이는 공용 helper라, helper에 modifier를 달면 그쪽까지 숨는다. 따라서 표지에서만
-       두는 이 wrapper(edit-cover-worksettings-dup)에만 class를 달아 cover 한정으로 숨김.
-       picturebook/movie 첫장면 작품 설정은 SETTINGS-2/3에서 별도 처리(여기 영향 없음). */
+  /* PANEL-CLEANUP-1C: 표지 1단의 이관 완료된 중복 렌더 제거.
+     · 표지색(_coverThemeRowHtml)·제목 높낮이(_coverTitleYRowHtml) → 🎨 표지 팝오버(6545/6546)
+     · 양옆 마감 테마(_pbThemeSectionHtml)·작품 전환효과(_workSettingsSectionHtml) → ⚙ 작품 설정(6763/6765)
+     공용 helper는 위 팝오버 + cover-less edge(_isWorkSettingScene, 2950)가 계속 사용 → 본체 보존.
+     우측 표지 1단은 안내 hint만 남김(빈 껍데기 정리는 PANEL-EMPTY-1). */
   return `
-    ${_coverThemeRowHtml(scene)}
-    ${_coverTitleYRowHtml(scene)}
     <div class="edit-section-hint edit-section-hint--lock">
       📖 표지는 작품의 입구예요. 제목·소개는 화면에서 바로 고치고, 표지 꾸미기와 작품 전체 설정은 상단 🎨/⚙ 버튼에서 다듬어요.
-    </div>
-    <div class="edit-cover-worksettings-dup">
-      ${_pbThemeSectionHtml()}
-      ${_workSettingsSectionHtml()}
     </div>`;
 }
 

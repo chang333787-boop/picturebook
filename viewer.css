@@ -793,33 +793,11 @@ body.viewer-edit-readonly .edit-scene-style-popover button:not(.edit-scene-style
    picturebook(1B) 모두 실제 제거됨 → TOP-TOOLBAR-2B dead hide rule(.edit-row--pb-choice-count/
    -link) 제거. 공용 helper는 🔗 #edit-choice-popover(#edit-panel 밖, viewer.html:151)가 계속 사용. */
 
-/* ── TOP-TOOLBAR-3B: 우측 표지 패널의 중복 표지색 row 숨김 ──
-   표지색 편집은 이제 상단 🎨 표지 팝오버가 주 동선. 같은 helper(_coverThemeRowHtml)를
-   상단 팝오버(#edit-cover-popover)도 재사용하므로 반드시 #edit-panel로 scope 제한 →
-   팝오버 사본은 살린다. 삭제가 아니라 가시성만 숨김. 제목 높낮이·양옆 마감 테마·
-   작품 전환효과 등 표지 패널의 다른 도구는 그대로 유지. */
-#edit-panel .edit-row--cover-theme {
-  display: none !important;
-}
-
-/* ── TOP-TOOLBAR-4B: 우측 표지 패널의 중복 제목 높낮이 row 숨김 ──
-   제목 높낮이도 이제 상단 🎨 표지 팝오버가 주 동선. 같은 helper(_coverTitleYRowHtml)를
-   상단 팝오버(#edit-cover-popover)도 재사용하므로 반드시 #edit-panel로 scope 제한 →
-   팝오버 사본은 살린다. 삭제가 아니라 가시성만 숨김. 양옆 마감 테마·작품 전환효과 등
-   표지 패널의 다른 도구는 그대로 유지. (3B 표지색 row 숨김과 동일 패턴) */
-#edit-panel .edit-row--cover-title-y {
-  display: none !important;
-}
-
-/* ── PROJECT-SETTINGS-1C: 우측 표지 1단의 중복 작품 설정(양옆 마감 테마 + 작품 전환효과) 숨김 ──
-   이 둘은 이제 상단 ⚙ 작품 설정 팝오버가 주 동선. 공용 helper(_pbThemeSectionHtml/
-   _workSettingsSectionHtml)를 표지에서만 감싼 wrapper에 한정해 #edit-panel scope로 숨김 →
-   picturebook/movie 첫장면의 같은 helper는 영향 없음(SETTINGS-2/3에서 별도 처리).
-   삭제가 아니라 가시성만 숨김(DOM/핸들러/viewer-meta 저장 경로 유지). 표지 1단은 이로써
-   조작 가능한 작품 설정이 모두 비워짐(상단 🎨 표지·⚙ 작품 설정으로 일원화). */
-#edit-panel .edit-cover-worksettings-dup {
-  display: none !important;
-}
+/* ── PANEL-CLEANUP-1C: 표지 1단의 중복 렌더(표지색·제목 높낮이·양옆 마감 테마·작품 전환효과)가
+   실제 제거됨(_typeSectionCoverHtml 호출부 삭제) → TOP-TOOLBAR-3B(.edit-row--cover-theme)·
+   TOP-TOOLBAR-4B(.edit-row--cover-title-y)·PROJECT-SETTINGS-1C(.edit-cover-worksettings-dup)
+   dead hide rule 제거. 공용 helper는 🎨 #edit-cover-popover·⚙ 팝오버(#edit-panel 밖)·
+   cover-less edge가 계속 사용(무영향). */
 
 /* ── PROJECT-SETTINGS-2B (+ PANEL-CLEANUP-1B): 화면 방향 우측 중복 숨김.
    pbtheme(picturebook 양옆 마감 테마)는 1B에서 우측 렌더 제거됨 → 셀렉터에서 빠짐.

@@ -3464,63 +3464,11 @@ function _typeSectionTextHtml(scene) {
       텍스트형은 글이 주인공입니다. 본문 위계가 가장 크고, 제목은 보조, 선택지는 카드 하단입니다.
     </div>
 
-    <!-- 2026-05-31 Text-2D: 1단 행동 버튼 개수/연결 — 그림책 helper 재사용(모드 무관).
-         일반 장면만(helper가 표지/엔딩 빈 문자열). 라벨 input은 미리보기 직접입력(Text-2C)+
-         내용 고급 편집(2단)에 맡기고, 1단은 개수+연결만. 저장은 _queueSaveButtons 그대로. -->
-    ${_pbChoiceCountSectionHtml(scene)}
-    ${_pbChoiceLinkSectionHtml(scene)}
-
-    <!-- TEXT-MODE-1D: 글자 스타일/테마/효과/모든 장면 적용이 🎭 장면 스타일 팝오버로 이관됨 →
-         이 중복 스타일 영역만 site-specific wrapper로 감싸 #edit-panel scope 숨김. 공용 helper엔
-         class 안 달음 → 팝오버 사본·picturebook 무영향. 헤더/선택지 영역은 wrapper 밖(유지). -->
-    <div class="edit-text-dup-style-sections">
-    <div class="edit-divider"></div>
-
-    <div class="edit-text-style-section">
-      <button type="button"
-        class="edit-collapsible-header js-text-style-toggle ${_sc ? 'is-collapsed' : 'is-expanded'}"
-        aria-expanded="${!_sc}">
-        <span class="edit-collapsible-header-text">🅰 글자 스타일</span>
-        <span class="edit-collapsible-header-chev">${_sc ? '▼' : '▲'}</span>
-      </button>
-      ${_sc ? '' : `
-        <div class="edit-collapsible-body">
-          ${_textGlyphStyleSectionHtml(scene)}
-        </div>`}
-    </div>
-
-    <div class="edit-divider"></div>
-
-    <div class="edit-text-theme-section">
-      <button type="button"
-        class="edit-collapsible-header js-text-theme-toggle ${_tc ? 'is-collapsed' : 'is-expanded'}"
-        aria-expanded="${!_tc}">
-        <span class="edit-collapsible-header-text">🎨 테마 <span class="edit-label-note">(8종)</span></span>
-        <span class="edit-collapsible-header-chev">${_tc ? '▼' : '▲'}</span>
-      </button>
-      ${_tc ? '' : `
-        <div class="edit-collapsible-body">
-          ${_textThemeSectionHtml(scene)}
-        </div>`}
-    </div>
-
-    ${_applyStyleAllButtonHtml(scene)}
-
-    <div class="edit-divider"></div>
-
-    <div class="edit-text-effect-section">
-      <button type="button"
-        class="edit-collapsible-header js-text-effect-toggle ${_ec ? 'is-collapsed' : 'is-expanded'}"
-        aria-expanded="${!_ec}">
-        <span class="edit-collapsible-header-text">✨ 효과</span>
-        <span class="edit-collapsible-header-chev">${_ec ? '▼' : '▲'}</span>
-      </button>
-      ${_ec ? '' : `
-        <div class="edit-collapsible-body">
-          ${_textEffectSectionHtml(scene)}
-        </div>`}
-    </div>
-    </div>`;
+    <!-- PANEL-CLEANUP-1A: 선택지 개수/연결 + 글자 스타일/테마/효과/모든 장면 적용 우측 중복 렌더 제거.
+         선택지 → 🔗 버튼 도구, 스타일 → 🎭 장면 스타일 팝오버가 주 동선. 공용 helper
+         (_pbChoiceCountSectionHtml·_pbChoiceLinkSectionHtml·_textGlyphStyleSectionHtml·
+         _textThemeSectionHtml·_textEffectSectionHtml·_applyStyleAllButtonHtml)는 팝오버가
+         계속 사용 → 무삭제. 우측엔 ② 헤더 + 안내만 남김(빈 헤더/안내 정리는 PANEL-EMPTY-1). -->`;
 }
 
 /* ────────────────────────────────────────────────────────────
@@ -4121,19 +4069,9 @@ function _typeSectionMovieHtml(scene) {
     <h4 class="edit-section-title edit-section-title--major">② 무비형 설정</h4>
     <div class="edit-section-hint">영상이 끝난 뒤 본문과 선택지가 나타납니다.</div>
 
-    <div class="edit-row edit-movie-dup-project-settings">
-      <label class="edit-label">💬 선택지 표시 방식 <span class="edit-label-note">(작품 전체)</span></label>
-      <div class="edit-toggle-group">
-        <button type="button" ${_orientLockedAttr}
-          class="edit-toggle js-movie-deco${_orientLockedClass} ${_isCardDeco ? '' : 'active'}"
-          data-val="panel">하단 패널</button>
-        <button type="button" ${_orientLockedAttr}
-          class="edit-toggle js-movie-deco${_orientLockedClass} ${_isCardDeco ? 'active' : ''}"
-          data-val="card">중앙 카드</button>
-      </div>
-      <div class="edit-field-hint">영상 종료 후 선택지가 나타납니다.${_isFirstMovieScene ? '' : ' (첫 장면에서만)'}</div>
-    </div>
-
+    <!-- PANEL-CLEANUP-1A: '선택지 표시 방식'(js-movie-deco) 우측 중복 row 제거 — ⚙ 작품 설정이 주 동선.
+         js-movie-deco 핸들러·저장은 ⚙ 팝오버 경로 유지. 화면 방향(edit-project-dup-orientation, 공용
+         class)은 picturebook과 공유라 이번 범위 밖 — 숨김 유지. -->
     <div class="edit-row edit-project-dup-orientation">
       <label class="edit-label">🎬 화면 방향 <span class="edit-label-note">(작품 전체)</span></label>
       <div class="edit-toggle-group">
@@ -4147,53 +4085,25 @@ function _typeSectionMovieHtml(scene) {
       <div class="edit-field-hint">작품 전체 화면 방향입니다. 영상은 잘리지 않습니다.${_isFirstMovieScene ? '' : ' (첫 장면에서만)'}</div>
     </div>
 
-    <!-- 2026-06-01 Movie-H: 1단 행동 버튼 개수/연결 — 그림책/텍스트(Text-2D)와 동일 helper 재사용.
-         일반 장면만(helper가 표지/엔딩이면 빈 문자열). 저장은 _queueSaveButtons 그대로.
-         2026-06-02: movie만 행별 개별 삭제(×) 켬(rowDelete=true) — 고급편집 숨김 목표. -->
-    ${_pbChoiceCountSectionHtml(scene)}
-    ${_pbChoiceLinkSectionHtml(scene, true)}
-
+    <!-- PANEL-CLEANUP-1A: 선택지 개수/연결 우측 중복 row 제거 — 🔗 버튼 도구가 주 동선.
+         공용 _pbChoiceCountSectionHtml/_pbChoiceLinkSectionHtml은 picturebook·🔗 팝오버가 계속 사용 → 무삭제. -->
     <div class="edit-row">
       <label class="edit-label">미디어</label>
       <div class="edit-movie-media-row">
         <span class="edit-movie-media-badge">${mediaLabel}</span>
       </div>
 
-      <!-- W7-B: 영상 업로드 (Firebase Storage)
-           MOVIE-TOOL-1D: 🎬 무비 모달로 복제됨 → 우측 중복 도구 숨김(edit-movie-dup-video-tools).
-           handler·Storage helper는 무수정 유지(hidden DOM에 바인딩돼도 무해). -->
-      <div class="edit-movie-video-section edit-movie-dup-video-tools">
-        <div class="edit-section-hint" style="margin:8px 0 6px;font-weight:600;color:#c8dcf2;">🎬 영상 (mp4, 1분 이내, 50MB)</div>
-        <div class="edit-toggle-group">
-          <button type="button" class="edit-toggle js-movie-video-upload">${hasVideo ? '🎬 영상 교체' : '🎬 영상 업로드'}</button>
-          ${hasVideo ? `<button type="button" class="edit-toggle js-movie-video-delete">🗑 영상 삭제</button>` : ''}
-        </div>
-        <div class="js-movie-video-progress edit-movie-progress" style="display:none;">
-          <div class="edit-movie-progress-bar"><div class="edit-movie-progress-fill js-movie-progress-fill"></div></div>
-          <div class="edit-movie-progress-text js-movie-progress-text">업로드 중… 0%</div>
-        </div>
-        <div class="js-movie-video-error edit-movie-error" style="display:none;"></div>
-      </div>
+      <!-- PANEL-CLEANUP-1A: 영상 업로드/교체/삭제 우측 중복 section 제거 — 🎬 무비 모달이 주 동선.
+           js-movie-video-upload/-delete 핸들러·Storage helper(viewerUploadVideoToStorage 등)·
+           모달 사본(_movieToolVideoSectionInner)은 무수정 유지. 미디어 status badge는 위에 유지. -->
 
       <!-- 2026-05-31 Movie-F: 포스터 이미지 업로드/교체 UI 제거 — 무비형은 영상 중심.
            posterImage/scene.imageData 데이터·resolveMoviePoster 렌더 fallback은 유지(하위호환).
            js-movie-poster-upload/-delete 핸들러는 UI 없어 inert. -->
     </div>
 
-    <!-- MOVIE-TOOL-1D: 본문 ON/OFF는 🎬 무비 모달로 복제됨 → 우측 중복 row 숨김
-         (edit-movie-dup-body-toggle). js-movie-body-enabled handler·bodyEnabled 저장 무수정. -->
-    <div class="edit-row edit-movie-dup-body-toggle">
-      <label class="edit-label">본문 사용</label>
-      <div class="edit-toggle-group">
-        <button type="button"
-          class="edit-toggle js-movie-body-enabled ${bodyEnabled ? 'active' : ''}"
-          data-val="on">📝 본문 사용</button>
-        <button type="button"
-          class="edit-toggle js-movie-body-enabled ${!bodyEnabled ? 'active' : ''}"
-          data-val="off">— 본문 없음</button>
-      </div>
-      <div class="edit-section-hint">본문을 함께 보여줄지 정합니다.</div>
-    </div>`;
+    <!-- PANEL-CLEANUP-1A: 본문 ON/OFF 우측 중복 row 제거 — 🎬 무비 모달이 주 동선.
+         js-movie-body-enabled 핸들러·bodyEnabled 저장·모달 _bindMovieToolModalActions는 무수정 유지. -->`;
   /* 2026-05-31 Movie-C: 무비형 단순화 — "자막 표시 방식(captionMode)" · "선택지 노출 시점
      (choiceReveal)" 토글 UI 제거. 마감 규칙은 항상 "영상 끝난 뒤 본문/선택지 노출"(렌더에서
      data-movie-reveal="end" 강제). captionMode/choiceReveal 저장 데이터는 보존(필드 삭제 X). */

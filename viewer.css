@@ -841,15 +841,9 @@ body.viewer-edit-readonly .edit-scene-style-popover button:not(.edit-scene-style
   display: none !important;
 }
 
-/* ── MOVIE-TOOL-1D: 🎬 무비 모달로 복제된 우측 중복 도구(영상 업로드/교체/삭제 · 본문 ON/OFF) 숨김 ──
-   영상/본문 컨트롤은 이제 🎬 무비 모달(#movie-tool-modal, #edit-panel 밖)이 주 동선.
-   _typeSectionMovieHtml 호출부에만 hook class를 달아 #edit-panel scope로 숨김 →
-   모달 사본(.movie-tool-video-section)·우측 미디어 상태 badge는 영향 없음.
-   삭제가 아니라 가시성만 숨김(DOM/handler/Storage helper/bodyEnabled 저장 유지). */
-#edit-panel .edit-movie-dup-video-tools,
-#edit-panel .edit-movie-dup-body-toggle {
-  display: none !important;
-}
+/* ── PANEL-CLEANUP-1A: 🎬 무비 모달로 이관된 우측 영상/본문 중복 렌더가 실제 제거됨(호출부 삭제)
+   → MOVIE-TOOL-1D dead hide rule(.edit-movie-dup-video-tools/.edit-movie-dup-body-toggle) 제거.
+   모달 사본(.movie-tool-video-section)·핸들러·Storage helper는 무관(유지). */
 
 /* ── PROJECT-SETTINGS-2C-C: picturebook 첫장면 우측의 중복 본문 카드 스타일/색계열(작품단위) 숨김 ──
    이제 상단 ⚙ 작품 설정이 주 동선. _pbToneSectionHtml 안에서 작품단위 row(card-style/color)만
@@ -893,21 +887,9 @@ body.viewer-edit-readonly .edit-scene-style-popover button:not(.edit-scene-style
   display: none !important;
 }
 
-/* ── TEXT-MODE-1D: text 우측의 중복 글자 스타일/테마/효과/모든 장면 적용 영역 숨김 ──
-   전부 🎭 장면 스타일 팝오버로 이관됨. _typeSectionTextHtml 호출부 wrapper만 #edit-panel scope로
-   숨김 → 팝오버 사본(#edit-scene-style-popover, #edit-panel 밖)·picturebook 무영향. 헤더/선택지
-   영역은 wrapper 밖이라 유지. 공용 helper엔 class 미부착. 가시성만 숨김(핸들러/저장 유지). */
-#edit-panel .edit-text-dup-style-sections {
-  display: none !important;
-}
-
-/* ── MOVIE-SETTINGS-1: movie 우측의 중복 작품 설정(무비 선택지 표시방식) 숨김 ──
-   이제 상단 ⚙ 작품 설정이 주 동선(movie-gated). 화면 방향은 이미 edit-project-dup-orientation(2B)로 숨김.
-   js-movie-deco는 우측 핸들러(_bindMovieDecoToggle)도 동일 class라, 우측 row에만 hook class를 달아
-   #edit-panel scope로 숨김 → ⚙ 팝오버 사본(#edit-panel 밖)은 노출. 영상 업로드·본문 ON/OFF는 미접촉. */
-#edit-panel .edit-movie-dup-project-settings {
-  display: none !important;
-}
+/* ── PANEL-CLEANUP-1A: text/movie 우측 중복 렌더가 실제 제거됨(호출부 삭제) →
+   TEXT-MODE-1D(.edit-text-dup-style-sections)·MOVIE-SETTINGS-1(.edit-movie-dup-project-settings)
+   dead hide rule 제거. helper는 🎭/⚙ 팝오버가 계속 사용. picturebook/cover dup rule은 유지. */
 /* 🎭 팝오버 내 "모든 장면 적용" 상단 여백(글자 스타일 컨트롤과 구분). */
 .edit-scene-style-apply-all { margin-top: 4px; }
 

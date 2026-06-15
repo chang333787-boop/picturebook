@@ -311,130 +311,9 @@ body.has-ai-view-toggle #hud {
   position: relative;   /* v46: 다듬기 모드 edit-panel absolute 기준 */
 }
 
-/* v46: 데스크탑(≥1025px) 다듬기 모드에서 edit-panel을 stage 옆이 아닌
-   우측 absolute overlay로. stage-wrap이 player-body 전체를 차지 →
-   페이지 카드 크기 = 감상 모드와 동일 → 같은 디바이스에서 줄바꿈 일치.
-   v47: 인스펙터 가려지는 영역 문제 — 토글 버튼으로 슬라이드 숨김 가능. */
-@media (min-width: 1025px) {
-  body.edit-mode-active #edit-panel {
-    position: absolute;
-    right: 0;
-    top: 0;
-    bottom: 0;
-    z-index: 50;
-    box-shadow: -8px 0 24px rgba(80,50,20,0.18);
-    transition: transform 0.25s ease;
-  }
-  body.edit-mode-active #edit-panel.is-collapsed {
-    transform: translateX(100%);
-  }
-  /* 2026-05-27 Phase 4-D-3: 내용 고급 편집 접힘 상태일 때 panel 폭 540 → 360.
-     · 그림책 일반/엔딩 default 접힘 → mode 패널만 표시되니 폭 여유 ↓ 가능
-     · 작품 영역 +180px 노출 — 태블릿 1280×800 가림 완화 (기존 1단 폭에 근접)
-     · 표지 / 그림책 외 모드 / 사용자 토글 펼침 → 클래스 박지 X → 540 복원
-     · :not(.is-collapsed) — panel 자체 슬라이드 아웃 토글과 충돌 차단 */
-  body.edit-mode-active #edit-panel.is-text-collapsed:not(.is-collapsed) {
-    width: 360px;
-    min-width: 340px;
-  }
-  body.edit-mode-active #edit-panel.is-text-collapsed:not(.is-collapsed) ~ .edit-panel-toggle {
-    right: 360px;
-  }
-}
-
-/* v47: 인스펙터 토글 버튼 — 다듬기 모드에서만, 우측 끝 중앙. */
-.edit-panel-toggle {
-  display: none;
-}
-body.edit-mode-active .edit-panel-toggle {
-  display: flex;
-  position: absolute;
-  top: 50%;
-  right: 540px;
-  transform: translate(50%, -50%);
-  width: 36px;
-  height: 64px;
-  align-items: center;
-  justify-content: center;
-  background: var(--surface, #fffaee);
-  border: 1px solid var(--border, rgba(80,50,20,0.18));
-  border-radius: 10px 0 0 10px;
-  border-right: none;
-  font-size: 16px;
-  cursor: pointer;
-  z-index: 51;
-  box-shadow: -4px 2px 8px rgba(80,50,20,0.12);
-  color: var(--text, #2b1f10);
-  font-family: var(--font-ui, 'Jua', sans-serif);
-  transition: right 0.25s ease;
-}
-body.edit-mode-active #edit-panel.is-collapsed ~ .edit-panel-toggle,
-body.edit-mode-active .edit-panel-toggle.is-panel-collapsed {
-  right: 0;
-}
-/* TOP-TOOLBAR-1: 태블릿/모바일 — 하단 다듬기 시트 접기/펼치기 복원.
-   데스크탑(≥1025)은 우측 패널 슬라이드 토글(위 @media) 그대로 유지.
-   좁은 화면에선 #edit-panel이 하단 시트(55vh/50vh)라 본문/그림/행동버튼을 가림 →
-   토글로 접어 작품 영역을 넓게. JS는 기존 #edit-panel.is-collapsed /
-   .edit-panel-toggle.is-panel-collapsed 토글(viewer-entry.js)을 그대로 재사용,
-   여기선 CSS로 표시·위치·접힘 동작만 정의(기능/저장/도구 이동 없음). */
-@media (max-width: 1024px) {
-  body.edit-mode-active #edit-panel {
-    transition: max-height 0.25s ease;
-  }
-  /* 접힘 = 시트 높이 0 → stage-wrap(flex:1)이 늘어나 본문/그림/버튼이 넓게 보임.
-     다듬기 모드는 viewer-frame이 stage를 100%/100%로 채우므로 별도 letterbox 재계산 불요. */
-  body.edit-mode-active #edit-panel.is-collapsed {
-    max-height: 0;
-    min-height: 0;
-    padding-top: 0;
-    padding-bottom: 0;
-    border-top: none;
-    overflow: hidden;
-  }
-  /* 접기 핸들 — 시트 상단 중앙 가로 pill. 펼침 시 시트 윗가장자리(bottom:55vh),
-     접힘 시 화면 맨 아래(bottom:0)에 떠 항상 다시 열 수 있음(발견성 유지). */
-  body.edit-mode-active .edit-panel-toggle {
-    display: flex;
-    position: fixed;
-    top: auto;
-    right: auto;
-    left: 50%;
-    bottom: 55vh;
-    transform: translateX(-50%);
-    width: auto;
-    height: auto;
-    min-width: 132px;
-    padding: 6px 20px;
-    border: 1px solid var(--border, rgba(80,50,20,0.18));
-    border-bottom: none;
-    border-radius: 12px 12px 0 0;
-    box-shadow: 0 -4px 12px rgba(80,50,20,0.14);
-    font-size: 0;            /* JS가 박는 ▶/◀ 글자 숨김 — 가로 핸들엔 ::after 라벨 사용 */
-    z-index: 60;
-    transition: bottom 0.25s ease;
-  }
-  body.edit-mode-active .edit-panel-toggle::after {
-    content: '⌄ 접기';
-    font-size: 13px;
-    font-family: var(--font-ui, 'Jua', sans-serif);
-    color: var(--text, #2b1f10);
-    letter-spacing: 0.02em;
-  }
-  body.edit-mode-active .edit-panel-toggle.is-panel-collapsed {
-    bottom: 0;
-    right: auto;   /* 위 데스크탑용 .is-panel-collapsed{right:0} 무력화 — 가로 pill 유지 */
-  }
-  body.edit-mode-active .edit-panel-toggle.is-panel-collapsed::after {
-    content: '⌃ 설정 열기';
-  }
-  /* 시트 안 장면 nav 슬림화 — 세로 여백만 줄임(구조/이벤트/이동 로직 불변). */
-  body.edit-mode-active #edit-panel .edit-nav {
-    padding: 8px 0 6px;
-    gap: 6px;
-    margin-bottom: 6px;
-  }
-}
+/* PANEL-CSS-CLEANUP: #edit-panel/.edit-panel-toggle 레이아웃·슬라이드 토글 CSS 제거
+   (해당 DOM은 PANEL-BACKBONE-2-i에서 삭제됨 → inert). 편집 동선은 미리보기 frame
+   contenteditable + #scene-navigator + #edit-lock-alert + 팝오버가 전담. */
 
 /* ── TOP-TOOLBAR-2A: 일반 장면 "🔗 버튼" 상단 팝오버 ──
    HUD의 🔗 버튼을 누르면 행동버튼 개수/선택지 연결 도구를 상단에 띄움(1단 복제).
@@ -799,13 +678,8 @@ body.viewer-edit-readonly .edit-scene-style-popover button:not(.edit-scene-style
    dead hide rule 제거. 공용 helper는 🎨 #edit-cover-popover·⚙ 팝오버(#edit-panel 밖)·
    cover-less edge가 계속 사용(무영향). */
 
-/* ── PROJECT-SETTINGS-2B (+ PANEL-CLEANUP-1B): 화면 방향 우측 중복 숨김.
-   pbtheme(picturebook 양옆 마감 테마)는 1B에서 우측 렌더 제거됨 → 셀렉터에서 빠짐.
-   orientation은 movie 우측(_typeSectionMovieHtml)이 아직 hidden 렌더하므로 rule 유지 →
-   ⚙ 작품 설정이 주 동선. ⚙ 팝오버(#edit-panel 밖)·하위모드는 영향 없음. */
-#edit-panel .edit-project-dup-orientation {
-  display: none !important;
-}
+/* PANEL-CSS-CLEANUP: #edit-panel .edit-project-dup-orientation 숨김 규칙 제거
+   (#edit-panel DOM 삭제로 inert). 화면 방향은 ⚙ 작품 설정 팝오버가 전담. */
 
 /* ── PANEL-CLEANUP-1A: 🎬 무비 모달로 이관된 우측 영상/본문 중복 렌더가 실제 제거됨(호출부 삭제)
    → MOVIE-TOOL-1D dead hide rule(.edit-movie-dup-video-tools/.edit-movie-dup-body-toggle) 제거.
@@ -823,32 +697,9 @@ body.viewer-edit-readonly .edit-scene-style-popover button:not(.edit-scene-style
 /* 🎭 팝오버 내 "모든 장면 적용" 상단 여백(글자 스타일 컨트롤과 구분). */
 .edit-scene-style-apply-all { margin-top: 4px; }
 
-/* ── v129: 읽기전용 상태 — 잠금 박은 거 박혀있는데 "내가 수정하기" 누르기 전 상태 ──
-   원인 사건: 다른 친구가 수정 중이라 잠금 박혔는데 인스펙터 버튼/표지 입력칸이 눌리던 문제.
-   허용: 잠금 배너 액션 / 장면 이동 nav / HUD 액션(감상테스트·루트·구조·브랜치로) / 단순 보기·확대·스크롤.
-   차단: 인스펙터 모든 입력/버튼 / 표지·본문 contenteditable / 이미지 핸들 / HUD 저장. */
-body.viewer-edit-readonly #edit-panel input:not([type=button]):not([type=submit]),
-body.viewer-edit-readonly #edit-panel textarea,
-body.viewer-edit-readonly #edit-panel select,
-body.viewer-edit-readonly #edit-panel button {
-  pointer-events: none !important;
-  opacity: 0.55 !important;
-  cursor: not-allowed !important;
-  filter: grayscale(0.25);
-}
-/* 예외: 잠금 배너 액션 + 장면 이동 nav + 탭 (장면 안 행동버튼 분기 미리보기) — 살림 */
-body.viewer-edit-readonly #edit-panel .js-edit-lock-recheck,
-body.viewer-edit-readonly #edit-panel .js-edit-lock-takeover,
-body.viewer-edit-readonly #edit-panel .js-edit-lock-force-takeover,
-body.viewer-edit-readonly #edit-panel .js-edit-nav-prev,
-body.viewer-edit-readonly #edit-panel .js-edit-nav-next,
-body.viewer-edit-readonly #edit-panel .js-edit-nav-jump,
-body.viewer-edit-readonly #edit-panel .js-edit-tab {
-  pointer-events: auto !important;
-  opacity: 1 !important;
-  cursor: pointer !important;
-  filter: none !important;
-}
+/* PANEL-CSS-CLEANUP: v129 읽기전용 #edit-panel 입력/버튼 차단·예외 규칙 제거
+   (#edit-panel DOM 삭제로 inert). 잠금 중 readonly 예외는 #scene-navigator(2601~)·
+   #edit-lock-alert(2622~)에서, frame contenteditable 차단은 아래 규칙이 전담. */
 /* 표지/본문 contenteditable — 인스펙터 X, viewer-frame 직접 수정도 차단 */
 body.viewer-edit-readonly #viewer-frame [contenteditable] {
   pointer-events: none !important;
@@ -2988,17 +2839,13 @@ body.viewer-edit-readonly #edit-lock-alert button {
   .choices-bottom { padding: 12px 16px 20px; gap: 8px; }
   .choice-btn     { font-size: 15px; padding: 12px 16px; }
   .text-box       { padding: 18px 20px; }
-  #edit-panel     { width: 100%; min-width: unset; max-height: 50vh; border-left: none; border-top: 1px solid var(--border); }
   .player-body    { flex-direction: column; }
-  /* TOP-TOOLBAR-1: 모바일 시트는 50vh → 펼침 핸들도 그 윗가장자리에 맞춤(접힘은 위 규칙대로 bottom:0). */
-  body.edit-mode-active .edit-panel-toggle { bottom: 50vh; }
 }
 
 /* 태블릿 — 다듬기 인스펙터 패널만 하단 시트.
    사용자가 "다듬기 칸 못 내림" 보고 → 패널이 우측 고정이라 좁은 화면에서 본문 잘림.
    하단 시트로 전환하면 본문은 위, 인스펙터는 아래 → 스크롤 가능. */
 @media (min-width: 601px) and (max-width: 1024px) {
-  #edit-panel     { width: 100%; min-width: unset; max-height: 55vh; border-left: none; border-top: 1px solid var(--border); }
   .player-body    { flex-direction: column; }
 }
 
@@ -7775,9 +7622,6 @@ body.viewer-edit-readonly .movie-tool-modal button:not(.movie-tool-close) {
    3. 도구 패널 주요 버튼 최소 터치 영역
    PC 마우스(coarse 아님)·모바일 폰(768 미만)은 영향 없음. */
 @media (pointer: coarse) and (min-width: 768px) {
-  #edit-panel input,
-  #edit-panel textarea,
-  #edit-panel select,
   .edit-text-input,
   .js-edit-text-input {
     font-size: 16px;

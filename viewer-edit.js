@@ -1372,7 +1372,9 @@ function _sceneNavigatorHtml(scene) {
             <span class="edit-nav-badge ${typeClass}">${type}</span>
             <span class="edit-nav-counter">${idx + 1} / ${total}</span>
           </div>
-          <div class="edit-nav-info-title" title="${escHtml(title)}">${escHtml(title)}</div>
+          <!-- NAV-TITLE-1A: navigator 큰 제목(edit-nav-info-title) 제거 — 미리보기 제목과 중복이고
+               제목 편집이 navigator에 실시간 반영 안 돼 stale했음. 제목은 미리보기·select·DB에 유지.
+               navigator는 장면 N·유형·N/총만 표시. -->
         </div>
         <button class="edit-nav-btn js-scene-nav-next" ${hasNext ? '' : 'disabled'} title="다음 장면">→</button>
       </div>

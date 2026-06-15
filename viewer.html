@@ -13,7 +13,7 @@
   <title>가지 branch — 작품 보기</title>
   <link href="https://fonts.googleapis.com/css2?family=Jua&family=Nanum+Gothic:wght@400;700&family=Gowun+Batang:wght@400;700&family=Black+Han+Sans&family=Nanum+Pen+Script&family=Gaegu:wght@400;700&family=Cormorant+Garamond:wght@400;700&display=swap" rel="stylesheet"/>
   <link href="https://cdn.jsdelivr.net/gh/quiple/galmuri/dist/galmuri.css" rel="stylesheet"/>
-  <link rel="stylesheet" href="viewer.css?v=140moviehide2wintab2deadcss2advedithide1absorbtitle1advedithidetext1toptoolbar1toptoolbar2atoptoolbar2btoptoolbar3atoptoolbar3btoptoolbar4atoptoolbar4bprojectsettings1aprojectsettings1bprojectsettings1chudai1bprojectsettings2bprojectsettings2ccpbimage1bpbimage1cpbimage1dscenestyle1scenestyle1cglyphstyle1cglyphstyle1dglyphapplyalltextmode1dmoviesettings1movietool1abmovietool1dpanelcleanup1apanelcleanup1bpanelcleanup1cbackbone1aibackbone1aii"/>
+  <link rel="stylesheet" href="viewer.css?v=140moviehide2wintab2deadcss2advedithide1absorbtitle1advedithidetext1toptoolbar1toptoolbar2atoptoolbar2btoptoolbar3atoptoolbar3btoptoolbar4atoptoolbar4bprojectsettings1aprojectsettings1bprojectsettings1chudai1bprojectsettings2bprojectsettings2ccpbimage1bpbimage1cpbimage1dscenestyle1scenestyle1cglyphstyle1cglyphstyle1dglyphapplyalltextmode1dmoviesettings1movietool1abmovietool1dpanelcleanup1apanelcleanup1bpanelcleanup1cbackbone1aibackbone1aiibackbone2i"/>
   <link rel="stylesheet" href="v03-modes.css?v=140movieh3wintab1"/>
   <link rel="stylesheet" href="pb-tone.css?v=16"/>
   <!-- Phase 0.5 mock — AI 기능 UI (step1: 진입 버튼만) -->
@@ -128,12 +128,9 @@
       </div>
     </div>
 
-    <!-- edit panel (editMode일 때만 표시) -->
-    <div id="edit-panel"></div>
-
-    <!-- v47: 인스펙터 토글 — 다듬기 모드에서만 보임 (CSS) -->
-    <button class="edit-panel-toggle" id="edit-panel-toggle"
-      title="인스펙터 펼치기/접기" aria-label="인스펙터 펼치기/접기">◀</button>
+    <!-- PANEL-BACKBONE-2-i: 우측 1단 #edit-panel + 토글(#edit-panel-toggle) DOM 제거 —
+         편집은 미리보기 frame contenteditable + 상단 #scene-navigator/#edit-lock-alert/팝오버가 전부 담당.
+         renderEditPanel은 `if(!panel)return`로 자동 no-op(본체·panel binds·CSS 정리는 2-ii). -->
 
   </div>
 </div>

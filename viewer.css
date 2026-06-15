@@ -2704,6 +2704,34 @@ body[data-page-orientation="portrait"] .cover-page {
 .edit-nav-jump:focus  { outline: none; border-color: var(--accent); background-color: rgba(88,166,255,0.06); }
 .edit-nav-jump option { background: var(--surface); color: var(--text); }
 
+/* ── PANEL-BACKBONE-1A-i: HUD 아래 독립 장면 이동 바(#edit-panel 밖) ──
+   #player-screen(flex column)에서 #hud와 .player-body(flex:1) 사이의 thin row.
+   내부는 기존 .edit-nav-* 글로벌 스타일 재사용(2563~). 빈 상태면 공간 0. */
+.scene-navigator:empty { display: none; }
+#scene-navigator {
+  position: relative;
+  z-index: 50;
+  flex-shrink: 0;
+  padding: 6px 14px 8px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+#scene-navigator .edit-nav {
+  padding: 0;
+  margin: 0;
+  border-bottom: 0;
+  gap: 6px;
+}
+/* readonly 예외 — 잠금 중에도 장면 이동 허용(기존 839~849는 #edit-panel scope라 미적용).
+   저장/편집 컨트롤 차단은 그대로 두고, 이 바(nav)만 살린다. */
+body.viewer-edit-readonly #scene-navigator,
+body.viewer-edit-readonly #scene-navigator button,
+body.viewer-edit-readonly #scene-navigator select {
+  pointer-events: auto !important;
+  opacity: 1 !important;
+  cursor: pointer !important;
+}
+
 /* ── 드래그 안내 힌트 ── */
 .edit-drag-hint {
   background: rgba(88,166,255,0.08);

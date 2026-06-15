@@ -1326,6 +1326,92 @@ function _bindNavEvents(panel) {
 }
 
 /* ================================================================
+   PANEL-BACKBONE-1A-i: HUD 아래 독립 장면 이동 바(#edit-panel 밖).
+   ─────────────────────────────────────────────────────────────
+   · _editNavHtml/_bindNavEvents와 동일 코어(editNavigateTo)를 distinct selector
+     (js-scene-nav-*·id=scene-nav-jump)로 복제 — 기존 panel nav와 ID 충돌 없이 공존.
+   · 갱신은 renderCurrentScene이 호출(currentSceneId 갱신 후). viewer 모드/scene 없으면 비움
+     → .scene-navigator:empty가 공간 제거. 기존 panel nav는 무수정(1A-ii에서 제거 예정).
+   ================================================================ */
+function _sceneNavigatorHtml(scene) {
+  const list  = _editSceneList();
+  const idx   = _currentSceneIndex();
+  const total = list.length;
+  const num   = scene.id;
+  const title = scene.title || '(제목 없음)';
+  const type  = _sceneTypeLabel(scene);
+
+  const hasPrev = idx > 0;
+  const hasNext = idx < total - 1;
+
+  const typeClass = (scene.type === 'cover' || scene.isCover) ? 'edit-nav-badge--cover'
+                  : scene.isEnding ? 'edit-nav-badge--ending'
+                                    : 'edit-nav-badge--normal';
+
+  /* 장면 목록 option — 표지 최우선/엔딩 마지막/그 외 id순 (panel nav와 동일 정렬). */
+  const optionsHtml = list.slice().sort((a, b) => {
+    const rank = s => ((s.type === 'cover' || s.isCover) ? 0 : s.isEnding ? 2 : 1);
+    const r = rank(a) - rank(b);
+    if (r !== 0) return r;
+    return Number(a.id) - Number(b.id);
+  }).map(s => {
+    const t        = _sceneTypeLabel(s);
+    const titleTxt = s.title ? s.title.slice(0, 20) : '(제목 없음)';
+    const label    = `${s.id} · ${titleTxt} · ${t}`;
+    const sel      = s.id === scene.id ? 'selected' : '';
+    return `<option value="${escHtml(s.id)}" ${sel}>${escHtml(label)}</option>`;
+  }).join('');
+
+  return `
+    <div class="edit-nav scene-navigator-inner">
+      <div class="edit-nav-row edit-nav-row--main">
+        <button class="edit-nav-btn js-scene-nav-prev" ${hasPrev ? '' : 'disabled'} title="이전 장면">←</button>
+        <div class="edit-nav-info">
+          <div class="edit-nav-info-top">
+            <span class="edit-nav-num">장면 ${num}</span>
+            <span class="edit-nav-badge ${typeClass}">${type}</span>
+            <span class="edit-nav-counter">${idx + 1} / ${total}</span>
+          </div>
+          <div class="edit-nav-info-title" title="${escHtml(title)}">${escHtml(title)}</div>
+        </div>
+        <button class="edit-nav-btn js-scene-nav-next" ${hasNext ? '' : 'disabled'} title="다음 장면">→</button>
+      </div>
+      <div class="edit-nav-row edit-nav-row--jump">
+        <select class="edit-nav-jump js-scene-nav-jump" id="scene-nav-jump" title="장면 목록에서 선택">
+          ${optionsHtml}
+        </select>
+      </div>
+    </div>`;
+}
+
+function _bindSceneNavigatorEvents(root) {
+  if (!root) return;
+  const list = _editSceneList();
+  const idx  = _currentSceneIndex();
+  root.querySelector('.js-scene-nav-prev')?.addEventListener('click', () => {
+    if (idx > 0) editNavigateTo(list[idx - 1].id);
+  });
+  root.querySelector('.js-scene-nav-next')?.addEventListener('click', () => {
+    if (idx < list.length - 1) editNavigateTo(list[idx + 1].id);
+  });
+  root.querySelector('.js-scene-nav-jump')?.addEventListener('change', e => {
+    const targetId = e.target.value;
+    if (targetId && targetId !== ViewerState.currentSceneId) {
+      editNavigateTo(targetId);
+    }
+  });
+}
+
+function renderSceneNavigator() {
+  const nav = document.getElementById('scene-navigator');
+  if (!nav) return;
+  const scene = ViewerState.scenes[ViewerState.currentSceneId];
+  if (!ViewerState.editMode || !scene) { nav.innerHTML = ''; return; }
+  nav.innerHTML = _sceneNavigatorHtml(scene);
+  _bindSceneNavigatorEvents(nav);
+}
+
+/* ================================================================
    P5-IMAGE-LOCK-1: AI 이미지 보기(aiS1/aiS2) 중 원본 이미지 편집 잠금
    ────────────────────────────────────────────────────────────────
    · viewer-ai.js의 _getAiImageViewMode(이미지 전용 보기 모드)를 읽어 판정.

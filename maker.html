@@ -687,12 +687,13 @@
     }
     .tb-more-menu > button.danger:hover { background: rgba(200,80,60,0.10); }
 
-    /* v36 + BRANCH-TOPBAR-1B: toolbar 2줄 분리.
+    /* v36 + BRANCH-TOPBAR-1B/1D: toolbar 2줄 분리.
        1줄: 좌(정체성) + 중(핵심 행동), 2줄: 우(점검·파일·줌·상태·범례 — 풀폭이라 한 줄에 정렬).
-       breakpoint 1366→1900: 우측 전체 자연폭(~880px)+좌·중(~930px)이 한 줄에 들어가려면 ~1870px 필요.
-       그 이하에선 우측을 1fr(좁은 칸)에 욱여넣어 3줄로 뭉개지던 걸, 풀폭 2줄로 정돈.
-       진짜 한 줄은 초광폭(≥1900)에서만. (일반 데스크탑 한 줄 복원은 1C 더보기로 우측 축소 후) */
-    @media (max-width: 1900px) {
+       breakpoint = 2240px(1D 실측): symmetric 1fr-auto-1fr 한 줄은 우측 자연폭(~846px)이 1fr 칸에
+       들어가야 해서 ~2240px 이상 필요(1920·2048 등 일반 폭은 1fr이 좁아 3줄로 뭉개짐).
+       그래서 ~2240 이하는 전부 풀폭 깨끗한 2줄, 한 줄은 4K급(≥2241)에서만.
+       ("무리한 한 줄보다 예쁜 2줄" — 1C에서 우측 축소했지만 한 줄엔 여전히 폭 부족.) */
+    @media (max-width: 2240px) {
       #toolbar {
         grid-template-columns: auto 1fr;
         grid-template-rows: auto auto;
@@ -2693,8 +2694,9 @@
   <!-- ── 우측: 보조 도구 + 줌 + 저장상태 ── -->
   <div class="tb-section tb-section--right">
 
-    <!-- 그룹: 점검 -->
-    <div class="tb-group">
+    <!-- 그룹: 점검/구조 — BRANCH-TOPBAR-1C-FIX: 🔗 묶음 이동은 파일관리가 아니라 구조 편집 핵심 →
+         더보기 메뉴에서 꺼내 점검 그룹으로 복귀(id/toggleGroupMove 불변). -->
+    <div class="tb-group tb-check-group">
       <span class="tb-group-label">점검</span>
       <div class="tb-group-btns">
         <button class="tb-btn tb-btn-check" id="btn-check" title="장면 연결 구조를 점검해요">🔍 구조 점검</button>
@@ -2707,11 +2709,14 @@
           title="감상 시작·다시 하기 장면을 설정해요">
           ⚙ 시작점
         </button>
+        <button class="tb-btn" id="btn-group-move"
+          style="background:#f0f4ff;color:var(--primary);border:1.5px solid #c0d4f5;"
+          title="여러 장면 묶음 이동">🔗 묶음 이동: 꺼짐</button>
       </div>
     </div>
 
-    <!-- 그룹: 파일 (고급) — BRANCH-TOPBAR-1C: 💾 저장만 상단, 불러오기·묶음 이동·전체 초기화는 ⋯ 더보기 메뉴로.
-         버튼 id/handler(exportJSON·importJSON·clearAll·toggleGroupMove)는 그대로, 위치만 이동. -->
+    <!-- 그룹: 파일 (고급) — BRANCH-TOPBAR-1C/1D: 💾 저장만 상단, 불러오기·전체 초기화는 ⋯ 더보기 메뉴로.
+         (묶음 이동은 1C-FIX에서 점검 그룹으로 복귀.) id/handler(exportJSON·importJSON·clearAll)는 그대로. -->
     <div class="tb-group tb-file-group adv-only">
       <span class="tb-group-label">파일</span>
       <div class="tb-group-btns tb-file-actions">
@@ -2719,29 +2724,28 @@
         <input type="file" id="file-input" accept=".json" style="display:none"/>
         <div class="tb-more-wrap">
           <button id="btn-file-more" class="tb-btn tb-btn--ghost" type="button"
-            aria-haspopup="menu" aria-expanded="false" title="불러오기·묶음 이동·전체 초기화">⋯ 파일/관리</button>
+            aria-haspopup="menu" aria-expanded="false" title="불러오기·전체 초기화">⋯ 파일/관리</button>
           <div id="file-more-menu" class="tb-more-menu" role="menu" hidden>
             <button id="btn-import" type="button" role="menuitem" title="JSON 파일 불러오기">📂 불러오기</button>
-            <button id="btn-group-move" type="button" role="menuitem" title="여러 장면 묶음 이동">🔗 묶음 이동: 꺼짐</button>
             <button id="btn-clear" class="danger" type="button" role="menuitem" title="모든 장면을 삭제하고 빈 작품으로 초기화합니다" aria-label="전체 초기화">🗑 전체 초기화</button>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- 유틸: 줌 -->
-    <div class="adv-only" style="display:flex;align-items:center;gap:4px;background:#f0f4ff;border-radius:50px;padding:3px 8px;border:1.5px solid #d0e0f5;">
-      <button id="btn-zoom-out" style="border:none;background:none;font-size:16px;cursor:pointer;line-height:1;color:var(--primary);font-weight:bold;">−</button>
-      <span id="zoom-label" style="font-family:var(--font-h);font-size:12px;color:var(--primary);min-width:36px;text-align:center;">100%</span>
-      <button id="btn-zoom-in" style="border:none;background:none;font-size:16px;cursor:pointer;line-height:1;color:var(--primary);font-weight:bold;">＋</button>
-      <button id="btn-zoom-reset" style="border:none;background:none;font-size:11px;cursor:pointer;color:var(--muted);">↺</button>
+    <!-- 유틸: 줌 — BRANCH-TOPBAR-1D: 파란 pill → 중립 조용 톤(유틸 위계 낮춤). 기능/id 불변. -->
+    <div class="tb-zoom adv-only" style="display:flex;align-items:center;gap:4px;background:transparent;border-radius:50px;padding:3px 8px;border:1px solid rgba(80,50,20,0.14);">
+      <button id="btn-zoom-out" style="border:none;background:none;font-size:16px;cursor:pointer;line-height:1;color:var(--muted);font-weight:bold;">−</button>
+      <span id="zoom-label" style="font-family:var(--font-h);font-size:12px;color:var(--muted);min-width:36px;text-align:center;">100%</span>
+      <button id="btn-zoom-in" style="border:none;background:none;font-size:16px;cursor:pointer;line-height:1;color:var(--muted);font-weight:bold;">＋</button>
+      <button id="btn-zoom-reset" style="border:none;background:none;font-size:11px;cursor:pointer;color:var(--muted);opacity:.7;">↺</button>
     </div>
 
     <!-- 저장 상태 + 도움말 -->
     <div class="tb-status-group">
       <button id="mode-toggle-btn" style="display:none;" title="간단히/더보기 토글">⚙️ 더보기</button>
       <div id="save-status"><div id="save-dot"></div><span id="save-label">-</span></div>
-      <button class="tb-btn adv-only" id="btn-help" style="background:#f0f4ff;color:var(--primary);border:1.5px solid var(--primary)" title="도움말">❓</button>
+      <button class="tb-btn adv-only" id="btn-help" style="background:transparent;color:var(--muted);border:1px solid rgba(80,50,20,0.14)" title="도움말">❓</button>
     </div>
 
     <!-- 범례 (작은) -->

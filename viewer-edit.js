@@ -1243,90 +1243,9 @@ function _sceneRoles(scene) {
   };
 }
 
-/* ================================================================
-   상단 장면 네비게이터 HTML
-   [ ← 이전 ]  [ 장면 2 · 제목 · 유형 ]  [ 다음 → ]
-   ================================================================ */
-function _editNavHtml(scene) {
-  const list  = _editSceneList();
-  const idx   = _currentSceneIndex();
-  const total = list.length;
-  const num   = scene.id;
-  const title = scene.title || '(제목 없음)';
-  const type  = _sceneTypeLabel(scene);
-  const roles = _sceneRoles(scene);
-
-  const hasPrev = idx > 0;
-  const hasNext = idx < total - 1;
-
-  /* 유형별 배지 클래스 — 표지/일반/엔딩 3종 */
-  const typeClass = (scene.type === 'cover' || scene.isCover) ? 'edit-nav-badge--cover'
-                  : scene.isEnding ? 'edit-nav-badge--ending'
-                                    : 'edit-nav-badge--normal';
-
-  /* COVER-START-1: 다듬기 nav의 '첫 감상 시작'/'다시 시작점' 역할 배지 표시 제거.
-     roles(_sceneRoles) 계산은 유지 — 화면 표시만 끔. */
-  void roles;
-  const roleBadgesHtml = '';
-
-  /* 장면 목록 option — v39: 표지 최우선 / 엔딩 마지막 / 그 외 id순.
-     ←/→ 이동은 _editSceneList() 원본(id순) 그대로 사용 — 드롭다운 정렬만 별도. */
-  const optionsHtml = list.slice().sort((a, b) => {
-    const rank = s => ((s.type === 'cover' || s.isCover) ? 0 : s.isEnding ? 2 : 1);
-    const r = rank(a) - rank(b);
-    if (r !== 0) return r;
-    return Number(a.id) - Number(b.id);
-  }).map(s => {
-    const t     = _sceneTypeLabel(s);
-    /* COVER-START-1: 드롭다운 option의 [첫 감상]/[다시 시작점] 표시 제거. */
-    const titleTxt = s.title ? s.title.slice(0, 20) : '(제목 없음)';
-    const label = `${s.id} · ${titleTxt} · ${t}`;
-    const sel   = s.id === scene.id ? 'selected' : '';
-    return `<option value="${escHtml(s.id)}" ${sel}>${escHtml(label)}</option>`;
-  }).join('');
-
-  return `
-    <div class="edit-nav">
-      <div class="edit-nav-row edit-nav-row--main">
-        <button class="edit-nav-btn js-edit-nav-prev" ${hasPrev ? '' : 'disabled'} title="이전 장면">←</button>
-        <div class="edit-nav-info">
-          <div class="edit-nav-info-top">
-            <span class="edit-nav-num">장면 ${num}</span>
-            <span class="edit-nav-badge ${typeClass}">${type}</span>
-            ${roleBadgesHtml}
-            <span class="edit-nav-counter">${idx + 1} / ${total}</span>
-          </div>
-          <div class="edit-nav-info-title" title="${escHtml(title)}">${escHtml(title)}</div>
-        </div>
-        <button class="edit-nav-btn js-edit-nav-next" ${hasNext ? '' : 'disabled'} title="다음 장면">→</button>
-      </div>
-      <div class="edit-nav-row edit-nav-row--jump">
-        <select class="edit-nav-jump js-edit-nav-jump" id="edit-nav-jump" title="장면 목록에서 선택">
-          ${optionsHtml}
-        </select>
-      </div>
-    </div>`;
-}
-
-function _bindNavEvents(panel) {
-  const list = _editSceneList();
-  const idx  = _currentSceneIndex();
-
-  panel.querySelector('.js-edit-nav-prev')?.addEventListener('click', () => {
-    if (idx > 0) editNavigateTo(list[idx - 1].id);
-  });
-  panel.querySelector('.js-edit-nav-next')?.addEventListener('click', () => {
-    if (idx < list.length - 1) editNavigateTo(list[idx + 1].id);
-  });
-
-  /* 장면 목록 점프 — change 이벤트로 즉시 이동 */
-  panel.querySelector('.js-edit-nav-jump')?.addEventListener('change', e => {
-    const targetId = e.target.value;
-    if (targetId && targetId !== ViewerState.currentSceneId) {
-      editNavigateTo(targetId);
-    }
-  });
-}
+/* PANEL-DEADCODE-1: (구)1단 패널 nav HTML(_editNavHtml)·바인딩(_bindNavEvents) 제거 —
+   PANEL-BACKBONE-1A에서 HUD 아래 #scene-navigator(_sceneNavigatorHtml/_bindSceneNavigatorEvents)로
+   이전, 1A-ii에서 호출 제거됨. 0 active caller dead. 코어 editNavigateTo는 무관(유지). */
 
 /* ================================================================
    PANEL-BACKBONE-1A-i: HUD 아래 독립 장면 이동 바(#edit-panel 밖).
@@ -4039,32 +3958,9 @@ function _bindPbGlyphStyleActions(root, scene) {
   });
 }
 
-function _pbInlineStyleHtml(scene) {
-  /* 2026-05-25 Phase 1: 섹션 collapsible 토글(.edit-collapsible-header/.edit-collapsible-body).
-     GLYPH-STYLE-1B: 컨트롤 마크업은 _pbGlyphStyleSectionHtml로 분리(렌더 결과 동일).
-     "모든 장면 적용"은 여기 우측 전용으로 유지. */
-  const collapsed = _pbInlineStyleCollapsed;
-  return `
-    <div class="edit-pb-inline-style">
-      <button type="button"
-        class="edit-collapsible-header js-pb-inline-style-toggle ${collapsed ? 'is-collapsed' : 'is-expanded'}"
-        aria-expanded="${!collapsed}">
-        <span class="edit-collapsible-header-text">🅰 글자 스타일</span>
-        <span class="edit-collapsible-header-chev">${collapsed ? '▼' : '▲'}</span>
-      </button>
-      ${collapsed ? '' : `
-        <div class="edit-collapsible-body edit-pb-inline-style-body">
-          <!-- GLYPH-STYLE-1D: 우측 글자 스타일 컨트롤은 상단 🎭 장면 스타일이 주 동선 → 이 우측
-               호출부만 wrapper로 감싸 #edit-panel scope 숨김. 공용 _pbGlyphStyleSectionHtml엔 class
-               안 달음 → 팝오버 사본(#edit-scene-style-popover, #edit-panel 밖)은 그대로 노출.
-               "모든 장면 적용"은 wrapper 밖에 둬 우측 유지. 핸들러/저장 무수정. -->
-          <div class="edit-pb-dup-glyph-controls">
-            ${_pbGlyphStyleSectionHtml(scene)}
-          </div>
-          ${_applyStyleAllButtonHtml(scene)}
-        </div>`}
-    </div>`;
-}
+/* PANEL-DEADCODE-1: _pbInlineStyleHtml(우패널 전용 글자 스타일 collapsible) 제거 — 글자 스타일은
+   🎭 장면 스타일 팝오버(_pbGlyphStyleSectionHtml)가 주 동선. PANEL-EMPTY-1에서 dead 계산까지 제거돼
+   0 active caller. 공용 _pbGlyphStyleSectionHtml/_applyStyleAllButtonHtml은 무관(유지). */
 
 /* ── 3) 무비형 전용 섹션 ───────────────────────────────────────
    포함:
@@ -5716,85 +5612,10 @@ const _PB_TONE_ENDING_TONES = [
   { val: 'afterglow', label: '여운 마감' },
 ];
 
-function _pbToneSectionHtml(scene) {
-  if (!scene || scene.type === 'cover') return '';
-
-  const proj = (ViewerState && ViewerState.project) || {};
-  const entryId = proj.entrySceneId;
-  const isFirstScene = entryId
-    ? String(scene.id) === String(entryId)
-    : (scene.isStart === true);
-  const isEnding = !!scene.isEnding;
-
-  /* v138-fix6: editable 인자 박지 X. 기존 다른 UI(페이지 방향·하위 모드 등)
-     패턴과 일치 — HTML disabled 안 박고 클릭 핸들러에서 _editText.editable 검사.
-     시각 잠금은 body.viewer-edit-readonly 클래스로 CSS 처리. 잠금 확보 후
-     클래스 풀리면 즉시 활성화. 옛엔 첫 렌더 시 disabled 박힌 채로 잠금 확보돼도
-     안 풀려 비활성 그대로 보이는 버그. */
-
-  /* 작품 단위 (장면 1에서만) */
-  const styleRowHtml = isFirstScene
-    ? _pbToneRowHtml('card-style', '본문 카드 스타일',
-        '질감·테두리 형태·둥글기. 색은 별도예요.',
-        _PB_TONE_CARD_STYLES, proj.textCardStyle || '')
-    : '';
-  const colorRowHtml = isFirstScene
-    ? _pbToneRowHtml('card-color', '색계열',
-        '본문 카드의 기본 색 방향.',
-        _PB_TONE_CARD_COLORS, proj.textCardColor || '')
-    : '';
-
-  /* 장면 단위 — 일반/엔딩 분기 */
-  const sceneRowHtml = !isEnding
-    ? _pbToneRowHtml('card-tone', '본문 카드 톤',
-        '본문 카드의 색감 정도를 조절해요. 숫자가 높을수록 색감이 더 진해져요. 학생 그림과 선택 버튼은 바뀌지 않아요.',
-        _PB_TONE_SCENE_TONES, scene.pbCardTone || '')
-    : '';
-  const endRowHtml = isEnding
-    ? _pbToneRowHtml('card-end-tone', '엔딩 마감톤',
-        '결말의 느낌에 맞게 마감 분위기를 정해요.',
-        _PB_TONE_ENDING_TONES, scene.pbEndingTone || '')
-    : '';
-
-  /* 박힐 내용이 하나도 없으면 섹션 자체 박지 X */
-  if (!styleRowHtml && !colorRowHtml && !sceneRowHtml && !endRowHtml) return '';
-
-  const startNote = isFirstScene
-    ? '<div class="edit-section-hint">🎨 본문 카드 스타일·색계열은 작품 전체에 적용돼요. 장면마다 따로 정하지 않아요.</div>'
-    : '';
-
-  /* 2026-05-25 Phase 1 (fix): 섹션 collapsible 토글.
-     · wrapper (.edit-submode-block)가 이미 카드 자체 → 헤더는 평면적으로 박힘.
-     · 새 class .edit-collapsible-header / .edit-collapsible-body 박힘. */
-  const collapsed = _pbToneCollapsed;
-  return `
-    <div class="edit-submode-block edit-submode-block--pb-tone">
-      <button type="button"
-        class="edit-collapsible-header js-pb-tone-toggle ${collapsed ? 'is-collapsed' : 'is-expanded'}"
-        aria-expanded="${!collapsed}">
-        <span class="edit-collapsible-header-text">🎨 본문 카드 톤</span>
-        <span class="edit-collapsible-header-chev">${collapsed ? '▼' : '▲'}</span>
-      </button>
-      ${collapsed ? '' : `
-        <div class="edit-collapsible-body edit-pb-tone-body">
-          <!-- PROJECT-SETTINGS-2C-C: 작품단위(카드 스타일/색계열)는 상단 ⚙ 작품 설정이 주 동선 →
-               site-specific wrapper로 감싸 #edit-panel scope 숨김. 장면단위(카드톤/엔딩톤)는
-               wrapper 밖에 둬 우측 유지. 공용 _pbToneRowHtml엔 class 안 달음. -->
-          <div class="edit-project-dup-cardstyle">
-            ${startNote}
-            ${styleRowHtml}
-            ${colorRowHtml}
-          </div>
-          <!-- SCENE-STYLE-1C: 장면단위 톤(카드톤/엔딩톤)은 상단 🎭 장면 스타일이 주 동선 →
-               이 우측 호출부만 별도 wrapper로 감싸 #edit-panel scope 숨김. 공용 _pbToneRowHtml엔
-               class 안 달음 → 팝오버 사본(_pbSceneToneSectionHtml)은 그대로 노출. 작품단위 wrapper와 분리. -->
-          <div class="edit-scene-dup-tone">
-            ${sceneRowHtml}
-            ${endRowHtml}
-          </div>
-        </div>`}
-    </div>`;
-}
+/* PANEL-DEADCODE-1: _pbToneSectionHtml(우패널 전용 본문 카드 톤 collapsible) 제거 — 카드톤/엔딩톤은
+   🎭 장면 스타일(_pbSceneToneSectionHtml), 카드 스타일/색계열은 ⚙ 작품 설정이 주 동선.
+   PANEL-CLEANUP-1B에서 호출부 제거됨 → 0 active caller. 공용 _pbToneRowHtml·_PB_TONE_* consts·
+   _pbSceneToneSectionHtml은 무관(유지). */
 
 /* SCENE-STYLE-1: 🎭 장면 스타일 팝오버용 — 현재 장면의 장면단위 톤 row만.
    비엔딩=본문 카드 톤(pbCardTone) / 엔딩=엔딩 마감톤(pbEndingTone). 기존 순수 _pbToneRowHtml

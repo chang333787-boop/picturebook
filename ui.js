@@ -814,6 +814,40 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-zoom-in')    ?.addEventListener('click', () => setZoom(zoom + 0.1));
   document.getElementById('btn-zoom-reset') ?.addEventListener('click', () => setZoom(1));
 
+  /* ── BRANCH-TOPBAR-1C: 파일/관리 더보기 메뉴 열고 닫기만 추가 ──
+     btn-import/btn-clear/btn-group-move 핸들러는 위에서 id로 이미 바인딩됨(여기선 표시 토글만).
+     import/clear/groupMove 로직은 건드리지 않음. */
+  (() => {
+    const moreBtn = document.getElementById('btn-file-more');
+    const menu    = document.getElementById('file-more-menu');
+    if (!moreBtn || !menu) return;
+    const closeMenu = () => {
+      if (menu.hidden) return;
+      menu.hidden = true;
+      moreBtn.setAttribute('aria-expanded', 'false');
+    };
+    const openMenu = () => {
+      menu.hidden = false;
+      moreBtn.setAttribute('aria-expanded', 'true');
+    };
+    moreBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      menu.hidden ? openMenu() : closeMenu();
+    });
+    /* 메뉴 안 항목 클릭 → 기존 핸들러 동작 후 메뉴 닫기 */
+    menu.addEventListener('click', () => closeMenu());
+    /* 바깥 클릭 닫기 */
+    document.addEventListener('click', (e) => {
+      if (menu.hidden) return;
+      if (e.target.closest && e.target.closest('.tb-more-wrap')) return;
+      closeMenu();
+    });
+    /* Escape 닫기 */
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeMenu();
+    });
+  })();
+
   /* ── 프로젝트 설정 패널 (표지 · 시작점) ── */
   document.getElementById('btn-project-settings')?.addEventListener('click', () => {
     if (typeof openProjectSettings === 'function') openProjectSettings();

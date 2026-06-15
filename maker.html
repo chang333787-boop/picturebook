@@ -627,6 +627,66 @@
       flex-wrap: nowrap;
     }
 
+    /* ── BRANCH-TOPBAR-1C: 파일/관리 더보기 팝오버 ──
+       상단엔 💾 저장 + ⋯ 파일/관리만. 불러오기·묶음 이동·전체 초기화는 작은 카드 메뉴로.
+       우측 정렬·화면 밖 방지(max-width). 기능/handler 불변, 표시만. */
+    .tb-more-wrap { position: relative; display: inline-flex; }
+    .tb-btn--ghost {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid rgba(80,50,20,0.14);
+      font-size: 12px;
+      padding: 5px 11px;
+    }
+    .tb-btn--ghost:hover { background: rgba(80,50,20,0.06); color: var(--text); }
+    .tb-btn--ghost[aria-expanded="true"] {
+      background: rgba(80,50,20,0.08);
+      color: var(--text);
+      border-color: rgba(80,50,20,0.28);
+    }
+    .tb-more-menu {
+      position: absolute;
+      top: calc(100% + 6px);
+      right: 0;
+      z-index: 300;
+      min-width: 168px;
+      max-width: calc(100vw - 24px);
+      background: #fff;
+      border: 1px solid rgba(80,50,20,0.14);
+      border-radius: 12px;
+      box-shadow: 0 8px 28px rgba(80,50,20,0.18);
+      padding: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .tb-more-menu[hidden] { display: none; }
+    .tb-more-menu > button {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      text-align: left;
+      padding: 9px 12px;
+      border: none;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--text);
+      font-family: var(--font-h);
+      font-size: 13px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .tb-more-menu > button:hover { background: rgba(80,50,20,0.06); }
+    .tb-more-menu > button.danger {
+      color: #c8503c;
+      margin-top: 4px;
+      border-top: 1px solid rgba(80,50,20,0.10);
+      border-radius: 0 0 8px 8px;
+      padding-top: 11px;
+    }
+    .tb-more-menu > button.danger:hover { background: rgba(200,80,60,0.10); }
+
     /* v36 + BRANCH-TOPBAR-1B: toolbar 2줄 분리.
        1줄: 좌(정체성) + 중(핵심 행동), 2줄: 우(점검·파일·줌·상태·범례 — 풀폭이라 한 줄에 정렬).
        breakpoint 1366→1900: 우측 전체 자연폭(~880px)+좌·중(~930px)이 한 줄에 들어가려면 ~1870px 필요.
@@ -2650,19 +2710,22 @@
       </div>
     </div>
 
-    <!-- 그룹: 파일 (고급) -->
-    <div class="tb-group adv-only">
+    <!-- 그룹: 파일 (고급) — BRANCH-TOPBAR-1C: 💾 저장만 상단, 불러오기·묶음 이동·전체 초기화는 ⋯ 더보기 메뉴로.
+         버튼 id/handler(exportJSON·importJSON·clearAll·toggleGroupMove)는 그대로, 위치만 이동. -->
+    <div class="tb-group tb-file-group adv-only">
       <span class="tb-group-label">파일</span>
-      <div class="tb-group-btns">
-        <button class="tb-btn tb-btn-save" id="btn-export" title="JSON 파일로 저장">💾</button>
-        <button class="tb-btn tb-btn-load" id="btn-import" title="JSON 파일 불러오기">📂</button>
+      <div class="tb-group-btns tb-file-actions">
+        <button class="tb-btn tb-btn-save" id="btn-export" title="JSON 파일로 저장">💾 저장</button>
         <input type="file" id="file-input" accept=".json" style="display:none"/>
-        <button class="tb-btn tb-btn-clear" id="btn-clear" title="모든 장면을 삭제하고 빈 작품으로 초기화합니다" aria-label="전체 초기화">🗑 전체 초기화</button>
-        <button id="btn-group-move" class="tb-btn"
-          style="background:#f0f4ff;color:var(--primary);border:1.5px solid #c0d4f5;"
-          title="여러 장면 묶음 이동">
-          🔗 묶음 이동: 꺼짐
-        </button>
+        <div class="tb-more-wrap">
+          <button id="btn-file-more" class="tb-btn tb-btn--ghost" type="button"
+            aria-haspopup="menu" aria-expanded="false" title="불러오기·묶음 이동·전체 초기화">⋯ 파일/관리</button>
+          <div id="file-more-menu" class="tb-more-menu" role="menu" hidden>
+            <button id="btn-import" type="button" role="menuitem" title="JSON 파일 불러오기">📂 불러오기</button>
+            <button id="btn-group-move" type="button" role="menuitem" title="여러 장면 묶음 이동">🔗 묶음 이동: 꺼짐</button>
+            <button id="btn-clear" class="danger" type="button" role="menuitem" title="모든 장면을 삭제하고 빈 작품으로 초기화합니다" aria-label="전체 초기화">🗑 전체 초기화</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -2931,7 +2994,7 @@
 <script src="adminConsole.js?v=103copyfix1"></script>
 <script src="preview.js?v=96"></script>
 <script src="projectSettings.js?v=114copyfix1coverstart2"></script>
-<script src="ui.js?v=109copyfix2c2base10bfixendingguard1addscene1base10auto1"></script>
+<script src="ui.js?v=109copyfix2c2base10bfixendingguard1addscene1base10auto1branchtopbar1c"></script>
 <!-- v95: 모바일 텍스트형 브랜치 전용 (텍스트 작품 + 모바일에서만 활성) -->
 <script src="mobileTextBranch.js?v=115wintab3abase10posbase10auto1"></script>
 

@@ -106,6 +106,11 @@
   <!-- HUD (상단 바) -->
   <div id="hud"></div>
 
+  <!-- PANEL-BACKBONE-1B: 잠금 안내/인수 배너(#edit-panel 밖). _applyEditLockUI가 잠금 시 채우고
+       비잠금 시 비움(:empty→display:none). 강제(body.viewer-edit-readonly)·lock 함수(viewer-locks.js)는 무관.
+       기존 content탭 내부 배너는 display:none이라 사실상 안 보였음 → 가시성 복구. -->
+  <div id="edit-lock-alert" class="edit-lock-banner" role="alert" aria-live="polite"></div>
+
   <!-- PANEL-BACKBONE-1A-i: HUD 아래 독립 장면 이동 바(#edit-panel 밖). edit 모드에서만
        renderSceneNavigator가 _sceneNavigatorHtml를 주입. 빈 상태(:empty)면 공간 차지 X. -->
   <div id="scene-navigator" class="scene-navigator" aria-label="장면 이동"></div>
@@ -193,7 +198,7 @@
 <script src="viewer-locks.js?v=117"></script>
 <script src="viewer-controls.js?v=96"></script>
 <script src="viewer-render.js?v=140p5imgvar1wintab1heuristic1absorbtitle1toptoolbar2atoptoolbar3aprojectsettings1apbimage1bscenestyle1textmode1cmovietool1abbackbone1ai"></script>
-<script src="viewer-edit.js?v=140p5imglock1copyfix2c1coverstart1heuristic1advedithide1absorbtitle1advedithidetext1toptoolbar2atoptoolbar3atoptoolbar3btoptoolbar4atoptoolbar4bprojectsettings1aprojectsettings1bprojectsettings1ccoverhint1dprojectsettings2aprojectsettings2bprojectsettings2cprojectsettings2ccpbimage1apbimage1bpbimage1cpbimage1dscenestyle1scenestyle1cglyphstyle1aglyphstyle1bglyphstyle1cglyphstyle1dglyphapplyalltextmode1btextmode1ctextmode1dmoviesettings1movietool1abmovietool1cmovietool1dpanelcleanup1apanelcleanup1bpanelcleanup1cpblayout1apblayout1bpblayout1cpbbodybox1apbbodybox1bpbbodybox1cpanelempty1backbone1aibackbone1aiinavtitle1a"></script>
+<script src="viewer-edit.js?v=140p5imglock1copyfix2c1coverstart1heuristic1advedithide1absorbtitle1advedithidetext1toptoolbar2atoptoolbar3atoptoolbar3btoptoolbar4atoptoolbar4bprojectsettings1aprojectsettings1bprojectsettings1ccoverhint1dprojectsettings2aprojectsettings2bprojectsettings2cprojectsettings2ccpbimage1apbimage1bpbimage1cpbimage1dscenestyle1scenestyle1cglyphstyle1aglyphstyle1bglyphstyle1cglyphstyle1dglyphapplyalltextmode1btextmode1ctextmode1dmoviesettings1movietool1abmovietool1cmovietool1dpanelcleanup1apanelcleanup1bpanelcleanup1cpblayout1apblayout1bpblayout1cpbbodybox1apbbodybox1bpbbodybox1cpanelempty1backbone1aibackbone1aiinavtitle1abackbone1b"></script>
 <!-- Phase 0.5 mock — AI 인프라 (mock only, 실 API 박지 X) -->
 <script src="viewer-ai.js?v=workcheckhistory1copyfix2c1hudai1b"></script>
 <script src="viewer-image-edit.js?v=96copyfix1"></script>

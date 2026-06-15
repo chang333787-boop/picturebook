@@ -961,7 +961,10 @@ function _applyEditLockUI() {
   if (document.body) {
     document.body.classList.toggle('viewer-edit-readonly', !_editText.editable);
   }
-  const banner = panel.querySelector('.js-edit-lock-banner');
+  /* PANEL-BACKBONE-1B: lock 배너 타겟을 panel 밖 #edit-lock-alert로 이전(content탭 display:none 안에
+     있던 기존 배너는 사실상 안 보였음). 새 컨테이너 우선, 없으면 기존 panel 배너 fallback. 갱신/버튼
+     바인딩 로직·강제(body class)·viewer-locks.js 함수는 무수정. */
+  const banner = document.getElementById('edit-lock-alert') || panel.querySelector('.js-edit-lock-banner');
   const inputs = panel.querySelectorAll('.js-edit-text-input');
   /* 분류 기반 배너 문구/동작 일치 (1-1 정책 마감) ──
      · 'other'       → 진짜 다른 사용자 — 강한 경고, 인수 불가

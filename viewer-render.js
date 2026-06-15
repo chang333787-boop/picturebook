@@ -92,6 +92,12 @@ function renderCurrentScene() {
      editMode 아니면 자체적으로 비움. 기존 panel nav(renderEditPanel)는 그대로 공존. */
   if (typeof renderSceneNavigator === 'function') renderSceneNavigator();
 
+  /* PANEL-BACKBONE-1C: 편집 런타임 lock 오케스트레이션(#edit-panel 밖). editMode일 때만,
+     currentSceneId/frame/HUD/nav 렌더 후 lock change 핸들러 설치 + 현재 장면 lock 확보. */
+  if (ViewerState.editMode && typeof _bindEditRuntimeForCurrentScene === 'function') {
+    _bindEditRuntimeForCurrentScene();
+  }
+
   /* v36: 감상 테스트 중 배너 호출 제거 — 사용자 결정.
      라벨이 이미 maker-return-bar의 "✏️ 제작자 테스트 중"에 있어 중복.
      기존 어두운 파란 배너가 콘텐츠 위에 겹쳐 가리던 문제 해결. */

@@ -1416,6 +1416,16 @@ function renderSceneNavigator() {
   _bindSceneNavigatorEvents(nav);
 }
 
+/* PANEL-BACKBONE-1C: 편집 런타임 lock 오케스트레이션을 #edit-panel 밖으로 이전.
+   기존엔 renderEditPanel 양 분기 끝에서 lock change 핸들러 설치 + 현재 장면 lock 확보를
+   했지만, 둘 다 panel DOM 미사용이고 _applyEditLockUI는 #edit-lock-alert(1B)를 타겟함 →
+   renderCurrentScene(editMode)에서 직접 호출해 패널 없이도 lock 동작. 함수 본체는 무수정.
+   (frame 바인딩=initEditInteractions는 이미 renderScene 경로에서 독립 처리.) */
+function _bindEditRuntimeForCurrentScene() {
+  if (typeof _installLockChangeHandlerOnce === 'function') _installLockChangeHandlerOnce();
+  if (typeof _ensureEditLockForCurrentScene === 'function') _ensureEditLockForCurrentScene();
+}
+
 /* ================================================================
    P5-IMAGE-LOCK-1: AI 이미지 보기(aiS1/aiS2) 중 원본 이미지 편집 잠금
    ────────────────────────────────────────────────────────────────
@@ -1518,8 +1528,8 @@ function renderEditPanel() {
     _bindTextEditEvents(panel, scene);
     _bindEditTabs(panel);
     _restoreActiveTab(panel, _prevActiveTab);
-    _installLockChangeHandlerOnce();
-    _ensureEditLockForCurrentScene();
+    /* PANEL-BACKBONE-1C: lock 오케스트레이션(_installLockChangeHandlerOnce/_ensureEditLockForCurrentScene)
+       은 renderCurrentScene의 _bindEditRuntimeForCurrentScene로 이전(panel 독립). 여기선 호출 제거. */
     return;
   }
 
@@ -1653,8 +1663,7 @@ function renderEditPanel() {
   _bindTextEditEvents(panel, scene);
   _bindEditTabs(panel);
   _restoreActiveTab(panel, _prevActiveTab);
-  _installLockChangeHandlerOnce();
-  _ensureEditLockForCurrentScene();
+  /* PANEL-BACKBONE-1C: lock 오케스트레이션은 renderCurrentScene의 _bindEditRuntimeForCurrentScene로 이전. */
 }
 
 /* ================================================================

@@ -437,7 +437,7 @@
     .tb-section { display:flex; align-items:center; gap:10px; min-width:0; }
     .tb-section--left   { justify-content:flex-start; }
     .tb-section--center { justify-content:center; }
-    .tb-section--right  { justify-content:flex-end; flex-wrap:wrap; }
+    .tb-section--right  { justify-content:flex-end; align-items:center; flex-wrap:wrap; gap:12px; }
 
     /* 중앙 핵심 행동 그룹 — pill cluster */
     .tb-action-group {
@@ -504,17 +504,22 @@
     .tb-btn-check{background:var(--ending);color:#fff;}
     .tb-btn-save{background:#2d6a4f;color:#fff;}
     .tb-btn-load{background:#5a3e8a;color:#fff;}
-    .tb-btn-clear{background:#e0e8f0;color:var(--text);}
+    /* BRANCH-TOPBAR-1B: 위험 동작 위계 낮춤 — 큰 채움 박스 대신 조용한 보조 버튼.
+       hover에서만 위험 톤 드러냄. 기능/핸들러/위치 불변(1C에서 더보기로 이동 예정). */
+    .tb-btn-clear{background:transparent;color:var(--muted);border:1px solid rgba(80,50,20,0.14);font-size:12px;padding:5px 11px;opacity:.85;}
+    .tb-btn-clear:hover{background:rgba(200,80,60,0.08);color:#c8503c;border-color:rgba(200,80,60,0.30);opacity:1;}
     #team-badge{background:#e8f0ff;color:var(--primary);font-family:var(--font-h);font-size:13px;padding:4px 12px;border-radius:50px;border:1.5px solid #c0d4f5;}
-    #online-badge{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--muted);}
+    #online-badge{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);opacity:.75;}
     #online-dot{width:8px;height:8px;border-radius:50%;background:#ccc;}
     #online-dot.on{background:var(--start);animation:pulse 1.5s infinite;}
     @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
-    #save-status{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:4px;}
+    #save-status{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:4px;opacity:.8;}
+    /* BRANCH-TOPBAR-1B: 미저장(변경됨)일 때만 저장 상태를 또렷하게 — 정상 저장은 조용히. */
+    #save-status:has(#save-dot.changed){opacity:1;color:#b06a2e;}
     #save-dot{width:8px;height:8px;border-radius:50%;background:#ccc;transition:background .3s;}
     #save-dot.saved{background:var(--start);}
     #save-dot.changed{background:#f0a000;}
-    .legend{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+    .legend{display:flex;gap:10px;align-items:center;flex-wrap:nowrap;flex-shrink:0;opacity:.8;}
     .legend-item{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted);}
     .legend-dot{width:10px;height:10px;border-radius:50%;}
 
@@ -595,12 +600,13 @@
       flex-direction: column;
       gap: 4px;
       flex-shrink: 0;
-      /* v36: 그룹 시각 강조 — 넓은 화면에 가로로 늘어선 toolbar에서 그룹 경계 명확.
-         라벨 더 진하게, 그룹 자체에 옅은 배경 + 패딩. */
-      padding: 4px 10px 4px 10px;
-      background: rgba(80,50,20,0.025);
-      border-radius: 10px;
-      border: 1px solid rgba(80,50,20,0.07);
+      /* BRANCH-TOPBAR-1B: 그룹 박스감 완화 — 점검/파일이 여러 박스로 흩어져 보이던 걸
+         배경·보더 제거하고 spacing(.tb-section--right gap) 기반 정렬로 통일.
+         정렬용 최소 패딩만 유지. 라벨/버튼 id/핸들러 불변. */
+      padding: 2px 4px;
+      background: transparent;
+      border: none;
+      border-radius: 8px;
     }
     .tb-group-label {
       font-size: 11px;
@@ -616,13 +622,17 @@
       display: flex;
       align-items: center;
       gap: 6px;
-      flex-wrap: wrap;
+      /* BRANCH-TOPBAR-1B: 그룹 내부 버튼은 같은 줄 유지 — wrap은 .tb-section--right에서
+         그룹 단위로만 일어나게(자유낙하 방지). */
+      flex-wrap: nowrap;
     }
 
-    /* v36: 태블릿 가로 (1024~1366px) — toolbar 2줄로 자연 분리.
-       학생 디바이스 = 태블릿이라 핵심 환경. 우측 도구 그룹들이 한 줄에 안 들어가
-       1줄: 좌(정체성) + 중(핵심 행동), 2줄: 우(점검·파일·줌·상태·범례) */
-    @media (max-width: 1366px) {
+    /* v36 + BRANCH-TOPBAR-1B: toolbar 2줄 분리.
+       1줄: 좌(정체성) + 중(핵심 행동), 2줄: 우(점검·파일·줌·상태·범례 — 풀폭이라 한 줄에 정렬).
+       breakpoint 1366→1900: 우측 전체 자연폭(~880px)+좌·중(~930px)이 한 줄에 들어가려면 ~1870px 필요.
+       그 이하에선 우측을 1fr(좁은 칸)에 욱여넣어 3줄로 뭉개지던 걸, 풀폭 2줄로 정돈.
+       진짜 한 줄은 초광폭(≥1900)에서만. (일반 데스크탑 한 줄 복원은 1C 더보기로 우측 축소 후) */
+    @media (max-width: 1900px) {
       #toolbar {
         grid-template-columns: auto 1fr;
         grid-template-rows: auto auto;
@@ -635,8 +645,10 @@
         grid-column: 1 / -1;
         grid-row: 2;
         justify-content: flex-start;
+        align-items: center;
         flex-wrap: wrap;
-        gap: 10px;
+        /* BRANCH-TOPBAR-1B: 행간(8) < 그룹간(12) 통일 — 2줄 wrap 시 그룹이 단위로 정돈. */
+        gap: 8px 12px;
       }
     }
 

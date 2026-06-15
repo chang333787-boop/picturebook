@@ -2712,15 +2712,28 @@ body[data-page-orientation="portrait"] .cover-page {
   position: relative;
   z-index: 50;
   flex-shrink: 0;
+  display: flex;
+  justify-content: center;   /* PANEL-BACKBONE-1A-ii: compact 중앙정렬 */
   padding: 6px 14px 8px;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
 }
 #scene-navigator .edit-nav {
+  width: min(100%, 760px);   /* compact: full-width 펼침 방지 */
+  margin: 0 auto;
   padding: 0;
-  margin: 0;
   border-bottom: 0;
   gap: 6px;
+}
+#scene-navigator .edit-nav-row--main {
+  justify-content: center;   /* ←/→가 화면 끝이 아닌 정보/select 주변으로 모임 */
+  gap: 10px;
+}
+#scene-navigator .edit-nav-row--jump {
+  justify-content: center;
+}
+#scene-navigator .edit-nav-jump {
+  max-width: min(100%, 520px);   /* 좁은 폭에서 가로 overflow 방지 */
 }
 /* readonly 예외 — 잠금 중에도 장면 이동 허용(기존 839~849는 #edit-panel scope라 미적용).
    저장/편집 컨트롤 차단은 그대로 두고, 이 바(nav)만 살린다. */

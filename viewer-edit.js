@@ -1486,7 +1486,8 @@ function renderEditPanel() {
     panel.innerHTML = `
       <div class="edit-panel-inner${_ptype === 'movie' ? ' edit-panel-inner--movie' : ''}${_ptype === 'picturebook' ? ' edit-panel-inner--picturebook' : ''}${_ptype === 'text' ? ' edit-panel-inner--text' : ''}">
         ${_editActionsHtml()}
-        ${_editNavHtml(scene)}
+        <!-- PANEL-BACKBONE-1A-ii: panel nav 제거 — HUD 아래 #scene-navigator(renderSceneNavigator)가
+             주 동선. _editNavHtml/_bindNavEvents 본체는 보존(dead-code 정리는 별도). -->
 
         <!-- W8 Phase D-2: 모드별 탭 이름·아이콘·우선순위 -->
         <div class="edit-tabs" role="tablist">
@@ -1506,7 +1507,8 @@ function renderEditPanel() {
         <p class="edit-empty">이 장면에는 선택지가 없어요. (엔딩 장면)</p>
       </div>`;
     _bindEditActions(panel);
-    _bindNavEvents(panel);
+    /* PANEL-BACKBONE-1A-ii: _bindNavEvents(panel) 호출 제거 — #scene-navigator가 자체 바인딩
+       (_bindSceneNavigatorEvents). 함수 본체는 보존. */
     _bindTypeSectionsEvents(panel, scene);
     _bindTextEditEvents(panel, scene);
     _bindEditTabs(panel);
@@ -1622,9 +1624,8 @@ function renderEditPanel() {
   const tabs = _editTabsForMode(_ptypeForLegacy, /*hasChoice*/ !!legacyChoiceSectionHtml);
   panel.innerHTML = `
     <div class="edit-panel-inner${_ptypeForLegacy === 'movie' ? ' edit-panel-inner--movie' : ''}${_ptypeForLegacy === 'picturebook' ? ' edit-panel-inner--picturebook' : ''}${_ptypeForLegacy === 'text' ? ' edit-panel-inner--text' : ''}">
-      <!-- 상단 고정 바 (액션 + 네비) -->
+      <!-- 상단 고정 바 (액션) — PANEL-BACKBONE-1A-ii: panel nav 제거(HUD 아래 #scene-navigator가 주 동선). -->
       ${_editActionsHtml()}
-      ${_editNavHtml(scene)}
 
       <!-- W8 Phase D-2: 모드별 탭 이름·아이콘·우선순위 -->
       <div class="edit-tabs" role="tablist">
@@ -1641,7 +1642,7 @@ function renderEditPanel() {
     </div>`;
 
   _bindEditActions(panel);
-  _bindNavEvents(panel);
+  /* PANEL-BACKBONE-1A-ii: _bindNavEvents(panel) 호출 제거 — #scene-navigator 자체 바인딩. 본체 보존. */
   _bindTypeSectionsEvents(panel, scene);
   _bindEditPanelEvents(panel, scene, choice);
   _bindTextEditEvents(panel, scene);

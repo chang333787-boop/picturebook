@@ -79,14 +79,9 @@ function renderCurrentScene() {
   /* HUD 업데이트 */
   renderHUD();
 
-  /* edit panel — editMode 상태에 따라 명시적으로 처리 */
-  if (ViewerState.editMode) {
-    renderEditPanel();
-  } else {
-    /* editMode가 꺼졌을 때 패널을 확실히 비워서 잔상 방지 */
-    const panel = document.getElementById('edit-panel');
-    if (panel) panel.innerHTML = '';
-  }
+  /* PANEL-BACKBONE-2-ii: 우측 #edit-panel DOM은 2-i에서 제거됨 → renderEditPanel() 호출 불필요(no-op).
+     편집 런타임은 아래 renderSceneNavigator + _bindEditRuntimeForCurrentScene + frame(initEditInteractions)이
+     담당. (renderEditPanel 함수 자체는 ~45곳 호출 호환 위해 스텁으로 잔존 — viewer-edit.js.) */
 
   /* PANEL-BACKBONE-1A-i: HUD 아래 독립 장면 이동 바 갱신(currentSceneId 갱신 후).
      editMode 아니면 자체적으로 비움. 기존 panel nav(renderEditPanel)는 그대로 공존. */

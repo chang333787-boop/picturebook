@@ -500,15 +500,26 @@
     .tb-status-group { display:flex; align-items:center; gap:8px; flex-shrink:0; }
 
     #toolbar h1{font-family:var(--font-h);font-size:17px;color:var(--primary);}
-    /* BRANCH-TOPBAR-2A: 버튼 높이 통일(상하 패딩 5px·~30px)·과한 border 약화. */
-    .tb-btn{padding:5px 12px;border:none;border-radius:50px;font-family:var(--font-h);font-size:13px;cursor:pointer;transition:transform .12s, background .15s;}
+    /* BRANCH-TOPBAR-2A/2B: 버튼 토큰 통일 — 높이 ~30px·아이콘+텍스트 inline-flex 정렬·전환 일관.
+       모든 tb-btn은 1.5px 보더 박스 기준(solid 계열은 투명 보더)이라 보더 유무로 높이가 안 틀어짐. */
+    .tb-btn{
+      display:inline-flex; align-items:center; justify-content:center; gap:6px;
+      padding:5px 12px; border:1.5px solid transparent; border-radius:50px;
+      font-family:var(--font-h); font-size:13px; line-height:1.15; cursor:pointer;
+      transition:transform .12s, background .15s, border-color .15s;
+    }
     .tb-btn:active{transform:scale(.95);}
+    /* 1순위 — 생성/주요 행동(주황 solid). */
     .tb-btn-add{background:var(--primary);color:#fff;}
-    /* 구조 점검 — 솔리드 빨강이 너무 세서 outline 토널로 약화(점검은 보조 위계). */
-    .tb-btn-check{background:transparent;color:var(--ending);border:1.5px solid var(--ending);}
-    .tb-btn-check:hover{background:var(--ending);color:#fff;}
-    /* 저장 — 중요하지만 주황 생성버튼보다 덜 튀게 토널 그린. */
-    .tb-btn-save{background:rgba(45,106,79,0.10);color:#2d6a4f;border:1.5px solid rgba(45,106,79,0.32);}
+    /* 3순위 — 구조 편집 그룹(구조점검·루트·시작점·묶음이동)을 한 계열 warm neutral로 통일.
+       색이 역할이 아니라 버튼별로 빨강/보라/초록/파랑 난립하던 걸 제거(일관성·인지부하 원칙). */
+    .tb-btn-tool{background:rgba(120,90,50,0.06);color:var(--text);border-color:rgba(120,90,50,0.20);}
+    .tb-btn-tool:hover{background:rgba(120,90,50,0.12);border-color:rgba(120,90,50,0.34);}
+    /* 구조 점검 = 그룹 리드(같은 계열, 아주 약간만 강조). 빨강 경고색 제거(오류예방 원칙). */
+    .tb-btn-check{background:rgba(120,90,50,0.11);color:var(--text);border-color:rgba(120,90,50,0.32);font-weight:600;}
+    .tb-btn-check:hover{background:rgba(120,90,50,0.17);}
+    /* 4순위 — 저장(상태 초록 tonal, 생성버튼보다 덜 튐). */
+    .tb-btn-save{background:rgba(45,106,79,0.10);color:#2d6a4f;border-color:rgba(45,106,79,0.32);}
     .tb-btn-save:hover{background:rgba(45,106,79,0.18);}
     .tb-btn-load{background:#5a3e8a;color:#fff;}
     /* BRANCH-TOPBAR-1B: 위험 동작 위계 낮춤 — 큰 채움 박스 대신 조용한 보조 버튼.
@@ -642,12 +653,12 @@
        상단엔 💾 저장 + ⋯ 파일/관리만. 불러오기·묶음 이동·전체 초기화는 작은 카드 메뉴로.
        우측 정렬·화면 밖 방지(max-width). 기능/handler 불변, 표시만. */
     .tb-more-wrap { position: relative; display: inline-flex; }
+    /* BRANCH-TOPBAR-2B: ghost(파일/관리·도움말)도 공통 토큰 높이에 맞춤(font 13·보더 1.5·패딩 통일).
+       조용한 중립 유틸 톤은 유지. */
     .tb-btn--ghost {
       background: transparent;
       color: var(--muted);
-      border: 1px solid rgba(80,50,20,0.14);
-      font-size: 12px;
-      padding: 5px 11px;
+      border-color: rgba(80,50,20,0.18);
     }
     .tb-btn--ghost:hover { background: rgba(80,50,20,0.06); color: var(--text); }
     .tb-btn--ghost[aria-expanded="true"] {
@@ -2711,18 +2722,13 @@
     <div class="tb-group tb-check-group">
       <span class="tb-group-label">점검</span>
       <div class="tb-group-btns">
+        <!-- BRANCH-TOPBAR-2B: 구조 편집 4버튼을 한 계열(tb-btn-tool)로 통일 — 개별 색 inline 제거.
+             id/handler 불변, 색만 CSS 토큰으로. 구조 점검은 tb-btn-check(리드 강조). -->
         <button class="tb-btn tb-btn-check" id="btn-check" title="장면 연결 구조를 점검해요">🔍 구조 점검</button>
-        <button class="tb-btn" id="btn-route"
-          style="background:#fff0fa;color:#9b4dca;border:1.5px solid #d4a0f0;">
-          🛤 루트 보기
-        </button>
-        <button class="tb-btn adv-only" id="btn-project-settings"
-          style="background:#e8f5e9;color:#2e7d32;border:1.5px solid #81c784;"
-          title="감상 시작·다시 하기 장면을 설정해요">
-          ⚙ 시작점
-        </button>
-        <button class="tb-btn" id="btn-group-move"
-          style="background:#f0f4ff;color:var(--primary);border:1.5px solid #c0d4f5;"
+        <button class="tb-btn tb-btn-tool" id="btn-route" title="장면 흐름(루트)을 살펴봐요">🛤 루트 보기</button>
+        <button class="tb-btn tb-btn-tool adv-only" id="btn-project-settings"
+          title="감상 시작·다시 하기 장면을 설정해요">⚙ 시작점</button>
+        <button class="tb-btn tb-btn-tool" id="btn-group-move"
           title="여러 장면 묶음 이동">🔗 묶음 이동: 꺼짐</button>
       </div>
     </div>
@@ -2757,7 +2763,7 @@
     <div class="tb-status-group">
       <button id="mode-toggle-btn" style="display:none;" title="간단히/더보기 토글">⚙️ 더보기</button>
       <div id="save-status"><div id="save-dot"></div><span id="save-label">-</span></div>
-      <button class="tb-btn adv-only" id="btn-help" style="background:transparent;color:var(--muted);border:1px solid rgba(80,50,20,0.14)" title="도움말">❓</button>
+      <button class="tb-btn tb-btn--ghost adv-only" id="btn-help" title="도움말">❓</button>
     </div>
 
     <!-- 범례 (작은) -->

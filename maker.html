@@ -2694,7 +2694,8 @@
           <div id="online-badge"><div id="online-dot"></div><span id="online-label">연결 중...</span></div>
         </div>
       </div>
-      <button type="button" class="tb-switch-team" id="btn-switch-team" title="다른 모둠으로 다시 로그인 (작품은 그대로 남아 있어요)">🔄 모둠 바꾸기</button>
+      <!-- BRANCH-TOPBAR-2C: 🔄 모둠 바꾸기는 작품 정체성/상태가 아니라 세션/작업 관리 →
+           좌측 첫 줄에서 빼서 아래 도구줄(점검 그룹 뒤·저장 앞)로 이동(id/handler 불변). -->
     </div>
   </div>
 
@@ -2732,6 +2733,10 @@
           title="여러 장면 묶음 이동">🔗 묶음 이동: 꺼짐</button>
       </div>
     </div>
+
+    <!-- BRANCH-TOPBAR-2C: 모둠 바꾸기(세션/작업 관리) — 좌측에서 이동. 조용한 ghost 보조 톤.
+         id/handler(maker.html 인라인 스크립트가 id로 바인딩) 불변. -->
+    <button type="button" class="tb-btn tb-btn--ghost adv-only" id="btn-switch-team" title="다른 모둠으로 다시 로그인 (작품은 그대로 남아 있어요)">🔄 모둠 바꾸기</button>
 
     <!-- 그룹: 파일 (고급) — BRANCH-TOPBAR-1C/1D: 💾 저장만 상단, 불러오기·전체 초기화는 ⋯ 더보기 메뉴로.
          (묶음 이동은 1C-FIX에서 점검 그룹으로 복귀.) id/handler(exportJSON·importJSON·clearAll)는 그대로. -->

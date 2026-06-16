@@ -376,7 +376,7 @@ function _buildTextCardContent(s) {
         rows="4"
         data-num="${s.num}">${_escapeHtml(s.body || '')}</textarea>
       <input class="card-title-input card-title-input--secondary js-title-input"
-        placeholder="장면 라벨 (선택)"
+        placeholder="장면 메모 (선택)"
         type="text"
         value="${_escapeHtml(s.title || '')}"
         data-num="${s.num}"/>
@@ -404,7 +404,7 @@ function _buildPicturebookCardContent(s) {
         rows="2"
         data-num="${s.num}">${_escapeHtml(s.body || '')}</textarea>
       <input class="card-title-input js-title-input"
-        placeholder="장면 라벨 (선택)"
+        placeholder="장면 메모 (선택)"
         type="text"
         value="${_escapeHtml(s.title || '')}"
         data-num="${s.num}"/>
@@ -454,7 +454,7 @@ function _buildMovieCardContent(s) {
         rows="2"
         data-num="${s.num}">${_escapeHtml(s.body || '')}</textarea>
       <input class="card-title-input js-title-input"
-        placeholder="장면 라벨 (선택)"
+        placeholder="장면 메모 (선택)"
         type="text"
         value="${_escapeHtml(s.title || '')}"
         data-num="${s.num}"/>
@@ -503,7 +503,7 @@ function _buildExperienceCardContent(s) {
     </div>
     <div class="card-body card-body--experience">
       <input class="card-title-input js-title-input"
-        placeholder="장면 라벨 (선택)"
+        placeholder="장면 메모 (선택)"
         type="text"
         value="${_escapeHtml(s.title || '')}"
         data-num="${s.num}"/>
@@ -1332,7 +1332,9 @@ function renderSideList() {
       titleText = String(titleSrc).split('\n')[0].trim();
       if (titleText.length > 24) titleText = titleText.substring(0, 23) + '…';
     }
-    if (!titleText) titleText = isCover ? '(작품 제목 없음)' : '(제목 없음)';
+    /* SCENE-TITLE-1A: 일반 장면은 제목 없을 때 '(제목 없음)' 대신 '장면 N'으로(번호 중심).
+       표지는 작품 제목이라 기존 문구 유지. title/body fallback(위 titleSrc)은 그대로. */
+    if (!titleText) titleText = isCover ? '(작품 제목 없음)' : `장면 ${s.num}`;
 
     /* v37: 표지 dot 보라 톤 */
     const dotClass = isCover ? 'ss-dot--cover'

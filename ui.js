@@ -716,29 +716,32 @@ function applyTemplate(tpl) {
     };
   };
 
+  /* SCENE-TITLE-1A: 스타터 기본 title을 ''로 — '시작 장면/A 경로/결말 A' 같은 자동 라벨이
+     "제목은 채워야 하는 것"처럼 보이던 부담 제거. 구조(type/buttons/next/좌표)는 불변,
+     학생은 빈 장면(번호만)에서 본문부터 채움. body/_hasBody는 tplScene이 그대로 처리. */
   const templates = {
     'two-ending': [
-      tplScene({ num:1,type:'start', title:'시작 장면',x:320,y:80, choiceCount:2,choiceA:'선택지 A',choiceB:'선택지 B',nextA:2,nextB:3 }),
-      tplScene({ num:2,type:'normal',title:'A 경로',   x:120,y:280,choiceCount:1,choiceA:'다음으로',nextA:4 }),
-      tplScene({ num:3,type:'normal',title:'B 경로',   x:520,y:280,choiceCount:1,choiceA:'다음으로',nextA:5 }),
-      tplScene({ num:4,type:'ending',title:'결말 A',   x:120,y:480 }),
-      tplScene({ num:5,type:'ending',title:'결말 B',   x:520,y:480 }),
+      tplScene({ num:1,type:'start', title:'',x:320,y:80, choiceCount:2,choiceA:'선택지 A',choiceB:'선택지 B',nextA:2,nextB:3 }),
+      tplScene({ num:2,type:'normal',title:'',   x:120,y:280,choiceCount:1,choiceA:'다음으로',nextA:4 }),
+      tplScene({ num:3,type:'normal',title:'',   x:520,y:280,choiceCount:1,choiceA:'다음으로',nextA:5 }),
+      tplScene({ num:4,type:'ending',title:'',   x:120,y:480 }),
+      tplScene({ num:5,type:'ending',title:'',   x:520,y:480 }),
     ],
     'rejoin': [
-      tplScene({ num:1,type:'start', title:'시작 장면',      x:320,y:60, choiceCount:2,choiceA:'선택지 A',choiceB:'선택지 B',nextA:2,nextB:3 }),
-      tplScene({ num:2,type:'normal',title:'A 경로',          x:120,y:240,choiceCount:1,choiceA:'합류',nextA:4 }),
-      tplScene({ num:3,type:'normal',title:'B 경로',          x:520,y:240,choiceCount:1,choiceA:'합류',nextA:4 }),
-      tplScene({ num:4,type:'normal',title:'다시 만나는 장면',x:320,y:420,choiceCount:2,choiceA:'선택지 A',choiceB:'선택지 B',nextA:5,nextB:6 }),
-      tplScene({ num:5,type:'ending',title:'결말 A',          x:120,y:620 }),
-      tplScene({ num:6,type:'ending',title:'결말 B',          x:520,y:620 }),
+      tplScene({ num:1,type:'start', title:'',      x:320,y:60, choiceCount:2,choiceA:'선택지 A',choiceB:'선택지 B',nextA:2,nextB:3 }),
+      tplScene({ num:2,type:'normal',title:'',          x:120,y:240,choiceCount:1,choiceA:'합류',nextA:4 }),
+      tplScene({ num:3,type:'normal',title:'',          x:520,y:240,choiceCount:1,choiceA:'합류',nextA:4 }),
+      tplScene({ num:4,type:'normal',title:'',x:320,y:420,choiceCount:2,choiceA:'선택지 A',choiceB:'선택지 B',nextA:5,nextB:6 }),
+      tplScene({ num:5,type:'ending',title:'',          x:120,y:620 }),
+      tplScene({ num:6,type:'ending',title:'',          x:520,y:620 }),
     ],
     'true-end': [
-      tplScene({ num:1,type:'start', title:'시작 장면',   x:320,y:60, choiceCount:2,choiceA:'선택지 A',choiceB:'선택지 B',nextA:2,nextB:3 }),
-      tplScene({ num:2,type:'normal',title:'A 경로',      x:120,y:240,choiceCount:1,choiceA:'다음으로',nextA:4 }),
-      tplScene({ num:3,type:'normal',title:'B 경로',      x:520,y:240,choiceCount:2,choiceA:'계속',choiceB:'비밀 선택',nextA:5,nextB:6 }),
-      tplScene({ num:4,type:'ending',title:'일반 결말 A', x:120,y:440 }),
-      tplScene({ num:5,type:'ending',title:'일반 결말 B', x:420,y:440 }),
-      tplScene({ num:6,type:'ending',title:'진짜 결말 ⭐',x:700,y:440,trueEnding:true }),
+      tplScene({ num:1,type:'start', title:'',   x:320,y:60, choiceCount:2,choiceA:'선택지 A',choiceB:'선택지 B',nextA:2,nextB:3 }),
+      tplScene({ num:2,type:'normal',title:'',      x:120,y:240,choiceCount:1,choiceA:'다음으로',nextA:4 }),
+      tplScene({ num:3,type:'normal',title:'',      x:520,y:240,choiceCount:2,choiceA:'계속',choiceB:'비밀 선택',nextA:5,nextB:6 }),
+      tplScene({ num:4,type:'ending',title:'', x:120,y:440 }),
+      tplScene({ num:5,type:'ending',title:'', x:420,y:440 }),
+      tplScene({ num:6,type:'ending',title:'',x:700,y:440,trueEnding:true }),
     ],
   };
   const tplData = templates[tpl]; if (!tplData) return;

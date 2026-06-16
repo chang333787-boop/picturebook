@@ -2384,7 +2384,9 @@
   <div class="mtb-edit-body">
     <div class="mtb-edit-card" id="mtb-edit-card">
       <span class="mtb-edit-card-type" id="mtb-edit-card-type">일반</span>
-      <input class="mtb-edit-title-input" id="mtb-edit-scene-title"
+      <!-- SCENE-TITLE-2A: 일반 장면 제목 입력 제거 — 작품 제목(표지)일 때만 노출.
+           mtb-cover-only 토글(mobileTextBranch.js)이 cover=표시/일반=숨김 처리. id/value/placeholder 로직 불변. -->
+      <input class="mtb-edit-title-input mtb-cover-only" id="mtb-edit-scene-title"
         type="text" placeholder="(제목 — 비워도 돼요)" maxlength="80"/>
       <!-- v110: 표지 cover scene 전용 — 평소 숨김. cover일 때 표시 -->
       <input class="mtb-edit-title-input mtb-cover-only" id="mtb-edit-scene-subtitle"
@@ -3025,7 +3027,7 @@
 <script src="locks.js?v=96"></script>
 <script src="firebase.js?v=141admin1cbase10a"></script>
 <script src="canvasInteraction.js?v=120"></script>
-<script src="sceneRenderer.js?v=119base10bbase10auto1coverstart1scenetitle1a"></script>
+<script src="sceneRenderer.js?v=119base10bbase10auto1coverstart1scenetitle1ascenetitle2a"></script>
 <script src="storyAnalyzer.js?v=136checkbuttons1heuristic3"></script>
 <script src="mediaManager.js?v=114copyfix1"></script>
 <script src="adminConsole.js?v=103copyfix1"></script>

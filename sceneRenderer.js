@@ -375,11 +375,6 @@ function _buildTextCardContent(s) {
         placeholder="장면 본문 — 이 장면의 글"
         rows="4"
         data-num="${s.num}">${_escapeHtml(s.body || '')}</textarea>
-      <input class="card-title-input card-title-input--secondary js-title-input"
-        placeholder="장면 메모 (선택)"
-        type="text"
-        value="${_escapeHtml(s.title || '')}"
-        data-num="${s.num}"/>
       ${_buildTypeRowHtml(s)}
     </div>`;
 }
@@ -403,11 +398,6 @@ function _buildPicturebookCardContent(s) {
         placeholder="장면 본문 (짧게)"
         rows="2"
         data-num="${s.num}">${_escapeHtml(s.body || '')}</textarea>
-      <input class="card-title-input js-title-input"
-        placeholder="장면 메모 (선택)"
-        type="text"
-        value="${_escapeHtml(s.title || '')}"
-        data-num="${s.num}"/>
       ${_buildTypeRowHtml(s)}
     </div>`;
 }
@@ -453,11 +443,6 @@ function _buildMovieCardContent(s) {
         placeholder="본문 (선택)"
         rows="2"
         data-num="${s.num}">${_escapeHtml(s.body || '')}</textarea>
-      <input class="card-title-input js-title-input"
-        placeholder="장면 메모 (선택)"
-        type="text"
-        value="${_escapeHtml(s.title || '')}"
-        data-num="${s.num}"/>
       ${_buildTypeRowHtml(s)}
     </div>`;
 }
@@ -502,11 +487,6 @@ function _buildExperienceCardContent(s) {
       <span class="card-meta-badge card-meta-badge--connect-summary">${objSummary}</span>
     </div>
     <div class="card-body card-body--experience">
-      <input class="card-title-input js-title-input"
-        placeholder="장면 메모 (선택)"
-        type="text"
-        value="${_escapeHtml(s.title || '')}"
-        data-num="${s.num}"/>
       <textarea class="card-body-textarea card-body-textarea--single js-body-input"
         placeholder="안내문 (선택)"
         rows="1"

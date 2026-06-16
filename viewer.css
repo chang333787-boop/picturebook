@@ -6629,6 +6629,15 @@ body[data-page-orientation="portrait"] .terminal-screen--story .ending-page {
   color: var(--v03-fg);
   margin: 0 0 10px;
 }
+/* SCENE-TITLE-1B: 빈 '일반 장면' 제목 placeholder를 매우 약하게(편집 통로는 유지, 압박만 제거).
+   공통 클래스 .js-pb-editable-title만 대상 → 표지 작품 제목(.cover-title-pb)·본문은 무영향.
+   #viewer-frame(id)로 특이도를 올려 v03-modes.css(나중 로드)의 0.42~0.5 placeholder를 덮음.
+   감상 모드에선 빈 제목 자체가 미렌더라 영향 없음(편집 모드에서만 보임). */
+#viewer-frame .js-pb-editable-title:empty::before,
+#viewer-frame .js-pb-editable-title.is-empty::before {
+  opacity: 0.22;
+  font-weight: 400;
+}
 .scene-screen--pb .pb-text__body {
   font-size: clamp(13px, 1.5vw, 14.5px);
   line-height: 1.7;

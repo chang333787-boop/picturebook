@@ -1260,7 +1260,9 @@ function _sceneNavigatorHtml(scene) {
   const idx   = _currentSceneIndex();
   const total = list.length;
   const num   = scene.id;
-  const title = scene.title || '(제목 없음)';
+  /* SCENE-TITLE-1B: 제목 없는 장면도 '(제목 없음)' 대신 '장면 N'(번호 중심). 이 변수는 현재
+     헤더에서 미사용(NAV-TITLE-1A에서 큰 제목 제거)이지만 잔존 문자열도 정리. */
+  const title = scene.title || `장면 ${scene.id}`;
   const type  = _sceneTypeLabel(scene);
 
   const hasPrev = idx > 0;
@@ -1278,8 +1280,9 @@ function _sceneNavigatorHtml(scene) {
     return Number(a.id) - Number(b.id);
   }).map(s => {
     const t        = _sceneTypeLabel(s);
-    const titleTxt = s.title ? s.title.slice(0, 20) : '(제목 없음)';
-    const label    = `${s.id} · ${titleTxt} · ${t}`;
+    /* SCENE-TITLE-1B: 빈 제목 '(제목 없음)' 나열 제거 → '장면 N · 유형'(번호 중심). 제목 있으면 보조로. */
+    const titleTxt = s.title ? ` · ${s.title.slice(0, 20)}` : '';
+    const label    = `장면 ${s.id}${titleTxt} · ${t}`;
     const sel      = s.id === scene.id ? 'selected' : '';
     return `<option value="${escHtml(s.id)}" ${sel}>${escHtml(label)}</option>`;
   }).join('');

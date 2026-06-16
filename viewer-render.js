@@ -484,7 +484,7 @@ function _textTitleHtml(scene, allowEdit) {
   const sid = String(scene.id);
   const draftActive = (typeof _isTextTitleDraftActive === 'function') && _isTextTitleDraftActive(sid);
   if (t || draftActive) {
-    return `<h3 class="text-card__title js-pb-editable-title" contenteditable="true" data-pb-editable="title" data-placeholder="(제목을 적어보세요)">${escHtml(t)}</h3>`;
+    return `<h3 class="text-card__title js-pb-editable-title" contenteditable="true" data-pb-editable="title" data-placeholder="(장면 메모)">${escHtml(t)}</h3>`;
   }
   return `<button type="button" class="text-title-add-chip js-text-title-add" data-scene-id="${escHtml(sid)}">+ 제목 추가</button>`;
 }
@@ -672,7 +672,7 @@ function _renderScenePicturebook(stage, scene, submode) {
   const titleAsIllustOverlay = (orient !== 'portrait') && !isImageCenter;
 
   const titleOverlayInIllustHtml = (titleAsIllustOverlay && (title || isEdit))
-    ? `<h3 class="pb-illust__title-overlay js-pb-editable-title" ${editAttrs} data-placeholder="(제목을 적어보세요)">${escHtml(title)}</h3>`
+    ? `<h3 class="pb-illust__title-overlay js-pb-editable-title" ${editAttrs} data-placeholder="(장면 메모)">${escHtml(title)}</h3>`
     : '';
 
   const illustHtml = bgImage
@@ -691,7 +691,7 @@ function _renderScenePicturebook(stage, scene, submode) {
      세로면 기존 방식 (텍스트 영역에 제목). */
   const titleHtml = (titleAsIllustOverlay || !(title || isEdit))
     ? ''
-    : `<h3 class="pb-text__title js-pb-editable-title" ${editAttrs} data-placeholder="(제목을 적어보세요)">${escHtml(title)}</h3>`;
+    : `<h3 class="pb-text__title js-pb-editable-title" ${editAttrs} data-placeholder="(장면 메모)">${escHtml(title)}</h3>`;
   const bodyHtml  = body || isEdit
     ? `<p class="pb-text__body js-pb-editable-body" ${editAttrsBody} data-placeholder="(본문을 적어보세요)">${escHtml(body)}</p>` : '';
   const filteredChoices = _v03FilterChoicesIndexed(choices);
@@ -751,7 +751,7 @@ function _renderScenePicturebook(stage, scene, submode) {
           <div class="pb-frame${_pbToneClsIC}">
             <div class="pb-stage">
               ${illustHtml}
-              ${title || isEdit ? `<div class="pb-stage__title-overlay js-pb-editable-title" ${_allowPbEdit ? 'contenteditable="true" data-pb-editable="title"' : ''} data-placeholder="(제목을 적어보세요)">${escHtml(title)}</div>` : ''}
+              ${title || isEdit ? `<div class="pb-stage__title-overlay js-pb-editable-title" ${_allowPbEdit ? 'contenteditable="true" data-pb-editable="title"' : ''} data-placeholder="(장면 메모)">${escHtml(title)}</div>` : ''}
               ${body || isEdit ? `<div class="pb-stage__body-overlay js-pb-body-overlay"${_variantLayoutKeyPb ? ` data-ai-variant-layout="${_variantLayoutKeyPb}"` : ''} style="${bodyOverlayStyle || 'left:15%; top:25%; width:55%; background:rgba(255,255,255,0.85);'}">
                 <p class="pb-text__body js-pb-editable-body" ${editAttrsBody} data-placeholder="(본문을 적어보세요)">${escHtml(body)}</p>
                 ${editHandlesHtml}

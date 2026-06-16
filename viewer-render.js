@@ -486,7 +486,9 @@ function _textTitleHtml(scene, allowEdit) {
   if (t || draftActive) {
     return `<h3 class="text-card__title js-pb-editable-title" contenteditable="true" data-pb-editable="title" data-placeholder="(장면 메모)">${escHtml(t)}</h3>`;
   }
-  return `<button type="button" class="text-title-add-chip js-text-title-add" data-scene-id="${escHtml(sid)}">+ 제목 추가</button>`;
+  /* SCENE-TITLE-1C: 칩 문구도 흐름 통일 — '+ 제목 추가'(제목 강요감) → '+ 장면 메모'(선택 메모).
+     클래스/핸들러(.js-text-title-add)·저장 경로 불변, 표시 문구만. */
+  return `<button type="button" class="text-title-add-chip js-text-title-add" data-scene-id="${escHtml(sid)}">+ 장면 메모</button>`;
 }
 
 /* 텍스트 카드 안 내용 — 제목 → 본문 → 버튼 */

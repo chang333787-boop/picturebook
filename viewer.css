@@ -1061,10 +1061,13 @@ body.edit-mode-active .scene-screen.preview-once {
   animation: actionsFadeIn 1500ms cubic-bezier(0.16, 1, 0.3, 1) both;
   animation-delay: calc(var(--text-ent-start-delay, 1400ms) + var(--text-ent-total, 0ms));
 }
-/* v127: 행동버튼 등장 전 클릭 박지 X — 사용자 박은 명 "보이기 전에는 절대 눌리면 안 됨".
-   .is-ready 박힌 후만 클릭 박힘. JS가 animationend 후 박음 (또는 5초 fallback). */
+/* VIEWER-PLAY-CLICK-1: v127 지연락 제거(none→auto). 감상 모드에서 행동버튼이 보이는데도
+   actionsFadeIn animationend(지연 ~2s+텍스트총+1.5s) 또는 6초 fallback 전까진 pointer-events:none
+   이라, 사용자가 그 구간에 누르면 클릭이 조용히 무시되던 문제(AI 재렌더로 락 리셋 시 더 길어짐).
+   클릭 신뢰성을 fade 연출보다 우선 — 페이드는 opacity/transform으로만 진행, 클릭은 항상 가능.
+   (is-ready 부여 JS는 그대로 두되 이제 클릭 차단에 영향 없음.) */
 .scene-screen--pb .pb-text__actions:not(.is-ready) {
-  pointer-events: none;
+  pointer-events: auto;
 }
 body.edit-mode-active .scene-screen--pb .pb-text__actions {
   pointer-events: auto; /* 다듬기 모드 박혀있으면 항상 박음 */

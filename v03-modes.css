@@ -219,8 +219,11 @@
   position: absolute;
   inset: 0;
   background: var(--v03-bg);
-  /* A4 컨테이너가 가운데 들어가도록 화면을 안 꽉 채움 */
-  padding: 12px;
+  /* A4 컨테이너가 가운데 들어가도록 화면을 안 꽉 채움.
+     VIEWER-PLAY-LAYOUT-1: 카드 둘레 여백을 12→6으로 축소해 페이지 카드를 살짝 키움(저위험).
+     ※ 와이드 화면(노트북16:9·태블릿 가로)의 주 여백은 .pb-page의 A4 비율(297/210) letterbox이며,
+        이는 의도된 작품 비율이라 본 단계에서 변경하지 않음(→ 별도 VIEWER-PLAY-ASPECT 결정 사안). */
+  padding: 6px;
   display: grid;
   place-items: center;
   /* 컨테이너 쿼리 활성화 — 자식 .pb-page가 viewer-frame 모양에 따라 fit */

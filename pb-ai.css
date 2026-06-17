@@ -1052,14 +1052,15 @@
    ════════════════════════════════════════════════════════════════ */
 .ai-view-toggle-bar {
   position: fixed;
-  top: 8px;
+  /* VIEWER-AI-MODE-BAR-1A: 상단 세로 공간 축소 — pill을 위로 당기고(8→4) 패딩 축소. */
+  top: 4px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 10005;
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 10px;
+  padding: 4px 10px;
   background: #fffaee;
   border: 1px solid #ecdfc4;
   border-radius: 999px;
@@ -1082,7 +1083,8 @@
   color: #6b5638;
   font-family: 'Jua', sans-serif;
   font-size: 12px;
-  padding: 5px 12px;
+  /* VIEWER-AI-MODE-BAR-1A: 버튼 높이 살짝 축소(터치 영역 유지). */
+  padding: 4px 11px;
   border-radius: 999px;
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;

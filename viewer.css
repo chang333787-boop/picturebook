@@ -238,7 +238,8 @@ html, body {
    상단에 바 높이(≈32px)+여백만큼 공간을 예약해 해결. magic top값 대신 공간 예약이라
    버튼이 더 늘어도 안정. 바가 사라지면 class 해제로 여백 회수(레이아웃만, 기능 무관). */
 body.has-ai-view-toggle #hud {
-  padding-top: 44px;
+  /* VIEWER-AI-MODE-BAR-1A: pill compact(높이↓·top 4) → 예약 공간 44→40 축소(겹침 방지 유지). */
+  padding-top: 40px;
 }
 .hud-inner {
   display: flex;
@@ -2428,7 +2429,9 @@ body[data-page-orientation="portrait"] .cover-page {
   justify-content: center;   /* PANEL-BACKBONE-1A-ii: compact 중앙정렬 */
   padding: 6px 14px 8px;
   background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  /* VIEWER-AI-MODE-BAR-1A: 보기 모드/navigator 영역의 거슬리는 회색 가로 라인 제거.
+     navigator는 자체 배경(var(--surface))으로 구분되고, 위 maker-return-bar가 상단 경계 제공. */
+  border-bottom: none;
 }
 #scene-navigator .edit-nav {
   width: min(100%, 760px);   /* compact: full-width 펼침 방지 */

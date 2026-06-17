@@ -2437,15 +2437,14 @@ body[data-page-orientation="portrait"] .cover-page {
   border-bottom: 0;
   gap: 6px;
 }
-#scene-navigator .edit-nav-row--main {
-  justify-content: center;   /* ←/→가 화면 끝이 아닌 정보/select 주변으로 모임 */
+/* VIEWER-EDIT-TOPBAR-1: navigator 1줄 통합 — [←][select 장면 N · 유형][N/총][→] 중앙 정렬.
+   기존 --main(번호+배지 줄)/--jump(select 줄) 2줄 → --single 한 줄. */
+#scene-navigator .edit-nav-row--single {
+  justify-content: center;   /* ←/→가 화면 끝이 아닌 select/카운터 주변으로 모임 */
   gap: 10px;
 }
-#scene-navigator .edit-nav-row--jump {
-  justify-content: center;
-}
 #scene-navigator .edit-nav-jump {
-  max-width: min(100%, 520px);   /* 좁은 폭에서 가로 overflow 방지 */
+  max-width: min(100%, 480px);   /* 좁은 폭에서 가로 overflow 방지 + 카운터 공간 확보 */
 }
 /* readonly 예외 — 잠금 중에도 장면 이동 허용(기존 839~849는 #edit-panel scope라 미적용).
    저장/편집 컨트롤 차단은 그대로 두고, 이 바(nav)만 살린다. */

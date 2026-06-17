@@ -1287,26 +1287,19 @@ function _sceneNavigatorHtml(scene) {
     return `<option value="${escHtml(s.id)}" ${sel}>${escHtml(label)}</option>`;
   }).join('');
 
+  /* VIEWER-EDIT-TOPBAR-1: navigator 2줄→1줄 통합 — [←][select 장면 N · 유형 ▼][N/총][→].
+     기존 윗줄 '장면 N + 유형 배지'는 select가 같은 정보(현재 옵션=장면 N · 유형)를 보여줘 중복이라 제거.
+     N/총 카운터·이전/다음·select(option value=scene id)·핸들러(js-scene-nav-*)는 그대로 유지.
+     (num/type/typeClass/title 변수는 더 이상 표시에 안 쓰이지만 무해하게 남김.) */
   return `
     <div class="edit-nav scene-navigator-inner">
-      <div class="edit-nav-row edit-nav-row--main">
+      <div class="edit-nav-row edit-nav-row--single">
         <button class="edit-nav-btn js-scene-nav-prev" ${hasPrev ? '' : 'disabled'} title="이전 장면">←</button>
-        <div class="edit-nav-info">
-          <div class="edit-nav-info-top">
-            <span class="edit-nav-num">장면 ${num}</span>
-            <span class="edit-nav-badge ${typeClass}">${type}</span>
-            <span class="edit-nav-counter">${idx + 1} / ${total}</span>
-          </div>
-          <!-- NAV-TITLE-1A: navigator 큰 제목(edit-nav-info-title) 제거 — 미리보기 제목과 중복이고
-               제목 편집이 navigator에 실시간 반영 안 돼 stale했음. 제목은 미리보기·select·DB에 유지.
-               navigator는 장면 N·유형·N/총만 표시. -->
-        </div>
-        <button class="edit-nav-btn js-scene-nav-next" ${hasNext ? '' : 'disabled'} title="다음 장면">→</button>
-      </div>
-      <div class="edit-nav-row edit-nav-row--jump">
-        <select class="edit-nav-jump js-scene-nav-jump" id="scene-nav-jump" title="장면 목록에서 선택">
+        <select class="edit-nav-jump js-scene-nav-jump" id="scene-nav-jump" title="장면 이동 — 목록에서 선택">
           ${optionsHtml}
         </select>
+        <span class="edit-nav-counter">${idx + 1} / ${total}</span>
+        <button class="edit-nav-btn js-scene-nav-next" ${hasNext ? '' : 'disabled'} title="다음 장면">→</button>
       </div>
     </div>`;
 }

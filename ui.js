@@ -1088,7 +1088,25 @@ window.addEventListener('DOMContentLoaded', () => {
      PIN 재검증은 _resumeTeamFromSession에서 수행 (보안)
      ================================================================ */
   const _resumeParam = new URLSearchParams(location.search).get('resume');
-  if (_resumeParam === '1') {
+  /* SESSION-REFRESH-1A: 일반 새로고침(파라미터 없음)에서도 같은 탭의 fresh makerSession이
+     있으면 자동 복귀 — join 화면 재입력(팀/PIN) 방지. 원래는 ?resume=1(viewer→maker 복귀)에만
+     발동해, join으로 직접 입장한 학생이 F5하면 sessionStorage 세션이 살아있어도 join 화면으로 갔음.
+     · sessionStorage는 탭 단위라 join한 그 탭만 보유 → 새 탭 의도치 않은 자동입장 위험 없음.
+     · admin(?admin=1)·교사 🛠수정(?team=) 진입은 의도된 별도 흐름이라 제외.
+     · 실제 입장/PIN 재검증/Auth는 기존 _resumeTeamFromSession이 그대로 수행(여기선 발동 조건만 완화). */
+  let _hasFreshMakerSession = false;
+  if (_resumeParam !== '1'
+      && new URLSearchParams(location.search).get('admin') !== '1'
+      && !_teamParam) {
+    try {
+      const _ms = JSON.parse(sessionStorage.getItem('makerSession') || 'null');
+      const _MS_MAX_AGE = 2 * 60 * 60 * 1000; // 2시간 (아래 resume 블록 TTL과 동일)
+      _hasFreshMakerSession = !!(_ms && _ms.pin && _ms.teamName
+        && (_ms.classId || _ms.classCode)
+        && (Date.now() - (_ms.savedAt || 0) < _MS_MAX_AGE));
+    } catch (e) { /* 파싱 실패 → false(기존 join 화면 유지) */ }
+  }
+  if (_resumeParam === '1' || _hasFreshMakerSession) {
     try {
       const raw = sessionStorage.getItem('makerSession');
       if (raw) {

@@ -272,6 +272,30 @@
   }
 }
 
+/* ── VIEWER-PLAY-ASPECT-1A: 감상 모드 가로 작품 페이지 비율 완화 (A4 1.414 → 3:2 1.5) ──
+   와이드/태블릿 가로에서 A4 letterbox 좌우 여백을 줄여 화면을 더 씀. 그림은 contain fit이라 안 잘림.
+   적용 조건(전부 만족): 편집/다듬기 아님(body:not(.edit-mode-active)) · 세로작품 아님
+   (:not([data-page-orientation="portrait"])) · 가로 화면(@media min-width:601px and min-aspect-ratio:1/1).
+   → 편집 A4 / 세로작품 / 모바일(≤600 block) / 세로화면(≤1 portrait A4)은 미적용(기존 정책 유지).
+   특이도가 기존 규칙보다 높아 cascade로 이김. @container 안에서도 body:not(...) 셀렉터 정상 동작. */
+@media (min-width: 601px) and (min-aspect-ratio: 1/1) {
+  body:not(.edit-mode-active):not([data-page-orientation="portrait"]) .scene-screen--pb .pb-page {
+    aspect-ratio: 3 / 2;
+  }
+  @container pbstage (aspect-ratio > 3/2) {
+    body:not(.edit-mode-active):not([data-page-orientation="portrait"]) .scene-screen--pb .pb-page {
+      width: auto;
+      height: 100%;
+    }
+  }
+  @container pbstage (aspect-ratio <= 3/2) {
+    body:not(.edit-mode-active):not([data-page-orientation="portrait"]) .scene-screen--pb .pb-page {
+      width: 100%;
+      height: auto;
+    }
+  }
+}
+
 /* 좁은 환경 (모바일 세로) — 세로 A4 비율 자동 전환 */
 @media (max-aspect-ratio: 1/1) {
   .scene-screen--pb .pb-page {

@@ -1066,6 +1066,38 @@ body.edit-mode-active .scene-screen.preview-once {
    이라, 사용자가 그 구간에 누르면 클릭이 조용히 무시되던 문제(AI 재렌더로 락 리셋 시 더 길어짐).
    클릭 신뢰성을 fade 연출보다 우선 — 페이드는 opacity/transform으로만 진행, 클릭은 항상 가능.
    (is-ready 부여 JS는 그대로 두되 이제 클릭 차단에 영향 없음.) */
+/* VIEWER-PLAY-CHOICE-UNLINKED-1: 감상 미연결 선택지 — 살짝 비활성처럼 보이되 클릭은 가능
+   (pointer-events:none 금지). 눌러도 죽지 않고 안내 토스트가 뜸. */
+.choice-v03[aria-disabled="true"],
+.choice-btn[aria-disabled="true"] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+/* 감상 토스트 — 화면 하단 중앙, 부드럽게 등장/사라짐. 장면을 가리지 않음. */
+.play-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translate(-50%, 12px);
+  z-index: 10006;
+  max-width: calc(100vw - 32px);
+  padding: 10px 18px;
+  background: rgba(43, 31, 16, 0.92);
+  color: #fffaee;
+  font-family: var(--font-ui, 'Jua', sans-serif);
+  font-size: 14px;
+  line-height: 1.4;
+  border-radius: 999px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.22);
+  opacity: 0;
+  transition: opacity 0.22s ease, transform 0.22s ease;
+  cursor: pointer;
+  text-align: center;
+}
+.play-toast.is-show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
 .scene-screen--pb .pb-text__actions:not(.is-ready) {
   pointer-events: auto;
 }

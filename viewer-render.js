@@ -1184,7 +1184,12 @@ function _v03ChoiceBtnHtml(scene, choice, mode, idx, dispIdx) {
   const _isEditBtn = !!(ViewerState && ViewerState.editMode);
   /* 2026-05-31 Movie-G: text와 동일하게 movie도 edit 모드면 미연결 버튼 disabled 안 함
      (disabled <button>은 자식 contenteditable 포커스 차단). pb/legacy는 옛대로. */
-  const disabled = (!choice.nextId && !((mode === 'text' || mode === 'movie') && _isEditBtn)) ? 'disabled' : '';
+  /* VIEWER-PLAY-CHOICE-UNLINKED-1: 감상 모드(미편집)에선 미연결 선택지를 disabled로 죽이지 않고
+     클릭 가능하게 둬서, 누르면 안내 토스트(chooseOption→showPlayToast)가 뜨게 한다.
+     기존 disabled는 편집 모드 그림책 선택지에만 유지(라벨 편집 보호). text/movie 편집은 종전대로 비-disabled. */
+  const _isUnlinked = !choice.nextId;
+  const disabled = (_isUnlinked && _isEditBtn && mode !== 'text' && mode !== 'movie') ? 'disabled' : '';
+  const unlinkedAttr = (_isUnlinked && !_isEditBtn) ? ' aria-disabled="true" data-unlinked="1"' : '';
   /* W8: 빈 라벨 placeholder — 사용자 보고 "(빈 버튼)" → 더 친절 안내 */
   const label    = String(choice.label || '').trim() || '(행동 버튼을 적어보세요)';
   const isEmpty  = !String(choice.label || '').trim();
@@ -1209,7 +1214,7 @@ function _v03ChoiceBtnHtml(scene, choice, mode, idx, dispIdx) {
     return `<button class="choice-v03 choice-v03--picturebook js-choice${emptyClass}"
       data-choice-id="${escHtml(choice.id)}"
       data-pb-color="${colorIdx}"
-      ${disabled}>
+      ${disabled}${unlinkedAttr}>
       <span class="pb-choice-num">${_num + 1}</span>
       <span class="pb-choice-label"${_labelEditAttrs} data-placeholder="(버튼 문구)">${escHtml(label)}</span>
       <span class="pb-choice-arrow" aria-hidden="true">›</span>
@@ -1240,7 +1245,7 @@ function _v03ChoiceBtnHtml(scene, choice, mode, idx, dispIdx) {
     }
   }
   return `<button class="choice-v03 choice-v03--${mode} js-choice${emptyClass}"
-    data-choice-id="${escHtml(choice.id)}" ${disabled}>
+    data-choice-id="${escHtml(choice.id)}" ${disabled}${unlinkedAttr}>
     ${_textLabelHtml}
   </button>`;
 }
@@ -1359,7 +1364,11 @@ function renderOverlayChoices(scene, choices) {
 function _choiceButtonHtml(scene, choice, type = 'bottom') {
   const preset = choice.presentation.stylePreset || 'basic';
   const p      = choice.presentation;
-  const disabled = !choice.nextId ? 'disabled' : '';
+  /* VIEWER-PLAY-CHOICE-UNLINKED-1: 감상 모드 미연결도 클릭 가능(안내). 편집 모드만 disabled 유지. */
+  const _isEditBtnLeg = !!(ViewerState && ViewerState.editMode);
+  const _isUnlinkedLeg = !choice.nextId;
+  const disabled = (_isUnlinkedLeg && _isEditBtnLeg) ? 'disabled' : '';
+  const unlinkedAttr = (_isUnlinkedLeg && !_isEditBtnLeg) ? ' aria-disabled="true" data-unlinked="1"' : '';
 
   /* fontSize / padding / minW가 presentation에 있으면 inline style로 적용
      없으면 CSS 기본값 사용 */
@@ -1370,7 +1379,7 @@ function _choiceButtonHtml(scene, choice, type = 'bottom') {
   const inlineStyle = styleArr.length ? ` style="${styleArr.join(';')}"` : '';
 
   return `<button class="choice-btn choice-btn--${type} choice-preset--${preset} js-choice"
-    data-choice-id="${escHtml(choice.id)}" ${disabled}${inlineStyle}>
+    data-choice-id="${escHtml(choice.id)}" ${disabled}${unlinkedAttr}${inlineStyle}>
     ${escHtml(choice.label)}
   </button>`;
 }
@@ -2375,6 +2384,30 @@ function renderError(msg) {
       </div>
     </div>`);
   stage.querySelector('.js-err-back')?.addEventListener('click', showEntryScreen);
+}
+
+/* VIEWER-PLAY-CHOICE-UNLINKED-1: 가벼운 감상 토스트 — 장면을 파괴하는 renderError 대신 사용.
+   미연결 선택지 클릭 등 "부드러운 안내"용. 2.6초 후 자동 사라짐 + 클릭 시 즉시 닫힘. */
+let _playToastTimer = null;
+function showPlayToast(msg) {
+  const ID = 'play-toast-root';
+  const old = document.getElementById(ID);
+  if (old) old.remove();
+  if (_playToastTimer) { clearTimeout(_playToastTimer); _playToastTimer = null; }
+  const el = document.createElement('div');
+  el.id = ID;
+  el.className = 'play-toast';
+  el.setAttribute('role', 'status');
+  el.setAttribute('aria-live', 'polite');
+  el.textContent = msg;
+  document.body.appendChild(el);
+  requestAnimationFrame(() => el.classList.add('is-show'));
+  const dismiss = () => {
+    el.classList.remove('is-show');
+    setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 240);
+  };
+  _playToastTimer = setTimeout(dismiss, 2600);
+  el.addEventListener('click', dismiss);
 }
 
 /* ── 유틸 ── */

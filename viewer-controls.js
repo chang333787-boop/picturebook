@@ -107,7 +107,11 @@ function chooseOption(choiceId) {
   if (!choice) return;
 
   if (!choice.nextId) {
-    renderError('이 선택지는 아직 연결되지 않았어요.');
+    /* VIEWER-PLAY-CHOICE-UNLINKED-1: 장면을 날리는 renderError(입장 화면 복귀) 대신 부드러운 토스트.
+       미연결 선택지를 눌러도 작품/현재 장면은 그대로 두고 안내만. nextId/이동 로직은 불변. */
+    if (typeof showPlayToast === 'function') {
+      showPlayToast('아직 다음 장면과 연결되지 않은 선택지예요.');
+    }
     return;
   }
 

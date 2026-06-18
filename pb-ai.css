@@ -1052,8 +1052,9 @@
    ════════════════════════════════════════════════════════════════ */
 .ai-view-toggle-bar {
   position: fixed;
-  /* VIEWER-AI-MODE-BAR-1A: 상단 세로 공간 축소 — pill을 위로 당기고(8→4) 패딩 축소. */
-  top: 4px;
+  /* VIEWER-AI-MODE-BAR-1A: 상단 세로 공간 축소 — pill을 위로 당기고(8→4) 패딩 축소.
+     VIEWER-PLAY-TOP-CHROME-1: 그림자 약화(조용하게)·top 4→3 소폭. */
+  top: 3px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 10005;
@@ -1064,7 +1065,7 @@
   background: #fffaee;
   border: 1px solid #ecdfc4;
   border-radius: 999px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.12);
+  box-shadow: 0 1px 6px rgba(0,0,0,0.10);
   font-family: 'Jua', sans-serif;
   font-size: 12px;
   pointer-events: auto;

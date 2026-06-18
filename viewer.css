@@ -3663,23 +3663,27 @@ body[data-page-orientation="portrait"] .terminal-screen--story .ending-page {
 /* ── maker 복귀 바 (fromMaker일 때만 표시) ──
    W8: 종이 골드 톤으로 통일 (teacher-auth + "마감 편집 중" 배지와 같은 액센트).
    학생은 보지 않는 제작자 전용 상태 표시 — 골드 = "안내·관리" 의미와 맞음. */
+/* VIEWER-PLAY-TOP-CHROME-1: 제작자 테스트/다듬기 상단 바를 얇고 조용하게.
+   세로 padding↓(7→4)·간격↓·배경/경계선 약화 → 작품 위 시선 부담 감소. 버튼 터치 영역은 유지.
+   (이 바는 fromMaker일 때만 렌더 — 실 학생 감상엔 없음.) */
 .maker-return-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 7px 16px;
-  background: rgba(199, 149, 80, 0.18);
-  border-bottom: 1px solid rgba(199, 149, 80, 0.32);
+  gap: 8px;
+  padding: 4px 14px;
+  background: rgba(199, 149, 80, 0.12);
+  border-bottom: 1px solid rgba(199, 149, 80, 0.16);
   backdrop-filter: blur(8px);
   flex-wrap: wrap;
 }
 .maker-return-label {
   font-family: var(--font-ui);
-  font-size: 12px;
+  font-size: 11px;
   color: #8a5a1f;
   letter-spacing: .04em;
   white-space: nowrap;
+  opacity: 0.9;
 }
 .maker-return-actions {
   display: flex;
@@ -3687,12 +3691,13 @@ body[data-page-orientation="portrait"] .terminal-screen--story .ending-page {
   flex-wrap: wrap;
 }
 .maker-return-btn {
-  padding: 5px 14px;
+  /* VIEWER-PLAY-TOP-CHROME-1: 보더 약화(1.5→1)로 가볍게. 패딩(=터치 높이 ~30px)은 유지. */
+  padding: 5px 13px;
   border-radius: 50px;
   font-family: var(--font-ui);
   font-size: 12px;
   cursor: pointer;
-  border: 1.5px solid rgba(199, 149, 80, 0.42);
+  border: 1px solid rgba(199, 149, 80, 0.36);
   background: #fffaee;
   color: #6b5638;
   transition: background var(--t-fast), border-color var(--t-fast), transform var(--t-fast);

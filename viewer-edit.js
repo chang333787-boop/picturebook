@@ -1825,6 +1825,9 @@ function _attachPbBodyBoxInteractions(overlay, frame) {
     } else {
       overlay.style.height = '';
     }
+    /* D8-CLEAN-1B: 신규 5스킨 imageCenter는 v03-modes.css가 스킨 색조 + 이 alpha로 합성.
+       background는 legacy/split fallback로 유지. live 슬라이더/드래그에서도 --pb-box-opacity 갱신. */
+    overlay.style.setProperty('--pb-box-opacity', String(box.backdropOpacity));
     overlay.style.background = `rgba(255,255,255,${box.backdropOpacity})`;
   };
 

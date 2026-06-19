@@ -718,6 +718,9 @@ function _renderScenePicturebook(stage, scene, submode) {
     const heightStyle = (typeof bodyBox.height === 'number') ? ` height: ${bodyBox.height}%;` : '';
     const bodyOverlayStyle = body
       ? `left: ${bodyBox.x}%; top: ${bodyBox.y}%; width: ${bodyBox.width}%;${heightStyle}`
+        /* D8-CLEAN-1B: 글상자 진하기 = --pb-box-opacity. 신규 5스킨 imageCenter는 v03-modes.css가
+           스킨 색조 + 이 alpha로 합성. background는 legacy/split fallback로 유지. */
+        + ` --pb-box-opacity: ${bodyBox.backdropOpacity};`
         + ` background: rgba(255, 255, 255, ${bodyBox.backdropOpacity});`
         + ` box-shadow: 0 2px 6px rgba(0,0,0,${0.08 * bodyBox.backdropOpacity});`
       : '';
@@ -1679,6 +1682,8 @@ function _renderStoryEnding(stage, scene) {
       : _endBox0;
     const _endBoxH = (typeof _endBox.height === 'number') ? ` height: ${_endBox.height}%;` : '';
     const _endBoxStyle = `left: ${_endBox.x}%; top: ${_endBox.y}%; width: ${_endBox.width}%;${_endBoxH}`
+      /* D8-CLEAN-1B: 엔딩도 일반 imageCenter와 동일 — 글상자 진하기 = --pb-box-opacity. */
+      + ` --pb-box-opacity: ${_endBox.backdropOpacity};`
       + ` background: rgba(255, 255, 255, ${_endBox.backdropOpacity});`
       + ` box-shadow: 0 2px 6px rgba(0,0,0,${0.08 * _endBox.backdropOpacity});`;
     const _endHandlesHtml = _allowInlineEdit ? `

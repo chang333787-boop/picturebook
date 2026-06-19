@@ -90,12 +90,15 @@ if (typeof window !== 'undefined') {
 const EDIT_SAVE_DEBOUNCE_MS = 800;
 
 /* W9 (v3): 양옆 마감 테마 collapsible 상태.
-   null = 자동 (pbTheme === 'classic-book' → 펼침, 다른 거 → 접힘)
+   null = 자동 (D5: 기본 스킨 cozy-storybook → 펼침, 다른 거 → 접힘. legacy 키는 normalize 후 비교)
    true = 사용자가 접음 / false = 사용자가 펼침 */
 let _pbThemeCollapsed = null;
 function _getPbThemeCollapsed() {
   if (_pbThemeCollapsed !== null) return _pbThemeCollapsed;
-  return (ViewerState.project.pbTheme || 'classic-book') !== 'classic-book';
+  const t = (typeof normalizePicturebookTheme === 'function')
+    ? normalizePicturebookTheme(ViewerState.project.pbTheme)
+    : (ViewerState.project.pbTheme || 'cozy-storybook');
+  return t !== 'cozy-storybook';
 }
 
 /* 2026-05-25 Phase 1: 그림책 편집 패널 우측 세로 길이 축소.
@@ -2985,15 +2988,18 @@ function _textEffectSectionHtml(scene) {
    · 작품 단위 데이터(ViewerState.project.pbTheme / viewer-meta.pbTheme) 그대로.
    ──────────────────────────────────────────────────────────── */
 function _pbThemeSectionHtml() {
+  /* D5: UI 목록은 신규 5스킨만 노출. 기존 legacy 6키는 데이터로 보존하되 목록에서 숨김. */
   const PB_THEMES = [
-    { id: 'classic-book',  label: '클래식 책',  desc: '책 두께·제본' },
-    { id: 'paper-desk',    label: '책상',       desc: '종이 텍스처' },
-    { id: 'minimal-cream', label: '미니멀',     desc: '단순 종이톤' },
-    { id: 'sketch-note',   label: '손그림 노트', desc: '노트 줄지' },
-    { id: 'library-card',  label: '도서관',     desc: '황색 + 라벨' },
-    { id: 'night-tale',    label: '밤 이야기',   desc: '어두운 별빛' },
+    { id: 'cozy-storybook',      label: '포근한 동화책', desc: '크림빛 종이' },
+    { id: 'paper-storybook',     label: '종이 동화책',   desc: '낡은 종이결' },
+    { id: 'gallery-picturebook', label: '전시 그림책',   desc: '흰 액자 여백' },
+    { id: 'forest-storybook',    label: '숲속 그림책',   desc: '잎·덩굴 가장자리' },
+    { id: 'night-story',         label: '밤 이야기',     desc: '별·달 밤하늘' },
   ];
-  const current  = (ViewerState.project.pbTheme || 'classic-book');
+  /* legacy 키 작품을 열면 normalize한 신규 키가 active로 표시(DB 값은 불변). */
+  const current  = (typeof normalizePicturebookTheme === 'function')
+    ? normalizePicturebookTheme(ViewerState.project.pbTheme)
+    : (ViewerState.project.pbTheme || 'cozy-storybook');
   const currentT = PB_THEMES.find(t => t.id === current) || PB_THEMES[0];
   const collapsed = _getPbThemeCollapsed();
 
@@ -3642,8 +3648,8 @@ function _bindPbThemeHandlers(panel) {
   panel.querySelectorAll('.js-pb-theme').forEach(btn => {
     btn.addEventListener('click', async () => {
       if (!_editText.editable) return;
-      const PB_THEMES = ['classic-book', 'paper-desk', 'minimal-cream', 'sketch-note', 'library-card', 'night-tale'];
-      const val = PB_THEMES.includes(btn.dataset.val) ? btn.dataset.val : 'classic-book';
+      const PB_THEMES = ['cozy-storybook', 'paper-storybook', 'gallery-picturebook', 'forest-storybook', 'night-story'];
+      const val = PB_THEMES.includes(btn.dataset.val) ? btn.dataset.val : 'cozy-storybook';
       if (ViewerState.project.pbTheme === val) return;   // no-op
       ViewerState.project.pbTheme = val;
       if (document.body) document.body.dataset.pbTheme = val;
@@ -5148,8 +5154,8 @@ function _bindProjectPopover(pop) {
   pop.querySelectorAll('.js-pb-theme').forEach(btn => {
     btn.addEventListener('click', async () => {
       if (!_editText.editable) return;
-      const PB_THEMES = ['classic-book', 'paper-desk', 'minimal-cream', 'sketch-note', 'library-card', 'night-tale'];
-      const val = PB_THEMES.includes(btn.dataset.val) ? btn.dataset.val : 'classic-book';
+      const PB_THEMES = ['cozy-storybook', 'paper-storybook', 'gallery-picturebook', 'forest-storybook', 'night-story'];
+      const val = PB_THEMES.includes(btn.dataset.val) ? btn.dataset.val : 'cozy-storybook';
       if (ViewerState.project.pbTheme === val) return;   // no-op
       ViewerState.project.pbTheme = val;
       if (document.body) document.body.dataset.pbTheme = val;

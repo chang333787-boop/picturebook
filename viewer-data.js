@@ -60,6 +60,22 @@ async function lookupClassIdForViewer(code) {
   return snap.val();   // classCodes/$code = classId (문자열)
 }
 
+/* DESIGN-SYSTEM-V1 D5: legacy pbTheme(기존 6키) → 신규 5스킨 fallback(렌더 표시용).
+   ⚠️ DB 저장값(ViewerState.project.pbTheme / viewer-meta.pbTheme)은 절대 바꾸지 않는다 —
+   body[data-pb-theme]에 박는 "표시값"만 normalize. 신규 5키는 그대로 통과.
+   사용자가 다듬기 UI에서 새 스킨을 다시 선택하면 그때 신규 키가 저장된다(아래 핸들러). */
+function normalizePicturebookTheme(theme) {
+  const map = {
+    'classic-book':  'cozy-storybook',
+    'paper-desk':    'paper-storybook',
+    'minimal-cream': 'gallery-picturebook',
+    'sketch-note':   'paper-storybook',
+    'library-card':  'gallery-picturebook',
+    'night-tale':    'night-story',
+  };
+  return map[theme] || theme || 'cozy-storybook';
+}
+
 /* ================================================================
    loadTeamData — 팀명으로 maker DB 읽기
    반환: Promise<void> (ViewerState에 직접 주입)
@@ -215,7 +231,9 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
     }
     const theme = ViewerState.project.pbTheme;
     if (typeof theme === 'string' && theme.length > 0) {
-      document.body.dataset.pbTheme = theme;
+      /* D5: 저장값(theme)은 그대로 두고, 표시용 body data만 신규 스킨으로 normalize.
+         legacy 6키 작품은 가까운 신규 스킨으로 보이고, 미설정 작품은 가드에 걸려 무변경(회귀 0). */
+      document.body.dataset.pbTheme = normalizePicturebookTheme(theme);
     }
     /* v82: v79 박은 body.dataset.coverTheme 폐기 — 사용자 의도는 표지 색이 아닌
        pb-theme(양옆 마감 테마)이 letterbox 전체 둘러쌈. body.dataset.pbTheme이 이미

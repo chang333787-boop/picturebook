@@ -3778,6 +3778,40 @@ body[data-pb-theme="paper-storybook"]    .scene-screen--pb.pb--imagecenter .pb-s
 body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay .pb-text__body { color: var(--pb-color-override, #3a3a38); text-shadow: none; }
 body[data-pb-theme="forest-storybook"]   .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay .pb-text__body { color: var(--pb-color-override, #3a4a2e); text-shadow: none; }
 body[data-pb-theme="night-story"]        .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay .pb-text__body { color: var(--pb-color-override, #eef1ff); text-shadow: none; }
+
+/* ════════════════════════════════════════════════════════════
+   D9-1 (cozy-storybook 정본 · 미커밋): 말풍선=둥근 종이 조각, 행동버튼=작은 종이 라벨.
+   cozy 한정 · 시각만. 위치/크기/배경 var(--pb-box-opacity)/글씨색 var(--pb-color-override)/
+   드래그·리사이즈 핸들/기능 class(js-restart 등)/그림 크기 무변경. 편집·감상·엔딩 공통.
+   ════════════════════════════════════════════════════════════ */
+/* 1) 말풍선 — 따뜻한 보더 + 말랑한 종이 그림자 + 더 둥글게. 배경 var는 D8-1B 그대로(미수정). */
+body[data-pb-theme="cozy-storybook"] .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay {
+  border: 1.5px solid rgba(198,152,92,.5);
+  border-radius: 16px;
+  box-shadow: 0 2px 9px rgba(150,110,60,.14), inset 0 1px 0 rgba(255,255,255,.5);
+  padding: 10px 16px;
+}
+/* 2) 행동버튼 — 둥근 종이 라벨(따뜻한 살구·갈색 보더·작은 종이 그림자·갈색 글씨).
+   imageCenter pill 규칙(.pb-text__actions[data-count], !important)을 이기게 동일 패턴+!important. */
+body[data-pb-theme="cozy-storybook"] .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook {
+  background: #f7dca6 !important;
+  border: 1.5px solid #d9b677;
+  border-radius: 13px !important;
+  box-shadow: 0 1px 2px rgba(150,110,60,.18);
+  color: #5a3c1e !important;
+  font-weight: 700;
+  letter-spacing: .01em;
+  padding: 7px 18px !important;
+  min-height: 38px;
+}
+body[data-pb-theme="cozy-storybook"] .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook:hover:not(:disabled) {
+  background: #f2d091 !important; border-color: #cda55f;
+}
+/* 번호/화살표는 cozy에서 라벨감 위해 숨김(장식 span — 기능 무관). */
+body[data-pb-theme="cozy-storybook"] .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook .pb-choice-num,
+body[data-pb-theme="cozy-storybook"] .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook .pb-choice-arrow {
+  display: none;
+}
 body[data-pb-theme="cozy-storybook"]:not(.edit-mode-active)     .scene-screen--pb.pb--imagecenter .pb-stage__title-overlay,
 body[data-pb-theme="paper-storybook"]:not(.edit-mode-active)    .scene-screen--pb.pb--imagecenter .pb-stage__title-overlay,
 body[data-pb-theme="gallery-picturebook"]:not(.edit-mode-active) .scene-screen--pb.pb--imagecenter .pb-stage__title-overlay,

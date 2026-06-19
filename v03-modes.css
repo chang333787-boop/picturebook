@@ -3685,6 +3685,132 @@ body[data-pb-theme="night-story"] .scene-ending-mark[data-true-end="1"] .ending-
   background: #1a234a; border: 0.5px solid #3a4576; border-radius: 4px;
 }
 
+/* ════════════════════════════════════════════════════
+   DESIGN-SYSTEM-V1 D7-1 (2026-06-19): 신규 5스킨 imageCenter = 그림중심 작품 무대(E) + split 최소 보완
+   ─────────────────────────────────────────────────────
+   · 신규 5키 한정. imageCenter를 "학생 그림이 주인공인 작품 무대"로(배경-틀-그림박스 통합).
+   · 감상/편집 분리: 본문 overlay의 하단 캡션화는 body[...]:not(.edit-mode-active)에서만.
+     편집(body.edit-mode-active, viewer-render.js:58)에선 .pb-stage__body-overlay inline 좌표/
+     드래그/저장이 그대로 동작(아래 :not 셀렉터가 미적용 → inline style 우선).
+   · CSS 표시 레이어만. picturebookBodyBox·저장·좌표계·DOM·JS 무변경. legacy 6키/텍스트/무비 무관.
+   ════════════════════════════════════════════════════ */
+
+/* ── 학생 그림 흰 박스(#fffefa)·테두리 제거 (split·imageCenter 공통) ── */
+body[data-pb-theme="cozy-storybook"]     .scene-screen--pb .pb-illust,
+body[data-pb-theme="paper-storybook"]    .scene-screen--pb .pb-illust,
+body[data-pb-theme="gallery-picturebook"] .scene-screen--pb .pb-illust,
+body[data-pb-theme="forest-storybook"]   .scene-screen--pb .pb-illust,
+body[data-pb-theme="night-story"]        .scene-screen--pb .pb-illust {
+  background: transparent; border: none; box-shadow: none;
+}
+
+/* ── imageCenter 무대: page 카드/프레임 제거 + 그림 더 크게 ── */
+body[data-pb-theme="cozy-storybook"]     .scene-screen--pb.pb--imagecenter .pb-page,
+body[data-pb-theme="paper-storybook"]    .scene-screen--pb.pb--imagecenter .pb-page,
+body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--imagecenter .pb-page,
+body[data-pb-theme="forest-storybook"]   .scene-screen--pb.pb--imagecenter .pb-page,
+body[data-pb-theme="night-story"]        .scene-screen--pb.pb--imagecenter .pb-page {
+  background: transparent; box-shadow: none; border: none; border-radius: 0;
+}
+body[data-pb-theme="cozy-storybook"]     .scene-screen--pb.pb--imagecenter .pb-frame,
+body[data-pb-theme="paper-storybook"]    .scene-screen--pb.pb--imagecenter .pb-frame,
+body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--imagecenter .pb-frame,
+body[data-pb-theme="forest-storybook"]   .scene-screen--pb.pb--imagecenter .pb-frame,
+body[data-pb-theme="night-story"]        .scene-screen--pb.pb--imagecenter .pb-frame {
+  gap: 0; padding: 0;
+  grid-template-rows: minmax(0, 8.4fr) minmax(0, 1.6fr);
+}
+body[data-pb-theme="cozy-storybook"]     .scene-screen--pb.pb--imagecenter .pb-stage,
+body[data-pb-theme="paper-storybook"]    .scene-screen--pb.pb--imagecenter .pb-stage,
+body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--imagecenter .pb-stage,
+body[data-pb-theme="forest-storybook"]   .scene-screen--pb.pb--imagecenter .pb-stage,
+body[data-pb-theme="night-story"]        .scene-screen--pb.pb--imagecenter .pb-stage { border-radius: 0; }
+
+/* ── imageCenter 하단 선택지 = 작은 갈림길 라벨 ── */
+body[data-pb-theme="cozy-storybook"]     .scene-screen--pb.pb--imagecenter .pb-text--bottom-only,
+body[data-pb-theme="paper-storybook"]    .scene-screen--pb.pb--imagecenter .pb-text--bottom-only,
+body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--imagecenter .pb-text--bottom-only,
+body[data-pb-theme="forest-storybook"]   .scene-screen--pb.pb--imagecenter .pb-text--bottom-only,
+body[data-pb-theme="night-story"]        .scene-screen--pb.pb--imagecenter .pb-text--bottom-only {
+  background: transparent; border: none; box-shadow: none;
+}
+body[data-pb-theme="cozy-storybook"]     .scene-screen--pb.pb--imagecenter .pb-text__actions,
+body[data-pb-theme="paper-storybook"]    .scene-screen--pb.pb--imagecenter .pb-text__actions,
+body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--imagecenter .pb-text__actions,
+body[data-pb-theme="forest-storybook"]   .scene-screen--pb.pb--imagecenter .pb-text__actions,
+body[data-pb-theme="night-story"]        .scene-screen--pb.pb--imagecenter .pb-text__actions {
+  flex-direction: row; flex-wrap: wrap; justify-content: center; align-content: center;
+  gap: 10px; padding: 6px 14px; border-top: none;
+}
+body[data-pb-theme="cozy-storybook"]     .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook,
+body[data-pb-theme="paper-storybook"]    .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook,
+body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook,
+body[data-pb-theme="forest-storybook"]   .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook,
+body[data-pb-theme="night-story"]        .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook {
+  /* data-count="N" 룰이 !important(flex/padding/font)라 동일 속성은 !important로 이김. */
+  flex: 0 0 auto !important; width: auto !important; min-width: 0; max-width: 44% !important; flex-basis: auto !important;
+  padding: 5px 18px !important; font-size: 13px !important; border-radius: 999px; box-shadow: none; border-width: 1px;
+}
+
+/* ── 감상 모드(:not(.edit-mode-active)): 본문 overlay → 하단 조용한 캡션/스크림 ──
+   inline 좌표(left/top/width)를 표시상으로만 !important로 덮음. 편집 모드에선 이 블록 미적용. */
+body[data-pb-theme="cozy-storybook"]:not(.edit-mode-active)     .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay,
+body[data-pb-theme="paper-storybook"]:not(.edit-mode-active)    .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay,
+body[data-pb-theme="gallery-picturebook"]:not(.edit-mode-active) .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay,
+body[data-pb-theme="forest-storybook"]:not(.edit-mode-active)   .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay,
+body[data-pb-theme="night-story"]:not(.edit-mode-active)        .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay {
+  left: 0 !important; right: 0 !important; top: auto !important; bottom: 0 !important;
+  width: 100% !important; height: auto !important; max-height: 36% !important; overflow: hidden;
+  background: linear-gradient(to top, rgba(18,12,4,.60), rgba(18,12,4,0)) !important;
+  padding: 26px 24px 12px !important; border-radius: 0 !important;
+}
+body[data-pb-theme="cozy-storybook"]:not(.edit-mode-active)     .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay .pb-text__body,
+body[data-pb-theme="paper-storybook"]:not(.edit-mode-active)    .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay .pb-text__body,
+body[data-pb-theme="gallery-picturebook"]:not(.edit-mode-active) .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay .pb-text__body,
+body[data-pb-theme="forest-storybook"]:not(.edit-mode-active)   .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay .pb-text__body,
+body[data-pb-theme="night-story"]:not(.edit-mode-active)        .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay .pb-text__body {
+  color: #fff7ec; font-size: 14px; line-height: 1.7; text-align: center; margin: 0 auto;
+  max-width: 30em; max-height: 3.6em; overflow: hidden; text-shadow: 0 1px 3px rgba(0,0,0,.55);
+}
+body[data-pb-theme="cozy-storybook"]:not(.edit-mode-active)     .scene-screen--pb.pb--imagecenter .pb-stage__title-overlay,
+body[data-pb-theme="paper-storybook"]:not(.edit-mode-active)    .scene-screen--pb.pb--imagecenter .pb-stage__title-overlay,
+body[data-pb-theme="gallery-picturebook"]:not(.edit-mode-active) .scene-screen--pb.pb--imagecenter .pb-stage__title-overlay,
+body[data-pb-theme="forest-storybook"]:not(.edit-mode-active)   .scene-screen--pb.pb--imagecenter .pb-stage__title-overlay,
+body[data-pb-theme="night-story"]:not(.edit-mode-active)        .scene-screen--pb.pb--imagecenter .pb-stage__title-overlay { display: none; }
+
+/* ── 미세조정 2: gallery 라벨 = 전시 무대용 절제(투명/얇은선) ── */
+body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook {
+  background: rgba(255,255,255,.16); border-color: rgba(120,120,116,.5); color: #3a3a38;
+}
+/* ── 미세조정 3+4: night divider 제거 + 라벨 대비 보강(웹버튼화 방지) ── */
+body[data-pb-theme="night-story"] .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook {
+  background: rgba(60,74,130,.72); border-color: #5a68a0; color: #f2f5ff;
+}
+
+/* ── split = B 최소 보완 (신규 5키, 호환용 — 과한 투자 X) ── */
+body[data-pb-theme="cozy-storybook"]     .scene-screen--pb.pb--split .pb-page,
+body[data-pb-theme="paper-storybook"]    .scene-screen--pb.pb--split .pb-page,
+body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--split .pb-page,
+body[data-pb-theme="forest-storybook"]   .scene-screen--pb.pb--split .pb-page,
+body[data-pb-theme="night-story"]        .scene-screen--pb.pb--split .pb-page { box-shadow: 0 2px 12px rgba(120,90,40,.14); border: none; }
+body[data-pb-theme="cozy-storybook"]     .scene-screen--pb.pb--split .pb-frame,
+body[data-pb-theme="paper-storybook"]    .scene-screen--pb.pb--split .pb-frame,
+body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--split .pb-frame,
+body[data-pb-theme="forest-storybook"]   .scene-screen--pb.pb--split .pb-frame,
+body[data-pb-theme="night-story"]        .scene-screen--pb.pb--split .pb-frame { gap: 4px; padding: 4px; }
+body[data-pb-theme="cozy-storybook"]     .scene-screen--pb.pb--split .pb-text__actions[data-count] .choice-v03--picturebook,
+body[data-pb-theme="paper-storybook"]    .scene-screen--pb.pb--split .pb-text__actions[data-count] .choice-v03--picturebook,
+body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--split .pb-text__actions[data-count] .choice-v03--picturebook,
+body[data-pb-theme="forest-storybook"]   .scene-screen--pb.pb--split .pb-text__actions[data-count] .choice-v03--picturebook,
+body[data-pb-theme="night-story"]        .scene-screen--pb.pb--split .pb-text__actions[data-count] .choice-v03--picturebook { box-shadow: none; }
+
+/* ── 편집 가이드 약화 (신규 5키): 감상 시 safe-area/드래그 핸들 숨김(이미 JS hidden이나 보강) ── */
+body[data-pb-theme="cozy-storybook"]:not(.edit-mode-active)     .scene-screen--pb .pb-body-handle,
+body[data-pb-theme="paper-storybook"]:not(.edit-mode-active)    .scene-screen--pb .pb-body-handle,
+body[data-pb-theme="gallery-picturebook"]:not(.edit-mode-active) .scene-screen--pb .pb-body-handle,
+body[data-pb-theme="forest-storybook"]:not(.edit-mode-active)   .scene-screen--pb .pb-body-handle,
+body[data-pb-theme="night-story"]:not(.edit-mode-active)        .scene-screen--pb .pb-body-handle { display: none; }
+
 /* ════════════════════════════════════════════════════════════
    W9 (v4): 장면 그림 액션 3개 균등 grid (바꾸기/삭제/그리기)
    사용자 요청 — 가로 균등 배치로 공간 낭비 제거.

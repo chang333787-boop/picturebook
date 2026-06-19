@@ -3811,6 +3811,29 @@ body[data-pb-theme="gallery-picturebook"]:not(.edit-mode-active) .scene-screen--
 body[data-pb-theme="forest-storybook"]:not(.edit-mode-active)   .scene-screen--pb .pb-body-handle,
 body[data-pb-theme="night-story"]:not(.edit-mode-active)        .scene-screen--pb .pb-body-handle { display: none; }
 
+/* ════════════════════════════════════════════════════
+   DESIGN-SYSTEM-V1 D7-3 (2026-06-19): 세로 화면 가로 권장 배지 (신규 5스킨)
+   ─────────────────────────────────────────────────────
+   · 조건: 세로 화면(@media max-aspect-ratio:1/1) + landscape 작품 + 감상 모드 + 신규 5키.
+   · 작고 반투명한 안내 배지(상단). 강제 차단·닫기 없음. pointer-events:none(감상/캡처 무방해).
+   · portrait 작품·legacy 6키·편집 모드·텍스트/무비/체험전시에는 적용 안 됨(셀렉터로 제외).
+   · CSS only(body::before content). JS·DOM·저장 무변경.
+   ════════════════════════════════════════════════════ */
+@media (max-aspect-ratio: 1/1) {
+  body[data-page-orientation="landscape"]:not(.edit-mode-active)[data-pb-theme="cozy-storybook"]::before,
+  body[data-page-orientation="landscape"]:not(.edit-mode-active)[data-pb-theme="paper-storybook"]::before,
+  body[data-page-orientation="landscape"]:not(.edit-mode-active)[data-pb-theme="gallery-picturebook"]::before,
+  body[data-page-orientation="landscape"]:not(.edit-mode-active)[data-pb-theme="forest-storybook"]::before,
+  body[data-page-orientation="landscape"]:not(.edit-mode-active)[data-pb-theme="night-story"]::before {
+    content: "📱 가로로 보면 그림책이 더 크게 보여요";
+    position: fixed; top: 8px; left: 50%; transform: translateX(-50%);
+    font-size: 11.5px; font-weight: 600; color: #fff; white-space: nowrap;
+    background: rgba(0,0,0,.42); border: 1px solid rgba(255,255,255,.18);
+    padding: 5px 13px; border-radius: 999px;
+    pointer-events: none; z-index: 9000; -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
+  }
+}
+
 /* ════════════════════════════════════════════════════════════
    W9 (v4): 장면 그림 액션 3개 균등 grid (바꾸기/삭제/그리기)
    사용자 요청 — 가로 균등 배치로 공간 낭비 제거.

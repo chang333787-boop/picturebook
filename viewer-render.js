@@ -1657,6 +1657,72 @@ function _renderStoryEnding(stage, scene) {
      body[data-page-orientation]에 박혀 모든 장면 자동 박힘 — 손 안 댐. */
   /* v138: 엔딩 마감톤 클래스 — 작품 단위 style/color 있을 때만 박힘 */
   const _pbEndToneCls = _pbToneClasses(scene, 'ending');
+
+  /* D7-7: imageCenter 작품의 엔딩은 imageCenter 흐름을 따른다(그림 크게·말풍선·작은 라벨).
+     조건 좁게: scene.picturebookSubmode === 'imageCenter'일 때만. 미설정/null/split/legacy는
+     아래 split 경로 그대로(v125 안정 구조 보존). 버튼은 기능 class(js-restart/js-back) 유지하면서
+     choice-v03--picturebook 스타일을 같이 부여 → D7-6 라벨 스타일 자동 적용. 핸들러/저장/DB 무변경. */
+  const _endIsIC = !!(scene && scene.picturebookSubmode === 'imageCenter');
+  if (_endIsIC) {
+    const _endHasBack = ViewerState.historyStack.length > 0;
+    const _endIcIllust = endingImage
+      ? `<div class="pb-illust scene-media-frame" data-pb-illust="1" style="background-image:url('${endingImage}'); background-size:contain; background-position:center; background-repeat:no-repeat;"></div>`
+      : `<div class="pb-illust pb-illust--empty"><div class="pb-empty-mark">${systemIcon}</div></div>`;
+    /* D7-7 정합: 엔딩 본문 말풍선 = 일반 imageCenter와 동일 구조 — picturebookBodyBox 좌표 +
+       js-pb-body-overlay + 드래그/리사이즈 핸들 + contenteditable. fixed 좌표/전용 박스 금지.
+       저장은 기존 picturebookBodyBox 재사용(신규 필드 없음). 일반 장면(705~761)과 동일 패턴. */
+    const _endBox0 = (typeof getPicturebookBodyBox === 'function')
+      ? getPicturebookBodyBox(scene)
+      : { x: 15, y: 25, width: 55, height: null, backdropOpacity: 0.85 };
+    const _endBox = (typeof window !== 'undefined' && window.viewerAi && typeof window.viewerAi._getDisplayLayout === 'function')
+      ? (window.viewerAi._getDisplayLayout(scene.id, _endBox0).picturebookBodyBox || _endBox0)
+      : _endBox0;
+    const _endBoxH = (typeof _endBox.height === 'number') ? ` height: ${_endBox.height}%;` : '';
+    const _endBoxStyle = `left: ${_endBox.x}%; top: ${_endBox.y}%; width: ${_endBox.width}%;${_endBoxH}`
+      + ` background: rgba(255, 255, 255, ${_endBox.backdropOpacity});`
+      + ` box-shadow: 0 2px 6px rgba(0,0,0,${0.08 * _endBox.backdropOpacity});`;
+    const _endHandlesHtml = _allowInlineEdit ? `
+      <div class="pb-body-handle pb-body-handle--move js-pb-body-move" title="드래그하여 위치 이동">✥</div>
+      <div class="pb-body-handle pb-body-handle--resize-nw js-pb-body-resize" data-corner="nw" title="크기 조절"></div>
+      <div class="pb-body-handle pb-body-handle--resize-ne js-pb-body-resize" data-corner="ne" title="크기 조절"></div>
+      <div class="pb-body-handle pb-body-handle--resize-sw js-pb-body-resize" data-corner="sw" title="크기 조절"></div>
+      <div class="pb-body-handle pb-body-handle--resize-se js-pb-body-resize" data-corner="se" title="크기 조절"></div>
+    ` : '';
+    const _endIcBody = (userBody || _allowInlineEdit)
+      ? `<div class="pb-stage__body-overlay scene-narrative-panel js-pb-body-overlay ending-ic-body" style="${_endBoxStyle}">
+           <p class="pb-text__body js-pb-editable-body" ${_allowInlineEdit ? 'contenteditable="true" data-pb-editable="body"' : ''} data-placeholder="(본문을 적어보세요)">${escHtml(userBody)}</p>
+           ${_endHandlesHtml}
+         </div>`
+      : '';
+    _stageReplaceScene(stage, `
+      <div class="scene-screen scene-screen--pb scene-surface pb--imagecenter ending-as-pb ending-as-pb--ic${noImageClass}"
+           data-scene-num="${escHtml(String(scene.id))}"
+           ${_isEdit ? 'data-edit-mode="true"' : ''}
+           ${endStyleAttr}
+           data-presentation-mode="picturebook"
+           data-presentation-submode="imageCenter"
+           data-ending="true">
+        <div class="pb-page picturebook-page">
+          <div class="pb-frame${_pbEndToneCls}">
+            <div class="scene-ornaments" aria-hidden="true"></div>
+            <div class="pb-stage">
+              ${_endIcIllust}
+              <div class="pb-ending-corner scene-ending-mark" data-true-end="${isTrueEnd ? '1' : '0'}">
+                <span class="pb-ending-corner-icon">${systemIcon}</span>
+                <span class="pb-ending-corner-label">${isTrueEnd ? '진짜 결말' : '이야기 끝'}</span>
+              </div>
+              ${_endIcBody}
+            </div>
+            <div class="pb-text pb-text--bottom-only">
+              <div class="pb-text__actions ending-actions scene-choice-group" data-count="${_endHasBack ? 2 : 1}">
+                <button class="choice-v03 choice-v03--picturebook js-restart" disabled aria-disabled="true">↺ 다른 결말 찾기</button>
+                ${_endHasBack ? `<button class="choice-v03 choice-v03--picturebook js-back" disabled aria-disabled="true">← 직전 장면으로</button>` : ''}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>`);
+  } else {
   _stageReplaceScene(stage, `
     <div class="scene-screen scene-screen--pb scene-surface pb--split ending-as-pb${noImageClass}"
          ${endStyleAttr}
@@ -1670,6 +1736,7 @@ function _renderStoryEnding(stage, scene) {
         </div>
       </div>
     </div>`);
+  }
 
   if (typeof _setupPbPhotoWrappers === 'function') {
     _setupPbPhotoWrappers(stage);

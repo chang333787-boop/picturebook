@@ -58,6 +58,14 @@ function addScene(type) {
     presentationMode: 'picturebook',
   };
 
+  /* D7-4: 그림책 작품의 새 일반 장면 기본을 imageCenter(그림중심 무대)로 — 신규 생성만 명시 저장.
+     fallback(viewer-render/sceneRenderer)은 무변경 → submode 없는 legacy 장면은 split 유지.
+     cover/ending 제외(표지·엔딩 전용 렌더), 비-그림책(text/movie/document) 제외. */
+  const _d7pt = (typeof projectMeta !== 'undefined' && projectMeta && projectMeta.projectType) || null;
+  if (_d7pt === 'picturebook' && type === 'normal') {
+    base.picturebookSubmode = 'imageCenter';
+  }
+
   if (type === 'cover') {
     /* 표지 전용 필드 */
     base.subtitle = '';                  // 한 줄 소개

@@ -713,6 +713,11 @@ function applyTemplate(tpl) {
       body: cfg.body || '',
       _hasBody: true,
       presentationMode: cfg.presentationMode || 'picturebook',
+      /* D7-4: 그림책 작품 스타터의 일반/시작 장면 기본을 imageCenter로(신규 생성만).
+         ending/cover·비-그림책(text/movie/document)은 제외. fallback은 무변경. */
+      ...((typeof projectMeta !== 'undefined' && projectMeta && projectMeta.projectType === 'picturebook'
+           && (cfg.type === 'normal' || cfg.type === 'start'))
+          ? { picturebookSubmode: 'imageCenter' } : {}),
     };
   };
 

@@ -3792,6 +3792,42 @@ body[data-pb-theme="night-story"]        .scene-screen--pb.pb--imagecenter .pb-s
   background-color: transparent !important;
 }
 
+/* ════════ D7-6 (밸런스 후보 · 미커밋): 그림 조금 더 크게 + 살짝 아래 + 위 얇은 테마 여백 +
+   하단 버튼 영역 축소. 5스킨 imageCenter 한정. 본문 좌표/contain/흰배경제거/pb-tone무력화(D7-5)는 유지.
+   ⚠ cover/자르기/무비형 꽉채움 금지 — 그림 ~88% 선에서 멈춤. ════════ */
+/* 1) 그림 영역 ↑ / 하단 버튼 영역 ↓ : 8.4:1.6 → 8.9:1.1 (버튼 최대 3개 확정 → 하단 더 얇게). 9.0:1.0↑ 금지 */
+body[data-pb-theme="cozy-storybook"]     .scene-screen--pb.pb--imagecenter .pb-frame,
+body[data-pb-theme="paper-storybook"]    .scene-screen--pb.pb--imagecenter .pb-frame,
+body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--imagecenter .pb-frame,
+body[data-pb-theme="forest-storybook"]   .scene-screen--pb.pb--imagecenter .pb-frame,
+body[data-pb-theme="night-story"]        .scene-screen--pb.pb--imagecenter .pb-frame {
+  grid-template-rows: minmax(0, 8.9fr) minmax(0, 1.1fr);
+}
+/* 2) 위 얇은 테마 여백(~3%) + 그림 살짝 아래. contain 유지(cover/자르기 금지) */
+body[data-pb-theme="cozy-storybook"]     .scene-screen--pb.pb--imagecenter .pb-stage .pb-illust,
+body[data-pb-theme="paper-storybook"]    .scene-screen--pb.pb--imagecenter .pb-stage .pb-illust,
+body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--imagecenter .pb-stage .pb-illust,
+body[data-pb-theme="forest-storybook"]   .scene-screen--pb.pb--imagecenter .pb-stage .pb-illust,
+body[data-pb-theme="night-story"]        .scene-screen--pb.pb--imagecenter .pb-stage .pb-illust {
+  inset: 3% 0 0 0;
+  background-position: center 60%;
+}
+/* 3) 하단 버튼 영역 패딩 최소(얇게) — 라벨 높이는 유지 */
+body[data-pb-theme="cozy-storybook"]     .scene-screen--pb.pb--imagecenter .pb-text--bottom-only,
+body[data-pb-theme="paper-storybook"]    .scene-screen--pb.pb--imagecenter .pb-text--bottom-only,
+body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--imagecenter .pb-text--bottom-only,
+body[data-pb-theme="forest-storybook"]   .scene-screen--pb.pb--imagecenter .pb-text--bottom-only,
+body[data-pb-theme="night-story"]        .scene-screen--pb.pb--imagecenter .pb-text--bottom-only {
+  padding: 2px 10px;
+}
+body[data-pb-theme="cozy-storybook"]     .scene-screen--pb.pb--imagecenter .pb-text__actions,
+body[data-pb-theme="paper-storybook"]    .scene-screen--pb.pb--imagecenter .pb-text__actions,
+body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--imagecenter .pb-text__actions,
+body[data-pb-theme="forest-storybook"]   .scene-screen--pb.pb--imagecenter .pb-text__actions,
+body[data-pb-theme="night-story"]        .scene-screen--pb.pb--imagecenter .pb-text__actions {
+  padding: 2px 14px;
+}
+
 /* ── D7-5 최종: 행동라벨 "행동 N개 ↓"는 감상에서 숨김(패널 헤더감 제거). 편집은 유지. ── */
 body[data-pb-theme="cozy-storybook"]:not(.edit-mode-active)     .scene-screen--pb.pb--imagecenter .pb-text__actions-label,
 body[data-pb-theme="paper-storybook"]:not(.edit-mode-active)    .scene-screen--pb.pb--imagecenter .pb-text__actions-label,

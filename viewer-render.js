@@ -751,6 +751,7 @@ function _renderScenePicturebook(stage, scene, submode) {
         ${styleAttr}>
         <div class="pb-page picturebook-page">
           <div class="pb-frame${_pbToneClsIC}">
+            <div class="scene-ornaments" aria-hidden="true"></div>
             <div class="pb-stage">
               ${illustHtml}
               ${title ? `<div class="pb-stage__title-overlay js-pb-editable-title" ${_allowPbEdit ? 'contenteditable="true" data-pb-editable="title"' : ''}>${escHtml(title)}</div>` : ''}
@@ -782,6 +783,7 @@ function _renderScenePicturebook(stage, scene, submode) {
       ${styleAttr}>
       <div class="pb-page picturebook-page">
         <div class="pb-frame${_pbToneCls}">
+          <div class="scene-ornaments" aria-hidden="true"></div>
           ${illustHtml}
           <div class="pb-text scene-narrative-panel">
             ${titleHtml}
@@ -1615,7 +1617,7 @@ function _renderStoryEnding(stage, scene) {
          style="${_seqStyle}">
       ${userTitle ? `<div class="ending-user-title terminal-step terminal-step--title">${escHtml(userTitle)}</div>` : ''}
       ${(userBody || _allowInlineEdit) ? `<p class="ending-user-body terminal-step terminal-step--body${_allowInlineEdit ? ' js-pb-editable-body' : ''}" ${_allowInlineEdit ? 'contenteditable="true" data-pb-editable="body"' : ''} data-placeholder="(본문을 적어보세요)">${escHtml(userBody)}</p>` : ''}
-      <div class="pb-ending-meta-inline scene-ending-mark terminal-step terminal-step--badge">
+      <div class="pb-ending-meta-inline scene-ending-mark terminal-step terminal-step--badge" data-true-end="${isTrueEnd ? '1' : '0'}">
         ${trueEndBadge}
         <div class="ending-end-stamp">${systemIcon} ${systemLabel}</div>
         ${steps > 1 ? `<div class="pb-ending-meta-path">${steps}개의 장면을 거쳐 이 결말에 도달했어요</div>` : ''}

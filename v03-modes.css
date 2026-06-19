@@ -3309,6 +3309,94 @@ body[data-pb-theme="night-story"] .choice-v03--picturebook:hover:not(:disabled) 
   }
 }
 
+/* ════════════════════════════════════════════════════
+   DESIGN-SYSTEM-V1 D4 (2026-06-19): 그림책 장식 슬롯 / 엔딩 마감 / 모바일
+   ─────────────────────────────────────────────────────
+   · 장식 슬롯(.scene-ornaments)은 viewer-render.js가 일반 split/imageCenter의 .pb-frame
+     첫 자식에 빈 div로 추가(.pb-stage 밖 → 드래그 좌표 무관). position:absolute라 grid flow
+     제외(레이아웃 비율 무변경). 레거시 작품도 빈 슬롯이 생기지만 장식 CSS가 신규 5키 한정이라
+     보이지 않음(회귀 0).
+   · 장식은 page 모서리·가장자리 중심, pointer-events:none, 그림 본체 비침범(옅게).
+   · 엔딩: data-true-end(viewer-render.js가 scene.isTrueEnd로 박음) 기반 진엔딩 강조.
+   ════════════════════════════════════════════════════ */
+.scene-screen--pb .scene-ornaments {
+  position: absolute; inset: 0; pointer-events: none; z-index: 2;
+}
+/* ornaments 기준 — 신규 5키만 .pb-frame을 positioning context로(grid에 무해) */
+body[data-pb-theme="cozy-storybook"]     .scene-screen--pb .pb-frame,
+body[data-pb-theme="paper-storybook"]    .scene-screen--pb .pb-frame,
+body[data-pb-theme="gallery-picturebook"] .scene-screen--pb .pb-frame,
+body[data-pb-theme="forest-storybook"]   .scene-screen--pb .pb-frame,
+body[data-pb-theme="night-story"]        .scene-screen--pb .pb-frame {
+  position: relative;
+}
+
+/* cozy — 하단 모서리 잎/꽃(본문 영역, 그림 무침범) */
+body[data-pb-theme="cozy-storybook"] .scene-ornaments::before {
+  content: ""; position: absolute; left: 7px; bottom: 7px; width: 26px; height: 26px; opacity: .5;
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 34 34'><path d='M4 30 Q12 8 30 4 Q24 26 4 30Z' fill='%237d9b6a'/></svg>") no-repeat center/contain;
+}
+body[data-pb-theme="cozy-storybook"] .scene-ornaments::after {
+  content: ""; position: absolute; right: 8px; bottom: 8px; width: 20px; height: 20px; opacity: .5;
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><circle cx='12' cy='12' r='3.2' fill='%23e7a6b0'/><circle cx='12' cy='5' r='3' fill='%23f3c8cf'/><circle cx='19' cy='12' r='3' fill='%23f3c8cf'/><circle cx='12' cy='19' r='3' fill='%23f3c8cf'/><circle cx='5' cy='12' r='3' fill='%23f3c8cf'/></svg>") no-repeat center/contain;
+}
+
+/* paper — 우상단 종이 접힘 음영(아주 옅게) */
+body[data-pb-theme="paper-storybook"] .scene-ornaments::after {
+  content: ""; position: absolute; right: 0; top: 0; width: 24px; height: 24px; opacity: .5;
+  background: linear-gradient(225deg, rgba(70,50,20,.16) 0%, transparent 55%);
+}
+
+/* gallery — 상단 가는 선(장식 최소, 여백이 장식) */
+body[data-pb-theme="gallery-picturebook"] .scene-ornaments::before {
+  content: ""; position: absolute; top: 7px; left: 50%; transform: translateX(-50%);
+  width: 34px; height: 1px; background: #c7c7c2; opacity: .6;
+}
+
+/* forest — 좌우 가장자리 잎 덩굴(옅게, 그림 가장자리만) */
+body[data-pb-theme="forest-storybook"] .scene-ornaments::before {
+  content: ""; position: absolute; left: 2px; top: 12%; width: 15px; height: 76%; opacity: .4;
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 60'><path d='M8 0 V60' stroke='%235e7d4a' stroke-width='1'/><path d='M8 8 Q2 12 4 18 Q9 15 8 8Z M8 28 Q14 32 12 38 Q7 35 8 28Z M8 48 Q2 52 4 58 Q9 55 8 48Z' fill='%235e7d4a'/></svg>") repeat-y center/contain;
+}
+body[data-pb-theme="forest-storybook"] .scene-ornaments::after {
+  content: ""; position: absolute; right: 2px; top: 18%; width: 15px; height: 70%; opacity: .4;
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 60'><path d='M8 0 V60' stroke='%235e7d4a' stroke-width='1'/><path d='M8 14 Q14 18 12 24 Q7 21 8 14Z M8 34 Q2 38 4 44 Q9 41 8 34Z' fill='%235e7d4a'/></svg>") repeat-y center/contain;
+}
+
+/* night — 상단 우측 달(별은 무대에 D3 적용됨) */
+body[data-pb-theme="night-story"] .scene-ornaments::before {
+  content: ""; position: absolute; right: 10px; top: 8px; width: 26px; height: 26px; opacity: .92;
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 60'><circle cx='30' cy='30' r='22' fill='%23fff6cf'/><circle cx='38' cy='26' r='20' fill='%231a234a'/></svg>") no-repeat center/contain;
+  filter: drop-shadow(0 0 5px rgba(255,246,200,.4));
+}
+
+/* ── 엔딩 마감(신규 5스킨): 페이지 마감 느낌 + 진엔딩 강조 ── */
+body[data-pb-theme="cozy-storybook"]     .scene-ending-mark,
+body[data-pb-theme="paper-storybook"]    .scene-ending-mark,
+body[data-pb-theme="gallery-picturebook"] .scene-ending-mark,
+body[data-pb-theme="forest-storybook"]   .scene-ending-mark,
+body[data-pb-theme="night-story"]        .scene-ending-mark {
+  opacity: .85;
+}
+body[data-pb-theme="cozy-storybook"]     .scene-ending-mark[data-true-end="1"] .ending-end-stamp,
+body[data-pb-theme="paper-storybook"]    .scene-ending-mark[data-true-end="1"] .ending-end-stamp,
+body[data-pb-theme="gallery-picturebook"] .scene-ending-mark[data-true-end="1"] .ending-end-stamp,
+body[data-pb-theme="forest-storybook"]   .scene-ending-mark[data-true-end="1"] .ending-end-stamp {
+  font-weight: 700; letter-spacing: .04em;
+}
+body[data-pb-theme="night-story"] .scene-ending-mark[data-true-end="1"] .ending-end-stamp {
+  font-weight: 700; text-shadow: 0 0 8px rgba(205,214,255,.5);
+}
+
+/* ── 모바일 세로: 신규 5스킨 장식 감산(성능/혼잡) ── */
+@media (max-width: 600px) {
+  body[data-pb-theme="cozy-storybook"] .scene-ornaments::before,
+  body[data-pb-theme="cozy-storybook"] .scene-ornaments::after,
+  body[data-pb-theme="forest-storybook"] .scene-ornaments::before,
+  body[data-pb-theme="forest-storybook"] .scene-ornaments::after { opacity: .3; }
+  body[data-pb-theme="night-story"] .scene-ornaments::before { filter: none; }
+}
+
 /* ────────────────────────────────────────────────────────
    W9 (v3): 양옆 마감 테마 collapsible 토글 헤더.
    접힌 상태: [mini preview] 🎨 양옆 마감 테마 — 책상  ▼

@@ -3633,6 +3633,59 @@ body[data-pb-theme="night-story"] .scene-ending-mark[data-true-end="1"] .ending-
 }
 
 /* ════════════════════════════════════════════════════════════
+   DESIGN-SYSTEM-V1 D6: 신규 5스킨 카드 프리뷰(다듬기 UI 썸네일)
+   · UI 목록 key(.edit-pb-theme-card--<신규키>)와 일치. 기능 무관, 스킨 톤만(gradient/색).
+   · 기존 legacy 6키 프리뷰는 그대로 보존(데이터/롤백용).
+   ════════════════════════════════════════════════════════════ */
+/* 포근한 동화책 */
+.edit-pb-theme-card--cozy-storybook.edit-pb-theme-toggle-mini { background: #f6dca8; }
+.edit-pb-theme-card--cozy-storybook .edit-pb-theme-preview {
+  background-color: #f6ead1;
+  background-image: repeating-linear-gradient(135deg, transparent 0 5px, rgba(0,0,0,0.03) 5px 6px);
+}
+.edit-pb-theme-card--cozy-storybook .edit-pb-theme-preview-page {
+  background: #fdf7ea; border-radius: 4px;
+}
+/* 종이 동화책 */
+.edit-pb-theme-card--paper-storybook.edit-pb-theme-toggle-mini { background: #e9ddc3; }
+.edit-pb-theme-card--paper-storybook .edit-pb-theme-preview {
+  background-color: #e9ddc3;
+  background-image: repeating-linear-gradient(45deg, transparent 0 2px, rgba(120,90,50,0.14) 2px 3px);
+}
+.edit-pb-theme-card--paper-storybook .edit-pb-theme-preview-page {
+  background: #f4ecda; border-radius: 1px;
+}
+/* 전시 그림책 */
+.edit-pb-theme-card--gallery-picturebook.edit-pb-theme-toggle-mini { background: #f1f1ef; }
+.edit-pb-theme-card--gallery-picturebook .edit-pb-theme-preview {
+  background-color: #ececea;
+}
+.edit-pb-theme-card--gallery-picturebook .edit-pb-theme-preview-page {
+  background: #ffffff; border: 0.5px solid #d8d8d4; border-radius: 1px;
+}
+/* 숲속 그림책 */
+.edit-pb-theme-card--forest-storybook.edit-pb-theme-toggle-mini { background: #cedcc1; }
+.edit-pb-theme-card--forest-storybook .edit-pb-theme-preview {
+  background-color: #d7e3cb;
+  background-image: repeating-linear-gradient(60deg, transparent 0 4px, rgba(94,125,74,0.16) 4px 5px);
+}
+.edit-pb-theme-card--forest-storybook .edit-pb-theme-preview-page {
+  background: #f0f6e9; border-radius: 4px;
+}
+/* 밤 이야기 */
+.edit-pb-theme-card--night-story.edit-pb-theme-toggle-mini { background: #1a234a; }
+.edit-pb-theme-card--night-story .edit-pb-theme-preview {
+  background-color: #141b3c;
+  background-image:
+    radial-gradient(circle at 22% 30%, rgba(255,246,200,0.5) 0, transparent 1.2px),
+    radial-gradient(circle at 68% 25%, rgba(255,246,200,0.45) 0, transparent 1.2px),
+    radial-gradient(circle at 82% 55%, rgba(255,246,200,0.4) 0, transparent 1.2px);
+}
+.edit-pb-theme-card--night-story .edit-pb-theme-preview-page {
+  background: #1a234a; border: 0.5px solid #3a4576; border-radius: 4px;
+}
+
+/* ════════════════════════════════════════════════════════════
    W9 (v4): 장면 그림 액션 3개 균등 grid (바꾸기/삭제/그리기)
    사용자 요청 — 가로 균등 배치로 공간 낭비 제거.
    ════════════════════════════════════════════════════════════ */

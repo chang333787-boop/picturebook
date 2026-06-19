@@ -3110,6 +3110,205 @@ body[data-pb-theme="night-tale"] .scene-screen--pb .pb-page {
   z-index: 1;
 }
 
+/* ════════════════════════════════════════════════════
+   DESIGN-SYSTEM-V1 D3 (2026-06-19): 그림책 신규 5스킨 1차
+   ─────────────────────────────────────────────────────
+   · 신규키(cozy/paper/gallery/forest/night-story)는 아직 어떤 작품에도 저장되지 않음
+     (JS는 기존 6키만 body[data-pb-theme]에 박음) → 이 CSS는 기존 작품에 회귀 0.
+     legacy(classic-book 등) 매핑/새 UI 노출은 후속 단계.
+   · "한 장의 동화책 페이지": picturebook-page=종이 표면 / scene-media-frame=그림 매트 /
+     scene-narrative-panel=무배경 캡션 / choice=종이 라벨(번호·화살표 숨김).
+   · split/imageCenter 비율·grid·.pb-stage 좌표계는 무변경(색/표면/배경 texture만).
+   · imageCenter 본문 오버레이(.pb-stage__body-overlay)는 inline 위치/배경 유지 → 캡션
+     무배경 처리에서 제외(:not). SVG 장식 도형(잎/별)은 그림 비침범 슬롯이 필요해 D4로 미룸.
+   ════════════════════════════════════════════════════ */
+
+/* ── 5스킨 공통: .pb-frame 기본 회색 배경(--v03-bg-soft) 투명화 → page shell(picturebook-page)
+   종이가 본문·버튼 영역 뒤까지 그대로 이어지게(한 장의 페이지 통합감). 비율/grid는 무변경. ── */
+body[data-pb-theme="cozy-storybook"]     .scene-screen--pb .pb-frame,
+body[data-pb-theme="paper-storybook"]    .scene-screen--pb .pb-frame,
+body[data-pb-theme="gallery-picturebook"] .scene-screen--pb .pb-frame,
+body[data-pb-theme="forest-storybook"]   .scene-screen--pb .pb-frame,
+body[data-pb-theme="night-story"]        .scene-screen--pb .pb-frame {
+  background: transparent;
+}
+
+/* ── 5스킨 공통: 책 페이지 통합(캡션 무배경 + 번호/화살표 숨김 + 종이 라벨 버튼) ── */
+body[data-pb-theme="cozy-storybook"]     .scene-screen--pb .scene-narrative-panel:not(.pb-stage__body-overlay),
+body[data-pb-theme="paper-storybook"]    .scene-screen--pb .scene-narrative-panel:not(.pb-stage__body-overlay),
+body[data-pb-theme="gallery-picturebook"] .scene-screen--pb .scene-narrative-panel:not(.pb-stage__body-overlay),
+body[data-pb-theme="forest-storybook"]   .scene-screen--pb .scene-narrative-panel:not(.pb-stage__body-overlay),
+body[data-pb-theme="night-story"]        .scene-screen--pb .scene-narrative-panel:not(.pb-stage__body-overlay) {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+body[data-pb-theme="cozy-storybook"]     .choice-v03--picturebook .pb-choice-num,
+body[data-pb-theme="cozy-storybook"]     .choice-v03--picturebook .pb-choice-arrow,
+body[data-pb-theme="paper-storybook"]    .choice-v03--picturebook .pb-choice-num,
+body[data-pb-theme="paper-storybook"]    .choice-v03--picturebook .pb-choice-arrow,
+body[data-pb-theme="gallery-picturebook"] .choice-v03--picturebook .pb-choice-num,
+body[data-pb-theme="gallery-picturebook"] .choice-v03--picturebook .pb-choice-arrow,
+body[data-pb-theme="forest-storybook"]   .choice-v03--picturebook .pb-choice-num,
+body[data-pb-theme="forest-storybook"]   .choice-v03--picturebook .pb-choice-arrow,
+body[data-pb-theme="night-story"]        .choice-v03--picturebook .pb-choice-num,
+body[data-pb-theme="night-story"]        .choice-v03--picturebook .pb-choice-arrow {
+  display: none;  /* 라벨/클릭 영역은 유지, 번호 동그라미·화살표만 숨김 */
+}
+/* 번호/화살표가 사라진 자리 — 라벨이 flex:1로 폭을 차지하므로 라벨 내부 텍스트를
+   가운데로(웹 버튼 좌측정렬 → 책 속 선택 라벨 느낌). 클릭 영역/숨김 상태는 그대로. */
+body[data-pb-theme="cozy-storybook"]     .choice-v03--picturebook .pb-choice-label,
+body[data-pb-theme="paper-storybook"]    .choice-v03--picturebook .pb-choice-label,
+body[data-pb-theme="gallery-picturebook"] .choice-v03--picturebook .pb-choice-label,
+body[data-pb-theme="forest-storybook"]   .choice-v03--picturebook .pb-choice-label,
+body[data-pb-theme="night-story"]        .choice-v03--picturebook .pb-choice-label {
+  text-align: center;
+}
+body[data-pb-theme="cozy-storybook"]     .choice-v03--picturebook,
+body[data-pb-theme="paper-storybook"]    .choice-v03--picturebook,
+body[data-pb-theme="gallery-picturebook"] .choice-v03--picturebook,
+body[data-pb-theme="forest-storybook"]   .choice-v03--picturebook,
+body[data-pb-theme="night-story"]        .choice-v03--picturebook {
+  box-shadow: none;
+  border-width: 1px;
+  justify-content: center !important;
+  text-align: center !important;
+}
+body[data-pb-theme="cozy-storybook"]     .choice-v03--picturebook:hover:not(:disabled),
+body[data-pb-theme="paper-storybook"]    .choice-v03--picturebook:hover:not(:disabled),
+body[data-pb-theme="gallery-picturebook"] .choice-v03--picturebook:hover:not(:disabled),
+body[data-pb-theme="forest-storybook"]   .choice-v03--picturebook:hover:not(:disabled),
+body[data-pb-theme="night-story"]        .choice-v03--picturebook:hover:not(:disabled) {
+  box-shadow: none;
+  transform: none;
+}
+
+/* ── 1. 포근한 동화책 cozy-storybook ── */
+body[data-pb-theme="cozy-storybook"] .scene-screen--pb { background: #ecdfc6; }
+body[data-pb-theme="cozy-storybook"] .picturebook-page {
+  background:
+    repeating-linear-gradient(135deg, rgba(0,0,0,.018) 0 1px, transparent 1px 7px),
+    linear-gradient(#fdf7ea, #f6ead1);
+  border: 1px solid #ecddbf;
+  border-radius: 18px;
+  box-shadow: 0 3px 12px rgba(120,90,40,.16);
+}
+body[data-pb-theme="cozy-storybook"] .scene-media-frame {
+  border-radius: 14px;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.06);
+}
+body[data-pb-theme="cozy-storybook"] .pb-text__body,
+body[data-pb-theme="cozy-storybook"] .pb-text__title { color: #5a4630; }
+body[data-pb-theme="cozy-storybook"] .choice-v03--picturebook {
+  background: #f6dca8; border-color: #e6c688; border-radius: 999px; color: #5a3c1e;
+}
+body[data-pb-theme="cozy-storybook"] .choice-v03--picturebook:hover:not(:disabled) { background: #f0d199; }
+
+/* ── 2. 종이 동화책 paper-storybook ── */
+body[data-pb-theme="paper-storybook"] .scene-screen--pb { background: #ddd2bb; }
+body[data-pb-theme="paper-storybook"] .picturebook-page {
+  background:
+    repeating-linear-gradient(45deg, rgba(120,90,50,.05) 0 1px, transparent 1px 6px),
+    repeating-linear-gradient(-45deg, rgba(80,55,25,.035) 0 1px, transparent 1px 8px),
+    radial-gradient(150% 130% at 50% 35%, #f6eedd 38%, #e6d9bf 100%);
+  border: 1px solid #cabd9d;
+  border-radius: 5px;
+  box-shadow: 0 2px 8px rgba(70,50,20,.18), inset 0 0 26px rgba(120,90,40,.14);
+}
+body[data-pb-theme="paper-storybook"] .scene-media-frame {
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.08), inset 0 0 8px rgba(0,0,0,.07);
+}
+body[data-pb-theme="paper-storybook"] .pb-text__body,
+body[data-pb-theme="paper-storybook"] .pb-text__title { color: #43321c; }
+body[data-pb-theme="paper-storybook"] .choice-v03--picturebook {
+  background: #ece0c4; border-color: #c2ab82; border-radius: 4px; color: #43321c;
+}
+body[data-pb-theme="paper-storybook"] .choice-v03--picturebook:hover:not(:disabled) { background: #e3d3b1; }
+
+/* ── 3. 전시 그림책 gallery-picturebook ── */
+body[data-pb-theme="gallery-picturebook"] .scene-screen--pb { background: #e8e8e5; }
+body[data-pb-theme="gallery-picturebook"] .picturebook-page {
+  background: #ffffff;
+  border: 1px solid #e6e6e2;
+  border-radius: 3px;
+  box-shadow: 0 4px 14px rgba(0,0,0,.10);
+}
+body[data-pb-theme="gallery-picturebook"] .scene-media-frame {
+  border-radius: 1px;
+  box-shadow: inset 0 0 0 1px #e4e4e0;
+}
+body[data-pb-theme="gallery-picturebook"] .pb-text__body,
+body[data-pb-theme="gallery-picturebook"] .pb-text__title { color: #2b2b2b; }
+body[data-pb-theme="gallery-picturebook"] .choice-v03--picturebook {
+  background: transparent; border-color: #cfcfca; border-radius: 2px; color: #3a3a38;
+}
+body[data-pb-theme="gallery-picturebook"] .choice-v03--picturebook:hover:not(:disabled) { background: rgba(0,0,0,.04); }
+
+/* ── 4. 숲속 그림책 forest-storybook ── */
+body[data-pb-theme="forest-storybook"] .scene-screen--pb {
+  background:
+    repeating-linear-gradient(60deg, rgba(94,125,74,.06) 0 2px, transparent 2px 16px),
+    #cedcc1;
+}
+body[data-pb-theme="forest-storybook"] .picturebook-page {
+  background:
+    repeating-linear-gradient(60deg, rgba(94,125,74,.045) 0 2px, transparent 2px 16px),
+    linear-gradient(#f0f6e9, #e6efdc);
+  border: 1px solid #c9d8ba;
+  border-radius: 14px;
+  box-shadow: 0 3px 11px rgba(50,70,40,.16);
+}
+body[data-pb-theme="forest-storybook"] .scene-media-frame {
+  border-radius: 11px;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.06);
+}
+body[data-pb-theme="forest-storybook"] .pb-text__body,
+body[data-pb-theme="forest-storybook"] .pb-text__title { color: #3a4a2e; }
+body[data-pb-theme="forest-storybook"] .choice-v03--picturebook {
+  background: #dfead0; border-color: #aec394; border-radius: 999px; color: #3a4a2e;
+}
+body[data-pb-theme="forest-storybook"] .choice-v03--picturebook:hover:not(:disabled) { background: #d3e0c0; }
+
+/* ── 5. 밤 이야기 night-story ── (별/그라데는 무대=레터박스에, 페이지는 밤색 종이) */
+body[data-pb-theme="night-story"] .scene-screen--pb {
+  background:
+    radial-gradient(1.4px 1.4px at 16% 14%, rgba(255,255,255,.85) 50%, transparent 51%),
+    radial-gradient(1.2px 1.2px at 34% 9%, rgba(255,255,255,.6) 50%, transparent 51%),
+    radial-gradient(1.6px 1.6px at 62% 11%, rgba(255,255,255,.9) 50%, transparent 51%),
+    radial-gradient(1.1px 1.1px at 82% 8%, rgba(255,255,255,.55) 50%, transparent 51%),
+    radial-gradient(1.3px 1.3px at 90% 18%, rgba(255,255,255,.7) 50%, transparent 51%),
+    radial-gradient(130% 120% at 72% 0%, #27315c 0%, #161d40 58%, #0d1228 100%);
+}
+body[data-pb-theme="night-story"] .picturebook-page {
+  background: linear-gradient(#1a234a, #141b3c);
+  border: 1px solid #313c70;
+  border-radius: 14px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.4);
+}
+body[data-pb-theme="night-story"] .scene-media-frame {
+  border-radius: 11px;
+  box-shadow: 0 0 12px rgba(90,110,200,.25), inset 0 0 0 1px rgba(255,255,255,.08);
+}
+body[data-pb-theme="night-story"] .pb-text__body,
+body[data-pb-theme="night-story"] .pb-text__title { color: #eef1ff; }
+body[data-pb-theme="night-story"] .choice-v03--picturebook {
+  background: rgba(58,72,130,.55); border-color: #46538a; border-radius: 999px; color: #eef1ff;
+}
+body[data-pb-theme="night-story"] .choice-v03--picturebook:hover:not(:disabled) { background: rgba(74,90,160,.7); }
+/* 모바일 세로: 별/그림자 감산(성능) */
+@media (max-width: 600px) {
+  body[data-pb-theme="night-story"] .scene-screen--pb {
+    background:
+      radial-gradient(1.4px 1.4px at 20% 12%, rgba(255,255,255,.7) 50%, transparent 51%),
+      radial-gradient(1.4px 1.4px at 78% 10%, rgba(255,255,255,.7) 50%, transparent 51%),
+      radial-gradient(130% 120% at 72% 0%, #27315c 0%, #161d40 58%, #0d1228 100%);
+  }
+  body[data-pb-theme="night-story"] .scene-media-frame {
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.08);
+  }
+}
+
 /* ────────────────────────────────────────────────────────
    W9 (v3): 양옆 마감 테마 collapsible 토글 헤더.
    접힌 상태: [mini preview] 🎨 양옆 마감 테마 — 책상  ▼

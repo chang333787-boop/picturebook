@@ -451,7 +451,7 @@ function _renderSceneText(stage, scene) {
   /* v37: 텍스트 모드도 페이지 카드 portrait 비율 고정 — 디바이스 무관 동일 보임.
      사용자: "지금 맥북·태블릿에서 다 다르게 나옴. 비율 아예 고정해야". */
   _stageReplaceScene(stage, `
-    <div class="scene-screen scene-screen--text scene-screen--text-paged"
+    <div class="scene-screen scene-screen--text scene-surface scene-screen--text-paged"
       data-display="${scene.displayType}"
       data-scene-num="${escHtml(String(scene.id))}"
       data-presentation-mode="text"
@@ -461,7 +461,7 @@ function _renderSceneText(stage, scene) {
       ${styleAttr}>
       ${bgHtml}
       <div class="text-page">
-        <div class="text-card js-text-card">
+        <div class="text-card scene-narrative-panel js-text-card">
           ${cardHtml}
         </div>
       </div>
@@ -534,7 +534,7 @@ function _renderSceneCard(scene, choices) {
   /* 버튼 영역 — 카드 안 맨 아래. v0.3 텍스트형은 좌측정렬 세로.
      2026-06-02: data-choice-idx = 원본 인덱스(x.origIdx), 표시 순번 = i. */
   const btns = _v03FilterChoicesIndexed(choices).map((x, i) => _v03ChoiceBtnHtml(scene, x.c, 'text', x.origIdx, i)).join('');
-  const btnsHtml = `<div class="text-card__actions">${btns}</div>`;
+  const btnsHtml = `<div class="text-card__actions scene-choice-group">${btns}</div>`;
 
   return `${titleHtml}${bodyHtml}${btnsHtml}`;
 }
@@ -678,13 +678,13 @@ function _renderScenePicturebook(stage, scene, submode) {
     : '';
 
   const illustHtml = bgImage
-    ? `<div class="pb-illust" data-pb-illust="1">
+    ? `<div class="pb-illust scene-media-frame" data-pb-illust="1">
          <div class="pb-illust__photo" style="${photoVars}" data-pb-photo="1">
            <img class="pb-illust__inner" src="${bgImage}" draggable="false" alt="" decoding="async" fetchpriority="high">
          </div>
          ${titleOverlayInIllustHtml}
        </div>`
-    : `<div class="pb-illust pb-illust--empty">
+    : `<div class="pb-illust pb-illust--empty scene-media-frame">
          <div class="pb-empty-mark">⌘</div>
          ${titleOverlayInIllustHtml}
        </div>`;
@@ -742,26 +742,26 @@ function _renderScenePicturebook(stage, scene, submode) {
        pb-tone.css의 imageCenter 오버라이드에서 분할형 대비 약화. */
     const _pbToneClsIC = _pbToneClasses(scene, 'scene');
     _stageReplaceScene(stage, `
-      <div class="scene-screen scene-screen--pb ${layoutClass}"
+      <div class="scene-screen scene-screen--pb scene-surface ${layoutClass}"
         data-display="${scene.displayType}"
         data-scene-num="${escHtml(String(scene.id))}"
         data-presentation-mode="picturebook"
         data-presentation-submode="imageCenter"
         ${isEdit ? 'data-edit-mode="true"' : ''}
         ${styleAttr}>
-        <div class="pb-page">
+        <div class="pb-page picturebook-page">
           <div class="pb-frame${_pbToneClsIC}">
             <div class="pb-stage">
               ${illustHtml}
               ${title ? `<div class="pb-stage__title-overlay js-pb-editable-title" ${_allowPbEdit ? 'contenteditable="true" data-pb-editable="title"' : ''}>${escHtml(title)}</div>` : ''}
-              ${body || isEdit ? `<div class="pb-stage__body-overlay js-pb-body-overlay"${_variantLayoutKeyPb ? ` data-ai-variant-layout="${_variantLayoutKeyPb}"` : ''} style="${bodyOverlayStyle || 'left:15%; top:25%; width:55%; background:rgba(255,255,255,0.85);'}">
+              ${body || isEdit ? `<div class="pb-stage__body-overlay scene-narrative-panel js-pb-body-overlay"${_variantLayoutKeyPb ? ` data-ai-variant-layout="${_variantLayoutKeyPb}"` : ''} style="${bodyOverlayStyle || 'left:15%; top:25%; width:55%; background:rgba(255,255,255,0.85);'}">
                 <p class="pb-text__body js-pb-editable-body" ${editAttrsBody} data-placeholder="(본문을 적어보세요)">${escHtml(body)}</p>
                 ${editHandlesHtml}
               </div>` : ''}
             </div>
             <div class="pb-text pb-text--bottom-only">
               <div class="pb-text__actions-label" aria-hidden="true">행동 ${pbChoiceCount}개 <span class="pb-text__actions-label-arrow">↓</span></div>
-              <div class="pb-text__actions" data-count="${pbChoiceCount}">${btns}</div>
+              <div class="pb-text__actions scene-choice-group" data-count="${pbChoiceCount}">${btns}</div>
             </div>
           </div>
         </div>
@@ -774,22 +774,22 @@ function _renderScenePicturebook(stage, scene, submode) {
   /* v138: 본문 카드 톤 클래스 — 작품 단위 style/color 있을 때만 박힘 */
   const _pbToneCls = _pbToneClasses(scene, 'scene');
   _stageReplaceScene(stage, `
-    <div class="scene-screen scene-screen--pb ${layoutClass}"
+    <div class="scene-screen scene-screen--pb scene-surface ${layoutClass}"
       data-display="${scene.displayType}"
       data-scene-num="${escHtml(String(scene.id))}"
       data-presentation-mode="picturebook"
       data-presentation-submode="split"
       ${styleAttr}>
-      <div class="pb-page">
+      <div class="pb-page picturebook-page">
         <div class="pb-frame${_pbToneCls}">
           ${illustHtml}
-          <div class="pb-text">
+          <div class="pb-text scene-narrative-panel">
             ${titleHtml}
             <div class="pb-text__body-wrap">
               ${bodyHtml}
               <div class="pb-text__actions-label" aria-hidden="true">행동 ${pbChoiceCount}개 <span class="pb-text__actions-label-arrow">↓</span></div>
             </div>
-            <div class="pb-text__actions" data-count="${pbChoiceCount}">${btns}</div>
+            <div class="pb-text__actions scene-choice-group" data-count="${pbChoiceCount}">${btns}</div>
           </div>
         </div>
       </div>
@@ -1211,7 +1211,7 @@ function _v03ChoiceBtnHtml(scene, choice, mode, idx, dispIdx) {
     const _labelEditAttrs = _allowChoiceEdit
       ? ` contenteditable="true" data-pb-editable="choice-label" data-choice-idx="${idx != null ? idx : 0}"`
       : '';
-    return `<button class="choice-v03 choice-v03--picturebook js-choice${emptyClass}"
+    return `<button class="choice-v03 choice-v03--picturebook scene-choice-button js-choice${emptyClass}"
       data-choice-id="${escHtml(choice.id)}"
       data-pb-color="${colorIdx}"
       ${disabled}${unlinkedAttr}>
@@ -1244,7 +1244,7 @@ function _v03ChoiceBtnHtml(scene, choice, mode, idx, dispIdx) {
         + ` data-placeholder="(행동 버튼을 적어보세요)">${escHtml(_rawLabel)}</span>`;
     }
   }
-  return `<button class="choice-v03 choice-v03--${mode} js-choice${emptyClass}"
+  return `<button class="choice-v03 choice-v03--${mode}${mode === 'movie' ? '' : ' scene-choice-button'} js-choice${emptyClass}"
     data-choice-id="${escHtml(choice.id)}" ${disabled}${unlinkedAttr}>
     ${_textLabelHtml}
   </button>`;
@@ -1611,11 +1611,11 @@ function _renderStoryEnding(stage, scene) {
   /* 텍스트 영역 — 작품 제목(작게) + 엔딩 본문(메인) + 이야기 끝 스탬프 + 경로 요약 + 버튼
      v133: 각 요소에 terminal-step + 종류별 modifier. CSS animation-delay 변수로 순차. */
   const endingTextHtml = `
-    <div class="pb-text pb-text--ending ${_isEdit ? 'is-edit-static' : ''}"
+    <div class="pb-text pb-text--ending scene-narrative-panel ${_isEdit ? 'is-edit-static' : ''}"
          style="${_seqStyle}">
       ${userTitle ? `<div class="ending-user-title terminal-step terminal-step--title">${escHtml(userTitle)}</div>` : ''}
       ${(userBody || _allowInlineEdit) ? `<p class="ending-user-body terminal-step terminal-step--body${_allowInlineEdit ? ' js-pb-editable-body' : ''}" ${_allowInlineEdit ? 'contenteditable="true" data-pb-editable="body"' : ''} data-placeholder="(본문을 적어보세요)">${escHtml(userBody)}</p>` : ''}
-      <div class="pb-ending-meta-inline terminal-step terminal-step--badge">
+      <div class="pb-ending-meta-inline scene-ending-mark terminal-step terminal-step--badge">
         ${trueEndBadge}
         <div class="ending-end-stamp">${systemIcon} ${systemLabel}</div>
         ${steps > 1 ? `<div class="pb-ending-meta-path">${steps}개의 장면을 거쳐 이 결말에 도달했어요</div>` : ''}
@@ -1656,12 +1656,12 @@ function _renderStoryEnding(stage, scene) {
   /* v138: 엔딩 마감톤 클래스 — 작품 단위 style/color 있을 때만 박힘 */
   const _pbEndToneCls = _pbToneClasses(scene, 'ending');
   _stageReplaceScene(stage, `
-    <div class="scene-screen scene-screen--pb pb--split ending-as-pb${noImageClass}"
+    <div class="scene-screen scene-screen--pb scene-surface pb--split ending-as-pb${noImageClass}"
          ${endStyleAttr}
          data-presentation-mode="picturebook"
          data-presentation-submode="split"
          data-ending="true">
-      <div class="pb-page">
+      <div class="pb-page picturebook-page">
         <div class="pb-frame${_pbEndToneCls}">
           ${endingIllustHtml}
           ${endingTextHtml}
@@ -1793,7 +1793,7 @@ function _renderTextEnding(stage, scene) {
   /* 일반 텍스트 장면과 동일한 scene-screen--text-paged(고정 세로 페이지) + 기본 .text-card.
      엔딩 차이는 카드 하단의 작은 마감 표시(.text-ending-foot)뿐 — 별도 대형 카드/스탬프 없음. */
   _stageReplaceScene(stage, `
-    <div class="scene-screen scene-screen--text scene-screen--text-paged"
+    <div class="scene-screen scene-screen--text scene-surface scene-screen--text-paged"
          data-presentation-mode="text"
          data-scene-num="${escHtml(String(scene.id))}"
          data-text-theme="${escHtml(theme)}"
@@ -1802,11 +1802,11 @@ function _renderTextEnding(stage, scene) {
          data-ending="true"${styleAttr}>
       <div class="scene-bg-solid"></div>
       <div class="text-page">
-        <div class="text-card js-text-card">
+        <div class="text-card scene-narrative-panel js-text-card">
           ${titleHtml}
           ${bodyHtml}
           <div class="text-ending-foot">
-            <div class="text-ending-mark">
+            <div class="text-ending-mark scene-ending-mark">
               <span class="text-ending-mark-label">${systemIcon} ${systemLabel}</span>
               ${steps > 1 ? `<span class="text-ending-path">${steps}개의 장면을 거쳐 이 결말에 도달했어요</span>` : ''}
             </div>

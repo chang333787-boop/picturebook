@@ -3230,6 +3230,10 @@ function _pbImageActionsHtml(scene) {
    향후 PB-LAYOUT-1B에서 ⚙ 작품 설정 팝오버가 이 helper를 재사용 예정.
    ※ dead path인 _picturebookSubmodeHtml(spread/stage)과는 별개 — 혼동 금지. */
 function _pbSubmodeSectionHtml(scene) {
+  /* D8-CLEAN-1: 그림책 대표=imageCenter 확정 → 하위 모드(분할형/그림중심형) 토글 UI 숨김.
+     picturebookSubmode 데이터·렌더 분기·저장·fallback 무변경. 신규 장면은 imageCenter 기본 유지,
+     기존 split 장면은 split로 그대로 렌더(UI에서만 새로 선택 못 하게 함). 핸들러는 대상 없으면 no-op. */
+  return '';
   const sub = (scene.picturebookSubmode === 'imageCenter') ? 'imageCenter' : 'split';
   /* v37: 페이지 방향·하위 모드는 첫 장면(entrySceneId)에서만 변경 가능.
      장면 2부터는 토글 비활성 + 안내. "작품 전체 설정"이 한 곳에서만 박힘. */
@@ -4016,6 +4020,10 @@ const _PB_TONE_ENDING_TONES = [
    + 기존 const 재사용. axis(card-tone/card-end-tone)·저장 경로(_queueSave)는 우측과 동일.
    ★ 작품단위 card-style/card-color는 포함하지 않음(그건 ⚙ 작품 설정). _pbToneSectionHtml 무수정. */
 function _pbSceneToneSectionHtml(scene) {
+  /* D8-CLEAN-1: 신규 5스킨에서 스킨이 본문/엔딩 톤을 담당(imageCenter pb-tone 무력화 완료) →
+     본문 톤(pbCardTone)/엔딩 마감톤(pbEndingTone) UI 숨김. 필드·pb-tone.css·_pbToneClasses 무변경
+     (legacy/split에 남은 영향은 건드리지 않음). */
+  return '';
   if (!scene || scene.type === 'cover' || scene.isCover) return '';
   const isEnding = !!scene.isEnding;
   return isEnding
@@ -4940,6 +4948,9 @@ function _projectPopoverEl() { return document.getElementById('edit-project-popo
    ★ 장면단위 pbCardTone/pbEndingTone은 포함하지 않음(우측 유지).
    ★ 본문 카드는 picturebook 전용 → 그림책 작품에서만 노출(text/movie엔 '' 반환). */
 function _pbProjectCardStyleSectionHtml() {
+  /* D8-CLEAN-1: 신규 5스킨에서 스킨이 카드 표현을 담당(imageCenter pb-tone 무력화) →
+     본문 카드 스타일/색계열 UI 숨김. textCardStyle/textCardColor 필드·pb-tone 무변경. */
+  return '';
   const ptype = (typeof _resolveViewerProjectType === 'function') ? _resolveViewerProjectType() : null;
   if (ptype !== 'picturebook') return '';
   const proj = (ViewerState && ViewerState.project) || {};
@@ -4962,6 +4973,10 @@ function _pbProjectCardStyleSectionHtml() {
    pageOrientation을 가로/세로로 조절. class(js-pb-orientation)·data-val·저장 경로는
    우측 패널과 동일. 팝오버는 "작품 전체"라 항상 편집 가능(우측의 첫장면 잠금 없음). */
 function _pageOrientationSectionHtml() {
+  /* D8-CLEAN-1: 그림책=가로 확정 → 그림책에서만 페이지 방향(가로/세로) UI 숨김.
+     text/movie 등은 유지. pageOrientation 필드/렌더/기존 portrait 작품 표시 무변경. */
+  const _ptypeOri = (typeof _resolveViewerProjectType === 'function') ? _resolveViewerProjectType() : null;
+  if (_ptypeOri === 'picturebook') return '';
   const isPortrait = !!(ViewerState.project && ViewerState.project.pageOrientation === 'portrait');
   return `
     <div class="edit-row edit-row--compact">

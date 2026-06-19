@@ -2576,6 +2576,106 @@ body.edit-mode-active:not(.viewer-test-active) .scene-screen--text .text-ending-
 }
 
 /* ════════════════════════════════════════════════════
+   DESIGN-SYSTEM-V1 D2 (2026-06-19): 텍스트 8테마 통합 (배경/버튼/엔딩)
+   ─────────────────────────────────────────────────────
+   · 위 .text-card 테마 룰(카드 색/폰트)은 보존. 여기선 무대 배경(surface)·버튼·
+     divider·엔딩을 테마 변수 재정의 + 최소 텍스처로 통일 → "흰 슬라이드 + 따로 노는
+     버튼"(PPT 느낌) 제거.
+   · --v03-bg/btn/divider만 재정의하므로 컴포넌트 CSS는 무수정(.choice-v03 등은
+     이미 var() 소비). card 색은 기존 직접 룰이 우선(의도적 보존).
+   · data-pb-theme(그림책)·movie·experience는 건드리지 않음.
+   ════════════════════════════════════════════════════ */
+
+/* classic — 오프화이트 무대 + 중립 버튼 */
+.scene-screen--text[data-text-theme="classic"] {
+  --v03-bg: #f3f3f1; --v03-divider: #ececea;
+  --v03-btn-bg: #ffffff; --v03-btn-fg: #333330; --v03-btn-border: #dcdcd8;
+  --v03-btn-hover-bg: #f1f1ef; --v03-btn-hover-bd: #bdbdb8;
+}
+
+/* novel — 세피아 지면 + 세피아 버튼 + 챕터 끝 느낌 */
+.scene-screen--text[data-text-theme="novel"] {
+  --v03-bg: #ece2cc; --v03-divider: #d8c7a4;
+  --v03-btn-bg: #f3ead6; --v03-btn-fg: #4a3420; --v03-btn-border: #cdb88f;
+  --v03-btn-hover-bg: #ead9b8; --v03-btn-hover-bd: #a9824f;
+}
+.scene-screen--text[data-text-theme="novel"] .text-ending-mark { font-style: italic; }
+
+/* paperbook — 종이 무대(종이결) + 종이 버튼 + 스탬프 마감 */
+.scene-screen--text[data-text-theme="paperbook"] {
+  --v03-bg: #e9ddc3; --v03-divider: #cdbb96;
+  --v03-btn-bg: #efe3c9; --v03-btn-fg: #43321c; --v03-btn-border: #c2ab82;
+  --v03-btn-hover-bg: #e4d4b3; --v03-btn-hover-bd: #9a6b3f;
+  background-image: repeating-linear-gradient(45deg, rgba(120,90,50,.04) 0 1px, transparent 1px 6px);
+}
+.scene-screen--text[data-text-theme="paperbook"] .text-ending-mark-label {
+  border: 1px dashed currentColor; border-radius: 999px; padding: 3px 12px;
+}
+
+/* note — 줄지 무대 + 노트 라벨 버튼 */
+.scene-screen--text[data-text-theme="note"] {
+  --v03-bg: #eef5fb; --v03-divider: #cfe0ee;
+  --v03-btn-bg: #ffffff; --v03-btn-fg: #2c4060; --v03-btn-border: #c4d6e6;
+  --v03-btn-hover-bg: #e6f0f8; --v03-btn-hover-bd: #7ba3c8;
+  background-image: linear-gradient(#d6e6f2 1px, transparent 1px);
+  background-size: 100% 28px;
+}
+.scene-screen--text[data-text-theme="note"] .choice-v03 { border-radius: 4px; }
+
+/* magazine — 강한 여백 무대 + 각진 액센트 버튼 */
+.scene-screen--text[data-text-theme="magazine"] {
+  --v03-bg: #f0efec; --v03-divider: #dededa;
+  --v03-btn-bg: #ffffff; --v03-btn-fg: #1a1a1a; --v03-btn-border: #1a1a1a;
+  --v03-btn-hover-bg: #1a1a1a; --v03-btn-hover-bd: #1a1a1a;
+}
+.scene-screen--text[data-text-theme="magazine"] .choice-v03 { border-radius: 2px; font-weight: 700; }
+.scene-screen--text[data-text-theme="magazine"] .choice-v03:hover:not(:disabled) { color: #ffffff; }
+.scene-screen--text[data-text-theme="magazine"] .text-ending-mark-label {
+  border-top: 3px solid #d62c1a; padding-top: 6px;
+}
+
+/* handwriting — 편지지 무대 + 둥근 손글씨 라벨 버튼 */
+.scene-screen--text[data-text-theme="handwriting"] {
+  --v03-bg: #f6edda; --v03-divider: #e6d3a8;
+  --v03-btn-bg: #fffaf0; --v03-btn-fg: #3a2c1a; --v03-btn-border: #e0c890;
+  --v03-btn-hover-bg: #f7eccf; --v03-btn-hover-bd: #c69a52;
+}
+.scene-screen--text[data-text-theme="handwriting"] .choice-v03 { border-radius: 999px; }
+
+/* retro — 어두운 무대(픽셀 줄) + 게임 UI 버튼 */
+.scene-screen--text[data-text-theme="retro"] {
+  --v03-bg: #0e0e0e; --v03-divider: rgba(74,240,154,.25);
+  --v03-btn-bg: #141414; --v03-btn-fg: #4af09a; --v03-btn-border: #4af09a;
+  --v03-btn-hover-bg: #1c1c1c; --v03-btn-hover-bd: #7af0b5;
+  background-image: repeating-linear-gradient(0deg, rgba(74,240,154,.04) 0 2px, transparent 2px 4px);
+}
+.scene-screen--text[data-text-theme="retro"] .choice-v03 {
+  border-radius: 0; border-width: 2px; box-shadow: 0 0 8px rgba(74,240,154,.12);
+}
+
+/* dark — 짙은 중성 무대 + 은은한 테두리 버튼 + 발광 마감 */
+.scene-screen--text[data-text-theme="dark"] {
+  --v03-bg: #0e1320; --v03-divider: rgba(255,255,255,.08);
+  --v03-btn-bg: rgba(255,255,255,.05); --v03-btn-fg: #e8edf5; --v03-btn-border: rgba(255,255,255,.16);
+  --v03-btn-hover-bg: rgba(255,255,255,.1); --v03-btn-hover-bd: rgba(255,255,255,.32);
+}
+.scene-screen--text[data-text-theme="dark"] .text-ending-mark-label {
+  text-shadow: 0 0 8px rgba(180,200,255,.4);
+}
+
+/* 텍스트 엔딩 버튼: 8테마 모두 무대 버튼 톤(--v03-btn)에 종속 → 엔딩도 테마가 책임.
+   터미널 버튼은 시스템 버튼이지만 텍스트 모드에 한해 테마색을 따른다(그림책/무비 무관). */
+.scene-screen--text[data-text-theme] .text-ending-actions .terminal-btn {
+  background: var(--v03-btn-bg);
+  color: var(--v03-btn-fg);
+  border: 1px solid var(--v03-btn-border);
+}
+.scene-screen--text[data-text-theme] .text-ending-actions .terminal-btn:hover:not(:disabled) {
+  background: var(--v03-btn-hover-bg);
+  border-color: var(--v03-btn-hover-bd);
+}
+
+/* ════════════════════════════════════════════════════
    W5 다듬기 패널 — 폰트/색/테마 카드 스타일
    ════════════════════════════════════════════════════ */
 .edit-font-grid {

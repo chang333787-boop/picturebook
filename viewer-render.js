@@ -2442,6 +2442,18 @@ function _stageReplaceScene(stage, newHtml) {
     return;
   }
 
+  /* 다듬기 미리보기 재렌더: 장면 전환 애니메이션 없이 즉시 교체.
+     "뭐 누를 때마다" 페이지 넘김 효과가 재생돼 어지럽던 문제 차단.
+     실제 장면 이동은 이 플래그를 세우지 않으므로 기존 전환 경로를 그대로 탄다. */
+  if (typeof window !== 'undefined' && window.__pbEditPreviewRerender) {
+    newScene.style.animation = 'none';
+    stage.querySelectorAll('.scene-screen').forEach(function (el) { el.remove(); });
+    stage.insertBefore(newScene, stage.firstChild);
+    while (tmp.firstChild) stage.appendChild(tmp.firstChild);
+    _applyTextEntranceTypewriter(stage, newScene);
+    return;
+  }
+
   /* v133: 실제 duration 계산 — sceneSpeedPct가 없으면 50 fallback */
   const sPct = parseInt(stage.dataset.sceneSpeedPct, 10);
   const duration = _sceneTransMs(isNaN(sPct) ? 50 : sPct);

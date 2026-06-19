@@ -418,7 +418,14 @@ function _scheduleViewerFrameReRender() {
   requestAnimationFrame(() => {
     _editText.rafPending = false;
     const scene = ViewerState.scenes[ViewerState.currentSceneId];
-    if (scene && typeof renderScene === 'function') renderScene(scene);
+    if (scene && typeof renderScene === 'function') {
+      /* 다듬기 미리보기 재렌더(=뭐 누를 때마다 갱신)는 같은 장면 갱신이라
+         장면 전환 애니메이션을 억제한다(어지럼 방지). 실제 장면 이동은
+         renderCurrentScene 경로라 이 함수를 거치지 않아 전환이 그대로 유지된다. */
+      window.__pbEditPreviewRerender = true;
+      try { renderScene(scene); }
+      finally { window.__pbEditPreviewRerender = false; }
+    }
   });
 }
 
@@ -4081,8 +4088,12 @@ function _bindPbToneEvents(panel, scene) {
         });
       }
       /* 미리보기 즉시 갱신 — viewer-render의 _renderScenePicturebook이 다시 호출되며
-         .pb-frame에 새 톤 클래스가 박힘. */
-      if (typeof renderCurrentScene === 'function') renderCurrentScene();
+         .pb-frame에 새 톤 클래스가 박힘.
+         ⚠️ 이 핸들러는 ⚙ 작품 설정·🎨 장면 스타일 팝오버 안에서만 호출된다.
+         renderCurrentScene()은 HUD/네비까지 통째 재렌더해 팝오버 DOM이 닫혀버린다
+         (다른 팝오버 옵션은 _scheduleViewerFrameReRender만 써서 안 닫힘 → 일관성 깨짐).
+         frame만 갱신해 팝오버를 유지한다. 팝오버 닫기는 ✕ 버튼으로만. */
+      if (typeof _scheduleViewerFrameReRender === 'function') _scheduleViewerFrameReRender();
     });
   });
 }

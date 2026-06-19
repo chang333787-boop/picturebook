@@ -3752,31 +3752,75 @@ body[data-pb-theme="night-story"]        .scene-screen--pb.pb--imagecenter .pb-t
   padding: 5px 18px !important; font-size: 13px !important; border-radius: 999px; box-shadow: none; border-width: 1px;
 }
 
-/* ── 감상 모드(:not(.edit-mode-active)): 본문 overlay → 하단 조용한 캡션/스크림 ──
-   inline 좌표(left/top/width)를 표시상으로만 !important로 덮음. 편집 모드에선 이 블록 미적용. */
-body[data-pb-theme="cozy-storybook"]:not(.edit-mode-active)     .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay,
-body[data-pb-theme="paper-storybook"]:not(.edit-mode-active)    .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay,
-body[data-pb-theme="gallery-picturebook"]:not(.edit-mode-active) .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay,
-body[data-pb-theme="forest-storybook"]:not(.edit-mode-active)   .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay,
-body[data-pb-theme="night-story"]:not(.edit-mode-active)        .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay {
-  left: 0 !important; right: 0 !important; top: auto !important; bottom: 0 !important;
-  width: 100% !important; height: auto !important; max-height: 36% !important; overflow: hidden;
-  background: linear-gradient(to top, rgba(18,12,4,.60), rgba(18,12,4,0)) !important;
-  padding: 26px 24px 12px !important; border-radius: 0 !important;
+/* ── D7-5 최종: 본문 overlay = 다듬기에서 배치한 위치 그대로(감상=편집). 위치/크기 좌표(left/top/width/height)
+   는 viewer-render inline 값 사용 — CSS로 덮지 않음. "시각만" 스킨 말풍선화(배경/선/그림자/ink).
+   ⚠ 이전의 하단 스크림 강제(left/top/bottom/width !important + 검은 gradient + 흰 자막)는 폐기·제거됨. ── */
+body[data-pb-theme="cozy-storybook"]     .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay {
+  background: rgba(253,247,234,.86) !important; border: 1px solid rgba(230,200,150,.55); box-shadow: 0 1px 5px rgba(120,90,50,.10) !important;
 }
-body[data-pb-theme="cozy-storybook"]:not(.edit-mode-active)     .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay .pb-text__body,
-body[data-pb-theme="paper-storybook"]:not(.edit-mode-active)    .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay .pb-text__body,
-body[data-pb-theme="gallery-picturebook"]:not(.edit-mode-active) .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay .pb-text__body,
-body[data-pb-theme="forest-storybook"]:not(.edit-mode-active)   .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay .pb-text__body,
-body[data-pb-theme="night-story"]:not(.edit-mode-active)        .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay .pb-text__body {
-  color: #fff7ec; font-size: 14px; line-height: 1.7; text-align: center; margin: 0 auto;
-  max-width: 30em; max-height: 3.6em; overflow: hidden; text-shadow: 0 1px 3px rgba(0,0,0,.55);
+body[data-pb-theme="paper-storybook"]    .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay {
+  background: rgba(245,238,222,.88) !important; border: 1px solid rgba(194,171,130,.5); box-shadow: 0 1px 4px rgba(90,70,40,.10) !important;
 }
+body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay {
+  background: rgba(255,255,255,.62) !important; border: 1px solid rgba(180,180,176,.5); box-shadow: none !important;
+}
+body[data-pb-theme="forest-storybook"]   .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay {
+  background: rgba(223,234,208,.85) !important; border: 1px solid rgba(174,195,148,.55); box-shadow: 0 1px 4px rgba(60,80,40,.10) !important;
+}
+body[data-pb-theme="night-story"]        .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay {
+  background: rgba(30,40,75,.80) !important; border: 1px solid rgba(90,104,160,.45); box-shadow: 0 1px 6px rgba(0,0,0,.25) !important;
+}
+/* 본문 글자 = 스킨 ink(흰 자막/스크림 그림자 폐지). 위치/정렬은 inline·기존 그대로 — text-align 강제 안 함 */
+body[data-pb-theme="cozy-storybook"]     .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay .pb-text__body { color: #5a4630; text-shadow: none; }
+body[data-pb-theme="paper-storybook"]    .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay .pb-text__body { color: #43321c; text-shadow: none; }
+body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay .pb-text__body { color: #3a3a38; text-shadow: none; }
+body[data-pb-theme="forest-storybook"]   .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay .pb-text__body { color: #3a4a2e; text-shadow: none; }
+body[data-pb-theme="night-story"]        .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay .pb-text__body { color: #eef1ff; text-shadow: none; }
 body[data-pb-theme="cozy-storybook"]:not(.edit-mode-active)     .scene-screen--pb.pb--imagecenter .pb-stage__title-overlay,
 body[data-pb-theme="paper-storybook"]:not(.edit-mode-active)    .scene-screen--pb.pb--imagecenter .pb-stage__title-overlay,
 body[data-pb-theme="gallery-picturebook"]:not(.edit-mode-active) .scene-screen--pb.pb--imagecenter .pb-stage__title-overlay,
 body[data-pb-theme="forest-storybook"]:not(.edit-mode-active)   .scene-screen--pb.pb--imagecenter .pb-stage__title-overlay,
 body[data-pb-theme="night-story"]:not(.edit-mode-active)        .scene-screen--pb.pb--imagecenter .pb-stage__title-overlay { display: none; }
+
+/* ── D7-5 최종: imageCenter 그림 흰 박스 제거 — 기본 .pb-illust{#fffefa}(특이도 0,4,0)를
+   5스킨 imageCenter 전용(0,5,1)으로 덮음. contain 유지·cover 금지·자르기 없음. 여백=테마 무대색. ── */
+body[data-pb-theme="cozy-storybook"]     .scene-screen--pb.pb--imagecenter .pb-stage .pb-illust,
+body[data-pb-theme="paper-storybook"]    .scene-screen--pb.pb--imagecenter .pb-stage .pb-illust,
+body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--imagecenter .pb-stage .pb-illust,
+body[data-pb-theme="forest-storybook"]   .scene-screen--pb.pb--imagecenter .pb-stage .pb-illust,
+body[data-pb-theme="night-story"]        .scene-screen--pb.pb--imagecenter .pb-stage .pb-illust {
+  background-color: transparent !important;
+}
+
+/* ── D7-5 최종: 행동라벨 "행동 N개 ↓"는 감상에서 숨김(패널 헤더감 제거). 편집은 유지. ── */
+body[data-pb-theme="cozy-storybook"]:not(.edit-mode-active)     .scene-screen--pb.pb--imagecenter .pb-text__actions-label,
+body[data-pb-theme="paper-storybook"]:not(.edit-mode-active)    .scene-screen--pb.pb--imagecenter .pb-text__actions-label,
+body[data-pb-theme="gallery-picturebook"]:not(.edit-mode-active) .scene-screen--pb.pb--imagecenter .pb-text__actions-label,
+body[data-pb-theme="forest-storybook"]:not(.edit-mode-active)   .scene-screen--pb.pb--imagecenter .pb-text__actions-label,
+body[data-pb-theme="night-story"]:not(.edit-mode-active)        .scene-screen--pb.pb--imagecenter .pb-text__actions-label { display: none !important; }
+
+/* ── D7-5 최종: pb-tone(본문 카드/색계열) 무력화 — 5스킨 imageCenter에서 스킨이 유일 기준.
+   pb-tone.css(.scene-screen--pb .pb-frame[class*="pb-tone-color--"]…)보다 특이도 높게 덮음.
+   legacy/split/text에는 영향 없음(5스킨×imagecenter 한정). ── */
+body[data-pb-theme="cozy-storybook"]     .scene-screen--pb.pb--imagecenter .pb-frame[class*="pb-tone-color--"],
+body[data-pb-theme="paper-storybook"]    .scene-screen--pb.pb--imagecenter .pb-frame[class*="pb-tone-color--"],
+body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--imagecenter .pb-frame[class*="pb-tone-color--"],
+body[data-pb-theme="forest-storybook"]   .scene-screen--pb.pb--imagecenter .pb-frame[class*="pb-tone-color--"],
+body[data-pb-theme="night-story"]        .scene-screen--pb.pb--imagecenter .pb-frame[class*="pb-tone-color--"] {
+  background: transparent !important; box-shadow: none !important;
+}
+body[data-pb-theme="cozy-storybook"]     .scene-screen--pb.pb--imagecenter .pb-frame[class*="pb-tone-color--"]::after,
+body[data-pb-theme="paper-storybook"]    .scene-screen--pb.pb--imagecenter .pb-frame[class*="pb-tone-color--"]::after,
+body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--imagecenter .pb-frame[class*="pb-tone-color--"]::after,
+body[data-pb-theme="forest-storybook"]   .scene-screen--pb.pb--imagecenter .pb-frame[class*="pb-tone-color--"]::after,
+body[data-pb-theme="night-story"]        .scene-screen--pb.pb--imagecenter .pb-frame[class*="pb-tone-color--"]::after {
+  content: none !important; background: none !important; border: none !important; box-shadow: none !important;
+}
+body[data-pb-theme="cozy-storybook"]     .scene-screen--pb.pb--imagecenter .pb-frame[class*="pb-tone-color--"] .pb-text__actions .choice-v03--picturebook { background: #f6dca8 !important; border-color: #e6c688 !important; color: #5a3c1e !important; }
+body[data-pb-theme="paper-storybook"]    .scene-screen--pb.pb--imagecenter .pb-frame[class*="pb-tone-color--"] .pb-text__actions .choice-v03--picturebook { background: #ece0c4 !important; border-color: #c2ab82 !important; color: #43321c !important; }
+body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--imagecenter .pb-frame[class*="pb-tone-color--"] .pb-text__actions .choice-v03--picturebook { background: rgba(255,255,255,.16) !important; border-color: rgba(120,120,116,.5) !important; color: #3a3a38 !important; }
+body[data-pb-theme="forest-storybook"]   .scene-screen--pb.pb--imagecenter .pb-frame[class*="pb-tone-color--"] .pb-text__actions .choice-v03--picturebook { background: #dfead0 !important; border-color: #aec394 !important; color: #3a4a2e !important; }
+body[data-pb-theme="night-story"]        .scene-screen--pb.pb--imagecenter .pb-frame[class*="pb-tone-color--"] .pb-text__actions .choice-v03--picturebook { background: rgba(60,74,130,.72) !important; border-color: #5a68a0 !important; color: #f2f5ff !important; }
 
 /* ── 미세조정 2: gallery 라벨 = 전시 무대용 절제(투명/얇은선) ── */
 body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook {

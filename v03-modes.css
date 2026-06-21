@@ -3812,6 +3812,29 @@ body[data-pb-theme="cozy-storybook"] .scene-screen--pb.pb--imagecenter .pb-text_
 body[data-pb-theme="cozy-storybook"] .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook .pb-choice-arrow {
   display: none;
 }
+
+/* ════════════════════════════════════════════════════════════
+   D9-2 (cozy-storybook 정본 · 미커밋): 무대=따뜻한 종이 책상, 작품 칸=은은한 종이 페이지.
+   cozy imageCenter 한정 · CSS만. 그림 크기/비율(8.9:1.1)/contain/inset(D7-6)/하단 버튼·말풍선(D9-1)
+   /글상자 진하기·글씨색(D8-1B)/핸들/위치 무변경. 외부 asset 0(CSS gradient만). 중앙 접힘선 없음.
+   ════════════════════════════════════════════════════════════ */
+/* 1) 전체 배경 = 따뜻한 크림 책상 + 보일듯말듯 종이결 + 아주 옅은 상단 광(어두운 비네팅 X). */
+body[data-pb-theme="cozy-storybook"] .scene-screen--pb.pb--imagecenter {
+  background:
+    radial-gradient(125% 90% at 50% 0%, rgba(255,250,238,.45), rgba(255,250,238,0) 62%),
+    repeating-linear-gradient(135deg, rgba(150,110,60,.020) 0 1.5px, transparent 1.5px 9px),
+    linear-gradient(#ece0c6, #e7d9bc);
+}
+/* 2) 작품 칸 = 은은한 종이 페이지(살짝 밝은 크림) + 부드러운 그림자 + 가는 따뜻한 테두리 + 약한 radius.
+   D7-5에서 imageCenter page를 투명 처리했으나, cozy만 종이 페이지로 되살림(강한 액자/흰박스 아님). */
+body[data-pb-theme="cozy-storybook"] .scene-screen--pb.pb--imagecenter .pb-page {
+  background:
+    repeating-linear-gradient(135deg, rgba(120,90,40,.014) 0 1px, transparent 1px 7px),
+    linear-gradient(#fdf7ea, #f7ecd4);
+  border: 1px solid rgba(224,202,160,.6);
+  border-radius: 14px;
+  box-shadow: 0 2px 11px rgba(120,90,40,.12), inset 0 1px 0 rgba(255,255,255,.4);
+}
 body[data-pb-theme="cozy-storybook"]:not(.edit-mode-active)     .scene-screen--pb.pb--imagecenter .pb-stage__title-overlay,
 body[data-pb-theme="paper-storybook"]:not(.edit-mode-active)    .scene-screen--pb.pb--imagecenter .pb-stage__title-overlay,
 body[data-pb-theme="gallery-picturebook"]:not(.edit-mode-active) .scene-screen--pb.pb--imagecenter .pb-stage__title-overlay,

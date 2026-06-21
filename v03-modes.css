@@ -3861,6 +3861,9 @@ body[data-pb-theme="cozy-storybook"] .scene-screen--pb.pb--imagecenter .pb-body-
 body[data-pb-theme="cozy-storybook"] .scene-screen--pb.pb--imagecenter [class*="pb-body-handle--resize-"] {
   border-color: rgba(126,138,170,.95);
 }
+/* 5) 큰 파란 점선(.safe-area-hint = 편집 드래그영역 "시각 안내")는 종이책 무대를 깨뜨림 → cozy에서 숨김.
+   pointer-events:none·실제 드래그 클램프는 JS라 이 요소와 무관(기능/핸들/좌표 영향 0). DOM/JS 토글 그대로. */
+body[data-pb-theme="cozy-storybook"] .safe-area-hint { display: none; }
 
 body[data-pb-theme="cozy-storybook"]:not(.edit-mode-active)     .scene-screen--pb.pb--imagecenter .pb-stage__title-overlay,
 body[data-pb-theme="paper-storybook"]:not(.edit-mode-active)    .scene-screen--pb.pb--imagecenter .pb-stage__title-overlay,

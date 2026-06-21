@@ -2367,25 +2367,31 @@ async function _returnToMaker() {
   /* 2. fallback URL 결정 (메모리의 ctx만 사용) */
   const fallbackUrl = _resolveFallbackUrl(ctx);
 
-  /* 3. opener 살아있으면 close 시도 */
+  /* 복귀는 명시적 "돌아가기" → location.replace 사용.
+     단일 창 흐름(maker→viewer를 location.href로 진입)에서 location.href로 복귀하면
+     history가 [maker, viewer, maker]로 쌓여 복귀 후 뒤로가기가 viewer로 튕김.
+     replace는 현재 viewer 항목을 maker로 대체 → 뒤로가기 시 viewer로 되돌아가지 않음.
+     (🌿홈·모둠바꾸기·branch.html도 같은 이유로 이미 location.replace 사용) */
+
+  /* 3. opener 살아있으면(구버전 새 탭 호환) close 시도 */
   if (window.opener && !window.opener.closed) {
     /* close 성공 시 탭이 즉시 사라지므로 setTimeout은 실행되지 않음.
        close가 브라우저 정책에 막혀 실패하면 setTimeout 콜백이 실행되어 URL 이동 */
     setTimeout(() => {
       /* 여기까지 왔다 = close 실패. 메모리의 fallbackUrl로 이동 */
-      window.location.href = fallbackUrl;
+      window.location.replace(fallbackUrl);
     }, 150);
     try {
       window.close();
     } catch (e) {
       /* close 자체가 throw — 즉시 fallback */
-      window.location.href = fallbackUrl;
+      window.location.replace(fallbackUrl);
     }
     return;
   }
 
-  /* 4. opener 없음 → fallback URL 이동 */
-  window.location.href = fallbackUrl;
+  /* 4. opener 없음(단일 창) → fallback URL로 복귀(replace) */
+  window.location.replace(fallbackUrl);
 }
 
 /* context.source에 따라 적절한 복귀 URL 결정 */

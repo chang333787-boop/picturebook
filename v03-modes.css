@@ -3865,6 +3865,74 @@ body[data-pb-theme="cozy-storybook"] .scene-screen--pb.pb--imagecenter [class*="
    pointer-events:none·실제 드래그 클램프는 JS라 이 요소와 무관(기능/핸들/좌표 영향 0). DOM/JS 토글 그대로. */
 body[data-pb-theme="cozy-storybook"] .safe-area-hint { display: none; }
 
+/* ════════════════════════════════════════════════════════════
+   D9-4 (paper-storybook 정본 · 미커밋): cozy 구조 복제 + paper 성격(누런 종이·연필선·메모/노트·
+   덜 말랑·짙은 회갈색). paper imageCenter 한정 · CSS만. 그림 크기/비율/contain/grid/말풍선 위치/
+   picturebookBodyBox/버튼 기능/엔딩 렌더/JS·DB 무변경. D8-1B(--pb-box-opacity / --pb-color-override)
+   ·D7-7 엔딩 유지 — 배경/글씨색 var 안 덮음. cozy/gallery/forest/night 무수정.
+   ════════════════════════════════════════════════════════════ */
+/* 1) 배경 = 연한 스케치북 종이 + 보일듯말듯 연필결 + 옅은 상단 광(어두운 비네팅 X). */
+body[data-pb-theme="paper-storybook"] .scene-screen--pb.pb--imagecenter {
+  background:
+    radial-gradient(125% 90% at 50% 0%, rgba(252,248,236,.4), rgba(252,248,236,0) 62%),
+    repeating-linear-gradient(115deg, rgba(120,108,80,.022) 0 1px, transparent 1px 8px),
+    linear-gradient(#e4ddc7, #dcd3ba);
+}
+/* 2) 작품 칸 = 누런 종이 페이지 + 가는 연필선 테두리 + 부드러운 그림자(액자감 약하게, radius 작게). */
+body[data-pb-theme="paper-storybook"] .scene-screen--pb.pb--imagecenter .pb-page {
+  background:
+    repeating-linear-gradient(115deg, rgba(120,100,60,.016) 0 1px, transparent 1px 7px),
+    linear-gradient(#faf4e4, #f1e8cf);
+  border: 1px solid rgba(150,135,100,.5);
+  border-radius: 9px;
+  box-shadow: 0 2px 10px rgba(110,95,55,.12), inset 0 1px 0 rgba(255,255,255,.35);
+}
+/* 3) 말풍선 = 살짝 각진 메모지/노트 조각(연필색 테두리·덜 둥글게). 배경 var는 D8-1B 그대로(미수정). */
+body[data-pb-theme="paper-storybook"] .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay {
+  border: 1.5px solid rgba(150,135,100,.5);
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(110,95,55,.13);
+  padding: 10px 16px;
+}
+/* 4) 행동버튼 = 작은 종이 메모 라벨(연필선·살짝 납작). imageCenter pill(!important) 이기게 동일 패턴+!important. */
+body[data-pb-theme="paper-storybook"] .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook {
+  background: #efe5cb !important;
+  border: 1.2px solid #b9a87f;
+  border-radius: 8px !important;
+  box-shadow: 0 1px 2px rgba(110,95,55,.16);
+  color: #43321c !important;
+  font-weight: 700;
+  letter-spacing: .02em;
+  padding: 7px 18px !important;
+  min-height: 38px;
+}
+body[data-pb-theme="paper-storybook"] .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook:hover:not(:disabled) {
+  background: #e8dabb !important; border-color: #a8966c;
+}
+body[data-pb-theme="paper-storybook"] .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook .pb-choice-num,
+body[data-pb-theme="paper-storybook"] .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook .pb-choice-arrow {
+  display: none;
+}
+/* 5) 본문 글씨 — 깔끔한 노트 느낌(행간/자간만, 색은 D8-1B var 유지: 미설정 시 #43321c 회갈색). */
+body[data-pb-theme="paper-storybook"] .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay .pb-text__body {
+  line-height: 1.55;
+  letter-spacing: .005em;
+}
+/* 6) 엔딩 코너 배지 = 작은 종이 메모 명패(부드러운 그림자·살짝 각진). 진엔딩 금색 포인트는 D7-7 유지. */
+body[data-pb-theme="paper-storybook"] .scene-screen--pb.pb--imagecenter.ending-as-pb--ic .pb-ending-corner {
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(110,95,55,.16);
+}
+/* 7) 편집 핸들 톤 약화(연필/노트 톤) + 큰 safe-area 점선 숨김. 기능/표시/좌표 무변경. */
+body[data-pb-theme="paper-storybook"] .scene-screen--pb.pb--imagecenter .pb-body-handle--move {
+  background: rgba(132,124,104,.82);
+  box-shadow: 0 2px 7px rgba(90,75,45,.22);
+}
+body[data-pb-theme="paper-storybook"] .scene-screen--pb.pb--imagecenter [class*="pb-body-handle--resize-"] {
+  border-color: rgba(132,124,104,.95);
+}
+body[data-pb-theme="paper-storybook"] .safe-area-hint { display: none; }
+
 body[data-pb-theme="cozy-storybook"]:not(.edit-mode-active)     .scene-screen--pb.pb--imagecenter .pb-stage__title-overlay,
 body[data-pb-theme="paper-storybook"]:not(.edit-mode-active)    .scene-screen--pb.pb--imagecenter .pb-stage__title-overlay,
 body[data-pb-theme="gallery-picturebook"]:not(.edit-mode-active) .scene-screen--pb.pb--imagecenter .pb-stage__title-overlay,

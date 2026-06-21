@@ -112,6 +112,15 @@
         <button type="submit" class="btn btn--soft btn--sm" id="wh-quick-go">입장 →</button>
       </form>
 
+      <!-- D-3: Android 설치 보조 버튼 — beforeinstallprompt 발생 시에만 표시(기본 숨김) -->
+      <button type="button" id="pwa-install-cta" class="wh__install-cta" style="display:none;" aria-label="홈 화면에 설치하기">
+        <span class="wh__install-cta-icon" aria-hidden="true">📲</span>
+        <span class="wh__install-cta-body">
+          <span class="wh__install-cta-title">홈 화면에 설치하기</span>
+          <span class="wh__install-cta-sub">앱처럼 빠르게 열 수 있어요.</span>
+        </span>
+      </button>
+
       <!-- 조용한 하단 링크 -->
       <p style="text-align:center;margin:22px 0 0;font-size:12px;">
         <a href="./privacy.html" target="_blank" rel="noopener"
@@ -193,23 +202,90 @@
   @media (max-width: 480px) {
     .pwa-install-hint { font-size: 12px; left: 12px; right: 12px; bottom: 12px; }
   }
+  /* D-3: 설치 보조 버튼 — 메인 카드보다 작고 약하게, 종이·크림 톤 유지 */
+  .wh__install-cta {
+    display: flex; align-items: center; gap: 10px;
+    margin: 18px auto 0; padding: 9px 16px; min-height: 44px;
+    background: rgba(255, 250, 238, 0.9); color: #2b1f10;
+    border: 1.5px solid rgba(198,111,74,0.55); border-radius: 12px;
+    font-family: 'Jua', 'Nanum Gothic', sans-serif; cursor: pointer;
+    box-shadow: 0 2px 10px rgba(80,50,20,0.12); transition: background .15s, border-color .15s;
+  }
+  .wh__install-cta:hover { background: rgba(255,250,238,1); border-color: rgba(198,111,74,0.8); }
+  .wh__install-cta-icon { font-size: 18px; flex-shrink: 0; }
+  .wh__install-cta-body { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.25; }
+  .wh__install-cta-title { font-size: 14px; font-weight: 700; }
+  .wh__install-cta-sub { font-size: 11.5px; color: #6b5638; }
 </style>
 <script>
-  (function() {
-    /* PWA standalone(홈 화면 추가됨) 모드면 안내 표시 X */
+  /* PWA: ① 설치 전용 SW 등록(캐시 없음) ② beforeinstallprompt 기반 설치 버튼 ③ 기존 수동 안내와 통합.
+     standalone 감지는 하나로 통합. 자동 prompt 금지. iOS 전용 분기 신설 없음. */
+  (function () {
     var isStandalone = window.matchMedia('(display-mode: standalone)').matches
                     || window.matchMedia('(display-mode: fullscreen)').matches
                     || window.navigator.standalone === true;
-    if (isStandalone) return;
-    /* 사용자가 닫은 적 있으면 표시 X */
-    try { if (localStorage.getItem('pwa-install-hint-dismissed') === '1') return; } catch(_) {}
+
+    /* ── 설치 전용 Service Worker 등록 (HTML/JS/CSS/데이터 캐시 0 · push=라이브 유지).
+       상대경로 './service-worker.js' → GitHub Pages 서브패스 scope './' 내. 실패해도 앱 진입 무방. ── */
+    if ('serviceWorker' in navigator && window.isSecureContext) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('./service-worker.js', {
+          scope: './',
+          updateViaCache: 'none'
+        }).catch(function () { /* 등록 실패는 조용히 무시 — 화면/팝업 막지 않음 */ });
+      });
+    }
+
+    if (isStandalone) return; /* 설치 실행 중 — 설치 UI 일절 표시 X */
+
     var hint = document.getElementById('pwa-install-hint');
-    if (!hint) return;
-    /* 1.2초 후 부드럽게 등장 (페이지 로드 직후 시각 부담 줄임) */
-    setTimeout(function() { hint.style.display = 'flex'; }, 1200);
-    hint.querySelector('.pwa-install-hint__close').addEventListener('click', function() {
-      hint.style.display = 'none';
-      try { localStorage.setItem('pwa-install-hint-dismissed', '1'); } catch(_) {}
+    var cta  = document.getElementById('pwa-install-cta');
+    var deferredPrompt = null;
+    var dismissed = false;
+    try { dismissed = (localStorage.getItem('pwa-install-hint-dismissed') === '1'); } catch (_) {}
+
+    function hideHint() { if (hint) hint.style.display = 'none'; }
+
+    /* 수동 안내: 설치 이벤트가 없고(미지원 브라우저 등) 닫은 적 없을 때만, 1.2초 후 조용히 등장.
+       그 사이 beforeinstallprompt가 오면 표시하지 않음(설치 버튼과 중복 방지). */
+    setTimeout(function () {
+      if (deferredPrompt || dismissed || !hint) return;
+      hint.style.display = 'flex';
+    }, 1200);
+    if (hint) {
+      var closeBtn = hint.querySelector('.pwa-install-hint__close');
+      if (closeBtn) closeBtn.addEventListener('click', function () {
+        hideHint(); dismissed = true;
+        try { localStorage.setItem('pwa-install-hint-dismissed', '1'); } catch (_) {}
+      });
+    }
+
+    /* 설치 가능 이벤트 — 자동 prompt 금지, 버튼만 노출(수동 안내는 숨김). */
+    window.addEventListener('beforeinstallprompt', function (e) {
+      e.preventDefault();
+      deferredPrompt = e;
+      hideHint();
+      if (cta) cta.style.display = 'flex';
+    });
+
+    /* 버튼 클릭 시에만 실제 prompt. 한 번 사용 후 폐기 → 반복 prompt 없음. */
+    if (cta) cta.addEventListener('click', function () {
+      if (!deferredPrompt) { cta.style.display = 'none'; return; }
+      var p = deferredPrompt;
+      deferredPrompt = null;
+      cta.style.display = 'none';
+      try {
+        p.prompt();
+        if (p.userChoice && p.userChoice.then) { p.userChoice.then(function () {}).catch(function () {}); }
+      } catch (_) { /* prompt 실패는 무시 */ }
+    });
+
+    /* 설치 완료 — 버튼·안내 모두 숨김, 다시 안 나오게. */
+    window.addEventListener('appinstalled', function () {
+      deferredPrompt = null;
+      if (cta) cta.style.display = 'none';
+      hideHint();
+      try { localStorage.setItem('pwa-install-hint-dismissed', '1'); } catch (_) {}
     });
   })();
 </script>

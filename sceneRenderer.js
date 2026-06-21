@@ -247,9 +247,12 @@ function buildCardHTML(s) {
                     && String(pm.entrySceneId)  === String(s.num);
   const isReplay    = pm.replaySceneId !== null && pm.replaySceneId !== undefined
                     && String(pm.replaySceneId) === String(s.num);
-  /* COVER-START-1: [첫 감상]/[다시 시작점] 카드 배지 표시 제거 (학생 UI 혼란 방지).
-     entrySceneId/replaySceneId 값·계산(isEntry/isReplay)은 그대로 유지 — 화면 표시만 끔. */
-  void isEntry; void isReplay;
+  /* B(브랜치 마커): '시작점' 데이터(projectMeta.entrySceneId)가 가리키는 실제 장면에만 짧은 '시작' 배지(번호 옆).
+     데이터 없으면 미표시(추측 금지). replaySceneId(다시 하기)는 표시 안 함(혼란 방지). roleBadgeRow는 미사용 유지. */
+  void isReplay;
+  const startBadge = isEntry
+    ? ` <span class="card-start-badge" title="이야기가 시작되는 장면">시작</span>`
+    : '';
   const roleBadges = '';
 
   /* ─── 작품 유형별 카드 얼굴 (2단계) ───────────────────────────
@@ -270,7 +273,7 @@ function buildCardHTML(s) {
   return `
     <div class="card-header">
       <span class="card-num-badge js-rename-btn" data-num="${s.num}"
-        title="번호 바꾸기">장면 ${s.num}${starBadge}</span>
+        title="번호 바꾸기">장면 ${s.num}${starBadge}</span>${startBadge}
       <button class="card-edit-jump js-edit-jump" data-num="${s.num}"
         title="이 장면 다듬기">✎</button>
       <button class="card-delete js-delete-btn" data-num="${s.num}">✕</button>
@@ -1405,26 +1408,14 @@ function _focusSceneInCanvas(num) {
       /* 가장 가까운 .scene-card 찾기 */
       const card = e.target && e.target.closest && e.target.closest('.scene-card');
       if (!card) return;
-      /* 카드 id = "card-{num}". data-num은 자식 input에 박힌 것과 충돌 안 함 — 카드 본체 id 사용 */
+      /* 카드 id = "card-{num}". 카드 본체 id 사용 */
       const id = card.id || '';
       if (!id.startsWith('card-')) return;
-      const num = id.substring(5);
-      /* 사이드 항목 강조 토글 */
-      const list = document.getElementById('ss-list');
-      if (!list) return;
-      const items = list.querySelectorAll('.ss-item');
-      items.forEach(it => {
-        if (it.getAttribute('data-scene-num') === String(num)) {
-          it.classList.add('is-current');
-          /* 보이지 않으면 사이드 안에서 자동 스크롤 */
-          if (it.scrollIntoView) {
-            try { it.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
-            catch (_) { /* 일부 환경 옵션 미지원 */ }
-          }
-        } else {
-          it.classList.remove('is-current');
-        }
-      });
+      /* B(좌측 목록 제거 후): 지금 작업 중(포커스된) 카드에 지속 '현재' 강조 — "여기 있어요" 표시.
+         이전엔 사이드 목록 항목(.ss-item)을 강조했으나 목록 제거로 캔버스 카드 자체를 강조. */
+      const prev = document.querySelectorAll('.scene-card.is-current');
+      prev.forEach(c => { if (c !== card) c.classList.remove('is-current'); });
+      card.classList.add('is-current');
     }, true);  /* capture phase — input focus도 위임 */
   }
   if (document.readyState === 'loading') {

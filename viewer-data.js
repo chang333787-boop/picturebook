@@ -229,11 +229,20 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
     if (orient === 'portrait' || orient === 'landscape') {
       document.body.dataset.pageOrientation = orient;
     }
-    const theme = ViewerState.project.pbTheme;
-    if (typeof theme === 'string' && theme.length > 0) {
-      /* D5: 저장값(theme)은 그대로 두고, 표시용 body data만 신규 스킨으로 normalize.
-         legacy 6키 작품은 가까운 신규 스킨으로 보이고, 미설정 작품은 가드에 걸려 무변경(회귀 0). */
-      document.body.dataset.pbTheme = normalizePicturebookTheme(theme);
+    /* T-THEME-1: pbTheme(양옆 마감 테마)는 그림책 작품에서만 body data에 박음.
+       텍스트 등 비-그림책 작품은 DB에 pbTheme 값이 남아 있어도 표시에서 무시 +
+       이전 화면(그림책 팀)에서 남은 dataset까지 명시 제거(팀 전환 잔존 차단).
+       DB 원본값은 삭제하지 않음(렌더/메뉴에서만 무시). */
+    if (ptype === 'picturebook') {
+      const theme = ViewerState.project.pbTheme;
+      if (typeof theme === 'string' && theme.length > 0) {
+        /* D5: 저장값(theme)은 그대로 두고, 표시용 body data만 신규 스킨으로 normalize. */
+        document.body.dataset.pbTheme = normalizePicturebookTheme(theme);
+      } else {
+        delete document.body.dataset.pbTheme;
+      }
+    } else {
+      delete document.body.dataset.pbTheme;
     }
     /* v82: v79 박은 body.dataset.coverTheme 폐기 — 사용자 의도는 표지 색이 아닌
        pb-theme(양옆 마감 테마)이 letterbox 전체 둘러쌈. body.dataset.pbTheme이 이미
@@ -1020,22 +1029,45 @@ function _normalizeConnectObjects(arr) {
    · 1차 범위: 데이터 모델 + 다듬기 UI + 8종 테마 톤 차이
    · 후순위: 효과 본격 (애니메이션 정교화)
    ================================================================ */
+/* T-THEME-1: 정본 텍스트 테마 6종. novel/magazine은 신규 선택 UI에서 제외.
+   표시명: classic=담백한 글 / paperbook=고전 기록 / note=이야기 노트 /
+          handwriting=편지와 일기 / retro=레트로 게임 / dark=밤의 미스터리 */
 const VALID_TEXT_THEMES = [
-  'classic', 'novel', 'paperbook', 'note',
-  'magazine', 'handwriting', 'retro', 'dark',
+  'classic', 'paperbook', 'note', 'handwriting', 'retro', 'dark',
 ];
+/* 레거시 입력 별칭 — 로드·해석 단계에서만 매핑(DB write 없음). 기존 작품 호환. */
+const LEGACY_TEXT_THEME_ALIASES = {
+  novel:    'paperbook',  /* 문학 소설 → 고전 기록 */
+  magazine: 'classic',    /* 대담한 잡지 → 담백한 글 */
+};
+/* 단일 정규화 — _normalizeTextTheme/getTextTheme가 공유(결과 불일치 방지).
+   정본 6종이면 그대로, 레거시 별칭이면 매핑, 그 외(없음/garbage)는 null. */
+function _canonicalTextTheme(raw) {
+  if (typeof raw !== 'string') return null;
+  if (VALID_TEXT_THEMES.includes(raw)) return raw;
+  if (Object.prototype.hasOwnProperty.call(LEGACY_TEXT_THEME_ALIASES, raw)) {
+    return LEGACY_TEXT_THEME_ALIASES[raw];
+  }
+  return null;
+}
+/* T-THEME-1 지원(피커 선택 가능) 글씨체 — 3조건 충족: TEXT_FONT_FAMILIES 매핑 + viewer/maker 로드 + 여기 등록.
+   레거시 값(notosans 등)은 여기 없어도 _normalizeTextStyle이 보존(렌더는 CSS 폴백). */
 const VALID_TEXT_FONTS = [
-  'gothic',     /* Nanum Gothic — 기본 산세리프 */
+  'gothic',     /* Nanum Gothic — 기본 산세리프 (담백한 글 기본) */
   'batang',     /* Gowun Batang — 명조 */
-  'pen',        /* Nanum Pen Script — 손글씨 */
-  'gaegu',      /* Gaegu — 동글동글 손글씨 */
+  'pen',        /* Nanum Pen Script — 손글씨 (편지와 일기 기본) */
+  'gaegu',      /* Gaegu — 동글동글 손글씨 (이야기 노트 기본) */
   'hanna',      /* Black Han Sans — 굵은 헤드라인 */
   'jua',        /* Jua — 친근한 산세리프 */
-  'galmuri',    /* Galmuri — 픽셀/레트로 */
+  'galmuri',    /* Galmuri — 픽셀/레트로 (레트로 게임 기본) */
   'cormorant',  /* Cormorant Garamond — 영문 명조 */
+  'hahmlet',    /* Hahmlet — 세련 명조 (고전 기록 기본) */
+  'diphylleia', /* Diphylleia — 우아 명조 (밤의 미스터리 기본) */
 ];
 const TEXT_STYLE_DEFAULTS = {
-  fontFamily: 'gothic',
+  /* T-THEME-1 sentinel: null = "테마 기본 글씨체"(gothic 강제 안 함).
+     렌더/에디터가 fontFamily null이면 --text-ff를 세팅하지 않아 CSS 테마별 기본폰트가 적용됨. */
+  fontFamily: null,
   fontSize:   18,        /* px — viewer 기본. W5: 본문 위계 강화 (본문이 메인) */
   color:      '',        /* 빈 문자열이면 테마 기본 색 사용 */
   weight:     'normal',  /* normal | bold */
@@ -1064,7 +1096,13 @@ const TEXT_EFFECT_DEFAULTS = {
 
 function _normalizeTextStyle(raw) {
   if (!raw || typeof raw !== 'object') return null;
-  const fontFamily = VALID_TEXT_FONTS.includes(raw.fontFamily) ? raw.fontFamily : TEXT_STYLE_DEFAULTS.fontFamily;
+  /* T-THEME-1 sentinel: fontFamily 없음/빈값/'auto' → null(테마 기본).
+     명시적 문자열 값은 그대로 보존(과거 사용자 선택 존중 — 임의 삭제·gothic 강제 금지).
+     allowlist 밖 레거시 값도 보존하되, 렌더는 CSS --font-* 변수 폴백 체인으로 안전 처리. */
+  let fontFamily = null;
+  if (typeof raw.fontFamily === 'string' && raw.fontFamily && raw.fontFamily !== 'auto') {
+    fontFamily = raw.fontFamily;
+  }
   const fontSize   = _clampNum(raw.fontSize, 10, 36, TEXT_STYLE_DEFAULTS.fontSize);
   const color      = (typeof raw.color === 'string') ? raw.color : TEXT_STYLE_DEFAULTS.color;
   const weight     = (raw.weight === 'bold') ? 'bold' : 'normal';
@@ -1072,8 +1110,8 @@ function _normalizeTextStyle(raw) {
 }
 
 function _normalizeTextTheme(raw) {
-  if (typeof raw !== 'string') return null;
-  return VALID_TEXT_THEMES.includes(raw) ? raw : null;
+  /* 정본 6종 또는 레거시 별칭 → 정본값. 그 외 null(렌더 단계 getTextTheme가 classic fallback). */
+  return _canonicalTextTheme(raw);
 }
 
 function _normalizeTextEffect(raw) {
@@ -1093,8 +1131,8 @@ function getTextStyle(scene) {
   return { ...TEXT_STYLE_DEFAULTS };
 }
 function getTextTheme(scene) {
-  const v = scene && scene.textTheme;
-  return (typeof v === 'string' && VALID_TEXT_THEMES.includes(v)) ? v : 'classic';
+  /* 단일 정규화 경로 재사용 — _normalizeTextTheme와 동일 결과. 없음/무효 → classic. */
+  return _canonicalTextTheme(scene && scene.textTheme) || 'classic';
 }
 function getTextEffect(scene) {
   const v = scene && scene.textEffect;

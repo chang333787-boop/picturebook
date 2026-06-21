@@ -441,7 +441,8 @@ function _renderSceneText(stage, scene) {
   /* CSS 변수 — text-card에 적용. 빈 값은 CSS 기본값 사용. */
   const cssVars = [];
   if (style) {
-    if (style.fontFamily) cssVars.push(`--text-ff: var(--font-${style.fontFamily})`);
+    /* T-THEME-1: 명시 폰트일 때만 --text-ff 세팅. null/'auto'(테마 기본)면 미세팅 → CSS 테마별 기본폰트 적용. */
+    if (style.fontFamily && style.fontFamily !== 'auto') cssVars.push(`--text-ff: var(--font-${style.fontFamily})`);
     if (style.fontSize)   cssVars.push(`--text-fs-body: ${style.fontSize}px`);
     if (style.color)      cssVars.push(`--text-color-override: ${style.color}`);
     if (style.weight)     cssVars.push(`--text-weight: ${style.weight}`);
@@ -1834,7 +1835,8 @@ function _renderTextEnding(stage, scene) {
   const effect = (typeof getTextEffect === 'function') ? getTextEffect(scene) : null;
   const cssVars = [];
   if (style) {
-    if (style.fontFamily) cssVars.push(`--text-ff: var(--font-${style.fontFamily})`);
+    /* T-THEME-1: 명시 폰트일 때만 --text-ff 세팅. null/'auto'(테마 기본)면 미세팅 → CSS 테마별 기본폰트 적용. */
+    if (style.fontFamily && style.fontFamily !== 'auto') cssVars.push(`--text-ff: var(--font-${style.fontFamily})`);
     if (style.fontSize)   cssVars.push(`--text-fs-body: ${style.fontSize}px`);
     if (style.color)      cssVars.push(`--text-color-override: ${style.color}`);
     if (style.weight)     cssVars.push(`--text-weight: ${style.weight}`);

@@ -2290,6 +2290,9 @@ body.edit-mode-active:not(.viewer-test-active) .scene-screen--movie[data-played=
    ================================================================ */
 
 /* 폰트 변수 — 사용자 메모리 기반 + W9 확장 (총 18종) */
+/* T-THEME-1 텍스트 테마 기본 글씨체 정본(--text-ff 미세팅 시 .text-card font-family로 적용):
+   classic→gothic · paperbook→hahmlet · note→gaegu · handwriting→pen · retro→galmuri · dark→diphylleia.
+   값 변경 시 viewer.html/maker.html 폰트 로드와 함께 유지. */
 :root {
   --font-gothic:     'Nanum Gothic', 'Apple SD Gothic Neo', 'Malgun Gothic', '맑은 고딕', sans-serif;
   --font-batang:     'Gowun Batang', 'Apple SD Gothic Neo', 'Batang', '바탕', serif;
@@ -2375,7 +2378,8 @@ body.edit-mode-active:not(.viewer-test-active) .scene-screen--movie[data-played=
   color: #3d2914;
   border: 1px solid #c8b896;
   box-shadow: 0 4px 12px rgba(120, 90, 50, 0.15);
-  font-family: var(--text-ff, var(--font-batang));
+  /* T-THEME-1: 고전 기록 기본폰트 = Hahmlet (--text-ff 미세팅 시). */
+  font-family: var(--text-ff, var(--font-hahmlet));
 }
 .scene-screen--text[data-text-theme="paperbook"] .text-card__title {
   color: #6b3f1a;
@@ -2449,6 +2453,8 @@ body.edit-mode-active:not(.viewer-test-active) .scene-screen--movie[data-played=
   color: #e8edf5;
   border: 1px solid rgba(255, 255, 255, 0.09);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  /* T-THEME-1: 밤의 미스터리 기본폰트 = Diphylleia (--text-ff 미세팅 시). */
+  font-family: var(--text-ff, var(--font-diphylleia));
 }
 .scene-screen--text[data-text-theme="dark"] .text-card__title {
   color: #ffffff;

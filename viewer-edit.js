@@ -493,7 +493,8 @@ function _patchTextStyle() {
      원래 이름이 맞아 즉시 반영됐음.
      · 폰트 : --text-ff      (CSS .text-card font-family + 테마별 폰트 룰이 읽음)
      · 굵기 : --text-weight  (CSS .text-card font-weight가 읽음) */
-  if (style.fontFamily) {
+  /* T-THEME-1: 명시 폰트만 --text-ff. null/'auto'(테마 기본) → 제거 → CSS 테마 기본폰트 적용. */
+  if (style.fontFamily && style.fontFamily !== 'auto') {
     screen.style.setProperty('--text-ff', `var(--font-${style.fontFamily})`);
   } else {
     screen.style.removeProperty('--text-ff');
@@ -2872,27 +2873,23 @@ function _coverTitleYRowHtml(scene) {
 function _textGlyphStyleSectionHtml(scene) {
   const style = (typeof getTextStyle === 'function') ? getTextStyle(scene) : { fontFamily: 'gothic', fontSize: 16, color: '', weight: 'normal' };
   const _fsDisp = (function () { const v = _displayFontSize(scene, style); return (typeof v === 'number' && !isNaN(v)) ? v : style.fontSize; })();
+  /* T-THEME-1: 지원(로드+매핑+allowlist) 글씨체만 노출. 맨 위 "테마 기본 글씨체"(value '')은
+     fontFamily null → 현재 테마의 기본 글씨체 사용. 미지원 레거시(notosans 등)는 숨김(데이터는 보존). */
   const FONTS = [
     { id: 'gothic',     label: '나눔고딕' },
-    { id: 'notosans',   label: 'Noto Sans (본문)' },
-    { id: 'dodum',      label: '고운돋움' },
     { id: 'batang',     label: '고운바탕' },
-    { id: 'notoserif',  label: 'Noto Serif (명조)' },
     { id: 'hahmlet',    label: 'Hahmlet (세련 명조)' },
-    { id: 'stylish',    label: 'Stylish (굵은 명조)' },
-    { id: 'diphylleia', label: 'Diphylleia (우아)' },
+    { id: 'diphylleia', label: 'Diphylleia (우아 명조)' },
+    { id: 'cormorant',  label: 'Cormorant' },
     { id: 'jua',        label: '주아' },
     { id: 'hanna',      label: '한나 (굵은 헤드라인)' },
-    { id: 'dohyeon',    label: '도현 (꺽임)' },
     { id: 'pen',        label: '나눔펜' },
     { id: 'gaegu',      label: '개구' },
-    { id: 'himelody',   label: '하이멜로디 (귀여운)' },
-    { id: 'yeonsung',   label: '연성 (둥글)' },
-    { id: 'dokdo',      label: '동해 독도 (서예)' },
-    { id: 'cormorant',  label: 'Cormorant' },
     { id: 'galmuri',    label: '갈무리 (픽셀)' },
   ];
-  const fontOptions = FONTS.map(f => {
+  const _isThemeDefaultFont = !style.fontFamily || style.fontFamily === 'auto';
+  const fontOptions = `<option value="" ${_isThemeDefaultFont ? 'selected' : ''}>테마 기본 글씨체</option>`
+    + FONTS.map(f => {
     const ff = (TEXT_FONT_FAMILIES && TEXT_FONT_FAMILIES[f.id]) || 'inherit';
     return `<option value="${f.id}"
       style="font-family:${ff}"
@@ -2913,7 +2910,7 @@ function _textGlyphStyleSectionHtml(scene) {
           <div class="edit-row">
             <label class="edit-label">폰트</label>
             <select class="edit-font-select js-edit-text-font"
-              style="font-family:var(--font-${style.fontFamily || 'gothic'})">${fontOptions}</select>
+              style="${style.fontFamily && style.fontFamily !== 'auto' ? `font-family:var(--font-${style.fontFamily})` : ''}">${fontOptions}</select>
           </div>
 
           <div class="edit-row">
@@ -2940,15 +2937,14 @@ function _textGlyphStyleSectionHtml(scene) {
 
 function _textThemeSectionHtml(scene) {
   const theme = (typeof getTextTheme === 'function') ? getTextTheme(scene) : 'classic';
+  /* T-THEME-1: 정본 6종만. novel/magazine 제외(기존 작품은 로드 시 paperbook/classic으로 폴백). */
   const THEMES = [
-    { id: 'classic',     label: '클래식',   desc: '깔끔한 흰 배경' },
-    { id: 'novel',       label: '소설',     desc: '베이지 배경 + 명조' },
-    { id: 'paperbook',   label: '종이책',   desc: '오래된 종이 톤' },
-    { id: 'note',        label: '노트',     desc: '격자 무늬 + 손글씨' },
-    { id: 'magazine',    label: '잡지',     desc: '굵은 헤드라인' },
-    { id: 'handwriting', label: '손글씨',   desc: '편지지 풍' },
-    { id: 'retro',       label: '레트로',   desc: '검은 배경 + 픽셀' },
-    { id: 'dark',        label: '다크',     desc: '어두운 톤' },
+    { id: 'classic',     label: '담백한 글',     desc: '깨끗한 기본 읽기' },
+    { id: 'paperbook',   label: '고전 기록',     desc: '오래된 종이 톤' },
+    { id: 'note',        label: '이야기 노트',   desc: '공책에 적은 기록' },
+    { id: 'handwriting', label: '편지와 일기',   desc: '따뜻한 편지지' },
+    { id: 'retro',       label: '레트로 게임',   desc: '어두운 픽셀 화면' },
+    { id: 'dark',        label: '밤의 미스터리', desc: '짙은 남색·금색' },
   ];
   const themeCards = THEMES.map(t => `
     <button type="button"
@@ -5025,6 +5021,13 @@ function _renderProjectPopoverBody() {
     const _scene = ViewerState.scenes[ViewerState.currentSceneId];
     return _scene ? `<div class="edit-divider"></div>${_pbSubmodeSectionHtml(_scene)}` : '';
   })();
+  /* T-THEME-1: 그림책 전용 작품 설정(양옆 마감 테마 + 그림책 카드 스타일)은 picturebook에서만 노출.
+     텍스트 등 비-그림책 작품에는 pbTheme 메뉴를 렌더하지 않음(침범 차단). */
+  const _pbSettingsBlock = (function () {
+    const _pt = (typeof _resolveViewerProjectType === 'function') ? _resolveViewerProjectType() : null;
+    if (_pt !== 'picturebook') return '';
+    return `${_pbProjectCardStyleSectionHtml()}${_pbThemeSectionHtml()}`;
+  })();
   return `
     <div class="edit-project-popover__head">
       <span class="edit-project-popover__title">⚙ 작품 설정</span>
@@ -5037,8 +5040,7 @@ function _renderProjectPopoverBody() {
       ${_pbSubmodeBlock}
       <div class="edit-divider"></div>
       ${_movieDecisionSectionHtml()}
-      ${_pbProjectCardStyleSectionHtml()}
-      ${_pbThemeSectionHtml()}
+      ${_pbSettingsBlock}
       <div class="edit-divider"></div>
       ${_workSettingsSectionHtml()}
     </div>`;
@@ -5631,16 +5633,18 @@ function _bindTextSceneStyleActions(root, scene) {
   root.querySelectorAll('.js-edit-text-font').forEach(sel => {
     sel.addEventListener('change', e => {
       if (!_editText.editable) return;
-      const v = e.target.value || 'gothic';
+      /* T-THEME-1: 빈 값('')/'auto' = "테마 기본 글씨체" → fontFamily null 저장(테마 기본폰트 적용). */
+      const raw = e.target.value;
+      const v = (raw && raw !== 'auto') ? raw : null;
       if (_applyVariantStyleOrBlock(scene, { fontFamily: v }, () => {
-        e.target.style.fontFamily = `var(--font-${v})`;
+        e.target.style.fontFamily = v ? `var(--font-${v})` : '';
       })) return;
       const ts = _ensureTs();
       if (ts.fontFamily === v) return;
       ts.fontFamily = v;
       _queueSave(scene.num || scene.id, { textStyle: { ...ts } });
       _flushPendingSave();
-      e.target.style.fontFamily = `var(--font-${v})`;
+      e.target.style.fontFamily = v ? `var(--font-${v})` : '';
       if (!_patchTextStyle()) _scheduleViewerFrameReRender();
     });
   });

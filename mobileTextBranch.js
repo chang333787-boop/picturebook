@@ -1569,15 +1569,19 @@ if (document.readyState === 'loading') {
    사용자 박은 textStyle 데이터 모델 (scenes[id].textStyle) 그대로.
    변경 시 _mtbQueueSave 호출 → pushToFirebase.
    ──────────────────────────────────────────────────────────────── */
+/* T-THEME-1: 빈 값('')='테마 기본 글씨체'(fontFamily null). 지원 글씨체만 노출(dohyeon 등 미로드 제거). */
 const MTB_FONTS = [
-  { id: 'gothic', label: '나눔고딕' },
-  { id: 'batang', label: '고운바탕' },
-  { id: 'jua',    label: '주아' },
-  { id: 'hanna',  label: '한나 (굵음)' },
-  { id: 'pen',    label: '나눔펜' },
-  { id: 'gaegu',  label: '개구' },
-  { id: 'dohyeon',label: '도현' },
-  { id: 'galmuri',label: '갈무리 (픽셀)' },
+  { id: '',          label: '테마 기본' },
+  { id: 'gothic',    label: '나눔고딕' },
+  { id: 'batang',    label: '고운바탕' },
+  { id: 'hahmlet',   label: 'Hahmlet (명조)' },
+  { id: 'diphylleia',label: 'Diphylleia (우아)' },
+  { id: 'cormorant', label: 'Cormorant' },
+  { id: 'jua',       label: '주아' },
+  { id: 'hanna',     label: '한나 (굵음)' },
+  { id: 'pen',       label: '나눔펜' },
+  { id: 'gaegu',     label: '개구' },
+  { id: 'galmuri',   label: '갈무리 (픽셀)' },
 ];
 const MTB_COLORS = [
   '', '#1a1a1a', '#d4453d', '#e87a2a', '#f2b417',
@@ -1589,7 +1593,8 @@ function _mtbInitSettings() {
   const sel = document.getElementById('mtb-edit-font');
   if (sel) {
     sel.innerHTML = MTB_FONTS.map(f => `<option value="${f.id}">${f.label}</option>`).join('');
-    sel.addEventListener('change', e => _mtbUpdateStyle('fontFamily', e.target.value));
+    /* T-THEME-1: 빈 값 = 테마 기본 → fontFamily null 저장(sentinel). */
+    sel.addEventListener('change', e => _mtbUpdateStyle('fontFamily', e.target.value || null));
   }
   /* 크기 슬라이더 */
   const sizeIn = document.getElementById('mtb-edit-size');
@@ -1651,15 +1656,14 @@ function _mtbInitSettings() {
    ──────────────────────────────────────────────────────────────── */
 
 /* PC 텍스트형이 박는 거 그대로 (viewer-data.js의 VALID_TEXT_THEMES 등과 일치) */
+/* T-THEME-1: 정본 6종(viewer-data.js VALID_TEXT_THEMES와 일치). novel/magazine 제외. */
 const MTB_THEMES = [
-  { id: 'classic',     label: '기본' },
-  { id: 'novel',       label: '소설' },
-  { id: 'paperbook',   label: '종이책' },
-  { id: 'note',        label: '노트' },
-  { id: 'magazine',    label: '잡지' },
-  { id: 'handwriting', label: '손글씨' },
-  { id: 'retro',       label: '레트로' },
-  { id: 'dark',        label: '밤하늘' },
+  { id: 'classic',     label: '담백한 글' },
+  { id: 'paperbook',   label: '고전 기록' },
+  { id: 'note',        label: '이야기 노트' },
+  { id: 'handwriting', label: '편지와 일기' },
+  { id: 'retro',       label: '레트로 게임' },
+  { id: 'dark',        label: '밤의 미스터리' },
 ];
 const MTB_TEXT_ENTRANCES = [
   { id: 'none',       label: '없음' },
@@ -1981,7 +1985,8 @@ function _mtbUpdateStyle(field, value) {
 
 function _mtbReflectStyleToUI(style) {
   const sel = document.getElementById('mtb-edit-font');
-  if (sel && style.fontFamily) sel.value = style.fontFamily;
+  /* T-THEME-1: null/없음 → '테마 기본'(value '') 선택 표시. */
+  if (sel) sel.value = style.fontFamily || '';
   const sizeIn = document.getElementById('mtb-edit-size');
   const sizeVal = document.getElementById('mtb-edit-size-val');
   if (sizeIn && typeof style.fontSize === 'number') {
@@ -1997,14 +2002,16 @@ function _mtbReflectStyleToUI(style) {
 }
 
 const MTB_FONT_FAMILIES = {
-  gothic:  "'Nanum Gothic', sans-serif",
-  batang:  "'Gowun Batang', serif",
-  jua:     "'Jua', sans-serif",
-  hanna:   "'Black Han Sans', sans-serif",
-  pen:     "'Nanum Pen Script', cursive",
-  gaegu:   "'Gaegu', cursive",
-  dohyeon: "'Do Hyeon', sans-serif",
-  galmuri: "'Galmuri11', monospace",
+  gothic:     "'Nanum Gothic', sans-serif",
+  batang:     "'Gowun Batang', serif",
+  hahmlet:    "'Hahmlet', 'Gowun Batang', serif",
+  diphylleia: "'Diphylleia', 'Cormorant Garamond', serif",
+  cormorant:  "'Cormorant Garamond', 'Gowun Batang', serif",
+  jua:        "'Jua', sans-serif",
+  hanna:      "'Black Han Sans', sans-serif",
+  pen:        "'Nanum Pen Script', cursive",
+  gaegu:      "'Gaegu', cursive",
+  galmuri:    "'Galmuri11', 'Galmuri', monospace",
 };
 
 function _mtbReflectStyleToCard(style) {

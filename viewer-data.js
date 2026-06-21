@@ -1046,7 +1046,11 @@ const TEXT_STYLE_DEFAULTS = {
 const ENDING_TEXT_STYLE_DEFAULTS = {
   fontFamily: 'jua',
   fontSize:   20,        /* CSS clamp 16~24의 중간 — 일반 화면에서 비슷 */
-  color:      '#2b1f10',
+  /* D9-7C 근본수정: 색 미선택 엔딩은 빈 값 → 스킨 fallback이 결정(night=밝은 크림 등).
+     기존 '#2b1f10'은 night 남색 글상자 위에서 검정으로 보였음. 이 값은 DB 저장 안 됨(렌더 전용 default)
+     → 마이그레이션 불필요. 사용자가 엔딩 색을 명시 선택하면 scene.textStyle.color로 저장되어 그대로 우선.
+     split/legacy/movie/explore 엔딩은 .ending-user-body fallback(#2b1f10 고정)으로 무변경. */
+  color:      '',
   weight:     'bold',
 };
 const VALID_TEXT_EFFECTS = {

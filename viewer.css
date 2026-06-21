@@ -1435,7 +1435,10 @@ body[data-page-orientation="portrait"] #stage-wrap.letterbox-v #viewer-frame {
 .pb-text--ending .ending-user-body {
   font-family: var(--pb-font-family, var(--font-ui, 'Jua', sans-serif));
   font-size: var(--pb-fs-body, clamp(16px, 2.4vw, 24px));
-  color: var(--pb-color-override, var(--text, #2b1f10));
+  /* D9-7C: 엔딩 기본 color 미방출(viewer-data) 후에도 split/legacy/movie/explore 엔딩은
+     기존 #2b1f10 그대로(무회귀) — --text 단계 제거로 fairybook/explore의 밝은 --text로 새지 않게 고정.
+     사용자 명시 색(--pb-color-override)은 그대로 우선. imageCenter 엔딩은 .pb-text__body 스킨 fallback 별도. */
+  color: var(--pb-color-override, #2b1f10);
   line-height: 1.4;
   font-weight: var(--pb-fw-body, 600);
   margin: 0;

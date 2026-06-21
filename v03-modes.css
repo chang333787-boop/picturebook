@@ -4091,15 +4091,17 @@ body[data-pb-theme="forest-storybook"] .scene-screen--pb.pb--imagecenter .pb-sta
 }
 /* 4) 행동버튼 = 작은 잎 라벨(연녹 면·올리브 보더·둥근). pill(!important) 이기게 동일 패턴+!important. */
 body[data-pb-theme="forest-storybook"] .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook {
+  /* D9-6C: 납작한 잎 라벨 — 아이콘은 flex 흐름 항목(gap 간격)이라 글자와 겹침 0. 높이/그림자 한 단계 축소. */
+  display: flex; align-items: center; justify-content: center !important; gap: 8px;
   background: #dce9cb !important;
-  border: 1.5px solid #a8bf8a;
-  border-radius: 13px !important;
-  box-shadow: 0 1px 2px rgba(60,85,45,.16);
+  border: 1.2px solid #a8bf8a;
+  border-radius: 10px !important;
+  box-shadow: 0 1px 1px rgba(60,85,45,.1);
   color: #36482b !important;
   font-weight: 700;
   letter-spacing: .02em;
-  padding: 7px 18px !important;
-  min-height: 38px;
+  padding: 5px 16px !important;
+  min-height: 36px;
 }
 body[data-pb-theme="forest-storybook"] .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook:hover:not(:disabled) {
   background: #d2e1bd !important; border-color: #9ab37b;
@@ -4158,15 +4160,17 @@ body[data-pb-theme="night-story"] .scene-screen--pb.pb--imagecenter .pb-stage__b
 }
 /* 4) 행동버튼 = 작은 달빛 라벨(남색 면 충분히 진하게·라벤더 보더·밝은 글씨). 대비 확보. +!important. */
 body[data-pb-theme="night-story"] .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook {
-  background: rgba(48,60,112,.88) !important;
-  border: 1.3px solid rgba(150,162,212,.6);
-  border-radius: 999px !important;
-  box-shadow: 0 1px 3px rgba(0,0,0,.3);
-  color: #eef1ff !important;
+  /* D9-7C: 정돈된 별빛 라벨 — 별 아이콘은 flex 흐름 항목(gap 간격)이라 글자와 겹침 0. pill감↓·높이↓·은은한 glow. */
+  display: flex; align-items: center; justify-content: center !important; gap: 8px;
+  background: rgba(48,60,112,.9) !important;
+  border: 1.2px solid rgba(150,162,212,.6);
+  border-radius: 14px !important;
+  box-shadow: 0 1px 2px rgba(0,0,0,.26), 0 0 6px rgba(150,168,235,.14);
+  color: #f4edd8 !important;
   font-weight: 700;
   letter-spacing: .02em;
-  padding: 7px 18px !important;
-  min-height: 38px;
+  padding: 5px 16px !important;
+  min-height: 36px;
 }
 body[data-pb-theme="night-story"] .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook:hover:not(:disabled) {
   background: rgba(62,76,140,.92) !important; border-color: rgba(170,182,228,.7);
@@ -4239,10 +4243,9 @@ body[data-pb-theme="forest-storybook"] .scene-screen--pb.pb--imagecenter .pb-sta
   content: ""; position: absolute; top: -7px; left: 11px; width: 18px; height: 13px; pointer-events: none; transform: rotate(-18deg);
   background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 14'><path d='M2 12 Q3 2 18 3 Q17 13 2 12 Z' fill='%237ea65c'/><path d='M5 11 Q10 7 16 4' stroke='%23557a3d' stroke-width='1' fill='none'/></svg>") no-repeat center/contain;
 }
-/* E) 행동버튼 = 잎 라벨: 좌측 작은 잎 아이콘(좌 패딩 내). 본체 CSS 유지. */
-body[data-pb-theme="forest-storybook"] .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook { position: relative; }
+/* E) 행동버튼 = 잎 라벨: 잎 아이콘은 글자 앞 flex 흐름 항목(gap으로 7~8px 간격·세로 중앙·겹침 0). */
 body[data-pb-theme="forest-storybook"] .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook::before {
-  content: ""; position: absolute; left: 8px; top: 50%; transform: translateY(-50%); width: 12px; height: 9px; pointer-events: none;
+  content: ""; flex: 0 0 auto; display: inline-block; width: 13px; height: 10px; pointer-events: none;
   background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 14'><path d='M2 12 Q3 2 18 3 Q17 13 2 12 Z' fill='%23557a3d'/></svg>") no-repeat center/contain;
 }
 /* F) 엔딩 = 잎 명패: 좌측 작은 잎(좌 패딩 확보). 진엔딩 금색 포인트는 D7-7 유지. */
@@ -4279,11 +4282,10 @@ body[data-pb-theme="night-story"] .scene-screen--pb.pb--imagecenter .pb-stage__b
 body[data-pb-theme="night-story"] .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay .pb-text__body {
   text-shadow: 0 0 2px rgba(244,237,216,.4), 0 1px 3px rgba(8,12,32,.55);
 }
-/* F) 행동버튼 = 별빛 라벨: 좌측 작은 별 포인트(좌 패딩 내). 본체 CSS 유지. */
-body[data-pb-theme="night-story"] .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook { position: relative; }
+/* F) 행동버튼 = 별빛 라벨: 별 아이콘은 글자 앞 flex 흐름 항목(gap으로 7~8px 간격·세로 중앙·겹침 0). */
 body[data-pb-theme="night-story"] .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook::before {
-  content: ""; position: absolute; left: 9px; top: 50%; transform: translateY(-50%); width: 10px; height: 10px; pointer-events: none;
-  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M8 0 l1.8 6.2 l6.2 1.8 l-6.2 1.8 l-1.8 6.2 l-1.8-6.2 l-6.2-1.8 l6.2-1.8 Z' fill='%23eef1ff'/></svg>") no-repeat center/contain;
+  content: ""; flex: 0 0 auto; display: inline-block; width: 11px; height: 11px; pointer-events: none;
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M8 0 l1.8 6.2 l6.2 1.8 l-6.2 1.8 l-1.8 6.2 l-1.8-6.2 l-6.2-1.8 l6.2-1.8 Z' fill='%23f4edd8'/></svg>") no-repeat center/contain;
 }
 /* G) 엔딩 = 별빛 명패: 좌측 작은 별(좌 패딩 확보). 진엔딩 금빛 별. */
 body[data-pb-theme="night-story"] .scene-screen--pb.pb--imagecenter.ending-as-pb--ic .pb-ending-corner { position: relative; padding-left: 20px; }

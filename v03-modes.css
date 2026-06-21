@@ -3835,6 +3835,33 @@ body[data-pb-theme="cozy-storybook"] .scene-screen--pb.pb--imagecenter .pb-page 
   border-radius: 14px;
   box-shadow: 0 2px 11px rgba(120,90,40,.12), inset 0 1px 0 rgba(255,255,255,.4);
 }
+
+/* ════════════════════════════════════════════════════════════
+   D9-3 (cozy-storybook 정본 · 미커밋): 글씨·엔딩 배지·편집 핸들 마감. cozy imageCenter 한정 · CSS만.
+   그림 크기/비율/contain/grid/말풍선 위치/picturebookBodyBox/버튼 기능/엔딩 렌더/JS·DB 무변경.
+   D8-1B(글상자 진하기 --pb-box-opacity / 글씨색 --pb-color-override)·D9-1·D9-2 유지. 색만 안 덮음. ════════════════════════════════════════════════════════════ */
+/* 1) 본문 글씨 — 행간/자간만 마감(색은 D8-1B var 유지 → 미설정). 사용자 글씨색 우선 보존. */
+body[data-pb-theme="cozy-storybook"] .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay .pb-text__body {
+  line-height: 1.55;
+  letter-spacing: .005em;
+}
+/* 2) 버튼 글씨 — 종이 라벨 자간 마감(크기/모양은 D9-1 유지). */
+body[data-pb-theme="cozy-storybook"] .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook {
+  letter-spacing: .02em;
+}
+/* 3) 엔딩 코너 배지 — 작은 크림 종이 명패(부드러운 그림자). 진엔딩 금색 포인트는 D7-7 유지. */
+body[data-pb-theme="cozy-storybook"] .scene-screen--pb.pb--imagecenter.ending-as-pb--ic .pb-ending-corner {
+  box-shadow: 0 1px 4px rgba(120,90,40,.16);
+}
+/* 4) 편집 핸들 톤 약화 — 파란색은 유지하되 cozy 종이톤에 어울리게 부드럽게. 기능/표시 무변경. */
+body[data-pb-theme="cozy-storybook"] .scene-screen--pb.pb--imagecenter .pb-body-handle--move {
+  background: rgba(126,138,170,.82);
+  box-shadow: 0 2px 7px rgba(90,70,40,.22);
+}
+body[data-pb-theme="cozy-storybook"] .scene-screen--pb.pb--imagecenter [class*="pb-body-handle--resize-"] {
+  border-color: rgba(126,138,170,.95);
+}
+
 body[data-pb-theme="cozy-storybook"]:not(.edit-mode-active)     .scene-screen--pb.pb--imagecenter .pb-stage__title-overlay,
 body[data-pb-theme="paper-storybook"]:not(.edit-mode-active)    .scene-screen--pb.pb--imagecenter .pb-stage__title-overlay,
 body[data-pb-theme="gallery-picturebook"]:not(.edit-mode-active) .scene-screen--pb.pb--imagecenter .pb-stage__title-overlay,

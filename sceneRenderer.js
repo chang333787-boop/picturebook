@@ -680,7 +680,10 @@ function bindCardEvents(el, s) {
         `scene=${encodeURIComponent(num)}`,
       ];
       if (cid) params.push(`classId=${encodeURIComponent(cid)}`);
-      window.open(`viewer.html?${params.join('&')}`, '_blank');
+      const _vurl = `viewer.html?${params.join('&')}`;
+      /* 설치앱=같은 창, 일반 브라우저=새 탭 (ui.js _openInternalUrl). */
+      if (typeof _openInternalUrl === 'function') _openInternalUrl(_vurl);
+      else window.open(_vurl, '_blank');
     });
 
   /* 진엔딩 체크박스 */

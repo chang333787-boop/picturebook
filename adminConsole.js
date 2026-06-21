@@ -1155,7 +1155,10 @@ function _openMaker(teamName) {
   const cid = adminState.adminClassId
     ? `&classId=${encodeURIComponent(adminState.adminClassId)}` : '';
   /* maker 열기 — return context 저장 불필요 (maker가 viewer 열 때 자기가 저장) */
-  window.open(`maker.html?team=${encodeURIComponent(teamName)}${cid}`, '_blank');
+  const _murl = `maker.html?team=${encodeURIComponent(teamName)}${cid}`;
+  /* 설치앱=같은 창, 일반 브라우저=새 탭 (ui.js _openInternalUrl). */
+  if (typeof _openInternalUrl === 'function') _openInternalUrl(_murl);
+  else window.open(_murl, '_blank');
 }
 
 function _openViewer(teamName) {
@@ -1170,7 +1173,10 @@ function _openViewer(teamName) {
       savedAt: Date.now(),
     }));
   } catch (e) { /* storage 실패해도 진입은 계속 */ }
-  window.open(`viewer.html?team=${encodeURIComponent(teamName)}${cid}&from=maker`, '_blank');
+  const _vurl = `viewer.html?team=${encodeURIComponent(teamName)}${cid}&from=maker`;
+  /* 설치앱=같은 창(opener 없어도 source='admin' ctx로 정확 복귀), 일반 브라우저=새 탭. */
+  if (typeof _openInternalUrl === 'function') _openInternalUrl(_vurl);
+  else window.open(_vurl, '_blank');
 }
 
 /* ================================================================

@@ -20,6 +20,31 @@ function _saveReturnContext(source) {
 }
 
 /* ================================================================
+   PWA-NAV: 같은 가지 화면(maker↔viewer 등) 내부 이동 헬퍼
+   ─────────────────────────────────────────────────────────────
+   설치앱(standalone/fullscreen) — 같은 PWA 창에서 이동(window.location).
+     → 새 Chrome/Safari 창·탭이 뜨지 않음. opener=null이라 viewer의
+       _returnToMaker가 자동으로 location.href fallback 복귀(설계상 안전 경로).
+   일반 브라우저 — 기존 새 탭(window.open '_blank') 유지.
+     → opener 살아있어 window.close() 기반 복귀 흐름 그대로 보존.
+   내부(같은 scope·상대경로) URL에만 사용. 외부 링크엔 쓰지 않음.
+   ================================================================ */
+function _openInternalUrl(url) {
+  var standalone = false;
+  try {
+    standalone = !!(window.matchMedia && (
+      window.matchMedia('(display-mode: standalone)').matches ||
+      window.matchMedia('(display-mode: fullscreen)').matches
+    )) || window.navigator.standalone === true;
+  } catch (e) { standalone = (window.navigator && window.navigator.standalone === true); }
+  if (standalone) {
+    window.location.href = url;   /* 같은 앱 창 내 이동 */
+  } else {
+    window.open(url, '_blank');   /* 일반 브라우저 — 기존 새 탭 동작 유지 */
+  }
+}
+
+/* ================================================================
    Undo 시스템 제거 (협업 안정화 1차)
    ─────────────────────────────────────────────────────────────
    이전에 있던 전역 snapshot 기반 Undo는 동시 편집 구조와 단위가
@@ -886,7 +911,7 @@ window.addEventListener('DOMContentLoaded', () => {
     closePreview();
     flushTitleSaves();
     _saveReturnContext('maker');
-    window.open(url, '_blank');
+    _openInternalUrl(url);
   });
 
   /* 루트 */
@@ -974,7 +999,7 @@ window.addEventListener('DOMContentLoaded', () => {
       ? `&ptype=${encodeURIComponent(selectedProjectType)}` : '';
     flushTitleSaves();
     _saveReturnContext('maker');
-    window.open(`viewer.html?team=${name}&edit=1&from=maker${cid}${pt}`, '_blank');
+    _openInternalUrl(`viewer.html?team=${name}&edit=1&from=maker${cid}${pt}`);
   });
 
   /* W7 통합: "빠르게 확인하기" + "완성본 보기" → "감상 테스트" 하나로 통합.
@@ -984,9 +1009,8 @@ window.addEventListener('DOMContentLoaded', () => {
 
   /* 완성본 보기 → viewer.html?team=...&from=maker(&classId=...)
      ─────────────────────────────────────────────────────────────
-     열기 방식: 명시적 window.open() — 감상 화면 다듬기와 통일.
-     <a target="_blank"> 기본 클릭은 브라우저에 따라 window.opener=null로
-     세팅되어 close()가 실패할 수 있음 → preventDefault + window.open() 강제. */
+     열기 방식: preventDefault 후 _openInternalUrl() — 감상 화면 다듬기와 통일.
+     설치앱은 같은 창 이동, 일반 브라우저는 새 탭(opener 유지로 close() 복귀 보존). */
   function _updateViewerLink() {
     const link = document.getElementById('btn-open-viewer');
     if (!link) return;
@@ -1003,7 +1027,7 @@ window.addEventListener('DOMContentLoaded', () => {
       if (!teamName) { alert('먼저 팀 이름으로 입장해 주세요.'); return; }
       flushTitleSaves();           // 열기 직전 저장 flush
       _saveReturnContext('maker'); // 복귀 context 저장
-      window.open(url, '_blank');
+      _openInternalUrl(url);
     };
   }
   /* teamName이 설정될 때 업데이트 — firebase.js의 joinTeam 후 호출되도록

@@ -919,6 +919,21 @@ window.addEventListener('DOMContentLoaded', () => {
   /* 관리자 패널 — Auth 기반 직접 진입 후 패널 닫기/새로고침 */
   document.getElementById('btn-admin-close')  ?.addEventListener('click', closeAdmin);
   document.getElementById('btn-admin-refresh')?.addEventListener('click', loadAdminData);
+  /* 관리 콘솔 처음으로 — index 이동만. 교사 Auth 세션/관리 선택 상태는 건드리지 않음.
+     replace로 이동(뒤로가기로 관리 화면 재튕김 방지). */
+  document.getElementById('btn-admin-home')?.addEventListener('click', () => {
+    window.location.replace('index.html');
+  });
+
+  /* 처음으로(브랜치 화면 상단) — 이동 직전 저장 큐 명시 flush 후 index로 replace 이동.
+     <a href> 기본 이동은 막고(preventDefault) replace 사용 → 뒤로가기로 maker 재튕김 방지.
+     JS 미바인딩 시에도 <a href="index.html"> fallback으로 최소 이동은 보장. */
+  document.getElementById('btn-home-link')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    try { if (typeof flushTitleSaves === 'function') flushTitleSaves(); } catch (_) {}
+    try { if (typeof flushBodySaves  === 'function') flushBodySaves();  } catch (_) {}
+    window.location.replace('index.html');
+  });
 
   /* 템플릿 — HTML에서 제거됨 (사용자 결정: 시작 템플릿 폐기). querySelectorAll은 빈 NodeList → noop. */
   document.querySelectorAll('[data-tpl]').forEach(btn =>

@@ -2220,11 +2220,11 @@ function renderHUD() {
           <button class="maker-return-btn js-edit-open-routes" title="엔딩별 이야기 흐름 점검">🛤 루트 보기</button>
           <button class="maker-return-btn js-edit-open-map" title="장면 연결을 한눈에 확인">🔍 구조 보기</button>
           <button class="maker-return-btn js-edit-return-maker" title="브랜치 화면으로 돌아가기">← 브랜치 화면으로</button>
-          <button class="maker-return-btn js-return-home" title="처음 메뉴로 돌아가기">🌿 홈</button>
+          <button class="maker-return-btn js-return-home" title="서비스 첫 화면으로">🌿 처음으로</button>
           <button class="maker-return-btn maker-return-btn--save js-edit-save" title="즉시 저장">💾 저장</button>
         ` : `
           <button class="maker-return-btn js-return-to-maker">← 브랜치 화면으로</button>
-          <button class="maker-return-btn js-return-home" title="처음 메뉴로 돌아가기">🌿 홈</button>
+          <button class="maker-return-btn js-return-home" title="서비스 첫 화면으로">🌿 처음으로</button>
           <button class="maker-return-btn maker-return-btn--edit js-go-edit">🎨 감상 화면 다듬기</button>
         `}
       </div>
@@ -2281,11 +2281,17 @@ function renderHUD() {
   /* fromMaker 전용 */
   hud.querySelector('.js-return-to-maker')?.addEventListener('click', _returnToMaker);
 
-  /* 2026-05-25: 🌿 홈 — 처음 메뉴(index.html)로 복귀.
-     태블릿 앱모드에서 history 꼬임 방지 위해 location.replace 사용.
-     confirm으로 실수 클릭 방어. 작품 데이터/storage 절대 손대지 않음. */
-  hud.querySelector('.js-return-home')?.addEventListener('click', () => {
-    if (!confirm('처음 메뉴로 돌아갈까요?')) return;
+  /* 🌿 처음으로 — 서비스 첫 화면(index.html)으로 이동.
+     태블릿/PWA history 꼬임 방지 위해 location.replace 사용(뒤로가기로 viewer 재튕김 방지).
+     confirm으로 실수 클릭 방어. 편집 중이면 이동 직전 pending save 명시 flush.
+     작품 데이터/storage 절대 손대지 않음. */
+  hud.querySelector('.js-return-home')?.addEventListener('click', async () => {
+    if (!confirm('처음 화면으로 돌아갈까요?')) return;
+    /* 편집 중 미저장분 보호 — beforeunload/pagehide flush만 믿지 않고 명시 호출 */
+    if ((ViewerState.editMode || ViewerState._testingEdit) &&
+        typeof _flushPendingSave === 'function') {
+      try { await _flushPendingSave(); } catch (e) { /* flush 실패해도 이동은 계속 */ }
+    }
     location.replace('index.html');
   });
 

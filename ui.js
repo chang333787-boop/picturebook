@@ -22,26 +22,14 @@ function _saveReturnContext(source) {
 /* ================================================================
    PWA-NAV: 같은 가지 화면(maker↔viewer 등) 내부 이동 헬퍼
    ─────────────────────────────────────────────────────────────
-   설치앱(standalone/fullscreen) — 같은 PWA 창에서 이동(window.location).
-     → 새 Chrome/Safari 창·탭이 뜨지 않음. opener=null이라 viewer의
-       _returnToMaker가 자동으로 location.href fallback 복귀(설계상 안전 경로).
-   일반 브라우저 — 기존 새 탭(window.open '_blank') 유지.
-     → opener 살아있어 window.close() 기반 복귀 흐름 그대로 보존.
-   내부(같은 scope·상대경로) URL에만 사용. 외부 링크엔 쓰지 않음.
+   실행 환경(설치앱·Android Chrome·iPad Safari·데스크톱·기타 브라우저)과
+   무관하게 내부 화면은 항상 같은 창에서 이동 — 새 탭/새 브라우저 창 0.
+   같은 창 이동이라 opener 미생성 → viewer의 _returnToMaker가 location.href
+   fallback 경로로 안전 복귀(branchReturnContext·resume=1·source 보존).
+   내부(같은 scope·상대경로) URL에만 사용. 외부 링크엔 쓰지 않음(target=_blank 유지).
    ================================================================ */
 function _openInternalUrl(url) {
-  var standalone = false;
-  try {
-    standalone = !!(window.matchMedia && (
-      window.matchMedia('(display-mode: standalone)').matches ||
-      window.matchMedia('(display-mode: fullscreen)').matches
-    )) || window.navigator.standalone === true;
-  } catch (e) { standalone = (window.navigator && window.navigator.standalone === true); }
-  if (standalone) {
-    window.location.href = url;   /* 같은 앱 창 내 이동 */
-  } else {
-    window.open(url, '_blank');   /* 일반 브라우저 — 기존 새 탭 동작 유지 */
-  }
+  window.location.href = url;
 }
 
 /* ================================================================

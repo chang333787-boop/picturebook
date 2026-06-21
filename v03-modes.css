@@ -3343,8 +3343,15 @@ body[data-pb-theme="cozy-storybook"] .scene-ornaments::after {
 
 /* paper — 우상단 종이 접힘 음영(아주 옅게) */
 body[data-pb-theme="paper-storybook"] .scene-ornaments::after {
-  content: ""; position: absolute; right: 0; top: 0; width: 24px; height: 24px; opacity: .5;
+  content: ""; position: absolute; right: 0; top: 0; width: 24px; height: 24px; opacity: .4;
   background: linear-gradient(225deg, rgba(70,50,20,.16) 0%, transparent 55%);
+}
+/* paper(D9-4B) — 상단 가장자리에 작은 종이 클립(레퍼런스 "끼운 사진" 모티프, 손작업 느낌).
+   가장자리 전용·그림 비침범·pointer-events none(.scene-ornaments)·외부 asset 0(data-uri SVG). */
+body[data-pb-theme="paper-storybook"] .scene-ornaments::before {
+  content: ""; position: absolute; top: -3px; right: 30px; width: 15px; height: 32px; opacity: .55;
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 44'><path d='M7 41 V13 a5 5 0 0 1 10 0 V35 a8 8 0 0 1-16 0 V15' fill='none' stroke='%23a59c8a' stroke-width='2.4' stroke-linecap='round'/></svg>") no-repeat center/contain;
+  filter: drop-shadow(0 1px 1px rgba(70,55,25,.22));
 }
 
 /* gallery — 상단 가는 선(장식 최소, 여백이 장식) */
@@ -3392,6 +3399,7 @@ body[data-pb-theme="night-story"] .scene-ending-mark[data-true-end="1"] .ending-
 @media (max-width: 600px) {
   body[data-pb-theme="cozy-storybook"] .scene-ornaments::before,
   body[data-pb-theme="cozy-storybook"] .scene-ornaments::after,
+  body[data-pb-theme="paper-storybook"] .scene-ornaments::before,
   body[data-pb-theme="forest-storybook"] .scene-ornaments::before,
   body[data-pb-theme="forest-storybook"] .scene-ornaments::after { opacity: .3; }
   body[data-pb-theme="night-story"] .scene-ornaments::before { filter: none; }
@@ -3861,9 +3869,9 @@ body[data-pb-theme="cozy-storybook"] .scene-screen--pb.pb--imagecenter .pb-body-
 body[data-pb-theme="cozy-storybook"] .scene-screen--pb.pb--imagecenter [class*="pb-body-handle--resize-"] {
   border-color: rgba(126,138,170,.95);
 }
-/* 5) 큰 파란 점선(.safe-area-hint = 편집 드래그영역 "시각 안내")는 종이책 무대를 깨뜨림 → cozy에서 숨김.
+/* 5) 큰 파란 점선(.safe-area-hint = 편집 드래그영역 "시각 안내")는 무대를 깨뜨림 → 모든 모드에서 숨김.
    pointer-events:none·실제 드래그 클램프는 JS라 이 요소와 무관(기능/핸들/좌표 영향 0). DOM/JS 토글 그대로. */
-body[data-pb-theme="cozy-storybook"] .safe-area-hint { display: none; }
+.safe-area-hint { display: none; }
 
 /* ════════════════════════════════════════════════════════════
    D9-4 (paper-storybook 정본 · 미커밋): cozy 구조 복제 + paper 성격(누런 종이·연필선·메모/노트·
@@ -3931,7 +3939,205 @@ body[data-pb-theme="paper-storybook"] .scene-screen--pb.pb--imagecenter .pb-body
 body[data-pb-theme="paper-storybook"] .scene-screen--pb.pb--imagecenter [class*="pb-body-handle--resize-"] {
   border-color: rgba(132,124,104,.95);
 }
-body[data-pb-theme="paper-storybook"] .safe-area-hint { display: none; }
+
+/* ════════════════════════════════════════════════════════════
+   D9-5 (gallery-picturebook 정본): 밝은 전시 벽 + 매트보드 페이지 + 작은 명패 라벨.
+   gallery imageCenter 한정 · CSS만. 그림 크기/비율(8.9:1.1)/contain/grid/말풍선 위치/
+   picturebookBodyBox(--pb-box-opacity)/글씨색(--pb-color-override)/엔딩 렌더/JS·DB 무변경.
+   레퍼런스(밝은 갤러리 벽·매트보드·절제 조명·전시 명패) 50~60% 강도. 외부 asset 0. cozy/paper 무수정.
+   ════════════════════════════════════════════════════════════ */
+/* 1) 배경 = 밝은 전시 벽 + 상단 절제된 스포트 광(어두운 비네팅 X). */
+body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--imagecenter {
+  background:
+    radial-gradient(62% 44% at 50% -4%, rgba(255,255,255,.6), rgba(255,255,255,0) 70%),
+    linear-gradient(#ececea, #e3e3e0);
+}
+/* 2) 작품 칸 = 매트보드 페이지(오프화이트 + 얇은 회색선 + 절제된 그림자). 강한 액자 금지. */
+body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--imagecenter .pb-page {
+  background: #fbfbfa;
+  border: 1px solid #e3e3df;
+  border-radius: 3px;
+  box-shadow: 0 5px 16px rgba(0,0,0,.10);
+}
+/* 3) 말풍선 = 전시 캡션 카드(얇은 회색선·미세 radius·그림자 없음). 배경 var는 D8 그대로(미수정). */
+body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay {
+  border: 1px solid rgba(170,170,166,.55);
+  border-radius: 4px;
+  box-shadow: none;
+  padding: 9px 15px;
+}
+/* 4) 행동버튼 = 작은 전시 명패(중립 회백 면·얇은 선·각진). pill(!important) 이기게 동일 패턴+!important. */
+body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook {
+  background: rgba(249,249,247,.92) !important;
+  border: 1px solid #cfcfca;
+  border-radius: 3px !important;
+  box-shadow: 0 1px 2px rgba(0,0,0,.08);
+  color: #33332f !important;
+  font-weight: 600;
+  letter-spacing: .03em;
+  padding: 7px 18px !important;
+  min-height: 38px;
+}
+body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook:hover:not(:disabled) {
+  background: rgba(240,240,238,.95) !important; border-color: #bcbcb6;
+}
+body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook .pb-choice-num,
+body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook .pb-choice-arrow {
+  display: none;
+}
+/* 5) 본문 글씨 — 깔끔한 전시 캡션(행간/자간만, 색은 D8 var 유지: 미설정 #2b2b2b). */
+body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay .pb-text__body {
+  line-height: 1.55;
+  letter-spacing: .005em;
+}
+/* 6) 엔딩 코너 = 작은 전시 명패(각진·절제된 그림자). 진엔딩 금색 포인트는 D7-7 유지. */
+body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--imagecenter.ending-as-pb--ic .pb-ending-corner {
+  border-radius: 3px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.10);
+}
+/* 7) 편집 핸들 톤 = 중립 회청색(기능/표시/좌표 무변경). */
+body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--imagecenter .pb-body-handle--move {
+  background: rgba(120,132,150,.82);
+  box-shadow: 0 2px 7px rgba(40,50,70,.22);
+}
+body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--imagecenter [class*="pb-body-handle--resize-"] {
+  border-color: rgba(120,132,150,.95);
+}
+
+/* ════════════════════════════════════════════════════════════
+   D9-6 (forest-storybook 정본): 연한 크림그린 무대 + 잎빛 종이 페이지 + 작은 잎 라벨.
+   forest imageCenter 한정 · CSS만. 그림 크기/비율/contain/grid/말풍선 위치/picturebookBodyBox/
+   글씨색/엔딩 렌더/JS·DB 무변경. 진초록 배경·그림 침범 장식 금지(잎 덩굴은 D4 가장자리 ornament 유지).
+   외부 asset 0. cozy/paper/gallery/night 무수정.
+   ════════════════════════════════════════════════════════════ */
+/* 1) 배경 = 연한 크림그린 + 부드러운 햇살(상단 따뜻한 광) + 보일듯말듯 자연 결. 어두운 비네팅 X. */
+body[data-pb-theme="forest-storybook"] .scene-screen--pb.pb--imagecenter {
+  background:
+    radial-gradient(120% 85% at 50% 0%, rgba(255,252,230,.5), rgba(255,252,230,0) 60%),
+    repeating-linear-gradient(60deg, rgba(94,125,74,.03) 0 2px, transparent 2px 18px),
+    linear-gradient(#eef5e2, #e2edd3);
+}
+/* 2) 작품 칸 = 잎빛 종이 페이지(연한 크림그린 + 가는 녹색선 + 부드러운 그림자). */
+body[data-pb-theme="forest-storybook"] .scene-screen--pb.pb--imagecenter .pb-page {
+  background:
+    repeating-linear-gradient(60deg, rgba(94,125,74,.026) 0 1px, transparent 1px 7px),
+    linear-gradient(#f3f8ec, #e8f0dd);
+  border: 1px solid rgba(180,200,158,.6);
+  border-radius: 13px;
+  box-shadow: 0 2px 11px rgba(60,85,45,.12), inset 0 1px 0 rgba(255,255,255,.4);
+}
+/* 3) 말풍선 = 잎사귀빛 종이(녹색 보더·둥글게). 배경 var는 D8 그대로(미수정). */
+body[data-pb-theme="forest-storybook"] .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay {
+  border: 1.5px solid rgba(170,193,142,.55);
+  border-radius: 15px;
+  box-shadow: 0 2px 8px rgba(60,85,45,.12);
+  padding: 10px 16px;
+}
+/* 4) 행동버튼 = 작은 잎 라벨(연녹 면·올리브 보더·둥근). pill(!important) 이기게 동일 패턴+!important. */
+body[data-pb-theme="forest-storybook"] .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook {
+  background: #dce9cb !important;
+  border: 1.5px solid #a8bf8a;
+  border-radius: 13px !important;
+  box-shadow: 0 1px 2px rgba(60,85,45,.16);
+  color: #36482b !important;
+  font-weight: 700;
+  letter-spacing: .02em;
+  padding: 7px 18px !important;
+  min-height: 38px;
+}
+body[data-pb-theme="forest-storybook"] .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook:hover:not(:disabled) {
+  background: #d2e1bd !important; border-color: #9ab37b;
+}
+body[data-pb-theme="forest-storybook"] .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook .pb-choice-num,
+body[data-pb-theme="forest-storybook"] .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook .pb-choice-arrow {
+  display: none;
+}
+/* 5) 본문 글씨 — 행간/자간만(색은 D8 var 유지: 미설정 #3a4a2e 짙은 올리브). */
+body[data-pb-theme="forest-storybook"] .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay .pb-text__body {
+  line-height: 1.55;
+  letter-spacing: .005em;
+}
+/* 6) 엔딩 코너 = 작은 잎 명패(둥근·부드러운 그림자). 진엔딩 금색 포인트는 D7-7 유지. */
+body[data-pb-theme="forest-storybook"] .scene-screen--pb.pb--imagecenter.ending-as-pb--ic .pb-ending-corner {
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(60,85,45,.16);
+}
+/* 7) 편집 핸들 톤 = 회녹색(기능/표시/좌표 무변경). */
+body[data-pb-theme="forest-storybook"] .scene-screen--pb.pb--imagecenter .pb-body-handle--move {
+  background: rgba(110,130,105,.82);
+  box-shadow: 0 2px 7px rgba(45,65,40,.22);
+}
+body[data-pb-theme="forest-storybook"] .scene-screen--pb.pb--imagecenter [class*="pb-body-handle--resize-"] {
+  border-color: rgba(110,130,105,.95);
+}
+
+/* ════════════════════════════════════════════════════════════
+   D9-7 (night-story 정본): 너무 검지 않은 남색/보라 무대 + 밝은 크림 페이지(그림 그대로 밝게) + 달빛 라벨.
+   night imageCenter 한정 · CSS만. 그림 크기/비율/contain/grid/말풍선 위치/picturebookBodyBox/
+   글씨색/엔딩 렌더/JS·DB 무변경. ⚠ 학생 그림에 filter/overlay 금지 — 페이지를 밝은 크림으로 올려 그림이
+   어두워지지 않게. 말풍선=남색+밝은 글씨(글상자 진하기 낮/높 모두 읽히게 옅은 그림자 1줄). 외부 asset 0.
+   cozy/paper/gallery/forest 무수정.
+   ════════════════════════════════════════════════════════════ */
+/* 1) 배경 = 밝은 남색/보라(near-black 금지) + 상단 달빛 광 + 가장자리 별 몇 개. */
+body[data-pb-theme="night-story"] .scene-screen--pb.pb--imagecenter {
+  background:
+    radial-gradient(1.4px 1.4px at 14% 12%, rgba(255,255,255,.8) 50%, transparent 51%),
+    radial-gradient(1.3px 1.3px at 86% 14%, rgba(255,255,255,.65) 50%, transparent 51%),
+    radial-gradient(60% 46% at 78% -2%, rgba(214,222,255,.30), rgba(214,222,255,0) 70%),
+    linear-gradient(#2c376a, #212b53);
+}
+/* 2) 작품 칸 = 밝은 크림 페이지(그림 그대로 밝게) + 부드러운 달빛 테두리/글로우. filter/overlay 없음. */
+body[data-pb-theme="night-story"] .scene-screen--pb.pb--imagecenter .pb-page {
+  background: linear-gradient(#f8f3e2, #f1ebd6);
+  border: 1px solid rgba(214,222,255,.4);
+  border-radius: 13px;
+  box-shadow: 0 4px 18px rgba(0,0,0,.32), 0 0 14px rgba(150,168,235,.18);
+}
+/* 3) 말풍선 = 남색 카드(밝은 글씨). 배경 var는 D8 그대로(미수정). */
+body[data-pb-theme="night-story"] .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay {
+  border: 1px solid rgba(120,134,196,.45);
+  border-radius: 13px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.28);
+  padding: 10px 16px;
+}
+/* 4) 행동버튼 = 작은 달빛 라벨(남색 면 충분히 진하게·라벤더 보더·밝은 글씨). 대비 확보. +!important. */
+body[data-pb-theme="night-story"] .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook {
+  background: rgba(48,60,112,.88) !important;
+  border: 1.3px solid rgba(150,162,212,.6);
+  border-radius: 999px !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,.3);
+  color: #eef1ff !important;
+  font-weight: 700;
+  letter-spacing: .02em;
+  padding: 7px 18px !important;
+  min-height: 38px;
+}
+body[data-pb-theme="night-story"] .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook:hover:not(:disabled) {
+  background: rgba(62,76,140,.92) !important; border-color: rgba(170,182,228,.7);
+}
+body[data-pb-theme="night-story"] .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook .pb-choice-num,
+body[data-pb-theme="night-story"] .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook .pb-choice-arrow {
+  display: none;
+}
+/* 5) 본문 글씨 — 행간/자간 + 가독성 옅은 그림자(글상자 진하기 낮을 때도 밝은 글씨 읽힘). 색은 D8 var #eef1ff. */
+body[data-pb-theme="night-story"] .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay .pb-text__body {
+  line-height: 1.55;
+  letter-spacing: .005em;
+  text-shadow: 0 1px 3px rgba(8,12,32,.5);
+}
+/* 6) 엔딩 코너 = 작은 달빛 명패(둥근·달빛 글로우). 진엔딩 포인트는 D7-7 유지. */
+body[data-pb-theme="night-story"] .scene-screen--pb.pb--imagecenter.ending-as-pb--ic .pb-ending-corner {
+  border-radius: 13px;
+  box-shadow: 0 1px 6px rgba(0,0,0,.3), 0 0 8px rgba(150,168,235,.22);
+}
+/* 7) 편집 핸들 톤 = 라벤더/푸른 회색(기능/표시/좌표 무변경). */
+body[data-pb-theme="night-story"] .scene-screen--pb.pb--imagecenter .pb-body-handle--move {
+  background: rgba(150,160,205,.85);
+  box-shadow: 0 2px 7px rgba(10,16,40,.3);
+}
+body[data-pb-theme="night-story"] .scene-screen--pb.pb--imagecenter [class*="pb-body-handle--resize-"] {
+  border-color: rgba(160,170,210,.95);
+}
 
 body[data-pb-theme="cozy-storybook"]:not(.edit-mode-active)     .scene-screen--pb.pb--imagecenter .pb-stage__title-overlay,
 body[data-pb-theme="paper-storybook"]:not(.edit-mode-active)    .scene-screen--pb.pb--imagecenter .pb-stage__title-overlay,

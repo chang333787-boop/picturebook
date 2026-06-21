@@ -137,6 +137,9 @@ function renderAll() {
   drawArrows();
   /* W8 Phase B-2: 좌측 사이드 동기화 (장면 추가/삭제/변경 시) */
   if (typeof renderSideList === 'function') renderSideList();
+  /* BRANCH-VIEWPORT-RESTORE: 카드 렌더 완료 후 복귀 viewport 1회 복원(ui.js).
+     1회성·resume=1·team 일치 가드 내장 → 매 renderAll 호출돼도 1회만 소비. */
+  if (typeof _restoreBranchViewportOnce === 'function') _restoreBranchViewportOnce();
 }
 
 /* ================================================================

@@ -17,6 +17,85 @@ function _saveReturnContext(source) {
       savedAt: Date.now(),
     }));
   } catch (e) { /* storage 실패해도 진입은 계속 */ }
+  /* 브랜치 캔버스 흐름(source 'maker')에서만 viewport 1회 복원 상태 캡처.
+     _saveReturnContext('maker')는 ui.js·sceneRenderer의 브랜치→viewer/maker 이동에서만
+     호출됨(admin·모바일텍스트는 직접 write라 제외) → 캔버스 상태에 정확 스코프. */
+  if (source === 'maker') _captureBranchViewportState();
+}
+
+/* ── BRANCH-VIEWPORT-RESTORE: 브랜치 복귀 시 선택 장면·pan·zoom 1회 복원 ──
+   저장소 = sessionStorage(탭 스코프, 같은 탭 내비에서만 유효·탭 닫히면 소멸).
+   DB/localStorage 영구 저장 안 함. */
+var BVR_KEY = 'branchViewportReturn';
+
+function _captureBranchViewportState() {
+  try {
+    if (typeof teamName === 'undefined' || !teamName) return; /* 캔버스 없음 → 캡처 안 함 */
+    var cur = document.querySelector('.scene-card.is-current');
+    var sid = (cur && cur.id) ? cur.id.replace('card-', '') : null;
+    sessionStorage.setItem(BVR_KEY, JSON.stringify({
+      classId:        (typeof classId !== 'undefined') ? (classId || null) : null,
+      teamName:       teamName,
+      projectType:    (typeof selectedProjectType !== 'undefined') ? (selectedProjectType || null) : null,
+      selectedSceneId: sid,
+      panX: (typeof canvasOffX !== 'undefined') ? canvasOffX : 0,
+      panY: (typeof canvasOffY !== 'undefined') ? canvasOffY : 0,
+      zoom: (typeof zoom !== 'undefined') ? zoom : 1,
+      createdAt: Date.now(),
+    }));
+  } catch (e) { /* 캡처 실패는 무시 — 복귀해도 기본 위치일 뿐 */ }
+}
+
+/* renderAll() 끝에서 호출. 1회성 — 성공/실패 무관하게 끝에 키 제거. */
+function _restoreBranchViewportOnce() {
+  var raw;
+  try { raw = sessionStorage.getItem(BVR_KEY); } catch (e) { return; }
+  if (!raw) return;
+
+  /* 복귀일 때만(=URL ?resume=1). 일반 F5·홈진입·직접URL·새 프로젝트엔 resume 없음 → 미적용. */
+  var isReturn = false;
+  try { isReturn = (new URLSearchParams(location.search).get('resume') === '1'); } catch (e) {}
+  if (!isReturn) return; /* 키는 같은 탭 다음 캡처에서 덮어쓰이거나 탭 종료 시 소멸 */
+
+  /* 여기부터는 1회 소비 — 어떤 경로로 빠져도 키 제거 */
+  try { sessionStorage.removeItem(BVR_KEY); } catch (e) {}
+
+  var st;
+  try { st = JSON.parse(raw); } catch (e) { return; }
+  if (!st) return;
+
+  /* 프로젝트·팀 일치(다른 작품에 잘못 적용 방지). createdAt 단순 만료(60분). */
+  var curTeam = (typeof teamName !== 'undefined') ? (teamName || null) : null;
+  var curCls  = (typeof classId  !== 'undefined') ? (classId  || null) : null;
+  if (st.teamName !== curTeam) return;
+  if ((st.classId || null) !== (curCls || null)) return;
+  if (typeof st.createdAt === 'number' && (Date.now() - st.createdAt) > 60 * 60 * 1000) return;
+
+  /* zoom 적용 (숫자 + clamp 0.3~2.0). */
+  if (typeof zoom !== 'undefined' && typeof st.zoom === 'number' && isFinite(st.zoom)) {
+    zoom = Math.min(2.0, Math.max(0.3, st.zoom));
+  }
+  /* pan 적용 (숫자만). 화면 크기가 달라져도 카드 DOM은 유지되므로 캔버스가 완전히 사라지진 않음. */
+  if (typeof canvasOffX !== 'undefined' && typeof st.panX === 'number' && isFinite(st.panX)) canvasOffX = st.panX;
+  if (typeof canvasOffY !== 'undefined' && typeof st.panY === 'number' && isFinite(st.panY)) canvasOffY = st.panY;
+  if (typeof applyTransform === 'function') { try { applyTransform(); } catch (e) {} }
+
+  /* 선택 장면 복원 — 부작용 없는 .is-current 클래스만 재적용(panToCard 재호출 X = pan 덮어쓰기 방지).
+     현재 그래프에 카드가 없으면 생략. */
+  if (st.selectedSceneId) {
+    var card = document.getElementById('card-' + st.selectedSceneId);
+    if (card) {
+      try {
+        document.querySelectorAll('.scene-card.is-current').forEach(function (c) { c.classList.remove('is-current'); });
+        card.classList.add('is-current');
+      } catch (e) {}
+    }
+  }
+}
+
+/* 🌿 처음으로/모둠 바꾸기 등 — 복귀 아닌 이동 시 예약 상태 제거(처음으로에 복원 안 남게). */
+function _clearBranchViewportReturn() {
+  try { sessionStorage.removeItem(BVR_KEY); } catch (e) {}
 }
 
 /* ================================================================
@@ -922,6 +1001,7 @@ window.addEventListener('DOMContentLoaded', () => {
   /* 관리 콘솔 처음으로 — index 이동만. 교사 Auth 세션/관리 선택 상태는 건드리지 않음.
      replace로 이동(뒤로가기로 관리 화면 재튕김 방지). */
   document.getElementById('btn-admin-home')?.addEventListener('click', () => {
+    _clearBranchViewportReturn();
     window.location.replace('index.html');
   });
 
@@ -932,6 +1012,7 @@ window.addEventListener('DOMContentLoaded', () => {
     e.preventDefault();
     try { if (typeof flushTitleSaves === 'function') flushTitleSaves(); } catch (_) {}
     try { if (typeof flushBodySaves  === 'function') flushBodySaves();  } catch (_) {}
+    _clearBranchViewportReturn();
     window.location.replace('index.html');
   });
 

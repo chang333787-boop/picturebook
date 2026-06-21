@@ -2287,6 +2287,9 @@ function renderHUD() {
      작품 데이터/storage 절대 손대지 않음. */
   hud.querySelector('.js-return-home')?.addEventListener('click', async () => {
     if (!confirm('처음 화면으로 돌아갈까요?')) return;
+    /* 🌿 처음으로 = 첫 화면 이동(작업 복귀 아님) → 브랜치 viewport 복원 예약 제거.
+       sessionStorage는 같은 탭 공유라 maker에서 캡처한 키도 여기서 정리됨. */
+    try { sessionStorage.removeItem('branchViewportReturn'); } catch (e) {}
     /* 편집 중 미저장분 보호 — beforeunload/pagehide flush만 믿지 않고 명시 호출 */
     if ((ViewerState.editMode || ViewerState._testingEdit) &&
         typeof _flushPendingSave === 'function') {

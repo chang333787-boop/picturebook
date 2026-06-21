@@ -46,14 +46,20 @@
         </p>
       </section>
 
-      <!-- D: Android 설치 보조 CTA(compact pill) — 로고·소개 아래 / 메인 카드 위.
-           beforeinstallprompt 발생 시에만 표시(기본 display:none → 숨김 시 빈 공간 없음). 자동 prompt 없음. -->
-      <button type="button" id="pwa-install-cta" class="wh__install-cta" style="display:none;" aria-label="홈 화면에 설치하기">
-        <span class="wh__install-cta-icon" aria-hidden="true">🌿</span>
-        <span class="wh__install-cta-title">홈 화면에 설치하기</span>
-        <span class="wh__install-cta-sub">앱처럼 빠르게 열 수 있어요.</span>
-        <span class="wh__install-cta-arrow" aria-hidden="true">→</span>
-      </button>
+      <!-- 설치 CTA — 로고·소개 아래 / 메인 카드 위.
+           미설치(=비-standalone)면 항상 표시. 설치 실행 중이면 JS가 wrap을 숨김(빈 공간 없음).
+           기본 display:none(인라인) → JS·standalone 미지원 시 깔끔히 숨김. 자동 prompt 없음. -->
+      <div class="wh__install" id="pwa-install-wrap" style="display:none;">
+        <button type="button" id="pwa-install-cta" class="wh__install-cta"
+                aria-expanded="false" aria-label="홈 화면에 설치하기">
+          <span class="wh__install-cta-icon" aria-hidden="true">🌿</span>
+          <span class="wh__install-cta-title">홈 화면에 설치하기</span>
+          <span class="wh__install-cta-sub">앱처럼 빠르게 열 수 있어요.</span>
+          <span class="wh__install-cta-arrow" aria-hidden="true">→</span>
+        </button>
+        <!-- 이벤트 없는 환경(iOS/미지원)에서 클릭 시 펼쳐지는 수동 안내. 큰 모달 대신 작은 펼침 상자. -->
+        <div id="pwa-install-guide" class="wh__install-guide" role="note" style="display:none;"></div>
+      </div>
 
       <!-- 메인 카드: 작품 만들기 / 감상하기 / 수업 관리 -->
       <section class="wh__cards" aria-label="주요 기능">
@@ -117,63 +123,13 @@
 
 </div><!-- /v accent-coral -->
 
-<!-- v36: PWA 홈 화면 추가 안내 박스 (PWA 모드 아닌 때만, 닫음 기록 시 다시 안 나옴) -->
-<div id="pwa-install-hint" class="pwa-install-hint" style="display:none;">
-  <span class="pwa-install-hint__icon">💡</span>
-  <span class="pwa-install-hint__text">
-    <strong>홈 화면에 추가</strong>하면 전체화면으로 더 편하게 사용할 수 있어요.
-  </span>
-  <button type="button" class="pwa-install-hint__close" aria-label="닫기" title="이 안내 끄기">✕</button>
-</div>
 <style>
-  .pwa-install-hint {
-    position: fixed;
-    bottom: 16px;
-    right: 16px;
-    left: 16px;
-    max-width: 360px;
-    margin: 0 auto;
-    background: rgba(255, 250, 238, 0.96);
-    border: 1.5px solid #c66f4a;
-    border-radius: 14px;
-    padding: 12px 10px 12px 16px;
-    font-family: 'Jua', 'Nanum Gothic', sans-serif;
-    font-size: 13px;
-    color: #2b1f10;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    box-shadow: 0 4px 20px rgba(80,50,20,0.18);
-    z-index: 9999;
-    backdrop-filter: blur(8px);
-    animation: pwa-hint-slide-in 0.3s ease-out;
-  }
-  .pwa-install-hint__icon { font-size: 18px; flex-shrink: 0; }
-  .pwa-install-hint__text { flex: 1; line-height: 1.4; }
-  .pwa-install-hint__close {
-    background: none;
-    border: none;
-    font-size: 14px;
-    color: #6b5638;
-    cursor: pointer;
-    padding: 6px 8px;
-    line-height: 1;
-    flex-shrink: 0;
-    border-radius: 6px;
-  }
-  .pwa-install-hint__close:hover { background: rgba(80,50,20,0.08); }
-  @keyframes pwa-hint-slide-in {
-    from { transform: translateY(20px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
-  }
-  @media (max-width: 480px) {
-    .pwa-install-hint { font-size: 12px; left: 12px; right: 12px; bottom: 12px; }
-  }
-  /* D: 설치 보조 CTA — 한 줄 compact pill. 메인 카드보다 위계 낮게, 종이·크림 톤 유지.
-     숨김 시 display:none(인라인)이라 빈 공간 없음. JS가 표시 시 display:flex로 토글. */
+  /* 설치 CTA wrap — CTA + 펼침 안내를 세로로 묶음. 미설치면 JS가 display:'' 로 표시. */
+  .wh__install { display: flex; flex-direction: column; align-items: center; margin: 14px auto 2px; }
+  /* 설치 보조 CTA — 한 줄 compact pill. 메인 카드보다 위계 낮게, 종이·크림 톤 유지. */
   .wh__install-cta {
     display: flex; align-items: center; gap: 8px;
-    width: fit-content; max-width: 100%; margin: 14px auto 2px;
+    width: fit-content; max-width: 100%;
     padding: 0 18px; height: 46px;
     background: rgba(255,250,238,0.9); color: #2b1f10;
     border: 1.5px solid rgba(198,111,74,0.5); border-radius: 999px;
@@ -186,14 +142,25 @@
   .wh__install-cta-title { font-size: 13.5px; font-weight: 700; }
   .wh__install-cta-sub { font-size: 11.5px; color: #6b5638; }
   .wh__install-cta-arrow { font-size: 13px; color: #6b5638; }
+  /* 이벤트 없는 환경(iOS/미지원)에서 펼쳐지는 수동 설치 안내 — 작은 펼침 상자. */
+  .wh__install-guide {
+    max-width: 320px; margin: 8px auto 0; padding: 10px 14px;
+    background: rgba(255,250,238,0.92);
+    border: 1px solid rgba(198,111,74,0.4); border-radius: 12px;
+    font-family: 'Jua', 'Nanum Gothic', sans-serif;
+    font-size: 12.5px; line-height: 1.5; color: #4a3a22; text-align: center;
+    white-space: pre-line;
+    box-shadow: 0 2px 8px rgba(80,50,20,0.08);
+  }
   @media (max-width: 480px) {
     .wh__install-cta { padding: 0 14px; height: 44px; gap: 6px; }
     .wh__install-cta-sub { display: none; } /* 모바일: 보조문구 숨겨 한 줄 유지 */
   }
 </style>
 <script>
-  /* PWA: ① 설치 전용 SW 등록(캐시 없음) ② beforeinstallprompt 기반 설치 버튼 ③ 기존 수동 안내와 통합.
-     standalone 감지는 하나로 통합. 자동 prompt 금지. iOS 전용 분기 신설 없음. */
+  /* PWA: ① 설치 전용 SW 등록(캐시 없음) ② 미설치면 설치 CTA 항상 노출(이벤트 무관)
+     ③ 이벤트 있으면 클릭 시 실제 prompt, 없으면 수동 안내 펼침 ④ 설치/standalone이면 숨김.
+     standalone 감지 통합. 자동 prompt 금지. */
   (function () {
     var isStandalone = window.matchMedia('(display-mode: standalone)').matches
                     || window.matchMedia('(display-mode: fullscreen)').matches
@@ -210,56 +177,71 @@
       });
     }
 
-    if (isStandalone) return; /* 설치 실행 중 — 설치 UI 일절 표시 X */
-
-    var hint = document.getElementById('pwa-install-hint');
-    var cta  = document.getElementById('pwa-install-cta');
+    var wrap  = document.getElementById('pwa-install-wrap');
+    var cta   = document.getElementById('pwa-install-cta');
+    var guide = document.getElementById('pwa-install-guide');
     var deferredPrompt = null;
-    var dismissed = false;
-    try { dismissed = (localStorage.getItem('pwa-install-hint-dismissed') === '1'); } catch (_) {}
 
-    function hideHint() { if (hint) hint.style.display = 'none'; }
+    function hideInstall() { if (wrap) wrap.style.display = 'none'; }
 
-    /* 수동 안내: 설치 이벤트가 없고(미지원 브라우저 등) 닫은 적 없을 때만, 1.2초 후 조용히 등장.
-       그 사이 beforeinstallprompt가 오면 표시하지 않음(설치 버튼과 중복 방지). */
-    setTimeout(function () {
-      if (deferredPrompt || dismissed || !hint) return;
-      hint.style.display = 'flex';
-    }, 1200);
-    if (hint) {
-      var closeBtn = hint.querySelector('.pwa-install-hint__close');
-      if (closeBtn) closeBtn.addEventListener('click', function () {
-        hideHint(); dismissed = true;
-        try { localStorage.setItem('pwa-install-hint-dismissed', '1'); } catch (_) {}
-      });
+    /* 설치 실행 중(standalone/fullscreen/navigator.standalone) — CTA 일절 표시 X, 빈 공간도 없음. */
+    if (isStandalone) { hideInstall(); return; }
+
+    /* 미설치 → 설치 CTA 항상 노출(이벤트 유무·방문 횟수 무관). */
+    if (wrap) wrap.style.display = '';
+
+    var ua = navigator.userAgent || '';
+    var isIOS = /iphone|ipad|ipod/i.test(ua)
+             || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+    function manualText() {
+      return isIOS
+        ? '공유 버튼을 누른 뒤\n‘홈 화면에 추가’를 선택하세요.'
+        : '브라우저 메뉴에서\n‘앱 설치’ 또는 ‘홈 화면에 추가’를 선택하세요.';
+    }
+    function closeGuide() {
+      if (guide) guide.style.display = 'none';
+      if (cta) cta.setAttribute('aria-expanded', 'false');
+    }
+    function toggleGuide() {
+      if (!guide) return;
+      if (guide.style.display === 'block') { closeGuide(); return; }
+      guide.textContent = manualText();
+      guide.style.display = 'block';
+      if (cta) cta.setAttribute('aria-expanded', 'true');
     }
 
-    /* 설치 가능 이벤트 — 자동 prompt 금지, 버튼만 노출(수동 안내는 숨김). */
+    /* 설치 가능 이벤트 — 자동 prompt 금지, 이벤트만 저장. 펼침 안내는 닫음(클릭 시 실제 prompt로). */
     window.addEventListener('beforeinstallprompt', function (e) {
       e.preventDefault();
       deferredPrompt = e;
-      hideHint();
-      if (cta) cta.style.display = 'flex';
+      closeGuide();
     });
 
-    /* 버튼 클릭 시에만 실제 prompt. 한 번 사용 후 폐기 → 반복 prompt 없음. */
     if (cta) cta.addEventListener('click', function () {
-      if (!deferredPrompt) { cta.style.display = 'none'; return; }
-      var p = deferredPrompt;
-      deferredPrompt = null;
-      cta.style.display = 'none';
-      try {
-        p.prompt();
-        if (p.userChoice && p.userChoice.then) { p.userChoice.then(function () {}).catch(function () {}); }
-      } catch (_) { /* prompt 실패는 무시 */ }
+      /* 이벤트 저장돼 있으면: 클릭 시에만 실제 prompt 실행, 1회 사용 후 폐기. */
+      if (deferredPrompt) {
+        var p = deferredPrompt;
+        deferredPrompt = null;
+        try {
+          p.prompt();
+          if (p.userChoice && p.userChoice.then) {
+            p.userChoice.then(function (choice) {
+              /* 설치 성공 → CTA 숨김. 취소 → CTA 계속 노출(아무것도 안 함). */
+              if (choice && choice.outcome === 'accepted') hideInstall();
+            }).catch(function () {});
+          }
+        } catch (_) { /* prompt 실패는 무시 */ }
+        return;
+      }
+      /* 이벤트 없는 환경(iOS/미지원) → 숨기지 말고 짧은 수동 안내를 펼침. */
+      toggleGuide();
     });
 
-    /* 설치 완료 — 버튼·안내 모두 숨김, 다시 안 나오게. */
+    /* 설치 완료 — CTA 숨김(빈 공간 없음). */
     window.addEventListener('appinstalled', function () {
       deferredPrompt = null;
-      if (cta) cta.style.display = 'none';
-      hideHint();
-      try { localStorage.setItem('pwa-install-hint-dismissed', '1'); } catch (_) {}
+      hideInstall();
     });
   })();
 </script>

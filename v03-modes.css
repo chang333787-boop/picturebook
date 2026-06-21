@@ -3941,46 +3941,87 @@ body[data-pb-theme="paper-storybook"] .scene-screen--pb.pb--imagecenter [class*=
 }
 
 /* ════════════════════════════════════════════════════════════
-   D9-5 (gallery-picturebook 정본): 밝은 전시 벽 + 매트보드 페이지 + 작은 명패 라벨.
-   gallery imageCenter 한정 · CSS만. 그림 크기/비율(8.9:1.1)/contain/grid/말풍선 위치/
-   picturebookBodyBox(--pb-box-opacity)/글씨색(--pb-color-override)/엔딩 렌더/JS·DB 무변경.
-   레퍼런스(밝은 갤러리 벽·매트보드·절제 조명·전시 명패) 50~60% 강도. 외부 asset 0. cozy/paper 무수정.
+   D9-5B (gallery-picturebook 고밀도 마감): 단순 회색 스킨 → 명확한 "미술관 전시 무대".
+   gallery imageCenter 한정 · CSS만(신규 SVG·이미지 0). 절대 보존: 그림 크기/비율(8.9:1.1)/contain/
+   grid/말풍선 위치/picturebookBodyBox(--pb-box-opacity)/글씨색(--pb-color-override)/이동·리사이즈/
+   엔딩 렌더/버튼 기능 class/JS·DB. cozy/paper/forest/night 무수정.
+   핵심: ① 벽을 살짝 어둡게+스포트 2개 → 오프화이트 페이지가 "조명 받는 작품"으로 부각
+        ② 매트 여백=contain 레터박스(그림 비침범, 페이지색이 곧 매트) + 부유 그림자로 깊이
+        ③ 캡션=핀으로 벽에 붙인 전시 라벨  ④ 버튼=양끝 금속 핀 명패(pseudo, PNG 아님)
+   레퍼런스 분위기 ~75%. 어두운 비네팅/그림 위 불투명 레이어/그림 축소 없음.
    ════════════════════════════════════════════════════════════ */
-/* 1) 배경 = 밝은 전시 벽 + 상단 절제된 스포트 광(어두운 비네팅 X). */
+/* 1) 배경 = 전시 벽(살짝 어둡게→작품 대비) + 상단 좌우 스포트 광 2개(페이지 뒤·그림 비침범). */
 body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--imagecenter {
   background:
-    radial-gradient(62% 44% at 50% -4%, rgba(255,255,255,.6), rgba(255,255,255,0) 70%),
-    linear-gradient(#ececea, #e3e3e0);
+    radial-gradient(34% 44% at 26% -3%, rgba(255,252,241,.72), rgba(255,252,241,0) 70%),
+    radial-gradient(34% 44% at 74% -3%, rgba(255,252,241,.72), rgba(255,252,241,0) 70%),
+    linear-gradient(#e6e5e0 0%, #dcdbd6 56%, #d2d1cc 100%);
 }
-/* 2) 작품 칸 = 매트보드 페이지(오프화이트 + 얇은 회색선 + 절제된 그림자). 강한 액자 금지. */
+/* 1b) 천장 트랙 조명 2개(작고 절제) + 부드러운 하향 광 — .scene-ornaments(pointer-events:none).
+   ⚠ imageCenter 한정: split은 그림이 상단 full-bleed라 조명기구가 그림 위에 겹쳐 어색 → .pb--imagecenter로 묶음.
+   split은 기존 "상단 가는 선"(위 3358)으로 자연 복귀(무변경). 광은 imageCenter 벽/매트 상단에만 떨어짐. */
+body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--imagecenter .scene-ornaments::before,
+body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--imagecenter .scene-ornaments::after {
+  content: ""; position: absolute; top: 3px; width: 19px; height: 6px; opacity: .9; z-index: 2;
+  background: linear-gradient(#9a9b9f, #73747a);
+  border-radius: 0 0 3px 3px;
+  box-shadow: 0 8px 17px 2px rgba(255,250,235,.42);
+  transform: translateX(-50%);
+}
+body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--imagecenter .scene-ornaments::before { left: 26%; }
+body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--imagecenter .scene-ornaments::after  { left: 74%; }
+/* 2) 작품 칸 = 벽에서 떠 있는 매트보드(오프화이트 + 얇은 웜그레이 선 + 강한 부드러운 부유 그림자).
+   매트 여백은 contain 레터박스(페이지색)로 자연 형성 → 그림 축소·침범 없음. */
 body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--imagecenter .pb-page {
-  background: #fbfbfa;
-  border: 1px solid #e3e3df;
-  border-radius: 3px;
-  box-shadow: 0 5px 16px rgba(0,0,0,.10);
+  background: #fcfcfb;
+  border: 1px solid #d9d8d2;
+  border-radius: 2px;
+  box-shadow: 0 14px 30px -6px rgba(35,35,42,.22), 0 3px 8px rgba(35,35,42,.12);
+  position: relative;
 }
-/* 3) 말풍선 = 전시 캡션 카드(얇은 회색선·미세 radius·그림자 없음). 배경 var는 D8 그대로(미수정). */
+/* 3) 말풍선 = 벽에 핀으로 붙인 전시 캡션 패널(오프화이트 반투명·웜그레이 선·아주 약한 그림자).
+   배경/위치/크기/투명도 var는 D8 그대로(미수정), 글씨색 override 유지. */
 body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay {
-  border: 1px solid rgba(170,170,166,.55);
-  border-radius: 4px;
-  box-shadow: none;
+  border: 1px solid rgba(150,148,142,.55);
+  border-radius: 3px;
+  box-shadow: 0 2px 9px rgba(35,35,42,.12);
   padding: 9px 15px;
 }
-/* 4) 행동버튼 = 작은 전시 명패(중립 회백 면·얇은 선·각진). pill(!important) 이기게 동일 패턴+!important. */
+/* 3b) 캡션 좌상단 작은 핀 포인트(장식만·pointer-events:none·텍스트 비침범 패딩 코너). */
+body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay::before {
+  content: ""; position: absolute; top: 6px; left: 9px; width: 5px; height: 5px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ffffff, #bdbdb6 60%, #8c8c85);
+  box-shadow: 0 1px 1.5px rgba(0,0,0,.28);
+  pointer-events: none;
+}
+/* 4) 행동버튼 = 작고 얇은 작품 명패 + 양끝 금속 핀(pseudo). pill(!important) 이기게 동일 패턴+!important. */
 body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook {
-  background: rgba(249,249,247,.92) !important;
-  border: 1px solid #cfcfca;
-  border-radius: 3px !important;
-  box-shadow: 0 1px 2px rgba(0,0,0,.08);
-  color: #33332f !important;
+  position: relative;
+  background: linear-gradient(#fbfbf8, #f1f1ec) !important;
+  border: 1px solid #c9c8c2;
+  border-radius: 2px !important;
+  box-shadow: 0 1px 3px rgba(35,35,42,.14), inset 0 1px 0 rgba(255,255,255,.7);
+  color: #2b2b27 !important;
   font-weight: 600;
-  letter-spacing: .03em;
-  padding: 7px 18px !important;
+  letter-spacing: .04em;
+  padding: 7px 24px !important;
   min-height: 38px;
 }
 body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook:hover:not(:disabled) {
-  background: rgba(240,240,238,.95) !important; border-color: #bcbcb6;
+  background: linear-gradient(#ffffff, #f6f6f1) !important; border-color: #bcbbb4;
 }
+/* 명패 양끝 금속 핀 — 좌(::before)·우(::after). 라벨/번호 span 무관(장식만). */
+body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook::before,
+body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook::after {
+  content: ""; position: absolute; top: 50%; width: 5px; height: 5px; border-radius: 50%;
+  transform: translateY(-50%);
+  background: radial-gradient(circle at 35% 30%, #fefefe, #b6b6af 58%, #8a8a83);
+  box-shadow: 0 0 0 .5px rgba(0,0,0,.12), 0 1px 1px rgba(0,0,0,.2);
+  pointer-events: none;
+}
+body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook::before { left: 7px; }
+body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook::after  { right: 7px; }
+/* 번호/화살표 숨김(라벨감) — 핀과 무관. */
 body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook .pb-choice-num,
 body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook .pb-choice-arrow {
   display: none;
@@ -3990,10 +4031,14 @@ body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--imagecenter .pb-
   line-height: 1.55;
   letter-spacing: .005em;
 }
-/* 6) 엔딩 코너 = 작은 전시 명패(각진·절제된 그림자). 진엔딩 금색 포인트는 D7-7 유지. */
+/* 6) 엔딩 배지 = 일반 캡션보다 작은 전시 명패. 진엔딩엔 얇은 금색 라인 포인트(큰 도장 금지·그림 비침범). */
 body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--imagecenter.ending-as-pb--ic .pb-ending-corner {
-  border-radius: 3px;
-  box-shadow: 0 1px 4px rgba(0,0,0,.10);
+  border-radius: 2px;
+  padding: 2px 11px;
+  box-shadow: 0 1px 4px rgba(35,35,42,.12);
+}
+body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--imagecenter.ending-as-pb--ic .pb-ending-corner[data-true-end="1"] {
+  box-shadow: 0 1px 4px rgba(35,35,42,.12), inset 0 0 0 1px rgba(196,156,42,.7);
 }
 /* 7) 편집 핸들 톤 = 중립 회청색(기능/표시/좌표 무변경). */
 body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--imagecenter .pb-body-handle--move {

@@ -20,7 +20,7 @@
 
   <!-- W7 Step 1: tokens-warm.css 먼저, warm-screens.css 다음. 기존 home.css는 보존하지 않음(이 화면은 전면 교체) -->
   <link rel="stylesheet" href="tokens-warm.css"/>
-  <link rel="stylesheet" href="warm-screens.css?v=homemobilerefine1"/>
+  <link rel="stylesheet" href="warm-screens.css?v=homemobilerefine1landingentry1"/>
 </head>
 <body>
 
@@ -45,6 +45,15 @@
           <span class="wh__sub-extra">장면과 선택을 이어 나만의 이야기를 만들어요.</span>
         </p>
       </section>
+
+      <!-- D: Android 설치 보조 CTA(compact pill) — 로고·소개 아래 / 메인 카드 위.
+           beforeinstallprompt 발생 시에만 표시(기본 display:none → 숨김 시 빈 공간 없음). 자동 prompt 없음. -->
+      <button type="button" id="pwa-install-cta" class="wh__install-cta" style="display:none;" aria-label="홈 화면에 설치하기">
+        <span class="wh__install-cta-icon" aria-hidden="true">🌿</span>
+        <span class="wh__install-cta-title">홈 화면에 설치하기</span>
+        <span class="wh__install-cta-sub">앱처럼 빠르게 열 수 있어요.</span>
+        <span class="wh__install-cta-arrow" aria-hidden="true">→</span>
+      </button>
 
       <!-- 메인 카드: 작품 만들기 / 감상하기 / 수업 관리 -->
       <section class="wh__cards" aria-label="주요 기능">
@@ -96,31 +105,6 @@
 
       </section>
 
-      <!-- 하단 빠른 입장: 학급 코드 바로 감상 -->
-      <form class="wh__quick" id="wh-quick-form" aria-label="학급 코드로 바로 감상" autocomplete="off">
-        <span class="wh__quick-icon" aria-hidden="true">🔑</span>
-        <label class="wh__quick-label" for="wh-quick-input">학급 코드로 바로 감상</label>
-        <input
-          id="wh-quick-input"
-          class="wh__quick-input"
-          type="text"
-          placeholder="BR-0000"
-          inputmode="text"
-          maxlength="16"
-          aria-label="학급 코드 입력"/>
-        <span class="wh__quick-divider" aria-hidden="true"></span>
-        <button type="submit" class="btn btn--soft btn--sm" id="wh-quick-go">입장 →</button>
-      </form>
-
-      <!-- D-3: Android 설치 보조 버튼 — beforeinstallprompt 발생 시에만 표시(기본 숨김) -->
-      <button type="button" id="pwa-install-cta" class="wh__install-cta" style="display:none;" aria-label="홈 화면에 설치하기">
-        <span class="wh__install-cta-icon" aria-hidden="true">📲</span>
-        <span class="wh__install-cta-body">
-          <span class="wh__install-cta-title">홈 화면에 설치하기</span>
-          <span class="wh__install-cta-sub">앱처럼 빠르게 열 수 있어요.</span>
-        </span>
-      </button>
-
       <!-- 조용한 하단 링크 -->
       <p style="text-align:center;margin:22px 0 0;font-size:12px;">
         <a href="./privacy.html" target="_blank" rel="noopener"
@@ -132,23 +116,6 @@
   </div><!-- /w-screen -->
 
 </div><!-- /v accent-coral -->
-
-<script>
-  /* 빠른 입장: 클래스 코드 입력 → viewer.html?code=... 흐름 진입.
-     기존 viewer.html이 ?code= 또는 entry 흐름을 이미 처리하므로 단순 redirect만. */
-  (function () {
-    var form  = document.getElementById('wh-quick-form');
-    var input = document.getElementById('wh-quick-input');
-    if (!form || !input) return;
-    form.addEventListener('submit', function (e) {
-      e.preventDefault();
-      var code = (input.value || '').trim().toUpperCase();
-      if (!code) { input.focus(); return; }
-      /* viewer 진입 — 코드만 들고 보냄. viewer-entry.js가 이후 흐름 처리 */
-      window.location.href = 'viewer.html?code=' + encodeURIComponent(code);
-    });
-  })();
-</script>
 
 <!-- v36: PWA 홈 화면 추가 안내 박스 (PWA 모드 아닌 때만, 닫음 기록 시 다시 안 나옴) -->
 <div id="pwa-install-hint" class="pwa-install-hint" style="display:none;">
@@ -202,20 +169,27 @@
   @media (max-width: 480px) {
     .pwa-install-hint { font-size: 12px; left: 12px; right: 12px; bottom: 12px; }
   }
-  /* D-3: 설치 보조 버튼 — 메인 카드보다 작고 약하게, 종이·크림 톤 유지 */
+  /* D: 설치 보조 CTA — 한 줄 compact pill. 메인 카드보다 위계 낮게, 종이·크림 톤 유지.
+     숨김 시 display:none(인라인)이라 빈 공간 없음. JS가 표시 시 display:flex로 토글. */
   .wh__install-cta {
-    display: flex; align-items: center; gap: 10px;
-    margin: 18px auto 0; padding: 9px 16px; min-height: 44px;
-    background: rgba(255, 250, 238, 0.9); color: #2b1f10;
-    border: 1.5px solid rgba(198,111,74,0.55); border-radius: 12px;
+    display: flex; align-items: center; gap: 8px;
+    width: fit-content; max-width: 100%; margin: 14px auto 2px;
+    padding: 0 18px; height: 46px;
+    background: rgba(255,250,238,0.9); color: #2b1f10;
+    border: 1.5px solid rgba(198,111,74,0.5); border-radius: 999px;
     font-family: 'Jua', 'Nanum Gothic', sans-serif; cursor: pointer;
-    box-shadow: 0 2px 10px rgba(80,50,20,0.12); transition: background .15s, border-color .15s;
+    box-shadow: 0 2px 8px rgba(80,50,20,0.1); white-space: nowrap;
+    transition: background .15s, border-color .15s;
   }
   .wh__install-cta:hover { background: rgba(255,250,238,1); border-color: rgba(198,111,74,0.8); }
-  .wh__install-cta-icon { font-size: 18px; flex-shrink: 0; }
-  .wh__install-cta-body { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.25; }
-  .wh__install-cta-title { font-size: 14px; font-weight: 700; }
+  .wh__install-cta-icon { font-size: 16px; flex-shrink: 0; }
+  .wh__install-cta-title { font-size: 13.5px; font-weight: 700; }
   .wh__install-cta-sub { font-size: 11.5px; color: #6b5638; }
+  .wh__install-cta-arrow { font-size: 13px; color: #6b5638; }
+  @media (max-width: 480px) {
+    .wh__install-cta { padding: 0 14px; height: 44px; gap: 6px; }
+    .wh__install-cta-sub { display: none; } /* 모바일: 보조문구 숨겨 한 줄 유지 */
+  }
 </style>
 <script>
   /* PWA: ① 설치 전용 SW 등록(캐시 없음) ② beforeinstallprompt 기반 설치 버튼 ③ 기존 수동 안내와 통합.

@@ -3341,17 +3341,16 @@ body[data-pb-theme="cozy-storybook"] .scene-ornaments::after {
   background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><circle cx='12' cy='12' r='3.2' fill='%23e7a6b0'/><circle cx='12' cy='5' r='3' fill='%23f3c8cf'/><circle cx='19' cy='12' r='3' fill='%23f3c8cf'/><circle cx='12' cy='19' r='3' fill='%23f3c8cf'/><circle cx='5' cy='12' r='3' fill='%23f3c8cf'/></svg>") no-repeat center/contain;
 }
 
-/* paper — 우상단 종이 접힘 음영(아주 옅게) */
-body[data-pb-theme="paper-storybook"] .scene-ornaments::after {
-  content: ""; position: absolute; right: 0; top: 0; width: 24px; height: 24px; opacity: .4;
+/* paper(D9-4C) — 우상단 접힘 음영 + 작은 클립. 둘 다 imageCenter 한정(split 비노출)·약화(스프링이 정체성).
+   가장자리 전용·그림 비침범·pointer-events none(.scene-ornaments). */
+body[data-pb-theme="paper-storybook"] .scene-screen--pb.pb--imagecenter .scene-ornaments::after {
+  content: ""; position: absolute; right: 0; top: 0; width: 22px; height: 22px; opacity: .32;
   background: linear-gradient(225deg, rgba(70,50,20,.16) 0%, transparent 55%);
 }
-/* paper(D9-4B) — 상단 가장자리에 작은 종이 클립(레퍼런스 "끼운 사진" 모티프, 손작업 느낌).
-   가장자리 전용·그림 비침범·pointer-events none(.scene-ornaments)·외부 asset 0(data-uri SVG). */
-body[data-pb-theme="paper-storybook"] .scene-ornaments::before {
-  content: ""; position: absolute; top: -3px; right: 30px; width: 15px; height: 32px; opacity: .55;
+body[data-pb-theme="paper-storybook"] .scene-screen--pb.pb--imagecenter .scene-ornaments::before {
+  content: ""; position: absolute; top: -3px; right: 26px; width: 13px; height: 28px; opacity: .3;
   background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 44'><path d='M7 41 V13 a5 5 0 0 1 10 0 V35 a8 8 0 0 1-16 0 V15' fill='none' stroke='%23a59c8a' stroke-width='2.4' stroke-linecap='round'/></svg>") no-repeat center/contain;
-  filter: drop-shadow(0 1px 1px rgba(70,55,25,.22));
+  filter: drop-shadow(0 1px 1px rgba(70,55,25,.18));
 }
 
 /* gallery — 상단 가는 선(장식 최소, 여백이 장식) */
@@ -3360,21 +3359,27 @@ body[data-pb-theme="gallery-picturebook"] .scene-ornaments::before {
   width: 34px; height: 1px; background: #c7c7c2; opacity: .6;
 }
 
-/* forest — 좌우 가장자리 잎 덩굴(옅게, 그림 가장자리만) */
-body[data-pb-theme="forest-storybook"] .scene-ornaments::before {
-  content: ""; position: absolute; left: 2px; top: 12%; width: 15px; height: 76%; opacity: .4;
-  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 60'><path d='M8 0 V60' stroke='%235e7d4a' stroke-width='1'/><path d='M8 8 Q2 12 4 18 Q9 15 8 8Z M8 28 Q14 32 12 38 Q7 35 8 28Z M8 48 Q2 52 4 58 Q9 55 8 48Z' fill='%235e7d4a'/></svg>") repeat-y center/contain;
+/* forest(D9-6B) — 모서리 손그림 잎 가지(좌상단 큰 가지 + 우상단 작은 가지). imageCenter 한정(split 비노출).
+   작품 무대 바깥 모서리·그림 비침범·pointer-events none(.scene-ornaments)·data-uri SVG(외부 0). */
+body[data-pb-theme="forest-storybook"] .scene-screen--pb.pb--imagecenter .scene-ornaments::before {
+  content: ""; position: absolute; left: -3px; top: -3px; width: 96px; height: 78px; opacity: .9;
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 78'><path d='M2 4 Q36 11 55 32 Q67 46 73 68' fill='none' stroke='%236d8a4f' stroke-width='2.4' stroke-linecap='round'/><g fill='%237ea65c'><ellipse cx='21' cy='10' rx='7' ry='3.4' transform='rotate(22 21 10)'/><ellipse cx='40' cy='19' rx='7' ry='3.4' transform='rotate(38 40 19)'/><ellipse cx='55' cy='35' rx='6.5' ry='3.2' transform='rotate(56 55 35)'/><ellipse cx='65' cy='52' rx='6' ry='3' transform='rotate(72 65 52)'/></g><g fill='%238fb56c'><ellipse cx='30' cy='7' rx='5.5' ry='2.8' transform='rotate(-8 30 7)'/><ellipse cx='48' cy='25' rx='5.5' ry='2.8' transform='rotate(12 48 25)'/><ellipse cx='61' cy='44' rx='5' ry='2.6' transform='rotate(28 61 44)'/></g></svg>") no-repeat left top/contain;
 }
-body[data-pb-theme="forest-storybook"] .scene-ornaments::after {
-  content: ""; position: absolute; right: 2px; top: 18%; width: 15px; height: 70%; opacity: .4;
-  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 60'><path d='M8 0 V60' stroke='%235e7d4a' stroke-width='1'/><path d='M8 14 Q14 18 12 24 Q7 21 8 14Z M8 34 Q2 38 4 44 Q9 41 8 34Z' fill='%235e7d4a'/></svg>") repeat-y center/contain;
+body[data-pb-theme="forest-storybook"] .scene-screen--pb.pb--imagecenter .scene-ornaments::after {
+  content: ""; position: absolute; right: -3px; top: -3px; width: 72px; height: 60px; opacity: .82;
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 72 60'><path d='M70 4 Q41 9 27 27 Q17 39 13 56' fill='none' stroke='%236d8a4f' stroke-width='2.2' stroke-linecap='round'/><g fill='%237ea65c'><ellipse cx='53' cy='10' rx='6' ry='3' transform='rotate(-22 53 10)'/><ellipse cx='39' cy='21' rx='6' ry='3' transform='rotate(-42 39 21)'/><ellipse cx='25' cy='38' rx='5.5' ry='2.8' transform='rotate(-62 25 38)'/></g><g fill='%238fb56c'><ellipse cx='45' cy='14' rx='4.6' ry='2.4' transform='rotate(8 45 14)'/><ellipse cx='31' cy='30' rx='4.6' ry='2.4' transform='rotate(-26 31 30)'/></g></svg>") no-repeat right top/contain;
 }
 
-/* night — 상단 우측 달(별은 무대에 D3 적용됨) */
-body[data-pb-theme="night-story"] .scene-ornaments::before {
-  content: ""; position: absolute; right: 10px; top: 8px; width: 26px; height: 26px; opacity: .92;
-  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 60'><circle cx='30' cy='30' r='22' fill='%23fff6cf'/><circle cx='38' cy='26' r='20' fill='%231a234a'/></svg>") no-repeat center/contain;
-  filter: drop-shadow(0 0 5px rgba(255,246,200,.4));
+/* night(D9-7B) — 우상단 작은 손그림 초승달 + 가장자리 별 반짝. imageCenter 한정(split 비노출).
+   무대 바깥 상단·그림 비침범·pointer-events none·data-uri SVG(외부 0). */
+body[data-pb-theme="night-story"] .scene-screen--pb.pb--imagecenter .scene-ornaments::before {
+  content: ""; position: absolute; right: 12px; top: 9px; width: 26px; height: 26px; opacity: .95;
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><path d='M27 4 a17 17 0 1 0 0 32 a13 14 0 1 1 0-32 Z' fill='%23f6dd8f'/></svg>") no-repeat center/contain;
+  filter: drop-shadow(0 0 6px rgba(246,221,143,.5));
+}
+body[data-pb-theme="night-story"] .scene-screen--pb.pb--imagecenter .scene-ornaments::after {
+  content: ""; position: absolute; left: 7%; top: 6px; width: 122px; height: 34px; opacity: .9;
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 122 34'><g fill='%23fbe7b0'><path d='M16 2 L19 13 L30 16 L19 19 L16 30 L13 19 L2 16 L13 13 Z'/></g><g fill='%23dfe6ff'><path d='M70 7 l1.8 6 l6 1.8 l-6 1.8 l-1.8 6 l-1.8-6 l-6-1.8 l6-1.8 Z'/><path d='M104 3 l1.5 5 l5 1.5 l-5 1.5 l-1.5 5 l-1.5-5 l-5-1.5 l5-1.5 Z'/></g></svg>") no-repeat left top/contain;
 }
 
 /* ── 엔딩 마감(신규 5스킨): 페이지 마감 느낌 + 진엔딩 강조 ── */
@@ -3398,11 +3403,16 @@ body[data-pb-theme="night-story"] .scene-ending-mark[data-true-end="1"] .ending-
 /* ── 모바일 세로: 신규 5스킨 장식 감산(성능/혼잡) ── */
 @media (max-width: 600px) {
   body[data-pb-theme="cozy-storybook"] .scene-ornaments::before,
-  body[data-pb-theme="cozy-storybook"] .scene-ornaments::after,
-  body[data-pb-theme="paper-storybook"] .scene-ornaments::before,
-  body[data-pb-theme="forest-storybook"] .scene-ornaments::before,
-  body[data-pb-theme="forest-storybook"] .scene-ornaments::after { opacity: .3; }
-  body[data-pb-theme="night-story"] .scene-ornaments::before { filter: none; }
+  body[data-pb-theme="cozy-storybook"] .scene-ornaments::after { opacity: .3; }
+  /* paper: 클립 더 약하게(스프링 pseudo는 D9-4C 모바일 규칙에서 감산) */
+  body[data-pb-theme="paper-storybook"] .scene-screen--pb.pb--imagecenter .scene-ornaments::before { opacity: .22; }
+  /* forest: 가지 한쪽만(좌상단 유지·우상단 숨김) */
+  body[data-pb-theme="forest-storybook"] .scene-screen--pb.pb--imagecenter .scene-ornaments::after { display: none; }
+  body[data-pb-theme="forest-storybook"] .scene-screen--pb.pb--imagecenter .scene-ornaments::before { width: 66px; height: 54px; opacity: .72; }
+  /* night: 달 1개만 유지·별무리 숨김·구름 숨김·달 글로우 제거 */
+  body[data-pb-theme="night-story"] .scene-screen--pb.pb--imagecenter .scene-ornaments::before { filter: none; }
+  body[data-pb-theme="night-story"] .scene-screen--pb.pb--imagecenter .scene-ornaments::after { display: none; }
+  body[data-pb-theme="night-story"] .scene-screen--pb.pb--imagecenter .pb-stage::after { display: none; }
 }
 
 /* ────────────────────────────────────────────────────────
@@ -3785,7 +3795,8 @@ body[data-pb-theme="cozy-storybook"]     .scene-screen--pb.pb--imagecenter .pb-s
 body[data-pb-theme="paper-storybook"]    .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay .pb-text__body { color: var(--pb-color-override, #43321c); text-shadow: none; }
 body[data-pb-theme="gallery-picturebook"] .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay .pb-text__body { color: var(--pb-color-override, #3a3a38); text-shadow: none; }
 body[data-pb-theme="forest-storybook"]   .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay .pb-text__body { color: var(--pb-color-override, #3a4a2e); text-shadow: none; }
-body[data-pb-theme="night-story"]        .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay .pb-text__body { color: var(--pb-color-override, #eef1ff); text-shadow: none; }
+/* night 기본 본문 글씨 = 밝은 크림(무색일 때). 사용자 --pb-color-override는 그대로 우선(존중). text-shadow는 D9-7B에서 보강. */
+body[data-pb-theme="night-story"]        .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay .pb-text__body { color: var(--pb-color-override, #f4edd8); text-shadow: none; }
 
 /* ════════════════════════════════════════════════════════════
    D9-1 (cozy-storybook 정본 · 미커밋): 말풍선=둥근 종이 조각, 행동버튼=작은 종이 라벨.
@@ -4182,6 +4193,103 @@ body[data-pb-theme="night-story"] .scene-screen--pb.pb--imagecenter .pb-body-han
 }
 body[data-pb-theme="night-story"] .scene-screen--pb.pb--imagecenter [class*="pb-body-handle--resize-"] {
   border-color: rgba(160,170,210,.95);
+}
+
+/* ════════════════════════════════════════════════════════════
+   D9-4C (paper 고밀도): 스프링 스케치북 / 메모 노트 정체성 강화. paper imageCenter 한정·CSS/pseudo만.
+   절대 보존: 그림 크기/contain/grid/말풍선 위치/picturebookBodyBox(var)/글씨색(var)/이동·리사이즈/기능 class.
+   cozy/gallery/forest/night·split 무수정(전부 .pb--imagecenter 한정).
+   ════════════════════════════════════════════════════════════ */
+/* A) 왼쪽 스프링 제본 — 페이지 좌측 가장자리(작품 칸 바깥), 손그림 코일. absolute·pointer-events none → 그림 폭/크기 불변. */
+body[data-pb-theme="paper-storybook"] .scene-screen--pb.pb--imagecenter .pb-page { position: relative; }
+body[data-pb-theme="paper-storybook"] .scene-screen--pb.pb--imagecenter .pb-page::before {
+  content: ""; position: absolute; left: -3px; top: 6%; width: 15px; height: 88%; z-index: 4; pointer-events: none; opacity: .82;
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 24'><path d='M4 3 Q16 5 14 12 Q12 19 4 21' fill='none' stroke='%23a89f8b' stroke-width='2.3' stroke-linecap='round'/><ellipse cx='7' cy='12' rx='2.2' ry='2.7' fill='%23efe7d2'/></svg>") repeat-y left top/15px 22px;
+}
+/* C) 말풍선 = 메모지: 우상단 모서리 접힘(dog-ear) pseudo. 위치/크기/투명도 var 무변경. */
+body[data-pb-theme="paper-storybook"] .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay::after {
+  content: ""; position: absolute; top: 0; right: 0; width: 13px; height: 13px; pointer-events: none;
+  background: linear-gradient(225deg, #e7d9b6 0 50%, transparent 50%);
+  border-left: 1px solid rgba(150,135,100,.4);
+  border-bottom: 1px solid rgba(150,135,100,.4);
+  border-bottom-left-radius: 3px;
+}
+/* D) 행동버튼 = 인덱스 탭/메모 라벨: 상단 작은 탭 돌출 pseudo. 본체 CSS 유지. */
+body[data-pb-theme="paper-storybook"] .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook { position: relative; }
+body[data-pb-theme="paper-storybook"] .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook::before {
+  content: ""; position: absolute; top: -3px; left: 13px; width: 16px; height: 4px; border-radius: 2px 2px 0 0;
+  background: #e7d9b9; border: 1px solid #b9a87f; border-bottom: none; pointer-events: none;
+}
+/* E) 엔딩 = 메모 스티커: 진엔딩 연노란 형광펜 밑줄(큰 도장 금지·그림 비침범). */
+body[data-pb-theme="paper-storybook"] .scene-screen--pb.pb--imagecenter.ending-as-pb--ic .pb-ending-corner[data-true-end="1"] {
+  box-shadow: 0 1px 4px rgba(110,95,55,.16), inset 0 -3px 0 rgba(240,212,96,.5);
+}
+
+/* ════════════════════════════════════════════════════════════
+   D9-6B (forest 고밀도): 잎·가지가 무대 바깥을 감싸는 숲속 그림책. forest imageCenter 한정·CSS/pseudo/SVG만.
+   절대 보존(상동). 모서리 가지는 ornaments(위)에서 처리. cozy/gallery/paper/night·split 무수정.
+   ════════════════════════════════════════════════════════════ */
+/* C) 페이지 깊이 강화(부유 그림자). 크기/비율 불변. */
+body[data-pb-theme="forest-storybook"] .scene-screen--pb.pb--imagecenter .pb-page {
+  box-shadow: 0 12px 26px -6px rgba(50,72,38,.22), 0 2px 8px rgba(50,72,38,.12), inset 0 1px 0 rgba(255,255,255,.4);
+}
+/* D) 말풍선 = 잎사귀빛 종이: 유기적 radius + 좌상단 작은 잎 포인트. 위치/크기/var 무변경. */
+body[data-pb-theme="forest-storybook"] .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay { border-radius: 17px 17px 17px 5px; }
+body[data-pb-theme="forest-storybook"] .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay::before {
+  content: ""; position: absolute; top: -7px; left: 11px; width: 18px; height: 13px; pointer-events: none; transform: rotate(-18deg);
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 14'><path d='M2 12 Q3 2 18 3 Q17 13 2 12 Z' fill='%237ea65c'/><path d='M5 11 Q10 7 16 4' stroke='%23557a3d' stroke-width='1' fill='none'/></svg>") no-repeat center/contain;
+}
+/* E) 행동버튼 = 잎 라벨: 좌측 작은 잎 아이콘(좌 패딩 내). 본체 CSS 유지. */
+body[data-pb-theme="forest-storybook"] .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook { position: relative; }
+body[data-pb-theme="forest-storybook"] .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook::before {
+  content: ""; position: absolute; left: 8px; top: 50%; transform: translateY(-50%); width: 12px; height: 9px; pointer-events: none;
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 14'><path d='M2 12 Q3 2 18 3 Q17 13 2 12 Z' fill='%23557a3d'/></svg>") no-repeat center/contain;
+}
+/* F) 엔딩 = 잎 명패: 좌측 작은 잎(좌 패딩 확보). 진엔딩 금색 포인트는 D7-7 유지. */
+body[data-pb-theme="forest-storybook"] .scene-screen--pb.pb--imagecenter.ending-as-pb--ic .pb-ending-corner { position: relative; padding-left: 20px; }
+body[data-pb-theme="forest-storybook"] .scene-screen--pb.pb--imagecenter.ending-as-pb--ic .pb-ending-corner::before {
+  content: ""; position: absolute; left: 6px; top: 50%; transform: translateY(-50%); width: 11px; height: 8px; pointer-events: none;
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 14'><path d='M2 12 Q3 2 18 3 Q17 13 2 12 Z' fill='%23557a3d'/></svg>") no-repeat center/contain;
+}
+
+/* ════════════════════════════════════════════════════════════
+   D9-7B (night 고밀도): 달·별·구름 잠자리 밤 이야기. night imageCenter 한정·CSS/pseudo/SVG만.
+   ⚠ 학생 그림 filter/overlay 금지(페이지=밝은 아이보리 유지)·가독성 절대 보존. 달·별은 ornaments(위).
+   cozy/gallery/paper/forest·split 무수정.
+   ════════════════════════════════════════════════════════════ */
+/* D) 페이지 달빛 글로우 강화. 밝기/크기 불변. */
+body[data-pb-theme="night-story"] .scene-screen--pb.pb--imagecenter .pb-page {
+  box-shadow: 0 5px 20px rgba(0,0,0,.34), 0 0 18px rgba(150,168,235,.24);
+}
+/* C) 구름 — 무대 하단 가장자리 옅은 실루엣(버튼 영역 밖·그림 비침범·모바일 숨김). */
+body[data-pb-theme="night-story"] .scene-screen--pb.pb--imagecenter .pb-stage { position: relative; }
+body[data-pb-theme="night-story"] .scene-screen--pb.pb--imagecenter .pb-stage::after {
+  content: ""; position: absolute; left: 5%; bottom: 1px; width: 44%; height: 28px; opacity: .2; pointer-events: none; z-index: 1;
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 40'><path d='M14 34 Q4 34 4 25 Q4 16 15 16 Q17 6 32 8 Q40 1 51 10 Q67 6 71 19 Q88 15 92 27 Q106 25 106 34 Z' fill='%23b9c4ef'/></svg>") no-repeat left bottom/contain;
+}
+/* E) 말풍선 = 남보라 카드 + 우상단 작은 별빛 포인트. 라벤더 보더·밝은 글씨·가독성. var 무변경. */
+body[data-pb-theme="night-story"] .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay { border-color: rgba(150,160,210,.5); }
+body[data-pb-theme="night-story"] .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay::before {
+  content: ""; position: absolute; top: -6px; right: 9px; width: 14px; height: 14px; pointer-events: none;
+  filter: drop-shadow(0 0 3px rgba(246,221,143,.5));
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M8 0 l1.8 6.2 l6.2 1.8 l-6.2 1.8 l-1.8 6.2 l-1.8-6.2 l-6.2-1.8 l6.2-1.8 Z' fill='%23f6dd8f'/></svg>") no-repeat center/contain;
+}
+/* E-b) 가독성 — 이중 그림자: 밝은 외곽선(어두운 사용자 색 override가 남색 글상자 위에서도 윤곽으로 읽힘)
+   + 어두운 깊이(기본 밝은 크림 글씨용). override/저장 무변경. 낮은 진하기에서도 가독. */
+body[data-pb-theme="night-story"] .scene-screen--pb.pb--imagecenter .pb-stage__body-overlay .pb-text__body {
+  text-shadow: 0 0 2px rgba(244,237,216,.4), 0 1px 3px rgba(8,12,32,.55);
+}
+/* F) 행동버튼 = 별빛 라벨: 좌측 작은 별 포인트(좌 패딩 내). 본체 CSS 유지. */
+body[data-pb-theme="night-story"] .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook { position: relative; }
+body[data-pb-theme="night-story"] .scene-screen--pb.pb--imagecenter .pb-text__actions[data-count] .choice-v03--picturebook::before {
+  content: ""; position: absolute; left: 9px; top: 50%; transform: translateY(-50%); width: 10px; height: 10px; pointer-events: none;
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M8 0 l1.8 6.2 l6.2 1.8 l-6.2 1.8 l-1.8 6.2 l-1.8-6.2 l-6.2-1.8 l6.2-1.8 Z' fill='%23eef1ff'/></svg>") no-repeat center/contain;
+}
+/* G) 엔딩 = 별빛 명패: 좌측 작은 별(좌 패딩 확보). 진엔딩 금빛 별. */
+body[data-pb-theme="night-story"] .scene-screen--pb.pb--imagecenter.ending-as-pb--ic .pb-ending-corner { position: relative; padding-left: 20px; }
+body[data-pb-theme="night-story"] .scene-screen--pb.pb--imagecenter.ending-as-pb--ic .pb-ending-corner::before {
+  content: ""; position: absolute; left: 6px; top: 50%; transform: translateY(-50%); width: 11px; height: 11px; pointer-events: none;
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M8 0 l1.8 6.2 l6.2 1.8 l-6.2 1.8 l-1.8 6.2 l-1.8-6.2 l-6.2-1.8 l6.2-1.8 Z' fill='%23f6dd8f'/></svg>") no-repeat center/contain;
 }
 
 body[data-pb-theme="cozy-storybook"]:not(.edit-mode-active)     .scene-screen--pb.pb--imagecenter .pb-stage__title-overlay,

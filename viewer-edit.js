@@ -2545,10 +2545,10 @@ function _applyStyleAllButtonHtml(scene) {
       <button type="button" class="js-apply-style-all edit-apply-all-btn"
         data-scene-id="${scene.id}"
         style="width:100%;padding:9px 12px;border:1.5px solid #c66f4a;background:#fffaee;color:#c66f4a;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">
-        📋 이 글자 스타일·테마를 모든 장면에 적용
+        📋 지금 있는 모든 장면에 복사
       </button>
       <div class="edit-section-hint" style="margin-top:6px;">
-        글자 스타일과 테마를 한 번에 통일해요. 이후 다른 장면에서 따로 박으면 그 장면만 변경돼요.
+        현재 장면의 테마·글꼴·크기·색을 다른 장면에도 똑같이 복사해요. (앞으로 새로 만드는 장면에는 자동 적용되지 않아요.)
       </div>
     </div>`;
 }
@@ -2599,8 +2599,8 @@ function _workSettingsSectionHtml() {
         min="0" max="100" step="1" value="${curS}">
     </div>
     <div class="edit-row">
-      <label class="edit-label">📝 텍스트 등장 효과 <span class="edit-label-note">(작품 전체)</span></label>
-      <div class="edit-section-hint">본문·표지 제목이 한 글자/한 덩어리씩 등장하는 효과예요.</div>
+      <label class="edit-label">📝 기본 텍스트 등장 효과 <span class="edit-label-note">(작품 전체)</span></label>
+      <div class="edit-section-hint">작품 전체에서 기본으로 사용할 효과예요. (장면별로 따로 정하면 그 장면이 우선해요.)</div>
       <div class="edit-toggle-group" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">
         ${textEntPills}
       </div>
@@ -4972,10 +4972,11 @@ function _pbProjectCardStyleSectionHtml() {
    pageOrientation을 가로/세로로 조절. class(js-pb-orientation)·data-val·저장 경로는
    우측 패널과 동일. 팝오버는 "작품 전체"라 항상 편집 가능(우측의 첫장면 잠금 없음). */
 function _pageOrientationSectionHtml() {
-  /* D8-CLEAN-1: 그림책=가로 확정 → 그림책에서만 페이지 방향(가로/세로) UI 숨김.
-     text/movie 등은 유지. pageOrientation 필드/렌더/기존 portrait 작품 표시 무변경. */
+  /* D8-CLEAN-1: 그림책=가로 확정 → 페이지 방향 UI 숨김.
+     REFINE-IA-1: 텍스트도 세로 페이지 고정(.text-page aspect 210/297)이라 방향 UI 실효 없음 → 숨김.
+     pageOrientation 필드/저장값/렌더/기존 portrait 작품 표시 무변경(UI만 미생성). movie 등은 유지. */
   const _ptypeOri = (typeof _resolveViewerProjectType === 'function') ? _resolveViewerProjectType() : null;
-  if (_ptypeOri === 'picturebook') return '';
+  if (_ptypeOri === 'picturebook' || _ptypeOri === 'text') return '';
   const isPortrait = !!(ViewerState.project && ViewerState.project.pageOrientation === 'portrait');
   return `
     <div class="edit-row edit-row--compact">
@@ -5008,6 +5009,8 @@ function _movieDecisionSectionHtml() {
 }
 
 function _renderProjectPopoverBody() {
+  /* REFINE-IA-1: 텍스트는 "감상 설정"(재생 방식만), 그림책은 시각 테마/레이아웃도 포함이라 "작품 설정" 유지. */
+  const _pp_isText = (typeof _resolveViewerProjectType === 'function') && _resolveViewerProjectType() === 'text';
   /* PROJECT-SETTINGS-1B: 작품 전체 설정 복제 — 양옆 마감 테마 + 작품 전환효과.
      기존 helper(_pbThemeSectionHtml / _workSettingsSectionHtml)를 그대로 재사용
      (둘 다 인자 없이 ViewerState.project를 읽음 → 장면 무관, 모든 장면 타입에서 동일). */
@@ -5030,12 +5033,12 @@ function _renderProjectPopoverBody() {
   })();
   return `
     <div class="edit-project-popover__head">
-      <span class="edit-project-popover__title">⚙ 작품 설정</span>
+      <span class="edit-project-popover__title">${_pp_isText ? '⚙ 감상 설정' : '⚙ 작품 설정'}</span>
       <button type="button" class="edit-project-popover__close js-project-popover-close"
         title="닫기" aria-label="닫기">✕</button>
     </div>
     <div class="edit-project-popover__body">
-      <p class="edit-project-popover__note">현재 장면 하나가 아니라 <b>작품 전체</b>에 적용돼요.</p>
+      <p class="edit-project-popover__note">${_pp_isText ? '<b>작품 전체</b>에 적용돼요. 장면이 바뀌고 글이 나타나는 방식을 정해요.' : '현재 장면 하나가 아니라 <b>작품 전체</b>에 적용돼요.'}</p>
       ${_pageOrientationSectionHtml()}
       ${_pbSubmodeBlock}
       <div class="edit-divider"></div>
@@ -5513,7 +5516,8 @@ function _renderSceneStylePopoverBody() {
       <div class="edit-scene-style-subtitle">🎨 테마</div>
       ${scene ? _textThemeSectionHtml(scene) : ''}
       <div class="edit-scene-style-divider"></div>
-      <div class="edit-scene-style-subtitle">✨ 효과</div>
+      <div class="edit-scene-style-subtitle">✨ 이 장면의 텍스트 효과</div>
+      <div class="edit-section-hint">현재 장면에만 적용됩니다.</div>
       ${scene ? _textEffectSectionHtml(scene) : ''}
       <div class="edit-scene-style-apply-all">
         ${scene ? _applyStyleAllButtonHtml(scene) : ''}
@@ -5534,12 +5538,12 @@ function _renderSceneStylePopoverBody() {
   }
   return `
     <div class="edit-scene-style-popover__head">
-      <span class="edit-scene-style-popover__title">🎭 장면 스타일</span>
+      <span class="edit-scene-style-popover__title">🎨 장면 꾸미기</span>
       <button type="button" class="edit-scene-style-popover__close js-scene-style-popover-close"
         title="닫기" aria-label="닫기">✕</button>
     </div>
     <div class="edit-scene-style-popover__body">
-      <p class="edit-scene-style-popover__note">지금 보고 있는 <b>이 장면</b>에만 적용돼요.</p>
+      <p class="edit-scene-style-popover__note">현재 장면의 글과 화면을 꾸며요. 원하면 같은 스타일을 지금 있는 <b>모든 장면</b>에 복사할 수 있어요.</p>
       ${bodyInner}
     </div>`;
 }

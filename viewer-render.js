@@ -2322,9 +2322,18 @@ function renderHUD() {
       window.location.href = `maker.html?${p.toString()}`;
       return;
     }
-    ViewerState.editMode = true;
-    ViewerState.selectedChoiceId = null;
-    renderCurrentScene();
+    /* PERF-2: 편집 코드 지연 로드 — 편집 진입 전 viewer-edit.js+viewer-ai.js 1회 로드.
+       로드 중복/연타 방지(_goEditLoading), 실패 시 안내 후 감상 유지. */
+    if (window.__goEditLoading) return;
+    const _goEdit = () => { ViewerState.editMode = true; ViewerState.selectedChoiceId = null; renderCurrentScene(); };
+    if (typeof window.ensureEditBundle === 'function') {
+      window.__goEditLoading = true;
+      window.ensureEditBundle()
+        .then(() => { window.__goEditLoading = false; _goEdit(); })
+        .catch(() => { window.__goEditLoading = false; alert('편집 도구를 불러오지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요.'); });
+    } else {
+      _goEdit();
+    }
   });
 
   /* W9 (v4): HUD maker-return-bar에 박힌 다듬기 액션 버튼들 핸들러 (감상 테스트/구조 보기/작업으로/저장) */

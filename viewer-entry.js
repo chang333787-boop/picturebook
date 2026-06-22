@@ -141,6 +141,8 @@ async function _enterViewer(teamName, editMode = false, fromMaker = false, class
         ? `classes/${classId}/teams/${encodedName}`
         : `teams/${encodedName}`;
       if (typeof initViewerLocks === 'function') initViewerLocks(basePath);
+      /* PERF-2: 편집 코드(viewer-edit.js+viewer-ai.js) 지연 로드 — startViewerEdit가 편집 함수를 호출하므로 먼저 보장. */
+      if (typeof window.ensureEditBundle === 'function') await window.ensureEditBundle();
       /* C-2: sceneNum이 있으면 그 장면부터 시작 (maker 카드의 다듬기 진입점에서 옴).
          없으면 첫 장면부터. ViewerState.scenes의 키가 string num이라 그대로 전달. */
       startViewerEdit(sceneNum);
@@ -156,6 +158,8 @@ async function _enterViewer(teamName, editMode = false, fromMaker = false, class
     }
 
   } catch (err) {
+    /* PERF-2: 편집 번들 로드 등 진입 실패 시 editMode 상태를 되돌려 재진입 오염 방지(Codex minor 반영). */
+    ViewerState.editMode = false;
     _setEntryError(err.message || '작품을 불러오는 중 오류가 발생했어요.');
     _setEntryLoading(false);
     /* W8: 오류 시 자동 진입 로딩 제거 + entry 화면 강제 표시.

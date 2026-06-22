@@ -2830,14 +2830,66 @@ body.edit-mode-active:not(.viewer-test-active) .scene-screen--text .text-ending-
 /* R6: 밤 배경 본문 기본색을 따뜻한 회백색으로 명시(검게 보이는 문제 해결). 사용자 명시색은 override 유지. */
 .scene-screen--text[data-text-theme="dark"] .text-card__body { color: var(--text-color-override, #edf0f6); }
 .scene-screen--text[data-text-theme="dark"] .text-card__actions { border-top-color: rgba(201,168,106,.3); }
-.scene-screen--text[data-text-theme="dark"] .choice-v03 { border-color: rgba(201,168,106,.4); }
-.scene-screen--text[data-text-theme="dark"] .choice-v03:hover:not(:disabled) { border-color: rgba(201,168,106,.6); }
+.scene-screen--text[data-text-theme="dark"] .choice-v03 { border-color: rgba(201,168,106,.55); }  /* T3: 버튼 대비 소폭↑(조작성) */
+.scene-screen--text[data-text-theme="dark"] .choice-v03:hover:not(:disabled) { border-color: rgba(201,168,106,.78); }
 
 /* R4: 좁은 모바일 — 장식/프레임이 본문 폭을 잠식하지 않게 카드 패딩 축소(텍스트 스코프). */
 @media (max-width: 480px) {
   .scene-screen--text[data-text-theme] .text-card { padding: 22px 20px 18px; }
   .scene-screen--text[data-text-theme="note"] .text-card { padding-left: 28px; }
   .scene-screen--text[data-text-theme="handwriting"] .text-card { padding: 26px 22px 18px; }
+}
+
+/* ════════════════════════════════════════════════════
+   T-THEME-3: 감상 무대(stage) 배경 통합 (2026-06-22)
+   ─────────────────────────────────────────────────────
+   · 무대 = .scene-screen--text (viewer-frame·stage-wrap을 가득 채움 = 화면 전체 무대).
+   · 문제: viewer.css `.scene-screen[data-presentation-mode="text"]{background-color:#faf6ec}`(0,2,0)가
+     `.scene-screen--text{background:var(--v03-bg)}`(0,1,0)를 덮어 전 테마 무대가 크림 → 테마 무력화.
+   · 해결: `.scene-screen--text[data-text-theme=X]`(0,2,0)에 background 직접 지정
+     (v03-modes가 viewer.css 뒤 로드 → 동일 specificity서 승리). 텍스트+테마 스코프 → 그림책/무비/HUD 무영향.
+   · 카드 내부(T-THEME-2)·본문색(R6)·--v03-* 변수 무수정. CSS gradient만(신규 에셋 0).
+   · 상단 도구바/장면이동바(#hud·#scene-navigator 등)는 scene-screen 밖 → 영향 없음.
+   ════════════════════════════════════════════════════ */
+
+/* classic — 깨끗한 웜아이보리 무대(카드가 자연스럽게 뜸). 장식 0. */
+.scene-screen--text[data-text-theme="classic"] {
+  background: radial-gradient(125% 95% at 50% 30%, #f6f4ef 0%, #ece9e1 100%);
+}
+/* paperbook — 누런 종이 워시 + 미세 비네팅(책상 위 종이). */
+.scene-screen--text[data-text-theme="paperbook"] {
+  background:
+    radial-gradient(140% 110% at 50% 38%, rgba(0,0,0,0) 55%, rgba(90,60,25,.17) 100%),
+    radial-gradient(120% 100% at 50% 32%, #e9dab2 0%, #ddc99f 100%);
+}
+/* note — 웜아이보리 + 무대 가로선(카드 안보다 옅게). 빨간 마진선은 카드 내부만. */
+.scene-screen--text[data-text-theme="note"] {
+  background:
+    repeating-linear-gradient(rgba(150,180,210,.16) 0 1px, transparent 1px 34px),
+    #f3ecdb;
+}
+/* handwriting — 따뜻한 살구빛 편지지(중앙 밝고 가장자리만 미세히 어둡게).
+   T3: paperbook(누런 종이)와 분리 위해 살짝 복숭아·핑크 쪽 웜톤으로(노랑 회피). */
+.scene-screen--text[data-text-theme="handwriting"] {
+  background: radial-gradient(125% 100% at 50% 35%, #fdf0e6 0%, #f6e3d0 66%, #efd6c2 100%);
+  background-color: #efd6c2;
+}
+/* retro — 검녹색 터미널 무대 + 카드 둘레 약한 녹색 glow + 비네팅 + 약한 스캔라인(카드보다 옅게). */
+.scene-screen--text[data-text-theme="retro"] {
+  background:
+    radial-gradient(85% 65% at 50% 42%, rgba(74,240,154,.07) 0%, transparent 46%),
+    radial-gradient(145% 120% at 50% 50%, transparent 50%, rgba(0,0,0,.55) 100%),
+    repeating-linear-gradient(0deg, rgba(74,240,154,.022) 0 1px, transparent 1px 3px),
+    #0c130f;
+}
+/* dark — 짙은 남색→검푸른 그라디언트 + 우상단 달빛 + 비네팅 + 하단 옅은 안개. */
+.scene-screen--text[data-text-theme="dark"] {
+  background:
+    radial-gradient(48% 34% at 78% 8%, rgba(150,170,220,.14) 0%, transparent 55%),
+    radial-gradient(145% 120% at 50% 45%, transparent 50%, rgba(0,0,0,.5) 100%),
+    radial-gradient(120% 60% at 50% 118%, rgba(44,60,102,.42) 0%, transparent 70%),
+    linear-gradient(180deg, #131a2b 0%, #0c1018 100%);
+  background-color: #0c1018;   /* solid base — 전환 중 크림 letterbox 비침 방지 */
 }
 
 /* ════════════════════════════════════════════════════

@@ -2196,6 +2196,16 @@
     .mtb-edit-apply-all-btn:hover,.mtb-edit-apply-all-btn:active {
       background:rgba(198,111,74,0.18);
     }
+    /* REFINE-IA-2: 이 장면 되돌리기 버튼 */
+    .mtb-edit-reset-btn {
+      width:100%;
+      background:#fffaee;border:1.5px solid #c9a96a;
+      color:#8a6a32;padding:10px 12px;border-radius:8px;
+      font-size:13px;font-weight:600;cursor:pointer;
+      transition:background 0.15s;
+    }
+    .mtb-edit-reset-btn:hover,.mtb-edit-reset-btn:active { background:#f7eed8; }
+    .mtb-edit-reset-btn:disabled { opacity:0.45;cursor:default;border-style:dashed; }
     .mtb-edit-vis-row {
       display:grid;grid-template-columns:repeat(4, 1fr);gap:6px;
     }
@@ -2462,7 +2472,13 @@
             <button class="mtb-edit-weight-btn" data-val="bold">굵게</button>
           </div>
         </div>
-        <!-- v115: 모든 이야기 장면에 적용 (cover/ending 제외) -->
+        <!-- REFINE-IA-2: 이 장면을 작품 기본값으로 되돌리기 (테마+글자 override 제거, 글/선택지 무관) -->
+        <div class="mtb-edit-settings-row" style="flex-direction:column;align-items:stretch;gap:6px;">
+          <button class="mtb-edit-reset-btn" id="mtb-edit-reset-scene" type="button" disabled>
+            ↩ 이 장면을 작품 기본값으로 되돌리기
+          </button>
+        </div>
+        <!-- v115: 모든 이야기 장면에 적용 (cover/ending 제외) — 고급/레거시 -->
         <div class="mtb-edit-settings-row" style="flex-direction:column;align-items:stretch;gap:6px;">
           <button class="mtb-edit-apply-all-btn" id="mtb-edit-apply-all" type="button">
             📋 이 글자 스타일을 모든 이야기 장면에 적용
@@ -2479,7 +2495,7 @@
         <div class="mtb-edit-settings-row" style="flex-direction:column;align-items:stretch;gap:6px;">
           <div class="mtb-edit-settings-label">
             <span>🎨 테마</span>
-            <span class="mtb-edit-settings-label-note">모든 장면에 같이 박힘</span>
+            <span class="mtb-edit-settings-label-note">작품 기본값 · 장면별 꾸미기는 유지</span>
           </div>
           <div class="mtb-edit-vis-row" id="mtb-edit-theme-row"></div>
         </div>
@@ -3041,7 +3057,7 @@
 <script src="projectSettings.js?v=114copyfix1coverstart2"></script>
 <script src="ui.js?v=109copyfix2c2base10bfixendingguard1addscene1base10auto1branchtopbar1cscenetitle1asessionrefresh1apwanav2homenav1vpreturn1"></script>
 <!-- v95: 모바일 텍스트형 브랜치 전용 (텍스트 작품 + 모바일에서만 활성) -->
-<script src="mobileTextBranch.js?v=115wintab3abase10posbase10auto1ttheme1"></script>
+<script src="mobileTextBranch.js?v=115wintab3abase10posbase10auto1ttheme1refineia2markers2"></script>
 
 </body>
 </html>

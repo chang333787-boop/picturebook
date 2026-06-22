@@ -2216,7 +2216,9 @@ function renderHUD() {
           ${_isNormalHudScene ? '<button class="maker-return-btn js-edit-choice-popover" title="행동 버튼과 연결 장면을 편집합니다" aria-label="행동 버튼과 연결 장면을 편집합니다">🔗 버튼</button>' : ''}
           ${_isCoverHudScene ? '<button class="maker-return-btn js-edit-cover-popover" title="표지 색과 표지 느낌을 편집합니다" aria-label="표지 색과 표지 느낌을 편집합니다">🎨 표지</button>' : ''}
           ${_isPbImageHudScene ? '<button class="maker-return-btn js-edit-image-popover" title="장면 그림을 편집합니다 — 업로드·그리기·자르기" aria-label="장면 그림을 편집합니다">🖼 그림</button>' : ''}
-          ${_isSceneStyleHudScene ? '<button class="maker-return-btn js-edit-scene-style-popover" title="현재 장면의 글과 화면을 꾸며요. 같은 스타일을 모든 장면에 복사할 수 있어요" aria-label="장면 꾸미기 — 현재 장면의 글과 화면">🎨 장면 꾸미기</button>' : ''}
+          ${_isSceneStyleHudScene ? ((ViewerState.project && ViewerState.project.projectType === 'text')
+            ? '<button class="maker-return-btn js-edit-scene-style-popover" title="이야기 전체 기본값과 이 장면만 다르게 꾸미기" aria-label="꾸미기 — 이야기 전체 / 이 장면만">🎨 꾸미기</button>'
+            : '<button class="maker-return-btn js-edit-scene-style-popover" title="현재 장면의 글과 화면을 꾸며요. 같은 스타일을 모든 장면에 복사할 수 있어요" aria-label="장면 꾸미기 — 현재 장면의 글과 화면">🎨 장면 꾸미기</button>') : ''}
           ${_isMovieToolHudScene ? '<button class="maker-return-btn js-edit-movie-tool-modal" title="이 장면의 영상과 본문 표시를 설정합니다" aria-label="이 장면의 영상과 본문 표시를 설정합니다">🎬 무비</button>' : ''}
           ${(ViewerState.project && ViewerState.project.projectType === 'text')
             ? '<button class="maker-return-btn js-edit-project-popover" title="장면이 바뀌고 글이 나타나는 방식(작품 전체)" aria-label="감상 설정 — 작품 전체 재생 방식">⚙ 감상 설정</button>'

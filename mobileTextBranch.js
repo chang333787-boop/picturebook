@@ -684,11 +684,14 @@ function _mtbEditPopulate(sc) {
   /* v100/v101: textStyle 반영 — _mtbReflectStyleToUI/Card는 아래(v100)에서 박힘.
      아직 박지 않았으면 skip (Step 5 박힌 후엔 정상). */
   if (typeof _mtbReflectStyleToUI === 'function') {
-    const style = (sc.textStyle && typeof sc.textStyle === 'object')
-      ? sc.textStyle
-      : { fontFamily: 'gothic', fontSize: 18, color: '', weight: 'normal' };
+    /* REFINE-IA-2: raw가 아닌 resolved(장면 override → 작품 기본값 → floor) 표시 →
+       작품 기본값을 따르는 장면도 올바른 값/미리보기 노출. */
+    const style = (typeof _mtbResolveStyle === 'function')
+      ? _mtbResolveStyle(sc)
+      : ((sc.textStyle && typeof sc.textStyle === 'object') ? sc.textStyle : { fontFamily: 'gothic', fontSize: 18, color: '', weight: 'normal' });
     _mtbReflectStyleToUI(style);
     _mtbReflectStyleToCard(style);
+    if (typeof _mtbReflectResetState === 'function') _mtbReflectResetState(sc);
   }
 }
 
@@ -1641,6 +1644,12 @@ function _mtbInitSettings() {
     applyAllBtn.addEventListener('click', _mtbApplyTextStyleToAll);
   }
 
+  /* REFINE-IA-2: "이 장면 기본값으로 되돌리기" — 현재 장면 textTheme+textStyle override 제거. */
+  const resetBtn = document.getElementById('mtb-edit-reset-scene');
+  if (resetBtn) {
+    resetBtn.addEventListener('click', _mtbResetSceneStyle);
+  }
+
   /* v115: 표현 설정 초기화 — 토글 / 테마 / 등장 / 장면 전환 */
   _mtbInitVisPanel();
 }
@@ -1763,10 +1772,10 @@ function _mtbReflectVisPanel() {
     stSpeed.value = projectMeta.sceneTransitionSpeed;
     if (stSpeedVal) stSpeedVal.textContent = projectMeta.sceneTransitionSpeed;
   }
-  /* 활성 테마 강조 — 현재 장면 textTheme 기준 (모바일에선 모든 scene 동일 박음) */
+  /* 활성 테마 강조 — REFINE-IA-2: resolved 테마(장면 → 작품 기본값 → classic). */
   const id = MTB_EDIT.currentId;
   const sc = (id !== null && scenes && scenes[id]) ? scenes[id] : null;
-  const curTheme = (sc && sc.textTheme) || 'classic';
+  const curTheme = (typeof _mtbResolveTheme === 'function') ? _mtbResolveTheme(sc) : ((sc && sc.textTheme) || 'classic');
   document.querySelectorAll('.mtb-edit-theme-btn').forEach(btn => {
     btn.classList.toggle('is-active', btn.dataset.val === curTheme);
   });
@@ -1783,26 +1792,21 @@ function _mtbSaveProjectMeta(field, value) {
   }
 }
 
-/* 테마 박음 — 모든 scene에 같은 textTheme 박음 (cover/ending 포함, 작품 단위 효과).
-   viewer-data.js는 scene 단위로 박는데, 모바일은 작품 단위로 박는 게 사용자 의도.
-   모든 scene에 박으면 PC 다듬기에서도 같은 테마 보임 (호환). */
+/* REFINE-IA-2: 테마 = 작품 전체 기본값(projectMeta.textDefaults.textTheme). 데스크탑 "이야기 전체" 탭과 동일 의미.
+   ⚠️ 더 이상 모든 scene.textTheme 을 일괄로 덮어쓰지 않음(§3: 기존 장면값 강제 통일 금지).
+   장면별 테마를 따로 박은 장면은 그 값이 우선(override)되고, 안 박은 장면·새 장면은 이 기본값을 따름.
+   작품 단위 1회 write(viewer-meta/textDefaults) — 장면 일괄 write 없음. */
 function _mtbApplyThemeToAll(themeId) {
-  if (typeof scenes !== 'object' || !scenes) return;
-  const ids = Object.keys(scenes);
-  if (!ids.length) return;
-  let changed = 0;
-  ids.forEach(id => {
-    const sc = scenes[id];
-    if (!sc) return;
-    if (sc.textTheme !== themeId) {
-      sc.textTheme = themeId;
-      changed++;
-      if (typeof pushToFirebase === 'function') pushToFirebase(id);
-    }
-  });
-  /* UI 즉시 반영 — 카드 글자 표현 박힘 */
+  const cur = (typeof projectMeta === 'object' && projectMeta && projectMeta.textDefaults && typeof projectMeta.textDefaults === 'object')
+    ? projectMeta.textDefaults : {};
+  const merged = { ...cur, textTheme: themeId };
+  if (typeof _mtbSaveProjectMeta === 'function') _mtbSaveProjectMeta('textDefaults', merged);
+  /* UI 즉시 반영 — active는 클릭값이 아니라 현재 장면 resolved 테마 기준(Codex Step3 #3).
+     장면에 테마 override가 박혀 있으면 작품 기본값을 바꿔도 그 장면은 안 바뀌므로 active도 그대로. */
+  const _curSc = (MTB_EDIT && MTB_EDIT.currentId !== null && scenes) ? scenes[MTB_EDIT.currentId] : null;
+  const active = (typeof _mtbResolveTheme === 'function') ? _mtbResolveTheme(_curSc) : themeId;
   document.querySelectorAll('.mtb-edit-theme-btn').forEach(btn => {
-    btn.classList.toggle('is-active', btn.dataset.val === themeId);
+    btn.classList.toggle('is-active', btn.dataset.val === active);
   });
   if (typeof _mtbRender === 'function') setTimeout(_mtbRender, 100);
 }
@@ -1934,11 +1938,15 @@ async function _mtbApplyTextStyleToAll() {
   const curId = MTB_EDIT.currentId;
   if (curId === null) return;
   const cur = scenes[curId];
-  if (!cur || !cur.textStyle) {
-    alert('현재 장면에 적용된 글자 스타일이 없어요.');
-    return;
-  }
-  const style = { ...cur.textStyle };
+  if (!cur) return;
+  /* REFINE-IA-2.1: 현재 장면의 resolved 스타일(작품 기본값 반영)을 복사 + marker 부여(의도적 예외)
+     → 작품 기본값이 있어도 복사가 유지됨. defer 값은 marker 제외. */
+  const style = (typeof _mtbResolveStyle === 'function') ? _mtbResolveStyle(cur) : { ...(cur.textStyle || {}) };
+  const styleMark = {};
+  if (style.fontFamily) styleMark.fontFamily = true;
+  if (typeof style.fontSize === 'number') styleMark.fontSize = true;
+  if (style.color) styleMark.color = true;
+  if (style.weight) styleMark.weight = true;
 
   /* cover/ending 제외하고 일반 장면만 박음 (사용자 박은 명) */
   const targets = Object.keys(scenes).filter(id => {
@@ -1966,20 +1974,156 @@ async function _mtbApplyTextStyleToAll() {
 
   targets.forEach(id => {
     scenes[id].textStyle = { ...style };
+    scenes[id].textStyleOverride = { ...styleMark };
     if (typeof pushToFirebase === 'function') pushToFirebase(id);
   });
   _mtbToast(`${targets.length}개 장면에 적용했어요.`);
 }
 
+/* REFINE-IA-2: 현재 장면의 테마+글자 override 제거 → 작품 기본값 따름.
+   본문/선택지/연결/효과 데이터는 건드리지 않음(textTheme/textStyle leaf만 제거). */
+async function _mtbResetSceneStyle() {
+  const id = MTB_EDIT.currentId;
+  if (id === null) return;
+  const sc = scenes[id];
+  if (!sc) return;
+  if (typeof _mtbSceneHasOverride === 'function' && !_mtbSceneHasOverride(sc)) return;
+  const ok = window.showMakerConfirm
+    ? await window.showMakerConfirm({
+        title: '이 장면을 작품 기본값으로 되돌릴까요?',
+        message: '글 내용과 선택지는 그대로예요. 테마·글꼴·크기·색만 작품 기본값을 따라요.',
+        confirmText: '되돌리기',
+        danger: false,
+      })
+    : confirm('이 장면의 꾸미기만 작품 기본값으로 되돌릴까요?\n글 내용과 선택지는 그대로예요.');
+  if (!ok) return;
+  delete sc.textTheme;
+  delete sc.textStyle;
+  delete sc.textStyleOverride;   /* REFINE-IA-2.1: marker 제거 */
+  delete sc.textThemeOverride;
+  if (typeof pushToFirebase === 'function') pushToFirebase(id);
+  /* UI 갱신 — resolved 표시 + 되돌리기 버튼 비활성 */
+  const resolved = _mtbResolveStyle(sc);
+  if (typeof _mtbReflectStyleToUI === 'function') _mtbReflectStyleToUI(resolved);
+  if (typeof _mtbReflectStyleToCard === 'function') _mtbReflectStyleToCard(resolved);
+  if (typeof _mtbReflectResetState === 'function') _mtbReflectResetState(sc);
+  document.querySelectorAll('.mtb-edit-theme-btn').forEach(btn => {
+    btn.classList.toggle('is-active', btn.dataset.val === _mtbResolveTheme(sc));
+  });
+  if (typeof _mtbRender === 'function') setTimeout(_mtbRender, 100);
+  if (typeof _mtbToast === 'function') _mtbToast('작품 기본값으로 되돌렸어요.');
+}
+
+/* 되돌리기 버튼 활성/비활성 — 장면에 override 있을 때만 활성. */
+function _mtbReflectResetState(sc) {
+  const btn = document.getElementById('mtb-edit-reset-scene');
+  if (!btn) return;
+  const has = (typeof _mtbSceneHasOverride === 'function') ? _mtbSceneHasOverride(sc) : false;
+  btn.disabled = !has;
+}
+
+/* ================================================================
+   REFINE-IA-2 (모바일) — "작품 기본값 + 장면별 예외" resolution (maker 로컬).
+   maker.html은 viewer-data.js를 로드하지 않으므로 viewer 측 getTextStyle/getProjectTextDefaults를
+   쓸 수 없다 → 같은 의미의 최소 resolver를 projectMeta.textDefaults + scene 기준으로 복제.
+   defer(폰트 null/''/auto, 색 '', 숫자 아닌 크기)는 다음 레이어로 위임. 엔딩 floor=jua/20/bold.
+   ================================================================ */
+const MTB_TEXT_FLOOR   = { fontFamily: null,  fontSize: 18, color: '', weight: 'normal' };
+const MTB_ENDING_FLOOR = { fontFamily: 'jua', fontSize: 20, color: '', weight: 'bold'   };
+/* viewer-data.js와 정합(Codex Step3 #5): 정본 6종 + 레거시 별칭. fontSize clamp 10~36. */
+const MTB_VALID_THEMES = ['classic', 'paperbook', 'note', 'handwriting', 'retro', 'dark'];
+const MTB_THEME_ALIASES = { novel: 'paperbook', magazine: 'classic' };
+function _mtbCanonTheme(raw) {
+  if (typeof raw !== 'string' || !raw) return null;
+  if (MTB_VALID_THEMES.indexOf(raw) !== -1) return raw;
+  if (Object.prototype.hasOwnProperty.call(MTB_THEME_ALIASES, raw)) return MTB_THEME_ALIASES[raw];
+  return null;
+}
+function _mtbClampSize(n) {
+  if (typeof n !== 'number' || !isFinite(n)) return null;
+  return Math.max(10, Math.min(36, Math.round(n)));
+}
+function _mtbProjectDefaults() {
+  const d = (typeof projectMeta === 'object' && projectMeta && projectMeta.textDefaults && typeof projectMeta.textDefaults === 'object')
+    ? projectMeta.textDefaults : null;
+  if (!d) return null;
+  const s = (d.textStyle && typeof d.textStyle === 'object') ? d.textStyle : {};
+  const style = {};
+  if (typeof s.fontFamily === 'string' && s.fontFamily && s.fontFamily !== 'auto') style.fontFamily = s.fontFamily;
+  const sz = _mtbClampSize(s.fontSize); if (sz !== null) style.fontSize = sz;
+  if (typeof s.color === 'string' && s.color) style.color = s.color;
+  const theme = _mtbCanonTheme(d.textTheme);
+  return { textTheme: theme, textStyle: style };
+}
+function _mtbSceneStyleOverride(sc) {
+  const raw = sc && sc.textStyle;
+  if (!raw || typeof raw !== 'object') return {};
+  const o = {};
+  if (typeof raw.fontFamily === 'string' && raw.fontFamily && raw.fontFamily !== 'auto') o.fontFamily = raw.fontFamily;
+  const sz = _mtbClampSize(raw.fontSize); if (sz !== null) o.fontSize = sz;
+  if (typeof raw.color === 'string' && raw.color) o.color = raw.color;
+  if (raw.weight === 'bold' || raw.weight === 'normal') o.weight = raw.weight;
+  return o;
+}
+/* REFINE-IA-2.1: "일부러 다르게 한" marker(viewer와 동일 의미). marker 없는 레거시 값은 작품 기본값 따름. */
+function _mtbSceneStyleMarks(sc) {
+  const m = sc && sc.textStyleOverride;
+  return (m && typeof m === 'object') ? m : {};
+}
+function _mtbSceneThemeMarked(sc) { return !!(sc && sc.textThemeOverride); }
+function _mtbResolveStyle(sc) {
+  const isEnding = !!(sc && (sc.type === 'ending' || sc.isEnding));
+  const floor = isEnding ? MTB_ENDING_FLOOR : MTB_TEXT_FLOOR;
+  const o     = _mtbSceneStyleOverride(sc);
+  const marks = _mtbSceneStyleMarks(sc);
+  const pj  = _mtbProjectDefaults();
+  const pjS = (pj && pj.textStyle) ? pj.textStyle : {};
+  const isNull  = (x) => (x === null || x === undefined);
+  const isEmpty = (x) => (x === '' || x === null || x === undefined);
+  /* ① 의도적 예외(marker) → ② 작품 기본값 → ③ 레거시 값 → ④ floor. */
+  const pick = (k, deferFn) => {
+    const has = (o[k] !== undefined && !deferFn(o[k]));
+    if (has && marks[k])  return o[k];
+    if (pjS[k] !== undefined && !deferFn(pjS[k])) return pjS[k];
+    if (has)              return o[k];
+    return floor[k];
+  };
+  return {
+    fontFamily: pick('fontFamily', isNull),
+    fontSize:   pick('fontSize',   isNull),
+    color:      pick('color',      isEmpty),
+    weight:     (o.weight !== undefined) ? o.weight : floor.weight,
+  };
+}
+function _mtbResolveTheme(sc) {
+  const canon = _mtbCanonTheme(sc && sc.textTheme);
+  if (canon && _mtbSceneThemeMarked(sc)) return canon;
+  const pj = _mtbProjectDefaults();
+  if (pj && pj.textTheme) return pj.textTheme;
+  if (canon) return canon;
+  return 'classic';
+}
+/* 장면이 "일부러 다르게 한"(marker 있는) 항목이 있는지 — 되돌리기 버튼 활성 판정. */
+function _mtbSceneHasOverride(sc) {
+  const m = _mtbSceneStyleMarks(sc);
+  return _mtbSceneThemeMarked(sc) || Object.keys(m).some(k => m[k]);
+}
+
+/* REFINE-IA-2: 장면별 sparse override 저장. defer 값('' / null)이면 키 삭제(작품 기본값 위임).
+   표시는 resolved(작품 기본값 반영) — Codex Step1 #2/모바일 정렬. */
 function _mtbUpdateStyle(field, value) {
   const id = MTB_EDIT.currentId;
   if (id === null) return;
   const sc = scenes[id];
   if (!sc) return;
   if (!sc.textStyle || typeof sc.textStyle !== 'object') sc.textStyle = {};
-  sc.textStyle[field] = value;
-  _mtbReflectStyleToUI(sc.textStyle);
-  _mtbReflectStyleToCard(sc.textStyle);
+  if (!sc.textStyleOverride || typeof sc.textStyleOverride !== 'object') sc.textStyleOverride = {};
+  if (value === undefined || value === null || value === '') { delete sc.textStyle[field]; delete sc.textStyleOverride[field]; }
+  else { sc.textStyle[field] = value; sc.textStyleOverride[field] = true; }  /* REFINE-IA-2.1: 의도적 예외 marker */
+  const resolved = _mtbResolveStyle(sc);
+  _mtbReflectStyleToUI(resolved);
+  _mtbReflectStyleToCard(resolved);
+  if (typeof _mtbReflectResetState === 'function') _mtbReflectResetState(sc);
   _mtbQueueSave();
 }
 
@@ -2015,20 +2159,22 @@ const MTB_FONT_FAMILIES = {
 };
 
 function _mtbReflectStyleToCard(style) {
-  /* 편집 카드에 WYSIWYG 적용 (제목/본문) */
+  /* 편집 카드에 WYSIWYG 적용 (제목/본문).
+     REFINE-IA-2(Codex Step3): 빈 값이면 이전 장면 inline 잔상이 남지 않도록 항상 clear('').
+     style 은 resolved(작품 기본값 반영) — fontFamily null/color '' = 카드 기본으로. */
   const titleIn = document.getElementById('mtb-edit-scene-title');
   const bodyIn  = document.getElementById('mtb-edit-scene-body');
   const ff = MTB_FONT_FAMILIES[style.fontFamily] || '';
   const color = style.color || '';
   const weight = style.weight === 'bold' ? '700' : '400';
   if (titleIn) {
-    if (ff) titleIn.style.fontFamily = ff;
-    if (color) titleIn.style.color = color;
+    titleIn.style.fontFamily = ff;
+    titleIn.style.color = color;
   }
   if (bodyIn) {
-    if (ff) bodyIn.style.fontFamily = ff;
+    bodyIn.style.fontFamily = ff;
     if (typeof style.fontSize === 'number') bodyIn.style.fontSize = style.fontSize + 'px';
-    if (color) bodyIn.style.color = color;
+    bodyIn.style.color = color;
     bodyIn.style.fontWeight = weight;
   }
 }

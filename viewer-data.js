@@ -182,6 +182,11 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
       (typeof meta.textCardColor === 'string' && VALID_CARD_COLORS.includes(meta.textCardColor))
         ? meta.textCardColor : null;
 
+    /* REFINE-IA-2: 텍스트형 작품 전체 기본 스타일(작품 단위). 없으면(옛 작품) undefined →
+       getProjectTextDefaults가 null 반환 → resolution이 현행과 동일(화면변화 0). raw 보관, 해석은 getter가 정규화. */
+    ViewerState.project.textDefaults =
+      (meta.textDefaults && typeof meta.textDefaults === 'object') ? meta.textDefaults : null;
+
     /* v64: 장면 전환 효과 (작품 단위 메타)
        v73: 속도는 string('fast'/'normal'/'slow')에서 number(0~100)로 마이그레이션.
        옛 string 그대로 박혀있으면 자동 변환 (fast=0, normal=50, slow=100). */
@@ -335,6 +340,8 @@ async function saveSceneText(num, fields) {
     'picturebookBodyBox', /* W4-A: 그림책형 본문 글상자 위치/폭/배경막 (그림 중심형 전용) */
     'connectObjects',     /* W6: 체험전시형 정식 연결 오브젝트 모델 [{id,type,x,y,w,h,label,nextId}] */
     'textStyle',          /* W5: 텍스트형 글자 스타일 {fontFamily, fontSize, color, weight} */
+    'textStyleOverride',  /* REFINE-IA-2.1: 항목별 "일부러 다르게 한" 표시 {fontFamily?,fontSize?,color?,weight?} */
+    'textThemeOverride',  /* REFINE-IA-2.1: 테마 "일부러 다르게 한" 표시 (bool) */
     'textTheme',          /* W5: 텍스트형 테마 (8종 중 1) */
     'textEffect',         /* W5: 텍스트형 효과 {entrance, body} */
     'imageData',          /* W7: 무비형 포스터 이미지 (그림책형/체험전시형도 사용 — 다듬기 패널 업로드 저장) */
@@ -357,6 +364,38 @@ async function saveSceneText(num, fields) {
   if (!Object.keys(patch).length) return;
 
   await db.ref(`${basePath}/scenes/${num}`).update(patch);
+}
+
+/* ================================================================
+   REFINE-IA-2 — 작품 전체 텍스트 기본값 저장 (텍스트 모드 전용)
+   · 경로: {base}/viewer-meta/textDefaults — viewer-meta 레벨 partial update(.update)로
+     textDefaults 키만 교체(다른 viewer-meta 필드 보존). root set 아님.
+   · patch: { textTheme?, textStyle?:{fontFamily?,fontSize?,color?} } — 지정 키만 in-memory merge 후 write.
+   · 옛 작품: 사용자가 처음 저장하기 전까지 textDefaults 미존재 → 기존 장면 자동 변환·write 없음.
+   · 장면 값 일괄 변경/삭제 안 함(기존 scene 존중). 새 장면·되돌린 장면만 이 기본값을 따름(resolution).
+   ================================================================ */
+async function saveProjectTextDefaults(patch) {
+  if (!_isTextProject()) return;                 /* 텍스트 모드 전용 — 그림책/무비 무영향 */
+  if (!patch || typeof patch !== 'object') return;
+  const db          = getViewerDb();
+  const teamName    = ViewerState.project.teamName;
+  const classId     = ViewerState.project.classId;
+  const encodedName = encodeURIComponent(teamName);
+  const basePath    = classId
+    ? `classes/${classId}/teams/${encodedName}`
+    : `teams/${encodedName}`;
+
+  const cur    = (ViewerState.project.textDefaults && typeof ViewerState.project.textDefaults === 'object')
+    ? ViewerState.project.textDefaults : {};
+  const merged = { ...cur };
+  if (Object.prototype.hasOwnProperty.call(patch, 'textTheme')) {
+    merged.textTheme = patch.textTheme;          /* 정본 검증은 getProjectTextDefaults가 read 시 처리 */
+  }
+  if (patch.textStyle && typeof patch.textStyle === 'object') {
+    merged.textStyle = { ...(cur.textStyle || {}), ...patch.textStyle };
+  }
+  ViewerState.project.textDefaults = merged;     /* 낙관적 in-memory 갱신 → 재렌더 즉시 반영 */
+  await db.ref(`${basePath}/viewer-meta`).update({ textDefaults: merged });
 }
 
 /* ================================================================
@@ -573,6 +612,13 @@ function adaptScenes(rawScenes) {
 
       connectObjects:     _normalizeConnectObjects(raw.connectObjects) || [],
       textStyle:          _normalizeTextStyle(raw.textStyle),
+      /* REFINE-IA-2: 텍스트 모드 "작품 기본값 + 장면별 예외" resolution 전용.
+         DB의 sparse override 키만 보존(normalize가 textStyle을 full로 채우기 전 원본 기준).
+         scene.textStyle(full)은 picturebook 글자편집 등 레거시 reader 위해 그대로 둠 → 그림책/옛작품 무영향. */
+      textStyleRaw:       _sparseTextStyleOverride(raw.textStyle),
+      /* REFINE-IA-2.1: "일부러 다르게 한" 표시 — 신규 코드만 기록. 기존 작품엔 없음(=레거시 → 작품 기본값 따름). */
+      textStyleOverride:  (raw.textStyleOverride && typeof raw.textStyleOverride === 'object') ? raw.textStyleOverride : null,
+      textThemeOverride:  raw.textThemeOverride === true,
       textTheme:          _normalizeTextTheme(raw.textTheme),
       textEffect:         _normalizeTextEffect(raw.textEffect),
 
@@ -1109,6 +1155,73 @@ function _normalizeTextStyle(raw) {
   return { fontFamily, fontSize, color, weight };
 }
 
+/* REFINE-IA-2: sparse 장면 예외(override) 추출 — "의미있게 지정된 키"만 남김.
+   defer sentinel(다음 레이어로 위임): fontFamily null/''/'auto'/부재, color ''/부재, 숫자 아닌 fontSize.
+   → 이 키들은 결과에서 생략 → resolver가 작품 기본값/시스템 기본으로 위임.
+   구체 폰트ID·유효 숫자 크기·비빈 색·명시 weight만 override로 채택. 없으면 null.
+   ⚠️ scene.textStyle(full) 과 별개. 이 함수 결과는 텍스트 모드 resolution 전용. */
+function _sparseTextStyleOverride(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const out = {};
+  if (typeof raw.fontFamily === 'string' && raw.fontFamily && raw.fontFamily !== 'auto') {
+    out.fontFamily = raw.fontFamily;
+  }
+  if (typeof raw.fontSize === 'number' && isFinite(raw.fontSize)) {
+    out.fontSize = _clampNum(raw.fontSize, 10, 36, TEXT_STYLE_DEFAULTS.fontSize);
+  }
+  if (typeof raw.color === 'string' && raw.color) {
+    out.color = raw.color;
+  }
+  if (raw.weight === 'bold' || raw.weight === 'normal') {
+    out.weight = raw.weight;
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+/* REFINE-IA-2: 작품 전체 텍스트 기본값 — viewer-meta.textDefaults 정규화 sparse 반환.
+   미설정(옛 작품 포함)이면 null → resolver가 project 레이어 생략 → 현행 동작과 100% 동일.
+   weight 는 작품 기본값 범위 밖(장면별 유지) → textStyle 에서 theme/font/size/color 만 다룸. */
+function getProjectTextDefaults() {
+  const d = (typeof ViewerState !== 'undefined' && ViewerState.project && ViewerState.project.textDefaults) || null;
+  if (!d || typeof d !== 'object') return null;
+  const theme = _canonicalTextTheme(d.textTheme);   /* 무효/부재 → null */
+  const rawS  = (d.textStyle && typeof d.textStyle === 'object') ? d.textStyle : {};
+  const style = {};
+  if (typeof rawS.fontFamily === 'string' && rawS.fontFamily && rawS.fontFamily !== 'auto') {
+    style.fontFamily = rawS.fontFamily;
+  }
+  if (typeof rawS.fontSize === 'number' && isFinite(rawS.fontSize)) {
+    style.fontSize = _clampNum(rawS.fontSize, 10, 36, TEXT_STYLE_DEFAULTS.fontSize);
+  }
+  if (typeof rawS.color === 'string' && rawS.color) {
+    style.color = rawS.color;
+  }
+  if (!theme && !Object.keys(style).length) return null;
+  return { textTheme: theme, textStyle: style };
+}
+
+/* 텍스트 모드 여부 — project 레이어 게이트(그림책/무비 등은 현행 유지). */
+function _isTextProject() {
+  return !!(typeof ViewerState !== 'undefined' && ViewerState.project && ViewerState.project.projectType === 'text');
+}
+
+/* 장면의 sparse override(live) — 편집 중 갱신되는 scene.textStyleRaw 우선,
+   없으면 현재 scene.textStyle 에서 파생(in-session 생성 장면 등). */
+function _sceneTextStyleOverride(scene) {
+  if (scene && scene.textStyleRaw && typeof scene.textStyleRaw === 'object') return scene.textStyleRaw;
+  return _sparseTextStyleOverride(scene && scene.textStyle);
+}
+/* REFINE-IA-2.1: 장면별 "일부러 다르게 한" 표시(marker). 신규 코드만 기록.
+   marker 있는 필드 = 의도적 예외(작품 기본값보다 우선). marker 없는 값 = 레거시(작품 기본값 정해지면 따름).
+   기존 작품엔 marker가 없으므로 작품 기본값 도입 후 자동으로 작품 기본값을 따른다(DB 변경 없이 resolution만). */
+function _sceneTextStyleMarks(scene) {
+  const m = scene && scene.textStyleOverride;
+  return (m && typeof m === 'object') ? m : {};
+}
+function _sceneThemeMarked(scene) {
+  return !!(scene && scene.textThemeOverride);
+}
+
 function _normalizeTextTheme(raw) {
   /* 정본 6종 또는 레거시 별칭 → 정본값. 그 외 null(렌더 단계 getTextTheme가 classic fallback). */
   return _canonicalTextTheme(raw);
@@ -1122,17 +1235,53 @@ function _normalizeTextEffect(raw) {
 }
 
 function getTextStyle(scene) {
-  const v = scene && scene.textStyle;
-  if (v && typeof v === 'object') return v;
-  /* v77: 엔딩 default 분기 — textStyle 박혀있지 않은 엔딩은 별도 default (jua/20/...) */
-  if (scene && (scene.type === 'ending' || scene.isEnding)) {
-    return { ...ENDING_TEXT_STYLE_DEFAULTS };
+  const isEnding = !!(scene && (scene.type === 'ending' || scene.isEnding));
+  /* 비-텍스트(그림책/무비 등): 현행 그대로 — scene.textStyle full 객체 또는 시스템 default. */
+  if (!_isTextProject()) {
+    const v = scene && scene.textStyle;
+    if (v && typeof v === 'object') return v;
+    /* v77: 엔딩 default 분기 — textStyle 박혀있지 않은 엔딩은 별도 default (jua/20/...) */
+    if (isEnding) return { ...ENDING_TEXT_STYLE_DEFAULTS };
+    return { ...TEXT_STYLE_DEFAULTS };
   }
-  return { ...TEXT_STYLE_DEFAULTS };
+  /* REFINE-IA-2 텍스트 resolution: 항목별 독립 — scene override → 작품 기본값 → floor(엔딩=ENDING default).
+     defer(폰트 null/크기 비숫자/색 빈값)는 다음 레이어로. 작품 기본값 없으면(getProjectTextDefaults=null)
+     체인이 scene → floor 로 줄어 현행과 동일. weight 는 작품 기본 범위 밖 → scene override 또는 floor. */
+  const floor = isEnding ? ENDING_TEXT_STYLE_DEFAULTS : TEXT_STYLE_DEFAULTS;
+  const sc    = _sceneTextStyleOverride(scene) || {};
+  const marks = _sceneTextStyleMarks(scene);
+  const pj    = getProjectTextDefaults();
+  const pjS   = (pj && pj.textStyle) ? pj.textStyle : {};
+  const _isNull  = (x) => (x === null || x === undefined);
+  const _isEmpty = (x) => (x === '' || x === null || x === undefined);
+  /* 우선순위(REFINE-IA-2.1): ① 의도적 예외(marker 있는 scene 값) → ② 작품 기본값 →
+     ③ 레거시 scene 값(marker 없음 — 작품 기본값이 그 필드를 안 정했을 때만 유지) → ④ floor.
+     ⇒ 작품 기본값을 정하면 기존(레거시) 장면도 그 필드를 따름. "이 장면만"에서 새로 정한 항목은 marker로 보존. */
+  const pick = (k, deferFn) => {
+    const has = (sc[k] !== undefined && !deferFn(sc[k]));
+    if (has && marks[k])        return sc[k];   // ① 의도적 예외
+    if (pjS[k] !== undefined && !deferFn(pjS[k])) return pjS[k];  // ② 작품 기본값
+    if (has)                    return sc[k];   // ③ 레거시 값 유지
+    return floor[k];                            // ④
+  };
+  return {
+    fontFamily: pick('fontFamily', _isNull),
+    fontSize:   pick('fontSize',   _isNull),
+    color:      pick('color',      _isEmpty),
+    weight:     (marks.weight && sc.weight !== undefined) ? sc.weight
+              : (sc.weight !== undefined ? sc.weight : floor.weight),
+  };
 }
 function getTextTheme(scene) {
-  /* 단일 정규화 경로 재사용 — _normalizeTextTheme와 동일 결과. 없음/무효 → classic. */
-  return _canonicalTextTheme(scene && scene.textTheme) || 'classic';
+  const canon = _canonicalTextTheme(scene && scene.textTheme);
+  /* ① 의도적 테마 예외(marker) → ② 작품 기본 테마 → ③ 레거시 scene 테마 → ④ classic. */
+  if (canon && _sceneThemeMarked(scene)) return canon;
+  if (_isTextProject()) {
+    const pj = getProjectTextDefaults();
+    if (pj && pj.textTheme) return pj.textTheme;
+  }
+  if (canon) return canon;
+  return 'classic';
 }
 function getTextEffect(scene) {
   const v = scene && scene.textEffect;

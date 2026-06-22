@@ -2750,14 +2750,24 @@ function _bindApplyStyleAllHandlers(panel, scene) {
     btn.disabled = true;
     btn.textContent = '⏳ 적용 중...';
 
+    /* REFINE-IA-2.1: 복사한 스타일을 "의도적 예외"로 marker 부여 → 작품 기본값이 있어도 복사가 유지됨
+       ("이 스타일을 모든 장면에 적용"의 직관과 일치). defer 값(빈 색/null 폰트)은 marker 무의미하므로 제외. */
+    const styleMark = {};
+    if (style.fontFamily) styleMark.fontFamily = true;
+    if (typeof style.fontSize === 'number') styleMark.fontSize = true;
+    if (style.color) styleMark.color = true;
+    if (style.weight) styleMark.weight = true;
+
     let okCount = 0;
     let failCount = 0;
     for (const s of targets) {
       try {
-        await saveSceneText(s.id, { textStyle: { ...style }, textTheme: theme });
+        await saveSceneText(s.id, { textStyle: { ...style }, textStyleOverride: { ...styleMark }, textTheme: theme, textThemeOverride: true });
         /* in-memory scene 데이터도 즉시 갱신 — 다음 인스펙터 박힐 때 반영 */
         s.textStyle = { ...style };
+        s.textStyleOverride = { ...styleMark };
         s.textTheme = theme;
+        s.textThemeOverride = true;
         okCount++;
       } catch (e) {
         console.warn('[applyStyleAll] failed scene', s.id, e);
@@ -2870,9 +2880,20 @@ function _coverTitleYRowHtml(scene) {
    (js-edit-text-*) 무변경, 렌더 결과 동일. 접이식 wrapper/header는 _typeSectionTextHtml에
    유지. "모든 장면 적용"은 helper 제외. 다음 단계(1C)에서 🎭 팝오버가 같은 helper 재사용.
    저장/핸들러/variant 로직 무관(HTML만). */
-function _textGlyphStyleSectionHtml(scene) {
-  const style = (typeof getTextStyle === 'function') ? getTextStyle(scene) : { fontFamily: 'gothic', fontSize: 16, color: '', weight: 'normal' };
-  const _fsDisp = (function () { const v = _displayFontSize(scene, style); return (typeof v === 'number' && !isNaN(v)) ? v : style.fontSize; })();
+function _textGlyphStyleSectionHtml(scene, opts) {
+  /* REFINE-IA-2: opts.style = 표시할 스타일 직접 주입(작품 기본값 탭). 없으면 scene resolved.
+     opts.noWeight = 굵기 행 숨김(작품 기본값 범위 밖). opts.overrideChips = 장면 탭 per-field "기본값" 칩. */
+  opts = opts || {};
+  const style = opts.style
+    ? opts.style
+    : ((typeof getTextStyle === 'function') ? getTextStyle(scene) : { fontFamily: 'gothic', fontSize: 16, color: '', weight: 'normal' });
+  const _fsDisp = opts.style
+    ? ((typeof style.fontSize === 'number' && !isNaN(style.fontSize)) ? style.fontSize : 18)
+    : (function () { const v = _displayFontSize(scene, style); return (typeof v === 'number' && !isNaN(v)) ? v : style.fontSize; })();
+  const _ovr = opts.overrideChips || {};
+  const _chip = (field) => _ovr[field]
+    ? `<button type="button" class="js-scene-style-reset-field edit-style-reset-chip" data-field="${field}" title="이 항목을 이야기 전체 기본값으로 되돌리기">전체 기본값</button>`
+    : '';
   /* T-THEME-1: 지원(로드+매핑+allowlist) 글씨체만 노출. 맨 위 "테마 기본 글씨체"(value '')은
      fontFamily null → 현재 테마의 기본 글씨체 사용. 미지원 레거시(notosans 등)는 숨김(데이터는 보존). */
   const FONTS = [
@@ -2906,37 +2927,43 @@ function _textGlyphStyleSectionHtml(scene) {
       title="${c || '기본 (테마 색)'}"
       >${label}</button>`;
   }).join('');
-  return `
+  const weightRow = opts.noWeight ? '' : `
           <div class="edit-row">
-            <label class="edit-label">폰트</label>
-            <select class="edit-font-select js-edit-text-font"
-              style="${style.fontFamily && style.fontFamily !== 'auto' ? `font-family:var(--font-${style.fontFamily})` : ''}">${fontOptions}</select>
-          </div>
-
-          <div class="edit-row">
-            <label class="edit-label">글자 크기 <span class="edit-label-note">(${_fsDisp}px)</span></label>
-            <input type="range" class="edit-slider js-edit-text-size"
-              min="12" max="50" step="1" value="${_fsDisp}">
-          </div>
-
-          <div class="edit-row">
-            <label class="edit-label">글자 색</label>
-            <div class="edit-color-row">${colorBtns}</div>
-            <input type="color" class="edit-color-picker js-edit-text-color-pick"
-              value="${style.color || '#1a1a1a'}" title="자유 색 선택">
-          </div>
-
-          <div class="edit-row">
-            <label class="edit-label">굵기</label>
+            <label class="edit-label">굵기 ${_chip('weight')}</label>
             <div class="edit-toggle-group">
               <button type="button" class="edit-toggle js-edit-text-weight ${style.weight === 'normal' ? 'active' : ''}" data-val="normal">보통</button>
               <button type="button" class="edit-toggle js-edit-text-weight ${style.weight === 'bold' ? 'active' : ''}" data-val="bold">굵게</button>
             </div>
           </div>`;
+  return `
+          <div class="edit-row">
+            <label class="edit-label">폰트 ${_chip('fontFamily')}</label>
+            <select class="edit-font-select js-edit-text-font"
+              style="${style.fontFamily && style.fontFamily !== 'auto' ? `font-family:var(--font-${style.fontFamily})` : ''}">${fontOptions}</select>
+          </div>
+
+          <div class="edit-row">
+            <label class="edit-label">글자 크기 <span class="edit-label-note">(${_fsDisp}px)</span> ${_chip('fontSize')}</label>
+            <input type="range" class="edit-slider js-edit-text-size"
+              min="12" max="50" step="1" value="${_fsDisp}">
+          </div>
+
+          <div class="edit-row">
+            <label class="edit-label">글자 색 ${_chip('color')}</label>
+            <div class="edit-color-row">${colorBtns}</div>
+            <input type="color" class="edit-color-picker js-edit-text-color-pick"
+              value="${style.color || '#1a1a1a'}" title="자유 색 선택">
+          </div>
+${weightRow}`;
 }
 
-function _textThemeSectionHtml(scene) {
-  const theme = (typeof getTextTheme === 'function') ? getTextTheme(scene) : 'classic';
+function _textThemeSectionHtml(scene, opts) {
+  /* REFINE-IA-2: opts.theme = 표시할 테마 직접 주입(작품 기본값 탭). opts.overrideChip = 장면 테마 "기본값" 칩. */
+  opts = opts || {};
+  const theme = opts.theme || ((typeof getTextTheme === 'function') ? getTextTheme(scene) : 'classic');
+  const _themeChip = opts.overrideChip
+    ? `<button type="button" class="js-scene-style-reset-field edit-style-reset-chip" data-field="theme" title="테마를 이야기 전체 기본값으로 되돌리기">전체 기본값</button>`
+    : '';
   /* T-THEME-1: 정본 6종만. novel/magazine 제외(기존 작품은 로드 시 paperbook/classic으로 폴백). */
   const THEMES = [
     { id: 'classic',     label: '담백한 글',     desc: '깨끗한 기본 읽기' },
@@ -2954,6 +2981,7 @@ function _textThemeSectionHtml(scene) {
       <div class="edit-theme-card-desc">${t.desc}</div>
     </button>`).join('');
   return `
+          ${_themeChip ? `<div class="edit-style-reset-chip-row">${_themeChip}</div>` : ''}
           <div class="edit-theme-grid">${themeCards}</div>
           <div class="edit-section-hint">테마는 카드 배경/테두리/기본 폰트 톤을 결정합니다. 폰트·크기·색은 위에서 별도 조절 가능.</div>`;
 }
@@ -5503,26 +5531,94 @@ function _imagePopoverEsc(e) {
    ================================================================ */
 function _sceneStylePopoverEl() { return document.getElementById('edit-scene-style-popover'); }
 
+/* REFINE-IA-2: 텍스트 꾸미기 활성 탭 — 'project'(이야기 전체) | 'scene'(이 장면만). 기본=장면. */
+let _sceneStyleTab = 'scene';
+
+/* 작품 기본값 탭에 표시할 값 — getProjectTextDefaults sparse + 시스템 fallback으로 채운 표시용 객체. */
+function _textProjectDisplayDefaults() {
+  const pj = (typeof getProjectTextDefaults === 'function') ? getProjectTextDefaults() : null;
+  const s  = (pj && pj.textStyle) || {};
+  return {
+    theme: (pj && pj.textTheme) || 'classic',
+    style: {
+      fontFamily: (s.fontFamily !== undefined) ? s.fontFamily : null,
+      fontSize:   (typeof s.fontSize === 'number') ? s.fontSize : 18,
+      color:      (typeof s.color === 'string') ? s.color : '',
+      weight:     'normal',
+    },
+  };
+}
+
+/* 장면이 항목별로 작품 기본값과 다른지(override) 판정 — "기본값" 칩/되돌리기 활성 여부. */
+function _sceneStyleOverrideMap(scene) {
+  /* REFINE-IA-2.1: "일부러 다르게 한"(marker 있는) 항목만 예외로 표시 → 칩/되돌리기 활성.
+     marker 없는 레거시 값은 작품 기본값을 따르는 상태이므로 예외로 치지 않음. */
+  const m = (scene && scene.textStyleOverride && typeof scene.textStyleOverride === 'object') ? scene.textStyleOverride : {};
+  return {
+    theme:      !!(scene && scene.textThemeOverride),
+    fontFamily: !!m.fontFamily,
+    fontSize:   !!m.fontSize,
+    color:      !!m.color,
+    weight:     !!m.weight,
+  };
+}
+
 function _renderSceneStylePopoverBody() {
   const scene = ViewerState.scenes[ViewerState.currentSceneId];
   const ptype = (typeof _resolveViewerProjectType === 'function') ? _resolveViewerProjectType() : null;
-  /* TEXT-MODE-1C: ptype별 분기 — text는 글자/테마/효과, picturebook은 기존(톤+글자+모든장면적용). */
-  let bodyInner;
+  /* TEXT-MODE-1C / REFINE-IA-2: text는 [이야기 전체][이 장면만] 탭, picturebook은 기존(톤+글자+모든장면적용). */
+  let bodyInner, noteHtml = '';
   if (ptype === 'text') {
-    bodyInner = `
-      <div class="edit-scene-style-subtitle">🅰 글자 스타일</div>
-      ${scene ? _textGlyphStyleSectionHtml(scene) : ''}
-      <div class="edit-scene-style-divider"></div>
-      <div class="edit-scene-style-subtitle">🎨 테마</div>
-      ${scene ? _textThemeSectionHtml(scene) : ''}
-      <div class="edit-scene-style-divider"></div>
-      <div class="edit-scene-style-subtitle">✨ 이 장면의 텍스트 효과</div>
-      <div class="edit-section-hint">현재 장면에만 적용됩니다.</div>
-      ${scene ? _textEffectSectionHtml(scene) : ''}
-      <div class="edit-scene-style-apply-all">
-        ${scene ? _applyStyleAllButtonHtml(scene) : ''}
+    const tab = (_sceneStyleTab === 'project') ? 'project' : 'scene';
+    const tabBar = `
+      <div class="edit-scene-style-tabs" role="tablist">
+        <button type="button" class="edit-scene-style-tab js-scene-style-tab ${tab === 'project' ? 'active' : ''}" data-tab="project" role="tab" aria-selected="${tab === 'project'}">이야기 전체</button>
+        <button type="button" class="edit-scene-style-tab js-scene-style-tab ${tab === 'scene' ? 'active' : ''}" data-tab="scene" role="tab" aria-selected="${tab === 'scene'}">이 장면만</button>
       </div>`;
-  } else {
+    if (tab === 'project') {
+      const pd = _textProjectDisplayDefaults();
+      bodyInner = `
+        <div class="edit-scene-style-subtitle">🎨 테마</div>
+        ${_textThemeSectionHtml(scene, { theme: pd.theme })}
+        <div class="edit-scene-style-divider"></div>
+        <div class="edit-scene-style-subtitle">🅰 글자</div>
+        ${_textGlyphStyleSectionHtml(scene, { style: pd.style, noWeight: true })}
+        <div class="edit-section-hint">엔딩 장면도 이 기본값을 따라요.</div>`;
+      noteHtml = `<p class="edit-scene-style-popover__note">모든 장면에서 기본으로 사용할 글과 화면 스타일이에요. <b>새 장면에도 같이 적용</b>돼요.</p>`;
+    } else {
+      const ovr = scene ? _sceneStyleOverrideMap(scene) : {};
+      const anyOvr = !!(ovr.theme || ovr.fontFamily || ovr.fontSize || ovr.color || ovr.weight);
+      bodyInner = `
+        <div class="edit-scene-style-subtitle">🎨 테마</div>
+        ${scene ? _textThemeSectionHtml(scene, { overrideChip: !!ovr.theme }) : ''}
+        <div class="edit-scene-style-divider"></div>
+        <div class="edit-scene-style-subtitle">🅰 글자 스타일</div>
+        ${scene ? _textGlyphStyleSectionHtml(scene, { overrideChips: ovr }) : ''}
+        <div class="edit-scene-style-divider"></div>
+        <div class="edit-scene-style-subtitle">✨ 이 장면의 텍스트 효과</div>
+        <div class="edit-section-hint">효과는 항상 이 장면에만 적용돼요.</div>
+        ${scene ? _textEffectSectionHtml(scene) : ''}
+        <div class="edit-scene-style-apply-all">
+          <button type="button" class="js-scene-style-reset-all edit-style-reset-all-btn" ${anyOvr ? '' : 'disabled'}>↩ 이 장면을 작품 기본값으로 되돌리기</button>
+          <details class="edit-style-advanced">
+            <summary>고급</summary>
+            ${scene ? _applyStyleAllButtonHtml(scene) : ''}
+          </details>
+        </div>`;
+      noteHtml = `<p class="edit-scene-style-popover__note">지금 보고 있는 <b>이 장면만</b> 바뀌어요. 비워두면 이야기 전체 기본값을 따라요.</p>`;
+    }
+    bodyInner = tabBar + noteHtml + bodyInner;
+    return `
+    <div class="edit-scene-style-popover__head">
+      <span class="edit-scene-style-popover__title">🎨 꾸미기</span>
+      <button type="button" class="edit-scene-style-popover__close js-scene-style-popover-close"
+        title="닫기" aria-label="닫기">✕</button>
+    </div>
+    <div class="edit-scene-style-popover__body">
+      ${bodyInner}
+    </div>`;
+  }
+  {
     /* PB-BODYBOX-1B: 글상자 진하기(_pbBodyBoxOpacitySectionHtml)를 톤 아래 복제.
        helper가 imageCenter(그림 중심형) 아닐 때 ''를 반환 → split/표지/엔딩엔 미표시. 저장은
        _bindSceneStylePopover의 팝오버 전용 js-pb-bb-op 핸들러가 처리(우측 슬라이더는 그대로 유지). */
@@ -5555,11 +5651,24 @@ function _bindSceneStylePopover(pop) {
   if (!scene) return;
   const ptype = (typeof _resolveViewerProjectType === 'function') ? _resolveViewerProjectType() : null;
   if (ptype === 'text') {
-    /* TEXT-MODE-1C: text 글자/테마/효과 — 우측 text 핸들러와 동일 경로의 root-scope 복제. */
-    if (typeof _bindTextSceneStyleActions === 'function') _bindTextSceneStyleActions(pop, scene);
-    /* TEXT-MODE-1D: "모든 장면 적용" — 우측 _bindApplyStyleAllHandlers를 root(pop)에 재사용
-       (textStyle+textTheme 전 장면, textEffect 미포함 — 정책 무수정). */
-    if (typeof _bindApplyStyleAllHandlers === 'function') _bindApplyStyleAllHandlers(pop, scene);
+    /* REFINE-IA-2: 탭 전환 — _sceneStyleTab 갱신 후 본문 재렌더+재바인딩. */
+    pop.querySelectorAll('.js-scene-style-tab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const t = (btn.dataset.tab === 'project') ? 'project' : 'scene';
+        if (t === _sceneStyleTab) return;
+        _sceneStyleTab = t;
+        _rerenderSceneStylePopover();
+      });
+    });
+    if (_sceneStyleTab === 'project') {
+      /* 이야기 전체 탭 — 작품 기본값 저장(saveProjectTextDefaults). */
+      if (typeof _bindProjectTextDefaultsActions === 'function') _bindProjectTextDefaultsActions(pop);
+    } else {
+      /* 이 장면만 탭 — sparse override 저장 + 항목별/전체 되돌리기 + 고급(모든 장면 복사). */
+      if (typeof _bindTextSceneStyleActions === 'function') _bindTextSceneStyleActions(pop, scene);
+      if (typeof _bindSceneStyleResetActions === 'function') _bindSceneStyleResetActions(pop, scene);
+      if (typeof _bindApplyStyleAllHandlers === 'function') _bindApplyStyleAllHandlers(pop, scene);
+    }
     return;
   }
   /* picturebook (기존) */
@@ -5621,39 +5730,57 @@ function _bindSceneStylePopover(pop) {
    renderEditPanel/collapsible 토글 미복제. 우측 핸들러 무수정. _ensureTextStyle/_ensureTextEffect는 우측 로컬이라 인라인. */
 function _bindTextSceneStyleActions(root, scene) {
   if (!root || !scene) return;
-  const _ensureTs = () => {
-    if (!scene.textStyle || typeof scene.textStyle !== 'object') {
-      scene.textStyle = { fontFamily: 'gothic', fontSize: 16, color: '', weight: 'normal' };
-    }
-    return scene.textStyle;
-  };
   const _ensureTe = () => {
     if (!scene.textEffect || typeof scene.textEffect !== 'object') {
       scene.textEffect = { entrance: 'none', body: 'none' };
     }
     return scene.textEffect;
   };
-  /* 폰트 */
+  /* REFINE-IA-2: 장면별 sparse override. scene.textStyleRaw = 지정된 예외 키만.
+     scene.textStyle 은 같은 sparse 객체로 미러(텍스트 모드 reader는 getTextStyle resolved 사용).
+     DB 도 sparse 저장(없는 키 = 작품 기본값 위임). value 가 defer(''·null·undefined)면 키 제거(기본값 복귀). */
+  const _ovr = () => {
+    if (!scene.textStyleRaw || typeof scene.textStyleRaw !== 'object') {
+      scene.textStyleRaw = (typeof _sparseTextStyleOverride === 'function')
+        ? (_sparseTextStyleOverride(scene.textStyle) || {}) : {};
+    }
+    return scene.textStyleRaw;
+  };
+  /* override 유무가 바뀔 때만 true 반환 → 그때만 팝오버 re-render(칩 출현/소멸).
+     값만 바뀌는 평상시 편집은 re-render 안 함 → 포커스 유지(Codex Step2 #5 반영). */
+  const _marks = () => {
+    if (!scene.textStyleOverride || typeof scene.textStyleOverride !== 'object') scene.textStyleOverride = {};
+    return scene.textStyleOverride;
+  };
+  const _writeStyle = (field, value) => {
+    const o = _ovr();
+    const m = _marks();
+    const had = (field in o);
+    if (value === undefined || value === null || value === '') { delete o[field]; delete m[field]; }
+    else { o[field] = value; m[field] = true; }   /* REFINE-IA-2.1: 의도적 예외 marker */
+    const has = (field in o);
+    scene.textStyle = { ...o };
+    _queueSave(scene.num || scene.id, { textStyle: { ...o }, textStyleOverride: { ...m } });
+    _flushPendingSave();
+    if (!_patchTextStyle()) _scheduleViewerFrameReRender();
+    return had !== has;
+  };
+  /* 폰트 — '테마 기본 글씨체'('' / 'auto') = override 해제(작품 기본값 위임). */
   root.querySelectorAll('.js-edit-text-font').forEach(sel => {
     sel.addEventListener('change', e => {
       if (!_editText.editable) return;
-      /* T-THEME-1: 빈 값('')/'auto' = "테마 기본 글씨체" → fontFamily null 저장(테마 기본폰트 적용). */
       const raw = e.target.value;
       const v = (raw && raw !== 'auto') ? raw : null;
       if (_applyVariantStyleOrBlock(scene, { fontFamily: v }, () => {
         e.target.style.fontFamily = v ? `var(--font-${v})` : '';
       })) return;
-      const ts = _ensureTs();
-      if (ts.fontFamily === v) return;
-      ts.fontFamily = v;
-      _queueSave(scene.num || scene.id, { textStyle: { ...ts } });
-      _flushPendingSave();
       e.target.style.fontFamily = v ? `var(--font-${v})` : '';
-      if (!_patchTextStyle()) _scheduleViewerFrameReRender();
+      if (_writeStyle('fontFamily', v)) _rerenderSceneStylePopover();
     });
   });
-  /* 글자 크기 */
+  /* 글자 크기 — 슬라이더는 항상 override(해제는 "전체 기본값" 칩). input=라벨+저장, change=칩 갱신(유무 변화 시). */
   root.querySelectorAll('.js-edit-text-size').forEach(slider => {
+    let _sizeChanged = false;
     slider.addEventListener('input', e => {
       if (!_editText.editable) return;
       const v = parseInt(e.target.value, 10);
@@ -5662,15 +5789,17 @@ function _bindTextSceneStyleActions(root, scene) {
         const ln = slider.closest('.edit-row')?.querySelector('.edit-label-note');
         if (ln) ln.textContent = `(${v}px)`;
       })) return;
-      const ts = _ensureTs();
-      ts.fontSize = v;
       const labelNote = slider.closest('.edit-row')?.querySelector('.edit-label-note');
       if (labelNote) labelNote.textContent = `(${v}px)`;
-      _queueSave(scene.num || scene.id, { textStyle: { ...ts } });
-      if (!_patchTextStyle()) _scheduleViewerFrameReRender();
+      if (_writeStyle('fontSize', v)) _sizeChanged = true;
+    });
+    slider.addEventListener('change', () => {
+      if (!_editText.editable) return;
+      if (typeof _isVariantViewLocked === 'function' && _isVariantViewLocked()) return;
+      if (_sizeChanged) { _sizeChanged = false; _rerenderSceneStylePopover(); }
     });
   });
-  /* 색 팔레트 */
+  /* 색 팔레트 — '기본'(data-val '') = override 해제. */
   root.querySelectorAll('.js-edit-text-color').forEach(btn => {
     btn.addEventListener('click', () => {
       if (!_editText.editable) return;
@@ -5678,12 +5807,8 @@ function _bindTextSceneStyleActions(root, scene) {
       if (_applyVariantStyleOrBlock(scene, { color: v }, () => {
         root.querySelectorAll('.js-edit-text-color').forEach(b => b.classList.toggle('active', b === btn));
       })) return;
-      const ts = _ensureTs();
-      ts.color = v;
-      _queueSave(scene.num || scene.id, { textStyle: { ...ts } });
-      _flushPendingSave();
       root.querySelectorAll('.js-edit-text-color').forEach(b => b.classList.toggle('active', b === btn));
-      if (!_patchTextStyle()) _scheduleViewerFrameReRender();
+      if (_writeStyle('color', v)) _rerenderSceneStylePopover();
     });
   });
   /* 자유 색 */
@@ -5691,18 +5816,12 @@ function _bindTextSceneStyleActions(root, scene) {
     input.addEventListener('change', e => {
       if (!_editText.editable) return;
       const v = e.target.value;
-      if (_applyVariantStyleOrBlock(scene, { color: v }, () => {
-        root.querySelectorAll('.js-edit-text-color').forEach(b => b.classList.remove('active'));
-      })) return;
-      const ts = _ensureTs();
-      ts.color = v;
-      _queueSave(scene.num || scene.id, { textStyle: { ...ts } });
-      _flushPendingSave();
+      if (_applyVariantStyleOrBlock(scene, { color: v }, () => {})) return;
       root.querySelectorAll('.js-edit-text-color').forEach(b => b.classList.remove('active'));
-      if (!_patchTextStyle()) _scheduleViewerFrameReRender();
+      if (_writeStyle('color', v)) _rerenderSceneStylePopover();
     });
   });
-  /* 굵기 */
+  /* 굵기 — 장면별(작품 기본값 범위 밖). */
   root.querySelectorAll('.js-edit-text-weight').forEach(btn => {
     btn.addEventListener('click', () => {
       if (!_editText.editable) return;
@@ -5710,24 +5829,23 @@ function _bindTextSceneStyleActions(root, scene) {
       if (_applyVariantStyleOrBlock(scene, { weight: v }, () => {
         root.querySelectorAll('.js-edit-text-weight').forEach(b => b.classList.toggle('active', b === btn));
       })) return;
-      const ts = _ensureTs();
-      ts.weight = v;
-      _queueSave(scene.num || scene.id, { textStyle: { ...ts } });
-      _flushPendingSave();
       root.querySelectorAll('.js-edit-text-weight').forEach(b => b.classList.toggle('active', b === btn));
-      if (!_patchTextStyle()) _scheduleViewerFrameReRender();
+      if (_writeStyle('weight', v)) _rerenderSceneStylePopover();
     });
   });
-  /* 테마 */
+  /* 테마 — 장면 override(해제는 "전체 기본값" 칩). 첫 지정 때만 칩 출현 → 그때만 re-render. */
   root.querySelectorAll('.js-edit-text-theme').forEach(btn => {
     btn.addEventListener('click', () => {
       if (!_editText.editable) return;
       const v = btn.dataset.val || 'classic';
+      const wasOverridden = !!scene.textThemeOverride;
       scene.textTheme = v;
-      _queueSave(scene.num || scene.id, { textTheme: v });
+      scene.textThemeOverride = true;   /* REFINE-IA-2.1: 의도적 테마 예외 marker */
+      _queueSave(scene.num || scene.id, { textTheme: v, textThemeOverride: true });
       _flushPendingSave();
       root.querySelectorAll('.js-edit-text-theme').forEach(b => b.classList.toggle('active', b === btn));
       if (!_patchTextTheme()) _scheduleViewerFrameReRender();
+      if (!wasOverridden) _rerenderSceneStylePopover();
     });
   });
   /* 진입 효과 */
@@ -5756,6 +5874,128 @@ function _bindTextSceneStyleActions(root, scene) {
       if (!_patchTextEffect()) _scheduleViewerFrameReRender();
     });
   });
+}
+
+/* REFINE-IA-2: 팝오버 본문 재렌더+재바인딩(탭 전환·override 변경 후 칩/active 갱신). 열려있을 때만. */
+function _rerenderSceneStylePopover() {
+  const pop = _sceneStylePopoverEl();
+  if (!pop || pop.hidden) return;
+  pop.innerHTML = _renderSceneStylePopoverBody();
+  _bindSceneStylePopover(pop);
+  _positionSceneStylePopover(pop);
+}
+
+/* REFINE-IA-2: '이야기 전체' 탭 — 작품 기본값 저장(saveProjectTextDefaults). weight/효과는 범위 밖.
+   '테마 기본 글씨체'('' / 'auto')·'기본' 색 = 작품 기본값에서 해당 항목 비움. */
+function _bindProjectTextDefaultsActions(root) {
+  if (!root) return;
+  const _save = (patch) => {
+    if (typeof saveProjectTextDefaults === 'function') {
+      Promise.resolve(saveProjectTextDefaults(patch)).catch(() => {});
+    }
+    if (!_patchTextStyle()) _scheduleViewerFrameReRender();
+    else _scheduleViewerFrameReRender();
+  };
+  root.querySelectorAll('.js-edit-text-font').forEach(sel => {
+    sel.addEventListener('change', e => {
+      if (!_editText.editable) return;
+      const raw = e.target.value;
+      const v = (raw && raw !== 'auto') ? raw : null;
+      _save({ textStyle: { fontFamily: v } });
+      _rerenderSceneStylePopover();
+    });
+  });
+  root.querySelectorAll('.js-edit-text-size').forEach(slider => {
+    slider.addEventListener('input', e => {
+      if (!_editText.editable) return;
+      const v = parseInt(e.target.value, 10);
+      if (isNaN(v)) return;
+      const ln = slider.closest('.edit-row')?.querySelector('.edit-label-note');
+      if (ln) ln.textContent = `(${v}px)`;
+      _save({ textStyle: { fontSize: v } });
+    });
+    slider.addEventListener('change', () => { if (_editText.editable) _rerenderSceneStylePopover(); });
+  });
+  root.querySelectorAll('.js-edit-text-color').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (!_editText.editable) return;
+      _save({ textStyle: { color: btn.dataset.val || '' } });
+      _rerenderSceneStylePopover();
+    });
+  });
+  root.querySelectorAll('.js-edit-text-color-pick').forEach(input => {
+    input.addEventListener('change', e => {
+      if (!_editText.editable) return;
+      _save({ textStyle: { color: e.target.value } });
+      _rerenderSceneStylePopover();
+    });
+  });
+  root.querySelectorAll('.js-edit-text-theme').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (!_editText.editable) return;
+      _save({ textTheme: btn.dataset.val || 'classic' });
+      _rerenderSceneStylePopover();
+    });
+  });
+}
+
+/* REFINE-IA-2: '이 장면만' 탭 — 항목별 "기본값" 칩(해당 override 제거) + 전체 되돌리기(테마+글자 override 제거).
+   본문/선택지/연결/효과 데이터는 건드리지 않음. DB는 leaf remove(null). */
+function _bindSceneStyleResetActions(root, scene) {
+  if (!root || !scene) return;
+  const _variantBlocked = () => {
+    if (typeof _isVariantViewLocked === 'function' && _isVariantViewLocked()) {
+      if (typeof _showSaveStatus === 'function') _showSaveStatus('AI 버전은 보기 전용입니다. 편집은 원본에서 해 주세요.', 2500);
+      return true;
+    }
+    return false;
+  };
+  root.querySelectorAll('.js-scene-style-reset-field').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (!_editText.editable) return;
+      if (_variantBlocked()) return;
+      const field = btn.dataset.field;
+      if (field === 'theme') {
+        delete scene.textTheme;
+        scene.textThemeOverride = false;   /* marker 해제 → 작품 기본값 따름 */
+        _queueSave(scene.num || scene.id, { textTheme: null, textThemeOverride: false });
+        _flushPendingSave();
+        if (!_patchTextTheme()) _scheduleViewerFrameReRender();
+      } else {
+        const o = (scene.textStyleRaw && typeof scene.textStyleRaw === 'object')
+          ? scene.textStyleRaw
+          : ((typeof _sparseTextStyleOverride === 'function') ? (_sparseTextStyleOverride(scene.textStyle) || {}) : {});
+        delete o[field];
+        scene.textStyleRaw = o;
+        scene.textStyle = { ...o };
+        if (scene.textStyleOverride && typeof scene.textStyleOverride === 'object') delete scene.textStyleOverride[field];
+        const m = scene.textStyleOverride || {};
+        _queueSave(scene.num || scene.id, { textStyle: { ...o }, textStyleOverride: { ...m } });
+        _flushPendingSave();
+        if (!_patchTextStyle()) _scheduleViewerFrameReRender();
+      }
+      _rerenderSceneStylePopover();
+    });
+  });
+  const resetAll = root.querySelector('.js-scene-style-reset-all');
+  if (resetAll) {
+    resetAll.addEventListener('click', () => {
+      if (!_editText.editable) return;
+      if (_variantBlocked()) return;
+      const ok = window.confirm('이 장면의 꾸미기만 이야기 전체 기본값으로 되돌릴까요?\n글 내용과 선택지는 그대로예요.');
+      if (!ok) return;
+      delete scene.textTheme;
+      scene.textThemeOverride = false;
+      scene.textStyleRaw = {};
+      scene.textStyle = {};
+      scene.textStyleOverride = {};
+      _queueSave(scene.num || scene.id, { textTheme: null, textStyle: null, textStyleOverride: null, textThemeOverride: false });
+      _flushPendingSave();
+      if (!_patchTextTheme()) _scheduleViewerFrameReRender();
+      if (!_patchTextStyle()) _scheduleViewerFrameReRender();
+      _rerenderSceneStylePopover();
+    });
+  }
 }
 
 function _positionSceneStylePopover(pop) {

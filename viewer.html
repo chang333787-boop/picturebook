@@ -203,6 +203,10 @@
 (function () {
   var EDIT_SRC = 'viewer-edit.js?v=140p5imglock1copyfix2c1coverstart1heuristic1advedithide1absorbtitle1advedithidetext1toptoolbar2atoptoolbar3atoptoolbar3btoptoolbar4atoptoolbar4bprojectsettings1aprojectsettings1bprojectsettings1ccoverhint1dprojectsettings2aprojectsettings2bprojectsettings2cprojectsettings2ccpbimage1apbimage1bpbimage1cpbimage1dscenestyle1scenestyle1cglyphstyle1aglyphstyle1bglyphstyle1cglyphstyle1dglyphapplyalltextmode1btextmode1ctextmode1dmoviesettings1movietool1abmovietool1cmovietool1dpanelcleanup1apanelcleanup1bpanelcleanup1cpblayout1apblayout1bpblayout1cpbbodybox1apbbodybox1bpbbodybox1cpanelempty1backbone1aibackbone1aiinavtitle1abackbone1bbackbone1cdeadcode1backbone2iideadcode2scenetitle1bviewertopbar1pbskins5d8clean1d8clean1bttheme1refineia2textdefaults1markers2perfqa1';
   var AI_SRC   = 'viewer-ai.js?v=workcheckhistory1copyfix2c1hudai1b';
+  /* PERF-2B-1: 편집 전용 viewer-image-edit.js(그림 편집툴)·storyAnalyzer.js(루트/구조 보기)도 지연 로드.
+     감상 모드는 미로드(추가 ~70KB 감소). 편집 진입 시 edit 번들에 포함. */
+  var IMG_SRC   = 'viewer-image-edit.js?v=96copyfix1';
+  var STORY_SRC = 'storyAnalyzer.js?v=136heuristic3perf2b1';
   var loaders = {};
   function loadOnce(src, key) {
     if (loaders[key]) return loaders[key];
@@ -215,16 +219,17 @@
     });
     return loaders[key];
   }
-  /* 편집 번들 = viewer-edit.js → viewer-ai.js(편집 전역에 의존) 순차 로드. 항상 같은 Promise 반환. */
+  /* 편집 번들 = viewer-edit.js → viewer-image-edit.js → storyAnalyzer.js → viewer-ai.js 순차 로드(Codex 권장 순서).
+     편집 전역(initEditInteractions·enterImageTransformEdit·_rt*·viewerAi)이 startViewerEdit/팝오버 전에 모두 준비됨. 항상 같은 Promise. */
   window.ensureEditBundle = function () {
-    return loadOnce(EDIT_SRC, 'edit').then(function () { return loadOnce(AI_SRC, 'ai'); });
+    return loadOnce(EDIT_SRC, 'edit')
+      .then(function () { return loadOnce(IMG_SRC, 'img'); })
+      .then(function () { return loadOnce(STORY_SRC, 'story'); })
+      .then(function () { return loadOnce(AI_SRC, 'ai'); });
   };
 })();
 </script>
-<script src="viewer-image-edit.js?v=96copyfix1"></script>
 <script src="viewer-entry.js?v=96"></script>
-<!-- v123: 다듬기 화면 루트보기 — maker와 동일 함수 재사용 (ViewerState→window.scenes adapter) -->
-<script src="storyAnalyzer.js?v=136heuristic3"></script>
 
 </body>
 </html>

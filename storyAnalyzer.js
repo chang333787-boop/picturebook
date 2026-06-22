@@ -977,8 +977,10 @@ function _rtJumpToCard(num) {
   });
 }
 
-/* ── 이벤트 위임 — DOM 요소 자체는 유지되므로 1회 등록만 ── */
-window.addEventListener('DOMContentLoaded', () => {
+/* ── 이벤트 위임 — DOM 요소 자체는 유지되므로 1회 등록만 ──
+   PERF-2B-1: storyAnalyzer.js 지연 로드 대응 — DOMContentLoaded 이후 로드돼도 즉시 바인딩되도록 readyState 가드.
+   (#route-tabs/#route-content는 viewer.html 정적 요소라 늦은 실행에도 존재.) */
+function _rtBindRouteEvents() {
   const tabs    = document.getElementById('route-tabs');
   const content = document.getElementById('route-content');
 
@@ -1082,4 +1084,6 @@ window.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
-});
+}
+if (document.readyState === 'loading') window.addEventListener('DOMContentLoaded', _rtBindRouteEvents);
+else _rtBindRouteEvents();

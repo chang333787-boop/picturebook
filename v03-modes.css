@@ -2334,9 +2334,11 @@ body.edit-mode-active:not(.viewer-test-active) .scene-screen--movie[data-played=
   opacity: 0.72;
   letter-spacing: 0.02em;
 }
+/* T-THEME-2: 본문/제목 색은 카드 color 상속(테마별 .text-card color가 정본) — 사용자 명시색만 override.
+   기존 var(--v03-fg)는 전 테마 어두운 값이라 dark/retro 카드에서 본문이 안 보였음. (scoped: 텍스트 모드만) */
 .scene-screen--text .text-card__body,
 .scene-screen--text .text-card__title {
-  color: var(--text-color-override, var(--v03-fg));
+  color: var(--text-color-override, inherit);
 }
 
 /* W5: 본문 위계 강화 — 본문이 가장 크고 시각적으로 메인.
@@ -2679,6 +2681,163 @@ body.edit-mode-active:not(.viewer-test-active) .scene-screen--text .text-ending-
 .scene-screen--text[data-text-theme] .text-ending-actions .terminal-btn:hover:not(:disabled) {
   background: var(--v03-btn-hover-bg);
   border-color: var(--v03-btn-hover-bd);
+}
+
+/* ════════════════════════════════════════════════════
+   T-THEME-2: 텍스트 테마 6종 정밀 강화 (2026-06-22)
+   ─────────────────────────────────────────────────────
+   · 모두 .scene-screen--text[data-text-theme="X"] 스코프 → 그림책/무비 무영향.
+   · 카드 배경/프레임/장식은 background 레이어 + box-shadow + data-uri SVG (CSS/SVG 우선,
+     이미지 에셋 0). background는 overflow 스크롤과 무관(요소 고정)이라 긴 본문도 안전.
+   · 폰트/카드 color는 baseline(위 룰)·T-THEME-1 정본 유지 — 여기선 미지정.
+   · 말풍선·기승전결 변형 없음. 장식은 본문 보조 수준.
+   ════════════════════════════════════════════════════ */
+
+/* R2: 텍스트 모드 선택지는 긴 라벨이 잘리지 않고 줄바꿈(공통 .choice-v03의 nowrap/ellipsis 해제).
+   텍스트 스코프 한정 → 그림책(.scene-screen--pb)·무비 무영향. */
+.scene-screen--text .choice-v03 {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  min-height: 44px;       /* R4: 태블릿 터치 영역 보장 */
+  box-sizing: border-box;
+}
+
+/* ── 1. classic 담백한 글 — 가장 깨끗한 독서형. 장식 0, 부드러운 그림자, 넉넉한 여백. ── */
+.scene-screen--text[data-text-theme="classic"] .text-card {
+  background: #ffffff;
+  border: 1px solid #ececec;
+  box-shadow: 0 1px 2px rgba(40,40,40,.035), 0 8px 24px rgba(40,40,40,.05);  /* R5: 그림자 소폭↓ */
+  padding: 28px 34px 20px;   /* R1/R5: 과여백 완화(크기 유지) */
+}
+.scene-screen--text[data-text-theme="classic"] .text-card__body { line-height: 1.72; margin-bottom: 14px; }  /* R5: 본문 하단 여백↓ */
+.scene-screen--text[data-text-theme="classic"] .choice-v03 { border-radius: 10px; }
+
+/* ── 2. paperbook 고전 기록 — 따뜻한 종이 + 얇은 이중 고전 테두리 + 작은 인장. ── */
+.scene-screen--text[data-text-theme="paperbook"] .text-card {
+  background-color: #eaddb6;   /* R3: 더 누런 고문서 톤 → 편지(밝은 크림)와 명확 분리 */
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Crect x='4' y='4' width='32' height='32' rx='3' fill='none' stroke='%23b0492f' stroke-width='1.5' opacity='0.4'/%3E%3Ctext x='20' y='26' font-size='17' text-anchor='middle' fill='%23b0492f' opacity='0.42' font-family='serif'%3E記%3C/text%3E%3C/svg%3E"),
+    repeating-linear-gradient(0deg, transparent 0 2px, rgba(120,90,50,.03) 2px 3px);
+  background-repeat: no-repeat, repeat;
+  background-position: right 16px top 14px, 0 0;   /* R6: 인장을 우상단으로 — 하단 선택지와 겹침 회피 + 투명도↓ */
+  background-size: 34px 34px, auto;
+  border: none;
+  box-shadow:
+    0 4px 14px rgba(120,90,50,.16),
+    inset 0 0 0 1px #c2a878,
+    inset 0 0 0 4px #eaddb6,
+    inset 0 0 0 5px rgba(160,120,70,.35);
+  padding: 32px 34px 22px;   /* R5: 이중프레임 안쪽선 .45→.35(과밀 완화) + 4px층 배경색 정합 */
+}
+.scene-screen--text[data-text-theme="paperbook"] .text-card__actions { border-top-style: double; border-top-width: 3px; }
+.scene-screen--text[data-text-theme="paperbook"] .choice-v03 { border-radius: 4px; box-shadow: inset 0 0 0 1px rgba(160,120,70,.25); }
+
+/* ── 3. note 이야기 노트 — 파란 줄 + 빨간 마진선 + 손그림 테두리 + 작은 별 낙서. 밝고 활기. ── */
+.scene-screen--text[data-text-theme="note"] .text-card {
+  background-color: #fafdff;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='26' height='26'%3E%3Cpath d='M13 3l2.6 6.3 6.4.5-5 4.2 1.6 6.2L13 17.2 7.4 20.4 9 14.2 4 10l6.4-.5z' fill='none' stroke='%23f0a83a' stroke-width='1.4'/%3E%3C/svg%3E"),
+    linear-gradient(90deg, transparent 0 30px, rgba(225,120,120,.5) 30px 31px, transparent 31px),
+    linear-gradient(rgba(170,205,232,.5) 1px, transparent 1px);  /* R4: 노트선 연하게(본문 우선) */
+  background-repeat: no-repeat, no-repeat, repeat;
+  background-position: right 16px top 14px, 0 0, 0 32px;   /* R6: 줄 시작 오프셋 정합 */
+  background-size: 18px 18px, 100% 100%, 100% 34px;   /* R6: 줄 주기 34px = 본문 행간과 정합 */
+  border: 1.5px solid #bcd3e6;
+  border-radius: 14px;
+  box-shadow: 0 3px 10px rgba(70,110,150,.10);
+  padding: 30px 30px 22px 40px;
+}
+.scene-screen--text[data-text-theme="note"] .text-card__body { font-size: calc(var(--text-fs-body, 18px) * 1.06); line-height: 1.78; }  /* R4/R6: Gaegu 보정 + 행간 34px=노트 줄주기 정합 */
+/* R3: 손그림 느낌 — 선택지 미세 회전(유아 스티커化 아님, 절제). */
+.scene-screen--text[data-text-theme="note"] .choice-v03 { border-radius: 6px; border-color: #9cc0de; transform: rotate(-0.3deg); }
+.scene-screen--text[data-text-theme="note"] .choice-v03:nth-child(even) { transform: rotate(0.3deg); }
+
+/* ── 4. handwriting 편지와 일기 — 따뜻한 편지지 + 넉넉한 여백 + 작은 식물. 차분. ── */
+.scene-screen--text[data-text-theme="handwriting"] .text-card {
+  background-color: #fffaf0;  /* R3: 밝은 편지지 유지 → 고문서(누런)와 명도 대비로 분리 */
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='34'%3E%3Cg transform='rotate(-4 48 17)'%3E%3Crect x='12' y='9' width='72' height='16' rx='1' fill='%23d7c7a2' opacity='0.5'/%3E%3Cline x1='12' y1='17' x2='84' y2='17' stroke='%23c6b48c' stroke-width='0.6' opacity='0.5'/%3E%3C/g%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='52' height='52'%3E%3Cpath d='M26 50 Q26 28 27 8' stroke='%239fb37e' stroke-width='1.4' fill='none'/%3E%3Cpath d='M27 20 Q16 16 13 7 Q24 11 27 20' fill='%23b7c99a' opacity='0.85'/%3E%3Cpath d='M27 30 Q38 26 41 17 Q30 21 27 30' fill='%23b7c99a' opacity='0.85'/%3E%3C/svg%3E");
+  background-repeat: no-repeat, no-repeat;
+  background-position: center top, right 18px bottom 14px;
+  background-size: 96px 34px, 50px 50px;
+  border: 1px solid #ecdcb4;
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(150,120,70,.12);
+  padding: 38px 32px 24px;   /* R3: 상단 테이프 공간 위해 top 패딩 복원 */
+}
+/* R1/R5: Nanum Pen 획이 얇아 흐려 보임 → 본문 더 진하게·크게·행간 여유(가독성 우선). */
+.scene-screen--text[data-text-theme="handwriting"] .text-card__body { color: #241c10; line-height: 1.7; font-size: calc(var(--text-fs-body, 18px) * 1.4); }
+/* R6: 선택지 글자를 본문(펜·큰 글씨)과 지나치게 차이나지 않게 소폭↑ */
+.scene-screen--text[data-text-theme="handwriting"] .choice-v03 { border-radius: 999px; font-size: 16px; }
+
+/* ── 5. retro 레트로 게임 — 어두운 화면 + 녹색 픽셀 + 픽셀 프레임 + ▶ 커서 + 약한 스캔라인. ── */
+.scene-screen--text[data-text-theme="retro"] .text-card {
+  background-color: #0d130d;
+  color: #93dca8;            /* R1/R5: 네온→차분한 녹색, 채도 더 낮춰 장시간 피로↓ */
+  border: 2px solid #43c486; /* R1: 네온 테두리 톤다운 */
+  border-radius: 0;
+  /* R3: 계단식 픽셀 프레임(blur 0 = 또렷한 픽셀 엣지) + 코너 픽셀 악센트(배경 SVG). */
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14'%3E%3Cpath d='M0 0h6v2h-4v4h-2z' fill='%2343c486'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14'%3E%3Cpath d='M14 14h-6v-2h4v-4h2z' fill='%2343c486'/%3E%3C/svg%3E"),
+    repeating-linear-gradient(0deg, rgba(74,240,154,.03) 0 1px, transparent 1px 3px);
+  background-repeat: no-repeat, no-repeat, repeat;
+  background-position: left 5px top 5px, right 5px bottom 5px, 0 0;
+  background-size: 14px 14px, 14px 14px, auto;
+  box-shadow: 0 0 0 2px #0d130d, 0 0 0 4px #43c486, 0 0 10px rgba(74,240,154,.05);  /* R5: glow↓ */
+  padding: 28px 30px 22px;
+}
+.scene-screen--text[data-text-theme="retro"] .text-card__body {
+  font-size: calc(var(--text-fs-body, 18px) * 0.94);
+  line-height: 1.65; letter-spacing: 0.02em;
+  /* R6: 본문 기본색을 밝은 민트로 명시(어두운 배경 가독성). 사용자 명시색은 override 유지. */
+  color: var(--text-color-override, #aef0c6);
+  text-shadow: 0 0 1px rgba(0,0,0,.35);   /* 매우 약한 그림자로 스캔라인 위 또렷함 */
+}
+.scene-screen--text[data-text-theme="retro"] .choice-v03 {
+  border-radius: 0; border-width: 2px; position: relative; padding-left: 30px;
+  box-shadow: 0 0 8px rgba(74,240,154,.12);
+}
+.scene-screen--text[data-text-theme="retro"] .choice-v03::before {
+  content: '\25B6'; position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+  font-size: 0.7em; color: #4af09a; opacity: 0.35; transition: opacity .12s;
+}
+.scene-screen--text[data-text-theme="retro"] .choice-v03:hover:not(:disabled)::before,
+.scene-screen--text[data-text-theme="retro"] .choice-v03:focus-visible::before { opacity: 1; }
+
+/* ── 6. dark 밤의 미스터리 — 짙은 남색 + 얇은 금테 + 달·별 + 희미한 빛. 절제된 금색. ── */
+.scene-screen--text[data-text-theme="dark"] .text-card {
+  background-color: #131a2b;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='44'%3E%3Cpath d='M30 8 a13 13 0 1 0 5 21 a10.5 10.5 0 0 1 -5 -21z' fill='none' stroke='%23c9a86a' stroke-width='1.3' opacity='0.7'/%3E%3Ccircle cx='12' cy='13' r='1' fill='%23c9a86a' opacity='0.8'/%3E%3Ccircle cx='15' cy='30' r='1.3' fill='%23c9a86a' opacity='0.7'/%3E%3C/svg%3E"),
+    radial-gradient(130% 70% at 78% -5%, rgba(150,170,220,.13), transparent 55%),
+    radial-gradient(120% 55% at 50% 115%, rgba(44,60,102,.6), transparent 72%);  /* R5: 하단 안개 소폭↑(밤 분위기) */
+  background-repeat: no-repeat, no-repeat, no-repeat;
+  background-position: right 16px top 14px, 0 0, 0 0;
+  background-size: 42px 42px, 100% 100%, 100% 100%;
+  border: none;
+  /* R1: retro와 정체성 분리 — 금테 이중선으로 고전 미스터리 강화(절제). */
+  box-shadow: 0 8px 32px rgba(0,0,0,.45),
+    inset 0 0 0 1px rgba(201,168,106,.55),
+    inset 0 0 0 4px rgba(19,26,43,1),
+    inset 0 0 0 5px rgba(201,168,106,.22);
+  border-radius: 8px;
+  padding: 30px 32px 22px;
+}
+.scene-screen--text[data-text-theme="dark"] .text-card { color: #eef2f8; }
+/* R6: 밤 배경 본문 기본색을 따뜻한 회백색으로 명시(검게 보이는 문제 해결). 사용자 명시색은 override 유지. */
+.scene-screen--text[data-text-theme="dark"] .text-card__body { color: var(--text-color-override, #edf0f6); }
+.scene-screen--text[data-text-theme="dark"] .text-card__actions { border-top-color: rgba(201,168,106,.3); }
+.scene-screen--text[data-text-theme="dark"] .choice-v03 { border-color: rgba(201,168,106,.4); }
+.scene-screen--text[data-text-theme="dark"] .choice-v03:hover:not(:disabled) { border-color: rgba(201,168,106,.6); }
+
+/* R4: 좁은 모바일 — 장식/프레임이 본문 폭을 잠식하지 않게 카드 패딩 축소(텍스트 스코프). */
+@media (max-width: 480px) {
+  .scene-screen--text[data-text-theme] .text-card { padding: 22px 20px 18px; }
+  .scene-screen--text[data-text-theme="note"] .text-card { padding-left: 28px; }
+  .scene-screen--text[data-text-theme="handwriting"] .text-card { padding: 26px 22px 18px; }
 }
 
 /* ════════════════════════════════════════════════════

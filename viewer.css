@@ -3779,6 +3779,7 @@ body[data-page-orientation="portrait"] .terminal-screen--story .ending-page {
   border-bottom: 1px solid rgba(199, 149, 80, 0.16);
   backdrop-filter: blur(8px);
   flex-wrap: wrap;
+  position: relative; /* REFINE-IA-3: ⋯ 더보기 메뉴 앵커 */
 }
 .maker-return-label {
   font-family: var(--font-ui);
@@ -3813,6 +3814,63 @@ body[data-page-orientation="portrait"] .terminal-screen--story .ending-page {
   transform: translateY(-1px);
 }
 .maker-return-btn:active { transform: scale(.97); }
+/* REFINE-IA-3: 장면 도구(현재 장면 핵심 편집)는 primary 강조 */
+.maker-return-btn--tool {
+  border-color: #c66f4a;
+  color: #a05633;
+  font-weight: 700;
+  background: #fff6ee;
+}
+.maker-return-btn--tool:hover { background: #fdeede; border-color: #b85e39; }
+/* ⋯ 더보기 버튼 */
+.maker-return-btn--more { font-weight: 700; }
+.maker-return-btn--more[aria-expanded="true"] {
+  background: #efe2c8;
+  border-color: #c79550;
+}
+/* 더보기 드롭다운 메뉴 */
+.hud-more-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 8px;
+  z-index: 60;
+  min-width: 200px;
+  background: #fffdf7;
+  border: 1px solid rgba(199, 149, 80, 0.5);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(80, 60, 30, 0.2);
+  padding: 6px;
+}
+.hud-more-menu[hidden] { display: none; }
+.hud-more-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px; /* 터치 영역 */
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: #5a4a30;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.hud-more-item:hover, .hud-more-item:focus-visible { background: #f4ecd8; color: #2b1f10; outline: none; }
+.hud-more-item:focus-visible { box-shadow: inset 0 0 0 2px #c79550; }
+.hud-more-item--danger { color: #b5482f; }
+.hud-more-item--danger:hover { background: rgba(200, 80, 60, 0.1); }
+.hud-more-sep { height: 1px; background: rgba(199, 149, 80, 0.3); margin: 4px 6px; }
+/* REFINE-IA-3: 모바일에서 편집 바 조밀화(마크업·문구·기능 불변, 패딩/폰트/간격만) */
+@media (max-width: 480px) {
+  .maker-return-bar { padding: 4px 8px; gap: 5px; }
+  .maker-return-label { font-size: 11px; }
+  .maker-return-btn { padding: 5px 9px; font-size: 11px; }
+  .hud-more-menu { right: 4px; min-width: 64vw; }
+}
 .maker-return-btn--edit {
   border-color: rgba(198, 111, 74, 0.42);
   color: #c66f4a;

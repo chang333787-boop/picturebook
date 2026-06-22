@@ -4500,6 +4500,52 @@ async function _saveFlattenedImage(sceneNum, newImageDataUrl) {
    renderHud (viewer-render.js)에서 hud.innerHTML 박은 직후 호출.
    document scope로 검색 — HUD 버튼은 #hud 안에 있음. */
 function _bindHudEditActions() {
+  /* REFINE-IA-3: ⋯ 더보기 메뉴 토글. 메뉴 항목(AI·설정·루트·구조·처음으로)의 기능 핸들러는
+     아래 기존 document.querySelector 바인딩이 그대로 처리(메뉴 안에 있어도 동작). 여기선 열고닫기만.
+     document outside/ESC 리스너는 열 때만 add, 닫을 때 remove → 재렌더 누적 0. */
+  (function _bindHudMore() {
+    /* REFINE-IA-3: 메뉴 열린 채 HUD가 재렌더되면 이전 document 리스너가 남을 수 있음 → 새 바인딩 전 정리(누적 0 보장). */
+    if (typeof window.__hudMoreCleanup === 'function') { try { window.__hudMoreCleanup(); } catch (e) {} }
+    window.__hudMoreCleanup = null;
+    const moreBtn = document.querySelector('.js-hud-more');
+    const menu    = document.getElementById('hud-more-menu');
+    if (!moreBtn || !menu) return;
+    const _onDocClick = (e) => {
+      if (menu.contains(e.target) || moreBtn.contains(e.target)) return;
+      _closeMore();
+    };
+    const _onEsc = (e) => { if (e.key === 'Escape') { _closeMore(); moreBtn.focus(); } };
+    function _openMore() {
+      menu.hidden = false;
+      moreBtn.setAttribute('aria-expanded', 'true');
+      document.addEventListener('click', _onDocClick, true);
+      document.addEventListener('keydown', _onEsc, true);
+      window.__hudMoreCleanup = function () {
+        document.removeEventListener('click', _onDocClick, true);
+        document.removeEventListener('keydown', _onEsc, true);
+      };
+      const first = menu.querySelector('.hud-more-item');
+      if (first) setTimeout(() => first.focus(), 0);
+    }
+    function _closeMore() {
+      if (menu.hidden) return;
+      menu.hidden = true;
+      moreBtn.setAttribute('aria-expanded', 'false');
+      document.removeEventListener('click', _onDocClick, true);
+      document.removeEventListener('keydown', _onEsc, true);
+      window.__hudMoreCleanup = null;
+    }
+    moreBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (menu.hidden) _openMore(); else { _closeMore(); }
+    });
+    /* 메뉴 항목 클릭 시 메뉴 닫음(항목 자체 기능 핸들러는 별도로 실행). 설정 popover는
+       _positionProjectPopover가 ⋯ 더보기 버튼 앵커 fallback이라 닫혀도 위치 정상. */
+    menu.querySelectorAll('.hud-more-item').forEach(it => {
+      it.addEventListener('click', () => _closeMore());
+    });
+  })();
+
   document.querySelector('.js-edit-preview-test')?.addEventListener('click', async () => {
     /* 감상 테스트 전환 전에 저장 마무리 + 내 잠금 릴리스 */
     await _flushPendingSave();
@@ -5234,7 +5280,12 @@ function _bindProjectPopover(pop) {
 }
 
 function _positionProjectPopover(pop) {
-  const trigger = document.querySelector('.js-edit-project-popover');
+  /* REFINE-IA-3: ⚙ 설정이 ⋯ 더보기 메뉴 안으로 이동 → 트리거가 닫힌 메뉴 안이면 rect=0.
+     이 경우 ⋯ 더보기 버튼을 앵커로 사용(위치 어긋남 방지). */
+  let trigger = document.querySelector('.js-edit-project-popover');
+  if (!trigger || trigger.getBoundingClientRect().width === 0) {
+    trigger = document.querySelector('.js-hud-more') || trigger;
+  }
   if (!trigger) return;
   const r = trigger.getBoundingClientRect();
   pop.style.top = (r.bottom + 8) + 'px';

@@ -2735,7 +2735,6 @@ function _bindApplyStyleAllHandlers(panel, scene) {
       if (typeof s.id === 'undefined' || s.id === null) return false;
       return true;
     });
-    console.log('[applyStyleAll]', { sourceSceneId: scene.id, targetCount: targets.length, targets: targets.map(s => s.id) });
     if (!targets.length) {
       const orig = btn.textContent;
       btn.textContent = '다른 장면이 없어요';

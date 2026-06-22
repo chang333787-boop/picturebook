@@ -338,6 +338,7 @@ function _buildImageAreaHtml(s) {
   return s.imageData
     ? `<div class="card-image-area">
         <img src="${s.imageData}" class="card-thumb js-img-thumb"
+          loading="lazy" decoding="async"
           data-num="${s.num}" title="클릭하면 크게 보기"/>
         <div style="display:flex;gap:4px;margin-top:4px;">
           <label style="flex:1;padding:3px 0;border:1.5px solid #d0e0f5;border-radius:6px;

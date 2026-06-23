@@ -223,7 +223,7 @@ function buildCardHTML(s) {
   } else {
     const isTrueEnding = s.trueEnding || false;
     portsHTML = `
-      <div style="padding:4px 8px 10px;">
+      <div class="card-ending-zone" style="padding:4px 8px 10px;">
         <div style="text-align:center;font-size:12px;color:var(--ending);margin-bottom:8px;">🏁 이야기 끝</div>
         <label style="display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;
           background:${isTrueEnding?'#fff8e8':'#f8f8f8'};
@@ -268,6 +268,30 @@ function buildCardHTML(s) {
   const _ptype = _resolveProjectType();
   const contentHtml = _buildCardContentByType(s, _ptype);
 
+  /* BRANCH-CARD-REDESIGN-1: 그림책 지도형 카드에만 ··· 편집메뉴 버튼.
+     클릭 시 .scene-card.is-expanded 토글 → 기본 숨겨둔 편집 영역/포트/삭제 노출.
+     다른 모드(text/movie/experience)·표지엔 미표시(기존 카드 그대로). */
+  const moreBtn = (_ptype === 'picturebook' && s.type !== 'cover')
+    ? `<button class="card-more js-card-more" data-num="${s.num}" title="편집 메뉴" aria-label="편집 메뉴">⋯</button>`
+    : '';
+
+  /* BRANCH-CARD-REDESIGN-2: 원형 번호 배지 + 상태 배지(그림책 한정).
+     · pb: 번호만 원형 배지(장면 글자는 CSS로 숨김) + 시작/엔딩/진엔딩 상태 배지.
+     · 비-pb: 기존 "장면 N" + startBadge 그대로(무변경). */
+  const _isPbCard = (_ptype === 'picturebook' && s.type !== 'cover');
+  const _numInner = _isPbCard
+    ? `<span class="card-num-text">장면 </span><span class="card-num-only">${s.num}</span>`
+    : `장면 ${s.num}${starBadge}`;
+  const _statusBadge = !_isPbCard
+    ? startBadge
+    : isEntry
+      ? `<span class="card-state-badge card-state-badge--start">시작</span>`
+      : (s.type === 'ending' && s.trueEnding)
+        ? `<span class="card-state-badge card-state-badge--true">진엔딩 ★</span>`
+        : (s.type === 'ending')
+          ? `<span class="card-state-badge card-state-badge--ending">엔딩</span>`
+          : '';
+
   /* W7: roleBadges를 본체 위 별도 줄로 — 포스터/본문사용과 같은 .card-meta-row */
   const roleBadgeRow = roleBadges
     ? `<div class="card-meta-row card-meta-row--role">${roleBadges}</div>`
@@ -276,10 +300,11 @@ function buildCardHTML(s) {
   return `
     <div class="card-header">
       <span class="card-num-badge js-rename-btn" data-num="${s.num}"
-        title="번호 바꾸기">장면 ${s.num}${starBadge}</span>${startBadge}
+        title="번호 바꾸기">${_numInner}</span>${_statusBadge}
       <button class="card-edit-jump js-edit-jump" data-num="${s.num}"
         title="이 장면 다듬기">✎</button>
       <button class="card-delete js-delete-btn" data-num="${s.num}">✕</button>
+      ${moreBtn}
     </div>
     ${roleBadgeRow}
     ${contentHtml}
@@ -398,22 +423,28 @@ function _buildTextCardContent(s) {
    위계: 그림 썸네일 > 본문 미리보기 > 제목 > 선택지
    특징: 그림 썸네일 가장 위, 본문은 짧게(2줄), 제목은 보조 */
 function _buildPicturebookCardContent(s) {
-  /* W8: 하위 모드 배지 (분할형 / 그림 중심형) — 시안 의도 */
-  const sub = (s.picturebookSubmode === 'imageCenter') ? 'imageCenter' : 'split';
-  const subBadge = (sub === 'imageCenter')
-    ? `<span class="card-meta-badge card-meta-badge--pb-sub card-meta-badge--pb-full">🖼 그림 중심형</span>`
-    : `<span class="card-meta-badge card-meta-badge--pb-sub card-meta-badge--pb-split">🎨 분할형</span>`;
+  /* BRANCH-CARD-REDESIGN-1: 동화 지도형 그림책 카드.
+     · 그림(가장 큰 영역) + 본문 읽기전용 미리보기(최대 2줄)만 기본 노출.
+     · '그림 중심형' 배지 제거(그림책은 그림 중심형으로 통일됨).
+     · 편집 UI(본문 textarea / 일반·엔딩 토글 / 이미지 바꾸기·삭제 버튼)는
+       .pb-edit-zone으로 묶어 기본 숨김 → 카드 선택(···) 시에만 노출.
+     · 데이터·핸들러·포트(연결 dot) 구조 무변경. js-body-input 등 기존 셀렉터 유지. */
+  const _bodyTrim = (typeof s.body === 'string') ? s.body.trim() : '';
+  const _previewText = _bodyTrim
+    ? _escapeHtml(_bodyTrim)
+    : '이 장면의 내용을 적어보세요.';
+  const _emptyCls = _bodyTrim ? '' : ' pb-body-preview--empty';
   return `
     ${_buildImageAreaHtml(s)}
-    <div class="card-meta-row card-meta-row--picturebook">
-      ${subBadge}
-    </div>
-    <div class="card-body card-body--picturebook">
-      <textarea class="card-body-textarea js-body-input"
-        placeholder="장면 본문 (짧게)"
-        rows="2"
-        data-num="${s.num}">${_escapeHtml(s.body || '')}</textarea>
-      ${_buildTypeRowHtml(s)}
+    <div class="pb-body-preview${_emptyCls}" title="⋯을 눌러 이 장면을 수정할 수 있어요">${_previewText}</div>
+    <div class="pb-edit-zone">
+      <div class="card-body card-body--picturebook">
+        <textarea class="card-body-textarea js-body-input"
+          placeholder="장면 본문 (짧게)"
+          rows="2"
+          data-num="${s.num}">${_escapeHtml(s.body || '')}</textarea>
+        ${_buildTypeRowHtml(s)}
+      </div>
     </div>`;
 }
 
@@ -563,6 +594,19 @@ function _bodyPreviewHtml(s) {
   return `<div class="card-body-preview" title="본문은 다듬기 화면에서 수정해요">${_escapeHtml(body)}</div>`;
 }
 
+/* BRANCH-CARD-REDESIGN-3: 그림책 지도 카드의 펼침 textarea 현재값 → 접힌 미리보기 DOM 즉시 반영.
+   전체 renderCard/renderAll 없이 미리보기 텍스트만 갱신(입력 focus·캔버스 부분렌더 영향 없음).
+   scene.body는 updateBody가 이미 라이브 반영 — 여기선 표시 동기화만. 데이터/저장 경로 무변경. */
+function _pbSyncPreviewFromTextarea(cardEl) {
+  if (!cardEl) return;
+  const ta = cardEl.querySelector('.js-body-input');
+  const pv = cardEl.querySelector('.pb-body-preview');
+  if (!ta || !pv) return;
+  const v = (ta.value || '').trim();
+  if (v) { pv.textContent = v; pv.classList.remove('pb-body-preview--empty'); }
+  else   { pv.textContent = '이 장면의 내용을 적어보세요.'; pv.classList.add('pb-body-preview--empty'); }
+}
+
 /* ── 모드 배지 (모드 시스템 뼈대 1차) ──
    · scene.presentationMode 값을 작은 배지로 표시 (text/picturebook/movie/document)
    · 명시 설정된 경우만 표시 — null이면 배지 없음 (branch는 구조 설계기, 깔끔함 유지)
@@ -688,6 +732,30 @@ function bindCardEvents(el, s) {
       /* 항상 같은 창 이동 (ui.js _openInternalUrl). */
       if (typeof _openInternalUrl === 'function') _openInternalUrl(_vurl);
       else window.location.href = _vurl;
+    });
+
+  /* BRANCH-CARD-REDESIGN-3: ··· 편집메뉴 토글 — 펼침/접기 + 본문 저장·미리보기 동기화.
+     · 접을 때: textarea 현재값을 접힌 미리보기 DOM에 즉시 반영 + 기존 flushBodySaves로 pending save flush.
+     · 펼칠 때: 다른 펼친 카드를 먼저 저장·접기(한 번에 하나만 펼침) 후 이 카드 펼침.
+     · 입력 중에는 재렌더 안 함(updateBody가 scene.body 라이브 반영 + debounce). focus/cursor 유지. */
+  el.querySelector('.js-card-more')
+    ?.addEventListener('click', e => {
+      e.stopPropagation();
+      const willExpand = !el.classList.contains('is-expanded');
+      if (willExpand) {
+        document.querySelectorAll('.scene-card.pb-mapcard.is-expanded').forEach(other => {
+          if (other === el) return;
+          _pbSyncPreviewFromTextarea(other);
+          const on = other.id ? other.id.replace('card-', '') : '';
+          if (on && typeof flushBodySaves === 'function') flushBodySaves(on);
+          other.classList.remove('is-expanded');
+        });
+        el.classList.add('is-expanded');
+      } else {
+        _pbSyncPreviewFromTextarea(el);
+        if (typeof flushBodySaves === 'function') flushBodySaves(num);
+        el.classList.remove('is-expanded');
+      }
     });
 
   /* 진엔딩 체크박스 */
@@ -1019,7 +1087,9 @@ function renderCard(s) {
   ].filter(Boolean).join(' ');
 
   const el       = document.createElement('div');
-  el.className   = `scene-card type-${s.type}${roleClass ? ' ' + roleClass : ''}`;
+  /* BRANCH-CARD-REDESIGN-1: 그림책(비표지) 카드에 pb-mapcard 마커 — 동화 지도형 CSS 스코프. */
+  const _mapCls = (_resolveProjectType() === 'picturebook' && s.type !== 'cover') ? ' pb-mapcard' : '';
+  el.className   = `scene-card type-${s.type}${_mapCls}${roleClass ? ' ' + roleClass : ''}`;
   el.id          = `card-${s.num}`;
   el.style.cssText = `position:absolute;left:${s.x}px;top:${s.y}px;`;
 
@@ -1137,7 +1207,7 @@ function _finalizeArrowDraw() {
 
 function drawArrows() {
   const svg = document.getElementById('arrows');
-  svg.querySelectorAll('path.arrow, text.arrow-label, rect.arrow-label').forEach(el => el.remove());
+  svg.querySelectorAll('path.arrow, circle.arrow, text.arrow-label, rect.arrow-label').forEach(el => el.remove());
 
   /* W6: 체험전시형은 connectObjects[] 기반 화살표.
      다른 모드는 기존 buttons[] 흐름 그대로. */
@@ -1184,16 +1254,21 @@ function drawArrows() {
 
 /* 인덱스 기반 화살표 그리기 (W2-B-β) — A/B 외 N개 지원.
    6색 팔레트: A=파랑, B=빨강, C=초록, D=노랑, E=보라, F=주황 */
-const _PORT_COLORS = ['#4a90d9', '#ef476f', '#06a77d', '#f4a261', '#9b4dca', '#ff6b35'];
+/* BRANCH-CARD-REDESIGN-4: 저채도 파스텔 동화풍 팔레트(선/노드/마커 색). 순서별 구분 유지.
+   1 하늘색 · 2 코랄 · 3 세이지연두 · 4 라벤더 · 5 로즈 · 6 머스터드(이후 순환). */
+const _PORT_COLORS = ['#79b0d6', '#e5977f', '#86a86a', '#a98fcf', '#cf99b0', '#d6b06a'];
+/* 캡슐 글자 — 선보다 한 단계 진한 색(가독 대비) */
+const _PORT_TEXT   = ['#3f6f96', '#b56550', '#5a7a44', '#6f53a0', '#9a5f76', '#8a6a2e'];
 const _PORT_MARKERS = ['ahA', 'ahB', 'ahC', 'ahD', 'ahE', 'ahF'];
 
 function drawArrowForIndex(svg, s, idx, nextNum, labelText) {
   if (!nextNum || !scenes[nextNum]) return;
   const t = scenes[nextNum];
 
-  /* 시작 위치 — 인덱스별로 y 오프셋. A=120, B=140, C=160, ... */
+  /* 시작 위치 — 인덱스별 y 오프셋. BRANCH-CARD-REDESIGN-4: 분기 간격 20→32(캡슐 높이 23 > 기존 20이라 겹침).
+     rect/text/start dot/path 시작점 모두 이 y1 단일 기준 사용 → 동일 간격으로 분리. */
   const x1 = s.x + 200;
-  const y1 = s.y + 120 + (idx * 20);
+  const y1 = s.y + 116 + (idx * 32);
   const x2 = t.x;
   const y2 = t.y + 50;
   const cx = (x1 + x2) / 2;
@@ -1206,32 +1281,46 @@ function drawArrowForIndex(svg, s, idx, nextNum, labelText) {
   path.setAttribute('d', `M${x1},${y1} C${cx},${y1} ${cx},${y2} ${x2},${y2}`);
   path.setAttribute('fill', 'none');
   path.setAttribute('stroke', color);
-  path.setAttribute('stroke-width', '2');
+  path.setAttribute('stroke-width', '2.4');
+  path.setAttribute('stroke-linecap', 'round');
+  path.setAttribute('stroke-linejoin', 'round');
   path.setAttribute('marker-end', `url(#${markerId})`);
-  path.setAttribute('opacity', '0.85');
+  path.setAttribute('opacity', '0.8');
   svg.appendChild(path);
+
+  /* BRANCH-CARD-REDESIGN-2: 출발 연결점 — 작고 둥근 컬러 원 */
+  const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  dot.setAttribute('class', 'arrow arrow-start-dot');
+  dot.setAttribute('cx', x1); dot.setAttribute('cy', y1); dot.setAttribute('r', '3.4');
+  dot.setAttribute('fill', color); dot.setAttribute('opacity', '0.9');
+  svg.appendChild(dot);
 
   /* 라벨 표시 — 의미 있는 라벨만 */
   const label = String(labelText || '').trim();
   const portChar = String.fromCharCode(65 + idx);
   if (label && label !== portChar) {
-    const lx = x1 + 6, ly = y1 - 16;
-    const lw = Math.min(label.length * 8 + 8, 80), lh = 16;
+    /* BRANCH-CARD-REDESIGN-2: 더 크고 읽기 쉬운 캡슐(글자↑·패딩↑·최대폭↑·12자 허용). */
+    const _shown = label.length > 13 ? label.slice(0, 13) + '…' : label;
+    const lx = x1 + 8, ly = y1 - 22;
+    const lw = Math.min(_shown.length * 9 + 22, 138), lh = 23;
 
     const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
     bg.setAttribute('class', 'arrow-label');
     bg.setAttribute('x', lx);  bg.setAttribute('y', ly);
     bg.setAttribute('width', lw); bg.setAttribute('height', lh);
-    bg.setAttribute('rx', 3); bg.setAttribute('fill', '#fff');
-    bg.setAttribute('stroke', color); bg.setAttribute('stroke-width', '1');
+    bg.setAttribute('rx', 11.5); bg.setAttribute('ry', 11.5);
+    bg.setAttribute('fill', '#fffdf6');
+    bg.setAttribute('stroke', color); bg.setAttribute('stroke-width', '1.4');
     svg.appendChild(bg);
 
     const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
     txt.setAttribute('class', 'arrow-label');
-    txt.setAttribute('x', lx + 4); txt.setAttribute('y', ly + 12);
-    txt.setAttribute('font-size', '11');
-    txt.setAttribute('fill', color);
-    txt.textContent = label.length > 8 ? label.slice(0, 8) + '…' : label;
+    txt.setAttribute('x', lx + lw / 2); txt.setAttribute('y', ly + 15.5);
+    txt.setAttribute('text-anchor', 'middle');
+    txt.setAttribute('font-size', '12.5');
+    txt.setAttribute('font-weight', '600');
+    txt.setAttribute('fill', _PORT_TEXT[idx] || color);
+    txt.textContent = _shown;
     svg.appendChild(txt);
   }
 }

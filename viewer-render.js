@@ -1700,6 +1700,10 @@ function _renderStoryEnding(stage, scene) {
            ${_endHandlesHtml}
          </div>`
       : '';
+    /* PB-MOOD-1A: 엔딩 분위기(감정) — happy|sad만 부착, 없으면 미부착(현행 정본 엔딩 그대로).
+       imageCenter 엔딩 한정·그림 비침범(CSS는 바깥 무대 배경만 변경). */
+    const _endMood = (scene && (scene.pbEndingMood === 'happy' || scene.pbEndingMood === 'sad'))
+      ? scene.pbEndingMood : '';
     _stageReplaceScene(stage, `
       <div class="scene-screen scene-screen--pb scene-surface pb--imagecenter ending-as-pb ending-as-pb--ic${noImageClass}"
            data-scene-num="${escHtml(String(scene.id))}"
@@ -1707,6 +1711,7 @@ function _renderStoryEnding(stage, scene) {
            ${endStyleAttr}
            data-presentation-mode="picturebook"
            data-presentation-submode="imageCenter"
+           ${_endMood ? `data-ending-mood="${_endMood}"` : ''}
            data-ending="true">
         <div class="pb-page picturebook-page">
           <div class="pb-frame${_pbEndToneCls}">

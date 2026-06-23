@@ -354,6 +354,7 @@ async function saveSceneText(num, fields) {
        작품 단위(textCardStyle/textCardColor)는 viewer-meta에서 관리. */
     'pbCardTone',         /* 일반 장면 톤: default | bright | develop | tense | crisis */
     'pbEndingTone',       /* 엔딩 장면 마감톤: default | bright | afterglow */
+    'pbEndingMood',       /* PB-MOOD-1A: 엔딩 분위기(감정) happy | sad — imageCenter 엔딩 표시용(저장 UI는 1B) */
   ];
   const patch = {};
   ALLOWED.forEach(k => {
@@ -609,6 +610,13 @@ function adaptScenes(rawScenes) {
         raw.pbEndingTone === 'bright'  ||
         raw.pbEndingTone === 'afterglow'
       ) ? raw.pbEndingTone : null,
+
+      /* PB-MOOD-1A: 그림책 imageCenter 엔딩 분위기(감정). pbEndingTone(색마감톤)과 의미 축이
+         다른 독립 필드 — happy|sad만 인정, 그 외/없음=null → data-ending-mood 미부착 = 현행 정본 엔딩 그대로(회귀 0). */
+      pbEndingMood: (
+        raw.pbEndingMood === 'happy' ||
+        raw.pbEndingMood === 'sad'
+      ) ? raw.pbEndingMood : null,
 
       connectObjects:     _normalizeConnectObjects(raw.connectObjects) || [],
       textStyle:          _normalizeTextStyle(raw.textStyle),

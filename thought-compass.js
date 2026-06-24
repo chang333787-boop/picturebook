@@ -135,6 +135,66 @@
     };
   }
 
+  /* ── 완료 판정·이야기 seed(순수) ──
+     7개 핵심 답변(PRD G1~G7 / 요약 필드). "이야기를 만들면서 정할래요"(최소 답변)도 유효로 인정. */
+  const CORE_QUESTION_KEYS = ['audience', 'purpose', 'protagonist', 'goal', 'obstacle', 'branchChoice', 'protectedCore'];
+  const MINIMAL_ANSWER = '이야기를 만들면서 정할래요';
+
+  function _answerPresent(a) {
+    if (!a) return false;
+    if (typeof a === 'string') return a.trim().length > 0;
+    if (typeof a === 'object') {
+      if (typeof a.answerText === 'string' && a.answerText.trim().length > 0) return true;
+      /* 명시적 최소 답변/확정 상태도 유효(빈 답 아님, PRD UX-05) */
+      if (a.answerStatus === 'confirmed' || a.answerStatus === 'minimal') return true;
+    }
+    return false;
+  }
+  function _answerText(a) {
+    if (!a) return '';
+    if (typeof a === 'string') return a;
+    if (typeof a === 'object' && typeof a.answerText === 'string') return a.answerText;
+    return '';
+  }
+
+  function validateThoughtCompassCompletion(state) {
+    const s = normalizeThoughtCompassState(state);
+    const answers = s.answers || {};
+    const missing = [];
+    for (const k of CORE_QUESTION_KEYS) if (!_answerPresent(answers[k])) missing.push(k);
+    return { valid: missing.length === 0, missing: missing };
+  }
+
+  /* 완료 plan — 7문항 충족 시에만 completed. (실제 question UI는 후속 Phase) */
+  function planCompleteIfValid(ctx, state) {
+    const v = validateThoughtCompassCompletion(state);
+    if (!v.valid) return { ok: false, missing: v.missing };
+    return { ok: true, plan: planMarkCompleted(ctx, state) };
+  }
+
+  /* 완료 답변 → 기본 이야기 seed(자동 생성 아님 — 안내/힌트용). follow-up 수와 무관. */
+  function buildStorySeedFromAnswers(state) {
+    const s = normalizeThoughtCompassState(state);
+    const a = s.answers || {};
+    return {
+      projectType: s.projectType,
+      titleHint: _answerText(a.audience),
+      protagonistHint: _answerText(a.protagonist),
+      settingHint: _answerText(a.purpose),
+      conflictHint: _answerText(a.obstacle),
+      endingDirectionHint: _answerText(a.protectedCore),
+      recommendedSceneCount: 10,
+    };
+  }
+
+  /* 기본 장면 생성 허용 여부(원본 보존): text/picturebook + 기존 scenes 없을 때만. movie/experience 금지. */
+  function canGenerateDefaultScenes(ctx) {
+    ctx = ctx || {};
+    if (!_isType(ctx.projectType)) return false;
+    if (ctx.hasExistingScenes === true) return false;
+    return true;
+  }
+
   /* ── 진입 게이트 결정(순수) ──
      반환: 'thoughtCompassRequired' | 'editableMaker'. (tutorial/readOnly는 후속 Phase) */
   const ACCESS = { COMPASS_REQUIRED: 'thoughtCompassRequired', EDITABLE_MAKER: 'editableMaker' };
@@ -254,8 +314,9 @@
   }
 
   return {
-    VERSION, STATUS, MODES, COMPASS_TYPES, SERVER_TS, ACCESS,
+    VERSION, STATUS, MODES, COMPASS_TYPES, SERVER_TS, ACCESS, CORE_QUESTION_KEYS, MINIMAL_ANSWER,
     resolveProjectAccessState, describeGate, resolveResumePoint,
+    validateThoughtCompassCompletion, planCompleteIfValid, buildStorySeedFromAnswers, canGenerateDefaultScenes,
     planMarkStarted, planSaveProgress, planMarkCompleted, planResetCompassOnly, planCopyResetOnboarding,
     getDefaultThoughtCompassState,
     normalizeThoughtCompassState,

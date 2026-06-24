@@ -2344,6 +2344,14 @@ exports.callThoughtCompassFollowUp = onCall(
       return { decision: 'NEXT', reasonCode: 'SUFFICIENT', acknowledgement: '', followUpQuestion: '', supportOptions: [], capped: true };
     }
 
+    /* Phase N — 에뮬레이터 전용 AI stub. 운영 미적용: FUNCTIONS_EMULATOR(에뮬레이터에서만 set) +
+       TC_FOLLOWUP_STUB=1 동시 충족 시에만. 실 Anthropic 미호출(키 불필요·비용 0). 결과도 동일 validator 통과. */
+    if (process.env.FUNCTIONS_EMULATOR === 'true' && process.env.TC_FOLLOWUP_STUB === '1') {
+      const stub = TCFollowUp.stubDecision(input);
+      const sv = TCFollowUp.validateFollowUpResponse(stub);
+      return Object.assign({}, sv.ok ? sv.value : TCFollowUp.followUpFallback(input.coreQuestionId), { stub: true });
+    }
+
     /* 10. AI 호출 + 검증 (1회 재시도) → 실패 시 fallback(무조건 NEXT 아님) */
     const userMsg = TCFollowUp.buildFollowUpUserMessage(input);
     let lastErr = null;

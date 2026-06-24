@@ -143,6 +143,19 @@ test('fallback — 그 외 질문은 NEXT 안전 통과', () => {
   assert.equal(r.reasonCode, 'SUFFICIENT');
 });
 
+/* ── 에뮬레이터 stub(Phase N) ── */
+test('stubDecision — 빈 답 → ASK_EASIER, 짧은 답 → ASK_FOLLOW_UP, 충분 → NEXT (모두 validator 통과)', () => {
+  const empty = TC.stubDecision({ currentAnswer: '' });
+  assert.equal(empty.decision, 'ASK_EASIER');
+  assert.equal(TC.validateFollowUpResponse(empty).ok, true);
+  const vague = TC.stubDecision({ currentAnswer: '응' });
+  assert.equal(vague.decision, 'ASK_FOLLOW_UP');
+  assert.equal(TC.validateFollowUpResponse(vague).ok, true);
+  const ok = TC.stubDecision({ currentAnswer: '말하는 고양이' });
+  assert.equal(ok.decision, 'NEXT');
+  assert.equal(TC.validateFollowUpResponse(ok).ok, true);
+});
+
 /* ── user message ── */
 test('user message — PII 없음 + 핵심 맥락 포함', () => {
   const msg = TC.buildFollowUpUserMessage(TC.validateFollowUpInput(baseInput({ currentAnswer: '말하는 고양이', priorSummaries: [{ key: 'audience', text: '가족' }] })).value);

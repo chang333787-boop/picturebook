@@ -155,8 +155,22 @@ function buildFollowUpUserMessage(input) {
   return lines.join('\n');
 }
 
+/* 에뮬레이터 전용 결정 stub(실 API 미호출, 결정적) — Phase N 수동 QA용.
+   index.js가 FUNCTIONS_EMULATOR + TC_FOLLOWUP_STUB 환경에서만 사용(운영 코드 경로 아님). */
+function stubDecision(input) {
+  const a = (input && typeof input.currentAnswer === 'string') ? input.currentAnswer.trim() : '';
+  if (a.length === 0) {
+    return { decision: 'ASK_EASIER', reasonCode: 'STUDENT_STUCK', acknowledgement: '괜찮아요. 천천히 골라봐요.', followUpQuestion: '둘 중 무엇이 더 가까운가요?', supportOptions: ['이게 더 가까워요', '저게 더 가까워요'] };
+  }
+  if (a.length < 4) {
+    return { decision: 'ASK_FOLLOW_UP', reasonCode: 'TOO_VAGUE', acknowledgement: '좋아요. 조금 더 들려줄래요?', followUpQuestion: '조금 더 자세히 말해 줄래요?', supportOptions: [] };
+  }
+  return { decision: 'NEXT', reasonCode: 'SUFFICIENT', acknowledgement: '좋아요. 잘 정했어요.', followUpQuestion: '', supportOptions: [] };
+}
+
 module.exports = {
   DECISIONS, REASON_CODES, CORE_QUESTION_KEYS, PROJECT_TYPES,
+  stubDecision,
   MAX_FOLLOWUPS, MAX_TOTAL, MIN_TOTAL, MAX_ANSWER_LEN, MAX_FOLLOWUP_Q_LEN,
   BANNED_ACK_WORDS, BANNED_OUTPUT_KEYS, FORBIDDEN_INPUT_KEYS, QUESTION_BRIEF,
   validateFollowUpInput, shouldForceNext, validateFollowUpResponse, followUpFallback, buildFollowUpUserMessage,

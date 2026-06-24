@@ -150,6 +150,20 @@
     return ACCESS.EDITABLE_MAKER;
   }
 
+  /* 중단·이어하기(순수) — RTDB가 정본(localStorage 정본 아님). 복원 지점 계산.
+     반환 action: 'fresh'(미시작) | 'resume'(진행 중) | 'completed'(완료, 이어서 미표시). */
+  function resolveResumePoint(state) {
+    const s = normalizeThoughtCompassState(state);
+    if (s.status === STATUS.COMPLETED && typeof s.completedAt === 'number') {
+      return { action: 'completed', questionIndex: s.currentQuestionIndex, answers: s.answers, followUps: s.followUps };
+    }
+    if (s.status === STATUS.IN_PROGRESS) {
+      /* currentQuestionIndex가 깨졌으면 normalize가 0 이상으로 보정한 값 사용(그룹 공유 answers 유지). */
+      return { action: 'resume', questionIndex: s.currentQuestionIndex, answers: s.answers, followUps: s.followUps };
+    }
+    return { action: 'fresh', questionIndex: 0, answers: {}, followUps: [] };
+  }
+
   /* 게이트 화면 뷰 기술자(순수) — UI가 이걸 렌더만. 강제 신규=닫기/건너뛰기 없음, optional=나중에 가능. */
   function describeGate(ctx) {
     ctx = ctx || {};
@@ -241,7 +255,7 @@
 
   return {
     VERSION, STATUS, MODES, COMPASS_TYPES, SERVER_TS, ACCESS,
-    resolveProjectAccessState, describeGate,
+    resolveProjectAccessState, describeGate, resolveResumePoint,
     planMarkStarted, planSaveProgress, planMarkCompleted, planResetCompassOnly, planCopyResetOnboarding,
     getDefaultThoughtCompassState,
     normalizeThoughtCompassState,

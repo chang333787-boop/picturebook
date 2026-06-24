@@ -41,7 +41,7 @@ viewer-edit.js · viewer-render.js · viewer-ai.js · viewer-data.js · ui.js ·
 - **C. 테마 변경 시 글자 크기 처리**: 테마 reset(viewer-edit.js:6003)이 `textTheme`만 지우고 `fontSize` 유지 → 테마 바꿔도 크기 유지. 의도(크기 보존)인지 테마 기본 복귀인지 = 크기 정책 결정.
 
 ## 4. 재현 필요(풀앱 E2E·blind 수정 금지) — 후속 보정 대상
-프롬프트 규칙상 재현 전 코드 변경 안 함. 다음은 maker+viewer+emulator+fixture(scenes/variants)로 재현 후 최소 수정 권장:
+프롬프트 규칙상 재현 전 코드 변경 안 함. 다음은 maker+viewer+emulator+fixture(scenes/variants)로 재현 후 최소 수정 권장. **→ 이번 세션 정적 재판정은 §8.2 참조(AI-1은 코드상 해결 확인, N-1/N-2는 서버측 게이트, AI-2는 보고).**
 - **N-1 [P1] 삭제 장면의 aiVariants orphan**: `removeSceneFromFirebase`(firebase.js:964)가 `scenes/{num}`만 제거, `aiVariants/text/{sceneId}` 미제거 → 같은 num 새 장면 생성 시 stale variant 오염 가능. (데이터 정합 버그·정책 아님 → 재현 후 수정 적합)
 - **N-2 [P2] copyScene key 정규화**: `redeemCopyCode`(firebase.js:1160) src→dst 복사 시 key(string/numeric) 정규화 없음·aiVariants 별도 노드 → sceneId 불일치 가능.
 - **AI-1 [P1] viewMode 전환 시 contenteditable/drag 핸들 DOM 재생성**: 편집 중 전환 시 포커스/리스너 stale(데이터는 버퍼 보존, UX 거슬림).
@@ -61,9 +61,24 @@ viewer-edit.js · viewer-render.js · viewer-ai.js · viewer-data.js · ui.js ·
 
 ### F-2 [확정·코드변경 없음] 주아 '쫒/쫓' glyph 커버리지 누락
 - 64px 확대 스크린샷에서 '가나꽃닭삶앉읽'은 균일 주아체이나 '쫓'·'쫒'만 다른 서체 → **Jua 폰트 자체가 해당 음절 미포함 → fallback** 확정(maker/viewer 동일·로딩 버그 아님).
-- `--font-jua` stack에 이미 일관 fallback('Apple SD Gothic Neo','Malgun Gothic',sans-serif) 존재 → 폰트 교체(프롬프트 금지) 없이는 추가 개선 불가. **알려진 Jua 한계로 문서화**(별도 승인 없이 변경 안 함).
+- `--font-jua` stack에 이미 일관 fallback('Apple SD Gothic Neo','Malgun Gothic',sans-serif) 존재. 원인은 **Jua 폰트 자체의 glyph 누락**으로 fallback 발생(로딩/스택 버그 아님). 현재 범위에서는 **문서화·보류** — 폰트 교체 또는 별도 안내(예: 해당 글자 입력 시 알림)는 **추후 제품 결정** 사항(이번 루프에서 변경 안 함). "추가 개선 불가"가 아니라 "현 범위 보류".
 
 ## 7. 다음 단계 제안
-1. 사용자 승인: 3-A(폰트 피커 10종 정렬) → 즉시 적용 가능한 최우선 사용자 체감 버그.
-2. 3-B/3-C 정책 결정.
-3. 4의 N-1/AI-1 등 풀앱 emulator E2E 재현 → 최소 수정 → 회귀.
+1. ~~폰트 피커 10종 정렬~~ — **폐기**. 사용자 결정 = "8종 실제 로드"(§6.5 F-1 완료). 피커 **18종 전부 로드 상태**이며 10종 트림 대안은 채택 안 함. (이 항목의 옛 "10종 정렬" 권장은 무효.)
+2. 3-B(variant별 말풍선/스타일 독립)·3-C(테마↔글자크기) 정책 결정 — **미결(보류)**.
+3. §4 후속 버그 — §8.2 재판정 참조(AI-1 해결·N-1/N-2 서버측·AI-2 보고).
+
+## 8. POLISH-AUTH-FIX — maker→다듬기 permission_denied (이번 세션, commit `91ce521`)
+
+### 8.1 인증 P1 (수정 완료)
+- **증상**: maker에서 다듬기(`viewer.html?edit=1&from=maker`) 진입 시 비공개(v2) 작품 `permission_denied`.
+- **원인**: viewer.html은 firebase.js(default app)를 로드하지 않고 viewer-data.js가 named `'viewer'` app에서 **별도 익명 로그인** → maker(default app 익명 UID, `members/{uid}/status='active'`)와 **다른 UID** → v2 scenes Rules(`isPublic || 멤버 active || teacher_uid || super_admin`)에서 거부. (firebaseConfig는 maker/viewer 동일·setPersistence 없음 → 기본 LOCAL.)
+- **수정(A안)**: 편집 세션(`edit=1&from=maker`)에서는 **default app 사용** → 같은 origin·[DEFAULT]·apiKey라 persisted maker UID가 복원됨. `loadTeamData`는 복원 대기 후 읽고, 복원 실패 시 **새 익명 로그인 금지** + 안전 안내 + 만들기 화면 복귀 버튼. 공개/일반 감상은 named 'viewer' app + 익명 흐름 그대로(byte-unchanged·편집 코드는 편집 세션에서만 실행).
+- **파일**: viewer-data.js(isEditViewerSession/getViewerApp/_awaitMakerAuth/게이트/export)·viewer-edit.js·viewer-ai.js·viewer-locks.js(앱 getter 통일+편집 세션 익명 가드)·viewer-entry.js(복귀 버튼)·viewer.html(cachebuster). **Rules·firebase.json·functions 무변경.**
+- **검증**: node --check 5/5·polish-auth 단위 10/10·compass 189·membership 20·precommit 통과. Rules 재현/회귀는 기존 `tests/rules/database.rules.test.js`(비member 거부/member 허용/공개 보존)가 커버. ⚠ **Rules 에뮬레이터는 환경에 Java 부재로 미실행(NOT_RUN)** — rules 파일 무변경이라 base와 동일하게 유효. ⚠ **실 브라우저 maker→다듬기 E2E는 미수행(NOT_VERIFIED)**.
+
+### 8.2 후속 버그 정적 재판정 (§4)
+- **N-1 [확정·서버측]**: `removeSceneFromFirebase`(firebase.js:964)는 `scenes/{num}`만 제거(dbRef=scenes), `aiVariants/text/{sid}` 잔존 → num 재사용 시 stale variant 오염. **진짜 버그가 맞으나** `aiVariants` Rules가 `.write:false`(클라 write/delete 불가)라 **클라이언트 수정 불가** → 서버(Admin SDK/콜러블)에서 삭제하거나 적용 시 freshness 검증 필요. functions deploy·Rules 변경 금지 루프이므로 **서버 작업으로 이관**.
+- **AI-1 [재현 안 됨·해결됨]**: contenteditable 편집은 `aiViewMode==='original'`일 때만 허용(viewer-render.js:515/650/1216). variant 전환(`_setAiViewMode`, viewer-ai.js:2352)은 **변경 전에 `_flushPendingSave()` 호출**(2356-2359)하고 original 복귀 시 리스너 재바인딩 → 데이터 유실/리스너 stale 코드상 방어됨. **코드 결함 없음**(라이브 UX 점검은 권장).
+- **N-2 [서버측·라이브 필요]**: copy는 `redeemCopyCode` 콜러블(서버) 경유 + aiVariants `.write:false` → 클라 키 정규화 무관. 실제 영향은 서버 복사 로직·라이브 재현 필요 → **이관**.
+- **AI-2 [확정·보고]**: `_loadFirebaseTextVariants`는 `.once()` 1회 preload + 메모리 캐시(팀 변경 시만 무효화), **라이브 리스너 없음** → 타 기기 저장은 새로고침/재진입 전까지 미반영. 단 동시 같은-팀 편집은 advisory-lock(viewer-locks.js)이 차단. force-refresh는 perf/제품 영향 → **제품 결정 보고**(임의 수정 안 함).

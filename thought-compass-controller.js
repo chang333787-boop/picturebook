@@ -134,8 +134,12 @@
     btn.className = 'tc-optional-entry-btn';
     btn.textContent = '🧭 ' + desc.label;
     btn.addEventListener('click', function () {
-      const UI = _UI(); const Gate = _Gate();
-      if (desc.action === 'review' && UI && typeof UI.openReview === 'function') { UI.openReview(ctx, normalizedState); return; }
+      const Gate = _Gate();
+      /* 완료본 다시 보기(read-only) — Phase L */
+      if (desc.action === 'review' && window.ThoughtCompassReview && typeof window.ThoughtCompassReview.openReadOnly === 'function') {
+        window.ThoughtCompassReview.openReadOnly(ctx); return;
+      }
+      /* 시작/이어서 — 게이트 흐름 */
       if (Gate) Gate.maybeBlock(Object.assign({}, ctx, { compassState: normalizedState }), _defaultGateCallbacks(ctx, normalizedState));
     });
     host.appendChild(btn);

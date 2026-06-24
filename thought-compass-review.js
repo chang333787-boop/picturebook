@@ -24,7 +24,21 @@
   function _remove() { const o = document.getElementById(OVERLAY_ID); if (o && o.parentNode) o.parentNode.removeChild(o); }
 
   function open(ctx, vm, followUps) {
-    R = { ctx: ctx, vm: vm, followUps: Array.isArray(followUps) ? followUps : [], busy: false, error: null };
+    R = { ctx: ctx, vm: vm, followUps: Array.isArray(followUps) ? followUps : [], busy: false, error: null, readOnly: false };
+    _render();
+  }
+
+  /* 완료된 생각 나침반 '다시 보기'(Phase L, D-17) — read-only. 원본 보존(D-16): 고치기/완료 없음.
+     메모(다듬기 전용 300자, UX-15) + 브랜치/다듬기 서랍(WIRE-13/14)은 후속 단계로 보류. */
+  async function openReadOnly(ctx) {
+    const Store = _Store(), Q = _Q();
+    let state = null;
+    if (Store && typeof Store.loadThoughtCompassStateResult === 'function') {
+      try { const r = await Store.loadThoughtCompassStateResult(ctx); state = r && r.raw; } catch (e) { state = null; }
+    }
+    state = state || {};
+    const vm = { questions: Q ? Q.getCoreQuestions() : [], answers: (state.answers && typeof state.answers === 'object') ? state.answers : {} };
+    R = { ctx: ctx, vm: vm, followUps: Array.isArray(state.followUps) ? state.followUps : [], busy: false, error: null, readOnly: true };
     _render();
   }
 
@@ -39,10 +53,10 @@
     overlay.setAttribute('aria-label', '생각 나침반 최종 확인');
     const card = _el('div', 'tc-flow-card tc-review-card');
 
-    const t = _el('h2', 'tc-flow-title', '생각 나침반을 만들 준비가 되었어요'); t.id = 'tc-review-title';
+    const t = _el('h2', 'tc-flow-title', R.readOnly ? '내 생각 나침반' : '생각 나침반을 만들 준비가 되었어요'); t.id = 'tc-review-title';
     card.appendChild(t);
     overlay.setAttribute('aria-labelledby', 'tc-review-title');
-    card.appendChild(_el('p', 'tc-flow-help', '정한 내용을 살펴보고, 고치고 싶은 게 있으면 “고치기”를 눌러요.'));
+    card.appendChild(_el('p', 'tc-flow-help', R.readOnly ? '우리가 정한 이야기 방향이에요.' : '정한 내용을 살펴보고, 고치고 싶은 게 있으면 “고치기”를 눌러요.'));
 
     const list = _el('div', 'tc-review-list');
     const questions = Q ? Q.getCoreQuestions() : R.vm.questions;
@@ -62,10 +76,12 @@
         sub.appendChild(_el('div', 'tc-review-fa', (f.answer || '')));
         item.appendChild(sub);
       });
-      const edit = _el('button', 'tc-review-edit', '고치기');
-      edit.type = 'button';
-      edit.addEventListener('click', function () { _editQuestion(idx); });
-      item.appendChild(edit);
+      if (!R.readOnly) {
+        const edit = _el('button', 'tc-review-edit', '고치기');
+        edit.type = 'button';
+        edit.addEventListener('click', function () { _editQuestion(idx); });
+        item.appendChild(edit);
+      }
       list.appendChild(item);
     });
     card.appendChild(list);
@@ -79,11 +95,18 @@
 
     const nav = _el('div', 'tc-flow-nav');
     nav.appendChild(_el('span', 'tc-flow-nav-spacer'));
-    const done = _el('button', 'tc-flow-next', '이 생각으로 시작하기');
-    done.type = 'button';
-    done.disabled = R.busy;
-    done.addEventListener('click', function () { _complete(); });
-    nav.appendChild(done);
+    if (R.readOnly) {
+      const closeBtn = _el('button', 'tc-flow-next', '닫기');
+      closeBtn.type = 'button';
+      closeBtn.addEventListener('click', function () { close(); });
+      nav.appendChild(closeBtn);
+    } else {
+      const done = _el('button', 'tc-flow-next', '이 생각으로 시작하기');
+      done.type = 'button';
+      done.disabled = R.busy;
+      done.addEventListener('click', function () { _complete(); });
+      nav.appendChild(done);
+    }
     card.appendChild(nav);
 
     overlay.appendChild(card);
@@ -145,5 +168,5 @@
 
   function close() { _remove(); R = null; }
 
-  window.ThoughtCompassReview = { open: open, close: close, _render: _render };
+  window.ThoughtCompassReview = { open: open, openReadOnly: openReadOnly, close: close, _render: _render };
 })();

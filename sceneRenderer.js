@@ -279,18 +279,24 @@ function buildCardHTML(s) {
      · pb: 번호만 원형 배지(장면 글자는 CSS로 숨김) + 시작/엔딩/진엔딩 상태 배지.
      · 비-pb: 기존 "장면 N" + startBadge 그대로(무변경). */
   const _isPbCard = (_ptype === 'picturebook' && s.type !== 'cover');
-  const _numInner = _isPbCard
-    ? `<span class="card-num-text">장면 </span><span class="card-num-only">${s.num}</span>`
-    : `장면 ${s.num}${starBadge}`;
-  const _statusBadge = !_isPbCard
-    ? startBadge
-    : isEntry
-      ? `<span class="card-state-badge card-state-badge--start">시작</span>`
-      : (s.type === 'ending' && s.trueEnding)
-        ? `<span class="card-state-badge card-state-badge--true">진엔딩 ★</span>`
-        : (s.type === 'ending')
-          ? `<span class="card-state-badge card-state-badge--ending">엔딩</span>`
-          : '';
+  /* BRANCH-COVER-CARD-REDESIGN: 표지는 장면 번호 없이 📖 마커 + '표지' 배지(동화 지도 통일·구분 유지). */
+  const _isCoverPb = (_ptype === 'picturebook' && s.type === 'cover');
+  const _numInner = _isCoverPb
+    ? `<span class="card-cover-mark" aria-hidden="true">📖</span>`
+    : _isPbCard
+      ? `<span class="card-num-text">장면 </span><span class="card-num-only">${s.num}</span>`
+      : `장면 ${s.num}${starBadge}`;
+  const _statusBadge = _isCoverPb
+    ? `<span class="card-state-badge card-state-badge--cover">표지</span>`
+    : !_isPbCard
+      ? startBadge
+      : isEntry
+        ? `<span class="card-state-badge card-state-badge--start">시작</span>`
+        : (s.type === 'ending' && s.trueEnding)
+          ? `<span class="card-state-badge card-state-badge--true">진엔딩 ★</span>`
+          : (s.type === 'ending')
+            ? `<span class="card-state-badge card-state-badge--ending">엔딩</span>`
+            : '';
 
   /* W7: roleBadges를 본체 위 별도 줄로 — 포스터/본문사용과 같은 .card-meta-row */
   const roleBadgeRow = roleBadges
@@ -303,7 +309,7 @@ function buildCardHTML(s) {
         title="번호 바꾸기">${_numInner}</span>${_statusBadge}
       <button class="card-edit-jump js-edit-jump" data-num="${s.num}"
         title="이 장면 다듬기">✎</button>
-      <button class="card-delete js-delete-btn" data-num="${s.num}">✕</button>
+      ${_isCoverPb ? '' : `<button class="card-delete js-delete-btn" data-num="${s.num}">✕</button>`}
       ${moreBtn}
     </div>
     ${roleBadgeRow}
@@ -635,7 +641,13 @@ function bindCardEvents(el, s) {
 
   /* 삭제 */
   el.querySelector('.js-delete-btn')
-    ?.addEventListener('click', () => deleteScene(num));
+    ?.addEventListener('click', () => {
+      /* BRANCH-COVER-CARD-FINAL-QA: 그림책 표지는 삭제 차단(버튼 미렌더 + 핸들러 가드 이중 방어).
+         ui.js deleteScene엔 cover 가드가 없어 호출 경로에서 막음. text/movie 표지는 무영향. */
+      const _s = scenes[num];
+      if (_s && _s.type === 'cover' && _resolveProjectType() === 'picturebook') return;
+      deleteScene(num);
+    });
 
   /* 제목 input — 한 줄 input 태그 (단계 2부터 textarea 아님). 이벤트는 동일 정책 */
   const titleInput = el.querySelector('.js-title-input');
@@ -1088,7 +1100,10 @@ function renderCard(s) {
 
   const el       = document.createElement('div');
   /* BRANCH-CARD-REDESIGN-1: 그림책(비표지) 카드에 pb-mapcard 마커 — 동화 지도형 CSS 스코프. */
-  const _mapCls = (_resolveProjectType() === 'picturebook' && s.type !== 'cover') ? ' pb-mapcard' : '';
+  const _pt4 = _resolveProjectType();
+  const _mapCls = (_pt4 === 'picturebook' && s.type !== 'cover') ? ' pb-mapcard'
+                : (_pt4 === 'picturebook' && s.type === 'cover') ? ' pb-cover'  /* BRANCH-COVER-CARD-REDESIGN: 그림책 표지만 스코프(text/movie 표지 불변) */
+                : '';
   el.className   = `scene-card type-${s.type}${_mapCls}${roleClass ? ' ' + roleClass : ''}`;
   el.id          = `card-${s.num}`;
   el.style.cssText = `position:absolute;left:${s.x}px;top:${s.y}px;`;

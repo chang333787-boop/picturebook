@@ -980,61 +980,71 @@
     .scene-card.type-ending{border-color:var(--ending); background:#fffaf5;}
     .scene-card.type-normal{border-color:rgba(80,50,20,0.14);}
     /* v37: 표지 카드 — 보라 톤, 다른 장면과 시각 구분 */
+    /* 표지 카드 — 기본(text/movie 등 비-그림책): 기존 보라 톤 유지(불변) */
     .scene-card.type-cover {
       border-color: #9b6dca;
       background: #f7f0ff;
       box-shadow: 0 0 0 3px rgba(155,109,202,0.10), 0 4px 16px var(--shadow);
     }
-    .type-cover .card-num-badge {
-      background: #9b6dca;
-    }
+    .type-cover .card-num-badge { background: #9b6dca; }
     .card-body--cover {
-      padding: 10px 12px 14px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
+      padding: 10px 12px 14px; display: flex; flex-direction: column; gap: 8px;
     }
     .cover-card-label {
-      text-align: center;
-      font-size: 12px;
-      color: #6a3eb0;
-      font-family: 'Jua', sans-serif;
-      letter-spacing: 0.04em;
-      margin-bottom: 4px;
+      text-align: center; font-size: 12px; color: #6a3eb0;
+      font-family: 'Jua', sans-serif; letter-spacing: 0.04em; margin-bottom: 4px;
     }
     .card-title-input--cover {
-      width: 100%;
-      padding: 8px 10px;
-      border: 1.5px solid rgba(120,90,50,0.18);
-      border-radius: 8px;
-      font-family: 'Jua', sans-serif;
-      font-size: 14px;
-      font-weight: 600;
-      background: #fff;
-      color: var(--text, #2b1f10);
-      text-align: center;
+      width: 100%; padding: 8px 10px;
+      border: 1.5px solid rgba(120,90,50,0.18); border-radius: 8px;
+      font-family: 'Jua', sans-serif; font-size: 14px; font-weight: 600;
+      background: #fff; color: var(--text, #2b1f10); text-align: center;
     }
-    .card-title-input--cover:focus {
-      outline: none;
-      border-color: #9b6dca;
-      box-shadow: 0 0 0 2px rgba(155,109,202,0.20);
-    }
+    .card-title-input--cover:focus { outline: none; border-color: #9b6dca; box-shadow: 0 0 0 2px rgba(155,109,202,0.20); }
     .card-subtitle-input {
-      width: 100%;
-      padding: 6px 10px;
-      border: 1px solid rgba(120,90,50,0.14);
-      border-radius: 6px;
-      font-family: 'Nanum Gothic', sans-serif;
-      font-size: 12px;
-      background: #fff;
-      color: var(--muted, #6b5638);
-      text-align: center;
+      width: 100%; padding: 6px 10px;
+      border: 1px solid rgba(120,90,50,0.14); border-radius: 6px;
+      font-family: 'Nanum Gothic', sans-serif; font-size: 12px;
+      background: #fff; color: var(--muted, #6b5638); text-align: center;
     }
-    .card-subtitle-input:focus {
-      outline: none;
-      border-color: #9b6dca;
-      box-shadow: 0 0 0 2px rgba(155,109,202,0.15);
+    .card-subtitle-input:focus { outline: none; border-color: #9b6dca; box-shadow: 0 0 0 2px rgba(155,109,202,0.15); }
+
+    /* ════════ BRANCH-COVER-CARD-REDESIGN: 그림책 표지(.pb-cover)만 동화 지도형으로 통일 ════════
+       강한 보라 폐기 → 아이보리 종이 + 라벤더 악센트. 장면 카드와 같은 세계. 구분=📖+표지 배지·제목 우선.
+       text/movie 표지(.type-cover만, .pb-cover 없음)는 위 보라 그대로. 데이터/저장/연결 무변경. */
+    .scene-card.pb-cover {
+      border:2px solid #ddd1ea; border-top:4px solid #b9a3da;
+      background:#fdf9f0; border-radius:18px;
+      box-shadow:0 4px 14px rgba(120,90,40,0.14);
     }
+    .scene-card.pb-cover.is-current{ box-shadow:0 0 0 3px rgba(150,121,201,0.26),0 9px 24px rgba(120,90,40,0.18); }
+    .pb-cover .card-header{ padding:5px 9px 0; gap:4px; align-items:center; min-height:0; }
+    .pb-cover .card-num-badge{
+      background:#efe9f8; color:#6a4fa0; width:auto; min-width:0;
+      border-radius:50px; padding:3px 8px; font-size:14px; box-shadow:none;
+      display:inline-flex; align-items:center; line-height:1;
+    }
+    .pb-cover .card-state-badge--cover{ color:#6a4fa0; background:#f3edfb; border:1px solid #cdbce8; }
+    .pb-cover .cover-card-label{ display:none; }
+    .pb-cover .card-body--cover{ padding:7px 11px 10px; gap:7px; }
+    .pb-cover .card-title-input--cover{
+      box-sizing:border-box; padding:6px 9px;
+      border:1.5px solid rgba(150,121,201,0.22); border-radius:9px;
+      font-size:16px; font-weight:700; background:#fffdf8;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    }
+    .pb-cover .card-title-input--cover::placeholder{ color:#b6a079; font-weight:600; }
+    .pb-cover .card-subtitle-input{
+      box-sizing:border-box; padding:5px 9px; border-radius:7px; background:#fffdf8;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    }
+    .pb-cover .card-subtitle-input::placeholder{ color:#b6a079; }
+    .pb-cover .port-row--cover-fixed{ padding:2px 8px 4px; }
+    .pb-cover .port-label-fixed{
+      border:1.5px solid #9cc3df; border-radius:50px;
+      background:#eaf4fb; color:#3f6f96; font-weight:700; cursor:default; padding:4px 12px;
+    }
+    .pb-cover .port-dot{ background:#79b0d6 !important; }
     .cover-theme-row {
       display: flex;
       align-items: center;
@@ -3131,7 +3141,7 @@
 <script src="locks.js?v=96"></script>
 <script src="firebase.js?v=141admin1cbase10a"></script>
 <script src="canvasInteraction.js?v=120"></script>
-<script src="sceneRenderer.js?v=119base10bbase10auto1coverstart1scenetitle1ascenetitle2apwanav2vpreturn1perfqa1branchcard1branchcard2branchcard3branchcard4"></script>
+<script src="sceneRenderer.js?v=119base10bbase10auto1coverstart1scenetitle1ascenetitle2apwanav2vpreturn1perfqa1branchcard1branchcard2branchcard3branchcard4cover1cover2"></script>
 <script src="storyAnalyzer.js?v=136checkbuttons1heuristic3"></script>
 <script src="mediaManager.js?v=114copyfix1"></script>
 <script src="adminConsole.js?v=103copyfix1pwanav2"></script>

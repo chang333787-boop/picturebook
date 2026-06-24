@@ -65,7 +65,7 @@
     const followUps = Array.isArray(rp.followUps) ? rp.followUps.slice() : [];
     S = { ctx: ctx, vm: vm, busy: false, draftTimer: null, error: null,
           followUps: followUps, followUpsUsed: followUps.length, followUp: null, aiBusy: false,
-          editMode: false, onEditComplete: null };
+          editMode: false, onEditComplete: null, customMode: null };
     _render();
   }
 
@@ -74,7 +74,7 @@
     const Flow = _Flow();
     S = { ctx: ctx, vm: Flow.goToIndex(vm, index), busy: false, draftTimer: null, error: null,
           followUps: [], followUpsUsed: 0, followUp: null, aiBusy: false,
-          editMode: true, onEditComplete: (typeof onComplete === 'function') ? onComplete : null };
+          editMode: true, onEditComplete: (typeof onComplete === 'function') ? onComplete : null, customMode: null };
     _render();
   }
 
@@ -87,8 +87,9 @@
     const prog = Flow.progress(S.vm);
     const ans = Flow.currentAnswer(S.vm);
     const selectedChoiceId = ans && ans.choiceId ? ans.choiceId : null;
-    const isCustom = !!(ans && ans.answerText && !selectedChoiceId && !(ans.deferred));
-    const customText = isCustom ? ans.answerText : '';
+    /* 직접 적기 표시 = 이번 질문에서 직접 적기 모드를 켰거나(빈 입력 포함), 복원된 custom 답(텍스트 있음·선택지 아님). */
+    const isCustom = (S.customMode === q.id) || !!(ans && ans.answerText && !selectedChoiceId && !(ans.deferred));
+    const customText = (ans && ans.answerText && !selectedChoiceId && !ans.deferred) ? ans.answerText : '';
     const isDeferred = !!(ans && ans.deferred);
     const assistPrompt = Flow.assistancePrompt(S.vm);
 
@@ -205,12 +206,15 @@
 
   function _onChoice(choiceId) {
     S.error = null;
+    S.customMode = null;     /* 선택지 고르면 직접 적기 모드 해제 */
     S.vm = _Flow().setChoiceAnswer(S.vm, choiceId);
     _render();
   }
   function _onCustomActivate() {
     S.error = null;
-    /* 직접 적기 카드 활성화 — 빈 draft로 전환(선택지 해제). */
+    /* 직접 적기 카드 활성화 — 이 질문에 대해 입력 모드 ON(빈 입력이라도 textarea 노출). */
+    const q = _Flow().currentQuestion(S.vm);
+    S.customMode = q ? q.id : null;
     S.vm = _Flow().setCustomAnswer(S.vm, '', { draft: true });
     _render();
     const ta = document.querySelector('.tc-flow-custom-input');
@@ -236,6 +240,7 @@
   function _onUnsure() {
     /* Phase F: 첫 클릭 → 쉬운 안내(같은 보기 유지), 그 다음 클릭 → 최소 유예 답변(빈 답 아님). */
     S.error = null;
+    S.customMode = null;     /* 모르겠어요 흐름에서는 직접 적기 입력창 닫음 */
     const r = _Flow().handleUnsure(S.vm);
     S.vm = r.vm;
     _render();

@@ -156,6 +156,9 @@
     const mode = TC.resolveThoughtCompassMode({ projectType: ctx.projectType, onboardingVersion: load.onboardingVersion, copiedFrom: ctx.copiedFrom });
     const st = TC.normalizeThoughtCompassState(load.raw);
     st.mode = mode;
+    /* ★ describeGate/describeOptionalEntryButton가 mode를 재계산하므로, 로드한 onboardingVersion을
+       ctx에 실어 넘긴다(없으면 maybeBlock이 optional로 오판해 게이트가 안 뜨는 버그). */
+    const ectx = Object.assign({}, ctx, { onboardingVersion: load.onboardingVersion });
     const cs = resolveControllerState({
       loadError: !load.ok,
       mode: mode,
@@ -163,7 +166,7 @@
       hasCompletedAt: typeof st.completedAt === 'number',
       requiredHint: opts.requiredHint === true || !!ctx.copiedFrom,
     });
-    return _applyControllerState(cs, ctx, st);
+    return _applyControllerState(cs, ectx, st);
   }
 
   /* 신규 작품(pb/text) — onboardingVersion:1 부여(required 트리거) 후 게이트. starter 장면 생성은 완료(Phase J)로 미룸. */

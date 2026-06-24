@@ -1,0 +1,47 @@
+# 생각 나침반 Phase 1 — QA 실행 결과 (Emulator E2E)
+
+> branch `feature/thought-compass-phase1` HEAD `f86a8f3`. Firebase Emulator(Auth/Functions/Database, JRE 21) + 로컬 HTTP + 실제 compass 모듈 + 가상 fixture(classQa)로 E2E 수행. main 미병합·운영 미배포·운영 DB 미사용.
+
+## 1. 환경
+- JRE: Temurin **21.0.11**(`~/.local/jdk/jdk-21.0.11+10-jre/Contents/Home`).
+- Emulator: functions 5001 / database 9000 / auth 9099, project `demo-branch`, `TC_FOLLOWUP_STUB=1`(AI stub·실 Anthropic 미호출). firebase.json에 emulators 블록은 QA 중 임시 추가 후 **되돌림**(feature clean).
+- 인증: 익명 sign-in. membership/팀 fixture는 emulator REST(admin bearer)로 시드(ns `demo-branch`, functions admin과 정합).
+
+## 2. 발견·수정한 버그 (P1×4 · P2×1)
+| # | 심각도 | 증상 | 원인 | 수정 | 커밋 |
+|---|--------|------|------|------|------|
+| 1 | P1 | 신규 그림책/텍스트에서 **게이트가 안 뜸**(controller는 requiredNotStarted인데 오버레이 미표시) | `describeGate`가 mode를 ctx로 재계산하는데 `onboardingVersion`이 ctx에 없어 optional로 오판 | `_enterGateFlow`가 load한 onboardingVersion을 ectx에 실어 전달 | b067454 |
+| 2 | P1 | "직접 적을래요" 클릭 시 **입력창(textarea) 미노출** → 직접 입력 불가 | `isCustom`이 `answerText`(빈값)에만 의존 | 질문별 `customMode=q.id` 추가 | b067454 |
+| 3 | P1 | **답변 데이터 손실** — 7문항 답해도 RTDB에 1개만 저장(새로고침 시 유실) | `update.answers={qid:..}` + RTDB `.update()`가 answers 노드 통째 교체 | deep-path 키 `answers/<qid>`로 child 병합 | b067454 |
+| 4 | P1 | **복사본 required 미작동** — copiedFrom 복사본이 optional로 판정 | controller가 `viewer-meta/copiedFrom`을 안 읽음 | store가 copiedFrom 로드 + mode/requiredHint/ectx 반영 | 0d17535 |
+| 5 | P2 | **완료 후 editSession 미정리**(3분 만료까지 잔존) | release transaction이 첫 실행 로컬캐시 null에서 undefined 반환→abort | once(server read) 후 내 세션이면 set(null) | f86a8f3 |
+
+각 수정은 재현→수정→재검증(아래 §3)으로 확인. 회귀 테스트 갱신(persistence/state) 포함.
+
+## 3. E2E 통과 항목 (실제 emulator)
+- **Rules Emulator 3회 38/38·0 fail**(member/teacher/비member/비로그인 × writingGuide/onboarding/editSession read·write, members 직접 write 거부, 학급 격리). editSession **write 허용**(member, Phase K) 등 4테스트 보강.
+- **신규 그림책 E2E**: 게이트 노출(required·닫기 없음)·완료 전 BASE10 미생성·onboardingVersion=1·시작 시 editSession 트랜잭션·7문항 진행(실 callable 경유)·검토 7항목·완료(status=completed·completedAt)·**answerCount=7**(deep-path 병합 검증)·BASE10 10장면(표지→2…9→10·엔딩 버튼0)·idempotent.
+- **신규 텍스트 E2E**: 동일 흐름 통과(text required·완료·BASE10).
+- **작품 유형 매트릭스**: 기존 optional(진입 버튼)·copy required(게이트)·완료 복사본 완료 우선(다시 보기)·movie 제외(게이트/버튼 없음).
+- **AI 4분기**(callable+stub): NEXT·ASK_FOLLOW_UP·ASK_EASIER·상한(followUpCount 5→NEXT capped). 입력 거부(movie/projectType, 금지필드), 비member permission-denied. **callable 실패 시 클라 null→NEXT 안전 진행** 확인. origin 미허용(QA 포트)→permission-denied(운영은 github.io 허용).
+- **후속질문 UI**: 실 ASK_FOLLOW_UP → 후속 화면 렌더·답변 후 다음 핵심 질문 복귀.
+- **모르겠어요**: 1회 안내 배너, 2회 유예 답변("이야기를 만들면서 정할래요") 저장·완료 인정.
+- **editSession**: acquire(empty→editor)·타인 fresh→readonly·타인 stale→이어받기·release 내 세션만 제거·타인 세션 보존.
+- **수명주기**: clearAll(scenes만 비움)→나침반 보존(PRE-01)·작품 삭제→나침반 제거(RETENTION-01).
+- **반응형(390px)**: 선택지 54px·모르겠어요 44px·카드 358px(뷰포트 내)·한국어 keep-all 줄바꿈.
+
+## 4. 자동 회귀(최종, 모든 수정 후)
+- node --test compass: **189 pass / 0 fail**(16파일). membership: **20 pass**.
+- node --check: compass 11 + functions 3 통과. JSON 유효. precommit 통과.
+- Rules Emulator 3회 38/38.
+- 원본 PB-MOOD 5파일 `cmp` 동일(shasum `e95ac358…`) 보존.
+
+## 5. 한계 / NOT_VERIFIED
+- **2-user editSession 동시경쟁**: 단일 익명 세션으로 같은 uid takeover만 검증(멱등). 서로 다른 uid 경쟁은 RTDB transaction 원자성에 의존(이론 보장).
+- **클라이언트 rules 적용**: E2E의 기본 ns에서 클라 write가 rules 미적용(에뮬레이터 ns/rules 바인딩 아티팩트). 클라 경로 rules는 **Rules Emulator(default ns) 38테스트가 권위 검증** — 제품 버그 아님.
+- **실 Anthropic 응답**: stub만 검증(운영은 ANTHROPIC_API_KEY 실호출). 실 maker.html 전체 join 흐름은 미구동(compass 모듈+store+callable를 emulator에 직접 연결해 검증).
+- **iPad/Android 실기기 터치**·실운영 데이터 흐름.
+- 의도적 미완료(롤아웃 §7): AI 최종요약·다듬기 메모·서랍·read-only 실시간 미러·튜토리얼·교사 UI·복사 onboarding 초기화 호출.
+
+## 6. 최종 판정: READY_FOR_MAIN_MERGE_APPROVAL
+emulator E2E·자동 회귀·rules·PB-MOOD 전부 통과. 실기기/실 Anthropic 확인은 운영 배포 전 권장(stub로 로직 검증 완료). 배포 순서는 rollout_plan §3.

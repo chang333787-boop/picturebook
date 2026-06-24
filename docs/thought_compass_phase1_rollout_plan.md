@@ -19,7 +19,17 @@
 | 8b4fc78 | Add completed compass review entry (Phase L) |
 | aab8e85 | Add thought compass phase one manual QA package (Phase N) |
 
-26파일 변경(+3048/-6). 신규 클라 모듈 11(thought-compass-*.js + .css), functions 2(followup 모듈·prompt), 테스트 8, 문서 3, 통합 수정 3(ui.js·firebase.js·maker.html).
+신규 클라 모듈 11(thought-compass-*.js + .css), functions 2(followup 모듈·prompt), 테스트 8, 문서 3, 통합 수정 3(ui.js·firebase.js·maker.html).
+
+### QA 루프 추가 커밋 (구현 12 + QA 5 = 총 17, HEAD `f86a8f3`)
+| commit | 내용 |
+|--------|------|
+| e2794a6 | Verify thought compass security paths (rules editSession write 등 테스트 보강) |
+| b067454 | Fix gate display, custom input, answer persistence (P1×3) |
+| 0d17535 | Honor copiedFrom for copy-required gate (P1) |
+| f86a8f3 | Fix edit session release not clearing session (P2) |
+
+> Emulator E2E에서 P1 4건·P2 1건을 발견·수정. 상세는 `docs/thought_compass_phase1_qa_results.md`.
 
 ## 2. ⚠️ main Pages 자동 배포 위험 (가장 중요)
 - GitHub Pages source = **main / (legacy)**. **main에 push/merge하는 즉시 운영(chang333787-boop.github.io/picturebook)에 반영**된다.
@@ -73,14 +83,14 @@
 - Rules: 변경 없음 → 롤백 대상 없음.
 - 데이터: migration 없음 → 정리 대상 없음(테스트 중 생성된 demo 노드만).
 
-## 9. 자동 QA 결과(이 환경)
-- node --test tests/thought-compass/*.test.js: **189 pass / 0 fail** (15파일)
-- node --test tests/membership-login: **20 pass**
-- node --check: compass 11 + functions 3 모두 통과
-- precommit-check.js 통과 · database.rules.json/firebase.json JSON 유효
+## 9. QA 결과(Emulator E2E 완료 — 상세 `qa_results.md`)
+- node --test compass: **189 pass / 0 fail**(16파일) · membership: **20 pass**
+- node --check: compass 11 + functions 3 통과 · precommit 통과 · JSON 유효
 - functions: 7 callable(기존 6 + 신규 1) 정상 export
-- **rules emulator: NOT_RUN(Java 미설치)** — Java 환경에서 실행 필요
-- 원본 PB-MOOD 5파일: `cmp` 동일(shasum `e95ac358…`) **보존**
+- **Rules Emulator(JRE 21) 3회 38/38·0 fail** — editSession/writingGuide/onboarding member·teacher RW, 비member·비로그인 거부, members 직접 write 거부, 학급 격리. (이전 보고의 "Java 미설치 NOT_RUN"은 **해소**: JRE 21 복구·실행.)
+- **Emulator E2E**: 신규 그림책/텍스트 게이트·완료·BASE10·answers 7 보존, copy required, movie 제외, AI 4분기(stub), 모르겠어요 유예, editSession acquire/readonly/takeover/release, clearAll 보존, 반응형. **이 과정에서 P1×4·P2×1 발견·수정**(§1 QA 커밋).
+- 원본 PB-MOOD 5파일: `cmp` 동일(shasum `e95ac358…`) **보존**.
 
 ## 10. 최종 상태
-feature branch에 12 커밋 push 완료. **main 병합·Firebase 배포·Pages 활성 안 함.** 승인 후 §3 순서로 배포.
+feature branch에 **17 커밋** push 완료(HEAD `f86a8f3`). **main 병합·Firebase 배포·Pages 활성 안 함.** 승인 후 §3 순서로 배포.
+판정: **READY_FOR_MAIN_MERGE_APPROVAL** — emulator E2E·자동회귀·rules·PB-MOOD 통과. 실기기·실 Anthropic은 배포 전 권장(stub로 로직 검증 완료).

@@ -73,13 +73,22 @@
 24. 공개 viewer(감상) 회귀: 정상
 25. 학생 로그인(membership) 회귀: 정상
 
-## 4. 자동 QA 현황(이 환경 기준)
+## 4. 자동 QA 현황(이 환경 기준 — QA 루프에서 실행 완료)
 - node --check: compass 클라 11 + functions 3 = 통과
-- node --test tests/thought-compass/*.test.js: 통과(189)
+- node --test tests/thought-compass/*.test.js: 통과(**189**)
 - node --test tests/membership-login/*.test.js: 통과(20)
 - precommit-check.js: 통과 / database.rules.json·firebase.json: JSON 유효
-- **rules emulator 테스트: 이 환경 Java 미설치로 NOT_RUN**(파일 node --check 통과·compass.test.js 보유). Java 환경에서 §1.4로 실행.
+- **Rules Emulator(JRE 21, `~/.local/jdk/jdk-21.0.11+10-jre/Contents/Home`): 3회 38/38·0 fail** — editSession write 등 보강 4 포함.
+- **Emulator E2E 실행 완료** — 게이트·신규/기존/copy·AI 4분기·모르겠어요·editSession·수명주기·반응형. P1×4·P2×1 발견·수정(상세 `qa_results.md`).
 - 원본 PB-MOOD 5파일: cmp 동일(shasum `e95ac358…`) 보존.
+
+### JRE 경로(에뮬레이터)
+```
+export JAVA_HOME="$HOME/.local/jdk/jdk-21.0.11+10-jre/Contents/Home"
+export PATH="$JAVA_HOME/bin:$PATH"
+```
+> ⚠ rules 테스트와 functions/database Emulator는 같은 포트(9000 등)를 쓰므로 **동시 실행 금지**(하나 종료 후 다른 하나).
+> functions Emulator E2E: firebase.json에 emulators 블록(auth 9099 등) 임시 추가 필요(QA 후 되돌릴 것 — 운영 배포엔 불요).
 
 ## 5. NOT_VERIFIED(실기기/실백엔드 필요 — 위 체크리스트로 확인)
 - 실제 게이트 차단·membership write·editSession transaction 경쟁·heartbeat 만료·실 Anthropic 응답.

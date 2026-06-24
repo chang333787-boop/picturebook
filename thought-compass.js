@@ -136,6 +136,7 @@
       onboardingVersion: `${base}/onboarding/version`,
       editSession: `${base}/editSession`,
       members: `${base}/members`,
+      copiedFrom: `${base}/viewer-meta/copiedFrom`,   /* 복사본 required 판정(PRE-02) */
     };
   }
 

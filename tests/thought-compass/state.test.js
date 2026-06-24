@@ -80,4 +80,6 @@ test('buildThoughtCompassPaths — onboarding/version 경로(viewer-meta 아님)
   assert.equal(p.onboardingVersion, 'classes/C1/teams/2%EB%AA%A8%EB%91%A0/onboarding/version');
   assert.equal(p.preWriting, 'classes/C1/teams/2%EB%AA%A8%EB%91%A0/writingGuide/preWriting');
   assert.ok(!p.onboardingVersion.includes('viewer-meta'));
+  /* 복사본 required 판정용 copiedFrom 경로(PRE-02) */
+  assert.equal(p.copiedFrom, 'classes/C1/teams/2%EB%AA%A8%EB%91%A0/viewer-meta/copiedFrom');
 });

@@ -55,13 +55,14 @@
     const paths = TC.buildThoughtCompassPaths(ctx);
     if (!paths) return { ok: false, raw: null, onboardingVersion: null };
     try {
-      const [pw, ov] = await Promise.all([
+      const [pw, ov, cf] = await Promise.all([
         db.ref(paths.preWriting).once('value'),
         db.ref(paths.onboardingVersion).once('value'),
+        db.ref(paths.copiedFrom).once('value'),   /* 복사본 required 판정(PRE-02) */
       ]);
-      return { ok: true, raw: pw.val(), onboardingVersion: ov.val() };
+      return { ok: true, raw: pw.val(), onboardingVersion: ov.val(), copiedFrom: cf.val() };
     } catch (e) {
-      return { ok: false, raw: null, onboardingVersion: null };
+      return { ok: false, raw: null, onboardingVersion: null, copiedFrom: null };
     }
   }
 

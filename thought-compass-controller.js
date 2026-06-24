@@ -153,18 +153,20 @@
     let load;
     try { load = await Store.loadThoughtCompassStateResult(ctx); }
     catch (e) { load = { ok: false, raw: null, onboardingVersion: null }; }
-    const mode = TC.resolveThoughtCompassMode({ projectType: ctx.projectType, onboardingVersion: load.onboardingVersion, copiedFrom: ctx.copiedFrom });
+    /* copiedFrom은 RTDB(viewer-meta)에서 로드 — 복사본 required 판정(PRE-02). ctx 우선. */
+    const copiedFrom = ctx.copiedFrom || load.copiedFrom || null;
+    const mode = TC.resolveThoughtCompassMode({ projectType: ctx.projectType, onboardingVersion: load.onboardingVersion, copiedFrom: copiedFrom });
     const st = TC.normalizeThoughtCompassState(load.raw);
     st.mode = mode;
-    /* ★ describeGate/describeOptionalEntryButton가 mode를 재계산하므로, 로드한 onboardingVersion을
+    /* ★ describeGate/describeOptionalEntryButton가 mode를 재계산하므로, 로드한 onboardingVersion·copiedFrom을
        ctx에 실어 넘긴다(없으면 maybeBlock이 optional로 오판해 게이트가 안 뜨는 버그). */
-    const ectx = Object.assign({}, ctx, { onboardingVersion: load.onboardingVersion });
+    const ectx = Object.assign({}, ctx, { onboardingVersion: load.onboardingVersion, copiedFrom: copiedFrom });
     const cs = resolveControllerState({
       loadError: !load.ok,
       mode: mode,
       status: st.status,
       hasCompletedAt: typeof st.completedAt === 'number',
-      requiredHint: opts.requiredHint === true || !!ctx.copiedFrom,
+      requiredHint: opts.requiredHint === true || !!copiedFrom,
     });
     return _applyControllerState(cs, ectx, st);
   }

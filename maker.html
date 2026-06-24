@@ -3167,7 +3167,13 @@
 <script src="locks.js?v=96"></script>
 <!-- SEC-4: 학생 로그인 핵심 로직(순수 모듈). firebase.js보다 먼저 로드 -->
 <script src="membership-login.js?v=memberlogin1"></script>
-<script src="firebase.js?v=141admin1cbase10amemberlogin1sec5"></script>
+<!-- THOUGHT-COMPASS (생각 나침반) Phase 1 — feature branch 전용. foundation→질문→store→controller→gate 순. firebase.js보다 먼저 로드(런타임 참조 안전). -->
+<script src="thought-compass.js?v=tcphase1d"></script>
+<script src="thought-compass-questions.js?v=tcphase1d"></script>
+<script src="thought-compass-store.js?v=tcphase1d"></script>
+<script src="thought-compass-controller.js?v=tcphase1d"></script>
+<script src="thought-compass-gate.js?v=tcphase1d"></script>
+<script src="firebase.js?v=141admin1cbase10amemberlogin1sec5tcphase1d"></script>
 <script src="canvasInteraction.js?v=120"></script>
 <script src="sceneRenderer.js?v=119base10bbase10auto1coverstart1scenetitle1ascenetitle2apwanav2vpreturn1perfqa1branchcard1branchcard2branchcard3branchcard4cover1cover2cover3"></script>
 <script src="storyAnalyzer.js?v=136checkbuttons1heuristic3"></script>
@@ -3175,7 +3181,7 @@
 <script src="adminConsole.js?v=103copyfix1pwanav2"></script>
 <script src="preview.js?v=96"></script>
 <script src="projectSettings.js?v=114copyfix1coverstart2"></script>
-<script src="ui.js?v=109copyfix2c2base10bfixendingguard1addscene1base10auto1branchtopbar1cscenetitle1asessionrefresh1apwanav2homenav1vpreturn1sec5"></script>
+<script src="ui.js?v=109copyfix2c2base10bfixendingguard1addscene1base10auto1branchtopbar1cscenetitle1asessionrefresh1apwanav2homenav1vpreturn1sec5tcphase1d"></script>
 <!-- v95: 모바일 텍스트형 브랜치 전용 (텍스트 작품 + 모바일에서만 활성) -->
 <script src="mobileTextBranch.js?v=115wintab3abase10posbase10auto1ttheme1refineia2markers2"></script>
 

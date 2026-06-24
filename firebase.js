@@ -579,6 +579,13 @@ function _enterTeam(val, teamRef, opts) {
        projectType 누락된 옛 작품 또는 신규 작품은 기존대로 ptype-screen 노출. */
     if (opts.skipPtypeScreenIfExisting && existing) {
       if (typeof _maker_hideLoading === 'function') _maker_hideLoading();
+      /* THOUGHT-COMPASS Phase D: resume 경유 기존 작품 — 진행 중이면 이어서 게이트(차단),
+         미시작 optional이면 진입 버튼, 완료/none이면 통과. fire-and-forget(게이트 오버레이가 차단 담당). */
+      if ((existing === 'text' || existing === 'picturebook')
+          && window.ThoughtCompassController && typeof window.ThoughtCompassController.activateForExistingEntry === 'function'
+          && typeof classId === 'string' && classId && typeof teamName === 'string' && teamName) {
+        try { window.ThoughtCompassController.activateForExistingEntry({ classId: classId, teamName: teamName, projectType: existing }); } catch (_) { /* noop */ }
+      }
       return;
     }
     if (typeof showPtypeScreen === 'function') showPtypeScreen(existing);

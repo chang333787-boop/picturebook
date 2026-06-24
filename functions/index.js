@@ -2101,6 +2101,158 @@ async function _logUsageStats(ctx, ai, costUsd) {
 }
 
 /* ════════════════════════════════════════════════════════════════
+   SEC-01 — joinTeamMembership
+   생각 나침반 editSession 단일 편집권한의 기반: 학생 익명 uid ↔ 팀 소속을
+   "서버에서 PIN을 검증"해 증명하고 classes/{classId}/teams/{enc}/members/{uid}에
+   최소 membership을 기록한다. members write는 이 Admin SDK 경로(Rules 우회)로만 가능 →
+   client는 직접 members를 만들 수 없다(Rules .write:false). PIN 원문은 응답·로그·오류에
+   절대 포함하지 않는다. (PIN 경로 .read 잠금은 별도 Security Phase — 현재 client 호환 유지)
+   ════════════════════════════════════════════════════════════════ */
+const MEMBERSHIP_VERSION = 1;
+const MEMBERSHIP_RL_WINDOW_MS = 60 * 1000;   /* 1분 창 */
+const MEMBERSHIP_RL_MAX = 5;                 /* 1분 5회 (E2 — 영구 차단 없음) */
+
+function _isPlainPin(v) {
+  return typeof v === 'string' && /^[0-9]{4,12}$/.test(v);
+}
+/* RTDB key 금지문자(. # $ / [ ]) 및 길이 차단 — classId 등 경로 세그먼트 안전성 */
+function _isSafeIdSegment(v, maxLen) {
+  return typeof v === 'string' && v.length >= 1 && v.length <= maxLen && !/[.#$/[\]]/.test(v);
+}
+
+exports.joinTeamMembership = onCall(
+  { enforceAppCheck: false },
+  async (req) => {
+    /* 1. auth (익명이라도 필수) */
+    if (!req.auth || !req.auth.uid) {
+      throw new HttpsError('unauthenticated', '로그인이 필요해요.');
+    }
+    const uid = req.auth.uid;
+    const provider = (req.auth.token && req.auth.token.firebase &&
+      req.auth.token.firebase.sign_in_provider) || 'anonymous';
+
+    /* 3. origin (가지 도메인만) */
+    const origin = (req.rawRequest && req.rawRequest.headers && req.rawRequest.headers.origin) || '';
+    if (!isOriginAllowed(origin)) {
+      logger.warn('[membership] origin 거부', { uid, origin });
+      throw new HttpsError('permission-denied', '허용되지 않은 요청이에요.');
+    }
+
+    /* 4. payload 엄격 검증 — 객체 외/배열/null/추가필드/prototype pollution 차단 */
+    const data = req.data;
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      throw new HttpsError('invalid-argument', '요청 형식이 올바르지 않아요.');
+    }
+    const ALLOWED = ['classId', 'teamName', 'pin'];
+    for (const k of Object.keys(data)) {
+      if (!ALLOWED.includes(k)) {
+        throw new HttpsError('invalid-argument', '요청에 허용되지 않은 항목이 있어요.');
+      }
+    }
+    const classId = data.classId;
+    const teamName = data.teamName;
+    const pin = data.pin;
+    if (!_isSafeIdSegment(classId, 64)) {
+      throw new HttpsError('invalid-argument', '학급 정보가 올바르지 않아요.');
+    }
+    if (typeof teamName !== 'string' || teamName.length < 1 || teamName.length > 60) {
+      throw new HttpsError('invalid-argument', '모둠 정보가 올바르지 않아요.');
+    }
+    if (!_isPlainPin(pin)) {
+      throw new HttpsError('invalid-argument', '비밀번호 형식이 올바르지 않아요.');
+    }
+
+    /* 5. rate limit — auth.uid 기준 1분 5회. 단순 창 카운터(영구 차단 없음). */
+    const rlRef = admin.database().ref(`membership-attempts/${uid}`);
+    const nowMs = Date.now();   /* CF 서버 프로세스 시각 */
+    let overLimit = false;
+    /* transaction으로 원자 증가 — 경쟁 호출에서 카운터 유실 방지.
+       성공/실패 모두 카운트(성공이라고 즉시 리셋하지 않음). 창(1분) 만료 시에만 0으로. */
+    await rlRef.transaction((cur) => {
+      cur = cur || {};
+      let count = (typeof cur.count === 'number') ? cur.count : 0;
+      let windowStart = (typeof cur.windowStart === 'number') ? cur.windowStart : 0;
+      if (nowMs - windowStart > MEMBERSHIP_RL_WINDOW_MS) { count = 0; windowStart = nowMs; }
+      if (count >= MEMBERSHIP_RL_MAX) { overLimit = true; return; /* abort — write 없음 */ }
+      return { count: count + 1, windowStart, lastAt: nowMs };
+    });
+    if (overLimit) {
+      throw new HttpsError('resource-exhausted', '잠시 후 다시 시도해 주세요.');
+    }
+
+    /* 6~7. 서버가 정본 규칙으로 encode 후 팀 생성 모드별 PIN을 Admin SDK로 검증(Rules 우회).
+       client _joinTeamV2/_resumeTeamFromSession의 3모드 로직과 동일 — PIN 검증의 정본이 서버로 이동.
+       통합 외부 메시지(팀/학급 존재 여부 비노출). PIN 값은 절대 로그/오류에 포함 금지. */
+    const enc = encodeURIComponent(teamName);
+    const teamBase = `classes/${classId}/teams/${enc}`;
+    const adb = admin.database();
+    const GENERIC_DENY = '학급 코드, 모둠 정보 또는 비밀번호를 다시 확인해 주세요.';
+
+    /* teamCreationMode — 없음/오류/알 수 없는 값 → legacy_open 폴백(client와 동일). */
+    let mode = 'legacy_open';
+    try {
+      const mv = (await adb.ref(`classes/${classId}/settings/teamCreationMode`).once('value')).val();
+      if (mv === 'teacher_managed' || mv === 'locked' || mv === 'legacy_open') mode = mv;
+    } catch (e) { mode = 'legacy_open'; }
+
+    if (mode === 'locked') {
+      throw new HttpsError('permission-denied', '지금은 선생님이 입장을 잠시 닫아 두었어요.');
+    }
+
+    if (mode === 'teacher_managed') {
+      /* 교사 등록 account만 입장 — account.pin 검증, 자동 팀 생성/자가등록 금지. */
+      let account = null;
+      try { account = (await adb.ref(`${teamBase}/account`).once('value')).val(); }
+      catch (e) {
+        logger.error('[membership] account read 실패', { uid, error: e && e.message });
+        throw new HttpsError('internal', '잠시 후 다시 시도해 주세요.');
+      }
+      if (!account || account.status === 'locked' || String(account.pin) !== String(pin)) {
+        logger.warn('[membership] teacher_managed 검증 실패', { uid, classId, hadAccount: !!account });
+        throw new HttpsError('permission-denied', GENERIC_DENY);
+      }
+    } else {
+      /* legacy_open — pin 비교. 없으면 첫 학생이 설정(자가 등록, 기존 client 동작 보존). */
+      let savedPin = null;
+      try { savedPin = (await adb.ref(`${teamBase}/pin`).once('value')).val(); }
+      catch (e) {
+        logger.error('[membership] pin read 실패', { uid, error: e && e.message });
+        throw new HttpsError('internal', '잠시 후 다시 시도해 주세요.');
+      }
+      if (savedPin === null) {
+        try { await adb.ref(`${teamBase}/pin`).set(pin); }
+        catch (e) {
+          logger.error('[membership] pin 자가등록 실패', { uid, error: e && e.message });
+          throw new HttpsError('internal', '잠시 후 다시 시도해 주세요.');
+        }
+      } else if (String(savedPin) !== String(pin)) {
+        logger.warn('[membership] legacy 검증 실패', { uid, classId });
+        throw new HttpsError('permission-denied', GENERIC_DENY);
+      }
+    }
+
+    /* 8. members write — joinedAt 보존, lastVerifiedAt 갱신. 개인정보(이름/PIN/기기) 미저장. */
+    const memRef = admin.database().ref(`${teamBase}/members/${uid}`);
+    const existed = (await memRef.once('value')).val();
+    await memRef.set({
+      joinedAt: (existed && typeof existed.joinedAt === 'number')
+        ? existed.joinedAt : admin.database.ServerValue.TIMESTAMP,
+      lastVerifiedAt: admin.database.ServerValue.TIMESTAMP,
+      authType: (provider === 'anonymous') ? 'anonymous' : 'auth',
+      status: 'active',
+      membershipVersion: MEMBERSHIP_VERSION,
+    });
+
+    /* 성공해도 시도 카운터를 즉시 리셋하지 않음(창 만료 방식 유지 — 공격자가 1회 성공으로
+       rate-limit을 무력화하지 못하게). 1분 창이 지나면 자연 리셋. */
+    logger.info('[membership] 발급', { uid, classId });
+
+    /* 9. 최소 응답 — 팀 존재/PIN 세부 비노출 */
+    return { ok: true, membershipVersion: MEMBERSHIP_VERSION };
+  }
+);
+
+/* ════════════════════════════════════════════════════════════════
    helper export (step3 박을 때 박을 거)
    ════════════════════════════════════════════════════════════════ */
 exports._internal = {
@@ -2152,4 +2304,8 @@ exports._internal = {
   _sanitizeFbKeySegment,
   _computeImageBasedHash,
   _planImageS1Skeleton,
+  /* SEC-01 — membership 입력 검증 (순수 함수, node 단독 테스트용) */
+  _isPlainPin,
+  _isSafeIdSegment,
+  MEMBERSHIP_VERSION,
 };

@@ -33,7 +33,7 @@
     overlay.setAttribute('role', 'dialog');
     overlay.setAttribute('aria-modal', 'true');
     /* 강제 신규: 배경 클릭/ESC로 닫히지 않음. blockMakerClick=true면 전체 덮음. */
-    overlay.style.cssText = 'position:fixed;inset:0;z-index:1300;display:flex;align-items:center;justify-content:center;background:rgba(40,32,20,.55);';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;background:rgba(40,32,20,.55);';
 
     const card = _el('div', 'tc-gate-card');
     card.style.cssText = 'max-width:420px;width:calc(100% - 32px);background:#fffdf8;border-radius:16px;padding:28px 24px;text-align:center;box-shadow:0 12px 40px rgba(60,40,10,.25);';

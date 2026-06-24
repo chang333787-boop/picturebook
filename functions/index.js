@@ -36,7 +36,9 @@ const { setGlobalOptions } = require('firebase-functions/v2');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
 const Anthropic = require('@anthropic-ai/sdk');
-const { TEXT_S1_SYSTEM_PROMPT, TEXT_S2_SYSTEM_PROMPT, WORK_CHECK_SYSTEM_PROMPT, buildUserMessage, buildUserMessageS2Chunk } = require('./prompts');
+const { TEXT_S1_SYSTEM_PROMPT, TEXT_S2_SYSTEM_PROMPT, WORK_CHECK_SYSTEM_PROMPT, THOUGHT_COMPASS_FOLLOWUP_SYSTEM_PROMPT, buildUserMessage, buildUserMessageS2Chunk } = require('./prompts');
+/* THOUGHT-COMPASS Phase 1 — AI 후속질문 순수 로직(입력/출력 검증·fallback·메시지). firebase 비의존 → 하니스 단독 검증. */
+const TCFollowUp = require('./thought-compass-followup');
 
 /* Firebase Admin 초기화 — 1번만 */
 if (!admin.apps.length) {
@@ -2255,6 +2257,123 @@ exports.joinTeamMembership = onCall(
 /* ════════════════════════════════════════════════════════════════
    helper export (step3 박을 때 박을 거)
    ════════════════════════════════════════════════════════════════ */
+/* ════════════════════════════════════════════════════════════════
+   callThoughtCompassFollowUp — 생각 나침반 AI 후속질문 판정 (Phase 1)
+   ──────────────────────────────────────────────────────────────
+   · 핵심 답변이 충분한지 판정만(이야기 대필/생성 금지, PRD 1.2).
+   · 입력 최소화 + 필드 allowlist + active membership/teacher 검증.
+   · 결정 NEXT/ASK_FOLLOW_UP/ASK_EASIER, 상한(후속≤5·전체≤12) 서버 강제.
+   · 실패 시 1회 재시도 → fallback(G3/G4 고정 후속, 그 외 NEXT). 무조건 NEXT 아님.
+   ⚠ feature branch 전용 — 실제 배포 금지(firebase deploy 하지 말 것).
+   ════════════════════════════════════════════════════════════════ */
+exports.callThoughtCompassFollowUp = onCall(
+  {
+    secrets: [ANTHROPIC_API_KEY],
+    enforceAppCheck: false,
+  },
+  async (req) => {
+    /* 1. auth(익명이라도 필수) */
+    if (!req.auth || !req.auth.uid) {
+      throw new HttpsError('unauthenticated', '로그인이 필요해요.');
+    }
+    const uid = req.auth.uid;
+
+    /* 2. testMode 거부(v140) */
+    if (req.data && req.data.testMode === true) {
+      throw new HttpsError('permission-denied', 'testMode로는 실제 AI를 사용할 수 없어요.');
+    }
+
+    /* 3. origin */
+    const origin = (req.rawRequest && req.rawRequest.headers && req.rawRequest.headers.origin) || '';
+    if (!isOriginAllowed(origin)) {
+      logger.warn('[tc/followup] origin 거부', { uid, origin });
+      throw new HttpsError('permission-denied', '허용되지 않은 요청이에요.');
+    }
+
+    /* 4. 입력 검증(allowlist·타입·길이·범위·금지필드) — 순수 모듈 위임 */
+    const v = TCFollowUp.validateFollowUpInput(req.data);
+    if (!v.ok) {
+      throw new HttpsError('invalid-argument', '요청 형식이 올바르지 않아요. (' + v.error + ')');
+    }
+    const input = v.value;
+
+    /* 5. killswitch */
+    const killSnap = await admin.database().ref('ai-kill-switch/enabled').once('value');
+    if (killSnap.val() === true) {
+      throw new HttpsError('unavailable', 'AI 기능을 잠시 사용할 수 없어요. 운영자에게 문의해 주세요.');
+    }
+
+    /* 6. active membership 또는 교사 — editSession처럼 소속 보유자만(SEC-01). */
+    const enc = encodeURIComponent(input.teamName);
+    let allowed = false;
+    try {
+      const memSnap = await admin.database().ref(`classes/${input.classId}/teams/${enc}/members/${uid}/status`).once('value');
+      if (memSnap.val() === 'active') allowed = true;
+    } catch (e) { /* 아래 교사 확인 */ }
+    if (!allowed) {
+      try {
+        const teacherSnap = await admin.database().ref(`classes/${input.classId}/meta/teacher_uid`).once('value');
+        const role = req.auth.token && req.auth.token.role;
+        if (teacherSnap.val() === uid || role === 'teacher' || role === 'super_admin') allowed = true;
+      } catch (e) { /* noop */ }
+    }
+    if (!allowed) {
+      throw new HttpsError('permission-denied', '이 모둠의 생각 나침반을 사용할 수 없어요.');
+    }
+
+    /* 7. aiSettings 게이트(있으면 존중) — enabled 아니면 차단. 없으면 기본 ON(Phase A 호환). */
+    try {
+      const aiSnap = await admin.database().ref(`classes/${input.classId}/aiSettings`).once('value');
+      const aiSettings = aiSnap.val();
+      if (aiSettings && aiSettings.enabled !== true) {
+        throw new HttpsError('permission-denied', 'AI_NOT_ENABLED_CLASS (선생님이 AI를 아직 열어주지 않았어요)');
+      }
+    } catch (e) { if (e instanceof HttpsError) throw e; /* 읽기 실패는 기본 ON */ }
+
+    /* 8. 전역 일일 hard cap(읽기 기반 방어 — 후속질문은 세션 ≤5로 자체 제한) */
+    try {
+      const today = _todayYmd();
+      const globalSnap = await admin.database().ref(`ai-usage-global/${today}/calls`).once('value');
+      if ((globalSnap.val() || 0) >= GLOBAL_DAILY_LIMIT) {
+        throw new HttpsError('resource-exhausted', '오늘 전체 사용 한도에 도달했어요. 내일 다시 시도해 주세요.');
+      }
+    } catch (e) { if (e instanceof HttpsError) throw e; }
+
+    /* 9. 상한 도달 → AI 호출 없이 NEXT 강제(후속≤5·전체≤12, PRD 후속 전역규칙) */
+    if (TCFollowUp.shouldForceNext(input)) {
+      return { decision: 'NEXT', reasonCode: 'SUFFICIENT', acknowledgement: '', followUpQuestion: '', supportOptions: [], capped: true };
+    }
+
+    /* Phase N — 에뮬레이터 전용 AI stub. 운영 미적용: FUNCTIONS_EMULATOR(에뮬레이터에서만 set) +
+       TC_FOLLOWUP_STUB=1 동시 충족 시에만. 실 Anthropic 미호출(키 불필요·비용 0). 결과도 동일 validator 통과. */
+    if (process.env.FUNCTIONS_EMULATOR === 'true' && process.env.TC_FOLLOWUP_STUB === '1') {
+      const stub = TCFollowUp.stubDecision(input);
+      const sv = TCFollowUp.validateFollowUpResponse(stub);
+      return Object.assign({}, sv.ok ? sv.value : TCFollowUp.followUpFallback(input.coreQuestionId), { stub: true });
+    }
+
+    /* 10. AI 호출 + 검증 (1회 재시도) → 실패 시 fallback(무조건 NEXT 아님) */
+    const userMsg = TCFollowUp.buildFollowUpUserMessage(input);
+    let lastErr = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const ai = await _callAnthropic(ANTHROPIC_API_KEY.value(), THOUGHT_COMPASS_FOLLOWUP_SYSTEM_PROMPT, userMsg);
+        const parsed = _parseJsonStrict(ai.text);
+        const rv = TCFollowUp.validateFollowUpResponse(parsed);
+        if (!rv.ok) { lastErr = new Error('schema: ' + rv.error); continue; }
+        logger.info('[tc/followup] ok', { uid, classId: input.classId, decision: rv.value.decision, reasonCode: rv.value.reasonCode, attempt });
+        return Object.assign({}, rv.value, { cached: false });
+      } catch (e) {
+        lastErr = e;
+        logger.warn('[tc/followup] 시도 실패', { attempt, error: e && e.message });
+      }
+    }
+    /* fallback — G3(주인공)/G4(목표)는 고정 후속, 그 외 NEXT 안전 통과 */
+    logger.error('[tc/followup] AI 실패 → fallback', { uid, coreQuestionId: input.coreQuestionId, error: lastErr && lastErr.message });
+    return TCFollowUp.followUpFallback(input.coreQuestionId);
+  }
+);
+
 exports._internal = {
   isAiTestAllowed,
   AI_TEST_ALLOWED,
@@ -2308,4 +2427,6 @@ exports._internal = {
   _isPlainPin,
   _isSafeIdSegment,
   MEMBERSHIP_VERSION,
+  /* THOUGHT-COMPASS Phase 1 — AI 후속질문 순수 검증(node 단독 테스트용) */
+  TCFollowUp,
 };

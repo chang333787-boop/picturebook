@@ -685,9 +685,35 @@ async function _enterMakerAfterPtypeSelected(ptype) {
      · movie/experience/기타 → 명시 ptype 필터로 제외
      · 전체삭제 후 빈 작품 / 로딩 전 빈 상태 → 함수 내부 가드(meta 플래그 + once-recheck)로 제외
      자동 생성 실패해도 maker 진입은 정상 진행. */
-  if (savedNewProjectType && (ptype === 'text' || ptype === 'picturebook')
-      && typeof window.createStarterTemplateForNewProject === 'function') {
-    try { await window.createStarterTemplateForNewProject(ptype); }
+  if (savedNewProjectType && (ptype === 'text' || ptype === 'picturebook')) {
+    /* THOUGHT-COMPASS Phase D: 신규 그림책/텍스트 → 생각 나침반 강제 게이트.
+       · 진짜 신규(scenes 비어있음): activateForNewProject가 onboardingVersion:1 부여(required) + 게이트 차단.
+         starter 10장면 생성은 나침반 완료(Phase J)로 미룸 — PRD 1.1(생성→나침반→완료→튜토리얼[준비된 장면]).
+       · 옛 작품(projectType 필드만 누락 + scenes 존재, STATE-02): 강제하지 않고 기존 진입(optional)으로 처리.
+       · controller/foundation 미로드 또는 classId 없음(v1) → 폴백: 기존 즉시 starter 생성(회귀 0). */
+    const _hasCompassCtl = !!(window.ThoughtCompassController) && typeof classId === 'string' && classId && typeof teamName === 'string' && teamName;
+    const _sceneCount = (typeof scenes === 'object' && scenes) ? Object.keys(scenes).length : 0;
+    const _trulyNew = _sceneCount === 0;
+    let _compassGated = false;
+    if (_hasCompassCtl && _trulyNew && typeof window.ThoughtCompassController.activateForNewProject === 'function') {
+      try {
+        const _r = await window.ThoughtCompassController.activateForNewProject({ classId: classId, teamName: teamName, projectType: ptype });
+        _compassGated = !!(_r && _r.activated);
+      } catch (_) { _compassGated = false; }
+    } else if (_hasCompassCtl && !_trulyNew && typeof window.ThoughtCompassController.activateForExistingEntry === 'function') {
+      try { await window.ThoughtCompassController.activateForExistingEntry({ classId: classId, teamName: teamName, projectType: ptype }); }
+      catch (_) { /* noop */ }
+    }
+    if (_compassGated) return;   /* 게이트가 maker UI를 가로챔. starter는 완료 후 생성. */
+    if (typeof window.createStarterTemplateForNewProject === 'function') {
+      try { await window.createStarterTemplateForNewProject(ptype); }
+      catch (_) { /* noop */ }
+    }
+  } else if (!savedNewProjectType && (ptype === 'text' || ptype === 'picturebook')
+      && window.ThoughtCompassController && typeof window.ThoughtCompassController.activateForExistingEntry === 'function'
+      && typeof classId === 'string' && classId && typeof teamName === 'string' && teamName) {
+    /* 기존 작품(ptype 화면 경유, projectType 이미 있음) — 진행 중이면 이어서 게이트, 미시작이면 진입 버튼 */
+    try { await window.ThoughtCompassController.activateForExistingEntry({ classId: classId, teamName: teamName, projectType: ptype }); }
     catch (_) { /* noop */ }
   }
 }

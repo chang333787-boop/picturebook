@@ -48,6 +48,42 @@
     return state;
   }
 
+  /* 에러를 표면화하는 로드 — { ok, raw(preWriting 원본 null 가능), onboardingVersion }.
+     controller fail-closed 판정용(loadThoughtCompassState는 catch→기본값이라 에러 구분 불가). */
+  async function loadThoughtCompassStateResult(ctx) {
+    const TC = _TC();
+    const paths = TC.buildThoughtCompassPaths(ctx);
+    if (!paths) return { ok: false, raw: null, onboardingVersion: null };
+    try {
+      const [pw, ov, cf] = await Promise.all([
+        db.ref(paths.preWriting).once('value'),
+        db.ref(paths.onboardingVersion).once('value'),
+        db.ref(paths.copiedFrom).once('value'),   /* 복사본 required 판정(PRE-02) */
+      ]);
+      return { ok: true, raw: pw.val(), onboardingVersion: ov.val(), copiedFrom: cf.val() };
+    } catch (e) {
+      return { ok: false, raw: null, onboardingVersion: null, copiedFrom: null };
+    }
+  }
+
+  /* 신규 작품 required 트리거 — onboarding/version = VERSION write(scenes/viewer-meta 미접근). */
+  async function markOnboardingRequired(ctx) {
+    const TC = _TC();
+    const paths = TC.buildThoughtCompassPaths(ctx);
+    if (!paths) return false;
+    await db.ref(paths.onboardingVersion).set(TC.VERSION);
+    return true;
+  }
+
+  /* AI 후속질문 답변 저장(Phase H) — preWriting/followUps 배열만 갱신(answers/status 미접근). */
+  async function saveThoughtCompassFollowUps(ctx, followUps) {
+    const TC = _TC();
+    const paths = TC.buildThoughtCompassPaths(ctx);
+    if (!paths) return false;
+    await db.ref(paths.preWriting).update({ followUps: Array.isArray(followUps) ? followUps : [], updatedAt: _serverTs() });
+    return true;
+  }
+
   async function markThoughtCompassStarted(ctx, state) { return _applyPlan(_TC().planMarkStarted(ctx, state)); }
   async function saveThoughtCompassProgress(ctx, state, patch) { return _applyPlan(_TC().planSaveProgress(ctx, state, patch)); }
   async function markThoughtCompassCompleted(ctx, state) { return _applyPlan(_TC().planMarkCompleted(ctx, state)); }
@@ -55,8 +91,11 @@
 
   window.ThoughtCompassStore = {
     loadThoughtCompassState,
+    loadThoughtCompassStateResult,
+    markOnboardingRequired,
     markThoughtCompassStarted,
     saveThoughtCompassProgress,
+    saveThoughtCompassFollowUps,
     markThoughtCompassCompleted,
     resetThoughtCompassOnly,
   };

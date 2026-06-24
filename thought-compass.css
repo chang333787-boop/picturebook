@@ -1,0 +1,136 @@
+/* thought-compass.css — 생각 나침반 게이트/질문 UI 스타일(Phase 1).
+   초등학생용 단순·따뜻함. 한국어 줄바꿈 안전(keep-all), 터치 최소 44px, 태블릿 가로·세로 대응. */
+
+/* ── 질문 흐름 오버레이 ── */
+.tc-flow-overlay {
+  position: fixed; inset: 0; z-index: 100000;   /* maker 모달(≤10006) 위 — 게이트 우회 방지(HIGH-1) */
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(40, 32, 20, .55);
+  padding: 16px;
+  -webkit-tap-highlight-color: transparent;
+}
+.tc-flow-card {
+  width: 100%; max-width: 560px;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  background: #fffdf8;
+  border-radius: 20px;
+  padding: 24px 22px 20px;
+  box-shadow: 0 16px 48px rgba(60, 40, 10, .28);
+  word-break: keep-all;
+  box-sizing: border-box;
+}
+
+/* ── 진행률 ── */
+.tc-flow-progress { margin-bottom: 18px; }
+.tc-flow-progress-label { font-size: 13px; font-weight: 700; color: #8a7350; margin-bottom: 6px; }
+.tc-flow-progress-bar { height: 6px; background: #ece3d2; border-radius: 50px; overflow: hidden; }
+.tc-flow-progress-fill { height: 100%; background: #7aa06a; border-radius: 50px; transition: width .25s ease; }
+
+/* ── 질문 ── */
+.tc-flow-title { font-size: 21px; font-weight: 800; color: #3a2c14; margin: 0 0 8px; line-height: 1.4; outline: none; }
+.tc-flow-help { font-size: 14px; color: #6b5638; margin: 0 0 16px; line-height: 1.55; }
+.tc-flow-assist { font-size: 14px; color: #5a7a4c; background: #f0f5ec; border-radius: 12px; padding: 10px 12px; margin: 0 0 14px; line-height: 1.5; }
+.tc-flow-defer { font-size: 14px; color: #6b5638; background: #fbf3e4; border: 1px solid #ead8b8; border-radius: 12px; padding: 10px 12px; margin: 0 0 14px; line-height: 1.5; }
+
+/* ── 선택지 ── */
+.tc-flow-options { display: flex; flex-direction: column; gap: 10px; }
+.tc-flow-choice {
+  display: block; width: 100%;
+  min-height: 52px; padding: 14px 16px;
+  border: 2px solid #e4dbc8; border-radius: 14px;
+  background: #fffefb; color: #3a2c14;
+  font-size: 16px; font-weight: 600; text-align: left; line-height: 1.45;
+  cursor: pointer; transition: border-color .15s, background .15s, box-shadow .15s;
+  word-break: keep-all;
+}
+.tc-flow-choice:hover { border-color: #c9d8bd; }
+.tc-flow-choice:focus-visible { outline: 3px solid #b6cda6; outline-offset: 2px; }
+.tc-flow-choice.is-selected {
+  border-color: #7aa06a; background: #eef4e9;
+  box-shadow: 0 2px 10px rgba(122, 160, 106, .22);
+}
+.tc-flow-choice--custom { border-style: dashed; }
+
+.tc-flow-custom { display: flex; flex-direction: column; gap: 8px; }
+.tc-flow-custom-input {
+  width: 100%; min-height: 84px; resize: vertical;
+  border: 2px solid #c9d8bd; border-radius: 12px;
+  padding: 12px 14px; font-size: 16px; color: #3a2c14; line-height: 1.5;
+  font-family: inherit; box-sizing: border-box; background: #fffefb;
+}
+.tc-flow-custom-input:focus-visible { outline: 3px solid #b6cda6; outline-offset: 1px; border-color: #7aa06a; }
+.tc-flow-counter { font-size: 12px; color: #a3936f; text-align: right; }
+
+/* ── 모르겠어요 ── */
+.tc-flow-unsure {
+  display: block; margin: 16px auto 0;
+  background: none; border: none;
+  color: #8a7350; font-size: 14px; text-decoration: underline;
+  cursor: pointer; min-height: 44px; padding: 0 8px;
+}
+.tc-flow-unsure:focus-visible { outline: 2px solid #b6cda6; border-radius: 8px; }
+
+/* ── 오류 / AI 상태 / 후속질문 ── */
+.tc-flow-error { color: #b4452f; font-size: 14px; margin: 12px 0 0; text-align: center; }
+.tc-flow-aistatus { font-size: 13px; color: #8a7350; text-align: center; margin: 12px 0 0; }
+.tc-flow-followup-tag { font-size: 12px; font-weight: 700; color: #6b9159; letter-spacing: .02em; margin-bottom: 6px; }
+
+/* ── 하단 네비 ── */
+.tc-flow-nav { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 18px; }
+.tc-flow-nav-spacer { flex: 0 0 auto; }
+.tc-flow-prev {
+  min-height: 48px; padding: 0 22px;
+  border: 2px solid #e4dbc8; border-radius: 50px;
+  background: #fffefb; color: #6b5638; font-size: 15px; font-weight: 700; cursor: pointer;
+}
+.tc-flow-prev:hover { border-color: #cfc3a6; }
+.tc-flow-next {
+  min-height: 48px; padding: 0 30px; margin-left: auto;
+  border: none; border-radius: 50px;
+  background: #7aa06a; color: #fff; font-size: 16px; font-weight: 700; cursor: pointer;
+  transition: background .15s, opacity .15s;
+}
+.tc-flow-next:hover { background: #6b9159; }
+.tc-flow-next:disabled { background: #cdd6c4; color: #fbfdf9; cursor: default; }
+.tc-flow-prev:focus-visible, .tc-flow-next:focus-visible { outline: 3px solid #b6cda6; outline-offset: 2px; }
+
+/* ── 최종 검토 화면(Phase I) ── */
+.tc-review-card { max-width: 600px; }
+.tc-review-list { display: flex; flex-direction: column; gap: 12px; margin-top: 6px; }
+.tc-review-item { position: relative; border: 1px solid #ece3d2; border-radius: 14px; padding: 14px 14px 12px; background: #fffefb; }
+.tc-review-q { font-size: 14px; font-weight: 700; color: #6b5638; margin-bottom: 6px; line-height: 1.45; word-break: keep-all; padding-right: 64px; }
+.tc-review-a { font-size: 16px; color: #3a2c14; line-height: 1.5; word-break: keep-all; }
+.tc-review-a.is-empty { color: #b0a384; font-style: italic; }
+.tc-review-followup { margin-top: 8px; padding-left: 10px; border-left: 2px solid #e4dbc8; }
+.tc-review-fq { font-size: 13px; color: #8a7350; line-height: 1.45; }
+.tc-review-fa { font-size: 14px; color: #4d3f28; line-height: 1.45; }
+.tc-review-edit {
+  position: absolute; top: 12px; right: 12px;
+  min-height: 32px; padding: 4px 12px;
+  border: 1px solid #c9d8bd; border-radius: 50px;
+  background: #f0f5ec; color: #4d6b3f; font-size: 13px; font-weight: 700; cursor: pointer;
+}
+.tc-review-edit:hover { background: #e6efde; }
+.tc-review-edit:focus-visible { outline: 3px solid #b6cda6; outline-offset: 2px; }
+
+/* ── optional 진입 버튼(기존 작품 상단) ── */
+.tc-optional-entry-btn {
+  min-height: 36px; padding: 6px 14px;
+  border: 1px solid #c9d8bd; border-radius: 50px;
+  background: #f0f5ec; color: #4d6b3f; font-size: 13px; font-weight: 700; cursor: pointer;
+}
+.tc-optional-entry-btn:hover { background: #e6efde; }
+
+/* ── 태블릿/모바일 ── */
+@media (max-width: 600px) {
+  .tc-flow-card { padding: 20px 16px 16px; border-radius: 16px; }
+  .tc-flow-title { font-size: 19px; }
+  .tc-flow-choice { font-size: 15px; min-height: 50px; }
+}
+/* 가로(landscape) 태블릿 — 카드가 화면을 넘지 않게 */
+@media (max-height: 540px) {
+  .tc-flow-card { max-height: calc(100vh - 24px); padding-top: 16px; padding-bottom: 14px; }
+  .tc-flow-title { font-size: 18px; margin-bottom: 6px; }
+  .tc-flow-help { margin-bottom: 10px; }
+}

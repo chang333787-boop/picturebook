@@ -28,11 +28,13 @@ test('planMarkStarted 멱등 — 이미 진행 중이면 status 재설정 안 �
   const p = TC.planMarkStarted(CTX, { status: 'inProgress', startedAt: 1, completedAt: null });
   assert.equal('status' in p.update, false);   /* startedAt 보존(덮어쓰지 않음) */
 });
-test('planSaveProgress — index/answers child update만', () => {
+test('planSaveProgress — index/answers child update만 (answers는 deep-path 키로 병합)', () => {
   const p = TC.planSaveProgress(CTX, { status: 'inProgress', completedAt: null }, { currentQuestionIndex: 3, answers: { q1: { answerText: 'a' } } });
   assertChildPathOnly(p.path);
   assert.equal(p.update.currentQuestionIndex, 3);
-  assert.equal(p.update.answers.q1.answerText, 'a');
+  /* ★ answers 전체 덮어쓰기 방지: deep-path 키('answers/q1')로 emit(다른 답변 보존). */
+  assert.equal(p.update['answers/q1'].answerText, 'a');
+  assert.equal('answers' in p.update, false);
 });
 test('planSaveProgress — 완료 상태를 진행으로 되돌리지 않음', () => {
   const p = TC.planSaveProgress(CTX, { status: 'completed', completedAt: 9 }, { currentQuestionIndex: 1 });
@@ -40,7 +42,7 @@ test('planSaveProgress — 완료 상태를 진행으로 되돌리지 않음', (
 });
 test('planSaveProgress — answers 내 비밀필드 제거', () => {
   const p = TC.planSaveProgress(CTX, { status: 'inProgress', completedAt: null }, { answers: { q1: { answerText: 'a', pin: '1234' } } });
-  assert.equal('pin' in p.update.answers.q1, false);
+  assert.equal('pin' in p.update['answers/q1'], false);
   assert.ok(!JSON.stringify(p.update).includes('1234'));
 });
 test('planMarkCompleted — status=completed + completedAt', () => {

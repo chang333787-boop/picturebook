@@ -136,6 +136,7 @@
       onboardingVersion: `${base}/onboarding/version`,
       editSession: `${base}/editSession`,
       members: `${base}/members`,
+      copiedFrom: `${base}/viewer-meta/copiedFrom`,   /* 복사본 required 판정(PRE-02) */
     };
   }
 
@@ -295,8 +296,12 @@
       update.currentQuestionIndex = Math.floor(patch.currentQuestionIndex);
     }
     if (patch.answers && typeof patch.answers === 'object' && !Array.isArray(patch.answers)) {
-      /* answers는 child 경로별로 병합(전체 덮어쓰기 아님) */
-      update.answers = sanitizeThoughtCompassState({ answers: patch.answers }).answers;
+      /* answers는 child 경로별로 병합(전체 덮어쓰기 아님).
+         ★ RTDB .update()는 top-level 키를 통째로 교체하므로 update.answers={qid:..} 로 주면
+         answers 노드 전체가 현재 질문 1개로 덮여 나머지 답변이 유실된다(버그).
+         deep-path 키('answers/qid')로 emit해 해당 child만 병합한다. */
+      const clean = sanitizeThoughtCompassState({ answers: patch.answers }).answers;
+      for (const qk of Object.keys(clean)) update['answers/' + qk] = clean[qk];
     }
     /* 진행 저장은 status를 완료→진행으로 되돌리지 않음(완료 보호) */
     const s = normalizeThoughtCompassState(state);

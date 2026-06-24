@@ -31,6 +31,7 @@
 .tc-flow-title { font-size: 21px; font-weight: 800; color: #3a2c14; margin: 0 0 8px; line-height: 1.4; outline: none; }
 .tc-flow-help { font-size: 14px; color: #6b5638; margin: 0 0 16px; line-height: 1.55; }
 .tc-flow-assist { font-size: 14px; color: #5a7a4c; background: #f0f5ec; border-radius: 12px; padding: 10px 12px; margin: 0 0 14px; line-height: 1.5; }
+.tc-flow-defer { font-size: 14px; color: #6b5638; background: #fbf3e4; border: 1px solid #ead8b8; border-radius: 12px; padding: 10px 12px; margin: 0 0 14px; line-height: 1.5; }
 
 /* ── 선택지 ── */
 .tc-flow-options { display: flex; flex-direction: column; gap: 10px; }

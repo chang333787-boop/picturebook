@@ -19,6 +19,7 @@
       questions: vm.questions,
       index: vm.index,
       answers: Object.assign({}, vm.answers),
+      assistance: Object.assign({}, vm.assistance),
       total: vm.total,
     };
   }
@@ -33,7 +34,7 @@
     let index = Number.isInteger(resume.index) ? resume.index : 0;
     if (index < 0) index = 0;
     if (index > questions.length - 1) index = Math.max(0, questions.length - 1);
-    return { questions: questions, index: index, answers: answers, total: questions.length };
+    return { questions: questions, index: index, answers: answers, assistance: {}, total: questions.length };
   }
 
   function currentQuestion(vm) { return vm.questions[vm.index] || null; }
@@ -127,6 +128,36 @@
     return i >= 0 ? goToIndex(vm, i) : vm;
   }
 
+  /* ── 모르겠어요 완화 흐름(Phase F) ──
+     단계(질문별): 0=정상 · 1=쉬운 안내(같은 보기 3개+직접 적기 유지) · 2=최소 유예 답변 확정.
+     첫 클릭 즉시 유예 저장 금지(0→1만). 두 번째 클릭부터 유예. assistance는 vm에 보존(이전 이동 후 복원). */
+  function assistanceLevel(vm) {
+    const q = currentQuestion(vm); if (!q) return 0;
+    return vm.assistance[q.id] || 0;
+  }
+  function setAssistanceLevel(vm, n) {
+    const q = currentQuestion(vm); if (!q) return vm;
+    const next = _clone(vm);
+    next.assistance[q.id] = Math.max(0, Math.min(2, n | 0));
+    return next;
+  }
+  function assistancePrompt(vm) {
+    const Q = _Q();
+    const lvl = assistanceLevel(vm);
+    if (lvl >= 1 && lvl < 2 && Q && Q.ASSISTANCE_PROMPTS) return Q.ASSISTANCE_PROMPTS[1] || '';
+    if (lvl >= 2 && Q && Q.ASSISTANCE_PROMPTS) return Q.ASSISTANCE_PROMPTS[2] || '';
+    return '';
+  }
+  /* 모르겠어요 1회 처리. 반환 { vm, deferred }. deferred=true면 최소 유예 답변이 확정됨. */
+  function handleUnsure(vm) {
+    const lvl = assistanceLevel(vm);
+    if (lvl === 0) return { vm: setAssistanceLevel(vm, 1), deferred: false };
+    /* 1단계 이상에서 다시 모르겠어요 → 최소 유예 답변 확정(빈 답 아님). */
+    let next = setDeferredAnswer(vm);
+    next = setAssistanceLevel(next, 2);
+    return { vm: next, deferred: true };
+  }
+
   /* 모든 핵심 질문에 유효 답변이 있는가(완료 가능 여부, Phase I). */
   function allAnswered(vm) {
     const Q = _Q();
@@ -143,5 +174,6 @@
     setChoiceAnswer, setCustomAnswer, setDeferredAnswer, clearAnswer,
     hasValidAnswer, canNext, canPrev, buildSavePatch,
     goPrev, commitNext, goToIndex, goToQuestionId, allAnswered,
+    assistanceLevel, setAssistanceLevel, assistancePrompt, handleUnsure,
   };
 });

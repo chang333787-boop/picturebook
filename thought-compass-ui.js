@@ -16,7 +16,7 @@
   function _TC() { return window.ThoughtCompass; }
   function _Gate() { return window.ThoughtCompassGate; }
 
-  let S = null;   /* { ctx, vm, busy, draftTimer, assistance:{}, lastFocus } */
+  let S = null;   /* { ctx, vm, busy, draftTimer, error } — 보조단계(assistance)는 vm에 저장 */
 
   function _el(tag, cls, text) {
     const e = document.createElement(tag);
@@ -38,17 +38,8 @@
     }
     const rp = TC.resolveResumePoint(state);
     const vm = Flow.createFlow({ resume: { index: rp.questionIndex, answers: rp.answers } });
-    S = { ctx: ctx, vm: vm, busy: false, draftTimer: null, assistance: {} };
+    S = { ctx: ctx, vm: vm, busy: false, draftTimer: null, error: null };
     _render();
-  }
-
-  function _assistLevel() {
-    const q = _Flow().currentQuestion(S.vm);
-    return q ? (S.assistance[q.id] || 0) : 0;
-  }
-  function _setAssist(level) {
-    const q = _Flow().currentQuestion(S.vm);
-    if (q) S.assistance[q.id] = level;
   }
 
   function _render() {
@@ -61,7 +52,8 @@
     const selectedChoiceId = ans && ans.choiceId ? ans.choiceId : null;
     const isCustom = !!(ans && ans.answerText && !selectedChoiceId && !(ans.deferred));
     const customText = isCustom ? ans.answerText : '';
-    const assist = _assistLevel();
+    const isDeferred = !!(ans && ans.deferred);
+    const assistPrompt = Flow.assistancePrompt(S.vm);
 
     _remove();
     const overlay = _el('div', 'tc-flow-overlay');
@@ -89,11 +81,10 @@
     if (q.help) card.appendChild(_el('p', 'tc-flow-help', q.help));
     overlay.setAttribute('aria-labelledby', 'tc-flow-title');
 
-    /* 모르겠어요 안내(Phase F) — assist 단계 */
-    if (assist >= 1) {
-      const Q = _Q();
-      const prompt = Q && Q.ASSISTANCE_PROMPTS ? Q.ASSISTANCE_PROMPTS[Math.min(assist, 2)] : '';
-      if (prompt) card.appendChild(_el('p', 'tc-flow-assist', prompt));
+    /* 모르겠어요 안내(Phase F) — 부드러운 안내(오류처럼 표시하지 않음, 재촉 없음) */
+    if (assistPrompt) card.appendChild(_el('p', 'tc-flow-assist', assistPrompt));
+    if (isDeferred) {
+      card.appendChild(_el('p', 'tc-flow-defer', '“' + ans.answerText + '”로 정했어요. 이야기를 만들면서 더 떠올려도 좋아요.'));
     }
 
     /* 선택지 3개 + 직접 적기(동등 카드, WIRE-02) */
@@ -195,11 +186,10 @@
     } catch (e) { /* draft 실패는 조용히(다음에서 flush 재시도) */ }
   }
   function _onUnsure() {
-    /* Phase F: 모르겠어요 단계 상승. 1·2단계는 같은 선택지+안내, 그 이상은 유예 답변 제안. */
-    const lvl = _assistLevel();
-    if (lvl < 2) { _setAssist(lvl + 1); S.error = null; _render(); return; }
-    /* 2단계 이상 → 최소 유예 답변 확정 */
-    S.vm = _Flow().setDeferredAnswer(S.vm);
+    /* Phase F: 첫 클릭 → 쉬운 안내(같은 보기 유지), 그 다음 클릭 → 최소 유예 답변(빈 답 아님). */
+    S.error = null;
+    const r = _Flow().handleUnsure(S.vm);
+    S.vm = r.vm;
     _render();
   }
   function _onPrev() {

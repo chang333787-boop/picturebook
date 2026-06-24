@@ -6,9 +6,9 @@ import { test, before, after, beforeEach } from 'node:test';
 import {
   getEnv, cleanup, clearData, seed,
   anon, student, teacher, superAdmin,
-  readPath, assertSucceeds, assertFails,
+  readPath, writePath, assertSucceeds, assertFails,
 } from './helpers.js';
-import { fixtureTree, P, TEACHER_A, STUDENT_A } from './fixtures.js';
+import { fixtureTree, P, TEACHER_A, TEACHER_B, STUDENT_A } from './fixtures.js';
 
 let env;
 before(async () => { env = await getEnv(); });
@@ -38,6 +38,21 @@ test('MUST_PRESERVE 비로그인이 공개 작품 viewer-meta를 읽을 수 있�
 });
 test('MUST_PRESERVE 교사가 자기 학급 팀 목록을 읽을 수 있다', async () => {
   await assertSucceeds(readPath(teacher(env, TEACHER_A), 'classes/classA/teams'));
+});
+test('MUST_PRESERVE 교사가 자기 학급 pin을 읽을 수 있다(관리)', async () => {
+  await assertSucceeds(readPath(teacher(env, TEACHER_A), P.pin('classA', 'teamLegacy')));
+});
+test('MUST_PRESERVE 교사가 자기 학급 account를 관리(write)할 수 있다', async () => {
+  await assertSucceeds(
+    writePath(teacher(env, TEACHER_A), P.account('classA', 'teamManaged') + '/status', 'locked'));
+});
+test('MUST_PRESERVE super_admin이 임의 학급 팀 목록을 읽을 수 있다', async () => {
+  await assertSucceeds(readPath(superAdmin(env, 'sa-uid'), 'classes/classB/teams'));
+});
+test('MUST_PRESERVE 학생이 maker에서 scenes를 저장(write)할 수 있다(현행 auth!=null)', async () => {
+  await assertSucceeds(
+    writePath(student(env, STUDENT_A), P.scenes('classA', 'teamLegacy') + '/2',
+      { num: 2, body: 'edit' }));
 });
 
 /* ───────────── TARGET (SEC-2 목표 — 현재 Rules엔 없어 todo) ───────────── */

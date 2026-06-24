@@ -24,6 +24,10 @@ cd tests/rules && npm test     # firebase emulators:exec --only database "node -
 - `MUST_PRESERVE` — 보안 전환 후에도 유지돼야 하는 동작(공개 감상·교사 관리).
 - `TARGET` (todo) — SEC-2 목표 Rules가 적용되면 활성화.
 
+## SEC 단계 메모
+- **SEC-2 범위 = READ 자식별 조건부화 + isPublic 강제**. **scenes/viewer-meta WRITE는 `auth!=null` 유지**(write를 member-scoped로 조이면 membership 로그인(SEC-4) 전 maker 쓰기 회귀) → write 강화는 membership 정본화 후 원자 배포로 분리.
+- MUST_PRESERVE는 현재 Rules와 SEC-2 후 모두 참이어야 하는 동작. TARGET(todo)는 SEC-2 Rules 적용 시 활성화.
+
 ## 주의
 - 운영 데이터 복사 금지. fixture(`fixtures.js`)만 사용.
 - `database-debug.log` 등 emulator 산출물은 `.gitignore`(`*.log`)로 제외.

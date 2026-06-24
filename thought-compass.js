@@ -224,6 +224,23 @@
     return { action: 'fresh', questionIndex: 0, answers: {}, followUps: [] };
   }
 
+  /* 기존 프로젝트 선택 진입 버튼(순수) — 브랜치/상단 메뉴. movie/experience 숨김.
+     반환 action: 'start'(미시작) | 'resume'(진행 중) | 'review'(완료, 다시 보기). */
+  function describeOptionalEntryButton(ctx) {
+    ctx = ctx || {};
+    if (!_isType(ctx.projectType)) return { show: false };   /* movie/experience 숨김 */
+    const s = normalizeThoughtCompassState(ctx.compassState);
+    if (s.status === STATUS.COMPLETED && typeof s.completedAt === 'number') {
+      return { show: true, action: 'review', label: '생각 나침반 다시 보기', cancellable: true };
+    }
+    if (s.status === STATUS.IN_PROGRESS) {
+      /* 시작한 뒤에는 완료 전까지 일반 편집 차단 → 취소 불가 */
+      return { show: true, action: 'resume', label: '생각 나침반 이어서', cancellable: false };
+    }
+    /* 미시작 → 시작 전엔 나중에 가능(취소 가능) */
+    return { show: true, action: 'start', label: '생각 나침반 시작', cancellable: true };
+  }
+
   /* 게이트 화면 뷰 기술자(순수) — UI가 이걸 렌더만. 강제 신규=닫기/건너뛰기 없음, optional=나중에 가능. */
   function describeGate(ctx) {
     ctx = ctx || {};
@@ -315,7 +332,7 @@
 
   return {
     VERSION, STATUS, MODES, COMPASS_TYPES, SERVER_TS, ACCESS, CORE_QUESTION_KEYS, MINIMAL_ANSWER,
-    resolveProjectAccessState, describeGate, resolveResumePoint,
+    resolveProjectAccessState, describeGate, resolveResumePoint, describeOptionalEntryButton,
     validateThoughtCompassCompletion, planCompleteIfValid, buildStorySeedFromAnswers, canGenerateDefaultScenes,
     planMarkStarted, planSaveProgress, planMarkCompleted, planResetCompassOnly, planCopyResetOnboarding,
     getDefaultThoughtCompassState,

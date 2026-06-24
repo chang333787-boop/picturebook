@@ -5,7 +5,7 @@
   "type": "module",
   "description": "RTDB security rules tests (Database Emulator). 운영 미연결 — fixture만 사용.",
   "scripts": {
-    "test": "firebase emulators:exec --only database --project demo-branch-rules \"node --test\""
+    "test": "firebase emulators:exec --only database --project demo-branch-rules \"node --test --test-concurrency=1\""
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "5.0.1",

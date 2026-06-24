@@ -135,8 +135,77 @@
     };
   }
 
+  /* ── 저장 plan(순수) ── 실제 write는 firebase adapter가 수행.
+     plan = { path, update }  (해당 child 경로만 update — team root·scenes·viewer-meta·account·members·locks 미접근).
+     SERVER 토큰은 adapter가 ServerValue.TIMESTAMP로 치환하도록 sentinel '@serverTimestamp' 사용. */
+  const SERVER_TS = '@serverTimestamp';
+
+  function planMarkStarted(ctx, state) {
+    const paths = buildThoughtCompassPaths(ctx);
+    if (!paths) return null;
+    const s = normalizeThoughtCompassState(state);
+    /* 이미 시작/완료면 startedAt 보존(멱등). status가 notStarted일 때만 시작 표시. */
+    const update = { updatedAt: SERVER_TS };
+    if (s.status === STATUS.NOT_STARTED) {
+      update.status = STATUS.IN_PROGRESS;
+      update.startedAt = SERVER_TS;
+      update.currentQuestionIndex = 0;
+      update.version = VERSION;
+    }
+    return { path: paths.preWriting, update: update };
+  }
+
+  function planSaveProgress(ctx, state, patch) {
+    const paths = buildThoughtCompassPaths(ctx);
+    if (!paths) return null;
+    patch = patch || {};
+    const update = { updatedAt: SERVER_TS };
+    if (Number.isFinite(patch.currentQuestionIndex) && patch.currentQuestionIndex >= 0) {
+      update.currentQuestionIndex = Math.floor(patch.currentQuestionIndex);
+    }
+    if (patch.answers && typeof patch.answers === 'object' && !Array.isArray(patch.answers)) {
+      /* answers는 child 경로별로 병합(전체 덮어쓰기 아님) */
+      update.answers = sanitizeThoughtCompassState({ answers: patch.answers }).answers;
+    }
+    /* 진행 저장은 status를 완료→진행으로 되돌리지 않음(완료 보호) */
+    const s = normalizeThoughtCompassState(state);
+    if (s.status === STATUS.NOT_STARTED) { update.status = STATUS.IN_PROGRESS; update.version = VERSION; }
+    return { path: paths.preWriting, update: update };
+  }
+
+  function planMarkCompleted(ctx, state) {
+    const paths = buildThoughtCompassPaths(ctx);
+    if (!paths) return null;
+    const s = normalizeThoughtCompassState(state);
+    /* 이미 완료면 멱등(완료 시각 보존) */
+    if (s.status === STATUS.COMPLETED) return { path: paths.preWriting, update: { updatedAt: SERVER_TS } };
+    return { path: paths.preWriting, update: { status: STATUS.COMPLETED, completedAt: SERVER_TS, updatedAt: SERVER_TS, version: VERSION } };
+  }
+
+  /* 교사 초기화(생각 나침반만) — preWriting을 notStarted로. onboarding/tutorial·scenes 미접근. */
+  function planResetCompassOnly(ctx) {
+    const paths = buildThoughtCompassPaths(ctx);
+    if (!paths) return null;
+    return { path: paths.preWriting, update: {
+      version: VERSION, status: STATUS.NOT_STARTED, currentQuestionIndex: 0,
+      answers: null, followUps: null, startedAt: null, completedAt: null, updatedAt: SERVER_TS,
+    } };
+  }
+
+  /* 복사본 정책(PRE-02): writingGuide 미승계 + onboarding/version 재부여(신규 그림책/텍스트). */
+  function planCopyResetOnboarding(ctx, projectType) {
+    const paths = buildThoughtCompassPaths(ctx);
+    if (!paths) return null;
+    const give = _isType(projectType) ? VERSION : null;   /* movie/experience엔 부여 안 함 */
+    return {
+      onboardingVersion: { path: paths.onboardingVersion, value: give },
+      clearWritingGuide: { path: paths.preWriting, value: null },   /* 복사본 compass not_started */
+    };
+  }
+
   return {
-    VERSION, STATUS, MODES, COMPASS_TYPES,
+    VERSION, STATUS, MODES, COMPASS_TYPES, SERVER_TS,
+    planMarkStarted, planSaveProgress, planMarkCompleted, planResetCompassOnly, planCopyResetOnboarding,
     getDefaultThoughtCompassState,
     normalizeThoughtCompassState,
     resolveThoughtCompassMode,

@@ -19,6 +19,8 @@ export function fixtureTree() {
           teamPrivate: {
             scenes: { 1: { num: 1, body: 'private scene' } },
             'viewer-meta': { projectType: 'picturebook', isPublic: false },
+            /* studentA는 teamPrivate의 active member (membership 발급된 상태 가정) */
+            members: { [STUDENT_A]: { status: 'active', membershipVersion: 1 } },
           },
           teamLegacy: {
             scenes: { 1: { num: 1, body: 'legacy scene' } },

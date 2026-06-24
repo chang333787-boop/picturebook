@@ -70,12 +70,23 @@ viewer-edit.js · viewer-render.js · viewer-ai.js · viewer-data.js · ui.js ·
 
 ## 8. POLISH-AUTH-FIX — maker→다듬기 permission_denied (이번 세션, commit `91ce521`)
 
-### 8.1 인증 P1 (수정 완료)
+### 8.1 인증 P1 (수정 완료 + E2E 검증 완료)
 - **증상**: maker에서 다듬기(`viewer.html?edit=1&from=maker`) 진입 시 비공개(v2) 작품 `permission_denied`.
 - **원인**: viewer.html은 firebase.js(default app)를 로드하지 않고 viewer-data.js가 named `'viewer'` app에서 **별도 익명 로그인** → maker(default app 익명 UID, `members/{uid}/status='active'`)와 **다른 UID** → v2 scenes Rules(`isPublic || 멤버 active || teacher_uid || super_admin`)에서 거부. (firebaseConfig는 maker/viewer 동일·setPersistence 없음 → 기본 LOCAL.)
-- **수정(A안)**: 편집 세션(`edit=1&from=maker`)에서는 **default app 사용** → 같은 origin·[DEFAULT]·apiKey라 persisted maker UID가 복원됨. `loadTeamData`는 복원 대기 후 읽고, 복원 실패 시 **새 익명 로그인 금지** + 안전 안내 + 만들기 화면 복귀 버튼. 공개/일반 감상은 named 'viewer' app + 익명 흐름 그대로(byte-unchanged·편집 코드는 편집 세션에서만 실행).
-- **파일**: viewer-data.js(isEditViewerSession/getViewerApp/_awaitMakerAuth/게이트/export)·viewer-edit.js·viewer-ai.js·viewer-locks.js(앱 getter 통일+편집 세션 익명 가드)·viewer-entry.js(복귀 버튼)·viewer.html(cachebuster). **Rules·firebase.json·functions 무변경.**
-- **검증**: node --check 5/5·polish-auth 단위 10/10·compass 189·membership 20·precommit 통과. Rules 재현/회귀는 기존 `tests/rules/database.rules.test.js`(비member 거부/member 허용/공개 보존)가 커버. ⚠ **Rules 에뮬레이터는 환경에 Java 부재로 미실행(NOT_RUN)** — rules 파일 무변경이라 base와 동일하게 유효. ⚠ **실 브라우저 maker→다듬기 E2E는 미수행(NOT_VERIFIED)**.
+- **수정(A안 + Phase J 범위 확장)**: `from=maker` 세션(다듬기·완성본 보기·교사 보기 = `isMakerAuthSession`)에서는 **default app 사용** → 같은 origin·[DEFAULT]·apiKey라 persisted maker UID가 복원됨. `loadTeamData`는 복원 대기 후 읽는다(레이스 차단). **편집(edit=1)**은 복원 실패 시 새 익명 로그인 금지 + 안전 안내 + 만들기 복귀 버튼(하드 차단). **완성본/미리보기(비편집)**는 공개 작품도 있어 차단하지 않고 진행(비공개는 Rules가 거부). 공개 감상(`from` 없음)은 named 'viewer' app + 익명 그대로(byte-unchanged·편집 코드는 편집 세션에서만 실행).
+  - **범위 확장 근거(Phase D/J)**: `from=maker`는 maker/교사 내부 진입(다듬기·완성본 보기·교사 대시보드)에서만 생성되고 **외부 공유 URL엔 없음**(공유는 클래스 코드 → entry 화면, `from` 미부착). 무로그인 사용자가 `from=maker`만 붙여도 default app에 UID가 없어 권한 상승 불가(Rules가 비공개 거부). → 비공개 **완성본 보기**도 본인 권한으로 정상.
+- **파일**: viewer-data.js(isMakerAuthSession/isEditViewerSession/getViewerApp/_awaitMakerAuth/게이트/export)·viewer-edit.js·viewer-ai.js·viewer-locks.js(앱 getter 통일+편집 세션 익명 가드)·viewer-entry.js(복귀 버튼)·viewer.html(cachebuster). **Rules·firebase.json·functions 무변경.**
+- **검증 — 정적/단위**: node --check 5/5·polish-auth 단위 **15/15**·compass 189·membership 20·precommit·폰트 18종 maker/viewer 유지.
+- **검증 — Rules Emulator (JRE 21 Temurin `~/.local/jdk/jdk-21.0.11+10-jre`)**: `tests/rules` **48/48 × 3회 동일·0 fail**. 신규 `polish-auth-scenes.test.js`로 매트릭스 명시: active member→private 허용·**teacher→private 허용**·non-member→private 거부·anonymous→private 거부·공개 보존(scenes+viewer-meta).
+- **검증 — 실 브라우저 E2E (Playwright + Auth 9099 + Database 9000 에뮬레이터, 실제 viewer-data.js 로드)**:
+  - **F 학생 maker→다듬기**: maker default-app UID `Zi2…` persist → 다듬기 페이지에서 **동일 UID 복원**(makerUid===viewerUid)·`getViewerApp()=[DEFAULT]`·비공개 scenes **read OK**.
+  - **G 교사 maker→다듬기**: teacher_uid로만(멤버 아님) 복원 UID `Yp3…`·비공개 **read OK**(teacher_uid 규칙).
+  - **H 새로고침**: 동일 UID 복원·read OK.
+  - **J 완성본 보기(from=maker, edit 없음) 비공개**: `[DEFAULT]`·maker UID·**read OK**(확장 효과).
+  - **I 공개 감상(from 없음)**: `getViewerApp()=viewer`·새 익명 UID(default UID와 분리)·public read OK — **maker UID 미유출**.
+  - **I 비멤버/세션없음 + 편집**: 복원 UID null·**default app 자동 익명 로그인 안 함(defaultUid=null)**·비공개 **PERMISSION_DENIED**(우회 없음).
+  - **L Auth race**: 성공 페이지 콘솔 에러 0 — read 전 premature permission_denied 없음(`viewerAuthReady` await가 read보다 먼저).
+  - QA 스캐폴딩(임시 하니스·`qa-firebase.json`·에뮬레이터)은 검증 후 전부 제거(미커밋).
 
 ### 8.2 후속 버그 정적 재판정 (§4)
 - **N-1 [확정·서버측]**: `removeSceneFromFirebase`(firebase.js:964)는 `scenes/{num}`만 제거(dbRef=scenes), `aiVariants/text/{sid}` 잔존 → num 재사용 시 stale variant 오염. **진짜 버그가 맞으나** `aiVariants` Rules가 `.write:false`(클라 write/delete 불가)라 **클라이언트 수정 불가** → 서버(Admin SDK/콜러블)에서 삭제하거나 적용 시 freshness 검증 필요. functions deploy·Rules 변경 금지 루프이므로 **서버 작업으로 이관**.

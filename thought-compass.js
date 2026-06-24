@@ -73,12 +73,16 @@
     return sanitizeThoughtCompassState(out);
   }
 
-  /* 적용 모드 판정: 신규(onboarding.version>=1)=required, 기존=optional, movie/experience=none. */
+  /* 적용 모드 판정: 신규(onboarding.version>=1) 또는 복사본(viewer-meta.copiedFrom)=required,
+     기존=optional, movie/experience=none.
+     PRE-02: 복사본은 항상 compass 필요 — copy 시점 onboarding write(비member라 Rules 차단) 대신
+     redeemCopyCode가 남기는 copiedFrom 마커로 required 판정(라이브 코드·Rules 무변경). */
   function resolveThoughtCompassMode(ctx) {
     ctx = ctx || {};
     if (!_isType(ctx.projectType)) return MODES.NONE;
     const hasOnboardingVersion = Number.isFinite(ctx.onboardingVersion) && ctx.onboardingVersion >= 1;
-    return hasOnboardingVersion ? MODES.REQUIRED : MODES.OPTIONAL;
+    const isCopy = !!ctx.copiedFrom;
+    return (hasOnboardingVersion || isCopy) ? MODES.REQUIRED : MODES.OPTIONAL;
   }
 
   function isThoughtCompassStarted(state) {
@@ -200,7 +204,7 @@
   const ACCESS = { COMPASS_REQUIRED: 'thoughtCompassRequired', EDITABLE_MAKER: 'editableMaker' };
   function resolveProjectAccessState(ctx) {
     ctx = ctx || {};
-    const mode = resolveThoughtCompassMode({ projectType: ctx.projectType, onboardingVersion: ctx.onboardingVersion });
+    const mode = resolveThoughtCompassMode({ projectType: ctx.projectType, onboardingVersion: ctx.onboardingVersion, copiedFrom: ctx.copiedFrom });
     if (mode === MODES.NONE) return ACCESS.EDITABLE_MAKER;   /* movie/experience */
     const s = normalizeThoughtCompassState(ctx.compassState);
     s.mode = mode;
@@ -248,7 +252,7 @@
     if (access !== ACCESS.COMPASS_REQUIRED) return { show: false };
     const s = normalizeThoughtCompassState(ctx.compassState);
     const inProgress = s.status === STATUS.IN_PROGRESS;
-    const mode = resolveThoughtCompassMode({ projectType: ctx.projectType, onboardingVersion: ctx.onboardingVersion });
+    const mode = resolveThoughtCompassMode({ projectType: ctx.projectType, onboardingVersion: ctx.onboardingVersion, copiedFrom: ctx.copiedFrom });
     return {
       show: true,
       title: '이야기를 시작하기 전에',
@@ -319,6 +323,16 @@
     } };
   }
 
+  /* 교사 초기화(PRE-03) 전체 옵션 — 생각 나침반 + 튜토리얼 상태 초기화. scenes 미접근. */
+  function planResetFullOnboarding(ctx) {
+    const paths = buildThoughtCompassPaths(ctx);
+    if (!paths) return null;
+    return [
+      { path: paths.preWriting, update: { version: VERSION, status: STATUS.NOT_STARTED, currentQuestionIndex: 0, answers: null, followUps: null, startedAt: null, completedAt: null, updatedAt: SERVER_TS } },
+      { path: paths.onboarding, update: { tutorialStatus: 'notStarted', currentStep: null, completedAt: null } },
+    ];
+  }
+
   /* 복사본 정책(PRE-02): writingGuide 미승계 + onboarding/version 재부여(신규 그림책/텍스트). */
   function planCopyResetOnboarding(ctx, projectType) {
     const paths = buildThoughtCompassPaths(ctx);
@@ -334,7 +348,7 @@
     VERSION, STATUS, MODES, COMPASS_TYPES, SERVER_TS, ACCESS, CORE_QUESTION_KEYS, MINIMAL_ANSWER,
     resolveProjectAccessState, describeGate, resolveResumePoint, describeOptionalEntryButton,
     validateThoughtCompassCompletion, planCompleteIfValid, buildStorySeedFromAnswers, canGenerateDefaultScenes,
-    planMarkStarted, planSaveProgress, planMarkCompleted, planResetCompassOnly, planCopyResetOnboarding,
+    planMarkStarted, planSaveProgress, planMarkCompleted, planResetCompassOnly, planResetFullOnboarding, planCopyResetOnboarding,
     getDefaultThoughtCompassState,
     normalizeThoughtCompassState,
     resolveThoughtCompassMode,

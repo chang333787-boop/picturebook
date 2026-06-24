@@ -29,7 +29,31 @@
     if (o && o.parentNode) o.parentNode.removeChild(o);
   }
 
+  function _ES() { return window.ThoughtCompassEditSession; }
+
   async function open(ctx) {
+    /* 편집권한 획득(Phase K) — 1명만 편집, 타인 활성이면 읽기 전용/이어받기. */
+    const ES = _ES();
+    if (ES && typeof ES.acquire === 'function') {
+      let acc = null;
+      try { acc = await ES.acquire(ctx); } catch (e) { acc = null; }
+      if (acc && acc.role === 'readonly') { _renderReadOnly(ctx); return; }
+      if (acc && acc.role === 'takeoverOffer') { _renderTakeover(ctx); return; }
+      /* editor 또는 획득 판정 불가(fail-open) → 진행. */
+    }
+    await _openFlow(ctx);
+    if (ES && typeof ES.startHeartbeat === 'function') {
+      ES.startHeartbeat(ctx);
+      ES.subscribe(ctx, function (access) {
+        if (access && (access.role === 'readonly' || access.role === 'takeoverOffer') && S && !S.editMode) {
+          ES.stopHeartbeat();               /* 편집권한 상실(타인 이어받음) → 읽기 전용 전환(LOCK-03) */
+          _renderReadOnly(ctx);
+        }
+      });
+    }
+  }
+
+  async function _openFlow(ctx) {
     const Flow = _Flow(), Store = _Store(), TC = _TC();
     if (!Flow || !TC) return;
     let state = null;
@@ -438,7 +462,65 @@
     _advanceCore(afterLast);
   }
 
-  function close() { if (S && S.draftTimer) clearTimeout(S.draftTimer); _remove(); S = null; }
+  /* ── 편집권한: 읽기 전용 / 이어받기 화면(Phase K) ── */
+  function _renderReadOnly(ctx) {
+    const ES = _ES();
+    if (ES && typeof ES.unsubscribe === 'function') ES.unsubscribe();
+    if (ES && typeof ES.stopHeartbeat === 'function') ES.stopHeartbeat();
+    S = null;
+    _remove();
+    const overlay = _el('div', 'tc-flow-overlay'); overlay.id = OVERLAY_ID;
+    overlay.setAttribute('role', 'dialog'); overlay.setAttribute('aria-modal', 'true');
+    const card = _el('div', 'tc-flow-card');
+    card.appendChild(_el('h2', 'tc-flow-title', '다른 친구가 작성하고 있어요'));
+    card.appendChild(_el('p', 'tc-flow-help', '지금은 다른 친구가 생각 나침반을 작성하고 있어요. 답은 함께 볼 수 있고, 잠시 후 “다시 확인”을 눌러 이어서 할 수 있어요.'));
+    const nav = _el('div', 'tc-flow-nav'); nav.appendChild(_el('span', 'tc-flow-nav-spacer'));
+    const retry = _el('button', 'tc-flow-next', '다시 확인'); retry.type = 'button';
+    retry.addEventListener('click', function () { open(ctx); });
+    nav.appendChild(retry); card.appendChild(nav);
+    overlay.appendChild(card); document.body.appendChild(overlay);
+  }
+  function _renderTakeover(ctx) {
+    _remove();
+    const overlay = _el('div', 'tc-flow-overlay'); overlay.id = OVERLAY_ID;
+    overlay.setAttribute('role', 'alertdialog'); overlay.setAttribute('aria-modal', 'true');
+    const card = _el('div', 'tc-flow-card');
+    card.appendChild(_el('h2', 'tc-flow-title', '3분 동안 활동이 없어요'));
+    card.appendChild(_el('p', 'tc-flow-help', '이어서 작성할까요? 친구가 작성하던 내용은 그대로 이어서 볼 수 있어요.'));
+    const nav = _el('div', 'tc-flow-nav');
+    const later = _el('button', 'tc-flow-prev', '나중에'); later.type = 'button';
+    later.addEventListener('click', function () { _renderReadOnly(ctx); });
+    nav.appendChild(later);
+    const go = _el('button', 'tc-flow-next', '이어서 작성하기'); go.type = 'button';
+    go.addEventListener('click', async function () {
+      go.disabled = true;
+      const ES = _ES();
+      let acc = null;
+      try { acc = ES ? await ES.takeover(ctx) : { role: 'editor' }; } catch (e) { acc = null; }
+      if (acc && acc.role === 'editor') {
+        await _openFlow(ctx);
+        if (ES && typeof ES.startHeartbeat === 'function') {
+          ES.startHeartbeat(ctx);
+          ES.subscribe(ctx, function (access) {
+            if (access && (access.role === 'readonly' || access.role === 'takeoverOffer') && S && !S.editMode) { ES.stopHeartbeat(); _renderReadOnly(ctx); }
+          });
+        }
+      } else {
+        _renderReadOnly(ctx);   /* 그새 다른 사람이 이어받음 */
+      }
+    });
+    nav.appendChild(go); card.appendChild(nav);
+    overlay.appendChild(card); document.body.appendChild(overlay);
+  }
+
+  function close() {
+    const ES = _ES(); const ctx = S && S.ctx;
+    if (S && S.draftTimer) clearTimeout(S.draftTimer);
+    if (ES) {
+      try { ES.stopHeartbeat(); ES.unsubscribe(); if (ctx && typeof ES.release === 'function') ES.release(ctx); } catch (e) {}
+    }
+    _remove(); S = null;
+  }
 
   window.ThoughtCompassUI = { open: open, openForEdit: openForEdit, close: close, _render: _render };
 })();

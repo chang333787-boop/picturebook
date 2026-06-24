@@ -111,7 +111,7 @@ classes/{classId}/teams/{teamEncoded}/
 보호 경로: `writingGuide`·`onboarding`·`editSession`·`scenes`·`viewer-meta`(작품 설정).
 
 질문별 답:
-1. **editSession 획득 허용 대상**: 신선 세션이 없을 때 `auth != null` 누구나 획득 가능(학생=익명, **members 스키마 부재**라 팀멤버 구분 불가). 획득 후엔 ownerId로 잠김. → 잔여 위험: 타 팀 세션 선점 레이스(완전 차단엔 members 스키마 필요, 후속 SECURITY).
+1. **editSession 획득 허용 대상**(SEC-01 반영): **팀 소속 증명 보유자만**. CF가 PIN을 서버 검증해 `classes/{classId}/teams/{enc}/members/{auth.uid}=true` 발급 → editSession 획득 Rules가 `root.child('.../members/'+auth.uid).exists()` 요구. → **타 팀 세션 선점 레이스 = Phase 0에서 해소**(경로만 아는 외부 인증 사용자는 members 없어 획득 불가). scenes 전면 membership은 후속(현재 scenes는 open write 유지).
 2. **유효 세션 중 타인 overwrite 차단**: 보호 경로 `.write`에 `root.child('.../editSession/ownerId').val() === auth.uid` (또는 교사) 요구. 다른 사용자 write 거부.
 3. **heartbeat 만료를 Rules만으로 판정**: **가능**. Rules `now`(서버 ms)로 `data.child('editSession/heartbeatAt').val() < now - 180000`이면 takeover write 허용. 3분 만료는 Rules가 권위 판정.
 4. **CF 필요성**: 만료 판정엔 불필요(Rules `now`+transaction 조합 충분). 단 계정 익명화·중앙 집계는 후속 CF 후보.
@@ -120,11 +120,13 @@ classes/{classId}/teams/{teamEncoded}/
 
 초안(개념, 실제 미적용):
 ```
+// SEC-01: 모든 분기에 팀 소속(members) 또는 교사 요구
 editSession: {
   ".write": "auth != null && (
-     !data.exists()                                            // 최초 획득
-     || data.child('ownerId').val() === auth.uid               // 본인 갱신/재획득
-     || data.child('heartbeatAt').val() < now - 180000         // 3분 만료 takeover
+     ( root.child('classes/'+$classId+'/teams/'+$team+'/members/'+auth.uid).val() === true && (
+         !data.exists()                                        // 최초 획득(팀 소속자만)
+         || data.child('ownerId').val() === auth.uid           // 본인 갱신/재획득
+         || data.child('heartbeatAt').val() < now - 180000 ) ) // 3분 만료 takeover
      || auth.token.role === 'teacher' || auth.token.role === 'super_admin'
      || root.child('classes/'+$classId+'/meta/teacher_uid').val() === auth.uid )"
 }
@@ -190,4 +192,15 @@ writingGuide, onboarding, scenes, viewer-meta: {
 - 모든 진입이 수렴하는 "데이터 로드 완료" 단일 지점 실측(PWA/뒤로가기 포함).
 
 ## 20. Phase 0 완료 조건
-✔ 데이터 경로 확정(§3) ✔ session 스키마 확정(§6) ✔ server-time 전략 확정(§8) ✔ transaction 획득 규칙 확정(§7) ✔ generation/stale-write 방어 확정(§7·11) ✔ 신규·기존 판정 확정(§4) ✔ 단일 게이트 흐름 확정(§5) ✔ Rules 가능/불가 범위 확정(§12) ✔ 교사 override 기반 확정(§13) ✔ 복사·삭제·전체 set 안전성 확정(§14) ✔ 구현 파일 후보 확정(§17) ✔ 테스트 계획 확정(§18). **미해결 보안 = members 레이스 1건**(명시적 후속 SECURITY Phase로 분리, 3분 만료·소유자 방어·교사 override는 해결) → Phase 0 구현 준비 가능, 단 §19 import/export 확인은 Phase 1 착수 전 선결.
+✔ 데이터 경로 확정(§3) ✔ session 스키마 확정(§6) ✔ server-time 전략 확정(§8) ✔ transaction 획득 규칙 확정(§7) ✔ generation/stale-write 방어 확정(§7·11) ✔ 신규·기존 판정 확정(§4) ✔ 단일 게이트 흐름 확정(§5) ✔ Rules 가능/불가 범위 확정(§12) ✔ 교사 override 기반 확정(§13) ✔ 복사·삭제·전체 set 안전성 확정(§14) ✔ 구현 파일 후보 확정(§17) ✔ 테스트 계획 확정(§18). **SEC-01 결정으로 editSession 선점 레이스도 Phase 0 범위(membership 기반)로 해소** → Phase 0 구현 준비 완료. §19 import/export 확인은 생명주기 감사에서 **RESOLVED**(scenes 범위 확정).
+
+## 21. 선결정 반영 (구현 기준, 2026-06-24)
+- **PRE-01**: `clearAll`(ui.js:497)은 현행 그대로 — scenes만 비우고 **writingGuide/onboarding/editSession 유지**. 추가 코드 불필요(형제 비침범).
+- **PRE-02**: 복사(redeemCopyCode)는 현행 그대로 — viewer-meta 통째 복사로 onboardingVersion 운반 → 복사본 compass **항상 강제**. 추가 코드 불필요.
+- **PRE-03**: 교사 "생각 나침반 초기화" 액션은 **`writingGuide/preWriting`만 초기화(status=notStarted)** 기본, **튜토리얼 동시 초기화는 교사 선택 옵션**(`onboarding.tutorialStatus`는 기본 보존). editSession은 mode='normal'로 조정 또는 유지.
+- **PRE-04**: 완료 시 `writingGuide/preWriting`에 **개인 ID 미보존**(작성자는 비-PII ownerLabel만). `editSession`은 임시 운영 데이터(만료·삭제). 잔존 식별값(있다면)은 계정 삭제 시 자동 익명화 — 계정 삭제 함수는 후속 관리 Phase.
+- **SEC-01 (Phase 0 신규 범위)**: **membership 기반** 구축 —
+  - CF 신규 `joinTeamMembership(classId, team, pin)`: PIN **서버 검증** 후 `classes/{classId}/teams/{enc}/members/{auth.uid}=true`(+timestamp) write. 학생 입장(PIN 통과) 흐름에 연결.
+  - Rules: `editSession` 획득은 members 보유자만(§12). writingGuide/onboarding write도 members 또는 editSession owner 요구.
+  - **scenes 전면 membership 강화는 제외**(기존 학생 쓰기 흐름 회귀 위험) → 별도 횡단 Security Phase.
+  - 신뢰 경계: members 발급은 **CF만**(PIN을 client가 우회 못 함), Rules는 members 존재만 확인. 구현 파일 후보(§17)에 `joinTeamMembership` CF + members Rules 추가.

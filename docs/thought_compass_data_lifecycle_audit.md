@@ -128,11 +128,12 @@
 - 생성 경로(ui.js:649)를 **multi-location update**로 원자화(projectType+onboardingVersion+preWriting.status).
 - import/export는 **추가 보호 불필요**(scenes 범위 확인됨). 단 향후 import 포맷에 형제 필드를 넣지 않도록 주의.
 
-## 17. 사용자 결정이 필요한 항목 (NEEDS_DECISION)
-1. **장면 전체 초기화(clearAll) 시 writingGuide를 유지 vs 초기화** — 권장: 유지(내용과 독립).
-2. **교사 템플릿 복사가 compass를 강제할지** — 현재(자동 강제)가 합리적, 별도 면제 원하면 결정.
-3. **교사 "생각 나침반 초기화" 시 onboarding(튜토리얼) 상태 유지 vs 초기화**.
-4. **학생 계정 삭제/익명화 흐름** — 현재 함수 부재, 후속 Phase 범위.
+## 17. 사용자 결정이 필요한 항목 (NEEDS_DECISION) — **전부 해소(2026-06-24 선결정 인터뷰)**
+1. clearAll 시 writingGuide → **유지**(PRE-01). 장면만 비움, 형제 보존.
+2. 교사 템플릿 복사 compass 강제 → **항상 강제**(PRE-02). 현 복사 동작과 일치(코드 수정 불필요).
+3. 교사 "생각 나침반 초기화" 시 튜토리얼 → **초기화 시 교사 선택, 기본=나침반만 초기화**(PRE-03).
+4. 학생 계정 삭제/익명화 → **최소 저장 + 잔존 ID 계정삭제 시 자동 익명화**(PRE-04). 완료 본문에 개인 ID 미보존·editSession 임시·잔존 ID는 자동 익명화. 계정 삭제 함수 자체는 후속 관리 Phase.
+5. (신규) **팀 소속 서버 증명** → **SEC-01: membership 기반(CF PIN검증→members 노드)을 Phase 0에 구축하되 editSession 획득에만 적용**, scenes 전면 강화는 별도 횡단 Security Phase. → §14의 "최초 선점 레이스"는 editSession 한정 **Phase 0에서 해소**(membership Rules), scenes는 후속.
 
 ## 18. Phase 0 설계 문서 수정 필요 여부
 - **정책 변경 없음.** 다음 **선택적 정밀화**만(구현 착수 시 반영 권장, 지금 미수정):
@@ -142,7 +143,9 @@
 - 위는 결론을 **강화**(A안·차단 아님 검증)하며 변경이 아님.
 
 ## 19. 구현 착수 가능 여부
-**판정: GO_WITH_PRECONDITIONS**
+**판정(선결정 후 갱신): GO_WITH_SECURITY_PRECONDITION** — 데이터 유실 차단 사유 없음(아래 GO 근거 유지). 단 **SEC-01 결정으로 editSession 선점 차단용 membership 기반(CF PIN검증→members 노드)이 Phase 0 필수 범위에 편입**됨. 이를 포함하면 editSession 선점 위험은 Phase 0에서 해소. scenes 전면 membership은 후속 Security Phase.
+
+(이하 원 판정 근거 — 데이터 생명주기 관점 GO_WITH_PRECONDITIONS)
 - 근거(GO 측): 데이터 유실 경로 **없음**(import/export/copy/clearAll/delete 전부 scenes 또는 팀-삭제 범위, 형제 비침범) · 파괴적 import/restore **없음**(restore 부재, import=scenes만) · 팀 루트 통째 set **없음** · 복사는 writingGuide 자연 제외 + onboardingVersion 자동 운반으로 R26 충족 · 삭제는 형제 포함 · editSession 부활 경로 없음 · 신규/기존 판정 가능(onboardingVersion+viewer-meta once).
 - 전제(PRECONDITIONS): ① 생성 경로 원자화(SMALL) ② clearAll/교사 초기화의 writingGuide·onboarding 정책 결정(NEEDS_DECISION) ③ 신규 노드 scenes-형제 고정 가드 ④ members/membership = **횡단 SECURITY 후속 Phase**(scenes에도 동일하므로 compass 비차단) ⑤ 계정 삭제 익명화 = 후속 관리 Phase.
 - **BLOCKED 조건 해당 없음**: 파괴적 import/restore 없음 · editSession 선점은 기존 scenes와 동일한 사전 위험(확대 아님) · Rules 방어 성립(ownerId+3분 만료 `now`+교사) · 신규·기존 판정 가능 · 복사·삭제가 신규 노드를 오염·유실하지 않음.

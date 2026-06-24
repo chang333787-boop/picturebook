@@ -52,7 +52,18 @@ viewer-edit.js · viewer-render.js · viewer-ai.js · viewer-data.js · ui.js ·
 - 배포·main 병합·운영 DB write·실 Anthropic·AI 이미지 호출 없음.
 - 본 루프 산출물 = 이 문서(조사 결과) + (안전·재현 확정 시) 최소 수정. blind 수정·제품 정책 변경 없음.
 
-## 6. 다음 단계 제안
+## 6.5 적용된 수정 (이번 세션 — 사용자 승인)
+### F-1 [수정 완료] 8 미로드 폰트 실제 로드 (사용자 결정 = "8종 실제 로드")
+- 근원 확정: 인프라(TEXT_FONT_FAMILIES 매핑·`--font-*` CSS 변수 v03-modes.css:2306-2315·렌더 `--text-ff`·normalize 보존)는 **이미 18종 지원**. 유일 누락 = **Google Fonts URL에 8종 미포함**.
+- 수정: maker.html:15 · viewer.html:14 의 css2 `<link>`에 8 family 추가 — `Noto Sans KR`(wght 400;700)·`Noto Serif KR`(400;700)·`Gowun Dodum`·`Do Hyeon`·`Hi Melody`·`Yeon Sung`·`East Sea Dokdo`·`Stylish`. (family명은 Google Fonts에서 200 검증·코드 `--font-*`/매핑과 일치. dokdo=`East Sea Dokdo`.)
+- 검증: 브라우저 그리드 스크린샷에서 8종 전부 **고유 서체 렌더 확인**(이전 fallback → 정상). 회귀: compass 189·membership 20·precommit 통과. 2파일(maker/viewer)만 변경, 폰트 파일 추가 없음(공식 URL만).
+- 미적용 대안(B): 피커를 10종으로 트림은 사용자가 "8종 로드"를 택해 채택 안 함.
+
+### F-2 [확정·코드변경 없음] 주아 '쫒/쫓' glyph 커버리지 누락
+- 64px 확대 스크린샷에서 '가나꽃닭삶앉읽'은 균일 주아체이나 '쫓'·'쫒'만 다른 서체 → **Jua 폰트 자체가 해당 음절 미포함 → fallback** 확정(maker/viewer 동일·로딩 버그 아님).
+- `--font-jua` stack에 이미 일관 fallback('Apple SD Gothic Neo','Malgun Gothic',sans-serif) 존재 → 폰트 교체(프롬프트 금지) 없이는 추가 개선 불가. **알려진 Jua 한계로 문서화**(별도 승인 없이 변경 안 함).
+
+## 7. 다음 단계 제안
 1. 사용자 승인: 3-A(폰트 피커 10종 정렬) → 즉시 적용 가능한 최우선 사용자 체감 버그.
 2. 3-B/3-C 정책 결정.
 3. 4의 N-1/AI-1 등 풀앱 emulator E2E 재현 → 최소 수정 → 회귀.

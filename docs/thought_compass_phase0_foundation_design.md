@@ -19,9 +19,8 @@
 ```
 classes/{classId}/teams/{teamEncoded}/
 ├─ scenes/                      (기존)
-├─ viewer-meta/                 (기존)
-│   ├─ projectType              (기존)
-│   └─ onboardingVersion        (신규 — 신규/기존 판정 플래그)
+├─ viewer-meta/                 (기존, 공개 read — 민감필드 저장 금지)
+│   └─ projectType              (기존)
 ├─ writingGuide/
 │   └─ preWriting/              (게이트 판정 최소 필드, 답변 본체는 Phase 1)
 │       ├─ status               notStarted | inProgress | completed
@@ -30,6 +29,7 @@ classes/{classId}/teams/{teamEncoded}/
 │       ├─ updatedAt            (ServerValue.TIMESTAMP)
 │       └─ completedAt
 ├─ onboarding/
+│   ├─ version                  (신규/기존 판정 플래그 = 구 onboardingVersion, SEC-PRE-04b로 이전)
 │   ├─ tutorialStatus           notStarted | inProgress | completed
 │   ├─ currentStep
 │   └─ completedAt
@@ -42,15 +42,16 @@ classes/{classId}/teams/{teamEncoded}/
     ├─ generation               정수
     └─ mode                     normal | thoughtCompass | tutorial
 ```
-- **명칭 결정**: `writingGuide`(viewer-meta와 동일 camelCase 형제). `onboardingVersion`은 **viewer-meta 안에 colocate** — viewer-meta는 진입 시 이미 once 로드(firebase.js:637)되므로 projectType과 **같은 1회 읽기**로 판정 가능(추가 읽기 0). `version`(writingGuide.preWriting)은 compass 데이터 스키마 버전으로 의미가 달라 분리.
+- **명칭 결정**(SEC-PRE-04b 반영): 신규/기존 판정 플래그를 **`onboarding/version`에 둔다**(구 `viewer-meta/onboardingVersion`에서 이전). 이유: viewer-meta는 **공개 read**(Security Phase 후에도 공개작품 전체 read)라 제작 내부 상태(onboarding 버전)를 두면 공개 노출 → **비공개 `onboarding` 노드로 분리**. `writingGuide.preWriting.version`은 compass 데이터 스키마 버전으로 의미가 달라 별개.
+  - ⚠ **복사 영향**: 기존엔 viewer-meta 통째 복사로 onboardingVersion 자동 운반 → 이제 `redeemCopyCode`에 **작은 변경** 필요(복사 시 `onboarding/version`을 신규 정책으로 재부여, writingGuide/editSession 미승계). 복사본 compass 재요구(R26) 유지. (데이터 생명주기 감사 §10의 viewer-meta colocate 결론을 SUPERSEDE.)
 - **모든 신규 노드는 scenes의 형제** — scenes 하위 금지(set 유실 회피, §14).
 
-## 4. onboardingVersion 판정
-- **저장 위치**: `viewer-meta/onboardingVersion = 1`. 신규 프로젝트 생성 시 `_enterMakerAfterPtypeSelected`(ui.js:649)에서 projectType과 **원자적으로 함께 set**, 단 **text/picturebook만**(movie/experience 제외, D-01). `savedNewProjectType=true` 경로에서만.
+## 4. onboarding/version 판정 (구 onboardingVersion, SEC-PRE-04b)
+- **저장 위치**: `onboarding/version = 1`(비공개 노드). 신규 프로젝트 생성 시 `_enterMakerAfterPtypeSelected`(ui.js:649)에서 projectType set과 **함께(멀티-로케이션 update)**, 단 **text/picturebook만**(movie/experience 제외, D-01). `savedNewProjectType=true` 경로에서만. 게이트 진입 시 viewer-meta(projectType)와 `onboarding/version`·`writingGuide/preWriting/status`를 함께 once 로드.
 - **기존 프로젝트 backfill 금지** — 필드 없음 = 기존.
-- **판정 함수** `resolveOnboardingState(meta, preWriting)`:
-  - `meta.onboardingVersion >= 1 && preWriting.status !== 'completed'` → **COMPASS_REQUIRED**(강제)
-  - `meta.onboardingVersion` 없음 → **LEGACY**(생각 나침반 선택 실행, 제작 차단 없음)
+- **판정 함수** `resolveOnboardingState(onboarding, preWriting)`:
+  - `onboarding.version >= 1 && preWriting.status !== 'completed'` → **COMPASS_REQUIRED**(강제)
+  - `onboarding.version` 없음 → **LEGACY**(생각 나침반 선택 실행, 제작 차단 없음)
   - `preWriting.status === 'completed'` → compass 완료 → `onboarding.tutorialStatus`로 튜토리얼 판정
 - "필드 부재=신규" 위험 회피: 부재는 **기존**으로 취급(강제 안 함).
 
@@ -196,7 +197,7 @@ writingGuide, onboarding, scenes, viewer-meta: {
 
 ## 21. 선결정 반영 (구현 기준, 2026-06-24)
 - **PRE-01**: `clearAll`(ui.js:497)은 현행 그대로 — scenes만 비우고 **writingGuide/onboarding/editSession 유지**. 추가 코드 불필요(형제 비침범).
-- **PRE-02**: 복사(redeemCopyCode)는 현행 그대로 — viewer-meta 통째 복사로 onboardingVersion 운반 → 복사본 compass **항상 강제**. 추가 코드 불필요.
+- **PRE-02**: 복사본 compass **항상 강제**. ⚠ onboardingVersion이 `onboarding/version`으로 이전됨(SEC-PRE-04b)에 따라 `redeemCopyCode`에 **작은 변경 필요**(viewer-meta만 복사 → `onboarding/version` 신규 정책 재부여, writingGuide/editSession 미승계).
 - **PRE-03**: 교사 "생각 나침반 초기화" 액션은 **`writingGuide/preWriting`만 초기화(status=notStarted)** 기본, **튜토리얼 동시 초기화는 교사 선택 옵션**(`onboarding.tutorialStatus`는 기본 보존). editSession은 mode='normal'로 조정 또는 유지.
 - **PRE-04**: 완료 시 `writingGuide/preWriting`에 **개인 ID 미보존**(작성자는 비-PII ownerLabel만). `editSession`은 임시 운영 데이터(만료·삭제). 잔존 식별값(있다면)은 계정 삭제 시 자동 익명화 — 계정 삭제 함수는 후속 관리 Phase.
 - **SEC-01 (Phase 0 신규 범위)**: **membership 기반** 구축 —
@@ -204,3 +205,4 @@ writingGuide, onboarding, scenes, viewer-meta: {
   - Rules: `editSession` 획득은 members 보유자만(§12). writingGuide/onboarding write도 members 또는 editSession owner 요구.
   - **scenes 전면 membership 강화는 제외**(기존 학생 쓰기 흐름 회귀 위험) → 별도 횡단 Security Phase.
   - 신뢰 경계: members 발급은 **CF만**(PIN을 client가 우회 못 함), Rules는 members 존재만 확인. 구현 파일 후보(§17)에 `joinTeamMembership` CF + members Rules 추가.
+- **Security Phase 선행조건**(SEC-PRE-01~06): membership이 실질적 소속 증명이 되려면 **팀 read 보안 Phase(SEC-0~7)가 선행**되어야 함 — `teams/.read:true` cascade 해체 + PIN 공개 read 차단 + 로그인 CF 정본화가 끝나야 editSession membership 게이트가 우회 불가. Phase 0-A(membership 기반)는 patch 보관됨(`~/.claude/wip/branch-security/`), Security Phase에서 재적용. **편집 세션·강제 게이트 구현은 Security Phase 완료 후 착수.**

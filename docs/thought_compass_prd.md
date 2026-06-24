@@ -287,3 +287,10 @@
 - **PRE-03 교사 초기화 시 튜토리얼**: 교사가 생각 나침반을 초기화할 때 **튜토리얼 유지/재시작을 교사가 선택**, **기본=생각 나침반만 초기화**(튜토리얼 완료 유지). D-16 보강.
 - **PRE-04 계정 삭제 익명화**: 완료된 생각 나침반 본문엔 **개인 ID 미보존**, editSession은 임시 데이터로 만료·삭제, 잔존 식별값은 **계정 삭제 시 자동 익명화**. 공동 작품 내용은 유지(RETENTION-03 구체화).
 - **SEC-01 팀 소속 증명**: 익명 학생의 **서버 측 팀 소속 증명(CF PIN검증→members 노드)을 Phase 0에 구축**하되 **editSession 획득에만 적용**(편집권한 선점 공격 차단). scenes 전면 membership 강화는 별도 횡단 Security Phase로 분리.
+
+## 팀 read 보안 정책 (2026-06-24, Security Phase 선결정)
+> 상세·구현 기준은 `docs/team_read_security_phase_design.md`. 여기엔 제품 정책만.
+- **비공개 작품 Rules 보호(SEC-PRE-02)**: 비공개 작품의 scenes·viewer-meta는 **공개 감상자가 읽을 수 없음** — Rules로 `isPublic || 팀 member || 학급 교사 || super_admin`만 read 허용(기존 client-only 차단의 약점 해소).
+- **membership 로그인 전제(SEC-01/SEC-PRE-05)**: 학생 입장 PIN 검증은 **서버(CF)가 정본**. 올바른 PIN으로만 팀 membership 발급, editSession 등 보호 동작은 membership 보유자만.
+- **PIN 미저장·서버 검증(SEC-PRE-03)**: PIN은 **공개 read 불가**(교사/서버만), client·sessionStorage에 **PIN 저장 금지**. 재접속은 membership 존재 확인으로, 없으면 PIN 재입력.
+- **공개 메타 최소화(SEC-PRE-04)**: viewer-meta엔 공개 가능 필드만 저장(allowlist). 제작 내부 상태(`onboarding/version` 등)는 비공개 노드에 분리.

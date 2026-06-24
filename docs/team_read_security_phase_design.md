@@ -153,10 +153,13 @@
 ## 19. 완료 조건 (본 설계)
 ✔ 팀 자식 경로 전수 분류(§3) ✔ 공개 감상 최소 경로 확정(scenes+viewer-meta, §5) ✔ 상위 read 해체 대안 확정(후보 A, §8) ✔ PIN/account 목표 권한 확정(§6·9) ✔ 로그인 원자 전환 순서 확정(§12) ✔ Emulator 도입 방식 확정(A, §13) ✔ 테스트 매트릭스 확정(§14) ✔ rollback 확정(§16) ✔ 부분 구현 처리 권고 확정(B+durable, §17) ✔ 미해결 보안 명시(§20).
 
-## 20. 남은 결정 (사용자)
-1. **부분 구현 처리**: B(patch+복원, durable=WIP 브랜치) vs A(그대로 보존). 권장 B+브랜치.
-2. **isPublic Rules 강제 채택 여부**: 비공개 작품 scenes를 Rules로 차단(보안↑·동작 변경) vs 현행 client-only 유지(약점 잔존). 권장 Rules 강제.
-3. **두 PIN 단일화**: 이번 유지 vs 장기 `account/pin`으로 통합.
-4. **공개 viewer-meta**: 노드 전체 공개 vs 공개 필드 allowlist. 권장 allowlist(향후 민감 필드 대비).
-5. **구조 후보**: A(이번) 확정 vs 장기 B 전환 시점.
-6. **테스트 인프라 설치 승인**(SEC-0): `@firebase/rules-unit-testing` + emulator devDep 추가.
+## 20. 선결정 확정 (SEC-PRE-01~06, 2026-06-24 — 전부 추천대로)
+- **SEC-PRE-01 부분 구현 처리** = **patch 보관 후 3파일 HEAD 원복**(완료). 보관: `~/.claude/wip/branch-security/`(`phase0a-membership-partial.patch` checksum `51fe63a` + 파일별 `.phase0a` 백업). `git apply --check` 통과(재적용 가능). main에 미완성 보안 코드 미잔류.
+- **SEC-PRE-02 isPublic Rules 강제** = **이번 Phase에서 함께 강제**. scenes·viewer-meta read 조건 = `isPublic===true || 팀 active member || 학급 교사 || super_admin`. 기존 client-only 약점 동시 해소. 실제 필드/값 타입은 SEC-1 회귀 테스트에서 확정.
+- **SEC-PRE-03 PIN 구조** = **DB 구조(teams/pin·account/pin) 유지 + CF 두 모드 통합 검증**(migration 0). 장기 단일화 = 별도 Security Cleanup Phase.
+- **SEC-PRE-04 viewer-meta 범위** = **공개작품이면 viewer-meta 노드 전체 read + "공개 가능 필드만 저장" allowlist 정책·테스트 명문화**. 민감(진행상태·계정·잠금)은 viewer-meta 저장 금지.
+  - **onboardingVersion 위치 = `onboarding/version`으로 분리**(공개 viewer-meta 전체 read 충돌 회피). ⚠ **복사 함수(redeemCopyCode) 작은 변경 필요**: viewer-meta 통째 복사로 자동 운반되던 것을 `onboarding`도 복사/재부여해야 복사본 compass 재요구(R26) 유지. **이 결정은 데이터 생명주기 감사 §10(viewer-meta colocate 권장)을 SUPERSEDE.**
+- **SEC-PRE-05 구조** = **후보 A(자식별 read Rules, migration 0)**. 장기 B는 공개 데이터 복잡해질 때 전환.
+- **SEC-PRE-06 테스트 인프라** = **설치 승인**. `tests/rules/`(package+lock+`database.rules.test.js`, devDep `@firebase/rules-unit-testing`) + `firebase.json` database emulator. functions 번들 비오염·테스트 프로젝트 ID·운영 미연결.
+
+**남은 미결정: 없음**(SEC-0 착수 가능).

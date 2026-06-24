@@ -19,23 +19,73 @@ const firebaseConfig = {
   appId:             '1:590974087190:web:a9e9ba15adf020ff470537',
 };
 
-/* Firebase 초기화 — viewer 전용 앱 인스턴스 (maker와 충돌 방지) */
+/* ================================================================
+   POLISH-AUTH-FIX: 편집 뷰어(maker→다듬기)는 maker가 쓰는 default app을 사용한다.
+   ────────────────────────────────────────────────────────────────
+   배경: maker는 firebase.js의 default app([DEFAULT])에서 익명 로그인 → 그 UID에
+   members/{uid}/status='active'가 박힌다. 반면 viewer는 named 'viewer' app에서
+   별도 익명 로그인 → 다른 UID → 비공개(v2) scenes Rules(멤버/교사 필요)에서 거부.
+   같은 origin·같은 [DEFAULT] app·같은 apiKey면 Firebase Auth가 persisted UID를
+   복원하므로, 편집 세션에서는 default app을 쓰면 maker UID가 그대로 복원된다.
+   공개/일반 감상(편집 아님)은 기존 named 'viewer' app + 익명 흐름을 그대로 유지한다.
+   ================================================================ */
 let _viewerDb = null;
 let _viewerAuthPromise = null;
+
+/* 편집 뷰어 세션 여부 — URL ?edit=1&from=maker. 순수 함수(테스트용 search 인자 허용). */
+function isEditViewerSession(search) {
+  try {
+    const qs = (typeof search === 'string')
+      ? search
+      : (typeof location !== 'undefined' ? location.search : '');
+    const p = new URLSearchParams(qs);
+    return p.get('edit') === '1' && p.get('from') === 'maker';
+  } catch (_) { return false; }
+}
+
+/* viewer가 쓸 Firebase app — 편집 세션이면 default app(maker UID 복원), 그 외엔 named 'viewer'.
+   getViewerApp()는 절대 throw하지 않는다(내부에서 initializeApp으로 보장). */
+function getViewerApp() {
+  if (isEditViewerSession()) {
+    try { return firebase.app(); }
+    catch (_) { return firebase.initializeApp(firebaseConfig); }
+  }
+  try { return firebase.app('viewer'); }
+  catch (_) { return firebase.initializeApp(firebaseConfig, 'viewer'); }
+}
+
+/* 편집 뷰어: persisted maker UID 복원을 기다린다. 새 익명 로그인은 절대 하지 않는다.
+   복원된 user, 또는 null(=maker 세션 없음)로 resolve. */
+function _awaitMakerAuth(app) {
+  return new Promise(resolve => {
+    let auth;
+    try { auth = app.auth(); } catch (_) { return resolve(null); }
+    if (auth.currentUser) return resolve(auth.currentUser);
+    let done = false, unsub = null;
+    const finish = (u) => {
+      if (done) return; done = true;
+      try { if (typeof unsub === 'function') unsub(); } catch (_) {}
+      resolve(u || null);
+    };
+    try { unsub = auth.onAuthStateChanged(u => finish(u), () => finish(null)); }
+    catch (_) { return finish(auth.currentUser); }
+    /* 복원이 지연/실패해도 멈추지 않도록 안전망 — 익명 로그인은 하지 않는다. */
+    setTimeout(() => finish(auth.currentUser), 8000);
+  });
+}
+
 function getViewerDb() {
   if (_viewerDb) return _viewerDb;
-  let app;
-  try {
-    app = firebase.app('viewer');
-  } catch {
-    app = firebase.initializeApp(firebaseConfig, 'viewer');
-  }
+  const app = getViewerApp();
   _viewerDb = app.database();
-  /* 2026-05-22 fix: viewer named app 익명 로그인 사전 보장.
-     이미지 업로드 / lock transaction이 호출되는 시점에 인증이 박혀 있도록 미리 시도.
-     기존엔 각 함수에서 await signInAnonymously() 박았는데, catch (e) {} 패턴이라
-     일시적 실패 시 currentUser=null 상태로 transaction 진행 → permission_denied. */
-  if (!_viewerAuthPromise && app && typeof app.auth === 'function') {
+  if (isEditViewerSession()) {
+    /* 편집 뷰어: maker UID 복원 대기 준비. 새 익명 로그인 금지(_awaitMakerAuth). */
+    if (typeof window !== 'undefined' && !window.viewerAuthReady) {
+      window.viewerAuthReady = _awaitMakerAuth(app);
+    }
+  } else if (!_viewerAuthPromise && app && typeof app.auth === 'function') {
+    /* 공개/일반 감상 — 기존 named 'viewer' app 익명 로그인 사전 보장(원본 동작 유지).
+       이미지 업로드 / lock transaction 호출 시점에 인증이 박혀 있도록 미리 시도. */
     try {
       const auth = app.auth();
       if (!auth.currentUser) {
@@ -46,6 +96,12 @@ function getViewerDb() {
     } catch (e) { /* auth SDK 없거나 init 실패 — 각 함수에서 다시 시도 */ }
   }
   return _viewerDb;
+}
+
+/* 다른 모듈(viewer-edit/ai/locks)이 같은 app·세션 판정을 공유하도록 전역 노출. */
+if (typeof window !== 'undefined') {
+  window.getViewerApp = getViewerApp;
+  window.isEditViewerSession = isEditViewerSession;
 }
 
 /* ================================================================
@@ -85,6 +141,17 @@ function normalizePicturebookTheme(theme) {
 async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHint = null) {
   const db          = getViewerDb();
   const encodedName = encodeURIComponent(teamName);
+
+  /* POLISH-AUTH-FIX: 편집 뷰어는 maker UID(default app) 복원을 기다린 뒤 읽는다.
+     복원 실패(=maker 세션 없음)면 새 익명 로그인 대신 안전 안내 후 중단 → permission_denied 차단. */
+  if (isEditViewerSession()) {
+    const makerUser = await ((typeof window !== 'undefined' && window.viewerAuthReady) || Promise.resolve(null));
+    if (!makerUser) {
+      const e = new Error('편집 권한을 확인할 수 없어요.\n만들기 화면으로 돌아가 다시 들어와 주세요.');
+      e.code = 'viewer/edit-auth-missing';
+      throw e;
+    }
+  }
 
   /* 경로: v1 = teams/$name, v2 = classes/$classId/teams/$name */
   const basePath = (classId)
@@ -1441,4 +1508,10 @@ function validateButtonsForSave(choices) {
   return warnings.length > 0
     ? { ok: true, warnings }
     : { ok: true };
+}
+
+/* 테스트 전용 export — 브라우저에선 module 미정의라 무시된다(membership-login.js와 동일 패턴).
+   POLISH-AUTH-FIX 편집 세션 판정/앱 선택 로직을 Node 하니스에서 검증하기 위함. */
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { isEditViewerSession, getViewerApp };
 }

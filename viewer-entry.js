@@ -161,6 +161,8 @@ async function _enterViewer(teamName, editMode = false, fromMaker = false, class
     /* PERF-2: 편집 번들 로드 등 진입 실패 시 editMode 상태를 되돌려 재진입 오염 방지(Codex minor 반영). */
     ViewerState.editMode = false;
     _setEntryError(err.message || '작품을 불러오는 중 오류가 발생했어요.');
+    /* POLISH-AUTH-FIX(Phase F): 편집 권한(maker UID) 복원 실패 → 만들기 화면 복귀 버튼 제공. */
+    if (err && err.code === 'viewer/edit-auth-missing') _showMakerReturnButton();
     _setEntryLoading(false);
     /* W8: 오류 시 자동 진입 로딩 제거 + entry 화면 강제 표시.
        inline script가 #entry-screen{display:none !important}로 숨겨놨기 때문에
@@ -177,6 +179,24 @@ async function _enterViewer(teamName, editMode = false, fromMaker = false, class
 function _setEntryError(msg) {
   const errEl = document.getElementById('entry-error');
   if (errEl) errEl.textContent = msg;
+}
+
+/* POLISH-AUTH-FIX(Phase F): 편집 권한 복원 실패 시 만들기 화면 복귀 버튼.
+   내부 이동으로 들어왔으면 뒤로가기(maker 세션 유지), 아니면 maker.html로. */
+function _showMakerReturnButton() {
+  if (document.getElementById('edit-auth-return-btn')) return;
+  const errEl = document.getElementById('entry-error');
+  const btn = document.createElement('button');
+  btn.id = 'edit-auth-return-btn';
+  btn.type = 'button';
+  btn.textContent = '← 만들기 화면으로 돌아가기';
+  btn.style.cssText = 'display:block;margin:14px auto 0;padding:10px 20px;border-radius:10px;border:1px solid #c9b9a6;background:#f3ece1;color:#5a4a36;font-size:15px;cursor:pointer;';
+  btn.addEventListener('click', () => {
+    if (window.history && window.history.length > 1) window.history.back();
+    else window.location.href = 'maker.html';
+  });
+  if (errEl && errEl.insertAdjacentElement) errEl.insertAdjacentElement('afterend', btn);
+  else (document.getElementById('entry-screen') || document.body).appendChild(btn);
 }
 
 function _setEntryLoading(on) {

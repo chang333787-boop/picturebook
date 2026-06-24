@@ -206,13 +206,14 @@ async function viewerForceTakeoverLock(num) {
     return false;
   }
 
-  /* 1단계: anonymous auth 보장 — viewer named app 사용 */
+  /* 1단계: auth 보장 — POLISH-AUTH-FIX: 편집 세션은 default app(maker UID), 그 외엔 named 'viewer'.
+     편집 세션에선 새 익명 로그인 금지(복원된 maker UID 사용). */
   try {
     if (typeof firebase !== 'undefined' && typeof firebase.app === 'function') {
-      const viewerApp = firebase.app('viewer');
+      const viewerApp = (typeof getViewerApp === 'function') ? getViewerApp() : firebase.app('viewer');
       if (viewerApp && typeof viewerApp.auth === 'function') {
         const auth = viewerApp.auth();
-        if (!auth.currentUser) {
+        if (!auth.currentUser && !(typeof isEditViewerSession === 'function' && isEditViewerSession())) {
           await auth.signInAnonymously();
         }
         ctx.authUid = auth.currentUser ? auth.currentUser.uid : null;

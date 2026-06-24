@@ -57,5 +57,15 @@
 4. **Rules 필드 검증(LOW)**: preWriting/onboarding/editSession에 `.validate` 없음(기존 앱 포스처와 동일) — 과대/이상 필드 write 허용. 강화 시 rules 변경+회귀 필요.
 5. 실 Anthropic 응답(stub 외)·iPad/Android 터치.
 
-## 7. 최종 판정: READY_FOR_MAIN_MERGE_APPROVAL
-emulator E2E·자동 회귀·rules·PB-MOOD 전부 통과. 실기기/실 Anthropic 확인은 운영 배포 전 권장(stub로 로직 검증 완료). 배포 순서는 rollout_plan §3.
+## 7. 2-UID 동시진입 검증 (독립 auth 2개 · 실 RTDB 동시 트랜잭션)
+서로 다른 익명 UID 2개(appA=실 모듈, appB=동일 로직) + `Promise.all` 동시 트랜잭션, emulator(db+auth) 실측. **11/12 통과 + 1 발견**:
+- 독립 UID 2개 ✅ · 둘 다 required 게이트 판정(requiredNotStarted) ✅
+- 동시 acquire → **편집자 정확히 1명**(editorCount 1), 패자 read-only ✅
+- 179초 takeover 불가 / 180초+ takeover 가능 ✅
+- 동시 takeover 경쟁 → **승자 1명**([editor, blocked]) ✅
+- takeover 후 이전 편집자 heartbeat **차단**(committed=false), 세션 승자 유지 ✅
+- 완료·중복완료 경쟁 → status completed·**answerCount 7**·**BASE10 10**·editSession 제거 ✅
+- ⚠️ **발견(advisory lock)**: 패자 UI는 read-only로 차단되나, **store/rules 직접 write는 차단되지 않음**(`loserStoreWriteSucceeded=true`). editSession은 **클라/UI 조정 락**이며 rules 하드 락이 아님 — 기존 앱(viewer-locks)·PRD SEC-01(editSession "획득"만 멤버 게이트)과 일관. **rules 강화(write를 editSession 편집자로 제한)는 별도 횡단 Security Phase 사안**(Phase 1 범위 외). Phase 1의 단일편집 보장은 UI 집행으로 충족.
+
+## 8. 최종 판정: READY_FOR_DEPLOY_APPROVAL_WITH_AI_SMOKE_PENDING
+emulator E2E·2-UID 동시성·자동 회귀·rules·PB-MOOD 전부 통과. **남은 단 하나의 실검증 = 실 Anthropic 응답 1~3회**, 이는 `callThoughtCompassFollowUp` **선배포 후**에만 가능(이번 루프 배포 금지) → AI smoke는 배포 단계로 보류(stub로 결정/검증/제한/fallback 로직은 확인 완료). 배포 순서: rollout_plan §3 (functions 선배포 → AI smoke → main 병합=Pages). advisory-lock rules 강화 여부는 PO/Security Phase 결정.

@@ -92,5 +92,7 @@
 - 원본 PB-MOOD 5파일: `cmp` 동일(shasum `e95ac358…`) **보존**.
 
 ## 10. 최종 상태
-feature branch에 **17 커밋** push 완료(HEAD `f86a8f3`). **main 병합·Firebase 배포·Pages 활성 안 함.** 승인 후 §3 순서로 배포.
-판정: **READY_FOR_MAIN_MERGE_APPROVAL** — emulator E2E·자동회귀·rules·PB-MOOD 통과. 실기기·실 Anthropic은 배포 전 권장(stub로 로직 검증 완료).
+feature branch push 완료. **main 병합·Firebase 배포·Pages 활성 안 함.** 승인 후 §3 순서로 배포.
+판정: **READY_FOR_DEPLOY_APPROVAL_WITH_AI_SMOKE_PENDING** — emulator E2E·**2-UID 동시성**·자동회귀·rules·PB-MOOD 통과. 남은 실검증은 **실 Anthropic 응답(functions 선배포 후 AI smoke 1~3회)** 뿐(stub로 로직 검증 완료). 실 maker happy-path는 운영자 확인 완료(게이트·7질문·검토 렌더).
+- **advisory-lock 결정 필요**: editSession은 UI 집행 락(패자 store 직접 write는 rules 미차단). 강화하려면 writingGuide write를 editSession 편집자로 제한하는 **rules 변경+회귀**(별도 Security Phase). 미강화 시에도 정상 UI 흐름에선 단일편집 보장.
+- 배포 순서(재확인): (1) `firebase deploy --only functions:callThoughtCompassFollowUp` (2) **AI smoke 1~3회** (3) client main 병합(=Pages 자동) (4) 운영 smoke. database 배포 불요·신규 secret 없음.

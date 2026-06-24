@@ -135,6 +135,42 @@
     };
   }
 
+  /* ── 진입 게이트 결정(순수) ──
+     반환: 'thoughtCompassRequired' | 'editableMaker'. (tutorial/readOnly는 후속 Phase) */
+  const ACCESS = { COMPASS_REQUIRED: 'thoughtCompassRequired', EDITABLE_MAKER: 'editableMaker' };
+  function resolveProjectAccessState(ctx) {
+    ctx = ctx || {};
+    const mode = resolveThoughtCompassMode({ projectType: ctx.projectType, onboardingVersion: ctx.onboardingVersion });
+    if (mode === MODES.NONE) return ACCESS.EDITABLE_MAKER;   /* movie/experience */
+    const s = normalizeThoughtCompassState(ctx.compassState);
+    s.mode = mode;
+    if (s.status === STATUS.COMPLETED && typeof s.completedAt === 'number') return ACCESS.EDITABLE_MAKER;
+    /* required(신규) 또는 일단 시작(in_progress) → 게이트. optional 미시작 → editable(버튼으로만 시작, Phase G). */
+    if (mode === MODES.REQUIRED || s.status === STATUS.IN_PROGRESS) return ACCESS.COMPASS_REQUIRED;
+    return ACCESS.EDITABLE_MAKER;
+  }
+
+  /* 게이트 화면 뷰 기술자(순수) — UI가 이걸 렌더만. 강제 신규=닫기/건너뛰기 없음, optional=나중에 가능. */
+  function describeGate(ctx) {
+    ctx = ctx || {};
+    const access = resolveProjectAccessState(ctx);
+    if (access !== ACCESS.COMPASS_REQUIRED) return { show: false };
+    const s = normalizeThoughtCompassState(ctx.compassState);
+    const inProgress = s.status === STATUS.IN_PROGRESS;
+    const mode = resolveThoughtCompassMode({ projectType: ctx.projectType, onboardingVersion: ctx.onboardingVersion });
+    return {
+      show: true,
+      title: '이야기를 시작하기 전에',
+      description: '먼저 이야기의 방향을 함께 정해 보아요.',
+      primaryAction: inProgress ? 'resume' : 'start',
+      primaryLabel: inProgress ? '이어서 하기' : '시작하기',
+      progressLabel: inProgress ? ('현재 진행: ' + (s.currentQuestionIndex + 1) + '번째 질문') : null,
+      dismissible: mode === MODES.OPTIONAL ? true : false,   /* 강제 신규는 닫기 불가 */
+      allowSkip: false,
+      blockMakerClick: true,
+    };
+  }
+
   /* ── 저장 plan(순수) ── 실제 write는 firebase adapter가 수행.
      plan = { path, update }  (해당 child 경로만 update — team root·scenes·viewer-meta·account·members·locks 미접근).
      SERVER 토큰은 adapter가 ServerValue.TIMESTAMP로 치환하도록 sentinel '@serverTimestamp' 사용. */
@@ -204,7 +240,8 @@
   }
 
   return {
-    VERSION, STATUS, MODES, COMPASS_TYPES, SERVER_TS,
+    VERSION, STATUS, MODES, COMPASS_TYPES, SERVER_TS, ACCESS,
+    resolveProjectAccessState, describeGate,
     planMarkStarted, planSaveProgress, planMarkCompleted, planResetCompassOnly, planCopyResetOnboarding,
     getDefaultThoughtCompassState,
     normalizeThoughtCompassState,

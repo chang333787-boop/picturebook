@@ -1024,21 +1024,45 @@
       border-radius:50px; padding:3px 8px; font-size:14px; box-shadow:none;
       display:inline-flex; align-items:center; line-height:1;
     }
-    .pb-cover .card-state-badge--cover{ color:#6a4fa0; background:#f3edfb; border:1px solid #cdbce8; }
+    /* BRANCH-COVER-TYPOGRAPHY-HOTFIX: '표지' 배지 = 부드러운 고딕 칩(밑줄/박스 느낌 제거).
+       .pb-mapcard .card-state-badge 기본 칩 스타일이 .pb-cover엔 미적용이라 여기서 직접 부여. */
+    .pb-cover .card-state-badge--cover{
+      display:inline-flex; align-items:center; gap:2px;
+      font-family:var(--font-b); font-size:12px; font-weight:700; line-height:1;
+      letter-spacing:.01em; text-decoration:none;
+      padding:4px 11px; border-radius:50px; margin-left:5px; white-space:nowrap;
+      color:#6a4fa0; background:#f1eafb; border:1px solid #d9ccef;
+    }
     .pb-cover .cover-card-label{ display:none; }
-    .pb-cover .card-body--cover{ padding:7px 11px 10px; gap:7px; }
+    .pb-cover .card-body--cover{ padding:7px 11px 10px; gap:6px; }
+    /* 작품 제목 — 책 제목처럼: 부드러운 명조(Gowun Batang, 기로드)·평상시 종이 위 텍스트(테두리 숨김). */
     .pb-cover .card-title-input--cover{
-      box-sizing:border-box; padding:6px 9px;
-      border:1.5px solid rgba(150,121,201,0.22); border-radius:9px;
-      font-size:16px; font-weight:700; background:#fffdf8;
+      box-sizing:border-box; padding:5px 8px;
+      font-family:'Gowun Batang', serif; font-size:17px; font-weight:700; line-height:1.4;
+      color:var(--text, #2b1f10); text-align:center;
+      background:transparent; border:1.5px solid transparent; border-radius:9px; box-shadow:none;
       white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+      transition:border-color .12s, background .12s;
     }
-    .pb-cover .card-title-input--cover::placeholder{ color:#b6a079; font-weight:600; }
+    .pb-cover .card-title-input--cover::placeholder{ color:#bcae93; font-weight:400; }
+    /* 소개 — 보조 고딕·약하게·평상시 테두리 숨김 */
     .pb-cover .card-subtitle-input{
-      box-sizing:border-box; padding:5px 9px; border-radius:7px; background:#fffdf8;
+      box-sizing:border-box; padding:4px 8px;
+      font-family:var(--font-b); font-size:12.5px; font-weight:500; line-height:1.45;
+      color:var(--muted, #6b5638); text-align:center;
+      background:transparent; border:1px solid transparent; border-radius:7px; box-shadow:none;
       white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+      transition:border-color .12s, background .12s;
     }
-    .pb-cover .card-subtitle-input::placeholder{ color:#b6a079; }
+    .pb-cover .card-subtitle-input::placeholder{ color:#bcae93; }
+    /* 평상시=종이 위 텍스트 / hover·focus에서만 편집 가능 인지 */
+    .pb-cover .card-title-input--cover:hover,
+    .pb-cover .card-subtitle-input:hover{ border-color:rgba(150,121,201,0.30); }
+    .pb-cover .card-title-input--cover:focus,
+    .pb-cover .card-subtitle-input:focus{
+      outline:none; background:#fffdf8; border-color:#b9a3da;
+      box-shadow:0 0 0 2px rgba(150,121,201,0.18);
+    }
     .pb-cover .port-row--cover-fixed{ padding:2px 8px 4px; }
     .pb-cover .port-label-fixed{
       border:1.5px solid #9cc3df; border-radius:50px;
@@ -3141,7 +3165,7 @@
 <script src="locks.js?v=96"></script>
 <script src="firebase.js?v=141admin1cbase10a"></script>
 <script src="canvasInteraction.js?v=120"></script>
-<script src="sceneRenderer.js?v=119base10bbase10auto1coverstart1scenetitle1ascenetitle2apwanav2vpreturn1perfqa1branchcard1branchcard2branchcard3branchcard4cover1cover2"></script>
+<script src="sceneRenderer.js?v=119base10bbase10auto1coverstart1scenetitle1ascenetitle2apwanav2vpreturn1perfqa1branchcard1branchcard2branchcard3branchcard4cover1cover2cover3"></script>
 <script src="storyAnalyzer.js?v=136checkbuttons1heuristic3"></script>
 <script src="mediaManager.js?v=114copyfix1"></script>
 <script src="adminConsole.js?v=103copyfix1pwanav2"></script>

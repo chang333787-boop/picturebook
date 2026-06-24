@@ -120,16 +120,17 @@
   }
   function unsubscribe() { if (_subRef) { try { _subRef.off('value'); } catch (e) {} _subRef = null; } }
 
-  /* 편집 종료 — 내 세션이면 정리(완료/이탈). unload 신뢰 금지이므로 명시 호출 + 만료 폴백. */
+  /* 편집 종료 — 내 세션이면 정리(완료/이탈). unload 신뢰 금지이므로 명시 호출 + 만료 폴백.
+     ★ transaction은 첫 실행에서 로컬 캐시 cur=null이면 undefined 반환→abort(서버 재시도 안 함)라
+     세션이 안 지워진다. 서버 값을 once로 읽어 내 세션일 때만 set(null)로 확실히 제거. */
   async function release(ctx) {
     stopHeartbeat(); unsubscribe();
     const database = _db(); const path = _path(ctx); const uid = _uid();
     if (!database || !path || !uid) return false;
     try {
-      await database.ref(path).transaction(function (cur) {
-        if (cur && cur.editorUid === uid) return null;   /* 내 세션만 제거 */
-        return undefined;
-      });
+      const snap = await database.ref(path).once('value');
+      const cur = snap.val();
+      if (cur && cur.editorUid === uid) await database.ref(path).set(null);   /* 내 세션만 제거 */
       return true;
     } catch (e) { return false; }
   }

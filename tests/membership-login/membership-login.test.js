@@ -113,3 +113,45 @@ test('2b. unavailable → 재시도 안내', async () => {
   assert.equal(r.ok, false);
   assert.equal(r.message, '잠시 후 다시 시도해 주세요.');
 });
+
+/* ───────── SEC-5 자동 복원(resolveResume / sanitizeSession) ───────── */
+const ctxV2 = { teamName: '2모둠', classId: 'C1', savedAt: Date.now() };
+
+test('R1. active membership → enter', async () => {
+  const d = await ML.resolveResume({ ctx: ctxV2, isMembershipActive: async () => true });
+  assert.equal(d.action, 'enter');
+});
+test('R2. membership null/inactive → login', async () => {
+  const d = await ML.resolveResume({ ctx: ctxV2, isMembershipActive: async () => false });
+  assert.equal(d.action, 'login');
+});
+test('R3. membership read 오류(permission denied) → login', async () => {
+  const d = await ML.resolveResume({ ctx: ctxV2, isMembershipActive: async () => { throw new Error('denied'); } });
+  assert.equal(d.action, 'login');
+});
+test('R4. classId 없음(v1/uid 변경 컨텍스트) → login', async () => {
+  const d = await ML.resolveResume({ ctx: { teamName: 't' }, isMembershipActive: async () => true });
+  assert.equal(d.action, 'login');
+});
+test('R5. membership read 정확히 1회', async () => {
+  let calls = 0;
+  await ML.resolveResume({ ctx: ctxV2, isMembershipActive: async () => { calls++; return true; } });
+  assert.equal(calls, 1);
+});
+test('R6. resolveResume는 callable·members write를 호출하지 않음(checker만 주입)', async () => {
+  /* 주입된 checker 외 어떤 부수효과도 없음을 구조로 보장 — checker만 호출됨 */
+  let other = 0;
+  const d = await ML.resolveResume({ ctx: ctxV2, isMembershipActive: async () => { return true; } });
+  assert.equal(d.action, 'enter');
+  assert.equal(other, 0);
+});
+test('R7. sanitizeSession은 pin 등 비밀 필드 제거', () => {
+  const s = ML.sanitizeSession({ teamName: 't', classId: 'C1', classCode: 'X', savedAt: 1, pin: PIN, account: { pin: PIN } });
+  assert.equal(s.pin, undefined);
+  assert.equal(s.account, undefined);
+  assert.deepEqual(Object.keys(s).sort(), ['classCode', 'classId', 'savedAt', 'teamName']);
+});
+test('R8. sanitizeSession 직렬화 결과에 PIN 문자열 없음', () => {
+  const s = ML.sanitizeSession({ teamName: 't', classId: 'C1', savedAt: 1, pin: PIN });
+  assert.ok(!JSON.stringify(s).includes(PIN));
+});

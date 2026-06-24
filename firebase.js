@@ -482,69 +482,44 @@ async function _readTeamCreationMode(classId) {
 
 /* ── resume: sessionStorage 컨텍스트로 입장 화면 건너뛰기 ──
    code lookup 건너뛰고 classId로 바로 입장. PIN 재검증 포함. */
-async function _resumeTeamFromSession(ctx) {
-  if (!ctx || !ctx.teamName || !ctx.pin) return false;
+/* SEC-5: 자기 membership(active) 여부만 확인. 학생은 Rules상 자기 members 노드만 read 가능.
+   null·permission-denied·오류 → false(재로그인). 절대 client가 members를 생성하지 않는다. */
+async function hasActiveTeamMembership(args) {
+  try {
+    if (!args || !args.classId || !args.teamName || !args.uid) return false;
+    const enc = encodeURIComponent(args.teamName);
+    const snap = await db.ref(`classes/${args.classId}/teams/${enc}/members/${args.uid}/status`).once('value');
+    return snap.val() === 'active';
+  } catch (e) {
+    return false;
+  }
+}
 
+async function _resumeTeamFromSession(ctx) {
+  /* SEC-5: v2(classId) 경로에서만 membership 복원. v1(dormant)·classId 없음 → 재로그인.
+     결정 로직은 MembershipLogin.resolveResume(순수)에 위임 → Node 하니스로 동일 로직 검증. */
+  if (!ctx || !ctx.teamName || !ctx.classId || DATA_PATH_VERSION !== 'v2'
+      || typeof MembershipLogin === 'undefined') {
+    sessionStorage.removeItem('makerSession');
+    return false;
+  }
   try {
     if (!auth.currentUser) {
       await auth.signInAnonymously();
     }
-
-    /* v2 classId 우선, 없으면 v1 경로 */
-    const encodedName = encodeURIComponent(ctx.teamName);
-    let teamRef;
-    if (ctx.classId && DATA_PATH_VERSION === 'v2') {
-      teamRef = db.ref(getTeamPath(encodedName, ctx.classId));
-      classId = ctx.classId;
-    } else {
-      teamRef = db.ref(getTeamPath(encodedName));
-    }
-
-    /* ADMIN-1C: teacher_managed/locked 고려 (v2 + classId일 때만 의미 있음).
-       기본/오류 폴백 = legacy_open → 기존 재입장 흐름 유지. */
-    if (ctx.classId && DATA_PATH_VERSION === 'v2') {
-      const mode = await _readTeamCreationMode(ctx.classId);
-
-      if (mode === 'locked') {
-        /* 입장 닫힘 → 재입장 중단, 일반 화면으로 (거기서 안내) */
-        sessionStorage.removeItem('makerSession');
-        return false;
-      }
-
-      if (mode === 'teacher_managed') {
-        let account;
-        try {
-          const accSnap = await teamRef.child('account').once('value');
-          account = accSnap.val();
-        } catch (e) {
-          /* 확인 실패 → 안전하게 재입장 중단(앱은 join 화면으로 폴백) */
-          return false;
-        }
-        /* account 없음/잠김/PIN 불일치 → 재입장 중단(join 화면에서 재확인) */
-        if (!account || account.status === 'locked' || String(account.pin) !== String(ctx.pin)) {
-          sessionStorage.removeItem('makerSession');
-          return false;
-        }
-        _enterTeam(ctx.teamName, teamRef, { skipPtypeScreenIfExisting: true });
-        return true;
-      }
-      /* legacy_open → 아래 기존 pin 재검증 흐름으로 진행 */
-    }
-
-    /* PIN 재검증 — sessionStorage가 어쨌든 조작될 수 있으므로 반드시 확인 */
-    const snap     = await teamRef.child('pin').once('value');
-    const savedPin = snap.val();
-
-    if (savedPin === null || savedPin !== ctx.pin) {
-      /* PIN 불일치 → 일반 입장 화면으로 폴백 */
-      sessionStorage.removeItem('makerSession');
+    const uid = auth.currentUser ? auth.currentUser.uid : null;
+    /* PIN 재검증 폐기 → 자기 membership(active) 확인. 저장 PIN으로 callable 자동 호출 안 함·members write 안 함. */
+    const decision = await MembershipLogin.resolveResume({
+      ctx: ctx,
+      isMembershipActive: () => hasActiveTeamMembership({ classId: ctx.classId, teamName: ctx.teamName, uid }),
+    });
+    if (decision.action !== 'enter') {
+      sessionStorage.removeItem('makerSession');   /* 없음/비활성/권한거부/uid 변경 → 재로그인 */
       return false;
     }
-
-    /* W6: _enterTeam이 자체 viewer-meta 조회 + ptype-screen 노출 처리.
-       v109: resume 흐름이면 기존 작품 모드 선택 화면 안 띄움 — 사용자는
-       "기존 작품으로 바로 복귀"를 원함. 신규 작품(projectType 없음)이면
-       _enterTeam이 알아서 ptype-screen 박음. */
+    classId = ctx.classId;
+    const encodedName = encodeURIComponent(ctx.teamName);
+    const teamRef = db.ref(getTeamPath(encodedName, ctx.classId));
     _enterTeam(ctx.teamName, teamRef, { skipPtypeScreenIfExisting: true });
     return true;
   } catch (e) {
@@ -562,18 +537,17 @@ function _enterTeam(val, teamRef, opts) {
   document.getElementById('team-label').textContent = teamName;
   document.getElementById('join-screen').classList.add('hidden');
 
-  /* ★ maker 세션 컨텍스트 저장 — ?resume=1 복귀 시 재입장 방지용
-     sessionStorage: 같은 탭 내에서만 유효 (탭 닫히면 사라짐)
-     PIN은 localStorage에 저장하지 않음 — 탭 생존 기간만 허용 */
+  /* ★ maker 세션 컨텍스트 저장 — ?resume=1/F5 복귀 시 재입장 방지용.
+     SEC-5: PIN은 sessionStorage/localStorage 어디에도 저장하지 않는다.
+     재접속 복원은 저장 PIN이 아니라 members/{uid}/status(active)로 판정(_resumeTeamFromSession). */
   try {
-    const pinInput  = document.getElementById('join-pin')?.value?.trim();
     const codeInput = document.getElementById('join-code')?.value?.trim()?.toUpperCase();
-    if (pinInput) {
+    if (val) {
+      /* 레거시 세션의 pin 필드가 있었더라도 여기서 pin 없는 새 객체로 덮어써 제거된다. */
       sessionStorage.setItem('makerSession', JSON.stringify({
         teamName:  val,
-        classId:   classId   || null,
-        classCode: codeInput || null,   // v2 재입장에 필요
-        pin:       pinInput,
+        classId:   classId   || (opts && opts.classId) || null,
+        classCode: codeInput || (opts && opts.classCode) || null,   // v2 재입장 보조(주: classId로 복원)
         savedAt:   Date.now(),
       }));
     }

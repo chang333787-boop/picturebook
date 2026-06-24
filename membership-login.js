@@ -53,6 +53,31 @@
     return { ok: true, membershipVersion: data.membershipVersion, called: true };
   }
 
+  /* SEC-5: 재접속 복원 판정(순수). DOM·Firebase 없이 테스트 가능.
+     isMembershipActive: async () => boolean  (members/{uid}/status === 'active' 확인 주입).
+     PIN 미사용 — 저장 PIN으로 callable 자동 호출하지 않는다. members write도 하지 않는다. */
+  async function resolveResume(opts) {
+    opts = opts || {};
+    const ctx = opts.ctx;
+    const isMembershipActive = opts.isMembershipActive;
+    if (!ctx || !ctx.teamName || !ctx.classId) return { action: 'login', reason: 'no-context' };
+    if (typeof isMembershipActive !== 'function') return { action: 'login', reason: 'no-checker' };
+    let active = false;
+    try { active = await isMembershipActive(); } catch (e) { active = false; }
+    return active ? { action: 'enter' } : { action: 'login', reason: 'no-membership' };
+  }
+
+  /* 세션 저장용 sanitize — pin 등 비밀 필드 제거(레거시 세션 pin 잔여 제거). */
+  function sanitizeSession(obj) {
+    obj = obj || {};
+    return {
+      teamName: obj.teamName || null,
+      classId: obj.classId || null,
+      classCode: obj.classCode || null,
+      savedAt: obj.savedAt || null,
+    };
+  }
+
   /* single-flight 잠금 — 중복 클릭 시 진행 중이면 무시(재진입 방지). 종료 후 재시도 가능. */
   function createSingleFlight() {
     let inFlight = false;
@@ -69,6 +94,8 @@
 
   return {
     requestTeamMembership: requestTeamMembership,
+    resolveResume: resolveResume,
+    sanitizeSession: sanitizeSession,
     createSingleFlight: createSingleFlight,
     GENERIC_ERROR: GENERIC_ERROR,
     SDK_MISSING: SDK_MISSING,

@@ -1214,7 +1214,9 @@ window.addEventListener('DOMContentLoaded', () => {
     try {
       const _ms = JSON.parse(sessionStorage.getItem('makerSession') || 'null');
       const _MS_MAX_AGE = 2 * 60 * 60 * 1000; // 2시간 (아래 resume 블록 TTL과 동일)
-      _hasFreshMakerSession = !!(_ms && _ms.pin && _ms.teamName
+      /* SEC-5: PIN은 더 이상 세션에 저장하지 않음 → pin 의존 제거.
+         실제 복원 판정(membership active)은 _resumeTeamFromSession이 수행. 여기선 발동 조건만. */
+      _hasFreshMakerSession = !!(_ms && _ms.teamName
         && (_ms.classId || _ms.classCode)
         && (Date.now() - (_ms.savedAt || 0) < _MS_MAX_AGE));
     } catch (e) { /* 파싱 실패 → false(기존 join 화면 유지) */ }
@@ -1225,7 +1227,7 @@ window.addEventListener('DOMContentLoaded', () => {
       if (raw) {
         const ctx = JSON.parse(raw);
         const MAX_AGE = 2 * 60 * 60 * 1000; // 2시간
-        const fresh = ctx && ctx.pin && ctx.teamName
+        const fresh = ctx && ctx.teamName
                    && (Date.now() - (ctx.savedAt || 0) < MAX_AGE);
 
         if (fresh && typeof _resumeTeamFromSession === 'function') {

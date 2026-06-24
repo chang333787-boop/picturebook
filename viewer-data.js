@@ -32,21 +32,33 @@ const firebaseConfig = {
 let _viewerDb = null;
 let _viewerAuthPromise = null;
 
-/* 편집 뷰어 세션 여부 — URL ?edit=1&from=maker. 순수 함수(테스트용 search 인자 허용). */
+function _viewerSearch(search) {
+  return (typeof search === 'string')
+    ? search
+    : (typeof location !== 'undefined' ? location.search : '');
+}
+
+/* maker 인증 세션 — URL ?from=maker. 편집(다듬기)·완성본 보기/미리보기·교사 보기 모두 포함.
+   maker/교사가 자기(반) 작품을 보는 내부 진입(외부 공유 URL엔 from=maker 없음=클래스 코드 사용).
+   → default app(maker UID 복원)을 써서 비공개 작품도 본인 권한으로 읽는다. 순수 함수(테스트용 인자). */
+function isMakerAuthSession(search) {
+  try { return new URLSearchParams(_viewerSearch(search)).get('from') === 'maker'; }
+  catch (_) { return false; }
+}
+
+/* 편집 뷰어 세션 — URL ?edit=1&from=maker. maker 세션 중 '편집'만.
+   편집은 인증이 필수라 복원 실패 시 하드 차단 + 편집 코드의 익명 로그인 금지 가드 대상. */
 function isEditViewerSession(search) {
   try {
-    const qs = (typeof search === 'string')
-      ? search
-      : (typeof location !== 'undefined' ? location.search : '');
-    const p = new URLSearchParams(qs);
+    const p = new URLSearchParams(_viewerSearch(search));
     return p.get('edit') === '1' && p.get('from') === 'maker';
   } catch (_) { return false; }
 }
 
-/* viewer가 쓸 Firebase app — 편집 세션이면 default app(maker UID 복원), 그 외엔 named 'viewer'.
+/* viewer가 쓸 Firebase app — maker 세션이면 default app(maker UID 복원), 그 외엔 named 'viewer'.
    getViewerApp()는 절대 throw하지 않는다(내부에서 initializeApp으로 보장). */
 function getViewerApp() {
-  if (isEditViewerSession()) {
+  if (isMakerAuthSession()) {
     try { return firebase.app(); }
     catch (_) { return firebase.initializeApp(firebaseConfig); }
   }
@@ -78,8 +90,8 @@ function getViewerDb() {
   if (_viewerDb) return _viewerDb;
   const app = getViewerApp();
   _viewerDb = app.database();
-  if (isEditViewerSession()) {
-    /* 편집 뷰어: maker UID 복원 대기 준비. 새 익명 로그인 금지(_awaitMakerAuth). */
+  if (isMakerAuthSession()) {
+    /* maker 세션(편집/완성본/교사보기): default app maker UID 복원 대기 준비. 새 익명 로그인 금지(_awaitMakerAuth). */
     if (typeof window !== 'undefined' && !window.viewerAuthReady) {
       window.viewerAuthReady = _awaitMakerAuth(app);
     }
@@ -102,6 +114,7 @@ function getViewerDb() {
 if (typeof window !== 'undefined') {
   window.getViewerApp = getViewerApp;
   window.isEditViewerSession = isEditViewerSession;
+  window.isMakerAuthSession = isMakerAuthSession;
 }
 
 /* ================================================================
@@ -142,11 +155,13 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
   const db          = getViewerDb();
   const encodedName = encodeURIComponent(teamName);
 
-  /* POLISH-AUTH-FIX: 편집 뷰어는 maker UID(default app) 복원을 기다린 뒤 읽는다.
-     복원 실패(=maker 세션 없음)면 새 익명 로그인 대신 안전 안내 후 중단 → permission_denied 차단. */
-  if (isEditViewerSession()) {
+  /* POLISH-AUTH-FIX: maker 세션(편집/완성본/교사보기)은 maker UID(default app) 복원을 기다린 뒤 읽는다
+     (복원 전 read → permission_denied 레이스 차단). 새 익명 로그인은 하지 않는다.
+     · 편집(edit=1)은 인증 필수 → 복원 실패 시 안전 안내 + 만들기 복귀(하드 차단).
+     · 완성본/미리보기(비편집)는 공개 작품도 있으므로 차단하지 않고 진행 — 비공개는 Rules가 거부. */
+  if (isMakerAuthSession()) {
     const makerUser = await ((typeof window !== 'undefined' && window.viewerAuthReady) || Promise.resolve(null));
-    if (!makerUser) {
+    if (!makerUser && isEditViewerSession()) {
       const e = new Error('편집 권한을 확인할 수 없어요.\n만들기 화면으로 돌아가 다시 들어와 주세요.');
       e.code = 'viewer/edit-auth-missing';
       throw e;
@@ -1513,5 +1528,5 @@ function validateButtonsForSave(choices) {
 /* 테스트 전용 export — 브라우저에선 module 미정의라 무시된다(membership-login.js와 동일 패턴).
    POLISH-AUTH-FIX 편집 세션 판정/앱 선택 로직을 Node 하니스에서 검증하기 위함. */
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { isEditViewerSession, getViewerApp };
+  module.exports = { isEditViewerSession, isMakerAuthSession, getViewerApp };
 }

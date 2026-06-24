@@ -52,6 +52,20 @@ test('빈 쿼리 → 편집 세션 아님', () => {
   assert.equal(loadVD().isEditViewerSession(''), false);
 });
 
+/* ── isMakerAuthSession: from=maker 전체(편집+완성본보기+교사보기) ── */
+test('maker세션: 다듬기(edit=1&from=maker) → maker 인증 세션', () => {
+  assert.equal(loadVD().isMakerAuthSession('?team=t&edit=1&from=maker'), true);
+});
+test('maker세션: 완성본 보기(from=maker, edit 없음) → maker 인증 세션 (Phase J 확장)', () => {
+  assert.equal(loadVD().isMakerAuthSession('?team=t&from=maker'), true);
+});
+test('maker세션: 교사 보기(from=maker&classId) → maker 인증 세션', () => {
+  assert.equal(loadVD().isMakerAuthSession('?team=t&classId=c&from=maker'), true);
+});
+test('maker세션 아님: 공개 감상(from 없음) → false (named viewer 익명 유지)', () => {
+  assert.equal(loadVD().isMakerAuthSession('?team=t&classId=c'), false);
+});
+
 /* ── getViewerApp: 세션별 올바른 Firebase app 선택 ── */
 function fakeFirebase(created) {
   return {
@@ -76,10 +90,18 @@ test('공개 감상 → named "viewer" app 선택 (기존 동작 보존 — 회�
   assert.deepEqual(created, ['viewer']);      // default app은 만들지 않음(공개 감상 byte-unchanged)
 });
 
-test('완성본 보기(from=maker, edit 없음) → named "viewer" app (편집 아님, 현행 정책 유지)', () => {
+test('완성본 보기(from=maker, edit 없음) → default app (Phase J: maker 미리보기도 maker UID)', () => {
   const VD = loadVD();
-  const app = withGlobals('?team=t&from=maker', fakeFirebase(), () => VD.getViewerApp());
-  assert.equal(app.__name, 'viewer');
+  const created = [];
+  const app = withGlobals('?team=t&from=maker', fakeFirebase(created), () => VD.getViewerApp());
+  assert.equal(app.__name, '[DEFAULT]');
+  assert.deepEqual(created, ['[DEFAULT]']);   // 비공개 미리보기도 maker 권한으로 읽도록
+});
+
+test('교사 보기(from=maker&classId, edit 없음) → default app', () => {
+  const VD = loadVD();
+  const app = withGlobals('?team=t&classId=c&from=maker', fakeFirebase(), () => VD.getViewerApp());
+  assert.equal(app.__name, '[DEFAULT]');
 });
 
 test('이미 init된 app이 있으면 재사용(initializeApp 호출 안 함)', () => {

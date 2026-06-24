@@ -40,7 +40,17 @@
     const vm = Flow.createFlow({ resume: { index: rp.questionIndex, answers: rp.answers } });
     const followUps = Array.isArray(rp.followUps) ? rp.followUps.slice() : [];
     S = { ctx: ctx, vm: vm, busy: false, draftTimer: null, error: null,
-          followUps: followUps, followUpsUsed: followUps.length, followUp: null, aiBusy: false };
+          followUps: followUps, followUpsUsed: followUps.length, followUp: null, aiBusy: false,
+          editMode: false, onEditComplete: null };
+    _render();
+  }
+
+  /* 검토 화면 '고치기' — 특정 핵심 질문 1개만 수정 후 검토로 복귀(Phase I, D-09). 다른 답변 보존. */
+  function openForEdit(ctx, vm, index, onComplete) {
+    const Flow = _Flow();
+    S = { ctx: ctx, vm: Flow.goToIndex(vm, index), busy: false, draftTimer: null, error: null,
+          followUps: [], followUpsUsed: 0, followUp: null, aiBusy: false,
+          editMode: true, onEditComplete: (typeof onComplete === 'function') ? onComplete : null };
     _render();
   }
 
@@ -140,9 +150,14 @@
       card.appendChild(st);
     }
 
-    /* 하단 네비 — 이전(두번째부터, WIRE-05) / 다음 */
+    /* 하단 네비 — 이전(두번째부터, WIRE-05) / 다음. 편집 모드는 취소 / 저장하고 돌아가기. */
     const nav = _el('div', 'tc-flow-nav');
-    if (Flow.canPrev(S.vm) && !S.aiBusy) {
+    if (S.editMode) {
+      const cancel = _el('button', 'tc-flow-prev', '취소');
+      cancel.type = 'button';
+      cancel.addEventListener('click', function () { _cancelEdit(); });
+      nav.appendChild(cancel);
+    } else if (Flow.canPrev(S.vm) && !S.aiBusy) {
       const prev = _el('button', 'tc-flow-prev', '이전');
       prev.type = 'button';
       prev.addEventListener('click', function () { _onPrev(); });
@@ -150,7 +165,7 @@
     } else {
       nav.appendChild(_el('span', 'tc-flow-nav-spacer'));
     }
-    const next = _el('button', 'tc-flow-next', Flow.isLast(S.vm) ? '다 정했어요' : '다음');
+    const next = _el('button', 'tc-flow-next', S.editMode ? '저장하고 돌아가기' : (Flow.isLast(S.vm) ? '다 정했어요' : '다음'));
     next.type = 'button';
     next.disabled = !Flow.canNext(S.vm) || S.busy || S.aiBusy;
     next.addEventListener('click', function () { _onNext(); });
@@ -232,8 +247,21 @@
       return;                            /* 저장 실패 → index 이동 금지 */
     }
     S.busy = false;
+    if (S.editMode) {
+      /* 단일 수정 — 저장 후 검토 화면으로 복귀(AI 후속 재호출 없음). */
+      const cb = S.onEditComplete; const vm = S.vm;
+      if (cb) cb(vm);
+      return;
+    }
     /* 핵심 답변 저장 완료 → AI 후속질문 판정(Phase H) */
     await _judgeAndAdvance(last);
+  }
+
+  function _cancelEdit() {
+    if (S.busy) return;
+    const cb = S.onEditComplete;
+    if (S.draftTimer) { clearTimeout(S.draftTimer); S.draftTimer = null; }
+    if (cb) cb(null);     /* null = 변경 취소(검토 화면이 기존 답 유지) */
   }
 
   /* 모든 핵심 답변 요약(AI 입력용, PII 없음). */
@@ -293,7 +321,7 @@
   function _finishCore() {
     if (typeof window.ThoughtCompassReview !== 'undefined' && window.ThoughtCompassReview && typeof window.ThoughtCompassReview.open === 'function') {
       _remove();
-      window.ThoughtCompassReview.open(S.ctx, S.vm);
+      window.ThoughtCompassReview.open(S.ctx, S.vm, S.followUps);
       return;
     }
     /* Phase I 이전 — 검토 화면 자리표시(스켈레톤) */
@@ -412,5 +440,5 @@
 
   function close() { if (S && S.draftTimer) clearTimeout(S.draftTimer); _remove(); S = null; }
 
-  window.ThoughtCompassUI = { open: open, close: close, _render: _render };
+  window.ThoughtCompassUI = { open: open, openForEdit: openForEdit, close: close, _render: _render };
 })();

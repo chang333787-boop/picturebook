@@ -377,6 +377,8 @@
   /* viewer 박은 거 박은 거 박은 박은 named app 'viewer' 박음 (viewer-data.js 박힘). default app 박지 X. */
   function _getViewerFirebaseApp() {
     if (typeof firebase === 'undefined') return null;
+    /* POLISH-AUTH-FIX: 편집 세션은 default app(maker UID) — getViewerApp로 통일(Functions context.auth=maker UID). */
+    if (typeof getViewerApp === 'function') { try { return getViewerApp(); } catch (e) { /* noop */ } }
     try { return firebase.app('viewer'); } catch (e) { /* noop */ }
     try { return firebase.app(); } catch (e) { /* noop */ }
     if (firebase.apps && firebase.apps.length) return firebase.apps[0];
@@ -416,6 +418,9 @@
       const authObj = app ? app.auth() : firebase.auth();
       const cur = authObj.currentUser;
       if (cur) return cur;
+      /* POLISH-AUTH-FIX: 편집 세션은 maker UID(복원됨)만 사용 — 새 익명 로그인 금지
+         (default app maker UID를 덮어쓰면 권한이 깨진다). 복원 전이면 null 반환→호출측 안전 실패. */
+      if (typeof isEditViewerSession === 'function' && isEditViewerSession()) return null;
       const cred = await authObj.signInAnonymously();
       return cred && cred.user;
     } catch (e) {

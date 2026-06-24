@@ -193,14 +193,15 @@ async function viewerUploadVideoToStorage(file, sceneNum, opts) {
   }
   let storage;
   let viewerApp;
+  /* POLISH-AUTH-FIX: 편집 세션은 default app(maker UID), 그 외엔 named 'viewer' — getViewerApp로 통일. */
   try {
-    viewerApp = firebase.app('viewer');
+    viewerApp = (typeof getViewerApp === 'function') ? getViewerApp() : firebase.app('viewer');
   } catch (e) {
-    /* 'viewer' app 없음 → getViewerDb로 강제 init (viewer-data.js의 패턴) */
+    /* app 미초기화 → getViewerDb로 강제 init (viewer-data.js의 패턴) */
     if (typeof getViewerDb === 'function') {
       try {
         getViewerDb();
-        viewerApp = firebase.app('viewer');
+        viewerApp = (typeof getViewerApp === 'function') ? getViewerApp() : firebase.app('viewer');
       } catch (e2) {
         throw new Error('Firebase 앱이 초기화되지 않았어요. 페이지를 새로고침해주세요.');
       }
@@ -226,11 +227,12 @@ async function viewerUploadVideoToStorage(file, sceneNum, opts) {
   }
 
   /* anonymous auth 보장 — Storage 규칙의 auth != null 충족.
-     viewer named app의 auth 사용. */
+     POLISH-AUTH-FIX: 편집 세션에선 maker UID(복원됨)를 쓰고 새 익명 로그인 금지
+     (default app의 maker UID를 덮어쓰면 권한이 깨진다). */
   try {
     if (typeof viewerApp.auth === 'function') {
       const auth = viewerApp.auth();
-      if (!auth.currentUser) {
+      if (!auth.currentUser && !(typeof isEditViewerSession === 'function' && isEditViewerSession())) {
         try { await auth.signInAnonymously(); }
         catch (e) { /* 인증 실패해도 일단 시도 */ }
       }
@@ -305,11 +307,12 @@ async function viewerUploadImageToStorage(input, sceneNum, opts) {
     throw new Error('Storage SDK가 로드되지 않았어요. 페이지를 새로고침해주세요.');
   }
   let viewerApp;
+  /* POLISH-AUTH-FIX: 편집 세션은 default app(maker UID) — getViewerApp로 통일. */
   try {
-    viewerApp = firebase.app('viewer');
+    viewerApp = (typeof getViewerApp === 'function') ? getViewerApp() : firebase.app('viewer');
   } catch (e) {
     if (typeof getViewerDb === 'function') {
-      try { getViewerDb(); viewerApp = firebase.app('viewer'); }
+      try { getViewerDb(); viewerApp = (typeof getViewerApp === 'function') ? getViewerApp() : firebase.app('viewer'); }
       catch (e2) { throw new Error('Firebase 앱이 초기화되지 않았어요.'); }
     } else { throw new Error('Firebase 앱이 초기화되지 않았어요.'); }
   }
@@ -335,11 +338,11 @@ async function viewerUploadImageToStorage(input, sceneNum, opts) {
     throw new Error(`이미지가 너무 커요 (${mb}MB). 6MB 이내만 가능해요.`);
   }
 
-  /* anonymous auth — viewer named app */
+  /* anonymous auth — POLISH-AUTH-FIX: 편집 세션은 maker UID 사용, 새 익명 로그인 금지. */
   try {
     if (typeof viewerApp.auth === 'function') {
       const auth = viewerApp.auth();
-      if (!auth.currentUser) {
+      if (!auth.currentUser && !(typeof isEditViewerSession === 'function' && isEditViewerSession())) {
         try { await auth.signInAnonymously(); } catch (e) {}
       }
     }
@@ -372,11 +375,12 @@ async function viewerDeleteVideoFromStorage(storagePath) {
   if (!storagePath) return false;
   try {
     let viewerApp;
-    try { viewerApp = firebase.app('viewer'); }
+    /* POLISH-AUTH-FIX: 편집 세션은 default app(maker UID) — getViewerApp로 통일. */
+    try { viewerApp = (typeof getViewerApp === 'function') ? getViewerApp() : firebase.app('viewer'); }
     catch (e) {
       if (typeof getViewerDb === 'function') {
         getViewerDb();
-        viewerApp = firebase.app('viewer');
+        viewerApp = (typeof getViewerApp === 'function') ? getViewerApp() : firebase.app('viewer');
       } else return false;
     }
     if (typeof viewerApp.storage !== 'function') return false;
@@ -1060,7 +1064,8 @@ function _applyEditLockUI() {
               let authReady = false;
               try {
                 if (typeof firebase !== 'undefined' && firebase.app) {
-                  const viewerApp = firebase.app('viewer');
+                  /* POLISH-AUTH-FIX: 편집 세션은 default app(maker UID) 기준으로 인증 확인. */
+                  const viewerApp = (typeof getViewerApp === 'function') ? getViewerApp() : firebase.app('viewer');
                   authReady = !!(viewerApp && viewerApp.auth && viewerApp.auth().currentUser);
                 }
               } catch (e) { /* noop */ }

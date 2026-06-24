@@ -41,8 +41,20 @@ test('비member onboarding read 거부', async () => {
 test('member가 editSession read 허용', async () => {
   await assertSucceeds(readPath(student(env, STUDENT_A), ES));
 });
+test('member가 editSession write 허용 (Phase K 트랜잭션)', async () => {
+  await assertSucceeds(writePath(student(env, STUDENT_A), ES, { editorUid: STUDENT_A, startedAt: 1, heartbeatAt: 1, sessionVersion: 1 }));
+});
+test('member가 onboarding read 허용', async () => {
+  await assertSucceeds(readPath(student(env, STUDENT_A), OB));
+});
 test('비member editSession write 거부', async () => {
   await assertFails(writePath(student(env, STUDENT_B), ES, { ownerId: 'x' }));
+});
+test('비로그인 editSession read 거부', async () => {
+  await assertFails(readPath(anon(env), ES));
+});
+test('비로그인 onboarding read 거부', async () => {
+  await assertFails(readPath(anon(env), OB));
 });
 test('교사가 writingGuide read/write 허용', async () => {
   await assertSucceeds(readPath(teacher(env, TEACHER_A), WG));

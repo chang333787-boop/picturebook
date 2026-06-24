@@ -365,6 +365,28 @@ async function _resolveRole(user, tokenResult) {
 }
 
 /* ================================================================
+   SEC-4 — joinTeamMembership callable adapter (얇은 어댑터).
+   Functions SDK가 없으면 명시적 실패(no-op/성공 fallback 금지). PIN console 출력 금지.
+   순수 로직은 membership-login.js(MembershipLogin)가 담당.
+   ================================================================ */
+const MEMBERSHIP_SDK_MISSING_MSG = '지금은 로그인 확인 기능을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.';
+async function callJoinTeamMembership(args) {
+  const app = (typeof firebase !== 'undefined' && typeof firebase.app === 'function') ? firebase.app() : null;
+  if (!app || typeof app.functions !== 'function') {
+    const err = new Error('functions-sdk-missing');
+    err.code = 'unavailable';   /* requestTeamMembership이 SDK 없음으로 정규화 */
+    throw err;
+  }
+  const callable = app.functions('asia-northeast3').httpsCallable('joinTeamMembership');
+  const res = await callable({ classId: args.classId, teamName: args.teamName, pin: args.pin });
+  return res && res.data;
+}
+
+/* 중복 클릭 잠금(single-flight) — MembershipLogin 로드 전이면 통과 래퍼 */
+const _loginLock = (typeof MembershipLogin !== 'undefined' && MembershipLogin.createSingleFlight)
+  ? MembershipLogin.createSingleFlight() : null;
+
+/* ================================================================
    팀 입장 — joinTeam()이 DATA_PATH_VERSION에 따라 분기
    ================================================================ */
 function joinTeam() {
@@ -377,36 +399,12 @@ function joinTeam() {
 
 /* ── v1: 기존 teams/ 경로 (동작 완전 동일) ── */
 function _joinTeamV1() {
+  /* SEC-4: v1(레거시 teams/ 경로)은 DATA_PATH_VERSION='v2'에서 호출되지 않음(dormant).
+     보안: client PIN 직접 read(teams/{team}/pin)·자가등록 write를 제거한다.
+     v1은 classId가 없어 joinTeamMembership(classes/ 기반 서버 검증)을 사용할 수 없으므로,
+     만에 하나 호출되더라도 안전하게 차단한다(PIN 노출 경로 0). */
   const errEl = document.getElementById('join-error');
-  errEl.textContent = '';
-
-  const val = document.getElementById('join-input').value.trim();
-  const pin = document.getElementById('join-pin').value.trim();
-
-  if (!val) { errEl.textContent = '팀 이름을 입력해주세요'; return; }
-  if (!pin)  { errEl.textContent = 'PIN을 입력해주세요'; return; }
-  if (!/^\d{4,6}$/.test(pin)) { errEl.textContent = 'PIN은 숫자 4~6자리로 입력해주세요'; return; }
-
-  const encodedName = encodeURIComponent(val);
-  const teamRef     = db.ref(getTeamPath(encodedName));  // v1: teams/$encodedName
-
-  teamRef.child('pin').once('value').then(snap => {
-    const savedPin = snap.val();
-
-    if (savedPin !== null && savedPin !== pin) {
-      errEl.textContent = '❌ PIN이 달라요. 다시 확인해보세요';
-      document.getElementById('join-pin').value = '';
-      document.getElementById('join-pin').focus();
-      return;
-    }
-    if (savedPin === null) teamRef.child('pin').set(pin);
-
-    /* W6 신규 흐름: PIN 통과 시 _enterTeam만 호출. _enterTeam이 자체적으로 viewer-meta
-       조회 + ptype-screen 노출 흐름 처리. */
-    _enterTeam(val, teamRef);
-  }).catch(() => {
-    errEl.textContent = '⚠️ 네트워크 오류가 났어요. 다시 시도해보세요';
-  });
+  if (errEl) errEl.textContent = '지금은 이 방식으로 입장할 수 없어요. 선생님께 문의해 주세요.';
 }
 
 /* ── v2: classes/ 경로 (클래스 코드 + 팀명 + PIN) ── */
@@ -423,86 +421,48 @@ async function _joinTeamV2() {
   if (!pin)  { errEl.textContent = 'PIN을 입력해주세요'; return; }
   if (!/^\d{4,6}$/.test(pin)) { errEl.textContent = 'PIN은 숫자 4~6자리로 입력해주세요'; return; }
 
-  try {
-    /* ★ anonymous auth 보장 — Rules의 auth != null 조건을 충족하기 위해
-       이미 로그인된 경우(teacher Auth 포함) 재로그인 없이 통과.
-       비인증 상태(학생)일 때만 anonymous sign-in 실행. */
-    if (!auth.currentUser) {
-      await auth.signInAnonymously();
-    }
-
-    const foundClassId = await _lookupClassId(code.toUpperCase());
-    if (!foundClassId) { errEl.textContent = '❌ 클래스 코드가 올바르지 않아요'; return; }
-
-    const encodedName = encodeURIComponent(val);
-    const teamRef     = db.ref(getTeamPath(encodedName, foundClassId));
-
-    /* ════════════════════════════════════════════════════════════════
-       ADMIN-1C: 팀 생성 방식(teamCreationMode) 반영
-       ──────────────────────────────────────────────────────────────
-       · 기본값/오류 폴백 = legacy_open → 기존 학급 입장 절대 안 깨짐
-       · legacy_open: 기존 pin 흐름 그대로 (없으면 새 PIN 생성 가능)
-       · teacher_managed: 교사 등록 account만 입장, 자동 팀 생성 금지
-       · locked: 입장 차단
-       ════════════════════════════════════════════════════════════════ */
-    const mode = await _readTeamCreationMode(foundClassId);
-
-    if (mode === 'locked') {
-      errEl.textContent = '지금은 선생님이 입장을 잠시 닫아 두었어요.';
-      return;
-    }
-
-    if (mode === 'teacher_managed') {
-      /* account 읽기 — 실패는 네트워크성 오류로 안내(차단), null은 미등록 안내 */
-      let account;
-      try {
-        const accSnap = await teamRef.child('account').once('value');
-        account = accSnap.val();
-      } catch (e) {
-        errEl.textContent = '⚠️ 팀 정보를 확인하지 못했어요. 잠시 후 다시 시도해 주세요';
-        return;
-      }
-      if (!account) {
-        errEl.textContent = '선생님이 등록한 팀만 들어갈 수 있어요. 팀 이름과 PIN을 다시 확인해 주세요.';
-        document.getElementById('join-pin').value = '';
-        return;
-      }
-      if (account.status === 'locked') {
-        errEl.textContent = '이 팀은 선생님이 잠시 잠가 두었어요.';
-        return;
-      }
-      if (String(account.pin) !== pin) {
-        errEl.textContent = 'PIN이 맞지 않아요. 선생님께 받은 PIN을 다시 입력해 주세요.';
-        document.getElementById('join-pin').value = '';
-        document.getElementById('join-pin').focus();
-        return;
-      }
-      /* 통과 — 새 팀 자동 생성/legacy pin 쓰기 절대 안 함 */
-      classId = foundClassId;
-      _enterTeam(val, teamRef);
-      return;
-    }
-
-    /* ── legacy_open (기본) — 기존 흐름 그대로 유지 ── */
-    const snap     = await teamRef.child('pin').once('value');
-    const savedPin = snap.val();
-
-    if (savedPin !== null && savedPin !== pin) {
-      errEl.textContent = '❌ PIN이 달라요. 다시 확인해보세요';
-      document.getElementById('join-pin').value = '';
-      document.getElementById('join-pin').focus();
-      return;
-    }
-    if (savedPin === null) teamRef.child('pin').set(pin);
-
-    /* ★ 전역 classId 저장 — 이후 viewer 링크/저장에 사용 */
-    classId = foundClassId;
-
-    /* W6 신규 흐름: _enterTeam이 자체 viewer-meta 조회 + ptype-screen 흐름 처리 */
-    _enterTeam(val, teamRef);
-  } catch {
-    errEl.textContent = '⚠️ 네트워크 오류가 났어요. 다시 시도해보세요';
+  /* SEC-4: 서버(joinTeamMembership)가 teamCreationMode·PIN(legacy/account)·locked를 모두 검증한다.
+     client는 pin/account를 직접 read 하지 않고, callable 성공해야만 진입한다(실패 시 진입 0회·fallback 없음). */
+  if (typeof MembershipLogin === 'undefined') {
+    errEl.textContent = MEMBERSHIP_SDK_MISSING_MSG;
+    return;
   }
+  if (_loginLock && _loginLock.isBusy()) return;   /* 중복 클릭 잠금 */
+  const _btn = document.getElementById('btn-join');
+  const _runner = _loginLock ? _loginLock.run.bind(_loginLock) : (fn => fn());
+
+  await _runner(async () => {
+    if (_btn) _btn.disabled = true;
+    try {
+      /* ★ anonymous auth 보장 — Rules의 auth != null / callable auth 충족.
+         이미 로그인된 경우(teacher 포함) 재로그인 없이 통과. */
+      if (!auth.currentUser) {
+        await auth.signInAnonymously();
+      }
+
+      const foundClassId = await _lookupClassId(code.toUpperCase());
+      if (!foundClassId) { errEl.textContent = '❌ 클래스 코드가 올바르지 않아요'; return; }
+
+      const out = await MembershipLogin.requestTeamMembership({
+        classId: foundClassId,
+        teamName: val,
+        pin: pin,
+        callMembership: callJoinTeamMembership,
+      });
+      if (!out.ok) { errEl.textContent = out.message; return; }   /* 진입 0회·세션 저장 0회 */
+
+      /* ★ 전역 classId 저장 — 이후 viewer 링크/저장에 사용 */
+      classId = foundClassId;
+      const encodedName = encodeURIComponent(val);
+      const teamRef     = db.ref(getTeamPath(encodedName, foundClassId));
+      /* W6: _enterTeam이 viewer-meta 조회 + ptype-screen 흐름 처리. PIN은 저장하지 않음(SEC-5에서 강제). */
+      _enterTeam(val, teamRef);
+    } catch (e) {
+      errEl.textContent = '⚠️ 네트워크 오류가 났어요. 다시 시도해보세요';
+    } finally {
+      if (_btn) _btn.disabled = false;
+    }
+  });
 }
 
 /* ── ADMIN-1C: 팀 생성 방식 조회 헬퍼 ──

@@ -38,12 +38,15 @@
     }
     const rp = TC.resolveResumePoint(state);
     const vm = Flow.createFlow({ resume: { index: rp.questionIndex, answers: rp.answers } });
-    S = { ctx: ctx, vm: vm, busy: false, draftTimer: null, error: null };
+    const followUps = Array.isArray(rp.followUps) ? rp.followUps.slice() : [];
+    S = { ctx: ctx, vm: vm, busy: false, draftTimer: null, error: null,
+          followUps: followUps, followUpsUsed: followUps.length, followUp: null, aiBusy: false };
     _render();
   }
 
   function _render() {
     if (!S) return;
+    if (S.followUp) { _renderFollowUp(); return; }     /* AI 후속질문 화면(Phase H) */
     const Flow = _Flow();
     const q = Flow.currentQuestion(S.vm);
     if (!q) return;
@@ -130,10 +133,16 @@
       err.setAttribute('role', 'alert');
       card.appendChild(err);
     }
+    /* AI 판정 대기 — 카드 하단 짧은 상태(WIRE-04, 전체화면 막지 않음·중복 제출 차단) */
+    if (S.aiBusy) {
+      const st = _el('p', 'tc-flow-aistatus', '답을 살펴보고 있어요…');
+      st.setAttribute('role', 'status');
+      card.appendChild(st);
+    }
 
     /* 하단 네비 — 이전(두번째부터, WIRE-05) / 다음 */
     const nav = _el('div', 'tc-flow-nav');
-    if (Flow.canPrev(S.vm)) {
+    if (Flow.canPrev(S.vm) && !S.aiBusy) {
       const prev = _el('button', 'tc-flow-prev', '이전');
       prev.type = 'button';
       prev.addEventListener('click', function () { _onPrev(); });
@@ -143,7 +152,7 @@
     }
     const next = _el('button', 'tc-flow-next', Flow.isLast(S.vm) ? '다 정했어요' : '다음');
     next.type = 'button';
-    next.disabled = !Flow.canNext(S.vm) || S.busy;
+    next.disabled = !Flow.canNext(S.vm) || S.busy || S.aiBusy;
     next.addEventListener('click', function () { _onNext(); });
     nav.appendChild(next);
     card.appendChild(nav);
@@ -200,7 +209,7 @@
     _render();
   }
   async function _onNext() {
-    if (S.busy) return;                 /* 중복 제출 차단 */
+    if (S.busy || S.aiBusy) return;     /* 중복 제출 차단 */
     const Flow = _Flow(), Store = _Store();
     if (!Flow.canNext(S.vm)) return;
     S.busy = true; S.error = null;
@@ -223,8 +232,60 @@
       return;                            /* 저장 실패 → index 이동 금지 */
     }
     S.busy = false;
+    /* 핵심 답변 저장 완료 → AI 후속질문 판정(Phase H) */
+    await _judgeAndAdvance(last);
+  }
+
+  /* 모든 핵심 답변 요약(AI 입력용, PII 없음). */
+  function _priorSummaries() {
+    const out = [];
+    for (const q of S.vm.questions) {
+      const a = S.vm.answers[q.id];
+      if (a && a.answerText) out.push({ key: q.id, text: String(a.answerText).slice(0, 200) });
+    }
+    return out;
+  }
+
+  /* 핵심 답변 저장 후: AI 판정 → NEXT(다음 핵심) / ASK_FOLLOW_UP(후속 화면) / ASK_EASIER(쉬운 보기). */
+  async function _judgeAndAdvance(last) {
+    const Flow = _Flow();
+    const q = Flow.currentQuestion(S.vm);
+    const ans = Flow.currentAnswer(S.vm);
+    const meta = { followUpsUsed: S.followUpsUsed };
+    let decision = null;
+    if (Flow.followUpBudgetLeft(meta) && window.ThoughtCompassAI && typeof window.ThoughtCompassAI.requestFollowUp === 'function') {
+      S.aiBusy = true; _render();
+      try {
+        decision = await window.ThoughtCompassAI.requestFollowUp({
+          classId: S.ctx.classId, teamName: S.ctx.teamName, projectType: S.ctx.projectType,
+          coreQuestionId: q.id, currentAnswer: (ans && ans.answerText) || '',
+          followUpCount: S.followUpsUsed, totalQuestionCount: Flow.CORE_TOTAL + S.followUpsUsed,
+          priorSummaries: _priorSummaries(),
+        });
+      } catch (e) { decision = null; }
+      S.aiBusy = false;
+    }
+    const r = Flow.resolveAfterAnswer(decision && decision.decision, meta);
+    if (r.action === 'easier') {
+      if (Flow.assistanceLevel(S.vm) >= 2) { _advanceCore(last); return; }   /* 이미 최대 완화 → 진행 */
+      S.vm = Flow.setAssistanceLevel(S.vm, Flow.assistanceLevel(S.vm) + 1);
+      _render(); return;
+    }
+    if (r.action === 'followUp' && decision && decision.followUpQuestion) {
+      S.followUp = {
+        parentQuestionId: q.id, prompt: decision.followUpQuestion,
+        supportOptions: Array.isArray(decision.supportOptions) ? decision.supportOptions : [],
+        reasonCode: decision.reasonCode || null, afterLast: last,
+        answerText: '', choiceId: null, custom: false,
+      };
+      S.followUpsUsed += 1;
+      _render(); return;
+    }
+    _advanceCore(last);
+  }
+  function _advanceCore(last) {
     if (last) { _finishCore(); return; }
-    S.vm = Flow.commitNext(S.vm);
+    S.vm = _Flow().commitNext(S.vm);
     _render();
   }
 
@@ -244,6 +305,109 @@
     card.appendChild(_el('p', 'tc-flow-help', '핵심 질문을 모두 마쳤어요. (최종 검토 화면은 다음 단계에서 연결됩니다.)'));
     overlay.appendChild(card);
     document.body.appendChild(overlay);
+  }
+
+  /* ── AI 후속질문 화면(Phase H) ── 한 화면 한 후속질문. 핵심 질문은 못 건너뜀(후속만 넘어가기). */
+  function _renderFollowUp() {
+    const fu = S.followUp;
+    const hasAnswer = !!(fu.answerText && fu.answerText.trim());
+    _remove();
+    const overlay = _el('div', 'tc-flow-overlay');
+    overlay.id = OVERLAY_ID;
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-label', '생각 나침반 후속 질문');
+    const card = _el('div', 'tc-flow-card');
+
+    card.appendChild(_el('div', 'tc-flow-followup-tag', '조금만 더 들려줄래요?'));
+    const t = _el('h2', 'tc-flow-title', fu.prompt); t.id = 'tc-flow-title';
+    card.appendChild(t);
+    overlay.setAttribute('aria-labelledby', 'tc-flow-title');
+
+    const opts = _el('div', 'tc-flow-options');
+    (fu.supportOptions || []).forEach((label, i) => {
+      const b = _el('button', 'tc-flow-choice' + (fu.choiceId === i ? ' is-selected' : ''), label);
+      b.type = 'button';
+      b.addEventListener('click', function () { _onFollowUpChoice(i); });
+      opts.appendChild(b);
+    });
+    const customWrap = _el('div', 'tc-flow-custom' + (fu.custom ? ' is-active' : ''));
+    const customBtn = _el('button', 'tc-flow-choice tc-flow-choice--custom' + (fu.custom ? ' is-selected' : ''), '✏️ 직접 적을래요');
+    customBtn.type = 'button';
+    customBtn.addEventListener('click', function () { _onFollowUpCustomActivate(); });
+    customWrap.appendChild(customBtn);
+    if (fu.custom) {
+      const ta = _el('textarea', 'tc-flow-custom-input');
+      ta.value = fu.answerText || '';
+      ta.maxLength = 150;     /* 후속질문 직접입력 최대(D-24) */
+      ta.placeholder = '여기에 적어 보세요';
+      ta.addEventListener('input', function () { _onFollowUpCustomInput(ta.value); });
+      customWrap.appendChild(ta);
+    }
+    opts.appendChild(customWrap);
+    card.appendChild(opts);
+
+    const nav = _el('div', 'tc-flow-nav');
+    const skip = _el('button', 'tc-flow-prev', '이 질문은 넘어가기');
+    skip.type = 'button';
+    skip.addEventListener('click', function () { _onFollowUpSkip(); });
+    nav.appendChild(skip);
+    const next = _el('button', 'tc-flow-next', '다음');
+    next.type = 'button';
+    next.disabled = !hasAnswer || S.busy;
+    next.addEventListener('click', function () { _onFollowUpNext(); });
+    nav.appendChild(next);
+    card.appendChild(nav);
+
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+    try { t.setAttribute('tabindex', '-1'); t.focus(); } catch (e) {}
+  }
+  function _onFollowUpChoice(i) {
+    S.followUp.choiceId = i; S.followUp.custom = false;
+    S.followUp.answerText = (S.followUp.supportOptions[i] || '');
+    _renderFollowUp();
+  }
+  function _onFollowUpCustomActivate() {
+    S.followUp.custom = true; S.followUp.choiceId = null; S.followUp.answerText = '';
+    _renderFollowUp();
+    const ta = document.querySelector('.tc-flow-custom-input');
+    if (ta) { try { ta.focus(); } catch (e) {} }
+  }
+  function _onFollowUpCustomInput(text) {
+    S.followUp.answerText = String(text || '').slice(0, 150);
+    const next = document.querySelector('.tc-flow-next');
+    if (next) next.disabled = !S.followUp.answerText.trim() || S.busy;
+  }
+  async function _onFollowUpNext() {
+    if (S.busy) return;
+    const fu = S.followUp;
+    if (!fu.answerText || !fu.answerText.trim()) return;
+    S.busy = true;
+    const entry = {
+      id: fu.parentQuestionId + '_fu' + (S.followUps.length + 1),
+      parentQuestionId: fu.parentQuestionId,
+      prompt: fu.prompt,
+      answer: fu.answerText.trim(),
+      reasonCode: fu.reasonCode || null,
+      order: S.followUps.length + 1,
+    };
+    S.followUps.push(entry);
+    const Store = _Store();
+    if (Store && typeof Store.saveThoughtCompassFollowUps === 'function') {
+      try { await Store.saveThoughtCompassFollowUps(S.ctx, S.followUps); }
+      catch (e) { /* 저장 실패해도 진행 차단하지 않음(세션 보존, 다음에서 재시도) */ }
+    }
+    S.busy = false;
+    const afterLast = fu.afterLast;
+    S.followUp = null;
+    _advanceCore(afterLast);
+  }
+  function _onFollowUpSkip() {
+    if (S.busy) return;
+    const afterLast = S.followUp.afterLast;
+    S.followUp = null;     /* 후속질문만 종료(핵심 질문은 건너뛰지 않음) */
+    _advanceCore(afterLast);
   }
 
   function close() { if (S && S.draftTimer) clearTimeout(S.draftTimer); _remove(); S = null; }

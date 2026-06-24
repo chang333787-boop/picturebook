@@ -71,8 +71,10 @@
 }
 .tc-flow-unsure:focus-visible { outline: 2px solid #b6cda6; border-radius: 8px; }
 
-/* ── 오류 ── */
+/* ── 오류 / AI 상태 / 후속질문 ── */
 .tc-flow-error { color: #b4452f; font-size: 14px; margin: 12px 0 0; text-align: center; }
+.tc-flow-aistatus { font-size: 13px; color: #8a7350; text-align: center; margin: 12px 0 0; }
+.tc-flow-followup-tag { font-size: 12px; font-weight: 700; color: #6b9159; letter-spacing: .02em; margin-bottom: 6px; }
 
 /* ── 하단 네비 ── */
 .tc-flow-nav { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 18px; }

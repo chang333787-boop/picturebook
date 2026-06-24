@@ -74,6 +74,15 @@
     return true;
   }
 
+  /* AI 후속질문 답변 저장(Phase H) — preWriting/followUps 배열만 갱신(answers/status 미접근). */
+  async function saveThoughtCompassFollowUps(ctx, followUps) {
+    const TC = _TC();
+    const paths = TC.buildThoughtCompassPaths(ctx);
+    if (!paths) return false;
+    await db.ref(paths.preWriting).update({ followUps: Array.isArray(followUps) ? followUps : [], updatedAt: _serverTs() });
+    return true;
+  }
+
   async function markThoughtCompassStarted(ctx, state) { return _applyPlan(_TC().planMarkStarted(ctx, state)); }
   async function saveThoughtCompassProgress(ctx, state, patch) { return _applyPlan(_TC().planSaveProgress(ctx, state, patch)); }
   async function markThoughtCompassCompleted(ctx, state) { return _applyPlan(_TC().planMarkCompleted(ctx, state)); }
@@ -85,6 +94,7 @@
     markOnboardingRequired,
     markThoughtCompassStarted,
     saveThoughtCompassProgress,
+    saveThoughtCompassFollowUps,
     markThoughtCompassCompleted,
     resetThoughtCompassOnly,
   };

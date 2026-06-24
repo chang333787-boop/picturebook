@@ -158,6 +158,22 @@
     return { vm: next, deferred: true };
   }
 
+  /* ── AI 후속질문 분기(Phase H) ── 클라이언트 상한도 서버와 동일하게 강제. */
+  const FOLLOWUP_MAX = 5;     /* 세션 후속질문 상한 */
+  const TOTAL_MAX = 12;       /* 전체 질문 상한 */
+  const CORE_TOTAL = 7;
+  function followUpBudgetLeft(meta) {
+    const used = (meta && Number.isInteger(meta.followUpsUsed)) ? meta.followUpsUsed : 0;
+    return used < FOLLOWUP_MAX && (CORE_TOTAL + used) < TOTAL_MAX;
+  }
+  /* AI decision(NEXT/ASK_FOLLOW_UP/ASK_EASIER, null 가능) → UI 동작('next'|'followUp'|'easier'). */
+  function resolveAfterAnswer(decision, meta) {
+    if (!followUpBudgetLeft(meta)) return { action: 'next' };   /* 상한 → 후속 없이 다음 강제 */
+    if (decision === 'ASK_FOLLOW_UP') return { action: 'followUp' };
+    if (decision === 'ASK_EASIER') return { action: 'easier' };
+    return { action: 'next' };                                   /* NEXT/null/알수없음 → 다음 */
+  }
+
   /* 모든 핵심 질문에 유효 답변이 있는가(완료 가능 여부, Phase I). */
   function allAnswered(vm) {
     const Q = _Q();
@@ -175,5 +191,6 @@
     hasValidAnswer, canNext, canPrev, buildSavePatch,
     goPrev, commitNext, goToIndex, goToQuestionId, allAnswered,
     assistanceLevel, setAssistanceLevel, assistancePrompt, handleUnsure,
+    followUpBudgetLeft, resolveAfterAnswer, FOLLOWUP_MAX, TOTAL_MAX, CORE_TOTAL,
   };
 });

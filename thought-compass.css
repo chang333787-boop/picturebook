@@ -3,7 +3,7 @@
 
 /* ── 질문 흐름 오버레이 ── */
 .tc-flow-overlay {
-  position: fixed; inset: 0; z-index: 1300;
+  position: fixed; inset: 0; z-index: 100000;   /* maker 모달(≤10006) 위 — 게이트 우회 방지(HIGH-1) */
   display: flex; align-items: center; justify-content: center;
   background: rgba(40, 32, 20, .55);
   padding: 16px;

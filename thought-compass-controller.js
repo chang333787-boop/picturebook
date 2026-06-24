@@ -71,7 +71,7 @@
     const ov = document.createElement('div');
     ov.id = 'thought-compass-retry';
     ov.setAttribute('role', 'alertdialog');
-    ov.style.cssText = 'position:fixed;inset:0;z-index:1300;display:flex;align-items:center;justify-content:center;background:rgba(40,32,20,.55);';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;background:rgba(40,32,20,.55);';
     const card = document.createElement('div');
     card.style.cssText = 'max-width:380px;width:calc(100% - 32px);background:#fffdf8;border-radius:16px;padding:26px 22px;text-align:center;box-shadow:0 12px 40px rgba(60,40,10,.25);';
     const t = document.createElement('div'); t.textContent = '잠깐 불러오지 못했어요'; t.style.cssText = 'font-size:18px;font-weight:800;color:#3a2c14;margin-bottom:8px;';
@@ -82,6 +82,22 @@
     document.body.appendChild(ov);
     _retryOverlay = ov;
   }
+
+  /* 로딩 락(신규 작품 전용) — activateForNewProject가 onboardingVersion write + state load(RTDB 왕복)하는
+     동안 maker가 노출/조작되는 창을 동기 오버레이로 차단(HIGH-2). _applyControllerState가 결정 시 제거. */
+  let _loadingOverlay = null;
+  function _showLoadingLock() {
+    if (!_hasBrowser() || _loadingOverlay) return;
+    const ov = document.createElement('div');
+    ov.id = 'thought-compass-loading';
+    ov.setAttribute('role', 'status'); ov.setAttribute('aria-label', '생각 나침반을 준비하고 있어요');
+    ov.style.cssText = 'position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;background:rgba(40,32,20,.55);';
+    const p = document.createElement('div');
+    p.textContent = '잠깐만요…';
+    p.style.cssText = 'background:#fffdf8;border-radius:14px;padding:16px 22px;font-size:15px;color:#6b5638;box-shadow:0 10px 30px rgba(60,40,10,.25);';
+    ov.appendChild(p); document.body.appendChild(ov); _loadingOverlay = ov;
+  }
+  function _removeLoadingLock() { if (_loadingOverlay && _loadingOverlay.parentNode) _loadingOverlay.parentNode.removeChild(_loadingOverlay); _loadingOverlay = null; }
 
   /* 게이트 시작/이어서 콜백 — markStarted 후 질문 UI(Phase E) 오픈. UI 미로드면 게이트 스켈레톤 유지. */
   function _defaultGateCallbacks(ctx, normalizedState) {
@@ -103,6 +119,7 @@
 
   function _applyControllerState(cs, ctx, normalizedState) {
     const Gate = _Gate();
+    _removeLoadingLock();   /* 결정됨 → 로딩 락 제거(게이트/재시도/통과가 대체) */
     if (cs.state === STATES.ERROR && cs.blocked) {
       _showRetry(function () { _enterGateFlow(ctx, { requiredHint: true }); });
       return cs;
@@ -175,8 +192,10 @@
   async function activateForNewProject(ctx) {
     const Store = _Store();
     if (!Store) return { activated: false };
+    _showLoadingLock();   /* HIGH-2: write+load(RTDB 왕복) 동안 maker 노출/조작 차단(동기). 결정 시 _applyControllerState가 제거. */
     try { await Store.markOnboardingRequired(ctx); } catch (e) { /* write 실패해도 requiredHint로 fail-closed */ }
     const cs = await _enterGateFlow(ctx, { requiredHint: true });
+    _removeLoadingLock();   /* 방어: foundation 미로드 early-return 등 _applyControllerState 미경유 경로 대비(멱등) */
     return { activated: !!(cs && cs.blocked), state: cs && cs.state };
   }
 

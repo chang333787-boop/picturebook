@@ -121,16 +121,21 @@
   function unsubscribe() { if (_subRef) { try { _subRef.off('value'); } catch (e) {} _subRef = null; } }
 
   /* 편집 종료 — 내 세션이면 정리(완료/이탈). unload 신뢰 금지이므로 명시 호출 + 만료 폴백.
-     ★ transaction은 첫 실행에서 로컬 캐시 cur=null이면 undefined 반환→abort(서버 재시도 안 함)라
-     세션이 안 지워진다. 서버 값을 once로 읽어 내 세션일 때만 set(null)로 확실히 제거. */
+     ★ 두 가지 함정 회피:
+       (1) transaction 첫 실행 로컬캐시 cur=null이면 undefined 반환→abort(서버 재시도 안 함)라 미삭제 →
+           once('value')로 서버값을 캐시에 prime한 뒤 transaction.
+       (2) once+set(null)은 비원자(TOCTOU): 그 사이 타인이 이어받으면 타인 세션을 지움 →
+           transaction으로 원자 재확인(내 세션일 때만 null, 그 외엔 cur 그대로 반환=abort 아님). */
   async function release(ctx) {
     stopHeartbeat(); unsubscribe();
     const database = _db(); const path = _path(ctx); const uid = _uid();
     if (!database || !path || !uid) return false;
     try {
-      const snap = await database.ref(path).once('value');
-      const cur = snap.val();
-      if (cur && cur.editorUid === uid) await database.ref(path).set(null);   /* 내 세션만 제거 */
+      await database.ref(path).once('value');   /* 서버값으로 로컬 캐시 prime */
+      await database.ref(path).transaction(function (cur) {
+        if (cur && cur.editorUid === uid) return null;   /* 내 세션만 atomic 제거 */
+        return cur;                                       /* 타인/빈값 → 그대로(undefined 아님: abort-without-retry 회피) */
+      });
       return true;
     } catch (e) { return false; }
   }

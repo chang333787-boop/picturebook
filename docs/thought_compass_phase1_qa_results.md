@@ -43,5 +43,19 @@
 - **iPad/Android 실기기 터치**·실운영 데이터 흐름.
 - 의도적 미완료(롤아웃 §7): AI 최종요약·다듬기 메모·서랍·read-only 실시간 미러·튜토리얼·교사 UI·복사 onboarding 초기화 호출.
 
-## 6. 최종 판정: READY_FOR_MAIN_MERGE_APPROVAL
+## 6. 적대적 검증(6 에이전트 fan-out) 결과
+5개 수정 모두 **sound(low regression risk)** 판정. 추가 지적과 조치:
+- (적용) **게이트 z-index** 1300→100000: maker 모달(≤10006) 위로 — 모달 스택 우회 방지(HIGH-1).
+- (적용) **로딩 락**: `activateForNewProject`가 onboardingVersion write+load 동안 동기 오버레이로 화면 차단 — `hidePtypeScreen` 후 비동기 게이트 노출 전 창 제거(HIGH-2).
+- (적용) **editSession release 원자화**: once-prime + transaction(return cur) — TOCTOU 제거(emulator 재검증: 내 세션 삭제·타인 보존).
+- (문서·미적용) 아래 §6.1 = **운영 병합 전 필수 수동 점검**(실 maker.html/2-브라우저 필요, 하니스로는 입증 불가).
+
+### 6.1 운영 병합 전 필수 수동 점검 (실 maker.html)
+1. **게이트 집행(HIGH)**: 신규 pb/text 게이트 노출 중 ① Tab 포커스가 캔버스로 새지 않는지(focus trap/`inert` 필요할 수 있음) ② 이미지·기타 maker 모달을 키보드/단축키로 띄워 게이트 위로 못 오는지(z-index 100000로 완화했으나 실측 필요) ③ `hidePtypeScreen`~게이트 사이 조작 불가(로딩 락으로 완화, 실측).
+2. **2-브라우저 온보딩 동시성(HIGH-3)**: 같은 신규 팀에 두 학생 동시 진입 → 답변 클로버/중복·부분 starter 장면 없는지. (editSession은 질문 UI 시작 시 획득 → 그 전 게이트 구간은 미보유.)
+3. **all-deferred 완료(MEDIUM)**: 7문항 전부 "이야기를 만들면서 정할래요"로 완료 가능 — 제품 정책상 허용 여부 PO 확인(현재 PRD UX-05 허용).
+4. **Rules 필드 검증(LOW)**: preWriting/onboarding/editSession에 `.validate` 없음(기존 앱 포스처와 동일) — 과대/이상 필드 write 허용. 강화 시 rules 변경+회귀 필요.
+5. 실 Anthropic 응답(stub 외)·iPad/Android 터치.
+
+## 7. 최종 판정: READY_FOR_MAIN_MERGE_APPROVAL
 emulator E2E·자동 회귀·rules·PB-MOOD 전부 통과. 실기기/실 Anthropic 확인은 운영 배포 전 권장(stub로 로직 검증 완료). 배포 순서는 rollout_plan §3.

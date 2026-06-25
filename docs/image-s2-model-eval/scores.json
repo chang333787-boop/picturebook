@@ -1,0 +1,29 @@
+{
+  "_comment": "템플릿. 이번 단계 데이터 0. IMAGE-S2-8 평가 시 채움. 점수 1~5, disqualified=탈락조건 해당.",
+  "_schema": {
+    "sample": { "id": "string", "type": "선화|색칠|인물2명+|배경없음|한글말풍선|종이스캔|폰촬영|세로|정사각|연속3장면" },
+    "results": {
+      "<provider>": {
+        "modelId": "평가 시 공식 문서 확인 후 기입",
+        "scores": {
+          "charCountPreserved": 0,
+          "keyObjectsPreserved": 0,
+          "compositionPreserved": 0,
+          "positionPreserved": 0,
+          "noNewElements": 0,
+          "backgroundExtendNatural": 0,
+          "storybookQuality": 0,
+          "koreanPreserved": 0,
+          "characterConsistencyAcrossScenes": 0
+        },
+        "timeSec": 0,
+        "costUsd": 0,
+        "safetyBlocks": 0,
+        "disqualified": false,
+        "disqualifyReasons": [],
+        "notes": ""
+      }
+    }
+  },
+  "samples": []
+}

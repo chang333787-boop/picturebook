@@ -1,0 +1,31 @@
+{
+  "version": "imgS2-openai-pilot-samples-v1",
+  "privacy": "개인정보 0 — 합성 PNG. 운영 학생 데이터 미사용.",
+  "synthetic": true,
+  "harnessOnly": true,
+  "insufficientForFinalQualityDecision": true,
+  "samples": [
+    {
+      "id": "A_single_character",
+      "type": "단순 캐릭터 1명",
+      "file": "samples/A_single_character.png",
+      "format": "png",
+      "width": 600,
+      "height": 400,
+      "sha256": "cf3a8dc8265bef858f53af8ec91aad8cc8b5d874e9a6b9cab80ac83544eaef82",
+      "bytes": 3539,
+      "synthetic": true
+    },
+    {
+      "id": "E_rough_lowgrade",
+      "type": "거친 선·저학년풍(연필/덜 채색 학생풍)",
+      "file": "samples/E_rough_lowgrade.png",
+      "format": "png",
+      "width": 600,
+      "height": 400,
+      "sha256": "bd76ee7b5d1d1ce6db210d97f88ae9ddf2983c4a61eb12e503ba1567a555999d",
+      "bytes": 3865,
+      "synthetic": true
+    }
+  ]
+}

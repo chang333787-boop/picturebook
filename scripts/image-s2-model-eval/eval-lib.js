@@ -124,6 +124,15 @@ function buildResultRecord(o) {
   };
 }
 
+/* 합성 샘플만 외부 전송 허용 — student/unknown/비합성 차단(§6). */
+function isSyntheticSampleAllowed(sample) {
+  if (!sample || typeof sample !== 'object') return false;
+  if (sample.synthetic !== true) return false;
+  if (sample.source === 'student' || sample.source === 'production' || sample.source === 'unknown') return false;
+  if (!/^[A-J]_/.test(String(sample.id || ''))) return false;   /* 합성 팩 명명 규칙 */
+  return true;
+}
+
 /* 간단 CLI 인자 파서 — "--key value" / "--flag". */
 function parseArgs(argv) {
   const out = { _: [] };
@@ -143,5 +152,5 @@ function parseArgs(argv) {
 module.exports = {
   STATUS_VALUES, validateCandidate, isPreview, isProduction, isSafeOutputPath,
   computePlannedCalls, estimateMaxCostUsd, decideExecuteGate, makeCostGuard,
-  buildDryRunPlan, buildResultRecord, parseArgs,
+  buildDryRunPlan, buildResultRecord, parseArgs, isSyntheticSampleAllowed,
 };

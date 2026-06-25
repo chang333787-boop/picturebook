@@ -117,6 +117,10 @@
     qTitle.id = 'tc-flow-title';
     card.appendChild(qTitle);
     if (q.help) card.appendChild(_el('p', 'tc-flow-help', q.help));
+    /* FREE-NOTE: 첫 질문 화면에 참고 자료 안내(짧게) — "반드시 이대로" 인상 방지. */
+    if (prog && prog.current === 1) {
+      card.appendChild(_el('p', 'tc-flow-help tc-flow-help--guide', '생각 나침반은 이야기를 시작하기 위한 참고 자료예요. 떠오르는 생각이 있으면 자유롭게 바꿔도 괜찮아요.'));
+    }
     overlay.setAttribute('aria-labelledby', 'tc-flow-title');
 
     /* 모르겠어요 안내(Phase F) — 부드러운 안내(오류처럼 표시하지 않음, 재촉 없음) */

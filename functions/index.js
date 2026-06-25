@@ -2212,20 +2212,21 @@ exports.resetImageSourceMode = onCall(
     }
     const prevRaw = (await policyRef.once('value')).val();
 
-    let txn;
+    /* S2-2A-FIX1(M1): optimistic-null 안전 CAS. non-match면 abort(undefined) 대신 cur 반환 →
+       commit이 server값과 mismatch면 RTDB가 server값으로 재실행(영속연결 없는 환경에서도 정확).
+       match(=prevRaw)면 null로 clear. clear 여부는 아래 재확인으로 최종 판정. */
     try {
-      txn = await policyRef.transaction((cur) => {
-        if (!_imagePolicyEq(cur, prevRaw)) return;   /* racing lock이 새 policy 박음 → abort */
-        return null;                                  /* clear */
-      });
+      await policyRef.transaction((cur) => (_imagePolicyEq(cur, prevRaw) ? null : cur));
     } catch (e) {
       logger.error('[sourceMode] reset transaction 실패', { classId: ctx.classId, error: e && e.message });
       throw new HttpsError('internal', 'INTERNAL');
     }
-    if (!txn.committed) {
-      return { ok: false, code: 'RESET_RACE_RETRY' };   /* 그 사이 lock 변경 — 교사 재시도 */
+    /* 실제로 비워졌는지 재확인: 정책이 남아 있으면(=racing lock이 박음) RESET_RACE_RETRY. */
+    const afterPolicy = (await policyRef.once('value')).val();
+    if (afterPolicy != null && ImageS2Policy.classifyPolicy(afterPolicy) !== 'absent') {
+      return { ok: false, code: 'RESET_RACE_RETRY' };
     }
-    /* clear 후 재확인: 그 사이 새 원본 저장이 들어왔으면 무정책-이미지 상태 방지 차원에서 재시도 안내. */
+    /* clear 후 scenes 재확인: 그 사이 새 원본 저장이 들어왔으면 무정책-이미지 방지 차원에서 재시도 안내. */
     const after = ImageS2Policy.decideSourceModeReset((await scenesRef.once('value')).val());
     if (!after.ok) {
       return { ok: false, code: 'RESET_RACE_RETRY' };

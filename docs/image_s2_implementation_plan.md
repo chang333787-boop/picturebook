@@ -253,3 +253,45 @@ selected 이미지 결정 헬퍼(신규): `imageSelections[sceneId].selected==='
 
 ### 미검증(리뷰 게이트)
 - 실제 **두 브라우저/iPad + 실 Firebase** 동시 저장 E2E는 미수행(여기선 DB emulator + stub로 transaction/CAS/orchestration 검증). 정상(비충돌) 저장 경로는 기존 동작 + lock 호출 추가뿐(원본 무영향). 라이브 conflict-rollback 실사용 확인은 사용자 QA 권장.
+
+---
+
+## 9. IMAGE-S2-2A-FIX1 — gate-first 재설계 (원본 유실 차단 · 2026-06-25)
+
+> branch `feature/image-s2-2`. deploy 0 · main 병합 0. **§8의 "저장 후 rollback(B안)"은 본 절로 대체됨.**
+> 리뷰 CHANGES_REQUIRED(C1/C2/H1) 해소.
+
+### 핵심 설계 전환 — "패자는 scene.imageData를 애초에 안 쓴다"
+순서 변경: **사전 게이트 → 고유경로 업로드 → 서버 lock → ok일 때만 scene.imageData 기록.**
+- 패자는 conflict 시 scene을 *기록하지 않으므로* 승자/기존 이미지 유실이 **구조적으로 불가**(C2 제거). DB CAS/token rollback **폐기**(`_casRestoreSceneImage` 삭제).
+- 고유경로라 업로드가 기존 Storage 객체를 **덮지 않음**(C1 제거).
+- lock이 scene 기록보다 *먼저*라 flush·lock 경쟁이 사라짐. 성공 시 `await _flushPendingSave()`(H1 제거).
+
+### C1 — 저장 전 게이트 + 고유 경로
+- `_preCheckSourceMode`(viewer-ai, `decidePreGate` 정합): 업로드 *전* 현재 정책 읽고 반대 모드면 `SOURCE_MODE_CONFLICT`로 **업로드도 scene 변경도 안 함**. corrupt는 클라 sanitize로 못 잡으면 서버 lock이 차단. **read 실패=hold(fail-open 금지)**.
+- 신규 경로 `images/{cid}/{enc}/{sceneId}/{uniqueId}.{ext}`(`_viewerImageStoragePath`/`buildImageStoragePath`). uniqueId=crypto.randomUUID()(+fallback). 세그먼트 안전화·traversal 차단·ext MIME allowlist. **불변식: 신규 원본 저장은 항상 새 객체 생성, 기존 객체 overwrite 0.** 기존 deterministic URL은 scene.imageData에 저장돼 그대로 읽힘(마이그레이션 0).
+
+### C2 — rollback ownership: 채택 = "scene write를 lock 성공 뒤로" (token 불필요)
+- token/transient 메타 없이 **순서 교정**만으로 해결(더 작고 안전). `_commitImageSourceMode`: lock ok→`{ok:true}`(호출부가 scene 기록) / 실패→**이번 고유 객체만 삭제**(prefix `images/` 검증, downloadURL 역추정 안 함)·scene 무변경.
+- 실 RTDB 통합 테스트(`store: 같은 빈 장면 …`): 같은 빈 장면 동시 upload/draw → 승자 scene 유지·패자 미기록·패자 고유객체만 삭제·유실 0.
+
+### H1 — 순서 보장
+업로드/그림판 모두: ①게이트 ②고유 업로드 ③`_commitImageSourceMode`(lock) ④ok면 scene.imageData=url + `await _flushPendingSave()`. lock은 scene 기록 *이전*이라 flush 경쟁 없음.
+
+### M1 — reset 경쟁(optimistic-null) 보강
+`resetImageSourceMode` transaction을 `cur => _imagePolicyEq(cur, prev) ? null : cur`(non-match면 abort 대신 cur 반환 → mismatch 시 server값 재실행) + **clear 재확인**(`classifyPolicy(after)!=='absent'면 RESET_RACE_RETRY`). emulator로 정상/racing/absent/corrupt 검증.
+
+### 동일/다른 장면 경쟁 결과
+- 다른 장면(의도된 충돌): 각 장면 독립 → 승자 정책 1개, 패자 장면 미기록(유실 0).
+- 같은 장면(advisory lock 우회·동시): 승자 scene 유지, 패자 미기록(유실 0). gate-first라 CAS 무관.
+
+### orphan 처리
+패자 객체 삭제 실패 → `runImageSourceCommit`이 `recordOrphan` 어댑터 호출(클라는 현재 console.warn + `storageDeleted:false`). scene/기존 데이터는 무손상. **persistent orphan 기록(서버 cleanup-queue)은 M2 후속**.
+
+### 표현 정정
+- "교체는 항상 idempotent" 삭제 — 교체도 같은 upload 핸들러라 반대 모드면 게이트에서 차단(idempotent 아님).
+- Rules 레벨 직접 write 차단 **미완료** 유지(§7) — 공식 앱 코드 경로만 제거.
+
+### 잔여 위험
+- 실 두 기기 Firebase E2E·실 Storage emulator 미사용(여기선 DB emulator + fake storage). 정상 경로는 기존+lock 호출이며 scene write가 lock 뒤라 안전.
+- M2 persistent orphan 후속. Rules 레벨 차단 후속(Security Phase).

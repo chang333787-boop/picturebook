@@ -12,7 +12,8 @@ import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
 const P = require('../../functions/image-s2-policy.js');
-const { decideSourceModeLock, normalizePolicy, classifyPolicy, runSourceModeLockedSave,
+const { decideSourceModeLock, normalizePolicy, classifyPolicy,
+        decidePreGate, runImageSourceCommit, buildImageStoragePath, isAllowedImageStoragePath,
         decideSourceModeReset, scenesHaveOriginalImage, isValidSourceMode } = P;
 
 /* ── 모의 atomic ref (CAS) ── */
@@ -136,93 +137,102 @@ test('초기화: imageData 빈 문자열은 "이미지 없음"으로 간주', ()
   assert.equal(scenesHaveOriginalImage({ a: { imageData: '', imageUrl: '' } }), false);
   assert.equal(decideSourceModeReset({ a: { imageData: '' } }).ok, true);
 });
+/* ── S2-2A-FIX1: 사전 게이트 decidePreGate ── */
 
-/* ── B안 orchestration (runSourceModeLockedSave) — stub 어댑터 ── */
-function stubAdapters(over) {
-  const calls = { restore: [], del: [], orphan: [] };
-  const a = {
+test('decidePreGate: absent → allow', () => {
+  assert.deepEqual(decidePreGate(null, 'upload'), { allow: true });
+  assert.deepEqual(decidePreGate({}, 'draw'), { allow: true });
+});
+test('decidePreGate: 같은 모드 → allow', () => {
+  assert.equal(decidePreGate({ sourceMode: 'upload' }, 'upload').allow, true);
+});
+test('decidePreGate: 반대 모드 → 업로드 전 차단(SOURCE_MODE_CONFLICT)', () => {
+  const g = decidePreGate({ sourceMode: 'draw' }, 'upload');
+  assert.equal(g.allow, false);
+  assert.equal(g.code, 'SOURCE_MODE_CONFLICT');
+  assert.equal(g.currentSourceMode, 'draw');
+});
+test('decidePreGate: corrupt → 차단(CORRUPT_IMAGE_POLICY)', () => {
+  const g = decidePreGate({ sourceMode: 'paint' }, 'upload');
+  assert.equal(g.allow, false);
+  assert.equal(g.code, 'CORRUPT_IMAGE_POLICY');
+});
+
+/* ── 고유 경로 / prefix 검증 ── */
+
+test('buildImageStoragePath: 매 호출 고유(uniqueId) — 덮어쓰기 불변식', () => {
+  const a = buildImageStoragePath('cA', 't1', 's1', 'jpg', 'id-AAA');
+  const b = buildImageStoragePath('cA', 't1', 's1', 'jpg', 'id-BBB');
+  assert.notEqual(a, b, '서로 다른 uniqueId면 다른 경로(같은 장면도 overwrite 0)');
+  assert.equal(a, 'images/cA/t1/s1/id-AAA.jpg');
+  assert.equal(a, buildImageStoragePath('cA', 't1', 's1', 'jpg', 'id-AAA'));  /* 결정적(같은 입력) */
+});
+test('buildImageStoragePath: 세그먼트 안전화(traversal/금지문자 제거), ext allowlist', () => {
+  const p = buildImageStoragePath('../c#', 't/x', 's.1', 'gif', 'u');
+  assert.equal(p.indexOf('..'), -1);
+  assert.ok(!/[#\[\]$]/.test(p));
+  assert.ok(/\.jpg$/.test(p), '허용 안 된 ext(gif)는 jpg로');
+  assert.ok(/^images\//.test(p));
+});
+test('isAllowedImageStoragePath: images/ prefix + traversal 금지', () => {
+  assert.equal(isAllowedImageStoragePath('images/c/t/s/u.png'), true);
+  assert.equal(isAllowedImageStoragePath('ai-images/c/t/x.png'), false);   /* 원본 버킷만 */
+  assert.equal(isAllowedImageStoragePath('images/../secret'), false);
+  assert.equal(isAllowedImageStoragePath(''), false);
+  assert.equal(isAllowedImageStoragePath(null), false);
+});
+
+/* ── runImageSourceCommit (gate-first: 성공 시에만 scene 기록은 호출부, 여기선 lock+삭제만) ── */
+function commitStub(over) {
+  const calls = { del: [], orphan: [] };
+  return Object.assign({
     _calls: calls,
     lock: async () => ({ ok: true }),
-    restoreSceneImageCas: async (sid, expected, restoreTo) => { calls.restore.push({ sid, expected, restoreTo }); return true; },
     deleteStorage: async (p) => { calls.del.push(p); return true; },
-    recordOrphan: async (info) => { calls.orphan.push(info); },
-  };
-  return Object.assign(a, over || {});
+    recordOrphan: async (i) => { calls.orphan.push(i); },
+  }, over || {});
 }
-const saveInput = (over) => Object.assign({
-  mode: 'draw', sceneId: 's1',
-  before: { imageData: 'OLD' },
-  after: { imageData: 'NEWURL', storagePath: 'ai/x/scene_s1.png' },
-}, over || {});
+const commitInput = { mode: 'upload', sceneId: 's1', storagePath: 'images/c/t/s1/u.png' };
 
-test('orchestration: lock 성공 → ok(원본 유지, rollback 없음)', async () => {
-  const ad = stubAdapters();
-  const r = await runSourceModeLockedSave(saveInput(), ad);
+test('commit: lock ok → ok, 삭제 안 함(scene 기록은 호출부)', async () => {
+  const ad = commitStub();
+  const r = await runImageSourceCommit(commitInput, ad);
   assert.equal(r.ok, true);
-  assert.equal(ad._calls.restore.length, 0);
   assert.equal(ad._calls.del.length, 0);
 });
-
-test('orchestration: idempotent → ok', async () => {
-  const ad = stubAdapters({ lock: async () => ({ ok: true, idempotent: true }) });
-  const r = await runSourceModeLockedSave(saveInput(), ad);
+test('commit: idempotent → ok', async () => {
+  const r = await runImageSourceCommit(commitInput, commitStub({ lock: async () => ({ ok: true, idempotent: true }) }));
   assert.equal(r.ok, true); assert.equal(r.idempotent, true);
 });
-
-test('orchestration: conflict → 방금 저장본 rollback(CAS 복원 + 신규 storage 삭제)', async () => {
-  const ad = stubAdapters({ lock: async () => ({ ok: false, code: 'SOURCE_MODE_CONFLICT', currentSourceMode: 'upload' }) });
-  const r = await runSourceModeLockedSave(saveInput(), ad);
+test('commit: conflict → 이번 고유 객체만 삭제, scene 미기록(승자/기존 무손상)', async () => {
+  const ad = commitStub({ lock: async () => ({ ok: false, code: 'SOURCE_MODE_CONFLICT', currentSourceMode: 'draw' }) });
+  const r = await runImageSourceCommit(commitInput, ad);
   assert.equal(r.ok, false);
   assert.equal(r.code, 'SOURCE_MODE_CONFLICT');
-  assert.equal(r.rolledBack, true);
-  assert.equal(r.currentSourceMode, 'upload');
-  assert.deepEqual(ad._calls.restore[0], { sid: 's1', expected: 'NEWURL', restoreTo: 'OLD' });  /* CAS: after===현재일 때만 OLD로 */
-  assert.deepEqual(ad._calls.del, ['ai/x/scene_s1.png']);                                       /* 신규 파일만 삭제 */
+  assert.equal(r.currentSourceMode, 'draw');
+  assert.deepEqual(ad._calls.del, ['images/c/t/s1/u.png']);   /* 내 고유 객체만 */
 });
-
-test('orchestration: conflict + 다른 사용자가 이후 저장(CAS 불일치) → 복원 안 함(타인 저장 보존)', async () => {
-  const ad = stubAdapters({
-    lock: async () => ({ ok: false, code: 'SOURCE_MODE_CONFLICT', currentSourceMode: 'upload' }),
-    restoreSceneImageCas: async () => false,   /* 현재값 !== after → 복원 안 함 */
-  });
-  const r = await runSourceModeLockedSave(saveInput(), ad);
-  assert.equal(r.code, 'SOURCE_MODE_CONFLICT');
-  assert.equal(r.restored, false);            /* 타인의 이후 저장 덮지 않음 */
-  assert.equal(r.storageDeleted, true);       /* 그래도 내 신규 storage 파일은 정리 */
+test('commit: corrupt → 고유 객체 삭제 + code', async () => {
+  const ad = commitStub({ lock: async () => ({ ok: false, code: 'CORRUPT_IMAGE_POLICY' }) });
+  const r = await runImageSourceCommit(commitInput, ad);
+  assert.equal(r.code, 'CORRUPT_IMAGE_POLICY');
+  assert.deepEqual(ad._calls.del, ['images/c/t/s1/u.png']);
 });
-
-test('orchestration: storage 삭제 실패 → LOCK_ROLLBACK_FAILED + orphan 기록', async () => {
-  const ad = stubAdapters({
-    lock: async () => ({ ok: false, code: 'SOURCE_MODE_CONFLICT', currentSourceMode: 'upload' }),
+test('commit: lock 호출 throw → LOCK_CALL_FAILED(retryable) + 고유 객체 삭제', async () => {
+  const ad = commitStub({ lock: async () => { throw new Error('net'); } });
+  const r = await runImageSourceCommit(commitInput, ad);
+  assert.equal(r.code, 'LOCK_CALL_FAILED');
+  assert.equal(r.retryable, true);
+  assert.deepEqual(ad._calls.del, ['images/c/t/s1/u.png']);
+});
+test('commit: 삭제 실패 → orphan 기록(scene/기존은 무손상)', async () => {
+  const ad = commitStub({
+    lock: async () => ({ ok: false, code: 'SOURCE_MODE_CONFLICT', currentSourceMode: 'draw' }),
     deleteStorage: async () => { throw new Error('storage down'); },
   });
-  const r = await runSourceModeLockedSave(saveInput(), ad);
-  assert.equal(r.code, 'LOCK_ROLLBACK_FAILED');
+  const r = await runImageSourceCommit(commitInput, ad);
+  assert.equal(r.code, 'SOURCE_MODE_CONFLICT');
+  assert.equal(r.storageDeleted, false);
   assert.equal(ad._calls.orphan.length, 1);
-  assert.equal(ad._calls.orphan[0].reason, 'storage-delete-failed');
-});
-
-test('orchestration: scene 복원 throw → LOCK_ROLLBACK_FAILED + orphan 기록', async () => {
-  const ad = stubAdapters({
-    lock: async () => ({ ok: false, code: 'SOURCE_MODE_CONFLICT', currentSourceMode: 'upload' }),
-    restoreSceneImageCas: async () => { throw new Error('db down'); },
-  });
-  const r = await runSourceModeLockedSave(saveInput(), ad);
-  assert.equal(r.code, 'LOCK_ROLLBACK_FAILED');
-  assert.equal(ad._calls.orphan[0].reason, 'scene-restore-failed');
-});
-
-test('orchestration: lock 호출 자체 실패 → 원본 유지(kept), rollback 안 함', async () => {
-  const ad = stubAdapters({ lock: async () => { throw new Error('network'); } });
-  const r = await runSourceModeLockedSave(saveInput(), ad);
-  assert.equal(r.ok, false); assert.equal(r.kept, true);
-  assert.equal(ad._calls.restore.length, 0);   /* 작업 보호: 삭제/복원 안 함 */
-  assert.equal(ad._calls.del.length, 0);
-});
-
-test('orchestration: CORRUPT_IMAGE_POLICY → 원본 유지(kept), rollback 안 함', async () => {
-  const ad = stubAdapters({ lock: async () => ({ ok: false, code: 'CORRUPT_IMAGE_POLICY' }) });
-  const r = await runSourceModeLockedSave(saveInput(), ad);
-  assert.equal(r.code, 'CORRUPT_IMAGE_POLICY'); assert.equal(r.kept, true);
-  assert.equal(ad._calls.del.length, 0);
+  assert.equal(ad._calls.orphan[0].storagePath, 'images/c/t/s1/u.png');
 });

@@ -77,59 +77,85 @@ function decideSourceModeLock(currentRaw, req) {
 }
 
 /* ════════════════════════════════════════════════════════════════
-   B안 orchestration (저장 성공 후 lock + 패배 rollback) — adapter 주입형(순수 시퀀스).
-   ──────────────────────────────────────────────────────────────
-   호출부(클라 viewer-edit / 테스트 하니스)는 실제 SDK/emulator 어댑터를 주입한다.
-   input = { mode, sceneId, before:{imageData}, after:{imageData, storagePath} }
-   adapters = {
-     lock(mode, sceneId) -> {ok, idempotent?} | {ok:false, code, currentSourceMode?}
-     restoreSceneImageCas(sceneId, expected, restoreTo) -> bool  (현재값===expected일 때만 복원, 복원여부 반환)
-     deleteStorage(path) -> bool
-     recordOrphan(info) -> void
-   }
-   반환: { ok, sourceMode?, idempotent?, code?, currentSourceMode?, rolledBack?, restored?, storageDeleted?, kept? }
-   안전 원칙:
-   - lock 호출 자체 실패/네트워크 오류 → 원본 유지(kept), rollback 안 함(사용자 작업 보호).
-   - conflict일 때만 rollback. restore는 CAS(현재값===after)라 타인의 이후 저장은 덮지 않음.
-   - 삭제는 이번에 만든 storagePath만. 실패 시 LOCK_ROLLBACK_FAILED + orphan 기록. */
-async function runSourceModeLockedSave(input, adapters) {
-  const { mode, sceneId, before, after } = input || {};
+   S2-2A-FIX1: gate-first orchestration (저장 *전* 게이트 → 업로드 → lock → 성공 시에만 scene 기록).
+   B안의 "저장 후 rollback"을 폐기 → 패자는 scene.imageData를 애초에 쓰지 않으므로 승자 유실/CAS
+   경쟁이 구조적으로 불가능. (C1/C2/H1 제거)
+   ════════════════════════════════════════════════════════════════ */
+
+/* 저장 *전* 게이트 결정(순수). 현재 정책 raw + 요청 모드 → 업로드 진행 가부.
+   - absent → allow(첫 저장, 이후 서버 lock이 최종 결정)
+   - valid & 같은 모드 → allow(서버 lock idempotent 확인)
+   - valid & 반대 모드 → block SOURCE_MODE_CONFLICT (업로드 전 차단)
+   - corrupt → block CORRUPT_IMAGE_POLICY
+   ⚠️ 사전 게이트는 최종 결정자 아님(TOCTOU) — allow여도 업로드 후 서버 lock transaction 필수. */
+function decidePreGate(policyRaw, mode) {
+  const cls = classifyPolicy(policyRaw);
+  if (cls === 'corrupt') return { allow: false, code: 'CORRUPT_IMAGE_POLICY' };
+  if (cls === 'absent') return { allow: true };
+  const cur = normalizePolicy(policyRaw);
+  if (cur.sourceMode === mode) return { allow: true, currentSourceMode: cur.sourceMode };
+  return { allow: false, code: 'SOURCE_MODE_CONFLICT', currentSourceMode: cur.sourceMode };
+}
+
+/* 업로드된 고유 객체에 대해 lock 확정(순수, adapter 주입). scene.imageData 기록은 호출부가
+   ok일 때만 수행 → 패자는 scene을 안 씀. 실패/충돌/corrupt 시 *이번 고유 객체만* 삭제.
+   input = { mode, sceneId, storagePath }.  adapters = { lock(mode,sceneId), deleteStorage(path)->bool, recordOrphan(info) }.
+   반환: { ok, sourceMode?, idempotent? } | { ok:false, code, currentSourceMode?, retryable?, storageDeleted? } */
+async function runImageSourceCommit(input, adapters) {
+  const { mode, sceneId, storagePath } = input || {};
   let lockRes;
   try {
     lockRes = await adapters.lock(mode, sceneId);
   } catch (e) {
-    return { ok: false, code: 'LOCK_CALL_FAILED', kept: true };   /* 원본 유지 */
+    /* lock 호출 실패: scene 미기록 상태 → 방금 만든 고유 객체 정리, 재시도 안내. 기존 원본 무손상. */
+    const del = await _safeDelete(adapters, storagePath, sceneId, 'lock-call-failed');
+    return { ok: false, code: 'LOCK_CALL_FAILED', retryable: true, storageDeleted: del };
   }
   if (lockRes && lockRes.ok) {
     return { ok: true, sourceMode: mode, idempotent: !!lockRes.idempotent };
   }
-  if (lockRes && lockRes.code === 'CORRUPT_IMAGE_POLICY') {
-    return { ok: false, code: 'CORRUPT_IMAGE_POLICY', kept: true };  /* 원본 유지 — 교사 개입 */
+  /* 실패(conflict/corrupt/권한 등): scene 미기록(승자/기존 무손상) → 이번 고유 객체만 삭제. */
+  const del = await _safeDelete(adapters, storagePath, sceneId, lockRes && lockRes.code);
+  return {
+    ok: false,
+    code: (lockRes && lockRes.code) || 'LOCK_FAILED',
+    currentSourceMode: lockRes && lockRes.currentSourceMode,
+    storageDeleted: del,
+  };
+}
+async function _safeDelete(adapters, path, sceneId, reason) {
+  if (!path) return true;
+  let deleted = false;
+  try { deleted = !!(await adapters.deleteStorage(path)); }
+  catch (e) { deleted = false; }
+  if (!deleted && typeof adapters.recordOrphan === 'function') {
+    try { await adapters.recordOrphan({ sceneId: sceneId || null, storagePath: path, reason: 'storage-delete-failed', cause: reason || null }); }
+    catch (e) { /* 기록 실패해도 진행 */ }
   }
-  if (lockRes && lockRes.code === 'SOURCE_MODE_CONFLICT') {
-    let restored = false, restoreThrew = false;
-    try {
-      restored = await adapters.restoreSceneImageCas(sceneId, after && after.imageData, before && before.imageData);
-    } catch (e) { restoreThrew = true; }
-    let storageDeleted = true;
-    const path = after && after.storagePath;
-    if (path) {
-      try { storageDeleted = !!(await adapters.deleteStorage(path)); }
-      catch (e) { storageDeleted = false; }
-    }
-    if (restoreThrew || (path && !storageDeleted)) {
-      try {
-        await adapters.recordOrphan({
-          sceneId, storagePath: path || null, restored,
-          reason: restoreThrew ? 'scene-restore-failed' : 'storage-delete-failed',
-        });
-      } catch (e) { /* 기록 실패해도 진행 */ }
-      return { ok: false, code: 'LOCK_ROLLBACK_FAILED', currentSourceMode: lockRes.currentSourceMode, restored, storageDeleted };
-    }
-    return { ok: false, code: 'SOURCE_MODE_CONFLICT', currentSourceMode: lockRes.currentSourceMode, rolledBack: true, restored, storageDeleted };
-  }
-  /* 기타 코드(권한 등) → 원본 유지(rollback 안 함). */
-  return { ok: false, code: (lockRes && lockRes.code) || 'LOCK_FAILED', kept: true };
+  return deleted;
+}
+
+/* 신규 원본 Storage 객체 경로(고유). uniqueId는 호출부가 주입(crypto.randomUUID 등) → 순수·테스트 가능.
+   기존 deterministic `images/{cid}/{enc}/scene_{N}.{ext}`와 달리 매 저장마다 새 객체 → overwrite 0.
+   세그먼트는 안전화(.#$[]/제어문자/.. 제거). ext는 호출부에서 MIME allowlist로 결정해 전달. */
+function buildImageStoragePath(classId, enc, sceneId, ext, uniqueId) {
+  const seg = (v, def) => {
+    const s = String(v == null ? '' : v).replace(/[.#$\[\]\/\x00-\x1F\x7F]/g, '').replace(/\.\./g, '');
+    return s || def;
+  };
+  const cid = seg(classId, '_legacy');
+  const team = seg(enc, 'unknown');
+  const sid = seg(sceneId, 'scene');
+  const uid = seg(uniqueId, '0');
+  const e = /^(jpg|jpeg|png|webp)$/.test(String(ext)) ? String(ext) : 'jpg';
+  return `images/${cid}/${team}/${sid}/${uid}.${e}`;
+}
+
+/* 삭제 허용 경로인지(prefix 검증). 우리 이미지 버킷 prefix `images/`로 시작 + traversal 없음만 허용. */
+function isAllowedImageStoragePath(path) {
+  if (typeof path !== 'string' || !path) return false;
+  if (path.indexOf('..') !== -1) return false;
+  return /^images\//.test(path);
 }
 
 /* scenes 트리에 "원본 이미지"가 하나라도 있는가. (imageData/imageUrl 비어있지 않으면 있음) */
@@ -157,7 +183,10 @@ module.exports = {
   normalizePolicy,
   classifyPolicy,
   decideSourceModeLock,
-  runSourceModeLockedSave,
+  decidePreGate,
+  runImageSourceCommit,
+  buildImageStoragePath,
+  isAllowedImageStoragePath,
   scenesHaveOriginalImage,
   decideSourceModeReset,
 };

@@ -2325,6 +2325,17 @@ function _mtbBuildBase10Scenes(opts) {
     _hasBody: true, presentationMode: 'picturebook',
     x: p10.x, y: p10.y,
   };
+  /* HOTFIX(신규 그림책 기본 레이아웃): 신규 그림책 BASE10의 표지·장면·엔딩을 모두
+     '가로 그림중심형'(picturebookSubmode:'imageCenter')으로 명시 저장 — 신규 생성만.
+     · text 등 비-그림책은 미부착(텍스트/무비/체험 영향 0).
+     · 폴백(renderer)은 무변경 → 필드 없는 기존 작품은 split 그대로(기존 저장값 보존).
+     · 분할형은 사용자가 이후 다듬기에서 직접 선택(picturebookSubmode:'split' 명시 저장).
+     · ptype: 호출자(createStarterTemplateForNewProject)가 넘긴 명시값 우선, 없으면 projectMeta. */
+  const _pbPtype = (opts && opts.ptype)
+    || ((typeof projectMeta !== 'undefined' && projectMeta && projectMeta.projectType) || null);
+  if (_pbPtype === 'picturebook') {
+    Object.keys(out).forEach(k => { out[k].picturebookSubmode = 'imageCenter'; });
+  }
   return out;
 }
 
@@ -2363,7 +2374,8 @@ async function _writeBase10IfEmpty(opts) {
     if (Object.keys(latest).length > 0) return { ok: false, reason: 'remote-exists' };
 
     /* 10장면 1회 기록 (set 전체 덮어쓰기 X — update 사용) */
-    const raw = _mtbBuildBase10Scenes({ source });
+    /* HOTFIX: ptype 전달 → 그림책이면 빌더가 imageCenter 명시 */
+    const raw = _mtbBuildBase10Scenes({ source, ptype: opts.ptype });
     const payload = {};
     Object.keys(raw).forEach(k => {
       payload[k] = (typeof _sceneToDbShape === 'function') ? _sceneToDbShape(raw[k]) : raw[k];
@@ -2502,7 +2514,8 @@ async function createStarterTemplateForNewProject(explicitPtype) {
   if (already) return false;
 
   /* 5. 쓰기 코어 — empty 재확인 + once-recheck + 생성 + 플래그 기록(모달 없음) */
-  const res = await _writeBase10IfEmpty({ source: 'desktop', markInitialized: true });
+  /* HOTFIX: 명시 ptype 전달 → 그림책이면 imageCenter 기본 레이아웃 명시 저장 */
+  const res = await _writeBase10IfEmpty({ source: 'desktop', markInitialized: true, ptype: explicitPtype });
   if (res.ok) {
     _mtbToast('기본 이야기 틀이 준비됐어요.');
     return true;

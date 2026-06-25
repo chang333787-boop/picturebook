@@ -3877,6 +3877,20 @@ body[data-page-orientation="portrait"] .terminal-screen--story .ending-page {
   background: #fff6ee;
 }
 .maker-return-btn--tool:hover { background: #fdeede; border-color: #b85e39; }
+/* AI-BUTTON-SURFACE: 🤖 AI 다듬기 — ⋯더보기에 묻혀 안 보이던 것 상단 직접 노출(발견성).
+   AI 허용(교사 enabled)일 때만 렌더(viewer-render _aiAllowed). 눈에 띄는 sage 강조(감상 테스트와 구분). */
+.maker-return-btn--ai {
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(135deg, #7aa06a, #6b9159);
+  border-color: #5f8350;
+  box-shadow: 0 1px 5px rgba(95, 131, 80, 0.32);
+}
+.maker-return-btn--ai:hover {
+  background: linear-gradient(135deg, #6b9159, #5d8049);
+  border-color: #527247;
+  color: #fff;
+}
 /* ⋯ 더보기 버튼 */
 .maker-return-btn--more { font-weight: 700; }
 .maker-return-btn--more[aria-expanded="true"] {

@@ -370,6 +370,37 @@ async function viewerUploadImageToStorage(input, sceneNum, opts) {
   return { downloadURL, storagePath };
 }
 
+/* ════════════════════════════════════════════════════════════════
+   IMAGE-S2-2A — 원본 이미지 저장 성공 직후 sourceMode 서버 잠금 + 패배 시 rollback(B안).
+   ──────────────────────────────────────────────────────────────
+   - 정상/idempotent → 조용히 통과(원본 유지).
+   - 반대 모드 conflict → viewer-ai가 서버 transaction 결과로 DB 이미지 CAS 복원 + 방금 만든
+     storage 파일 삭제(타인의 이후 저장은 보존). 여기선 메모리/화면도 이전 상태로 되돌리고 안내.
+   - lock 호출 실패/권한 등 → 원본 유지(작업 보호). 같은 작품 upload/draw 혼재는 서버가 막음.
+   viewer-ai 번들 미로딩이면 no-op(저장 자체는 이미 완료). ════════════════════════════════════ */
+async function _lockSourceModeAfterImageSave(mode, scene, before, after) {
+  try {
+    if (!scene) return;
+    if (!(typeof window !== 'undefined' && window.viewerAi &&
+          typeof window.viewerAi._lockSavedImageSourceMode === 'function')) return;
+    const sid = (scene.num != null) ? scene.num : scene.id;
+    const res = await window.viewerAi._lockSavedImageSourceMode(mode, sid, before, after);
+    if (!res || res.ok) return;   /* lock 성공 / idempotent */
+    if (res.code === 'SOURCE_MODE_CONFLICT' || res.code === 'LOCK_ROLLBACK_FAILED') {
+      /* DB 이미지는 viewer-ai가 CAS 복원(타인 저장 보존). 메모리·화면도 이전 상태로. */
+      scene.imageData = (before && before.imageData != null) ? before.imageData : null;
+      if (typeof renderEditPanel === 'function') renderEditPanel();
+      if (typeof _scheduleViewerFrameReRender === 'function') _scheduleViewerFrameReRender();
+      const other = (res.currentSourceMode === 'upload') ? '‘파일 올리기’' : '‘직접 그리기’';
+      const tail = (res.code === 'LOCK_ROLLBACK_FAILED')
+        ? ' (그림 정리가 일부 지연될 수 있어요. 선생님께 알려주세요.)' : '';
+      try { alert('이 작품은 이미 ' + other + ' 방식으로 시작했어요. 같은 작품에서는 두 방식을 섞을 수 없어서 방금 추가한 그림은 되돌렸어요.' + tail); } catch (e) {}
+    } else if (res.code === 'CORRUPT_IMAGE_POLICY') {
+      try { alert('이 작품의 이미지 입력 방식 설정에 문제가 있어요. 방금 그림은 그대로 두었어요 — 선생님께 알려주세요.'); } catch (e) {}
+    }
+  } catch (e) { console.warn('[S2-2A] sourceMode lock after save 실패(원본 유지)', e); }
+}
+
 async function viewerDeleteVideoFromStorage(storagePath) {
   if (typeof firebase === 'undefined' || typeof firebase.app !== 'function') return false;
   if (!storagePath) return false;
@@ -5562,10 +5593,12 @@ function _bindPbImageActions(root, scene) {
             finalUrl = dataUrl;
           }
         }
-        let storageUrl;
+        const _before = { imageData: scene.imageData || null };   /* IMAGE-S2-2A: 패배 rollback 기준 */
+        let storageUrl, _storagePath;
         try {
           const r = await viewerUploadImageToStorage(finalUrl, scene.num || scene.id);
           storageUrl = r.downloadURL;
+          _storagePath = r.storagePath;
         } catch (e) {
           console.error('[viewer-edit] 이미지 업로드 실패:', e);
           if (lbl && lbl.firstChild) lbl.firstChild.nodeValue = prevText;
@@ -5581,6 +5614,8 @@ function _bindPbImageActions(root, scene) {
         renderEditPanel();
         _scheduleViewerFrameReRender();
         _closeIfPopover();   /* 업로드 완료 → 팝오버 닫아 버튼 상태 stale 방지 */
+        /* IMAGE-S2-2A: 저장 성공 후 sourceMode 잠금(upload). 반대 모드면 viewer-ai가 rollback. */
+        await _lockSourceModeAfterImageSave('upload', scene, _before, { imageData: storageUrl, storagePath: _storagePath });
       } catch (err) {
         console.error('[viewer-edit] 이미지 처리 실패:', err);
         if (lbl && lbl.firstChild) lbl.firstChild.nodeValue = prevText;
@@ -7766,10 +7801,12 @@ function _openPbDrawModal(scene) {
     if (_aiImageVariantBlocksOriginalEdit()) return;
     try {
       const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-      let storageUrl;
+      const _before = { imageData: scene.imageData || null };   /* IMAGE-S2-2A: 패배 rollback 기준 */
+      let storageUrl, _storagePath;
       try {
         const r = await viewerUploadImageToStorage(dataUrl, scene.num || scene.id);
         storageUrl = r.downloadURL;
+        _storagePath = r.storagePath;
       } catch (e) {
         console.error('[viewer-edit] 그림 업로드 실패:', e);
         alert('❌ 그림을 올리지 못했어요. 잠시 후 다시 시도해 주세요.');
@@ -7783,6 +7820,8 @@ function _openPbDrawModal(scene) {
       renderEditPanel();
       _scheduleViewerFrameReRender();
       _close();
+      /* IMAGE-S2-2A: 저장 성공 후 sourceMode 잠금(draw). 반대 모드면 viewer-ai가 rollback. */
+      await _lockSourceModeAfterImageSave('draw', scene, _before, { imageData: storageUrl, storagePath: _storagePath });
     } catch (err) {
       console.error('[viewer-edit] 그림 저장 실패:', err);
       alert('저장하지 못했어요. 잠시 후 다시 시도해 주세요.');

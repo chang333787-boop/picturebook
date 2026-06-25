@@ -1600,8 +1600,11 @@
   }
 
   /* 이미지 AI 호출 전 게이트. 이미 lock돼 있으면 모달 없이 그 정책 반환.
-     미설정이면 모달 → 선택 시 저장 후 정책 반환, 취소/실패면 null.
-     ⚠️ 이번 단계에서는 어떤 UI 버튼과도 연결하지 않음(준비만). */
+     IMAGE-S2-2A 역할 축소: 신규 정상 작품은 "첫 원본 저장 성공" 때 _lockSavedImageSourceMode로
+     이미 sourceMode가 잠긴다 → 이 함수는 더 이상 최초 결정자가 아니다. 남은 역할은
+     (1) 기존 sourceMode 읽기, (2) sourceMode 없는 "기존 작품"만 명시 선택 보조(모달, 자동 추정 금지).
+     이미 upload/draw가 섞인 기존 작품을 단일 방식으로 거짓 표기하지 않음(혼합은 코드로 판별 불가 →
+     모달로 사용자 명시 선택에 위임). 취소/실패면 null. */
   async function _ensureImagePolicyBeforeImageAi(scene) {
     let cur = _getImagePolicy();
     if (!cur || IMAGE_SOURCE_MODES.indexOf(cur.sourceMode) === -1) {
@@ -1627,6 +1630,60 @@
       return res.policy;
     }
     return null;
+  }
+
+  /* IMAGE-S2-2A — 패배자 rollback 어댑터(클라). functions/image-s2-policy.js runSourceModeLockedSave를
+     브라우저(compat SDK)에서 그대로 구현. CAS 복원은 "non-match면 cur 반환"(abort 아님) → mismatch 시
+     RTDB가 서버값으로 자동 재실행(영속연결 없는 환경/optimistic 값에도 안전, emulator 실증). */
+  async function _casRestoreSceneImage(sceneId, afterUrl, beforeUrl) {
+    const app = _getViewerFirebaseApp();
+    const base = _imagePolicyBasePath();
+    if (!app || !app.database || !base || sceneId == null) return false;
+    let restored = false;
+    await app.database().ref(base + '/scenes/' + sceneId + '/imageData').transaction(function (cur) {
+      if (cur === afterUrl) { restored = true; return (beforeUrl == null ? null : beforeUrl); }
+      return cur;   /* 타인의 이후 저장/다른 값은 보존 */
+    });
+    return restored;
+  }
+  async function _deleteImageStorage(path) {
+    const app = _getViewerFirebaseApp();
+    if (!app || typeof app.storage !== 'function' || !path) return false;
+    try { await app.storage().ref(path).delete(); return true; }
+    catch (e) { console.warn('[S2-2A] 패배 storage 삭제 실패', e && e.message); return false; }
+  }
+
+  /* ★ 원본 저장 성공 후 sourceMode 잠금 + 패배 시 rollback(B안). before/after={imageData(,storagePath)}.
+     반환 { ok, sourceMode?, idempotent?, code?, currentSourceMode?, rolledBack?, restored?, kept? }.
+     안전: lock 호출 실패/권한 등 → 원본 유지(kept, rollback 안 함). conflict일 때만 rollback. */
+  async function _lockSavedImageSourceMode(mode, sceneId, before, after) {
+    const { classId, teamName } = _getCurrentClassIdTeamName();
+    if (!classId || !teamName) return { ok: false, code: 'no-context', kept: true };
+    if (mode !== 'upload' && mode !== 'draw') return { ok: false, code: 'INVALID_SOURCE_MODE', kept: true };
+    let data;
+    try {
+      data = await _callPhaseAFunction('lockImageSourceMode', {
+        classId: classId, teamName: teamName, sceneId: (sceneId != null ? sceneId : null), sourceMode: mode,
+      });
+    } catch (e) {
+      console.warn('[S2-2A] lock 호출 실패(원본 유지)', e && (e.code || e.message));
+      return { ok: false, code: 'LOCK_CALL_FAILED', kept: true };
+    }
+    if (data && data.ok) { await _loadImagePolicy(true); return { ok: true, sourceMode: mode, idempotent: !!data.idempotent }; }
+    if (data && data.code === 'CORRUPT_IMAGE_POLICY') { return { ok: false, code: 'CORRUPT_IMAGE_POLICY', kept: true }; }
+    if (data && data.code === 'SOURCE_MODE_CONFLICT') {
+      let restored = false, restoreThrew = false, storageDeleted = true;
+      try { restored = await _casRestoreSceneImage(sceneId, after && after.imageData, before && before.imageData); }
+      catch (e) { restoreThrew = true; }
+      const path = after && after.storagePath;
+      if (path) { storageDeleted = await _deleteImageStorage(path); }
+      await _loadImagePolicy(true);
+      if (restoreThrew || (path && !storageDeleted)) {
+        return { ok: false, code: 'LOCK_ROLLBACK_FAILED', currentSourceMode: data.currentSourceMode, restored: restored, storageDeleted: storageDeleted, rolledBack: !restoreThrew };
+      }
+      return { ok: false, code: 'SOURCE_MODE_CONFLICT', currentSourceMode: data.currentSourceMode, rolledBack: true, restored: restored };
+    }
+    return { ok: false, code: (data && data.code) || 'lock-failed', kept: true };
   }
 
   /* finalMap: {sceneId:{body,...}} (localStorage final 형태). 실 API 모드에서만 호출. */
@@ -4077,6 +4134,7 @@
       loadImagePolicy:               _loadImagePolicy,
       saveImagePolicy:               _saveImagePolicy,
       ensureImagePolicyBeforeImageAi: _ensureImagePolicyBeforeImageAi,
+      _lockSavedImageSourceMode:     _lockSavedImageSourceMode,   /* IMAGE-S2-2A: 원본 저장 후 잠금+rollback */
       _openImageSourceModal:         _openImageSourceModal,
 
       /* P5-IMAGE-CLIENT-1: 이미지 AI 진입(AI 그림 정돈) — server skeleton 연결. 생성 없음. */

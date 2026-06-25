@@ -140,6 +140,9 @@ function renderAll() {
   /* BRANCH-VIEWPORT-RESTORE: 카드 렌더 완료 후 복귀 viewport 1회 복원(ui.js).
      1회성·resume=1·team 일치 가드 내장 → 매 renderAll 호출돼도 1회만 소비. */
   if (typeof _restoreBranchViewportOnce === 'function') _restoreBranchViewportOnce();
+  /* HOTFIX(생각 나침반 결과 보기): 작품 진입/렌더 후 🧭 버튼 노출 갱신.
+     내부에서 classId+teamName 키 가드 → 같은 작품 재호출 시 DB read 생략(저비용). */
+  if (typeof window._updateCompassResultButton === 'function') window._updateCompassResultButton();
 }
 
 /* ================================================================

@@ -645,6 +645,38 @@ function _onPtypeCardClick(clickedType) {
   _enterMakerAfterPtypeSelected(clickedType);
 }
 
+/* HOTFIX(생각 나침반 결과 보기): 🧭 toolbar 버튼 노출 갱신.
+   · 표시 조건: 그림책/텍스트 작품 + 생각 나침반 기록 실제 존재(완료 or 진행 중 or 답변/완료시각).
+     기록 없는(미시작) 작품은 숨김. 공개 감상엔 이 버튼/화면 자체가 없음.
+   · classId+teamName 키 가드 → 같은 작품 재호출 시 DB read 생략(renderAll서 매번 호출돼도 저비용).
+   · 읽기 전용 ThoughtCompassReview 재사용 — 시작/재생성/배정 없음. */
+let _compassBtnLastKey = null;
+async function _updateCompassResultButton() {
+  const btn = document.getElementById('btn-compass-result');
+  if (!btn) return;
+  const hasCls = typeof classId === 'string' && classId && typeof teamName === 'string' && teamName;
+  const pt = (typeof projectMeta !== 'undefined' && projectMeta && projectMeta.projectType)
+    || (typeof selectedProjectType === 'string' ? selectedProjectType : null);
+  const key = hasCls ? (classId + '::' + teamName) : null;
+  if (!hasCls || (pt !== 'text' && pt !== 'picturebook')
+      || !window.ThoughtCompassStore || !window.ThoughtCompassReview
+      || typeof window.ThoughtCompassStore.loadThoughtCompassStateResult !== 'function') {
+    btn.style.display = 'none'; _compassBtnLastKey = key; return;
+  }
+  if (key === _compassBtnLastKey) return;   /* 같은 작품 재확인 안 함 */
+  _compassBtnLastKey = key;
+  try {
+    const r = await window.ThoughtCompassStore.loadThoughtCompassStateResult({ classId: classId, teamName: teamName, projectType: pt });
+    const raw = r && r.raw;
+    const hasRecord = !!(raw && (
+      raw.status === 'completed' || raw.status === 'inProgress' || typeof raw.completedAt === 'number'
+      || (raw.answers && typeof raw.answers === 'object' && Object.keys(raw.answers).length > 0)));
+    /* 키가 바뀌지 않았을 때만 반영(비동기 사이 팀 전환 방지) */
+    if (key === _compassBtnLastKey) btn.style.display = hasRecord ? '' : 'none';
+  } catch (_) { if (key === _compassBtnLastKey) btn.style.display = 'none'; }
+}
+if (typeof window !== 'undefined') window._updateCompassResultButton = _updateCompassResultButton;
+
 /* ptype 결정 후 firebase에 저장 + maker 캔버스 노출 */
 async function _enterMakerAfterPtypeSelected(ptype) {
   /* W7 projectType lock: viewer-meta/projectType 반드시 박힌 후 maker 진입.
@@ -935,6 +967,16 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-group-move') ?.addEventListener('click', toggleGroupMove);
   document.getElementById('btn-preview')    ?.addEventListener('click', startPreview);
   document.getElementById('btn-route')      ?.addEventListener('click', openRoutePanel);
+  /* HOTFIX(생각 나침반 결과 보기): 저장된 결과를 읽기 전용으로 다시 봄(기존 ThoughtCompassReview 재사용).
+     질문 생성·API 호출·BASE10 재생성 없음. 버튼 표시는 _updateCompassResultButton이 제어. */
+  document.getElementById('btn-compass-result')?.addEventListener('click', () => {
+    const pt = (typeof projectMeta !== 'undefined' && projectMeta && projectMeta.projectType)
+      || (typeof selectedProjectType === 'string' ? selectedProjectType : null);
+    if (window.ThoughtCompassReview && typeof window.ThoughtCompassReview.openReadOnly === 'function'
+        && typeof classId === 'string' && classId && typeof teamName === 'string' && teamName) {
+      window.ThoughtCompassReview.openReadOnly({ classId: classId, teamName: teamName, projectType: pt });
+    }
+  });
   document.getElementById('btn-help')       ?.addEventListener('click', showHelp);
   document.getElementById('btn-zoom-out')   ?.addEventListener('click', () => setZoom(zoom - 0.1));
   document.getElementById('btn-zoom-in')    ?.addEventListener('click', () => setZoom(zoom + 0.1));

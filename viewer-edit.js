@@ -4501,6 +4501,76 @@ async function _saveFlattenedImage(sceneNum, newImageDataUrl) {
   }
 }
 
+/* ================================================================
+   HOTFIX(생각 나침반 결과 보기) — 다듬기 화면 작품단위 참고 패널
+   ─────────────────────────────────────────────────────────────
+   · compass 스크립트는 viewer에 미로드 → 클릭 시 1회 지연로드(css + readOnly 최소 5스크립트 + window.db).
+     window.db = 편집 세션 default app(maker UID)의 database → Store가 writingGuide read(읽기 전용).
+   · 기존 ThoughtCompassReview.openReadOnly(ctx) 재사용 = 브랜치 화면과 동일 UI. API 호출·생성·배정 0.
+   · 메뉴 노출은 기록 존재 시만(_ensureCompassRecordChecked: 1회 DB read 캐시 → _applyCompassMenuVisibility).
+   ================================================================ */
+let _compassHasRecord = null;        /* null=미확인, true/false=확인됨(작품별 1회) */
+let _compassBundlePromise = null;
+function _compassCtx() {
+  const p = (typeof ViewerState !== 'undefined' && ViewerState.project) ? ViewerState.project : {};
+  return { classId: p.classId || null, teamName: p.teamName || null, projectType: p.projectType || null };
+}
+function _applyCompassMenuVisibility() {
+  const el = document.querySelector('.js-edit-compass-result');
+  if (el) el.style.display = (_compassHasRecord === true) ? '' : 'none';
+}
+async function _ensureCompassRecordChecked() {
+  if (_compassHasRecord !== null) { _applyCompassMenuVisibility(); return; }
+  const ctx = _compassCtx();
+  if (!ctx.classId || !ctx.teamName || (ctx.projectType !== 'text' && ctx.projectType !== 'picturebook')
+      || typeof getViewerDb !== 'function') { _compassHasRecord = false; _applyCompassMenuVisibility(); return; }
+  try {
+    const enc = encodeURIComponent(ctx.teamName);
+    const snap = await getViewerDb().ref('classes/' + ctx.classId + '/teams/' + enc + '/writingGuide/preWriting').once('value');
+    const raw = snap.val();
+    _compassHasRecord = !!(raw && (raw.status === 'completed' || raw.status === 'inProgress'
+      || typeof raw.completedAt === 'number'
+      || (raw.answers && typeof raw.answers === 'object' && Object.keys(raw.answers).length > 0)));
+  } catch (_) { _compassHasRecord = false; }
+  _applyCompassMenuVisibility();
+}
+function _ensureCompassReviewBundle() {
+  if (window.ThoughtCompassReview && typeof window.ThoughtCompassReview.openReadOnly === 'function') return Promise.resolve(true);
+  if (_compassBundlePromise) return _compassBundlePromise;
+  _compassBundlePromise = (async () => {
+    /* Store는 전역 db 사용 → 편집 default app(maker UID) database 노출(읽기 전용만 사용). */
+    try { if (!window.db && typeof getViewerApp === 'function') window.db = getViewerApp().database(); } catch (_) {}
+    const load = (src) => new Promise((res, rej) => {
+      const s = document.createElement('script'); s.src = src; s.async = false;
+      s.onload = () => res(); s.onerror = () => rej(new Error('load fail ' + src)); document.head.appendChild(s);
+    });
+    if (!document.querySelector('link[data-tc-review-css]')) {
+      const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'thought-compass.css?v=compassview1';
+      l.setAttribute('data-tc-review-css', '1'); document.head.appendChild(l);
+    }
+    const V = '?v=compassview1';
+    await load('thought-compass.js' + V);
+    await load('thought-compass-questions.js' + V);
+    await load('thought-compass-flow.js' + V);
+    await load('thought-compass-store.js' + V);
+    await load('thought-compass-review.js' + V);
+    return !!(window.ThoughtCompassReview && typeof window.ThoughtCompassReview.openReadOnly === 'function');
+  })().catch((e) => { _compassBundlePromise = null; try { console.warn('[compass-view] 번들 로드 실패', e); } catch(_){} return false; });
+  return _compassBundlePromise;
+}
+async function _openCompassResultViewer() {
+  const ctx = _compassCtx();
+  if (!ctx.classId || !ctx.teamName) return;
+  try {
+    const ok = await _ensureCompassReviewBundle();
+    if (ok && window.ThoughtCompassReview && typeof window.ThoughtCompassReview.openReadOnly === 'function') {
+      await window.ThoughtCompassReview.openReadOnly(ctx);
+    } else if (typeof _showSaveStatus === 'function') {
+      _showSaveStatus('생각 나침반 결과를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.', 2500);
+    }
+  } catch (e) { try { console.warn('[compass-view] 열기 실패', e); } catch(_){} }
+}
+
 /* W9 (v4): HUD maker-return-bar 액션 버튼 핸들러.
    renderHud (viewer-render.js)에서 hud.innerHTML 박은 직후 호출.
    document scope로 검색 — HUD 버튼은 #hud 안에 있음. */
@@ -4566,6 +4636,12 @@ function _bindHudEditActions() {
   });
 
   document.querySelector('.js-edit-open-map')?.addEventListener('click', openStructureMap);
+
+  /* HOTFIX(생각 나침반 결과 보기): 클릭 → 읽기전용 결과 패널(지연로드 + 재사용). 메뉴 노출은 기록 있을 때만.
+     HUD는 장면 전환마다 재렌더 → 매 바인딩 시 가시성 재적용(_compassHasRecord 캐시라 DB read는 1회). */
+  document.querySelector('.js-edit-compass-result')?.addEventListener('click', () => { _openCompassResultViewer(); });
+  _applyCompassMenuVisibility();
+  _ensureCompassRecordChecked();
 
   /* 🤖 AI 작품 다듬기 — viewer-ai.js의 openModal 호출. (텍스트 1단계·작품 검사 = 실 API 작동.
      viewer-ai.js 미로드 환경 fallback: 안내 alert만.) */

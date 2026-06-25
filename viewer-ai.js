@@ -1527,22 +1527,35 @@
     return _imagePolicy;
   }
 
-  /* imagePolicy child만 set. viewer-meta 다른 필드 불변. 실패해도 원본/variant 영향 없음. */
+  /* IMAGE-S2-2: 직접 RTDB write 제거 → 서버 lockImageSourceMode callable(원자 transaction)로 격상.
+     서버가 auth/정본 기준으로 lockedAt/lockedBy 기록(클라는 sourceMode·sceneId만 전달).
+     성공 시 서버 기록값 재로드. 반대 모드면 conflict(현재 모드 반환) — 호출부가 안내. */
   async function _saveImagePolicy(policy) {
     const clean = _sanitizeImagePolicy(policy);
     if (!clean) return { ok: false, reason: 'bad-sourceMode' };
-    const base = _imagePolicyBasePath();
-    const app = _getViewerFirebaseApp();
-    if (!base || !app || !app.database) return { ok: false, reason: 'no-context' };
+    const { classId, teamName } = _getCurrentClassIdTeamName();
+    if (!classId || !teamName) return { ok: false, reason: 'no-context' };
+    let data;
     try {
-      await app.database().ref(base + '/viewer-meta/imagePolicy').set(clean);
-      _imagePolicy = clean;
-      _imagePolicyLoadedKey = _fbVariantCacheKey();
-      return { ok: true, policy: clean };
+      data = await _callPhaseAFunction('lockImageSourceMode', {
+        classId: classId,
+        teamName: teamName,
+        sceneId: (clean.lockedAtSceneId != null) ? clean.lockedAtSceneId : null,
+        sourceMode: clean.sourceMode,
+      });
     } catch (e) {
-      console.warn('[P5] imagePolicy 저장 실패', e);
-      return { ok: false, reason: 'write-failed', error: e && e.message };
+      console.warn('[P5] imagePolicy lock 호출 실패', e && (e.code || e.message));
+      return { ok: false, reason: 'lock-failed', error: e && e.message };
     }
+    if (data && data.ok) {
+      await _loadImagePolicy(true);                 /* 서버 기록값으로 캐시 갱신 */
+      return { ok: true, policy: _getImagePolicy() || clean };
+    }
+    if (data && data.code === 'SOURCE_MODE_CONFLICT') {
+      await _loadImagePolicy(true);
+      return { ok: false, reason: 'conflict', currentSourceMode: data.currentSourceMode, policy: _getImagePolicy() };
+    }
+    return { ok: false, reason: (data && data.code) || 'lock-failed' };
   }
 
   /* 최초 설정 선택 모달 — Promise<'upload'|'draw'|null('취소')>. 저장은 호출부(ensure)가 담당. */
@@ -1601,10 +1614,19 @@
     const res = await _saveImagePolicy({
       sourceMode: choice,
       lockedAtSceneId: sid,
-      lockedAt: Date.now(),
-      lockedBy: _getImagePolicyLockedBy(),
     });
-    return res.ok ? res.policy : null;
+    if (res.ok) return res.policy;
+    /* 경쟁에서 다른 방식이 먼저 원자적으로 잠긴 경우: 잠긴 방식 안내 후 그 정책으로 진행(섞기 방지). */
+    if (res.reason === 'conflict' && res.policy) {
+      try {
+        if (typeof showAiToast === 'function') {
+          showAiToast('이 작품은 이미 ' + (res.currentSourceMode === 'upload' ? '‘파일 올리기’' : '‘직접 그리기’')
+            + ' 방식으로 시작했어요. 같은 작품에서는 두 방식을 섞을 수 없어요.');
+        }
+      } catch (e) { /* noop */ }
+      return res.policy;
+    }
+    return null;
   }
 
   /* finalMap: {sceneId:{body,...}} (localStorage final 형태). 실 API 모드에서만 호출. */

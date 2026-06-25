@@ -1600,7 +1600,7 @@
   }
 
   /* 이미지 AI 호출 전 게이트. 이미 lock돼 있으면 모달 없이 그 정책 반환.
-     IMAGE-S2-2A 역할 축소: 신규 정상 작품은 "첫 원본 저장 성공" 때 _lockSavedImageSourceMode로
+     IMAGE-S2-2A 역할 축소: 신규 정상 작품은 첫 원본 저장 때 _commitImageSourceMode로
      이미 sourceMode가 잠긴다 → 이 함수는 더 이상 최초 결정자가 아니다. 남은 역할은
      (1) 기존 sourceMode 읽기, (2) sourceMode 없는 "기존 작품"만 명시 선택 보조(모달, 자동 추정 금지).
      이미 upload/draw가 섞인 기존 작품을 단일 방식으로 거짓 표기하지 않음(혼합은 코드로 판별 불가 →
@@ -1632,58 +1632,61 @@
     return null;
   }
 
-  /* IMAGE-S2-2A — 패배자 rollback 어댑터(클라). functions/image-s2-policy.js runSourceModeLockedSave를
-     브라우저(compat SDK)에서 그대로 구현. CAS 복원은 "non-match면 cur 반환"(abort 아님) → mismatch 시
-     RTDB가 서버값으로 자동 재실행(영속연결 없는 환경/optimistic 값에도 안전, emulator 실증). */
-  async function _casRestoreSceneImage(sceneId, afterUrl, beforeUrl) {
-    const app = _getViewerFirebaseApp();
-    const base = _imagePolicyBasePath();
-    if (!app || !app.database || !base || sceneId == null) return false;
-    let restored = false;
-    await app.database().ref(base + '/scenes/' + sceneId + '/imageData').transaction(function (cur) {
-      if (cur === afterUrl) { restored = true; return (beforeUrl == null ? null : beforeUrl); }
-      return cur;   /* 타인의 이후 저장/다른 값은 보존 */
-    });
-    return restored;
-  }
+  /* S2-2A-FIX1 — 패배 시 *이번에 만든 고유 객체만* 삭제(prefix 검증). scene DB는 절대 건드리지 않음
+     (gate-first라 패자는 scene을 애초에 안 씀 → CAS rollback 폐기). */
   async function _deleteImageStorage(path) {
+    /* prefix 검증: 우리 이미지 버킷(`images/`)만, traversal 금지. downloadURL 역추정 안 함. */
+    if (typeof path !== 'string' || !path || path.indexOf('..') !== -1 || !/^images\//.test(path)) {
+      if (path) console.warn('[S2-2A] 허용되지 않은 삭제 경로 무시', path);
+      return false;
+    }
     const app = _getViewerFirebaseApp();
-    if (!app || typeof app.storage !== 'function' || !path) return false;
+    if (!app || typeof app.storage !== 'function') return false;
     try { await app.storage().ref(path).delete(); return true; }
-    catch (e) { console.warn('[S2-2A] 패배 storage 삭제 실패', e && e.message); return false; }
+    catch (e) { console.warn('[S2-2A] 패배 storage 삭제 실패(orphan)', e && e.message); return false; }
   }
 
-  /* ★ 원본 저장 성공 후 sourceMode 잠금 + 패배 시 rollback(B안). before/after={imageData(,storagePath)}.
-     반환 { ok, sourceMode?, idempotent?, code?, currentSourceMode?, rolledBack?, restored?, kept? }.
-     안전: lock 호출 실패/권한 등 → 원본 유지(kept, rollback 안 함). conflict일 때만 rollback. */
-  async function _lockSavedImageSourceMode(mode, sceneId, before, after) {
+  /* ★ 저장 *전* sourceMode 사전 게이트(클라 read). 반대 모드/corrupt면 업로드 전 차단.
+     read 실패 → hold(fail-open 금지, 원본 보호). 사전 게이트는 최종 결정자 아님 — 서버 lock이 권위.
+     반환 { allow:bool, code?, currentSourceMode? }. (corrupt는 클라 sanitize로 absent처럼 보일 수 있어 서버에서 최종 차단) */
+  async function _preCheckSourceMode(mode, sceneId) {
+    if (mode !== 'upload' && mode !== 'draw') return { allow: false, code: 'INVALID_SOURCE_MODE' };
+    const app = _getViewerFirebaseApp();
+    const base = _imagePolicyBasePath();
+    if (!app || !app.database || !base) return { allow: false, code: 'POLICY_READ_FAILED', retryable: true };
+    let raw;
+    try { raw = (await app.database().ref(base + '/viewer-meta/imagePolicy').once('value')).val(); }
+    catch (e) { return { allow: false, code: 'POLICY_READ_FAILED', retryable: true }; }   /* hold — 원본 보호 */
+    const sm = raw && raw.sourceMode;
+    if (sm === 'upload' || sm === 'draw') {
+      if (sm !== mode) return { allow: false, code: 'SOURCE_MODE_CONFLICT', currentSourceMode: sm };
+      return { allow: true, currentSourceMode: sm };
+    }
+    return { allow: true };   /* absent / (corrupt → 서버 lock에서 차단) */
+  }
+
+  /* ★ 업로드된 고유 객체에 대해 서버 lock 확정. ok면 호출부가 scene.imageData 기록.
+     실패/충돌/corrupt/lock호출실패 → *이번 고유 객체만* 삭제(scene 무변경 → 승자/기존 무손상).
+     반환 { ok, sourceMode?, idempotent? } | { ok:false, code, currentSourceMode?, retryable?, storageDeleted? }. */
+  async function _commitImageSourceMode(mode, sceneId, storagePath) {
     const { classId, teamName } = _getCurrentClassIdTeamName();
-    if (!classId || !teamName) return { ok: false, code: 'no-context', kept: true };
-    if (mode !== 'upload' && mode !== 'draw') return { ok: false, code: 'INVALID_SOURCE_MODE', kept: true };
+    if (!classId || !teamName) { const d = await _deleteImageStorage(storagePath); return { ok: false, code: 'no-context', retryable: true, storageDeleted: d }; }
+    if (mode !== 'upload' && mode !== 'draw') { const d = await _deleteImageStorage(storagePath); return { ok: false, code: 'INVALID_SOURCE_MODE', storageDeleted: d }; }
     let data;
     try {
       data = await _callPhaseAFunction('lockImageSourceMode', {
         classId: classId, teamName: teamName, sceneId: (sceneId != null ? sceneId : null), sourceMode: mode,
       });
     } catch (e) {
-      console.warn('[S2-2A] lock 호출 실패(원본 유지)', e && (e.code || e.message));
-      return { ok: false, code: 'LOCK_CALL_FAILED', kept: true };
+      console.warn('[S2-2A] lock 호출 실패(고유 객체 정리, scene 무변경)', e && (e.code || e.message));
+      const d = await _deleteImageStorage(storagePath);
+      return { ok: false, code: 'LOCK_CALL_FAILED', retryable: true, storageDeleted: d };
     }
     if (data && data.ok) { await _loadImagePolicy(true); return { ok: true, sourceMode: mode, idempotent: !!data.idempotent }; }
-    if (data && data.code === 'CORRUPT_IMAGE_POLICY') { return { ok: false, code: 'CORRUPT_IMAGE_POLICY', kept: true }; }
-    if (data && data.code === 'SOURCE_MODE_CONFLICT') {
-      let restored = false, restoreThrew = false, storageDeleted = true;
-      try { restored = await _casRestoreSceneImage(sceneId, after && after.imageData, before && before.imageData); }
-      catch (e) { restoreThrew = true; }
-      const path = after && after.storagePath;
-      if (path) { storageDeleted = await _deleteImageStorage(path); }
-      await _loadImagePolicy(true);
-      if (restoreThrew || (path && !storageDeleted)) {
-        return { ok: false, code: 'LOCK_ROLLBACK_FAILED', currentSourceMode: data.currentSourceMode, restored: restored, storageDeleted: storageDeleted, rolledBack: !restoreThrew };
-      }
-      return { ok: false, code: 'SOURCE_MODE_CONFLICT', currentSourceMode: data.currentSourceMode, rolledBack: true, restored: restored };
-    }
-    return { ok: false, code: (data && data.code) || 'lock-failed', kept: true };
+    /* 실패: scene 미기록 → 이번 고유 객체만 삭제. */
+    const d = await _deleteImageStorage(storagePath);
+    await _loadImagePolicy(true);
+    return { ok: false, code: (data && data.code) || 'lock-failed', currentSourceMode: data && data.currentSourceMode, storageDeleted: d };
   }
 
   /* finalMap: {sceneId:{body,...}} (localStorage final 형태). 실 API 모드에서만 호출. */
@@ -4134,7 +4137,8 @@
       loadImagePolicy:               _loadImagePolicy,
       saveImagePolicy:               _saveImagePolicy,
       ensureImagePolicyBeforeImageAi: _ensureImagePolicyBeforeImageAi,
-      _lockSavedImageSourceMode:     _lockSavedImageSourceMode,   /* IMAGE-S2-2A: 원본 저장 후 잠금+rollback */
+      _preCheckSourceMode:           _preCheckSourceMode,      /* S2-2A-FIX1: 저장 전 사전 게이트 */
+      _commitImageSourceMode:        _commitImageSourceMode,   /* S2-2A-FIX1: 업로드 후 lock 확정(성공 시에만 scene 기록) */
       _openImageSourceModal:         _openImageSourceModal,
 
       /* P5-IMAGE-CLIENT-1: 이미지 AI 진입(AI 그림 정돈) — server skeleton 연결. 생성 없음. */

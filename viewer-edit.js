@@ -275,6 +275,11 @@ async function viewerUploadVideoToStorage(file, sceneNum, opts) {
    ──────────────────────────────────────────────────────────────── */
 const _VIEWER_IMAGE_MAX_BYTES = 6 * 1024 * 1024;
 
+/* S2-2A-FIX1: 충돌 불가능한 고유 ID(crypto.randomUUID 우선, 미지원 fallback). */
+function _viewerUniqueId() {
+  try { if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID(); } catch (e) {}
+  return 'u' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+}
 function _viewerImageStoragePath(sceneNum, ctx, ext) {
   const cid = (ctx && ctx.classId)
     || (typeof ViewerState !== 'undefined' && ViewerState.classId)
@@ -285,7 +290,12 @@ function _viewerImageStoragePath(sceneNum, ctx, ext) {
     || (typeof teamName !== 'undefined' && teamName)
     || 'unknown';
   const encodedName = encodeURIComponent(tn);
-  return `images/${cid}/${encodedName}/scene_${sceneNum}.${ext || 'jpg'}`;
+  /* S2-2A-FIX1: 신규 원본은 매 저장마다 *고유 객체* → 기존 Storage 객체 절대 overwrite 안 함(원본 보호).
+     세그먼트 안전화. format은 functions/image-s2-policy.js buildImageStoragePath와 동일.
+     기존 deterministic URL(scene_{N}.ext)은 scene.imageData에 저장돼 있어 그대로 읽힘(마이그레이션 없음). */
+  const safe = (v, def) => { const s = String(v == null ? '' : v).replace(/[.#$\[\]\/\x00-\x1F\x7F]/g, '').replace(/\.\./g, ''); return s || def; };
+  const e = /^(jpg|jpeg|png|webp)$/.test(String(ext)) ? String(ext) : 'jpg';
+  return `images/${safe(cid, '_legacy')}/${safe(encodedName, 'unknown')}/${safe(sceneNum, 'scene')}/${_viewerUniqueId()}.${e}`;
 }
 
 function _viewerExtFromMime(mime) {
@@ -371,34 +381,23 @@ async function viewerUploadImageToStorage(input, sceneNum, opts) {
 }
 
 /* ════════════════════════════════════════════════════════════════
-   IMAGE-S2-2A — 원본 이미지 저장 성공 직후 sourceMode 서버 잠금 + 패배 시 rollback(B안).
+   S2-2A-FIX1 — 저장 전 sourceMode 게이트 / lock 실패 시 사용자 안내(읽기 전용 메시지).
    ──────────────────────────────────────────────────────────────
-   - 정상/idempotent → 조용히 통과(원본 유지).
-   - 반대 모드 conflict → viewer-ai가 서버 transaction 결과로 DB 이미지 CAS 복원 + 방금 만든
-     storage 파일 삭제(타인의 이후 저장은 보존). 여기선 메모리/화면도 이전 상태로 되돌리고 안내.
-   - lock 호출 실패/권한 등 → 원본 유지(작업 보호). 같은 작품 upload/draw 혼재는 서버가 막음.
-   viewer-ai 번들 미로딩이면 no-op(저장 자체는 이미 완료). ════════════════════════════════════ */
-async function _lockSourceModeAfterImageSave(mode, scene, before, after) {
-  try {
-    if (!scene) return;
-    if (!(typeof window !== 'undefined' && window.viewerAi &&
-          typeof window.viewerAi._lockSavedImageSourceMode === 'function')) return;
-    const sid = (scene.num != null) ? scene.num : scene.id;
-    const res = await window.viewerAi._lockSavedImageSourceMode(mode, sid, before, after);
-    if (!res || res.ok) return;   /* lock 성공 / idempotent */
-    if (res.code === 'SOURCE_MODE_CONFLICT' || res.code === 'LOCK_ROLLBACK_FAILED') {
-      /* DB 이미지는 viewer-ai가 CAS 복원(타인 저장 보존). 메모리·화면도 이전 상태로. */
-      scene.imageData = (before && before.imageData != null) ? before.imageData : null;
-      if (typeof renderEditPanel === 'function') renderEditPanel();
-      if (typeof _scheduleViewerFrameReRender === 'function') _scheduleViewerFrameReRender();
-      const other = (res.currentSourceMode === 'upload') ? '‘파일 올리기’' : '‘직접 그리기’';
-      const tail = (res.code === 'LOCK_ROLLBACK_FAILED')
-        ? ' (그림 정리가 일부 지연될 수 있어요. 선생님께 알려주세요.)' : '';
-      try { alert('이 작품은 이미 ' + other + ' 방식으로 시작했어요. 같은 작품에서는 두 방식을 섞을 수 없어서 방금 추가한 그림은 되돌렸어요.' + tail); } catch (e) {}
-    } else if (res.code === 'CORRUPT_IMAGE_POLICY') {
-      try { alert('이 작품의 이미지 입력 방식 설정에 문제가 있어요. 방금 그림은 그대로 두었어요 — 선생님께 알려주세요.'); } catch (e) {}
-    }
-  } catch (e) { console.warn('[S2-2A] sourceMode lock after save 실패(원본 유지)', e); }
+   gate-first 흐름: (사전게이트)→ 고유경로 업로드 → (서버 lock) → ok일 때만 scene.imageData 기록.
+   따라서 패자는 scene을 애초에 쓰지 않아 승자/기존 이미지 유실이 구조적으로 불가(C1/C2 제거).
+   이 함수는 차단/실패 코드를 사용자 안내로 변환만 한다(데이터 변경 없음). ═══════════════════════ */
+function _notifySourceModeBlock(res) {
+  if (!res || !res.code) return;
+  let msg;
+  if (res.code === 'SOURCE_MODE_CONFLICT') {
+    const other = (res.currentSourceMode === 'upload') ? '‘파일 올리기’' : '‘직접 그리기’';
+    msg = '이 작품은 이미 ' + other + ' 방식으로 시작했어요. 같은 작품에서는 두 방식을 섞을 수 없어요. (방금 고른 그림은 저장하지 않았어요.)';
+  } else if (res.code === 'CORRUPT_IMAGE_POLICY') {
+    msg = '이 작품의 이미지 입력 방식 설정에 문제가 있어요. 선생님께 알려주세요.';
+  } else {
+    msg = '지금은 그림을 저장할 수 없어요. 잠시 후 다시 시도해 주세요.';
+  }
+  try { alert(msg); } catch (e) {}
 }
 
 async function viewerDeleteVideoFromStorage(storagePath) {
@@ -5593,10 +5592,21 @@ function _bindPbImageActions(root, scene) {
             finalUrl = dataUrl;
           }
         }
-        const _before = { imageData: scene.imageData || null };   /* IMAGE-S2-2A: 패배 rollback 기준 */
+        const _sid = scene.num || scene.id;
+        /* S2-2A-FIX1 ① 사전 게이트(업로드 *전*): 반대 모드/corrupt면 Storage 업로드도 scene 변경도 안 함. */
+        const _gate = (typeof window !== 'undefined' && window.viewerAi && typeof window.viewerAi._preCheckSourceMode === 'function')
+          ? await window.viewerAi._preCheckSourceMode('upload', _sid)
+          : { allow: true };
+        if (!_gate.allow) {
+          if (lbl && lbl.firstChild) lbl.firstChild.nodeValue = prevText;
+          _notifySourceModeBlock(_gate);
+          e.target.value = '';
+          return;
+        }
+        /* ② 고유 경로 업로드(기존 객체 overwrite 안 함). scene.imageData는 아직 안 바꿈. */
         let storageUrl, _storagePath;
         try {
-          const r = await viewerUploadImageToStorage(finalUrl, scene.num || scene.id);
+          const r = await viewerUploadImageToStorage(finalUrl, _sid);
           storageUrl = r.downloadURL;
           _storagePath = r.storagePath;
         } catch (e) {
@@ -5606,16 +5616,25 @@ function _bindPbImageActions(root, scene) {
           e.target.value = '';
           return;
         }
+        /* ③ 서버 lock 확정(TOCTOU 최종 결정자). 실패/충돌이면 방금 만든 고유 객체만 삭제, scene 무변경. */
+        const _commit = (typeof window !== 'undefined' && window.viewerAi && typeof window.viewerAi._commitImageSourceMode === 'function')
+          ? await window.viewerAi._commitImageSourceMode('upload', _sid, _storagePath)
+          : { ok: true };
+        if (!_commit.ok) {
+          if (lbl && lbl.firstChild) lbl.firstChild.nodeValue = prevText;
+          _notifySourceModeBlock(_commit);   /* scene.imageData 미변경 → 승자/기존 무손상 */
+          e.target.value = '';
+          return;
+        }
+        /* ④ lock 성공일 때만 scene.imageData 기록 + flush await(순서 보장). */
         scene.imageData = storageUrl;
         if (typeof _queueSave === 'function') {
-          _queueSave(scene.num || scene.id, { imageData: storageUrl });
-          if (typeof _flushPendingSave === 'function') _flushPendingSave();
+          _queueSave(_sid, { imageData: storageUrl });
+          if (typeof _flushPendingSave === 'function') await _flushPendingSave();
         }
         renderEditPanel();
         _scheduleViewerFrameReRender();
         _closeIfPopover();   /* 업로드 완료 → 팝오버 닫아 버튼 상태 stale 방지 */
-        /* IMAGE-S2-2A: 저장 성공 후 sourceMode 잠금(upload). 반대 모드면 viewer-ai가 rollback. */
-        await _lockSourceModeAfterImageSave('upload', scene, _before, { imageData: storageUrl, storagePath: _storagePath });
       } catch (err) {
         console.error('[viewer-edit] 이미지 처리 실패:', err);
         if (lbl && lbl.firstChild) lbl.firstChild.nodeValue = prevText;
@@ -7801,10 +7820,16 @@ function _openPbDrawModal(scene) {
     if (_aiImageVariantBlocksOriginalEdit()) return;
     try {
       const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-      const _before = { imageData: scene.imageData || null };   /* IMAGE-S2-2A: 패배 rollback 기준 */
+      const _sid = scene.num || scene.id;
+      /* S2-2A-FIX1 ① 사전 게이트(업로드 전): 반대 모드/corrupt면 차단(scene·Storage 무변경). */
+      const _gate = (typeof window !== 'undefined' && window.viewerAi && typeof window.viewerAi._preCheckSourceMode === 'function')
+        ? await window.viewerAi._preCheckSourceMode('draw', _sid)
+        : { allow: true };
+      if (!_gate.allow) { _notifySourceModeBlock(_gate); return; }
+      /* ② 고유 경로 업로드(기존 객체 overwrite 안 함). */
       let storageUrl, _storagePath;
       try {
-        const r = await viewerUploadImageToStorage(dataUrl, scene.num || scene.id);
+        const r = await viewerUploadImageToStorage(dataUrl, _sid);
         storageUrl = r.downloadURL;
         _storagePath = r.storagePath;
       } catch (e) {
@@ -7812,16 +7837,20 @@ function _openPbDrawModal(scene) {
         alert('❌ 그림을 올리지 못했어요. 잠시 후 다시 시도해 주세요.');
         return;
       }
+      /* ③ 서버 lock 확정. 실패/충돌이면 방금 만든 고유 객체만 삭제, scene 무변경. */
+      const _commit = (typeof window !== 'undefined' && window.viewerAi && typeof window.viewerAi._commitImageSourceMode === 'function')
+        ? await window.viewerAi._commitImageSourceMode('draw', _sid, _storagePath)
+        : { ok: true };
+      if (!_commit.ok) { _notifySourceModeBlock(_commit); return; }   /* scene 미변경 → 승자/기존 무손상 */
+      /* ④ lock 성공일 때만 scene.imageData 기록 + flush await. */
       scene.imageData = storageUrl;
       if (typeof _queueSave === 'function') {
-        _queueSave(scene.num || scene.id, { imageData: storageUrl });
-        if (typeof _flushPendingSave === 'function') _flushPendingSave();
+        _queueSave(_sid, { imageData: storageUrl });
+        if (typeof _flushPendingSave === 'function') await _flushPendingSave();
       }
       renderEditPanel();
       _scheduleViewerFrameReRender();
       _close();
-      /* IMAGE-S2-2A: 저장 성공 후 sourceMode 잠금(draw). 반대 모드면 viewer-ai가 rollback. */
-      await _lockSourceModeAfterImageSave('draw', scene, _before, { imageData: storageUrl, storagePath: _storagePath });
     } catch (err) {
       console.error('[viewer-edit] 그림 저장 실패:', err);
       alert('저장하지 못했어요. 잠시 후 다시 시도해 주세요.');

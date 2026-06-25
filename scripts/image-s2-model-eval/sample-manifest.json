@@ -1,0 +1,99 @@
+{
+  "version": "imgS2-eval-samples-v1",
+  "privacy": "개인정보 0 — 운영 학생 데이터 미사용. 합성 SVG만.",
+  "harnessOnly": true,
+  "insufficientForFinalQualityDecision": true,
+  "rasterizeBeforeApiSubmit": "svg → png (1600px 장변)",
+  "samples": [
+    {
+      "id": "A_single_character",
+      "type": "단순 캐릭터 1명",
+      "file": "samples/A_single_character.svg",
+      "format": "svg",
+      "sha256": "cba55493d8a57961843f3ef76571a1bddf0bf29c26d8bafc4c7f48c147de0551",
+      "bytes": 797,
+      "note": "합성(개인정보 0)·하니스 검증용. 실제 품질 결정엔 비식별 학생 그림 필요. API 제출 전 PNG 래스터화 필요."
+    },
+    {
+      "id": "B_two_three_characters",
+      "type": "캐릭터 2~3명 관계",
+      "file": "samples/B_two_three_characters.svg",
+      "format": "svg",
+      "sha256": "0ec18f688ebafb95f69feba6722c7c5f9b2462ab1eb57da38f96a7a8d2673cef",
+      "bytes": 2092,
+      "note": "합성(개인정보 0)·하니스 검증용. 실제 품질 결정엔 비식별 학생 그림 필요. API 제출 전 PNG 래스터화 필요."
+    },
+    {
+      "id": "C_scene_with_background",
+      "type": "배경 있는 장면",
+      "file": "samples/C_scene_with_background.svg",
+      "format": "svg",
+      "sha256": "5777b5081df1eda3c68f998b0420a6a6bdd9b1acee33472084b26fcdf7bff37b",
+      "bytes": 995,
+      "note": "합성(개인정보 0)·하니스 검증용. 실제 품질 결정엔 비식별 학생 그림 필요. API 제출 전 PNG 래스터화 필요."
+    },
+    {
+      "id": "D_pencil_uncolored",
+      "type": "색칠 덜 된 연필 그림",
+      "file": "samples/D_pencil_uncolored.svg",
+      "format": "svg",
+      "sha256": "35bd1cf1d67268509205fdc7edd8b44843a83671426160159bd745363624e834",
+      "bytes": 836,
+      "note": "합성(개인정보 0)·하니스 검증용. 실제 품질 결정엔 비식별 학생 그림 필요. API 제출 전 PNG 래스터화 필요."
+    },
+    {
+      "id": "E_rough_lowgrade",
+      "type": "거친 선·저학년풍",
+      "file": "samples/E_rough_lowgrade.svg",
+      "format": "svg",
+      "sha256": "85772bf300b10f231d5fb680e4ea26e502e7ae0a2f8fb448e9a7cbea01073014",
+      "bytes": 351,
+      "note": "합성(개인정보 0)·하니스 검증용. 실제 품질 결정엔 비식별 학생 그림 필요. API 제출 전 PNG 래스터화 필요."
+    },
+    {
+      "id": "F_props_complex",
+      "type": "소품·복잡 구도",
+      "file": "samples/F_props_complex.svg",
+      "format": "svg",
+      "sha256": "f1eda2d94a66dc087fae7661f10086ea12c8acfe3191aa3548d86b81971cadb4",
+      "bytes": 1055,
+      "note": "합성(개인정보 0)·하니스 검증용. 실제 품질 결정엔 비식별 학생 그림 필요. API 제출 전 PNG 래스터화 필요."
+    },
+    {
+      "id": "G_with_speech_bubble",
+      "type": "말풍선(한글) 포함",
+      "file": "samples/G_with_speech_bubble.svg",
+      "format": "svg",
+      "sha256": "3abc232a9de2d3eceb73ef1b52d771cfadaf88f9930544822d516e3364018b17",
+      "bytes": 1075,
+      "note": "합성(개인정보 0)·하니스 검증용. 실제 품질 결정엔 비식별 학생 그림 필요. API 제출 전 PNG 래스터화 필요."
+    },
+    {
+      "id": "H_dark_scene",
+      "type": "어두운 장면",
+      "file": "samples/H_dark_scene.svg",
+      "format": "svg",
+      "sha256": "85620203ae4bf704d904af147cac4bdcd2f49bf9b5c8631a7bd00d7d490f5ab9",
+      "bytes": 944,
+      "note": "합성(개인정보 0)·하니스 검증용. 실제 품질 결정엔 비식별 학생 그림 필요. API 제출 전 PNG 래스터화 필요."
+    },
+    {
+      "id": "I_background_centric",
+      "type": "배경 중심(숲/실내)",
+      "file": "samples/I_background_centric.svg",
+      "format": "svg",
+      "sha256": "0084fd6b888cf63970ed7b92ca6d2a8cfd6cb8754ad1f87c37ecad9bfd02d87d",
+      "bytes": 1044,
+      "note": "합성(개인정보 0)·하니스 검증용. 실제 품질 결정엔 비식별 학생 그림 필요. API 제출 전 PNG 래스터화 필요."
+    },
+    {
+      "id": "J_lots_of_margin",
+      "type": "여백 많은 그림",
+      "file": "samples/J_lots_of_margin.svg",
+      "format": "svg",
+      "sha256": "1fbf6466477a045fb6a992646498f38472ac6ce5ba39ecf5b00063d8c9b92362",
+      "bytes": 799,
+      "note": "합성(개인정보 0)·하니스 검증용. 실제 품질 결정엔 비식별 학생 그림 필요. API 제출 전 PNG 래스터화 필요."
+    }
+  ]
+}

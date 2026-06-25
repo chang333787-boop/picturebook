@@ -1,0 +1,75 @@
+{
+  "_comment": "IMAGE-S2-8 평가 점수표 템플릿. 점수 1~5(높을수록 좋음). 실제 데이터는 평가 실행 시 채움. docs/image-s2-model-eval/scores.json 스키마와 정합.",
+  "version": "imgS2-eval-score-v1",
+  "weights": {
+    "_total": 100,
+    "originalPreservation": 20,
+    "compositionAndSubjectPreservation": 15,
+    "childlikenessPreservation": 15,
+    "promptAdherence": 10,
+    "hallucinationSuppression": 10,
+    "safety": 10,
+    "cost": 8,
+    "speed": 5,
+    "operationalStability": 5,
+    "implementationComplexity": 2
+  },
+  "humanAxes_1to5": {
+    "originalPreserved": "원본 그림의 의미/개성 보존",
+    "compositionPreserved": "구도 보존",
+    "subjectCountPreserved": "인물·사물 수/배치 보존",
+    "childlikenessPreserved": "선과 색감의 학생다움 보존",
+    "promptAdherence": "지시한 부분만 발전(프롬프트 반영)",
+    "hallucinationSuppression": "불필요한 추가·삭제 억제",
+    "frameFit3to2": "가로 3:2 그림책 프레임 적합",
+    "koreanTextPreserved": "이미지 안 한글/말풍선 임의 생성·왜곡 없음",
+    "overallSuitability": "초등 작품 발전 목적 전체 적합성"
+  },
+  "measuredAxes_auto": {
+    "outputPresent": "결과 존재",
+    "outputMime": "MIME",
+    "outputBytes": "크기",
+    "outputWidth": "px",
+    "outputHeight": "px",
+    "outputAspect": "비율(3:2 목표)",
+    "latencyMs": "생성 속도",
+    "failed": "실패 여부",
+    "estCostUsd": "1장당 추정 비용",
+    "currency": "USD",
+    "fxAsOf": "환산 기준 시각(고정 환율 하드코딩 금지)"
+  },
+  "providerLevelAxes": {
+    "privacyAndOperations_1to5": "개인정보·운영 편의(전송/보관/학습/국외이전/삭제)",
+    "apiStabilityAndLifecycle_1to5": "API 안정성·모델 수명",
+    "implementationComplexity_1to5": "서버 구현 복잡도(낮을수록 5)"
+  },
+  "blind": {
+    "enabled": true,
+    "note": "사람 평가 시 모델명을 A/B/C로 가린다. mapping은 채점 종료 후 공개.",
+    "labelMap": { "A": "(평가 종료 후 기입)", "B": "", "C": "" }
+  },
+  "disqualifyConditions": [
+    "캐릭터 수 변경",
+    "핵심 사물 추가·삭제",
+    "인물 위치 대폭 변경",
+    "이야기 의미 변경",
+    "한글 의미 왜곡",
+    "부적절 요소 생성"
+  ],
+  "perResultTemplate": {
+    "provider": "",
+    "modelId": "",
+    "modelStatus": "",
+    "sampleId": "",
+    "sampleSha256": "",
+    "promptLevel": "P2",
+    "promptVersion": "",
+    "human": { "originalPreserved": 0, "compositionPreserved": 0, "subjectCountPreserved": 0, "childlikenessPreserved": 0, "promptAdherence": 0, "hallucinationSuppression": 0, "frameFit3to2": 0, "koreanTextPreserved": 0, "overallSuitability": 0 },
+    "measured": { "outputPresent": false, "outputMime": "", "outputBytes": 0, "outputWidth": 0, "outputHeight": 0, "outputAspect": "", "latencyMs": 0, "failed": false, "estCostUsd": 0, "currency": "USD", "fxAsOf": "" },
+    "disqualified": false,
+    "disqualifyReasons": [],
+    "blindLabel": "",
+    "notes": ""
+  },
+  "results": []
+}

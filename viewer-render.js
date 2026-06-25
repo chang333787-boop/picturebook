@@ -745,12 +745,18 @@ function _renderScenePicturebook(stage, scene, submode) {
     /* v138-fix14 (v135-4 그림 중심형): 톤 클래스 박음. 외곽(.pb-frame) 강도는
        pb-tone.css의 imageCenter 오버라이드에서 분할형 대비 약화. */
     const _pbToneClsIC = _pbToneClasses(scene, 'scene');
+    /* PB-MOOD-2: 일반(비엔딩) imageCenter 장면 "이야기 단계" — 저장값 scene.pbStoryStage 부착.
+       'rising'(승)|'turning'(전)만, 없으면 미부착(무대 정본 그대로). 감상·편집 공통(저장값 기준).
+       그림 비침범: CSS는 바깥 무대 배경/장식(.scene-ornaments)·box-shadow만 변경. 엔딩은 별 함수. */
+    const _storyStage = (scene && (scene.pbStoryStage === 'rising' || scene.pbStoryStage === 'turning'))
+      ? scene.pbStoryStage : '';
     _stageReplaceScene(stage, `
       <div class="scene-screen scene-screen--pb scene-surface ${layoutClass}"
         data-display="${scene.displayType}"
         data-scene-num="${escHtml(String(scene.id))}"
         data-presentation-mode="picturebook"
         data-presentation-submode="imageCenter"
+        ${_storyStage ? `data-story-stage="${_storyStage}"` : ''}
         ${isEdit ? 'data-edit-mode="true"' : ''}
         ${styleAttr}>
         <div class="pb-page picturebook-page">

@@ -436,7 +436,8 @@ async function saveSceneText(num, fields) {
        작품 단위(textCardStyle/textCardColor)는 viewer-meta에서 관리. */
     'pbCardTone',         /* 일반 장면 톤: default | bright | develop | tense | crisis */
     'pbEndingTone',       /* 엔딩 장면 마감톤: default | bright | afterglow */
-    'pbEndingMood',       /* PB-MOOD-1A: 엔딩 분위기(감정) happy | sad — imageCenter 엔딩 표시용(저장 UI는 1B) */
+    'pbEndingMood',       /* PB-MOOD-1A: 엔딩 분위기(감정) happy | sad — imageCenter 엔딩 표시용 */
+    'pbStoryStage',       /* PB-MOOD-2: 일반 장면 이야기 단계 rising(승) | turning(전) — imageCenter 장면 표시용 */
   ];
   const patch = {};
   ALLOWED.forEach(k => {
@@ -652,6 +653,11 @@ function adaptScenes(rawScenes) {
       picturebookSubmode: (raw.picturebookSubmode === 'imageCenter') ? 'imageCenter'
                         : (raw.picturebookSubmode === 'split') ? 'split'
                         : null,
+
+      /* ── PB-MOOD-2: 일반 장면 이야기 단계 (imageCenter 장면 표시용) ──
+         'rising'(승) | 'turning'(전). 없으면 null(기본 — 무대 정본 그대로). */
+      pbStoryStage: (raw.pbStoryStage === 'rising' || raw.pbStoryStage === 'turning')
+                        ? raw.pbStoryStage : null,
 
       /* ── 그림책형 본문 글상자 (W4-A 신규) ──
          그림 중심형(imageCenter)에서 본문이 그림 위에 떠있는 글상자.

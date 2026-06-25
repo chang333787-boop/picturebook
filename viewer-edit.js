@@ -4590,8 +4590,35 @@ function _bindHudEditActions() {
       _closeMore();
     };
     const _onEsc = (e) => { if (e.key === 'Escape') { _closeMore(); moreBtn.focus(); } };
+    /* HUD-MENU-FIX: 더보기 메뉴를 ⋯ 버튼 바로 아래에 position:fixed로 배치(그림·꾸미기 팝오버와 동일 패턴).
+       absolute(바 기준)는 바 wrap·AI 보기바 예약공간 때문에 맨 윗항목이 HUD에 가려졌다.
+       버튼 viewport 좌표로 재계산 → 클리핑·스택 컨텍스트 탈출, 항상 완전히 보임.
+       즉시 + rAF + 짧은 지연 재배치 → 메뉴 열림 직후 AI 보기바 토글 reflow까지 흡수(gap 방지). */
+    function _positionMore() {
+      try {
+        const br = moreBtn.getBoundingClientRect();
+        if (!br.width) return;
+        menu.style.position = 'fixed';
+        menu.style.left = 'auto';
+        menu.style.zIndex = '130';                 /* 팝오버(120) 위 — 더보기 항목이 팝오버를 열기 전 단계 */
+        /* #hud의 backdrop-filter가 fixed 자식의 containing block을 #hud로 바꿔 viewport 좌표와 어긋난다.
+           top:0/right:0을 잠깐 적용해 containing block 오프셋을 측정 후 보정 → 어떤 조상에서도 버튼 바로 아래. */
+        menu.style.top = '0px';
+        menu.style.right = '0px';
+        const cb = menu.getBoundingClientRect();
+        const cbTop = cb.top;                                  /* containing block top(=viewport 0 보정량) */
+        const cbRightInset = window.innerWidth - cb.right;     /* right:0일 때 우측 여백 보정량 */
+        menu.style.top = Math.round(br.bottom + 6 - cbTop) + 'px';
+        menu.style.right = Math.round(Math.max(8, window.innerWidth - br.right) - cbRightInset) + 'px';
+        menu.style.maxHeight = Math.max(160, Math.round(window.innerHeight - br.bottom - 16)) + 'px';
+        menu.style.overflowY = 'auto';
+      } catch (e) { /* 위치계산 실패해도 메뉴는 열림(CSS fallback) */ }
+    }
     function _openMore() {
       menu.hidden = false;
+      _positionMore();
+      requestAnimationFrame(_positionMore);
+      setTimeout(_positionMore, 60);
       moreBtn.setAttribute('aria-expanded', 'true');
       document.addEventListener('click', _onDocClick, true);
       document.addEventListener('keydown', _onEsc, true);

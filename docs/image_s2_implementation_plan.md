@@ -163,3 +163,47 @@ selected 이미지 결정 헬퍼(신규): `imageSelections[sceneId].selected==='
 | **S2-10** | quota·kill switch·운영 QA | functions/index.js, adminConsole.js | 카운터 | 한도/킬스위치 | soon 복귀 | functions |
 
 총 **10 Phase**. 각 Phase는 단독 rollback 가능(기능 게이트 off=원본 무영향, PRD §15).
+
+---
+
+## 7. IMAGE-S2-2 구현 결론 (sourceMode 서버 원자 잠금 · 2026-06-25)
+
+> branch `feature/image-s2-2`. deploy 0 · main 병합 0 · 모델/Storage/aiVariants write 0.
+
+### transaction 경로
+`classes/{classId}/teams/{enc}/viewer-meta/imagePolicy` (enc = encodeURIComponent(teamName)).
+서버 callable `lockImageSourceMode`가 RTDB `.transaction()`(CAS + 자동 재시도)으로만 기록.
+순수 결정 로직은 `functions/image-s2-policy.js` `decideSourceModeLock` (firebase 비의존 → 단위·동시성 시뮬 테스트).
+
+### 잠금 결정 (idempotent / conflict)
+- 현재 미설정 → 요청 모드로 lock. 서버가 `{sourceMode, lockedAtSceneId, lockedAt(서버시각), lockedBy(auth.uid)}` 기록.
+- 동일 모드 후속 → **idempotent 성공**(콜백이 abort → 기존 lockedAt/lockedBy 보존, 미기록).
+- 반대 모드 → `{ok:false, code:'SOURCE_MODE_CONFLICT', currentSourceMode}` (정상 반환, throw 아님 → 클라가 안내).
+- 원자성: 각 transaction 재시도마다 `decideSourceModeLock(현재값, req)` 재평가 → 늦은 반대 요청은 자동 conflict. 동시성 시뮬(10회 양방향) + 동일모드(idempotent) + 기존모드충돌 테스트로 win-once 실증.
+
+### 선택한 저장/lock 순서 — **B안 (저장 성공 후 lock)**
+- 현재 코드 구조: 원본 이미지 저장(`viewerUploadImageToStorage`/그림판)과 sourceMode lock이 분리돼 있고, lock은 AI 이미지 흐름 진입 시점(`_ensureImagePolicyBeforeImageAi`)에 호출됨 → **이미 원본이 존재하는 상태에서 lock**(=B안 성격).
+- A안(예약 후 rollback)은 업로드 orchestration을 크게 재구성해야 하므로 회귀 위험이 큼. 기존 저장 구조가 "저장→lock"이라 **B안이 더 안전**.
+- conflict 처리: 클라(`_saveImagePolicy`)가 conflict 응답을 받으면 `_loadImagePolicy(force)`로 잠긴 모드를 재로드하고, AI 흐름은 잠긴 방식으로 진행 + 안내 토스트. 직접 RTDB write는 제거됨.
+- ⚠️ **미완(후속/리뷰)**: "원본 raw 저장 지점(viewer-edit.js)마다 lock 호출 + 패배한 반대 모드 원본 정리(loser cleanup) + 두 브라우저 functions-emulator E2E"는 이번 단계에 **미연결**(lock은 AI 흐름 시점). 콜러블 계약은 이를 지원하며, 라이브 wiring은 회귀 위험 분리를 위해 리뷰 후 진행.
+- rollback 실패 시: `LOCK_ROLLBACK_FAILED`(클라 측 패배 원본 제거 실패) — 원본은 남기고 사용자에게 안내(서버 lock 무결성은 유지). (loser cleanup 구현 시 적용)
+
+### 권한 (AI 게이트와 분리)
+신규 `_validateSourceModeRequest` — `_validateRequest`(aiSettings/quota/kill switch) **미사용**. auth + testMode거부 + origin allowlist + class/team 소속만. lock = active member ∥ teacher(teacher_uid 일치) ∥ super_admin. reset = teacher ∥ super_admin만(학생 거부). → **AI가 꺼져 있어도 원본 upload/draw 선택 정상 작동.**
+
+### 교사 초기화 `resetImageSourceMode`
+교사/super_admin만. 서버가 `scenes` 전체를 읽어 `imageData`/`imageUrl`이 하나라도 있으면 `{ok:false, code:'SOURCE_IMAGES_REMAIN'}`. 전무할 때만 `imagePolicy` transaction clear(null). 학생 호출 거부.
+
+### 오류 코드
+`UNAUTHENTICATED`(throw) · `PERMISSION_DENIED`(throw) · `INVALID_SOURCE_MODE`(throw) · `SOURCE_MODE_CONFLICT`(return) · `SOURCE_IMAGES_REMAIN`(return) · `LOCK_ROLLBACK_FAILED`(loser cleanup 단계) · `INTERNAL`(throw). 내부 경로/UID/Storage URL 미노출.
+
+### Rules 변경 여부 — **없음 (emulator 실증)**
+`viewer-meta`는 `.write:"auth != null"`. 그 아래 `imagePolicy{.write:false}` child rule을 넣어 emulator로 테스트한 결과 **멤버·교사 write가 그대로 성공**(RTDB는 상위 .write grant가 하위로 상속 → 자식이 취소 불가). 따라서 ineffective한 규칙은 **넣지 않음(원복)**.
+- **실제 보호**: 클라 코드에서 imagePolicy 직접 write 제거(완료) + 서버 callable(Admin SDK) 단독 작성.
+- **완전한 Rules 차단**: `viewer-meta` 블랭킷 `.write` 제거 + 자식별 grant 재구조화(모든 클라 작성 child 열거 필요) → 회귀 위험으로 **후속 Security Phase**. `tests/rules/image-s2-policy-rules.test.js`가 현 cascade 동작을 잠가 둠(재구조화 시 깨져 알림).
+
+### client 직접 write 차단
+`viewer-ai.js` `_saveImagePolicy`의 `app.database()...imagePolicy.set()` 제거 → `lockImageSourceMode` 콜러블 호출로 교체. 클라엔 직접 imagePolicy write 경로 0(grep 확인). 기존 작품 읽기·정규화는 S2-1 helper 사용.
+
+### 동시성 결과
+`tests/image-s2-policy` 11/11(순수 결정 + CAS 시뮬: upload vs draw ×10 한쪽만 lock·반대 conflict·최종 단일 모드 / upload×2 idempotent·최초 메타 유지 / 기존 upload→draw 차단 / 교사 초기화 가부).

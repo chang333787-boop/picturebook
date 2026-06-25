@@ -14,6 +14,7 @@ const require = createRequire(import.meta.url);
 const P = require('../../functions/image-s2-policy.js');
 const { decideSourceModeLock, normalizePolicy, classifyPolicy,
         decidePreGate, runImageSourceCommit, buildImageStoragePath, isAllowedImageStoragePath,
+        decideFlushFailureRecovery,
         decideSourceModeReset, scenesHaveOriginalImage, isValidSourceMode } = P;
 
 /* ── 모의 atomic ref (CAS) ── */
@@ -235,4 +236,31 @@ test('commit: 삭제 실패 → orphan 기록(scene/기존은 무손상)', async
   assert.equal(r.storageDeleted, false);
   assert.equal(ad._calls.orphan.length, 1);
   assert.equal(ad._calls.orphan[0].storagePath, 'images/c/t/s1/u.png');
+});
+
+/* ── S2-2A-FIX2: flush 실패 복구 결정 decideFlushFailureRecovery ── */
+
+test('flushRecovery: 기존 이미지 없음(before null) + 현재=시도 → null 복원·pending 제거', () => {
+  const r = decideFlushFailureRecovery({ sceneImageData: 'NEW', attemptUrl: 'NEW', beforeImageData: null, pendingImageData: 'NEW' });
+  assert.equal(r.restoreLocal, true);
+  assert.equal(r.restoreTo, null);
+  assert.equal(r.clearPendingImage, true);
+});
+
+test('flushRecovery: 기존 이미지 있음 + 현재=시도 → before로 복원(새 객체만 삭제 대상)', () => {
+  const r = decideFlushFailureRecovery({ sceneImageData: 'NEW', attemptUrl: 'NEW', beforeImageData: 'OLD', pendingImageData: 'NEW' });
+  assert.equal(r.restoreLocal, true);
+  assert.equal(r.restoreTo, 'OLD');
+});
+
+test('flushRecovery: 현재값이 시도와 다름(다른 비동기 변경) → 복원 안 함(보존)', () => {
+  const r = decideFlushFailureRecovery({ sceneImageData: 'OTHER', attemptUrl: 'NEW', beforeImageData: 'OLD', pendingImageData: 'OTHER' });
+  assert.equal(r.restoreLocal, false);
+  assert.equal(r.restoreTo, 'OTHER');        /* 현재값 보존, stale before로 덮지 않음 */
+  assert.equal(r.clearPendingImage, false);  /* pending도 이번 시도가 아니면 건드리지 않음 */
+});
+
+test('flushRecovery: pending이 이번 시도면 제거, 아니면 보존', () => {
+  assert.equal(decideFlushFailureRecovery({ sceneImageData: 'NEW', attemptUrl: 'NEW', pendingImageData: 'NEW' }).clearPendingImage, true);
+  assert.equal(decideFlushFailureRecovery({ sceneImageData: 'NEW', attemptUrl: 'NEW', pendingImageData: undefined }).clearPendingImage, false);
 });

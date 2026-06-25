@@ -400,6 +400,37 @@ function _notifySourceModeBlock(res) {
   try { alert(msg); } catch (e) {}
 }
 
+/* ════════════════════════════════════════════════════════════════
+   S2-2A-FIX2 — lock 성공 후 scene flush 결과 처리(업로드·그림판 공통). flush 성공이면 true.
+   ──────────────────────────────────────────────────────────────
+   flush 실패(`_flushPendingSave`가 {ok:false} 반환)면:
+   ① 재큐된 실패 imageData 제거(catch가 pendingFields에 재병합 → 잘못 재실행 방지. imageData만, 타 필드 보존)
+   ② 로컬 scene.imageData 복원(현재값이 *이번 시도 url*일 때만 before로 — 다른 비동기 변경이면 보존)
+   ③ 이번 시도 고유 객체만 cleanup(viewer-ai _deleteImageStorage: images/ prefix 검증·URL 역추정 0)
+   sourceMode lock은 유지(동일 mode 재시도로 복구). 결정 로직은 functions/image-s2-policy.js
+   decideFlushFailureRecovery와 동일. 성공으로 표시하지 않고 false 반환(호출부가 모달/팝오버 유지). */
+async function _handleImageFlushResult(scene, beforeImageData, attemptUrl, storagePath, flushRes) {
+  if (!(flushRes && flushRes.ok === false)) return true;   /* 성공 또는 skip(undefined) → 정상 진행 */
+  try {
+    if (_editText.pendingFields && _editText.pendingFields.imageData === attemptUrl) {
+      delete _editText.pendingFields.imageData;            /* ① 재큐된 실패 imageData만 제거 */
+    }
+  } catch (e) { /* noop */ }
+  if (scene && scene.imageData === attemptUrl) {           /* ② 로컬 CAS 복원 */
+    scene.imageData = (beforeImageData != null) ? beforeImageData : null;
+  }
+  try {                                                    /* ③ 이번 고유 객체만 cleanup */
+    if (storagePath && typeof window !== 'undefined' && window.viewerAi &&
+        typeof window.viewerAi._deleteImageStorage === 'function') {
+      await window.viewerAi._deleteImageStorage(storagePath);
+    }
+  } catch (e) { console.warn('[S2-2A-FIX2] flush 실패 후 cleanup 실패(orphan)', e && e.message); }
+  if (typeof renderEditPanel === 'function') renderEditPanel();
+  if (typeof _scheduleViewerFrameReRender === 'function') _scheduleViewerFrameReRender();
+  try { alert('그림을 저장하지 못했어요. 잠시 후 같은 방식으로 다시 시도해 주세요.'); } catch (e) {}
+  return false;
+}
+
 async function viewerDeleteVideoFromStorage(storagePath) {
   if (typeof firebase === 'undefined' || typeof firebase.app !== 'function') return false;
   if (!storagePath) return false;
@@ -975,10 +1006,12 @@ async function _flushPendingSave() {
   try {
     await saveSceneText(num, fields);
     _showSaveStatus('✅ 저장됨', 1200);
+    return { ok: true };                                    /* S2-2A-FIX2: 결과 반환(기존 호출처는 무시 → 무영향) */
   } catch (err) {
     _showSaveStatus('❌ 저장 실패', 2000);
     /* 실패한 변경은 재시도 가능하도록 다시 큐에 병합 */
     Object.assign(_editText.pendingFields, fields);
+    return { ok: false, code: 'SAVE_FAILED' };              /* 민감 오류 원문은 노출하지 않음 */
   }
 }
 
@@ -5627,10 +5660,19 @@ function _bindPbImageActions(root, scene) {
           return;
         }
         /* ④ lock 성공일 때만 scene.imageData 기록 + flush await(순서 보장). */
+        const _beforeImageData = scene.imageData || null;   /* S2-2A-FIX2: flush 실패 시 로컬 복원 기준 */
         scene.imageData = storageUrl;
+        let _flushRes;
         if (typeof _queueSave === 'function') {
           _queueSave(_sid, { imageData: storageUrl });
-          if (typeof _flushPendingSave === 'function') await _flushPendingSave();
+          if (typeof _flushPendingSave === 'function') _flushRes = await _flushPendingSave();
+        }
+        /* S2-2A-FIX2: flush 실패면 신규 객체 cleanup + 로컬 복원(성공 표시·팝오버 닫기 금지, lock 유지·재시도 가능). */
+        const _flushOk = await _handleImageFlushResult(scene, _beforeImageData, storageUrl, _storagePath, _flushRes);
+        if (!_flushOk) {
+          if (lbl && lbl.firstChild) lbl.firstChild.nodeValue = prevText;
+          e.target.value = '';
+          return;   /* 팝오버 유지 — 같은 방식으로 다시 시도 */
         }
         renderEditPanel();
         _scheduleViewerFrameReRender();
@@ -7843,11 +7885,16 @@ function _openPbDrawModal(scene) {
         : { ok: true };
       if (!_commit.ok) { _notifySourceModeBlock(_commit); return; }   /* scene 미변경 → 승자/기존 무손상 */
       /* ④ lock 성공일 때만 scene.imageData 기록 + flush await. */
+      const _beforeImageData = scene.imageData || null;   /* S2-2A-FIX2: flush 실패 시 로컬 복원 기준 */
       scene.imageData = storageUrl;
+      let _flushRes;
       if (typeof _queueSave === 'function') {
         _queueSave(_sid, { imageData: storageUrl });
-        if (typeof _flushPendingSave === 'function') await _flushPendingSave();
+        if (typeof _flushPendingSave === 'function') _flushRes = await _flushPendingSave();
       }
+      /* S2-2A-FIX2: flush 실패면 신규 객체 cleanup + 로컬 복원(모달 유지·lock 유지·재시도 가능). */
+      const _flushOk = await _handleImageFlushResult(scene, _beforeImageData, storageUrl, _storagePath, _flushRes);
+      if (!_flushOk) return;   /* 모달 유지 — 같은 방식으로 다시 시도 */
       renderEditPanel();
       _scheduleViewerFrameReRender();
       _close();

@@ -295,3 +295,16 @@ selected 이미지 결정 헬퍼(신규): `imageSelections[sceneId].selected==='
 ### 잔여 위험
 - 실 두 기기 Firebase E2E·실 Storage emulator 미사용(여기선 DB emulator + fake storage). 정상 경로는 기존+lock 호출이며 scene write가 lock 뒤라 안전.
 - M2 persistent orphan 후속. Rules 레벨 차단 후속(Security Phase).
+
+---
+
+## 10. IMAGE-S2-2A-FIX2 — flush 실패 안전 처리 (M-1 · 2026-06-25)
+
+> branch `feature/image-s2-2`. deploy 0 · main 병합 0. 재검토 Medium(M-1)만 최소 범위 해결.
+
+- **문제**: lock 성공 후 `scene.imageData` flush가 실패해도 `_flushPendingSave`가 오류를 삼켜 호출부가 성공/실패를 구분 못 함 → policy 잠김 + scene DB 미반영 + 신규 고유 객체 orphan + 성공처럼 종료.
+- **실패 전달 방식(최소·호환)**: `_flushPendingSave`가 성공 `{ok:true}` / 실패 `{ok:false, code:'SAVE_FAILED'}` 반환. 기존 catch의 pendingFields 재병합·`❌ 저장 실패` 표시 유지. **기존 호출처는 반환값 무시 → 무영향**(throw 아님 → unhandled rejection 0). 민감 오류 원문 미노출.
+- **이미지 흐름(업로드·그림판 공통 `_handleImageFlushResult`)**: flush `{ok:false}`면 ①catch가 재큐한 실패 imageData를 pendingFields에서 제거(imageData만·타 필드 보존) ②로컬 `scene.imageData`를 *현재값이 이번 시도 url일 때만* before로 복원(다른 비동기 변경이면 보존) ③이번 시도 고유 객체만 cleanup(viewer-ai `_deleteImageStorage`, `images/` prefix·traversal·URL역추정 검증) ④성공 표시·팝오버/모달 닫기 금지 → 재시도 안내. **sourceMode lock은 유지 → 동일 mode 재시도로 복구**(자동 reset 안 함).
+- 결정 로직 순수화: `decideFlushFailureRecovery({sceneImageData,attemptUrl,beforeImageData,pendingImageData})` → `{restoreLocal,restoreTo,clearPendingImage}`(client 헬퍼가 mirror). 단위테스트 4(현재=시도→복원, before 유무, 다른값 보존, pending 정리).
+- 범위 밖(유지): persistent orphan queue=M-2 후속. 서버 rollback transaction 재도입 안 함(로컬 정리만).
+- 검증: image-s2-policy **29/29**·rules emulator 58/58 ×3·회귀(s2-data17·compass189·polish15·member20)·precommit. 캐시 imgs2afix2.

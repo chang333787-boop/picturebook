@@ -158,6 +158,21 @@ function isAllowedImageStoragePath(path) {
   return /^images\//.test(path);
 }
 
+/* S2-2A-FIX2: lock 성공 후 scene flush 실패 시 "로컬 복원/pending 정리" 결정(순수).
+   - restoreLocal: 현재 scene.imageData가 *이번 시도 url*일 때만 복원(다른 비동기 변경이면 보존).
+   - restoreTo: 복원 대상(before, 없으면 null). 복원 안 하면 현재값 유지.
+   - clearPendingImage: 재큐된 pending imageData가 이번 url이면 제거(잘못 재실행 방지).
+   ⚠️ 로컬 상태 정리만. 서버 rollback transaction 재도입 아님. lock은 유지(동일 mode 재시도). */
+function decideFlushFailureRecovery(opts) {
+  const o = opts || {};
+  const restoreLocal = (o.sceneImageData === o.attemptUrl);
+  return {
+    restoreLocal: restoreLocal,
+    restoreTo: restoreLocal ? ((o.beforeImageData != null) ? o.beforeImageData : null) : o.sceneImageData,
+    clearPendingImage: (o.pendingImageData === o.attemptUrl),
+  };
+}
+
 /* scenes 트리에 "원본 이미지"가 하나라도 있는가. (imageData/imageUrl 비어있지 않으면 있음) */
 function scenesHaveOriginalImage(scenes) {
   if (!scenes || typeof scenes !== 'object') return false;
@@ -187,6 +202,7 @@ module.exports = {
   runImageSourceCommit,
   buildImageStoragePath,
   isAllowedImageStoragePath,
+  decideFlushFailureRecovery,
   scenesHaveOriginalImage,
   decideSourceModeReset,
 };

@@ -4139,6 +4139,7 @@
       ensureImagePolicyBeforeImageAi: _ensureImagePolicyBeforeImageAi,
       _preCheckSourceMode:           _preCheckSourceMode,      /* S2-2A-FIX1: 저장 전 사전 게이트 */
       _commitImageSourceMode:        _commitImageSourceMode,   /* S2-2A-FIX1: 업로드 후 lock 확정(성공 시에만 scene 기록) */
+      _deleteImageStorage:           _deleteImageStorage,      /* S2-2A-FIX2: flush 실패 시 신규 객체 cleanup(prefix 검증) */
       _openImageSourceModal:         _openImageSourceModal,
 
       /* P5-IMAGE-CLIENT-1: 이미지 AI 진입(AI 그림 정돈) — server skeleton 연결. 생성 없음. */

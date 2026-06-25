@@ -39,6 +39,8 @@ const Anthropic = require('@anthropic-ai/sdk');
 const { TEXT_S1_SYSTEM_PROMPT, TEXT_S2_SYSTEM_PROMPT, WORK_CHECK_SYSTEM_PROMPT, THOUGHT_COMPASS_FOLLOWUP_SYSTEM_PROMPT, buildUserMessage, buildUserMessageS2Chunk } = require('./prompts');
 /* THOUGHT-COMPASS Phase 1 — AI 후속질문 순수 로직(입력/출력 검증·fallback·메시지). firebase 비의존 → 하니스 단독 검증. */
 const TCFollowUp = require('./thought-compass-followup');
+/* IMAGE-S2-2 — sourceMode 잠금/초기화 순수 결정 로직(firebase 비의존). callable이 RTDB transaction으로 감쌈. */
+const ImageS2Policy = require('./image-s2-policy');
 
 /* Firebase Admin 초기화 — 1번만 */
 if (!admin.apps.length) {
@@ -2062,6 +2064,175 @@ exports.callImageAiS1 = onCall(
     });
 
     return plan;
+  }
+);
+
+/* ════════════════════════════════════════════════════════════════
+   IMAGE-S2-2 — sourceMode 잠금/초기화 최소 권한 게이트
+   ──────────────────────────────────────────────────────────────
+   ⚠️ _validateRequest(AI 게이트/quota/kill switch)를 쓰지 않는다.
+   sourceMode는 원본 upload/draw 정책이라 imageS2 기능 ON/OFF와 무관해야 한다
+   (AI가 꺼져 있어도 원본 입력 방식 선택은 작동해야 함). 따라서 auth/origin/
+   class·team 소속만 검증한다. 외부 URL·Storage path·base64·전체 policy 객체·
+   lockedBy/lockedAt는 받지 않는다(서버가 auth/정본 기준으로 기록).
+   ════════════════════════════════════════════════════════════════ */
+async function _validateSourceModeRequest(req, opts) {
+  const teacherOnly = !!(opts && opts.teacherOnly);
+  if (!req.auth || !req.auth.uid) {
+    throw new HttpsError('unauthenticated', '로그인이 필요해요.');           /* UNAUTHENTICATED */
+  }
+  if (req.data && req.data.testMode === true) {
+    throw new HttpsError('permission-denied', 'testMode로는 사용할 수 없어요.');
+  }
+  const uid = req.auth.uid;
+  const role = (req.auth.token && req.auth.token.role) || null;
+  const data = req.data || {};
+  const classId = _sanitizeFbKeySegment(data.classId);
+  const teamName = (typeof data.teamName === 'string' && data.teamName) ? data.teamName : '';
+  if (!classId || !teamName) {
+    throw new HttpsError('invalid-argument', 'classId / teamName이 없어요.');
+  }
+  const origin = (req.rawRequest && req.rawRequest.headers && req.rawRequest.headers.origin) || '';
+  if (!isOriginAllowed(origin)) {
+    logger.warn('[sourceMode] origin 거부', { uid, origin });
+    throw new HttpsError('permission-denied', '허용되지 않은 origin이에요.');   /* PERMISSION_DENIED */
+  }
+  const enc = encodeURIComponent(teamName);
+  const teamBase = `classes/${classId}/teams/${enc}`;
+
+  /* 교사(이 클래스 teacher_uid 일치) 또는 super_admin */
+  let isTeacher = (role === 'super_admin');
+  if (!isTeacher) {
+    const tSnap = await admin.database().ref(`classes/${classId}/meta/teacher_uid`).once('value');
+    if (tSnap.val() === uid) isTeacher = true;
+  }
+  if (teacherOnly) {
+    if (!isTeacher) throw new HttpsError('permission-denied', '담당 교사만 할 수 있어요.');
+    return { uid, classId, teamName, enc, teamBase, isTeacher: true };
+  }
+  /* lock: active member 또는 교사/super_admin */
+  let allowed = isTeacher;
+  if (!allowed) {
+    const mSnap = await admin.database().ref(`${teamBase}/members/${uid}/status`).once('value');
+    if (mSnap.val() === 'active') allowed = true;
+  }
+  if (!allowed) {
+    throw new HttpsError('permission-denied', '이 모둠의 구성원만 할 수 있어요.');
+  }
+  return { uid, classId, teamName, enc, teamBase, isTeacher };
+}
+
+/* ════════════════════════════════════════════════════════════════
+   lockImageSourceMode — 첫 이미지 입력 방식(upload|draw) 원자 잠금.
+   요청: { classId, teamName, sceneId?, sourceMode }.  서버가 transaction으로 기록.
+   결과: { ok:true, sourceMode, locked|idempotent } 또는
+        { ok:false, code:'SOURCE_MODE_CONFLICT', currentSourceMode } (정상 반환).
+   원자성: viewer-meta/imagePolicy transaction(CAS+자동 재시도) → 먼저 commit한
+   모드만 인정, 늦은 반대 요청은 재실행 시 conflict.
+   ════════════════════════════════════════════════════════════════ */
+exports.lockImageSourceMode = onCall(
+  { enforceAppCheck: false },
+  async (req) => {
+    const ctx = await _validateSourceModeRequest(req, { teacherOnly: false });
+    const data = req.data || {};
+    if (!ImageS2Policy.isValidSourceMode(data.sourceMode)) {
+      throw new HttpsError('invalid-argument', 'INVALID_SOURCE_MODE');
+    }
+    const sceneId = _sanitizeFbKeySegment(data.sceneId);   /* 선택 — 없으면 null */
+    const reqObj = { sourceMode: data.sourceMode, sceneId: sceneId || null, uid: ctx.uid, now: Date.now() };
+    const ref = admin.database().ref(`${ctx.teamBase}/viewer-meta/imagePolicy`);
+
+    let decision = null;
+    let txn;
+    try {
+      txn = await ref.transaction((currentRaw) => {
+        decision = ImageS2Policy.decideSourceModeLock(currentRaw, reqObj);
+        if (decision.action === 'lock') return decision.policy;   /* 기록 */
+        return;                                                   /* abort(idempotent/conflict) */
+      });
+    } catch (e) {
+      logger.error('[sourceMode] transaction 실패', { classId: ctx.classId, error: e && e.message });
+      throw new HttpsError('internal', 'INTERNAL');
+    }
+    if (!decision) throw new HttpsError('internal', 'INTERNAL');
+
+    if (decision.action === 'corrupt') {
+      /* 비정상 저장값 — 자동 덮어쓰기 금지(교사 개입). 원본은 호출부가 유지. */
+      logger.warn('[sourceMode] corrupt imagePolicy', { classId: ctx.classId, teamName: ctx.teamName });
+      return { ok: false, code: 'CORRUPT_IMAGE_POLICY' };
+    }
+    if (decision.action === 'conflict') {
+      return { ok: false, code: 'SOURCE_MODE_CONFLICT', currentSourceMode: decision.currentSourceMode };
+    }
+    if (decision.action === 'idempotent') {
+      return { ok: true, sourceMode: reqObj.sourceMode, idempotent: true };
+    }
+    /* lock — 정상 commit이어야 함. 혹시 미커밋(극단적 경쟁)이면 현재값 재확인. */
+    if (!txn.committed) {
+      const snap = await ref.once('value');
+      const cur = ImageS2Policy.normalizePolicy(snap.val());
+      if (cur && cur.sourceMode === reqObj.sourceMode) return { ok: true, sourceMode: cur.sourceMode, idempotent: true };
+      if (cur) return { ok: false, code: 'SOURCE_MODE_CONFLICT', currentSourceMode: cur.sourceMode };
+      throw new HttpsError('aborted', 'LOCK_CONTENTION');
+    }
+    logger.info('[sourceMode] lock', { uid: ctx.uid, classId: ctx.classId, teamName: ctx.teamName, sourceMode: reqObj.sourceMode });
+    return { ok: true, sourceMode: reqObj.sourceMode, locked: true };
+  }
+);
+
+/* ════════════════════════════════════════════════════════════════
+   resetImageSourceMode — 교사/super_admin만. 작품에 원본 이미지가 하나도 없을 때만
+   imagePolicy를 비운다(방식 변경 준비). 이미지가 남아 있으면 SOURCE_IMAGES_REMAIN.
+   ──────────────────────────────────────────────────────────────
+   S2-2A §10 경쟁 안전: "scenes 비었나 확인 → clear" 사이에 학생이 새 원본을 저장하면
+   이미지 존재 + policy 없음 상태가 생길 수 있다. 방지:
+   1) scenes empty 확인.
+   2) 현재 imagePolicy 캡처(prev) → CAS transaction(현재값이 prev와 같을 때만 null).
+      그 사이 racing lock이 새 policy를 박았으면 CAS abort → RESET_RACE_RETRY.
+   3) clear 후 scenes 재확인 → 그 사이 저장이 들어왔으면 RESET_RACE_RETRY
+      (그 저장의 lock이 policy를 다시 박으므로 최종은 이미지+policy로 수렴. 교사 재시도).
+   ════════════════════════════════════════════════════════════════ */
+function _imagePolicyEq(a, b) {
+  const na = ImageS2Policy.normalizePolicy(a);
+  const nb = ImageS2Policy.normalizePolicy(b);
+  if (na === null && nb === null) return true;
+  if (!na || !nb) return false;
+  return na.sourceMode === nb.sourceMode && na.lockedAt === nb.lockedAt && na.lockedBy === nb.lockedBy;
+}
+exports.resetImageSourceMode = onCall(
+  { enforceAppCheck: false },
+  async (req) => {
+    const ctx = await _validateSourceModeRequest(req, { teacherOnly: true });   /* 학생 거부 */
+    const scenesRef = admin.database().ref(`${ctx.teamBase}/scenes`);
+    const policyRef = admin.database().ref(`${ctx.teamBase}/viewer-meta/imagePolicy`);
+
+    const decision = ImageS2Policy.decideSourceModeReset((await scenesRef.once('value')).val());
+    if (!decision.ok) {
+      return { ok: false, code: decision.code };   /* SOURCE_IMAGES_REMAIN */
+    }
+    const prevRaw = (await policyRef.once('value')).val();
+
+    /* S2-2A-FIX1(M1): optimistic-null 안전 CAS. non-match면 abort(undefined) 대신 cur 반환 →
+       commit이 server값과 mismatch면 RTDB가 server값으로 재실행(영속연결 없는 환경에서도 정확).
+       match(=prevRaw)면 null로 clear. clear 여부는 아래 재확인으로 최종 판정. */
+    try {
+      await policyRef.transaction((cur) => (_imagePolicyEq(cur, prevRaw) ? null : cur));
+    } catch (e) {
+      logger.error('[sourceMode] reset transaction 실패', { classId: ctx.classId, error: e && e.message });
+      throw new HttpsError('internal', 'INTERNAL');
+    }
+    /* 실제로 비워졌는지 재확인: 정책이 남아 있으면(=racing lock이 박음) RESET_RACE_RETRY. */
+    const afterPolicy = (await policyRef.once('value')).val();
+    if (afterPolicy != null && ImageS2Policy.classifyPolicy(afterPolicy) !== 'absent') {
+      return { ok: false, code: 'RESET_RACE_RETRY' };
+    }
+    /* clear 후 scenes 재확인: 그 사이 새 원본 저장이 들어왔으면 무정책-이미지 방지 차원에서 재시도 안내. */
+    const after = ImageS2Policy.decideSourceModeReset((await scenesRef.once('value')).val());
+    if (!after.ok) {
+      return { ok: false, code: 'RESET_RACE_RETRY' };
+    }
+    logger.info('[sourceMode] reset', { uid: ctx.uid, classId: ctx.classId, teamName: ctx.teamName });
+    return { ok: true, reset: true };
   }
 );
 

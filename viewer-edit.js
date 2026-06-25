@@ -275,6 +275,11 @@ async function viewerUploadVideoToStorage(file, sceneNum, opts) {
    ──────────────────────────────────────────────────────────────── */
 const _VIEWER_IMAGE_MAX_BYTES = 6 * 1024 * 1024;
 
+/* S2-2A-FIX1: 충돌 불가능한 고유 ID(crypto.randomUUID 우선, 미지원 fallback). */
+function _viewerUniqueId() {
+  try { if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID(); } catch (e) {}
+  return 'u' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+}
 function _viewerImageStoragePath(sceneNum, ctx, ext) {
   const cid = (ctx && ctx.classId)
     || (typeof ViewerState !== 'undefined' && ViewerState.classId)
@@ -285,7 +290,12 @@ function _viewerImageStoragePath(sceneNum, ctx, ext) {
     || (typeof teamName !== 'undefined' && teamName)
     || 'unknown';
   const encodedName = encodeURIComponent(tn);
-  return `images/${cid}/${encodedName}/scene_${sceneNum}.${ext || 'jpg'}`;
+  /* S2-2A-FIX1: 신규 원본은 매 저장마다 *고유 객체* → 기존 Storage 객체 절대 overwrite 안 함(원본 보호).
+     세그먼트 안전화. format은 functions/image-s2-policy.js buildImageStoragePath와 동일.
+     기존 deterministic URL(scene_{N}.ext)은 scene.imageData에 저장돼 있어 그대로 읽힘(마이그레이션 없음). */
+  const safe = (v, def) => { const s = String(v == null ? '' : v).replace(/[.#$\[\]\/\x00-\x1F\x7F]/g, '').replace(/\.\./g, ''); return s || def; };
+  const e = /^(jpg|jpeg|png|webp)$/.test(String(ext)) ? String(ext) : 'jpg';
+  return `images/${safe(cid, '_legacy')}/${safe(encodedName, 'unknown')}/${safe(sceneNum, 'scene')}/${_viewerUniqueId()}.${e}`;
 }
 
 function _viewerExtFromMime(mime) {
@@ -368,6 +378,57 @@ async function viewerUploadImageToStorage(input, sceneNum, opts) {
     downloadURL = `https://storage.googleapis.com/${bucket}/${storagePath}`;
   }
   return { downloadURL, storagePath };
+}
+
+/* ════════════════════════════════════════════════════════════════
+   S2-2A-FIX1 — 저장 전 sourceMode 게이트 / lock 실패 시 사용자 안내(읽기 전용 메시지).
+   ──────────────────────────────────────────────────────────────
+   gate-first 흐름: (사전게이트)→ 고유경로 업로드 → (서버 lock) → ok일 때만 scene.imageData 기록.
+   따라서 패자는 scene을 애초에 쓰지 않아 승자/기존 이미지 유실이 구조적으로 불가(C1/C2 제거).
+   이 함수는 차단/실패 코드를 사용자 안내로 변환만 한다(데이터 변경 없음). ═══════════════════════ */
+function _notifySourceModeBlock(res) {
+  if (!res || !res.code) return;
+  let msg;
+  if (res.code === 'SOURCE_MODE_CONFLICT') {
+    const other = (res.currentSourceMode === 'upload') ? '‘파일 올리기’' : '‘직접 그리기’';
+    msg = '이 작품은 이미 ' + other + ' 방식으로 시작했어요. 같은 작품에서는 두 방식을 섞을 수 없어요. (방금 고른 그림은 저장하지 않았어요.)';
+  } else if (res.code === 'CORRUPT_IMAGE_POLICY') {
+    msg = '이 작품의 이미지 입력 방식 설정에 문제가 있어요. 선생님께 알려주세요.';
+  } else {
+    msg = '지금은 그림을 저장할 수 없어요. 잠시 후 다시 시도해 주세요.';
+  }
+  try { alert(msg); } catch (e) {}
+}
+
+/* ════════════════════════════════════════════════════════════════
+   S2-2A-FIX2 — lock 성공 후 scene flush 결과 처리(업로드·그림판 공통). flush 성공이면 true.
+   ──────────────────────────────────────────────────────────────
+   flush 실패(`_flushPendingSave`가 {ok:false} 반환)면:
+   ① 재큐된 실패 imageData 제거(catch가 pendingFields에 재병합 → 잘못 재실행 방지. imageData만, 타 필드 보존)
+   ② 로컬 scene.imageData 복원(현재값이 *이번 시도 url*일 때만 before로 — 다른 비동기 변경이면 보존)
+   ③ 이번 시도 고유 객체만 cleanup(viewer-ai _deleteImageStorage: images/ prefix 검증·URL 역추정 0)
+   sourceMode lock은 유지(동일 mode 재시도로 복구). 결정 로직은 functions/image-s2-policy.js
+   decideFlushFailureRecovery와 동일. 성공으로 표시하지 않고 false 반환(호출부가 모달/팝오버 유지). */
+async function _handleImageFlushResult(scene, beforeImageData, attemptUrl, storagePath, flushRes) {
+  if (!(flushRes && flushRes.ok === false)) return true;   /* 성공 또는 skip(undefined) → 정상 진행 */
+  try {
+    if (_editText.pendingFields && _editText.pendingFields.imageData === attemptUrl) {
+      delete _editText.pendingFields.imageData;            /* ① 재큐된 실패 imageData만 제거 */
+    }
+  } catch (e) { /* noop */ }
+  if (scene && scene.imageData === attemptUrl) {           /* ② 로컬 CAS 복원 */
+    scene.imageData = (beforeImageData != null) ? beforeImageData : null;
+  }
+  try {                                                    /* ③ 이번 고유 객체만 cleanup */
+    if (storagePath && typeof window !== 'undefined' && window.viewerAi &&
+        typeof window.viewerAi._deleteImageStorage === 'function') {
+      await window.viewerAi._deleteImageStorage(storagePath);
+    }
+  } catch (e) { console.warn('[S2-2A-FIX2] flush 실패 후 cleanup 실패(orphan)', e && e.message); }
+  if (typeof renderEditPanel === 'function') renderEditPanel();
+  if (typeof _scheduleViewerFrameReRender === 'function') _scheduleViewerFrameReRender();
+  try { alert('그림을 저장하지 못했어요. 잠시 후 같은 방식으로 다시 시도해 주세요.'); } catch (e) {}
+  return false;
 }
 
 async function viewerDeleteVideoFromStorage(storagePath) {
@@ -945,10 +1006,12 @@ async function _flushPendingSave() {
   try {
     await saveSceneText(num, fields);
     _showSaveStatus('✅ 저장됨', 1200);
+    return { ok: true };                                    /* S2-2A-FIX2: 결과 반환(기존 호출처는 무시 → 무영향) */
   } catch (err) {
     _showSaveStatus('❌ 저장 실패', 2000);
     /* 실패한 변경은 재시도 가능하도록 다시 큐에 병합 */
     Object.assign(_editText.pendingFields, fields);
+    return { ok: false, code: 'SAVE_FAILED' };              /* 민감 오류 원문은 노출하지 않음 */
   }
 }
 
@@ -5562,10 +5625,23 @@ function _bindPbImageActions(root, scene) {
             finalUrl = dataUrl;
           }
         }
-        let storageUrl;
+        const _sid = scene.num || scene.id;
+        /* S2-2A-FIX1 ① 사전 게이트(업로드 *전*): 반대 모드/corrupt면 Storage 업로드도 scene 변경도 안 함. */
+        const _gate = (typeof window !== 'undefined' && window.viewerAi && typeof window.viewerAi._preCheckSourceMode === 'function')
+          ? await window.viewerAi._preCheckSourceMode('upload', _sid)
+          : { allow: true };
+        if (!_gate.allow) {
+          if (lbl && lbl.firstChild) lbl.firstChild.nodeValue = prevText;
+          _notifySourceModeBlock(_gate);
+          e.target.value = '';
+          return;
+        }
+        /* ② 고유 경로 업로드(기존 객체 overwrite 안 함). scene.imageData는 아직 안 바꿈. */
+        let storageUrl, _storagePath;
         try {
-          const r = await viewerUploadImageToStorage(finalUrl, scene.num || scene.id);
+          const r = await viewerUploadImageToStorage(finalUrl, _sid);
           storageUrl = r.downloadURL;
+          _storagePath = r.storagePath;
         } catch (e) {
           console.error('[viewer-edit] 이미지 업로드 실패:', e);
           if (lbl && lbl.firstChild) lbl.firstChild.nodeValue = prevText;
@@ -5573,10 +5649,30 @@ function _bindPbImageActions(root, scene) {
           e.target.value = '';
           return;
         }
+        /* ③ 서버 lock 확정(TOCTOU 최종 결정자). 실패/충돌이면 방금 만든 고유 객체만 삭제, scene 무변경. */
+        const _commit = (typeof window !== 'undefined' && window.viewerAi && typeof window.viewerAi._commitImageSourceMode === 'function')
+          ? await window.viewerAi._commitImageSourceMode('upload', _sid, _storagePath)
+          : { ok: true };
+        if (!_commit.ok) {
+          if (lbl && lbl.firstChild) lbl.firstChild.nodeValue = prevText;
+          _notifySourceModeBlock(_commit);   /* scene.imageData 미변경 → 승자/기존 무손상 */
+          e.target.value = '';
+          return;
+        }
+        /* ④ lock 성공일 때만 scene.imageData 기록 + flush await(순서 보장). */
+        const _beforeImageData = scene.imageData || null;   /* S2-2A-FIX2: flush 실패 시 로컬 복원 기준 */
         scene.imageData = storageUrl;
+        let _flushRes;
         if (typeof _queueSave === 'function') {
-          _queueSave(scene.num || scene.id, { imageData: storageUrl });
-          if (typeof _flushPendingSave === 'function') _flushPendingSave();
+          _queueSave(_sid, { imageData: storageUrl });
+          if (typeof _flushPendingSave === 'function') _flushRes = await _flushPendingSave();
+        }
+        /* S2-2A-FIX2: flush 실패면 신규 객체 cleanup + 로컬 복원(성공 표시·팝오버 닫기 금지, lock 유지·재시도 가능). */
+        const _flushOk = await _handleImageFlushResult(scene, _beforeImageData, storageUrl, _storagePath, _flushRes);
+        if (!_flushOk) {
+          if (lbl && lbl.firstChild) lbl.firstChild.nodeValue = prevText;
+          e.target.value = '';
+          return;   /* 팝오버 유지 — 같은 방식으로 다시 시도 */
         }
         renderEditPanel();
         _scheduleViewerFrameReRender();
@@ -7766,20 +7862,39 @@ function _openPbDrawModal(scene) {
     if (_aiImageVariantBlocksOriginalEdit()) return;
     try {
       const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-      let storageUrl;
+      const _sid = scene.num || scene.id;
+      /* S2-2A-FIX1 ① 사전 게이트(업로드 전): 반대 모드/corrupt면 차단(scene·Storage 무변경). */
+      const _gate = (typeof window !== 'undefined' && window.viewerAi && typeof window.viewerAi._preCheckSourceMode === 'function')
+        ? await window.viewerAi._preCheckSourceMode('draw', _sid)
+        : { allow: true };
+      if (!_gate.allow) { _notifySourceModeBlock(_gate); return; }
+      /* ② 고유 경로 업로드(기존 객체 overwrite 안 함). */
+      let storageUrl, _storagePath;
       try {
-        const r = await viewerUploadImageToStorage(dataUrl, scene.num || scene.id);
+        const r = await viewerUploadImageToStorage(dataUrl, _sid);
         storageUrl = r.downloadURL;
+        _storagePath = r.storagePath;
       } catch (e) {
         console.error('[viewer-edit] 그림 업로드 실패:', e);
         alert('❌ 그림을 올리지 못했어요. 잠시 후 다시 시도해 주세요.');
         return;
       }
+      /* ③ 서버 lock 확정. 실패/충돌이면 방금 만든 고유 객체만 삭제, scene 무변경. */
+      const _commit = (typeof window !== 'undefined' && window.viewerAi && typeof window.viewerAi._commitImageSourceMode === 'function')
+        ? await window.viewerAi._commitImageSourceMode('draw', _sid, _storagePath)
+        : { ok: true };
+      if (!_commit.ok) { _notifySourceModeBlock(_commit); return; }   /* scene 미변경 → 승자/기존 무손상 */
+      /* ④ lock 성공일 때만 scene.imageData 기록 + flush await. */
+      const _beforeImageData = scene.imageData || null;   /* S2-2A-FIX2: flush 실패 시 로컬 복원 기준 */
       scene.imageData = storageUrl;
+      let _flushRes;
       if (typeof _queueSave === 'function') {
-        _queueSave(scene.num || scene.id, { imageData: storageUrl });
-        if (typeof _flushPendingSave === 'function') _flushPendingSave();
+        _queueSave(_sid, { imageData: storageUrl });
+        if (typeof _flushPendingSave === 'function') _flushRes = await _flushPendingSave();
       }
+      /* S2-2A-FIX2: flush 실패면 신규 객체 cleanup + 로컬 복원(모달 유지·lock 유지·재시도 가능). */
+      const _flushOk = await _handleImageFlushResult(scene, _beforeImageData, storageUrl, _storagePath, _flushRes);
+      if (!_flushOk) return;   /* 모달 유지 — 같은 방식으로 다시 시도 */
       renderEditPanel();
       _scheduleViewerFrameReRender();
       _close();

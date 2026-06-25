@@ -1531,8 +1531,130 @@ function validateButtonsForSave(choices) {
     : { ok: true };
 }
 
+/* ════════════════════════════════════════════════════════════════
+   IMAGE-S2-1 — imageS2 상태 정규화 + 표시 이미지 결정 (순수 함수)
+   ──────────────────────────────────────────────────────────────
+   확정 PRD 정합. 이 단계는 "데이터·판정만": 모델 호출·Storage·Functions·Rules·
+   RTDB write 전부 없음. imageSelections는 교사·시스템(서버)만 write이며, 학생
+   토글은 로컬 미리보기(previewMode 인자)일 뿐 RTDB·타 사용자에 영향 없음.
+   ⚠️ 원본 절대 보호: scene.imageData / scene.imageUrl 은 읽기만 한다.
+   ⚠️ stale s2 · url 없음 · 잘못된 데이터 · s2 없음 → 무조건 원본 fallback.
+   ════════════════════════════════════════════════════════════════ */
+
+/* imagePolicy 정규화 — sourceMode는 upload|draw만, 그 외 null. */
+function normalizeImagePolicy(raw) {
+  const r = (raw && typeof raw === 'object') ? raw : {};
+  return {
+    sourceMode: (r.sourceMode === 'upload' || r.sourceMode === 'draw') ? r.sourceMode : null,
+    lockedAtSceneId: (typeof r.lockedAtSceneId === 'string' && r.lockedAtSceneId) ? r.lockedAtSceneId : null,
+    lockedAt: Number.isFinite(r.lockedAt) ? r.lockedAt : null,
+    lockedBy: (typeof r.lockedBy === 'string' && r.lockedBy) ? r.lockedBy : null,
+  };
+}
+
+/* imageSelections[sceneId] 정규화 — 허용 안 된 selected 값(=s2 아님)은 전부 'original'.
+   selectionSource는 teacher-batch|system-stale만(학생 'student-manual'·임의값 → null). */
+function normalizeImageSelection(raw) {
+  const r = (raw && typeof raw === 'object') ? raw : {};
+  return {
+    selected: (r.selected === 's2') ? 's2' : 'original',
+    selectedBy: (typeof r.selectedBy === 'string' && r.selectedBy) ? r.selectedBy : null,
+    selectedAt: Number.isFinite(r.selectedAt) ? r.selectedAt : null,
+    selectionSource: (r.selectionSource === 'teacher-batch' || r.selectionSource === 'system-stale')
+      ? r.selectionSource : null,
+  };
+}
+
+/* aiVariants.image[sceneId].s2 정규화 — url 없거나 비정상이면 null(=사용 불가). */
+function normalizeS2Variant(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const url = (typeof raw.url === 'string') ? raw.url.trim() : '';
+  if (!url) return null;   /* url 없음 / storagePath만 있음 → 사용 불가 */
+  const str = (v) => (typeof v === 'string' && v) ? v : null;
+  return {
+    url,
+    storagePath: str(raw.storagePath),
+    sourceMode: (raw.sourceMode === 'upload' || raw.sourceMode === 'draw') ? raw.sourceMode : null,
+    basedOnImageHash: str(raw.basedOnImageHash),
+    model: str(raw.model),
+    modelVersion: str(raw.modelVersion),
+    promptVersion: str(raw.promptVersion),
+    targetFrame: (raw.targetFrame && typeof raw.targetFrame === 'object') ? raw.targetFrame : null,
+    fitPolicy: str(raw.fitPolicy),
+    finalizedAt: Number.isFinite(raw.finalizedAt) ? raw.finalizedAt : null,
+    stale: raw.stale === true,
+  };
+}
+
+/* sceneId로 안전하게 s2 후보 raw 노드 추출(키 불일치 → null → 원본 fallback 보장).
+   imageVariants = { s1:{sid:..}, s2:{sid:..} } (viewer-ai _loadFirebaseImageVariants 형태). */
+function pickS2VariantForScene(imageVariants, sceneId) {
+  if (!imageVariants || typeof imageVariants !== 'object') return null;
+  const s2map = imageVariants.s2;
+  if (!s2map || typeof s2map !== 'object') return null;
+  const sid = (sceneId == null) ? '' : String(sceneId);
+  if (!sid || !Object.prototype.hasOwnProperty.call(s2map, sid)) return null;
+  return s2map[sid] || null;
+}
+
+/* 원본 이미지 src — 기존 렌더 관례(imageData 우선 → imageUrl)와 동일하게 유지(회귀 0). */
+function _originalSceneImageSrc(scene) {
+  if (!scene || typeof scene !== 'object') return null;
+  if (typeof scene.imageData === 'string' && scene.imageData) return scene.imageData;
+  if (typeof scene.imageUrl === 'string' && scene.imageUrl) return scene.imageUrl;
+  return null;
+}
+
+/* s2 사용 가능 = url 있고 stale 아님. */
+function _isS2Usable(s2) {
+  return !!(s2 && typeof s2.url === 'string' && s2.url && s2.stale !== true);
+}
+
+/* ★ 표시 이미지 결정(순수). scene · 작품선택 · s2변형 · (학생)previewMode 로 무엇을 보일지.
+   반환: { kind:'original'|'s2', src, isAiTransformed, fallbackReason }.
+   - 작품 감상(previewMode 없음): selected==='s2' + s2 url유효 + !stale 일 때만 s2.
+   - 학생 개인 미리보기(previewMode==='s2'): s2 url유효 + !stale 이면 s2(작품 선택 상태와 무관·로컬만).
+   - 그 외 전부 original. stale/누락/url없음/키불일치 → 반드시 original.
+   - 원본도 없으면 src:null(placeholder는 호출부 기존 정책 유지) + fallbackReason:'no-original'. */
+function resolveSceneImageSource(scene, imageSelection, s2Variant, previewMode) {
+  const origSrc = _originalSceneImageSrc(scene);
+  const sel = normalizeImageSelection(imageSelection);
+  const s2 = normalizeS2Variant(s2Variant);
+  const wantS2 = (previewMode === 's2') || (sel.selected === 's2');
+
+  if (wantS2 && _isS2Usable(s2)) {
+    return { kind: 's2', src: s2.url, isAiTransformed: true, fallbackReason: null };
+  }
+
+  /* 여기부터는 무조건 original fallback. 왜 fallback인지 사유 기록. */
+  let reason = null;
+  if (wantS2) {
+    if (s2 && s2.stale === true) reason = 'stale';
+    else if (s2Variant && typeof s2Variant === 'object' &&
+             Object.keys(s2Variant).length > 0 && !s2) reason = 'invalid-url';
+    else reason = 'missing-s2';
+  }
+  if (!origSrc) {
+    return { kind: 'original', src: null, isAiTransformed: false, fallbackReason: 'no-original' };
+  }
+  return { kind: 'original', src: origSrc, isAiTransformed: false, fallbackReason: reason };
+}
+
+/* IMAGE-S2-1 helper 전역 노출(브라우저) — edit viewer / 완성본 보기 / 일반 감상 공용 결정. */
+if (typeof window !== 'undefined') {
+  window.normalizeImagePolicy = normalizeImagePolicy;
+  window.normalizeImageSelection = normalizeImageSelection;
+  window.normalizeS2Variant = normalizeS2Variant;
+  window.pickS2VariantForScene = pickS2VariantForScene;
+  window.resolveSceneImageSource = resolveSceneImageSource;
+}
+
 /* 테스트 전용 export — 브라우저에선 module 미정의라 무시된다(membership-login.js와 동일 패턴).
-   POLISH-AUTH-FIX 편집 세션 판정/앱 선택 로직을 Node 하니스에서 검증하기 위함. */
+   POLISH-AUTH-FIX 편집 세션 판정/앱 선택 로직 + IMAGE-S2-1 이미지 결정 로직을 Node 하니스에서 검증. */
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { isEditViewerSession, isMakerAuthSession, getViewerApp };
+  module.exports = {
+    isEditViewerSession, isMakerAuthSession, getViewerApp,
+    normalizeImagePolicy, normalizeImageSelection, normalizeS2Variant,
+    pickS2VariantForScene, resolveSceneImageSource,
+  };
 }

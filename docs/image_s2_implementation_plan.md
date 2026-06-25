@@ -17,13 +17,19 @@
 | lockedAt | number(ms) | - | 서버 | - | - | 무관 | 복사 O |
 | lockedBy | uid | - | 서버 | - | - | 무관 | 복사 O |
 
-#### `viewer-meta/imageSelections/{sceneId}`
+#### `viewer-meta/imageSelections/{sceneId}` — **교사·시스템만 write** (PRD 정합, 아래 ★ 정정)
 | 필드 | 타입 | 필수 | 작성 | 수정 | 삭제 | stale | copy |
 |---|---|---|---|---|---|---|---|
-| selected | `"original"\|"s2"` | ✓ | 교사batch=서버 / 학생수동=클라 | 동상 | s2 삭제 시 original | **stale 시 자동 `original`** | **복사 X(원본 시작)** |
-| selectedBy | uid | - | 작성 주체 | - | - | 자동복귀 시 system | 복사 X |
-| selectedAt | number | - | 작성 주체 | - | - | 갱신 | 복사 X |
-| selectionSource | `"teacher-batch"\|"student-manual"` | - | 작성 주체 | - | - | `"system-stale"` | 복사 X |
+| selected | `"original"\|"s2"` | ✓ | 교사 apply=서버 / stale복귀=서버 | **서버만(학생·클라 write 금지)** | s2 삭제 시 original | **stale 시 자동 `original`** | **복사 X(원본 시작)** |
+| selectedBy | uid | - | 서버(교사 uid / system) | - | - | 자동복귀 시 system | 복사 X |
+| selectedAt | number | - | 서버 | - | - | 갱신 | 복사 X |
+| selectionSource | `"teacher-batch"\|"system-stale"` | - | 서버 | - | - | `"system-stale"` | 복사 X |
+
+> ★ **학생 미리보기 정책 정정 (확정 PRD 정합 — "s2 존재 ≠ 작품 감상 선택")**
+> - 학생의 **original↔s2 토글 = 개인 미리보기**. **로컬 UI 상태만** 변경(메모리 또는 작품·장면별 `sessionStorage`/`localStorage`). **RTDB `imageSelections` write 금지 · quota 0 · 타 학생·감상자 무영향.**
+> - 기본값은 항상 작품의 `selected`를 따르고, 토글 시 **해당 브라우저 미리보기만** 바뀐다.
+> - `imageSelections`는 **교사(`teacher-batch`)·시스템(`system-stale`)만 write.** `selectionSource:"student-manual"`은 **이번 구현에서 미사용**(향후 학생에게 작품 선택권을 별도 결정하기 전까지).
+> - 새로고침 후 개인 미리보기 보존 여부는 S2-7에서 결정하되 **작품 데이터에는 저장하지 않는다.**
 
 #### `aiVariants/image/{sceneId}/s2` — **Admin SDK only** (`database.rules.json:103 .write:false`)
 | 필드 | 타입 | 필수 | 작성 | 수정 | 삭제 | stale | copy |
@@ -131,7 +137,7 @@ ai-images/{classId}/{enc}/scene_{sceneId}_s2_{timestamp}.png
 |---|---|---|
 | 교사 | 전 장면 변환 트리거 | `viewer-render.js` HUD(더보기) + `viewer-ai.js` AI 모달 |
 | 교사 | 진행률/취소/부분실패 요약/성공분 적용/재시도/보류 | `viewer-ai.js`(job 노드 구독), 신규 review 패널 |
-| 학생 | original/s2 개인 미리보기(quota 0, 생성버튼 없음) | `viewer-render.js`/`viewer-data.js` 렌더 분기 + 토글 |
+| 학생 | original/s2 개인 미리보기(quota 0, 생성버튼 없음) | `viewer-render.js`/`viewer-data.js` 렌더 분기 + 토글 = **로컬 상태(sessionStorage/메모리), RTDB write 0** |
 | 감상자 | selected 이미지만 + s2 배지(토글 없음) | `viewer-data.js`(이미지 src 결정) + `viewer-render.js`(배지) |
 | 관리자 | imageS2 gate / 일일 사용량 / kill switch / 모델 설정 / soon 유지 | `adminConsole.js:327`(이미 배선, soon:true 유지) |
 
@@ -151,7 +157,7 @@ selected 이미지 결정 헬퍼(신규): `imageSelections[sceneId].selected==='
 | **S2-4** | Storage 안전 교체 + cleanup queue | functions/index.js | ai-images 업로드, cleanup-queue | 에뮬 교체순서·유예 | gate off | functions + Storage Rule |
 | **S2-5** | 교사 batch job(onTaskDispatched) | functions/index.js | aiJobs 노드 | 에뮬 다장면 job | job 미생성 | functions + aiJobs Rule |
 | **S2-6** | 교사 review/apply UI | viewer-ai.js, viewer-render.js | imageSelections 교사 적용 | preview 시나리오 | UI gate | 없음(클라) |
-| **S2-7** | 학생 preview + 감상 selected 렌더 + 배지 | viewer-data.js, viewer-render.js, viewer.css | imageSelections 학생수동 | 5뷰포트 렌더 | gate off=원본 | 없음(클라) |
+| **S2-7** | 학생 preview + 감상 selected 렌더 + 배지 | viewer-data.js, viewer-render.js, viewer.css | **로컬 미리보기 상태(sessionStorage/메모리), RTDB write 0** | 5뷰포트 렌더 | gate off=원본 | 없음(클라) |
 | **S2-8** | 모델 평가·provider 결정 | (문서/하니스) | 없음 | 평가표 | - | 없음 |
 | **S2-9** | 실 provider 연결(stub→real) | functions/index.js, secret | 실 변환 | 운영 smoke(소량) | provider flag | functions + secret |
 | **S2-10** | quota·kill switch·운영 QA | functions/index.js, adminConsole.js | 카운터 | 한도/킬스위치 | soon 복귀 | functions |

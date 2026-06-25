@@ -123,7 +123,7 @@
 - **Blaze 확정**: `@anthropic-ai/sdk`(`functions/index.js:38`) 아웃바운드 사용 → Cloud Tasks / Cloud Scheduler / Pub-Sub 모두 사용 가능.
 - **Rules 현황**(재사용/신규):
   - `aiVariants .read:true/.write:false` `:103-106` → **이미 Admin SDK 전용**(PRD §11 그대로). `aiVariants/image/{sceneId}/s2` 그대로 상속.
-  - `viewer-meta .write:"auth != null"` `:66` → `imagePolicy`/`imageSelections` 클라 쓰기 가능(현 sourceMode·학생 선택). teacher-batch 선택·lock은 서버 격상.
+  - `viewer-meta .write:"auth != null"` `:66` → `imagePolicy`/`imageSelections`가 물리적으로는 클라 쓰기 가능하나, **`imageSelections`는 교사·시스템(서버)만 write로 제한**(§6 정정). sourceMode lock·교사 적용 선택 모두 서버 격상.
   - `ai-kill-switch .read:true/.write:false` `:124` · `ai-usage*/ai-stats .read:false/.write:false` `:112-131` → Admin 전용 재사용.
   - **신규 Rule 필요**: `aiJobs/imageS2/{jobId}`(교사 read·서버 write only), Storage `ai-images/**`(클라 read·write:false). (이번 단계 미배포)
 - **Storage 현황**: `images/** read:true,write:authed`(원본) `storage.rules:6`; `videos/**`; **catch-all `/{allPaths=**} read,write:false`** `:25` → `ai-images/`는 현재 클라 read 불가 → s2 표시용 read Rule 신규.
@@ -133,3 +133,10 @@
 ## 5. ⚠️ 이름 충돌 경보 (구현 시 필수 주의)
 - **"s2"는 두 가지**: ① 텍스트 AI 2단계(`textS2`, `_checkS2SceneCap`, `S2_MAX_SCENES`, `callTextAiBatchS2`) ② 이미지 feature(`imageS2`). **혼용 금지.** 이미지는 항상 `imageS2`/`image/.../s2` full path로 명명.
 - `aiVariants`: 텍스트는 **localStorage mock**(`viewer-ai.js:46` `pb_ai_variants_v140`), 이미지는 **RTDB**(`aiVariants/image/{sceneId}/s2`, Admin write). 저장 위치가 다름.
+
+---
+
+## 6. 정책 정정 기록 — 학생 미리보기 (확정 PRD 정합)
+- **PRD**: 학생 original↔s2 토글 = **개인 미리보기** ("s2 존재 ≠ 작품 감상 선택").
+- **구현 계획 초안의 충돌**: imageSelections에 `selectionSource:"student-manual"`을 두고 "학생이 imageSelections를 write"할 가능성을 암시 → PRD와 충돌.
+- **정정**: `imageSelections`는 **교사(`teacher-batch`)·시스템(`system-stale`)만 write.** 학생 토글은 **로컬 UI 상태(메모리/sessionStorage)만** 바꾸고 RTDB·quota·타 사용자에 영향 없음. `student-manual`은 이번 구현에서 미사용(향후 별도 결정 전까지). 상세는 `image_s2_implementation_plan.md §1` ★ 블록·`§5`·`S2-7`.

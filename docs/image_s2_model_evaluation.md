@@ -21,6 +21,11 @@
 
 **대안 1순위:** `gemini-3.1-flash-image`(Nano Banana 2, GA, ref 10+4, ~$0.067/img) — ≤3 제한으로 보류.
 
+## 2-1. Production shortlist 구분 (벤치마크 후보 ≠ production 적격)
+- **OpenAI `gpt-image-2` = production 적격**(1차). 약관상 현 제품 구조에 적합.
+- **Google 두 모델(`gemini-2.5-flash-image`·`gemini-3-pro-image`) = production shortlist 제외.** 이유: **Gemini Developer API 추가약관이 under-18 대상/접근 가능 서비스 사용을 금지** → 초등 대상인 가지의 현 제품 구조와 부적합. **Vertex AI**는 별도 계약·연령·국외이전·리전 검토 전까지 **보류**. ⚠️ **모델 품질이 이유가 아님**(품질 비교 벤치마크 후보로는 유효). — "현 약관상 현재 제품 구조와 부적합"으로만 기록(법적 최종 판단 아님).
+- 이 단계 실제 파일럿 = **OpenAI gpt-image-2 단독**.
+
 ## 3. stable / preview 구분 · 제외 후보
 - 위 3종은 전부 **비-preview GA**.
 - ⚠️ **타이밍 경고:** Gemini `-preview` 별칭(`gemini-3-pro-image-preview`, `gemini-3.1-flash-image-preview`)은 **2026-06-25(오늘) 종료** → 반드시 비-preview GA id 사용.

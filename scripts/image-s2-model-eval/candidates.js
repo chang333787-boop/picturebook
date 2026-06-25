@@ -41,6 +41,8 @@ const CANDIDATES = [
       currency: 'USD', asOf: RESEARCH_DATE,
     },
     officialUrl: 'https://developers.openai.com/api/docs/models/gpt-image-2',
+    productionEligible: true,
+    productionNote: 'API 학습 미사용(기본)·under-13 처리 전 ZDR 필요(COPPA)·한국 데이터 레지던시 opt-in 가능. 약관상 현 제품 구조에 적합한 1차 후보.',
     docUrls: [
       'https://developers.openai.com/api/docs/models/gpt-image-2',
       'https://developers.openai.com/api/docs/guides/image-generation',
@@ -77,6 +79,8 @@ const CANDIDATES = [
       currency: 'USD', asOf: RESEARCH_DATE,
     },
     officialUrl: 'https://ai.google.dev/gemini-api/docs/models/gemini-2.5-flash-image',
+    productionEligible: false,
+    productionNote: '🔴 Gemini Developer API 추가약관: API Client를 under-18 대상/접근 가능 서비스에 사용 금지 → 초등 대상인 가지의 현 제품 구조와 부적합(production shortlist 제외). Vertex AI는 별도 계약·연령·국외이전·리전 검토 전까지 보류. **모델 품질이 이유 아님**(벤치마크 후보로는 유효).',
     docUrls: [
       'https://ai.google.dev/gemini-api/docs/image-generation',
       'https://ai.google.dev/gemini-api/docs/pricing',
@@ -113,6 +117,8 @@ const CANDIDATES = [
       currency: 'USD', asOf: RESEARCH_DATE,
     },
     officialUrl: 'https://ai.google.dev/gemini-api/docs/models/gemini-3-pro-image',
+    productionEligible: false,
+    productionNote: '🔴 위 gemini-2.5-flash-image 와 동일(Gemini Developer API under-18 약관 → production shortlist 제외, Vertex AI 보류). 모델 품질이 이유 아님.',
     docUrls: [
       'https://ai.google.dev/gemini-api/docs/models/gemini-3-pro-image',
       'https://ai.google.dev/gemini-api/docs/pricing',

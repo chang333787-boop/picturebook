@@ -2243,6 +2243,9 @@ function renderHUD() {
             <div class="hud-more-sep" role="separator"></div>
             <button type="button" role="menuitem" class="hud-more-item js-edit-open-routes" title="엔딩별 이야기 흐름 점검">🛤 루트 보기</button>
             <button type="button" role="menuitem" class="hud-more-item js-edit-open-map" title="장면 연결을 한눈에 확인">🔍 구조 보기</button>
+            <!-- HOTFIX(생각 나침반 결과 보기): 작품 단위 참고 도구. 생각 나침반 기록이 있을 때만 표시
+                 (viewer-edit.js _applyCompassMenuVisibility). 읽기 전용 — 저장된 결과만 다시 봄. 기본 숨김. -->
+            <button type="button" role="menuitem" class="hud-more-item js-edit-compass-result" title="이 작품의 생각 나침반 결과를 다시 봐요" style="display:none;">🧭 생각 나침반</button>
             <div class="hud-more-sep" role="separator"></div>
             <button type="button" role="menuitem" class="hud-more-item hud-more-item--danger js-return-home" title="서비스 첫 화면으로">🌿 처음으로</button>
           </div>

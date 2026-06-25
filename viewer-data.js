@@ -321,13 +321,13 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
        이전 화면(그림책 팀)에서 남은 dataset까지 명시 제거(팀 전환 잔존 차단).
        DB 원본값은 삭제하지 않음(렌더/메뉴에서만 무시). */
     if (ptype === 'picturebook') {
-      const theme = ViewerState.project.pbTheme;
-      if (typeof theme === 'string' && theme.length > 0) {
-        /* D5: 저장값(theme)은 그대로 두고, 표시용 body data만 신규 스킨으로 normalize. */
-        document.body.dataset.pbTheme = normalizePicturebookTheme(theme);
-      } else {
-        delete document.body.dataset.pbTheme;
-      }
+      /* HOTFIX(신규 그림책 기본 스킨): 그림책은 스킨 저장값이 없어도 '포근한 동화책'
+         (cozy-storybook)으로 표시한다 — 무스킨 화면 방지. normalizePicturebookTheme가
+         빈값/legacy를 cozy-storybook으로 정규화(map[..]||theme||'cozy-storybook').
+         · DB 저장값(viewer-meta.pbTheme)은 절대 변경하지 않음 — 표시용 body data만.
+         · 신규 그림책·스킨 없는 기존 작품 모두 cozy 렌더(migration·자동저장 0).
+         · 명시적 스킨(paper/gallery/forest/night/cozy)은 그대로 통과(보존). */
+      document.body.dataset.pbTheme = normalizePicturebookTheme(ViewerState.project.pbTheme);
     } else {
       delete document.body.dataset.pbTheme;
     }

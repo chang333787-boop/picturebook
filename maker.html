@@ -2893,6 +2893,9 @@
              id/handler 불변, 색만 CSS 토큰으로. 구조 점검은 tb-btn-check(리드 강조). -->
         <button class="tb-btn tb-btn-check" id="btn-check" title="장면 연결 구조를 점검해요">🔍 구조 점검</button>
         <button class="tb-btn tb-btn-tool" id="btn-route" title="장면 흐름(루트)을 살펴봐요">🛤 루트 보기</button>
+        <!-- HOTFIX(생각 나침반 결과 보기): 생각 나침반 기록이 있는 작품에서만 표시(ui.js _updateCompassResultButton).
+             읽기 전용 — 저장된 결과만 다시 봄(질문 생성·API 호출 없음). 기본 숨김. -->
+        <button class="tb-btn tb-btn-tool" id="btn-compass-result" title="이 작품의 생각 나침반 결과를 다시 봐요" style="display:none;">🧭 생각 나침반</button>
         <button class="tb-btn tb-btn-tool adv-only" id="btn-project-settings"
           title="감상 시작·다시 하기 장면을 설정해요">⚙ 시작점</button>
         <button class="tb-btn tb-btn-tool" id="btn-group-move"
@@ -3178,18 +3181,18 @@
 <script src="thought-compass-gate.js?v=tcphase1dqa1"></script>
 <script src="thought-compass-ai.js?v=tcphase1h"></script>
 <script src="thought-compass-editsession.js?v=tcphase1kqa2"></script>
-<script src="thought-compass-ui.js?v=tcphase1kqa1"></script>
+<script src="thought-compass-ui.js?v=tcphase1kqa1compassbtn1"></script>
 <script src="thought-compass-review.js?v=tcphase1l"></script>
 <script src="thought-compass-scenes.js?v=tcphase1j"></script>
 <script src="firebase.js?v=141admin1cbase10amemberlogin1sec5tcphase1d"></script>
 <script src="canvasInteraction.js?v=120"></script>
-<script src="sceneRenderer.js?v=119base10bbase10auto1coverstart1scenetitle1ascenetitle2apwanav2vpreturn1perfqa1branchcard1branchcard2branchcard3branchcard4cover1cover2cover3"></script>
+<script src="sceneRenderer.js?v=119base10bbase10auto1coverstart1scenetitle1ascenetitle2apwanav2vpreturn1perfqa1branchcard1branchcard2branchcard3branchcard4cover1cover2cover3compassbtn1"></script>
 <script src="storyAnalyzer.js?v=136checkbuttons1heuristic3"></script>
 <script src="mediaManager.js?v=114copyfix1"></script>
 <script src="adminConsole.js?v=103copyfix1pwanav2"></script>
 <script src="preview.js?v=96"></script>
 <script src="projectSettings.js?v=114copyfix1coverstart2"></script>
-<script src="ui.js?v=109copyfix2c2base10bfixendingguard1addscene1base10auto1branchtopbar1cscenetitle1asessionrefresh1apwanav2homenav1vpreturn1sec5tcphase1d"></script>
+<script src="ui.js?v=109copyfix2c2base10bfixendingguard1addscene1base10auto1branchtopbar1cscenetitle1asessionrefresh1apwanav2homenav1vpreturn1sec5tcphase1dcompassbtn1"></script>
 <!-- v95: 모바일 텍스트형 브랜치 전용 (텍스트 작품 + 모바일에서만 활성) -->
 <script src="mobileTextBranch.js?v=115wintab3abase10posbase10auto1ttheme1refineia2markers2"></script>
 

@@ -89,6 +89,36 @@
   async function markThoughtCompassCompleted(ctx, state) { return _applyPlan(_TC().planMarkCompleted(ctx, state)); }
   async function resetThoughtCompassOnly(ctx) { return _applyPlan(_TC().planResetCompassOnly(ctx)); }
 
+  /* FREE-NOTE: 자유 메모(떠오른 생각) 저장 — 질문 답변과 완전 분리.
+     · deep-path update(preWriting/userNotes)만 → answers/followUps/completedAt/status 보존(전체 set 금지).
+     · 진행률·완료 판정·BASE10·AI payload와 무관(별도 필드). 빈 문자열도 허용(빈값 표시).
+     · writingGuide write 권한(member active / 담당 교사 / super_admin) 안에서 동작 — Rules 변경 없음. */
+  async function saveThoughtCompassUserNotes(ctx, text) {
+    const TC = _TC();
+    const paths = TC.buildThoughtCompassPaths(ctx);
+    if (!paths) return { ok: false };
+    let uid = null;
+    try {
+      if (typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser) uid = firebase.auth().currentUser.uid;
+    } catch (_) {}
+    const t = (typeof text === 'string') ? text : '';
+    try {
+      await db.ref(paths.preWriting + '/userNotes').update({ text: t, updatedAt: _serverTs(), updatedBy: uid || null });
+      return { ok: true };
+    } catch (e) { return { ok: false, error: e }; }
+  }
+  /* FREE-NOTE: 자유 메모만 읽기(읽기 전용 표시·완료 화면 초기값). 다른 데이터 미접근. */
+  async function loadThoughtCompassUserNotes(ctx) {
+    const TC = _TC();
+    const paths = TC.buildThoughtCompassPaths(ctx);
+    if (!paths) return '';
+    try {
+      const snap = await db.ref(paths.preWriting + '/userNotes/text').once('value');
+      const v = snap.val();
+      return (typeof v === 'string') ? v : '';
+    } catch (_) { return ''; }
+  }
+
   window.ThoughtCompassStore = {
     loadThoughtCompassState,
     loadThoughtCompassStateResult,
@@ -98,5 +128,7 @@
     saveThoughtCompassFollowUps,
     markThoughtCompassCompleted,
     resetThoughtCompassOnly,
+    saveThoughtCompassUserNotes,
+    loadThoughtCompassUserNotes,
   };
 })();

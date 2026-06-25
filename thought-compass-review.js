@@ -24,8 +24,39 @@
   function _remove() { const o = document.getElementById(OVERLAY_ID); if (o && o.parentNode) o.parentNode.removeChild(o); }
 
   function open(ctx, vm, followUps) {
-    R = { ctx: ctx, vm: vm, followUps: Array.isArray(followUps) ? followUps : [], busy: false, error: null, readOnly: false };
+    R = { ctx: ctx, vm: vm, followUps: Array.isArray(followUps) ? followUps : [], busy: false, error: null, readOnly: false, userNotes: '' };
     _render();
+    _hydrateUserNotes();   /* FREE-NOTE: 완료 화면 — 기존 메모(있으면) 비동기 로드 후 textarea 채움 */
+  }
+  /* FREE-NOTE: state.raw에서 자유 메모 텍스트 추출(없으면 ''). */
+  function _userNotesText(state) {
+    return (state && state.userNotes && typeof state.userNotes.text === 'string') ? state.userNotes.text : '';
+  }
+  /* FREE-NOTE: 완료 화면 진입 시 기존 메모 로드(질문 데이터 미접근). */
+  async function _hydrateUserNotes() {
+    if (!R || R.readOnly) return;
+    const Store = _Store();
+    if (!Store || typeof Store.loadThoughtCompassUserNotes !== 'function') return;
+    try {
+      const text = await Store.loadThoughtCompassUserNotes(R.ctx);
+      if (R) {
+        R.userNotes = text || '';
+        const ta = document.querySelector('#' + OVERLAY_ID + ' .tc-note-input');
+        if (ta && !ta.value) ta.value = R.userNotes;
+      }
+    } catch (_) {}
+  }
+  /* FREE-NOTE: 자유 메모만 저장(변화 없으면 write 생략). 성공 bool 반환. */
+  async function _saveUserNotes(text) {
+    const Store = _Store();
+    if (!Store || typeof Store.saveThoughtCompassUserNotes !== 'function' || !R) return false;
+    const next = (typeof text === 'string') ? text : '';
+    if ((R.userNotes || '') === next) { R.userNotes = next; return true; }
+    try {
+      const res = await Store.saveThoughtCompassUserNotes(R.ctx, next);
+      if (res && res.ok) { R.userNotes = next; return true; }
+      return false;
+    } catch (_) { return false; }
   }
 
   /* 완료된 생각 나침반 '다시 보기'(Phase L, D-17) — read-only. 원본 보존(D-16): 고치기/완료 없음.
@@ -38,7 +69,7 @@
     }
     state = state || {};
     const vm = { questions: Q ? Q.getCoreQuestions() : [], answers: (state.answers && typeof state.answers === 'object') ? state.answers : {} };
-    R = { ctx: ctx, vm: vm, followUps: Array.isArray(state.followUps) ? state.followUps : [], busy: false, error: null, readOnly: true };
+    R = { ctx: ctx, vm: vm, followUps: Array.isArray(state.followUps) ? state.followUps : [], busy: false, error: null, readOnly: true, userNotes: _userNotesText(state) };
     _render();
   }
 
@@ -57,6 +88,8 @@
     card.appendChild(t);
     overlay.setAttribute('aria-labelledby', 'tc-review-title');
     card.appendChild(_el('p', 'tc-flow-help', R.readOnly ? '우리가 정한 이야기 방향이에요.' : '정한 내용을 살펴보고, 고치고 싶은 게 있으면 “고치기”를 눌러요.'));
+    /* FREE-NOTE: 참고 자료 안내 — 반드시 이대로 써야 한다는 인상 주지 않기. */
+    card.appendChild(_el('p', 'tc-flow-help tc-flow-help--guide', '생각 나침반은 이야기를 시작하기 위한 참고 자료예요. 만들면서 새로운 생각이 떠오르면 자유롭게 바꾸어도 괜찮아요.'));
 
     const list = _el('div', 'tc-review-list');
     const questions = Q ? Q.getCoreQuestions() : R.vm.questions;
@@ -86,6 +119,10 @@
     });
     card.appendChild(list);
 
+    /* FREE-NOTE: 질문과 분리된 자유 메모 — 완료 화면=입력(선택), 결과 패널=표시+메모만 수정.
+       진행률·완료 판정·BASE10·AI와 무관. 질문 답변(읽기 전용)과 시각적으로 구분. */
+    _appendNoteSection(card);
+
     if (R.error) {
       const err = _el('p', 'tc-flow-error', R.error);
       err.setAttribute('role', 'alert');
@@ -114,6 +151,64 @@
     try { t.setAttribute('tabindex', '-1'); t.focus(); } catch (e) {}
   }
 
+  /* FREE-NOTE: 자유 메모 섹션 — 완료 화면=입력란(선택, blur 저장), 결과 패널=표시+[메모 수정]. */
+  function _appendNoteSection(card) {
+    const sec = _el('div', 'tc-note-section');
+    if (!R.readOnly) {
+      sec.appendChild(_el('div', 'tc-note-title', '📝 떠오른 생각 메모'));
+      sec.appendChild(_el('p', 'tc-note-help', '질문에는 없었지만 기억해 두고 싶은 생각이 있나요? 인물·사건·장면·대사 등 무엇이든 자유롭게 적어 보세요. (안 적어도 괜찮아요.)'));
+      const ta = _el('textarea', 'tc-note-input');
+      ta.setAttribute('rows', '4');
+      ta.setAttribute('maxlength', '2000');
+      ta.setAttribute('aria-label', '떠오른 생각 메모 (선택)');
+      ta.setAttribute('placeholder', '예: 주인공의 단짝 친구도 등장시키고 싶어요…');
+      ta.value = R.userNotes || '';
+      /* 기존 저장 UX(자동 저장)에 맞춰 blur 시 저장. 빈값도 허용. 진행률·완료엔 미반영. */
+      ta.addEventListener('blur', function () { _saveUserNotes(ta.value); });
+      sec.appendChild(ta);
+    } else {
+      sec.appendChild(_el('div', 'tc-note-title', '📝 내 자유 메모'));
+      const text = R.userNotes || '';
+      const view = _el('div', 'tc-note-view' + (text ? '' : ' is-empty'), text || '아직 적어 둔 메모가 없어요.');
+      sec.appendChild(view);
+      const editBtn = _el('button', 'tc-note-edit-btn', '메모 수정');
+      editBtn.type = 'button';
+      editBtn.addEventListener('click', function () { _openNoteEditor(sec, view, editBtn); });
+      sec.appendChild(editBtn);
+    }
+    card.appendChild(sec);
+  }
+  /* FREE-NOTE: 결과 패널에서 메모만 수정(질문·답변·완료상태 불변, BASE10/AI 호출 없음). */
+  function _openNoteEditor(sec, view, editBtn) {
+    if (sec.querySelector('.tc-note-editor')) return;
+    view.style.display = 'none';
+    editBtn.style.display = 'none';
+    const editor = _el('div', 'tc-note-editor');
+    const ta = _el('textarea', 'tc-note-input');
+    ta.setAttribute('rows', '4'); ta.setAttribute('maxlength', '2000');
+    ta.setAttribute('aria-label', '자유 메모 수정');
+    ta.value = R.userNotes || '';
+    editor.appendChild(ta);
+    const row = _el('div', 'tc-note-editor-actions');
+    const save = _el('button', 'tc-note-save', '저장'); save.type = 'button';
+    const cancel = _el('button', 'tc-note-cancel', '취소'); cancel.type = 'button';
+    const cleanup = function () { editor.remove(); view.style.display = ''; editBtn.style.display = ''; };
+    save.addEventListener('click', async function () {
+      save.disabled = true; save.textContent = '저장 중…';
+      const ok = await _saveUserNotes(ta.value);
+      if (ok) {
+        view.textContent = (ta.value || '아직 적어 둔 메모가 없어요.');
+        view.classList.toggle('is-empty', !ta.value);
+        cleanup();
+      } else { save.disabled = false; save.textContent = '저장'; }
+    });
+    cancel.addEventListener('click', cleanup);
+    row.appendChild(save); row.appendChild(cancel);
+    editor.appendChild(row);
+    sec.insertBefore(editor, editBtn);
+    try { ta.focus(); } catch (e) {}
+  }
+
   /* 고치기 — 해당 질문으로 이동해 단일 수정 후 검토로 복귀(D-09). 다른 답변 보존. */
   function _editQuestion(idx) {
     const UI = _UI();
@@ -128,6 +223,9 @@
 
   async function _complete() {
     if (R.busy) return;
+    /* FREE-NOTE: 완료 전 현재 메모 입력값 저장(busy 재렌더로 textarea 사라지기 전). 별도 필드라 완료/진행률과 무관. */
+    const _noteTa = document.querySelector('#' + OVERLAY_ID + ' .tc-note-input');
+    if (_noteTa) { try { await _saveUserNotes(_noteTa.value); } catch (_) {} }
     const TC = _TC(), Store = _Store(), Flow = _Flow();
     /* 완료 조건 — 7핵심 모두 유효(유예 답변 포함). */
     const state = { status: 'inProgress', answers: R.vm.answers, followUps: R.followUps, completedAt: null };

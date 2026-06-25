@@ -134,3 +134,40 @@
   .tc-flow-title { font-size: 18px; margin-bottom: 6px; }
   .tc-flow-help { margin-bottom: 10px; }
 }
+
+/* FREE-NOTE: 참고 자료 안내 + 질문과 분리된 자유 메모(떠오른 생각). 질문 답변과 시각적으로 구분. */
+.tc-flow-help--guide {
+  font-size: 13px; color: #5a7a4c; background: #f0f5ec;
+  border-radius: 10px; padding: 8px 11px; margin: -6px 0 16px; line-height: 1.5;
+}
+.tc-note-section {
+  margin: 18px 0 4px; padding: 14px; border-radius: 14px;
+  background: #fbf6ec; border: 1px solid #ead8b8; border-left: 4px solid #cdb98c;
+}
+.tc-note-title { font-size: 15px; font-weight: 800; color: #5a4a30; margin: 0 0 6px; }
+.tc-note-help { font-size: 13px; color: #6b5638; margin: 0 0 10px; line-height: 1.5; }
+.tc-note-input {
+  width: 100%; box-sizing: border-box; resize: vertical; min-height: 88px;
+  border: 2px solid #d8c7a6; border-radius: 12px; padding: 10px 12px;
+  font-size: 15px; color: #3a2c14; line-height: 1.55; font-family: inherit; background: #fffefb;
+}
+.tc-note-input:focus-visible { outline: 3px solid #b6cda6; outline-offset: 1px; border-color: #7aa06a; }
+.tc-note-view {
+  font-size: 15px; color: #3a2c14; line-height: 1.6; white-space: pre-wrap; word-break: break-word;
+  background: #fffefb; border: 1px solid #e7d9bd; border-radius: 12px; padding: 10px 12px; margin: 0 0 8px;
+}
+.tc-note-view.is-empty { color: #a3936f; font-style: italic; }
+.tc-note-edit-btn {
+  background: none; border: 1.5px solid #cdb98c; color: #6b5638;
+  font-size: 13px; font-weight: 700; border-radius: 50px; padding: 6px 16px; cursor: pointer;
+}
+.tc-note-edit-btn:hover { background: #f2e9d6; }
+.tc-note-editor-actions { display: flex; gap: 8px; margin-top: 8px; }
+.tc-note-save, .tc-note-cancel {
+  font-size: 14px; font-weight: 700; border-radius: 50px; padding: 8px 18px; cursor: pointer; border: 2px solid;
+}
+.tc-note-save { background: #7aa06a; color: #fff; border-color: #7aa06a; }
+.tc-note-save:hover { background: #6b9159; }
+.tc-note-save:disabled { opacity: .6; cursor: default; }
+.tc-note-cancel { background: #fffefb; color: #6b5638; border-color: #e4dbc8; }
+.tc-note-cancel:hover { border-color: #cfc3a6; }

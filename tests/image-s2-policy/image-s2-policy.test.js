@@ -12,7 +12,8 @@ import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
 const P = require('../../functions/image-s2-policy.js');
-const { decideSourceModeLock, normalizePolicy, decideSourceModeReset, scenesHaveOriginalImage, isValidSourceMode } = P;
+const { decideSourceModeLock, normalizePolicy, classifyPolicy, runSourceModeLockedSave,
+        decideSourceModeReset, scenesHaveOriginalImage, isValidSourceMode } = P;
 
 /* ── 모의 atomic ref (CAS) ── */
 function atomicRef(initial) {
@@ -53,9 +54,20 @@ test('반대 모드 → conflict(현재 모드 반환)', () => {
   assert.equal(d.currentSourceMode, 'upload');
 });
 
-test('잘못된 저장값(sourceMode 비정상) → 미설정 취급 → lock', () => {
+test('비정상 저장값(sourceMode=paint) → corrupt(자동복구 X)', () => {
   const d = decideSourceModeLock({ sourceMode: 'paint' }, upReq());
-  assert.equal(d.action, 'lock');
+  assert.equal(d.action, 'corrupt');
+  assert.equal(d.code, 'CORRUPT_IMAGE_POLICY');
+});
+
+test('classifyPolicy: absent / valid / corrupt', () => {
+  assert.equal(classifyPolicy(null), 'absent');
+  assert.equal(classifyPolicy(undefined), 'absent');
+  assert.equal(classifyPolicy({}), 'absent');                 /* sourceMode 필드 없음 = 미설정 */
+  assert.equal(classifyPolicy({ lockedAt: 1 }), 'absent');
+  assert.equal(classifyPolicy({ sourceMode: 'upload' }), 'valid');
+  assert.equal(classifyPolicy({ sourceMode: 'paint' }), 'corrupt');
+  assert.equal(classifyPolicy('x'), 'corrupt');               /* 객체 아님 */
 });
 
 test('isValidSourceMode / normalizePolicy', () => {
@@ -123,4 +135,94 @@ test('초기화: 원본 이미지 전무 → 허용', () => {
 test('초기화: imageData 빈 문자열은 "이미지 없음"으로 간주', () => {
   assert.equal(scenesHaveOriginalImage({ a: { imageData: '', imageUrl: '' } }), false);
   assert.equal(decideSourceModeReset({ a: { imageData: '' } }).ok, true);
+});
+
+/* ── B안 orchestration (runSourceModeLockedSave) — stub 어댑터 ── */
+function stubAdapters(over) {
+  const calls = { restore: [], del: [], orphan: [] };
+  const a = {
+    _calls: calls,
+    lock: async () => ({ ok: true }),
+    restoreSceneImageCas: async (sid, expected, restoreTo) => { calls.restore.push({ sid, expected, restoreTo }); return true; },
+    deleteStorage: async (p) => { calls.del.push(p); return true; },
+    recordOrphan: async (info) => { calls.orphan.push(info); },
+  };
+  return Object.assign(a, over || {});
+}
+const saveInput = (over) => Object.assign({
+  mode: 'draw', sceneId: 's1',
+  before: { imageData: 'OLD' },
+  after: { imageData: 'NEWURL', storagePath: 'ai/x/scene_s1.png' },
+}, over || {});
+
+test('orchestration: lock 성공 → ok(원본 유지, rollback 없음)', async () => {
+  const ad = stubAdapters();
+  const r = await runSourceModeLockedSave(saveInput(), ad);
+  assert.equal(r.ok, true);
+  assert.equal(ad._calls.restore.length, 0);
+  assert.equal(ad._calls.del.length, 0);
+});
+
+test('orchestration: idempotent → ok', async () => {
+  const ad = stubAdapters({ lock: async () => ({ ok: true, idempotent: true }) });
+  const r = await runSourceModeLockedSave(saveInput(), ad);
+  assert.equal(r.ok, true); assert.equal(r.idempotent, true);
+});
+
+test('orchestration: conflict → 방금 저장본 rollback(CAS 복원 + 신규 storage 삭제)', async () => {
+  const ad = stubAdapters({ lock: async () => ({ ok: false, code: 'SOURCE_MODE_CONFLICT', currentSourceMode: 'upload' }) });
+  const r = await runSourceModeLockedSave(saveInput(), ad);
+  assert.equal(r.ok, false);
+  assert.equal(r.code, 'SOURCE_MODE_CONFLICT');
+  assert.equal(r.rolledBack, true);
+  assert.equal(r.currentSourceMode, 'upload');
+  assert.deepEqual(ad._calls.restore[0], { sid: 's1', expected: 'NEWURL', restoreTo: 'OLD' });  /* CAS: after===현재일 때만 OLD로 */
+  assert.deepEqual(ad._calls.del, ['ai/x/scene_s1.png']);                                       /* 신규 파일만 삭제 */
+});
+
+test('orchestration: conflict + 다른 사용자가 이후 저장(CAS 불일치) → 복원 안 함(타인 저장 보존)', async () => {
+  const ad = stubAdapters({
+    lock: async () => ({ ok: false, code: 'SOURCE_MODE_CONFLICT', currentSourceMode: 'upload' }),
+    restoreSceneImageCas: async () => false,   /* 현재값 !== after → 복원 안 함 */
+  });
+  const r = await runSourceModeLockedSave(saveInput(), ad);
+  assert.equal(r.code, 'SOURCE_MODE_CONFLICT');
+  assert.equal(r.restored, false);            /* 타인의 이후 저장 덮지 않음 */
+  assert.equal(r.storageDeleted, true);       /* 그래도 내 신규 storage 파일은 정리 */
+});
+
+test('orchestration: storage 삭제 실패 → LOCK_ROLLBACK_FAILED + orphan 기록', async () => {
+  const ad = stubAdapters({
+    lock: async () => ({ ok: false, code: 'SOURCE_MODE_CONFLICT', currentSourceMode: 'upload' }),
+    deleteStorage: async () => { throw new Error('storage down'); },
+  });
+  const r = await runSourceModeLockedSave(saveInput(), ad);
+  assert.equal(r.code, 'LOCK_ROLLBACK_FAILED');
+  assert.equal(ad._calls.orphan.length, 1);
+  assert.equal(ad._calls.orphan[0].reason, 'storage-delete-failed');
+});
+
+test('orchestration: scene 복원 throw → LOCK_ROLLBACK_FAILED + orphan 기록', async () => {
+  const ad = stubAdapters({
+    lock: async () => ({ ok: false, code: 'SOURCE_MODE_CONFLICT', currentSourceMode: 'upload' }),
+    restoreSceneImageCas: async () => { throw new Error('db down'); },
+  });
+  const r = await runSourceModeLockedSave(saveInput(), ad);
+  assert.equal(r.code, 'LOCK_ROLLBACK_FAILED');
+  assert.equal(ad._calls.orphan[0].reason, 'scene-restore-failed');
+});
+
+test('orchestration: lock 호출 자체 실패 → 원본 유지(kept), rollback 안 함', async () => {
+  const ad = stubAdapters({ lock: async () => { throw new Error('network'); } });
+  const r = await runSourceModeLockedSave(saveInput(), ad);
+  assert.equal(r.ok, false); assert.equal(r.kept, true);
+  assert.equal(ad._calls.restore.length, 0);   /* 작업 보호: 삭제/복원 안 함 */
+  assert.equal(ad._calls.del.length, 0);
+});
+
+test('orchestration: CORRUPT_IMAGE_POLICY → 원본 유지(kept), rollback 안 함', async () => {
+  const ad = stubAdapters({ lock: async () => ({ ok: false, code: 'CORRUPT_IMAGE_POLICY' }) });
+  const r = await runSourceModeLockedSave(saveInput(), ad);
+  assert.equal(r.code, 'CORRUPT_IMAGE_POLICY'); assert.equal(r.kept, true);
+  assert.equal(ad._calls.del.length, 0);
 });

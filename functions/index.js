@@ -2156,6 +2156,11 @@ exports.lockImageSourceMode = onCall(
     }
     if (!decision) throw new HttpsError('internal', 'INTERNAL');
 
+    if (decision.action === 'corrupt') {
+      /* 비정상 저장값 — 자동 덮어쓰기 금지(교사 개입). 원본은 호출부가 유지. */
+      logger.warn('[sourceMode] corrupt imagePolicy', { classId: ctx.classId, teamName: ctx.teamName });
+      return { ok: false, code: 'CORRUPT_IMAGE_POLICY' };
+    }
     if (decision.action === 'conflict') {
       return { ok: false, code: 'SOURCE_MODE_CONFLICT', currentSourceMode: decision.currentSourceMode };
     }
@@ -2178,21 +2183,52 @@ exports.lockImageSourceMode = onCall(
 /* ════════════════════════════════════════════════════════════════
    resetImageSourceMode — 교사/super_admin만. 작품에 원본 이미지가 하나도 없을 때만
    imagePolicy를 비운다(방식 변경 준비). 이미지가 남아 있으면 SOURCE_IMAGES_REMAIN.
+   ──────────────────────────────────────────────────────────────
+   S2-2A §10 경쟁 안전: "scenes 비었나 확인 → clear" 사이에 학생이 새 원본을 저장하면
+   이미지 존재 + policy 없음 상태가 생길 수 있다. 방지:
+   1) scenes empty 확인.
+   2) 현재 imagePolicy 캡처(prev) → CAS transaction(현재값이 prev와 같을 때만 null).
+      그 사이 racing lock이 새 policy를 박았으면 CAS abort → RESET_RACE_RETRY.
+   3) clear 후 scenes 재확인 → 그 사이 저장이 들어왔으면 RESET_RACE_RETRY
+      (그 저장의 lock이 policy를 다시 박으므로 최종은 이미지+policy로 수렴. 교사 재시도).
    ════════════════════════════════════════════════════════════════ */
+function _imagePolicyEq(a, b) {
+  const na = ImageS2Policy.normalizePolicy(a);
+  const nb = ImageS2Policy.normalizePolicy(b);
+  if (na === null && nb === null) return true;
+  if (!na || !nb) return false;
+  return na.sourceMode === nb.sourceMode && na.lockedAt === nb.lockedAt && na.lockedBy === nb.lockedBy;
+}
 exports.resetImageSourceMode = onCall(
   { enforceAppCheck: false },
   async (req) => {
     const ctx = await _validateSourceModeRequest(req, { teacherOnly: true });   /* 학생 거부 */
-    const scenesSnap = await admin.database().ref(`${ctx.teamBase}/scenes`).once('value');
-    const decision = ImageS2Policy.decideSourceModeReset(scenesSnap.val());
+    const scenesRef = admin.database().ref(`${ctx.teamBase}/scenes`);
+    const policyRef = admin.database().ref(`${ctx.teamBase}/viewer-meta/imagePolicy`);
+
+    const decision = ImageS2Policy.decideSourceModeReset((await scenesRef.once('value')).val());
     if (!decision.ok) {
       return { ok: false, code: decision.code };   /* SOURCE_IMAGES_REMAIN */
     }
+    const prevRaw = (await policyRef.once('value')).val();
+
+    let txn;
     try {
-      await admin.database().ref(`${ctx.teamBase}/viewer-meta/imagePolicy`).transaction(() => null);   /* 원자적 clear */
+      txn = await policyRef.transaction((cur) => {
+        if (!_imagePolicyEq(cur, prevRaw)) return;   /* racing lock이 새 policy 박음 → abort */
+        return null;                                  /* clear */
+      });
     } catch (e) {
       logger.error('[sourceMode] reset transaction 실패', { classId: ctx.classId, error: e && e.message });
       throw new HttpsError('internal', 'INTERNAL');
+    }
+    if (!txn.committed) {
+      return { ok: false, code: 'RESET_RACE_RETRY' };   /* 그 사이 lock 변경 — 교사 재시도 */
+    }
+    /* clear 후 재확인: 그 사이 새 원본 저장이 들어왔으면 무정책-이미지 상태 방지 차원에서 재시도 안내. */
+    const after = ImageS2Policy.decideSourceModeReset((await scenesRef.once('value')).val());
+    if (!after.ok) {
+      return { ok: false, code: 'RESET_RACE_RETRY' };
     }
     logger.info('[sourceMode] reset', { uid: ctx.uid, classId: ctx.classId, teamName: ctx.teamName });
     return { ok: true, reset: true };

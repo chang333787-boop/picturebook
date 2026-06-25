@@ -199,11 +199,57 @@ selected 이미지 결정 헬퍼(신규): `imageSelections[sceneId].selected==='
 
 ### Rules 변경 여부 — **없음 (emulator 실증)**
 `viewer-meta`는 `.write:"auth != null"`. 그 아래 `imagePolicy{.write:false}` child rule을 넣어 emulator로 테스트한 결과 **멤버·교사 write가 그대로 성공**(RTDB는 상위 .write grant가 하위로 상속 → 자식이 취소 불가). 따라서 ineffective한 규칙은 **넣지 않음(원복)**.
-- **실제 보호**: 클라 코드에서 imagePolicy 직접 write 제거(완료) + 서버 callable(Admin SDK) 단독 작성.
+- **정확한 표현(S2-2A §9 정정)**: 공식 앱 코드의 imagePolicy 직접 write 경로 **제거 완료**. **Rules 레벨 직접 write 차단은 미완료**(인증 사용자는 규칙상 여전히 imagePolicy write 가능 = 잔여 위험). "Admin SDK 단독 작성/차단 완료"로 표현하지 않는다.
 - **완전한 Rules 차단**: `viewer-meta` 블랭킷 `.write` 제거 + 자식별 grant 재구조화(모든 클라 작성 child 열거 필요) → 회귀 위험으로 **후속 Security Phase**. `tests/rules/image-s2-policy-rules.test.js`가 현 cascade 동작을 잠가 둠(재구조화 시 깨져 알림).
 
-### client 직접 write 차단
-`viewer-ai.js` `_saveImagePolicy`의 `app.database()...imagePolicy.set()` 제거 → `lockImageSourceMode` 콜러블 호출로 교체. 클라엔 직접 imagePolicy write 경로 0(grep 확인). 기존 작품 읽기·정규화는 S2-1 helper 사용.
+### client 직접 write 경로 제거
+`viewer-ai.js` `_saveImagePolicy`의 `app.database()...imagePolicy.set()` 제거 → `lockImageSourceMode` 콜러블 호출로 교체. 공식 앱 코드엔 직접 imagePolicy write 경로 0(grep 확인). 기존 작품 읽기·정규화는 S2-1 helper 사용. (Rules 레벨 차단은 위 잔여 위험 참고.)
 
 ### 동시성 결과
 `tests/image-s2-policy` 11/11(순수 결정 + CAS 시뮬: upload vs draw ×10 한쪽만 lock·반대 conflict·최종 단일 모드 / upload×2 idempotent·최초 메타 유지 / 기존 upload→draw 차단 / 교사 초기화 가부).
+
+---
+
+## 8. IMAGE-S2-2A 완성 — 실제 저장 흐름 연결 + B안 (2026-06-25)
+
+> branch `feature/image-s2-2`. deploy 0 · main 병합 0.
+
+### 실제 저장 연결 위치 (전수)
+| 입력 방식 | 위치(viewer-edit.js) | 저장 후 lock 호출 |
+|---|---|---|
+| 파일 업로드 | `_bindPbImageActions` `.js-pb-image-upload-input` change | `_lockSourceModeAfterImageSave('upload', ...)` |
+| 그림판 저장 | `_openPbDrawModal` `.js-pb-draw-save` click | `_lockSourceModeAfterImageSave('draw', ...)` |
+| 이미지 교체/변형/크롭 | 기존 이미지 수정(모드 불변) | lock 불필요(이미 잠김 → idempotent) |
+| 삭제 | imageData=null | lock 무관 |
+- AI 메뉴 `_ensureImagePolicyBeforeImageAi`는 **최초 결정자 아님**으로 축소(주석): 기존 sourceMode 읽기 + sourceMode 없는 기존 작품만 모달 보조(자동 추정 금지). 신규 정상 작품은 첫 원본 저장 때 이미 잠김.
+
+### 선택한 rollback 방식 (B안)
+순서: ①원본 저장(Storage 업로드 + scene.imageData + queueSave/flush) → ②`lockImageSourceMode` 콜러블 → ③ok/idempotent면 통과 / conflict면 rollback.
+- rollback(viewer-ai `_lockSavedImageSourceMode` + `_casRestoreSceneImage` + `_deleteImageStorage`):
+  - **DB scene 이미지 CAS 복원**: `scene.imageData` transaction에서 `cur===after면 before로, 아니면 cur 반환`(abort 아님). non-match를 cur로 반환해야 mismatch 시 RTDB가 서버값으로 자동 재실행 → **영속연결 없는/optimistic 환경에서도 안전**(emulator 실증). 타인의 이후 저장(값 다름)은 **보존**.
+  - **신규 storage 파일만 삭제**(이번에 만든 `after.storagePath`). 기존 정상 이미지 미삭제.
+  - 메모리/화면도 `before`로 되돌리고 안내 alert.
+- **안전 기본값**: lock 호출 실패/권한/네트워크 → 원본 **유지**(rollback 안 함, 작업 보호). conflict일 때만 rollback.
+- rollback 실패(restore throw 또는 storage delete 실패) → `LOCK_ROLLBACK_FAILED` + orphan 기록(콜러블 layer는 console.warn; 정식 cleanup-queue는 Storage 단계에서 §11와 통합 예정).
+
+### 경쟁 결과 (emulator 실증)
+`tests/rules/image-s2-lock-emulator.test.js`: 실제 RTDB transaction 2개를 Promise.all 동시 실행 ×10(양방향) → **한쪽만 lock·최종 단일 모드·반대 conflict**. 동일 모드 동시 → 한 번만 기록. scene CAS 복원 → 현재값===after면 복원, 타인 이후 저장이면 보존. `tests/image-s2-policy`: orchestration 전 분기(lock/idempotent/conflict-rollback/CAS-preserve/rollback-fail/kept-on-error/corrupt-kept) stub 검증.
+
+### 패자 DB 정리 / Storage 정리
+- DB: 패자 scene.imageData를 CAS로 before 복원(타인 저장 보존). 단순 `=null` 금지 — `cur===after`일 때만.
+- Storage: 패자가 방금 만든 파일만 `storage().ref(after.storagePath).delete()`. 실패 시 LOCK_ROLLBACK_FAILED.
+
+### reset 경쟁 결과
+`resetImageSourceMode`: scenes empty 확인 → 현재 imagePolicy 캡처(prev) → CAS transaction(`현재===prev`일 때만 null) → clear 후 scenes 재확인. 그 사이 lock 변경 또는 새 저장 → `RESET_RACE_RETRY`(교사 재시도). 이미지 존재+policy 없음 상태를 reporting하지 않음(racing 저장의 lock이 policy를 다시 박아 수렴).
+
+### 비정상 policy 처리
+`classifyPolicy`: null/sourceMode 필드 없음 → `absent`(lock 허용) / upload|draw → `valid` / 객체에 비정상 sourceMode(예 'paint')·객체 아님 → `corrupt`. corrupt면 `decideSourceModeLock`이 자동 덮어쓰지 않고 `CORRUPT_IMAGE_POLICY` 반환 → 콜러블 `{ok:false, code}`, 클라는 원본 유지 + 교사 안내. **자동 복구 폐기**(기존 'paint'→lock 동작 변경). ⚠️ 운영 DB에 실제 비정상 값이 있는지 read-only 스캔은 **미수행**(운영 접근 회피) — 마이그레이션 필요 시 교사용 1회 점검으로 분리 권장.
+
+### 오류 코드(추가)
+기존 + `CORRUPT_IMAGE_POLICY` · `LOCK_ROLLBACK_FAILED` · `RESET_RACE_RETRY` · `LOCK_CALL_FAILED`(클라, 원본 유지).
+
+### Rules 잔여 위험
+§7 정정 그대로: 공식 앱 직접 write 경로 제거 완료, **Rules 레벨 차단 미완료**(인증 사용자 imagePolicy write 가능). 후속 Security Phase에서 viewer-meta write 재구조화.
+
+### 미검증(리뷰 게이트)
+- 실제 **두 브라우저/iPad + 실 Firebase** 동시 저장 E2E는 미수행(여기선 DB emulator + stub로 transaction/CAS/orchestration 검증). 정상(비충돌) 저장 경로는 기존 동작 + lock 호출 추가뿐(원본 무영향). 라이브 conflict-rollback 실사용 확인은 사용자 QA 권장.

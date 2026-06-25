@@ -32,16 +32,33 @@ function normalizePolicy(raw) {
   };
 }
 
+/* 저장된 imagePolicy 분류:
+   - 'absent'  : null/undefined, 또는 객체지만 sourceMode 필드 자체가 없음(미설정) → lock 허용.
+   - 'valid'   : sourceMode가 upload|draw.
+   - 'corrupt' : 객체에 sourceMode가 있으나 비정상 값(예: 'paint'), 또는 객체 아님 → 자동 덮어쓰기 금지.
+   (S2-2A §8: 비정상 객체는 자동 복구하지 않고 CORRUPT_IMAGE_POLICY로 교사 개입 요구.) */
+function classifyPolicy(raw) {
+  if (raw === null || raw === undefined) return 'absent';
+  if (typeof raw !== 'object') return 'corrupt';
+  if (raw.sourceMode === undefined || raw.sourceMode === null) return 'absent';
+  if (isValidSourceMode(raw.sourceMode)) return 'valid';
+  return 'corrupt';
+}
+
 /* ★ transaction 결정. currentRaw = RTDB가 넘긴 현재 imagePolicy(raw|null).
    req = { sourceMode, sceneId, uid, now }.  (sourceMode 유효성은 호출 전 검증.)
    반환:
-     { action:'lock', policy }       — 현재 미설정 → 새 정책 기록(콜백이 policy 반환)
-     { action:'idempotent', policy }  — 동일 모드 → 기록 안 함(현재값 유지)
-     { action:'conflict', currentSourceMode } — 반대 모드 → abort + 차단 */
+     { action:'lock', policy }                  — 미설정 → 새 정책 기록(콜백이 policy 반환)
+     { action:'idempotent', policy }            — 동일 모드 → 기록 안 함(현재값 유지)
+     { action:'conflict', currentSourceMode }   — 반대 모드 → abort + 차단
+     { action:'corrupt', code }                 — 비정상 저장값 → abort + CORRUPT_IMAGE_POLICY(자동복구 X) */
 function decideSourceModeLock(currentRaw, req) {
-  const cur = normalizePolicy(currentRaw);
+  const cls = classifyPolicy(currentRaw);
   const mode = req && req.sourceMode;
-  if (!cur) {
+  if (cls === 'corrupt') {
+    return { action: 'corrupt', code: 'CORRUPT_IMAGE_POLICY' };
+  }
+  if (cls === 'absent') {
     return {
       action: 'lock',
       policy: {
@@ -52,10 +69,67 @@ function decideSourceModeLock(currentRaw, req) {
       },
     };
   }
+  const cur = normalizePolicy(currentRaw);
   if (cur.sourceMode === mode) {
     return { action: 'idempotent', policy: cur };   /* 기존 lock 메타 보존 */
   }
   return { action: 'conflict', currentSourceMode: cur.sourceMode };
+}
+
+/* ════════════════════════════════════════════════════════════════
+   B안 orchestration (저장 성공 후 lock + 패배 rollback) — adapter 주입형(순수 시퀀스).
+   ──────────────────────────────────────────────────────────────
+   호출부(클라 viewer-edit / 테스트 하니스)는 실제 SDK/emulator 어댑터를 주입한다.
+   input = { mode, sceneId, before:{imageData}, after:{imageData, storagePath} }
+   adapters = {
+     lock(mode, sceneId) -> {ok, idempotent?} | {ok:false, code, currentSourceMode?}
+     restoreSceneImageCas(sceneId, expected, restoreTo) -> bool  (현재값===expected일 때만 복원, 복원여부 반환)
+     deleteStorage(path) -> bool
+     recordOrphan(info) -> void
+   }
+   반환: { ok, sourceMode?, idempotent?, code?, currentSourceMode?, rolledBack?, restored?, storageDeleted?, kept? }
+   안전 원칙:
+   - lock 호출 자체 실패/네트워크 오류 → 원본 유지(kept), rollback 안 함(사용자 작업 보호).
+   - conflict일 때만 rollback. restore는 CAS(현재값===after)라 타인의 이후 저장은 덮지 않음.
+   - 삭제는 이번에 만든 storagePath만. 실패 시 LOCK_ROLLBACK_FAILED + orphan 기록. */
+async function runSourceModeLockedSave(input, adapters) {
+  const { mode, sceneId, before, after } = input || {};
+  let lockRes;
+  try {
+    lockRes = await adapters.lock(mode, sceneId);
+  } catch (e) {
+    return { ok: false, code: 'LOCK_CALL_FAILED', kept: true };   /* 원본 유지 */
+  }
+  if (lockRes && lockRes.ok) {
+    return { ok: true, sourceMode: mode, idempotent: !!lockRes.idempotent };
+  }
+  if (lockRes && lockRes.code === 'CORRUPT_IMAGE_POLICY') {
+    return { ok: false, code: 'CORRUPT_IMAGE_POLICY', kept: true };  /* 원본 유지 — 교사 개입 */
+  }
+  if (lockRes && lockRes.code === 'SOURCE_MODE_CONFLICT') {
+    let restored = false, restoreThrew = false;
+    try {
+      restored = await adapters.restoreSceneImageCas(sceneId, after && after.imageData, before && before.imageData);
+    } catch (e) { restoreThrew = true; }
+    let storageDeleted = true;
+    const path = after && after.storagePath;
+    if (path) {
+      try { storageDeleted = !!(await adapters.deleteStorage(path)); }
+      catch (e) { storageDeleted = false; }
+    }
+    if (restoreThrew || (path && !storageDeleted)) {
+      try {
+        await adapters.recordOrphan({
+          sceneId, storagePath: path || null, restored,
+          reason: restoreThrew ? 'scene-restore-failed' : 'storage-delete-failed',
+        });
+      } catch (e) { /* 기록 실패해도 진행 */ }
+      return { ok: false, code: 'LOCK_ROLLBACK_FAILED', currentSourceMode: lockRes.currentSourceMode, restored, storageDeleted };
+    }
+    return { ok: false, code: 'SOURCE_MODE_CONFLICT', currentSourceMode: lockRes.currentSourceMode, rolledBack: true, restored, storageDeleted };
+  }
+  /* 기타 코드(권한 등) → 원본 유지(rollback 안 함). */
+  return { ok: false, code: (lockRes && lockRes.code) || 'LOCK_FAILED', kept: true };
 }
 
 /* scenes 트리에 "원본 이미지"가 하나라도 있는가. (imageData/imageUrl 비어있지 않으면 있음) */
@@ -81,7 +155,9 @@ module.exports = {
   SOURCE_MODES,
   isValidSourceMode,
   normalizePolicy,
+  classifyPolicy,
   decideSourceModeLock,
+  runSourceModeLockedSave,
   scenesHaveOriginalImage,
   decideSourceModeReset,
 };

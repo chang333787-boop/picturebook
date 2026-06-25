@@ -5680,6 +5680,8 @@ function _renderSceneStylePopoverBody() {
     bodyInner = `
       ${scene ? _pbSceneToneSectionHtml(scene) : ''}
       ${scene ? _pbBodyBoxOpacitySectionHtml(scene) : ''}
+      ${scene ? _pbEndingMoodSectionHtml(scene) : ''}
+      ${scene ? _pbStoryStageSectionHtml(scene) : ''}
       <div class="edit-scene-style-divider"></div>
       <div class="edit-scene-style-subtitle">🅰 글자 스타일</div>
       ${scene ? _pbGlyphStyleSectionHtml(scene) : ''}
@@ -5699,11 +5701,138 @@ function _renderSceneStylePopoverBody() {
     </div>`;
 }
 
+/* ================================================================
+   PB-MOOD-2: 장면 분위기 실제 저장 (🌙 결말 분위기 + 🎬 장면 분위기)
+   ─────────────────────────────────────────────────────────────
+   · imageCenter 그림책 장면만 노출. 엔딩=scene.pbEndingMood(happy|sad),
+     일반=scene.pbStoryStage(rising|turning). '기본'=필드 제거(null → update 시 키 삭제).
+   · 실제 저장: scene 필드 즉시 + saveSceneText(ALLOWED 포함) → Firebase. 감상에도 저장값 렌더.
+   · 각 테마는 같은 의미를 고유 시각 언어로 번역(v03-modes.css·공통색 덮기 아님).
+   · variant(s1/s2) 보기 중엔 저장 차단(원본에서만). 값 없는 기존 작품은 미부착(정본 그대로).
+   ================================================================ */
+function _pbEffectiveEndingMood(scene) {
+  return (scene && (scene.pbEndingMood === 'happy' || scene.pbEndingMood === 'sad')) ? scene.pbEndingMood : '';
+}
+function _pbEffectiveStoryStage(scene) {
+  return (scene && (scene.pbStoryStage === 'rising' || scene.pbStoryStage === 'turning')) ? scene.pbStoryStage : '';
+}
+function _isPbImageCenterEndingScene(scene) {
+  return !!(scene
+    && ViewerState.project && ViewerState.project.projectType === 'picturebook'
+    && (scene.type === 'ending' || scene.isEnding)
+    && scene.picturebookSubmode === 'imageCenter');
+}
+function _isPbImageCenterNormalScene(scene) {
+  return !!(scene
+    && ViewerState.project && ViewerState.project.projectType === 'picturebook'
+    && scene.picturebookSubmode === 'imageCenter'
+    && scene.type !== 'cover' && !scene.isCover
+    && scene.type !== 'ending' && !scene.isEnding);
+}
+/* 분위기 필드 저장 — 메모리 즉시 + saveSceneText 직접 patch + 같은 장면 재렌더.
+   허용값 외(기본)=null → Firebase update가 키 삭제. picturebookSubmode 저장과 동일 정책. */
+function _saveSceneMoodField(scene, field, val, allow) {
+  if (!scene) return;
+  if (typeof _isVariantViewLocked === 'function' && _isVariantViewLocked()) {
+    if (typeof _showSaveStatus === 'function') _showSaveStatus('AI 버전은 보기 전용입니다. 편집은 원본에서 해 주세요.', 2500);
+    return;
+  }
+  const v = (allow.indexOf(val) >= 0) ? val : null;
+  scene[field] = v;                                   /* 메모리 즉시 반영 */
+  const id = scene.num != null ? scene.num : scene.id;
+  if (id != null && typeof saveSceneText === 'function') {
+    saveSceneText(id, { [field]: v }).catch(e => {
+      console.warn('[pb-mood] 저장 실패', field, id, e && e.code);
+      if (typeof _showSaveStatus === 'function') _showSaveStatus('분위기 저장에 실패했어요. 잠시 후 다시 시도해 주세요.', 2500);
+    });
+  }
+  if (typeof _scheduleViewerFrameReRender === 'function') _scheduleViewerFrameReRender();
+}
+function _pbEndingMoodSectionHtml(scene) {
+  if (!_isPbImageCenterEndingScene(scene)) return '';
+  const cur = _pbEffectiveEndingMood(scene);
+  const items = [
+    { v: '',      label: '기본 모습',      help: '현재 테마 그대로 보여요' },
+    { v: 'happy', label: '밝은 결말',      help: '따뜻하고 환한 느낌이에요' },
+    { v: 'sad',   label: '여운 있는 결말', help: '조용하고 차분한 느낌이에요' },
+  ];
+  const segs = items.map(it => {
+    const on = (cur === it.v);
+    return `<button type="button" role="radio" aria-checked="${on}" tabindex="${on ? '0' : '-1'}"
+      class="pb-mood-seg pb-mood-seg--${it.v || 'base'} js-pb-mood-seg${on ? ' is-on' : ''}"
+      data-mood="${it.v}" title="${it.label} — ${it.help}" aria-label="${it.label}. ${it.help}">
+      <span class="pb-mood-seg__label">${it.label}</span></button>`;
+  }).join('');
+  return `
+    <div class="edit-scene-style-divider"></div>
+    <div class="edit-scene-style-subtitle">🌙 결말 분위기</div>
+    <div class="pb-mood-seg-group js-pb-mood-group" role="radiogroup" aria-label="결말 분위기">${segs}</div>
+    <div class="edit-section-hint">눌러서 바로 바꿔요. 자동 저장돼요.</div>`;
+}
+function _pbStoryStageSectionHtml(scene) {
+  if (!_isPbImageCenterNormalScene(scene)) return '';
+  const cur = _pbEffectiveStoryStage(scene);
+  const items = [
+    { v: '',        label: '기본 장면',         help: '현재 테마 그대로 보여요' },
+    { v: 'rising',  label: '이야기가 커져요',   help: '조금 밝고 활기있게' },
+    { v: 'turning', label: '긴장감이 높아져요', help: '대비와 깊이가 늘어요' },
+  ];
+  const segs = items.map(it => {
+    const on = (cur === it.v);
+    return `<button type="button" role="radio" aria-checked="${on}" tabindex="${on ? '0' : '-1'}"
+      class="pb-mood-seg pb-mood-seg--stage-${it.v || 'base'} js-pb-stage-seg${on ? ' is-on' : ''}"
+      data-stage="${it.v}" title="${it.label} — ${it.help}" aria-label="${it.label}. ${it.help}">
+      <span class="pb-mood-seg__label">${it.label}</span></button>`;
+  }).join('');
+  return `
+    <div class="edit-scene-style-divider"></div>
+    <div class="edit-scene-style-subtitle">🎬 장면 분위기</div>
+    <div class="pb-mood-seg-group js-pb-stage-group" role="radiogroup" aria-label="장면 분위기">${segs}</div>
+    <div class="edit-section-hint">눌러서 바로 바꿔요. 자동 저장돼요.</div>`;
+}
+/* radiogroup 공통 바인딩 — 클릭 + 화살표/Home/End/Space/Enter. saveFn(val): 실제 저장. */
+function _bindMoodSegGroup(pop, segSelector, dataAttr, saveFn) {
+  const segs = Array.prototype.slice.call(pop.querySelectorAll(segSelector));
+  if (!segs.length) return;
+  const apply = (btn) => {
+    const raw = btn.dataset[dataAttr];
+    const val = raw ? raw : null;            /* ''(기본) → null */
+    segs.forEach(b => {
+      const on = (b === btn);
+      b.classList.toggle('is-on', on);
+      b.setAttribute('aria-checked', on ? 'true' : 'false');
+      b.setAttribute('tabindex', on ? '0' : '-1');
+    });
+    saveFn(val);
+  };
+  segs.forEach((btn, i) => {
+    btn.addEventListener('click', () => apply(btn));
+    btn.addEventListener('keydown', (e) => {
+      let ni = -1;
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') ni = (i + 1) % segs.length;
+      else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') ni = (i - 1 + segs.length) % segs.length;
+      else if (e.key === 'Home') ni = 0;
+      else if (e.key === 'End') ni = segs.length - 1;
+      else if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); apply(btn); return; }
+      else return;
+      e.preventDefault();
+      const next = segs[ni];
+      next.focus();
+      apply(next);
+    });
+  });
+}
+
 function _bindSceneStylePopover(pop) {
   pop.querySelector('.js-scene-style-popover-close')
     ?.addEventListener('click', _closeSceneStylePopover);
   const scene = ViewerState.scenes[ViewerState.currentSceneId];
   if (!scene) return;
+  /* PB-MOOD-2: 결말 분위기·장면 분위기 세그먼트 — 실제 저장(클릭 시 scene 필드 저장 + 재렌더). */
+  _bindMoodSegGroup(pop, '.js-pb-mood-seg', 'mood',
+    (val) => _saveSceneMoodField(scene, 'pbEndingMood', val, ['happy', 'sad']));
+  _bindMoodSegGroup(pop, '.js-pb-stage-seg', 'stage',
+    (val) => _saveSceneMoodField(scene, 'pbStoryStage', val, ['rising', 'turning']));
   const ptype = (typeof _resolveViewerProjectType === 'function') ? _resolveViewerProjectType() : null;
   if (ptype === 'text') {
     /* REFINE-IA-2: 탭 전환 — _sceneStyleTab 갱신 후 본문 재렌더+재바인딩. */

@@ -4089,6 +4089,9 @@
       PHASE:      PHASE,
       MOCK_ONLY:  MOCK_ONLY,
       openModal:  openModal,
+      /* IMAGE-S2-10 — 교사 UI 모듈(viewer-image-batch-ui.js)이 콜러블/앱에 접근하도록 노출(내부 함수 그대로). */
+      _callPhaseAFunction: _callPhaseAFunction,
+      _getViewerFirebaseApp: _getViewerFirebaseApp,
       _resetOnboarding: function () {
         try { localStorage.removeItem(LS_ONBOARDING_KEY); } catch (e) {}
       },

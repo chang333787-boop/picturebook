@@ -39,3 +39,52 @@
 ## 5. 안전 기본값 (운영 차단 유지)
 - imageS2 = `aiSettings.modes.imageS2` 꺼짐이 기본(교사가 명시적 ON). 생성=교사만. secret 없으면 not-configured.
 - 학생은 생성/적용 불가(원본 토글 미리보기만). 원본은 어떤 경로로도 미수정.
+
+---
+
+## 6. 배포 준비 재확인 (2026-06-29, IMAGE-S2-PRIVACY-DEPLOY-GATE-LOOP)
+
+### 6-1. 확정 코드 사실 (deploy 영향)
+| 항목 | 값 | 근거 |
+|---|---|---|
+| Firebase project | `picturebook-8731f` | `.firebaserc:3` |
+| Functions region | `asia-northeast3`(서울) | `functions/index.js:58` (전역) |
+| Node runtime | **20** | `functions/package.json:6` |
+| **새 npm 의존성** | **없음** | adapter는 Node20 global `fetch`/`FormData`/`Blob` 사용(`image-s2-adapter-openai.js:12`). `package.json` deps 무변경(firebase-admin/functions + anthropic-sdk만) |
+| secret 필요 함수 | **`callImageAiS2`만** | `index.js:2154` `secrets:[IMAGE_OPENAI_API_KEY]` |
+| secret 불필요 함수 | `callStartImageS2Batch`(계획+job 생성만, OpenAI 호출 0) / `callApplyImageS2Selection`(선택 기록만) | `index.js:2229`, `2269` — 설계상 정상. 3종 동시 배포 무방 |
+| timeout | callImageAiS2 **300s**(전역 60s override), batch/apply 60s | `index.js:2154` |
+| 미등록 시 | `_selectImageS2Adapter`→not-configured→`NOT_CONFIGURED`·생성 차단·quota 차감 0 | `index.js:2120,2127` |
+
+### 6-2. secret 등록 명령 (승인 후 실행 — 이 루프에서 실행 안 함)
+```
+firebase functions:secrets:set IMAGE_OPENAI_API_KEY --project picturebook-8731f
+```
+- 실제 secret 값은 **묻거나 저장하지 않는다**. 운영자가 직접 입력.
+- `defineSecret` 이름과 일치(`index.js:66`). 등록 전엔 not-configured=생성 0(안전).
+- 확인: `firebase functions:secrets:get IMAGE_OPENAI_API_KEY --project picturebook-8731f` (값 노출 X).
+
+### 6-3. Functions 배포 명령 (승인 후 실행 — 이 루프에서 실행 안 함)
+```
+firebase deploy --only functions:callImageAiS2,functions:callStartImageS2Batch,functions:callApplyImageS2Selection --project picturebook-8731f --non-interactive
+```
+- Rules/Storage 배포 불요(§2). codebase=default(`firebase.json`).
+- ⚠️ `firebase deploy`는 **dry-run 미지원**(functions). 대신 배포 전 `node --check` + 단위 테스트로 검증(아래 §6-5).
+
+### 6-4. aiSettings 플래그 (현재 vs 권장)
+**현재 코드 게이트 = `aiSettings.modes.imageS2` 불리언 1개**(서버 `index.js:419-427`·클라 경로 동일 `viewer-ai.js:499`).
+- 운영 ON: 테스트 학급 `classes/{cid}/aiSettings`에 `enabled:true` + `modes.imageS2:true`. (실제 DB write는 smoke 루프에서만.)
+
+**권장(다음 루프 — 코드 미반영, 본 루프 구현 안 함):** 개인정보 게이트를 코드로 강제하려면 최소 하드닝 후보 —
+- `aiSettings.imageS2.privacyAcknowledged === true` 아니면 `callImageAiS2`/`callStartImageS2Batch`가 `permission-denied`(미설정=차단). → "개인정보 안내 확인 전 생성 불가"를 서버에서 보장.
+- `aiSettings.imageS2.providerReady === true`(secret/제공자 준비 표식, 선택).
+- `aiSettings.imageS2.model`/`costPerImageUsd`(표시·로깅용, 선택).
+- ⚠️ 이는 **behavior 변경 + 테스트 추가**가 필요하므로 안전 모드(조사·구현 분리)에 따라 **승인 후 별도 루프**에서 구현. 본 루프는 설계만 문서화.
+
+### 6-5. 테스트 상태 (2026-06-29)
+- image-s2 단위 회귀: **111/111 PASS**(policy/generation/prod-adapter/batch/data/ui, 네트워크 0·주입 mock). `node --check` 5개 functions 파일 OK.
+- rules emulator 테스트(`tests/rules/image-s2-*`)는 Java 에뮬레이터 필요 → 이번 루프 미실행(코드 무변경이라 회귀 위험 0).
+- 실제 OpenAI 호출·secret·deploy·DB write·main 병합 **모두 미실행**.
+
+### 6-6. 운영 smoke
+→ `image_s2_operational_smoke_plan.md` 참조(14단계 + 중단 기준 + 롤백).

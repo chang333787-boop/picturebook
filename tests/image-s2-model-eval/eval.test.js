@@ -45,7 +45,7 @@ test('validateCandidate — 빈/placeholder modelId·deprecated·편집미지원
 test('prompt-pack — 팩 검증 통과 + 금지어 가드 동작', () => {
   const v = promptPack.validatePromptPack();
   assert.ok(v.ok, v.errors.join(', '));
-  assert.equal(promptPack.DEFAULT_LEVEL_CANDIDATE, 'P2');
+  assert.equal(promptPack.DEFAULT_LEVEL_CANDIDATE, 'P3');
   for (const id of promptPack.listLevels()) {
     const p = promptPack.buildPrompt(id);
     assert.equal(promptPack.findBannedPhrase(p.text), null, `${id} 정본 프롬프트엔 금지어 없음`);

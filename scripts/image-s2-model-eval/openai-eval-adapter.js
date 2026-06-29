@@ -22,7 +22,7 @@ const ENDPOINT = 'https://api.openai.com/v1/images/edits';
 const DEFAULT_MODEL = 'gpt-image-2';
 const DEFAULT_SIZE = '1536x1024';   /* 가로 3:2 */
 const DEFAULT_QUALITY = 'medium';
-const DEFAULT_TIMEOUT_MS = 60000;
+const DEFAULT_TIMEOUT_MS = 180000;   /* gpt-image-2 medium은 실제(디테일 많은) 그림에서 60s 넘는 경우 잦음 → 3분 */
 const DEFAULT_MAX_BYTES = 12 * 1024 * 1024;
 
 /* MIME from magic bytes. */
@@ -109,9 +109,11 @@ async function callOpenAiImageEdit(opts) {
   if (!fetchImpl || !FormDataImpl || !BlobImpl) return { ok: false, provider: 'openai', code: CODES.PROVIDER_ERROR, reason: 'fetch/FormData/Blob 미가용(Node 20+ 필요)' };
 
   const req = buildEditRequest(o);
+  const inputMime = o.inputMime || 'image/png';   /* 원본이 jpeg/webp면 정확히 전달 */
+  const ext = inputMime === 'image/jpeg' ? 'jpg' : (inputMime === 'image/webp' ? 'webp' : 'png');
   const form = new FormDataImpl();
   for (const k of Object.keys(req.fields)) form.append(k, String(req.fields[k]));
-  form.append(req.imageField, new BlobImpl([o.imagePng], { type: 'image/png' }), 'input.png');
+  form.append(req.imageField, new BlobImpl([o.imagePng], { type: inputMime }), 'input.' + ext);
 
   const timeoutMs = Number.isFinite(o.timeoutMs) ? o.timeoutMs : DEFAULT_TIMEOUT_MS;
   const controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;

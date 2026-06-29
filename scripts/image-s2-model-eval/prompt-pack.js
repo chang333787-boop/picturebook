@@ -37,7 +37,7 @@ const LEVELS = {
     'Keep the same events and subjects as drawn.',
   ] },
 };
-const DEFAULT_LEVEL_CANDIDATE = 'P2';   /* 학생 실제 기본값 후보 — 평가 후 확정 */
+const DEFAULT_LEVEL_CANDIDATE = 'P3';   /* 확정(2026-06-29 사용자 결정): 실 학생그림 P2↔P3 비교 후 P3(표현 강화). 보존 유지+크레용 채움 더 풍부. */
 
 /* 절대 금지 지시(편집/override 프롬프트에 들어가면 안 되는 affirmative 문구).
    ★ 위 SHARED/LEVELS 는 이 토큰들을 (부정문으로도) 포함하지 않도록 긍정형으로 작성. */

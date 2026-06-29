@@ -115,7 +115,13 @@ function decideGenerationGate(opts) {
 
   const pc = _classifyPolicy(o.policy);
   if (pc.kind === 'corrupt') return { action: 'reject', code: GEN_CODES.CORRUPT_IMAGE_POLICY, sceneId };
-  if (pc.kind !== 'valid') return { action: 'reject', code: GEN_CODES.IMAGE_POLICY_REQUIRED, sceneId };
+  if (pc.kind !== 'valid') {
+    /* IMAGE-S2-LEGACY: imagePolicy(sourceMode 잠금) 도입 이전 옛 그림책 — policy 없음(required).
+       그림(originalSrc)이 실제 저장돼 있고 교사가 명시 실행하면 허용한다.
+       sourceMode는 클라가 보내지 않고 서버가 'upload'로 보정(inferred): 기존 hash/stale/variant/클라
+       normalize allowlist(upload|draw) 와 충돌 없음. 최신 작품(valid policy)은 아래 분기로 그대로 유지. */
+    return { action: 'proceed', sceneId, sourceMode: 'upload', originalSrc, sourceModeInferred: true, legacyImagePolicy: true };
+  }
 
   return { action: 'proceed', sceneId, sourceMode: pc.sourceMode, originalSrc };
 }
@@ -156,7 +162,7 @@ function isOriginalImageStoragePath(path) {
 function buildS2Variant(opts) {
   const o = opts || {};
   if (!o.url || !o.storagePath || !o.basedOnImageHash || !o.sourceMode) return null;
-  return {
+  const v = {
     url: String(o.url),
     storagePath: String(o.storagePath),
     sourceMode: o.sourceMode,
@@ -169,6 +175,10 @@ function buildS2Variant(opts) {
     finalizedAt: Number.isFinite(o.finalizedAt) ? o.finalizedAt : 0,
     stale: false,
   };
+  /* IMAGE-S2-LEGACY: imagePolicy 없는 옛 작품을 보정 처리했음을 기록(감사·표시용·schema 비충돌). */
+  if (o.sourceModeInferred === true) v.sourceModeInferred = true;
+  if (o.legacyImagePolicy === true) v.legacyImagePolicy = true;
+  return v;
 }
 
 /* ── stale 판정 (PRD §9) — 원본 hash 또는 sourceMode 불일치면 stale ──
@@ -322,6 +332,7 @@ async function runImageS2Generation(input, deps) {
     url: up.url, storagePath, sourceMode: gate.sourceMode, basedOnImageHash: fingerprint,
     model: gen.model || adapter.model, modelVersion: gen.modelVersion || adapter.modelVersion,
     promptVersion: PROMPT_VERSION, targetFrame: TARGET_FRAME, finalizedAt: d.now(),
+    sourceModeInferred: gate.sourceModeInferred === true, legacyImagePolicy: gate.legacyImagePolicy === true,
   });
   if (!variant) return refundAnd({ ok: false, status: 'failed', code: GEN_CODES.WRITE_FAILED, sceneId });
   try {
@@ -335,8 +346,8 @@ async function runImageS2Generation(input, deps) {
     try { await d.recordCleanup(buildCleanupQueueRecord(existing.storagePath, d.now(), CLEANUP_GRACE_MS)); } catch (e) { /* ignore */ }
   }
 
-  log({ stage: 'succeeded', sceneId, sourceMode: gate.sourceMode });
-  return { ok: true, status: 'succeeded', sceneId, variant, quotaConsumed: 1 };
+  log({ stage: 'succeeded', sceneId, sourceMode: gate.sourceMode, legacyImagePolicy: gate.legacyImagePolicy === true });
+  return { ok: true, status: 'succeeded', sceneId, variant, quotaConsumed: 1, legacyImagePolicy: gate.legacyImagePolicy === true };
 }
 
 module.exports = {

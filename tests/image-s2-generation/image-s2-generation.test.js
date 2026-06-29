@@ -103,10 +103,15 @@ test('게이트 거부 — corrupt policy → CORRUPT_IMAGE_POLICY', async () =>
   assert.equal(res.code, 'CORRUPT_IMAGE_POLICY');
 });
 
-test('게이트 거부 — policy 없음 → IMAGE_POLICY_REQUIRED', async () => {
+test('legacy — policy 없는 옛 작품(imageData 있음) → upload 보정 진행·legacy 표시', async () => {
   const deps = makeDeps({ policy: null });
   const res = await G.runImageS2Generation(baseInput(), deps);
-  assert.equal(res.code, 'IMAGE_POLICY_REQUIRED');
+  assert.equal(res.ok, true);
+  assert.equal(res.status, 'succeeded');
+  assert.equal(res.legacyImagePolicy, true);
+  assert.equal(res.variant.sourceMode, 'upload');
+  assert.equal(res.variant.legacyImagePolicy, true);
+  assert.equal(res.variant.sourceModeInferred, true);
 });
 
 test('모델 실패 → quota 예약 후 환불, write 0', async () => {
@@ -226,7 +231,14 @@ test('decideGenerationGate — 분기', () => {
   assert.equal(G.decideGenerationGate({ sceneId: '1', isTeacher: true, scene: null }).code, 'SCENE_NOT_FOUND');
   assert.equal(G.decideGenerationGate({ sceneId: '1', isTeacher: true, scene: { title: 'x' }, policy: { sourceMode: 'upload' } }).code, 'IMAGE_SOURCE_MISSING');
   assert.equal(G.decideGenerationGate({ sceneId: '1', isTeacher: true, scene: { imageUrl: 'u' }, policy: 7 }).code, 'CORRUPT_IMAGE_POLICY');
-  assert.equal(G.decideGenerationGate({ sceneId: '1', isTeacher: true, scene: { imageData: 'd' }, policy: null }).code, 'IMAGE_POLICY_REQUIRED');
+  /* IMAGE-S2-LEGACY: policy 없고 imageData 있으면 거부가 아니라 upload 보정 진행 */
+  const legacy = G.decideGenerationGate({ sceneId: '1', isTeacher: true, scene: { imageData: 'd' }, policy: null });
+  assert.equal(legacy.action, 'proceed');
+  assert.equal(legacy.sourceMode, 'upload');
+  assert.equal(legacy.legacyImagePolicy, true);
+  assert.equal(legacy.sourceModeInferred, true);
+  /* 단 policy 없고 그림도 없으면 여전히 IMAGE_SOURCE_MISSING(이미지 체크가 먼저) */
+  assert.equal(G.decideGenerationGate({ sceneId: '1', isTeacher: true, scene: { title: 'x' }, policy: null }).code, 'IMAGE_SOURCE_MISSING');
   /* imageUrl fallback 도 원본으로 인정 */
   assert.equal(G.decideGenerationGate({ sceneId: '1', isTeacher: true, scene: { imageUrl: 'u' }, policy: { sourceMode: 'upload' } }).originalSrc, 'u');
 });

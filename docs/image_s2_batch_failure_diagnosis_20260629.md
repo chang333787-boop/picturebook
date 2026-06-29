@@ -46,3 +46,12 @@ client UX 2차 문제: `_runBatch`가 결과 성공/실패와 무관하게 `done
 - **(A·권장) 서버 게이트 완화 + deploy**: policy 없고 imageData 있으면 sourceMode 기본값(예: 'upload' 또는 'legacy')으로 진행하도록 `decideGenerationGate`/`_classifyPolicy` 보강. OpenAI 호출엔 sourceMode 불필요하므로 안전. functions 배포 필요.
 - **(B) 작품별 imagePolicy 보정**: 해당 작품 `viewer-meta/imagePolicy.sourceMode='upload'` 1회 set(DB write). 일괄 마이그레이션은 금지 — 작품별 승인.
 두 경로 모두 개인정보 정식 반영 후 진행 권장.
+
+## 8. 해소 (IMAGE-S2-LEGACY-IMAGEPOLICY-COMPAT-LOOP, 2026-06-29 — 경로 A 채택·배포)
+레거시 그림 작품도 **교사 명시 실행 시 변환 가능**하도록 서버 게이트를 완화했다.
+- **서버**(`functions/image-s2-generation.js`): `decideGenerationGate`에서 policy 없음(`required`)이고 `originalSrc`(scene.imageData/imageUrl) 있으면 거부 대신 **`sourceMode:'upload'`로 보정(inferred)하여 proceed**. 변형에 `sourceModeInferred:true`·`legacyImagePolicy:true` 기록(감사용). hash/stale/변형 schema·클라 normalize(upload/draw allowlist)와 충돌 없음. **최신 작품(valid policy)은 기존 로직 그대로**(sourceMode 혼합 방지 유지). policy 없고 그림도 없으면 여전히 IMAGE_SOURCE_MISSING. 클라는 sourceMode를 보내지 않음(서버 결정)·SSRF 가드 유지·원본 imageData 불변.
+- **클라**(`viewer-image-batch.js`/ui): no-policy 하드 차단 제거 → 그림 있으면 시작 가능 + 안내("옛 작품이라 입력 방식 정보가 없지만, 저장된 그림을 기준으로 마감합니다."). imageS2 OFF·학생 미노출은 유지.
+- **배포**: `firebase deploy --only functions:callImageAiS2` → Successful update(v2·asia-northeast3·nodejs20). 미인증 401 확인.
+- **테스트**: image-s2 132(서버 legacy 진행·변형 마커·IMAGE_SOURCE_MISSING 유지 / 클라 legacy 허용+안내 / ui-smoke)·회귀 224·node--check.
+- **실 OpenAI 검증**: 이번 루프 actual call 0(단위테스트가 policy:null→succeeded 전 파이프라인 커버, 실 provider 경로는 isolated-smoke에서 기 증명·게이트만 변경). 1장 실변환(fixture 또는 junglim/0000 1장, ~$0.05)은 사용자 승인 시 후속.
+- junglim imageS2 OFF 유지·원본 imageData 불변·main merge 0·DB migration 0.

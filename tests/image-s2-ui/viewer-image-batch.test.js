@@ -24,14 +24,15 @@ test('computeBatchGate — 교사+imageS2 ON이면 시작 가능(provider/privac
   assert.ok(B.computeBatchGate({ isTeacher: true }).reason);
 });
 
-test('computeBatchGate — imagePolicy 없으면 사전 차단(no-policy)', () => {
-  /* 이미지 장면 있는데 정책 없음 → 서버가 IMAGE_POLICY_REQUIRED로 전부 거부하므로 시작 전에 막는다. */
+test('computeBatchGate — imagePolicy 없는 옛 작품도 그림 있으면 시작 가능(legacy 안내)', () => {
+  /* IMAGE-S2-LEGACY: 정책 없어도 이미지 장면 있으면 시작 가능 + legacyNotice(차단 아님). */
   const g = B.computeBatchGate({ isTeacher: true, imageS2Enabled: true, imageSceneCount: 20, pendingCount: 20, hasPolicy: false });
-  assert.equal(g.canStart, false); assert.equal(g.state, 'no-policy'); assert.ok(/입력 방식/.test(g.reason));
-  /* 정책 있으면 통과 */
-  assert.equal(B.computeBatchGate({ isTeacher: true, imageS2Enabled: true, imageSceneCount: 20, pendingCount: 20, hasPolicy: true }).canStart, true);
-  /* hasPolicy 미전달이면 검사 생략 */
-  assert.equal(B.computeBatchGate({ isTeacher: true, imageS2Enabled: true, imageSceneCount: 20, pendingCount: 20 }).canStart, true);
+  assert.equal(g.canStart, true); assert.equal(g.state, 'ready'); assert.equal(g.legacyNotice, true);
+  /* 정책 있으면 legacyNotice 없음 */
+  const withPolicy = B.computeBatchGate({ isTeacher: true, imageS2Enabled: true, imageSceneCount: 20, pendingCount: 20, hasPolicy: true });
+  assert.equal(withPolicy.canStart, true); assert.ok(!withPolicy.legacyNotice);
+  /* 정책 없고 이미지도 없으면 여전히 no-images 차단 */
+  assert.equal(B.computeBatchGate({ isTeacher: true, imageS2Enabled: true, imageSceneCount: 0, hasPolicy: false }).state, 'no-images');
 });
 
 test('summarizeBatchResult — 0 성공이면 실패로 보고(완료 아님)', () => {

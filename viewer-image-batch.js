@@ -21,12 +21,11 @@
     if (o.isTeacher !== true) return { canStart: false, state: 'not-teacher', reason: '담당 선생님만 사용할 수 있어요.' };
     if (o.imageS2Enabled !== true) return { canStart: false, state: 'disabled', reason: '관리자 설정에서 ‘AI 그림책 마감’을 켜 주세요.' };
     if (o.imageSceneCount != null && o.imageSceneCount <= 0) return { canStart: false, state: 'no-images', reason: '변환할 이미지 장면이 없어요.' };
-    /* ★ 사전 감지: 작품에 imagePolicy(입력 방식 upload/draw) 없으면 서버가 IMAGE_POLICY_REQUIRED로 전부 거부 →
-       헛돌이(20장면 즉시 실패) 대신 시작 전에 차단·안내. (레거시 그림 작품 = 정책 잠금 이전 생성) */
-    if (o.imageSceneCount != null && o.imageSceneCount > 0 && o.hasPolicy === false)
-      return { canStart: false, state: 'no-policy', reason: '이 작품의 그림은 입력 방식(업로드·그림판) 정보가 없어 아직 변환할 수 없어요. 관리자에게 문의해 주세요.' };
     if (o.pendingCount != null && o.pendingCount <= 0) return { canStart: false, state: 'all-done', reason: '모든 그림이 이미 마감됐어요. ‘결과 보기’에서 확인하세요.' };
-    return { canStart: true, state: 'ready', reason: null, privacyNotice: o.privacyAcknowledged !== true };
+    /* ★ IMAGE-S2-LEGACY: imagePolicy(입력 방식) 없는 옛 작품도 그림이 있으면 시작 가능 — 차단이 아니라 안내(legacyNotice).
+       서버가 저장된 그림을 기준으로 sourceMode를 보정해 변환한다. (정책 없고 그림도 없으면 위 no-images에서 차단) */
+    var legacyNotice = (o.hasPolicy === false && o.imageSceneCount != null && o.imageSceneCount > 0);
+    return { canStart: true, state: 'ready', reason: null, privacyNotice: o.privacyAcknowledged !== true, legacyNotice: legacyNotice };
   }
 
   /* 실패 코드 → 교사용 친화 문구. */

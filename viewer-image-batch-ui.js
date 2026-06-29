@@ -124,6 +124,10 @@
     }
     html += '<div style="margin-top:10px;font-size:12px;color:' + (gate.canStart ? '#2e7d32' : '#b26a00') + ';">'
       + (gate.canStart ? '✅ 시작할 수 있어요' : '⛔ ' + _esc(gate.reason || '시작할 수 없어요')) + '</div>';
+    /* IMAGE-S2-LEGACY: 정책 없는 옛 작품 — 차단이 아니라 안내. */
+    if (gate.legacyNotice) {
+      html += '<div style="margin-top:6px;font-size:12px;color:#8a7350;">옛 작품이라 입력 방식 정보가 없지만, 저장된 그림을 기준으로 마감합니다.</div>';
+    }
     html += _orderGuide();
     html += _notice();
     body.innerHTML = html;

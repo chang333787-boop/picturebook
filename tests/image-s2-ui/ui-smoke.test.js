@@ -121,13 +121,13 @@ test('게이트 — imageS2 ON이면 provider/privacy 없이도 시작 enabled(�
   assert.equal(String(panel.textContent).indexOf('준비 중'), -1, '“준비 중” 문구 없음');
 });
 
-test('게이트 — imagePolicy 없는 레거시 작품은 사전 차단(no-policy)', async () => {
+test('게이트 — imagePolicy 없는 옛 작품은 시작 가능 + legacy 안내(차단 아님)', async () => {
   const ui = loadUi(DATA_NOPOLICY);
   await global.window.imageS2BatchUi.open();
   await new Promise((r) => setTimeout(r, 0));
   const startBtn = _startBtn(ui);
   assert.ok(startBtn, '시작 버튼 존재');
-  assert.equal(startBtn.disabled, true, 'imagePolicy 없음 → disabled');
+  assert.equal(startBtn.disabled, false, 'imagePolicy 없어도 그림 있으면 enabled');
   const bodyEl = ui.dom.document.getElementById('imageS2-batch-panel-body');
-  assert.ok(bodyEl.innerHTML.indexOf('입력 방식') !== -1, '입력 방식 안내 표시');
+  assert.ok(bodyEl.innerHTML.indexOf('옛 작품') !== -1, 'legacy 안내 표시');
 });

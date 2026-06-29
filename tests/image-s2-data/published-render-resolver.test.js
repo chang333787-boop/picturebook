@@ -78,3 +78,30 @@ test('scene.sceneId fallback(id 없을 때) 매칭', () => {
   _setPublishedImageCaches({ '7': { s2: { url: S2_URL, stale: false } } }, { '7': { selected: 's2' } });
   assert.strictEqual(getPublishedImageDisplaySrc({ sceneId: 7, imageData: ORIG }, ORIG), S2_URL);
 });
+
+/* IMAGE-S2-RENDER-2 — 선택 적용 직후 캐시 동기 갱신 setter */
+const { setPublishedImageSelectionForScene } = V;
+
+test('setter s2 + 변형노드 → 이후 렌더 s2 표시', () => {
+  _setPublishedImageCaches(null, null);   /* 빈 캐시(team 진입엔 없던 새 s2 가정) */
+  assert.strictEqual(getPublishedImageDisplaySrc(scene(), ORIG), ORIG);
+  setPublishedImageSelectionForScene('1', 's2', { url: S2_URL, stale: false });
+  assert.strictEqual(getPublishedImageDisplaySrc(scene(), ORIG), S2_URL);
+});
+
+test('setter original → 이후 렌더 원본', () => {
+  _setPublishedImageCaches({ '1': { s2: { url: S2_URL, stale: false } } }, { '1': { selected: 's2' } });
+  assert.strictEqual(getPublishedImageDisplaySrc(scene(), ORIG), S2_URL);
+  setPublishedImageSelectionForScene('1', 'original', null);
+  assert.strictEqual(getPublishedImageDisplaySrc(scene(), ORIG), ORIG);
+});
+
+test('setter s2 이지만 변형이 stale → 원본 fallback', () => {
+  _setPublishedImageCaches(null, null);
+  setPublishedImageSelectionForScene('1', 's2', { url: S2_URL, stale: true });
+  assert.strictEqual(getPublishedImageDisplaySrc(scene(), ORIG), ORIG);
+});
+
+test('setter sceneId null → noop(예외 없음)', () => {
+  assert.doesNotThrow(() => setPublishedImageSelectionForScene(null, 's2', { url: S2_URL }));
+});

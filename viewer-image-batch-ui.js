@@ -164,8 +164,8 @@
         var btns = _el('div', { style: 'display:flex;gap:6px;margin-top:8px;' });
         var useBtn = _el('button', { style: 'flex:1;padding:6px;border-radius:7px;border:1px solid #6a8a5b;background:' + (cmp.shown === 's2' ? '#6a8a5b' : '#fff') + ';color:' + (cmp.shown === 's2' ? '#fff' : '#3a5a2a') + ';font-size:12px;cursor:pointer;' }, 'AI 결과 사용');
         var keepBtn = _el('button', { style: 'flex:1;padding:6px;border-radius:7px;border:1px solid #ccc;background:' + (cmp.shown === 'original' ? '#eee' : '#fff') + ';font-size:12px;cursor:pointer;' }, '원본 유지');
-        useBtn.onclick = function () { _apply(ctx, id, 's2', row); };
-        keepBtn.onclick = function () { _apply(ctx, id, 'original', row); };
+        useBtn.onclick = function () { _apply(ctx, id, 's2', row, s2v); };
+        keepBtn.onclick = function () { _apply(ctx, id, 'original', row, s2v); };
         btns.appendChild(useBtn); btns.appendChild(keepBtn);
         row.appendChild(btns);
       }
@@ -174,11 +174,15 @@
     body.innerHTML = ''; body.appendChild(wrap);
   }
 
-  async function _apply(ctx, sceneId, selected, row) {
+  async function _apply(ctx, sceneId, selected, row, s2v) {
     var r = await _call('callApplyImageS2Selection', { classId: ctx.classId, teamName: ctx.teamName, sceneId: sceneId, selected: selected });
     var msg = _el('div', { style: 'font-size:11px;margin-top:6px;color:' + (r && r.ok ? '#2e7d32' : '#c0392b') + ';' }, r && r.ok ? (selected === 's2' ? 'AI 결과를 사용해요.' : '원본을 유지해요.') : ('적용 실패(' + _esc((r && r.code) || 'ERROR') + ')'));
     row.appendChild(msg);
-    if (window.viewerAi && typeof window.viewerAi._scheduleViewerFrameReRender === 'function') { try { window.viewerAi._scheduleViewerFrameReRender(); } catch (e) {} }
+    /* IMAGE-S2-RENDER-2: 서버 저장 성공 후에만 발행 캐시 동기 갱신 → 현재 장면 재렌더 시 즉시 반영(클라 DB write 0). */
+    if (r && r.ok && typeof window.setPublishedImageSelectionForScene === 'function') {
+      try { window.setPublishedImageSelectionForScene(sceneId, selected, selected === 's2' ? s2v : null); } catch (e) {}
+    }
+    if (r && r.ok && window.viewerAi && typeof window.viewerAi._scheduleViewerFrameReRender === 'function') { try { window.viewerAi._scheduleViewerFrameReRender(); } catch (e) {} }
   }
 
   /* ── 교사 전용 진입 버튼(자가 주입) ── */

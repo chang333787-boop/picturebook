@@ -1692,6 +1692,22 @@ function getPublishedImageDisplaySrc(scene, originalSrc) {
   } catch (e) { return originalSrc; }
 }
 
+/* ★ IMAGE-S2-RENDER-2: 교사가 선택 적용(callApplyImageS2Selection 성공) 직후, 발행 캐시를 동기 갱신.
+   서버 저장이 진실 — 이 함수는 **저장 성공 후에만** 호출(클라 직접 DB write 아님). 원본 scene.imageData 불변.
+   s2VariantNode를 주면 변형 캐시도 갱신(이번 세션에 새로 생성된 s2가 team 진입 캐시에 없을 수 있으므로). */
+function setPublishedImageSelectionForScene(sceneId, selected, s2VariantNode) {
+  try {
+    if (sceneId == null) return;
+    const sid = String(sceneId);
+    if (!_pubImageSelBySid) _pubImageSelBySid = {};
+    if (!_pubImageS2BySid)  _pubImageS2BySid = {};
+    _pubImageSelBySid[sid] = { selected: (selected === 's2') ? 's2' : 'original' };
+    if (s2VariantNode && typeof s2VariantNode === 'object') {
+      _pubImageS2BySid[sid] = s2VariantNode;   /* url 없거나 stale이면 resolver가 알아서 원본 fallback */
+    }
+  } catch (e) { /* noop — 표시 갱신 실패는 원본 유지 */ }
+}
+
 /* IMAGE-S2-1 helper 전역 노출(브라우저) — edit viewer / 완성본 보기 / 일반 감상 공용 결정. */
 if (typeof window !== 'undefined') {
   window.normalizeImagePolicy = normalizeImagePolicy;
@@ -1700,6 +1716,7 @@ if (typeof window !== 'undefined') {
   window.pickS2VariantForScene = pickS2VariantForScene;
   window.resolveSceneImageSource = resolveSceneImageSource;
   window.getPublishedImageDisplaySrc = getPublishedImageDisplaySrc;   /* IMAGE-S2-RENDER-1 */
+  window.setPublishedImageSelectionForScene = setPublishedImageSelectionForScene;   /* IMAGE-S2-RENDER-2 */
 }
 
 /* 테스트 전용 export — 브라우저에선 module 미정의라 무시된다(membership-login.js와 동일 패턴).
@@ -1710,5 +1727,6 @@ if (typeof module !== 'undefined' && module.exports) {
     normalizeImagePolicy, normalizeImageSelection, normalizeS2Variant,
     pickS2VariantForScene, resolveSceneImageSource,
     _setPublishedImageCaches, getPublishedImageDisplaySrc,   /* IMAGE-S2-RENDER-1 */
+    setPublishedImageSelectionForScene,                      /* IMAGE-S2-RENDER-2 */
   };
 }

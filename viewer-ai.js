@@ -3075,6 +3075,13 @@
   function _showModeModal() {
     const a = _getModeAvailability();
 
+    /* IMAGE-S2-ENTRY: 'AI 그림책 마감' 카드 — 교사(from=maker) + 그림책 작품일 때만 노출(학생/텍스트 작품 미노출).
+       enabled=imageS2 ON(설정). 클릭은 batch 패널만 열고, 실제 변환은 패널의 자체 gate(provider/privacy)가 막음(클릭=API 호출 아님). */
+    const _isTeacherSess = !!(window.isMakerAuthSession && window.isMakerAuthSession(typeof location !== 'undefined' ? location.search : ''));
+    const _isPicturebook = !!(typeof ViewerState !== 'undefined' && ViewerState.project && ViewerState.project.projectType === 'picturebook');
+    const _showImageS2Card = _isTeacherSess && _isPicturebook;
+    const _imageS2Allowed = _isModeAllowedByTeacher('imageS2');
+
     const html = `
       <div class="ai-modal__header">
         <div class="ai-modal__title">🤖 AI 작품 다듬기</div>
@@ -3120,13 +3127,19 @@
             disabledReason: a.s2.reason,
             remaining: null,
           })}
+          ${_showImageS2Card ? _renderModeCard({
+            key: 'imageS2',
+            icon: '🖼',
+            title: 'AI 그림책 마감',
+            desc: '학생 그림을 보존하면서 그림책 느낌으로 마감해요. 원본은 그대로 두고 결과를 비교한 뒤 선택할 수 있어요. (교사용 · 외부 AI 전송 가능)',
+            enabled: _imageS2Allowed,
+            disabledReason: '설정에서 ‘AI 그림책 마감’을 켜 주세요',
+            remaining: null,
+          }) : ''}
         </div>
         <div class="ai-mode-history" style="margin-top:14px;padding-top:14px;border-top:1px solid #ecdfc4;text-align:center;">
           <button type="button" class="ai-btn ai-btn--ghost js-ai-show-latest-check">🔍 최근 검사 결과 보기</button>
           <div style="margin-top:6px;color:#8a7a5e;font-size:12px;">AI를 다시 부르지 않고 마지막 작품 검사 결과를 보여줘요.</div>
-        </div>
-        <div class="ai-mode-footer">
-          🎨 그림 다듬기 기능은 준비 중이에요.
         </div>
         ${_isTestMode() ? `
         <div class="ai-mode-testmode-panel">
@@ -3163,6 +3176,11 @@
           _startTextS2();
         } else if (mode === 'check') {
           _startWorkCheck();
+        } else if (mode === 'imageS2') {
+          /* IMAGE-S2-ENTRY: 기존 floating 버튼과 동일 패널 재사용(중복 구현 0). 패널이 자체 gate로 변환을 막음. */
+          if (window.imageS2BatchUi && typeof window.imageS2BatchUi.open === 'function') {
+            window.imageS2BatchUi.open();
+          }
         }
       });
     });

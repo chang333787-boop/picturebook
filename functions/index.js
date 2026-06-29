@@ -2101,14 +2101,28 @@ async function _downloadImageS2Source(src) {
   }
   let u;
   try { u = new URL(s); } catch (e) { throw new Error('BAD_SOURCE_URL'); }
-  if (u.host !== 'firebasestorage.googleapis.com') throw new Error('SOURCE_HOST_NOT_ALLOWED');
-  const m = u.pathname.match(/\/o\/(.+)$/);
-  if (!m) throw new Error('BAD_OBJECT_PATH');
-  const objectPath = decodeURIComponent(m[1]);
-  if (objectPath.indexOf('..') !== -1) throw new Error('BAD_OBJECT_PATH');
+  const bkt = admin.storage().bucket();
+  /* 우리 버킷 별칭(별도 GCS 버킷 read 금지) — Storage 마이그레이션 작품은 storage.googleapis.com URL로 저장됨. */
+  const OUR_BUCKETS = [bkt.name, 'picturebook-8731f.firebasestorage.app', 'picturebook-8731f.appspot.com'];
+  let objectPath = null;
+  if (u.host === 'firebasestorage.googleapis.com') {
+    /* https://firebasestorage.googleapis.com/v0/b/{bucket}/o/{encodedObjectPath}?alt=media&token=... */
+    const m = u.pathname.match(/\/o\/(.+)$/);
+    if (!m) throw new Error('BAD_OBJECT_PATH');
+    objectPath = decodeURIComponent(m[1]);
+  } else if (u.host === 'storage.googleapis.com') {
+    /* https://storage.googleapis.com/{bucket}/{objectPath} — 우리 버킷만. */
+    const segs = u.pathname.replace(/^\/+/, '').split('/');
+    const urlBucket = segs.shift() || '';
+    if (OUR_BUCKETS.indexOf(urlBucket) === -1) throw new Error('SOURCE_HOST_NOT_ALLOWED');
+    objectPath = decodeURIComponent(segs.join('/'));
+  } else {
+    throw new Error('SOURCE_HOST_NOT_ALLOWED');
+  }
+  if (!objectPath || objectPath.indexOf('..') !== -1) throw new Error('BAD_OBJECT_PATH');
   /* 원본 이미지 경로(images/)만 — ai-images/·videos/·기타 버킷 객체 read 차단(defense-in-depth). */
   if (objectPath.indexOf('images/') !== 0) throw new Error('SOURCE_PATH_NOT_ALLOWED');
-  const [buf] = await admin.storage().bucket().file(objectPath).download();
+  const [buf] = await bkt.file(objectPath).download();
   return { bytes: buf, mime: ImageS2OpenAi.sniffMime(buf) };
 }
 

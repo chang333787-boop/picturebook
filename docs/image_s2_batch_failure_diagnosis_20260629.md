@@ -55,3 +55,8 @@ client UX 2차 문제: `_runBatch`가 결과 성공/실패와 무관하게 `done
 - **테스트**: image-s2 132(서버 legacy 진행·변형 마커·IMAGE_SOURCE_MISSING 유지 / 클라 legacy 허용+안내 / ui-smoke)·회귀 224·node--check.
 - **실 OpenAI 검증**: 이번 루프 actual call 0(단위테스트가 policy:null→succeeded 전 파이프라인 커버, 실 provider 경로는 isolated-smoke에서 기 증명·게이트만 변경). 1장 실변환(fixture 또는 junglim/0000 1장, ~$0.05)은 사용자 승인 시 후속.
 - junglim imageS2 OFF 유지·원본 imageData 불변·main merge 0·DB migration 0.
+
+## 9. 2차 버그 + 실변환 검증 (IMAGE-S2-LEGACY-ONE-SCENE-REAL-SMOKE, 2026-06-29)
+§8 배포 후 junglim/0000 재시도 시 **다른 에러로 전부 실패**: job 전 20장 `IMAGE_AI_SOURCE_FETCH_FAILED`(정책오류는 사라짐=§8 성공). **2차 원인**: 이 작품 그림이 Storage 마이그레이션으로 `https://storage.googleapis.com/{bucket}/images/...` URL로 저장됐는데, 서버 SSRF 다운로드 가드(`_downloadImageS2Source`)가 **`firebasestorage.googleapis.com` 호스트만 허용** → `storage.googleapis.com` 거부. (다운로드 단계 실패라 **OpenAI 비용 0**.)
+**수정**(functions/index.js `_downloadImageS2Source`): `storage.googleapis.com/{bucket}/{objectPath}` URL도 **우리 버킷(별칭 allowlist)** 일 때 허용 — objectPath 추출 후 동일 `images/` 접두·`..` 가드·admin.storage 다운로드. firebasestorage 경로는 그대로. `callImageAiS2` 재배포(Successful update).
+**실변환 1장 검증(실 OpenAI 1회·~$0.05)**: 격리 fixture(Playwright 세션 UID를 teacher_uid로·storage.googleapis.com URL 그림·imagePolicy 없음=레거시 재현). 결과=**status succeeded(~15s)**·`aiVariants/image/1/s2` 생성(`legacyImagePolicy:true`·`sourceModeInferred:true`·`sourceMode:'upload'`·model gpt-image-2·stale:false)·결과 다운로드 **HTTP200 image/png 2.67MB**·**원본 imageData 불변**·교사 'AI 결과 사용' 선택 저장(imageSelections selected:s2)·**학생 감상 화면에 AI 결과 표시**(ai-images URL). fixture·Storage 2객체 검증 후 삭제·junglim OFF. **판정 IMAGE_S2_LEGACY_ONE_SCENE_SMOKE_PASS.**

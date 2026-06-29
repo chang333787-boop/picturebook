@@ -129,7 +129,7 @@
       var doneN = Object.keys(done).length;
       body.innerHTML = '<div style="font-size:14px;">변환 중… <b>' + doneN + ' / ' + targets.length + '</b></div>'
         + '<div style="height:8px;background:#eee;border-radius:6px;margin-top:8px;overflow:hidden;"><div style="height:100%;width:' + (targets.length ? Math.round(doneN / targets.length * 100) : 100) + '%;background:#6a8a5b;"></div></div>'
-        + '<p style="font-size:12px;color:#888;margin-top:8px;">창을 닫아도 진행 상태는 저장돼요(다시 열어 이어보기).</p>';
+        + '<p style="font-size:12px;color:#888;margin-top:8px;">창을 닫으면 변환이 멈춰요. 완료 전에는 이 화면을 유지해 주세요.<br>(지금까지 만든 결과는 저장돼요 — 다시 열어 이어서 변환할 수 있어요.)</p>';
     }
     paint();
     for (var i = 0; i < targets.length; i++) {
@@ -154,7 +154,7 @@
       var s2v = variants[id] && variants[id].s2;
       var cmp = L.resolveCompareImages(scenes[id], selections[id], s2v);
       var row = _el('div', { style: 'border:1px solid #eee;border-radius:10px;padding:10px;margin:10px 0;' });
-      var head = '장면 ' + _esc(id) + (cmp.s2 ? '' : ' · <span style="color:#999;">AI 결과 없음</span>') + (cmp.staleWarning ? ' · <span style="color:#b26a00;">원본 변경됨(재생성 필요)</span>' : '');
+      var head = '장면 ' + _esc(id) + (cmp.s2 ? '' : ' · <span style="color:#999;">AI 결과 없음</span>') + (cmp.stale ? ' · <span style="color:#b26a00;">오래된 결과(원본이 바뀜 — 다시 생성 권장)</span>' : '');
       row.appendChild(_el('div', { style: 'font-size:12px;color:#555;margin-bottom:6px;' }, head));
       var pair = _el('div', { style: 'display:flex;gap:8px;' });
       pair.appendChild(_el('figure', { style: 'flex:1;margin:0;' }, '<figcaption style="font-size:11px;color:#888;">원본</figcaption>' + (cmp.original ? '<img src="' + _esc(cmp.original) + '" style="width:100%;border:1px solid #eee;border-radius:6px;' + (cmp.shown === 'original' ? 'outline:2px solid #6a8a5b;' : '') + '">' : '<div style="height:90px;background:#f3f3f3;border-radius:6px;"></div>')));

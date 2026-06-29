@@ -49,3 +49,33 @@
 - aiSettings `modes.imageS2=false`로 즉시 차단(생성·적용 게이트 닫힘).
 - 필요 시 secret 제거(`functions:secrets:destroy`)로 not-configured 복귀(생성 0).
 - 원본은 어떤 경로로도 미수정 — 데이터 롤백 불요.
+
+---
+
+## 6. 실행 결과 (2026-06-29, IMAGE-S2-SECRET-DEPLOY-SMOKE-LOOP — 판정 `IMAGE_S2_DEPLOYED_SMOKE_PARTIAL`)
+
+### 6-1. 완료
+| 단계 | 결과 |
+|---|---|
+| Secret 등록 | ✅ 사용자가 `IMAGE_OPENAI_API_KEY` 등록(version 1 ENABLED). 값 미열람. |
+| Functions 배포 | ✅ `callImageAiS2`·`callStartImageS2Batch`·`callApplyImageS2Selection` 3종 **Successful create**(v2 callable·asia-northeast3·nodejs20·project picturebook-8731f). secret accessor 권한 자동 부여. |
+| Reachability | ✅ 미인증 POST → 3종 모두 **HTTP 401**(not-found 아님 = 도달·인증게이트 정상). |
+| 배포 전 검증 | ✅ image-s2 단위 **111/111**·node --check 4파일 OK·repo secret 스캔 0. |
+| 플래그 | ⏪ junglim(class_2026_junglim_1) `modes.imageS2` 일시 ON 후 **원복(false)**. 백업 보관. 현재 전 학급 imageS2=OFF(안전 기본). |
+
+### 6-2. 실변환 smoke = 보류 (사용자 결정: 배포까지만)
+**핵심 제약(이번 루프 구조적):**
+1. **교사 UI 클라 코드는 feature 브랜치에만 있고 main 미병합** → 라이브 공개 사이트(GitHub Pages=main)에 'AI 그림책 마감' 버튼이 없음. main 병합은 이번 루프 금지.
+2. **교사 신원 = 익명 인증 UID**(`signInAnonymously`). 서버 생성 게이트(index.js:2159)는 `classes/{cid}/meta/teacher_uid === uid` 또는 super_admin 클레임만 통과. 새 브라우저 세션은 새 익명 UID라 기존 학급 교사로 인식 안 됨.
+3. 이미지 장면이 실재하는 팀은 junglim/0000(실 학생 작품)뿐이고, 격리 테스트 학급("우리반 만세")엔 이미지 장면 없음.
+
+→ junglim 교사-인증이 불가능하고, 대안(로컬 feature 빌드 + Playwright로 새 비공개 테스트 작품 생성 후 변환)은 사용자가 **이번엔 배포까지만**으로 보류.
+
+### 6-3. 현 운영 상태
+- **배포 완료·게이트 OFF**: 함수는 살아있으나 모든 학급 `modes.imageS2=false`라 호출 불가. secret 등록됨. **언제든 ON만 하면 실변환 가능 상태.**
+- 원본 데이터 무변경. main 미병합. 전체 공개 안 됨. 학생 미노출.
+
+### 6-4. 다음 루프(실변환 smoke) 선택지
+- **A. 새 비공개 테스트 작품 경로**: 로컬 feature 빌드 + Playwright로 새 테스트 학급/팀/이미지 1장 생성(그 세션이 교사) → 그 학급만 imageS2 ON → 실변환 1회(~$0.05). 실 학생 데이터·병합 불필요.
+- **B. 통제된 main 병합 경로**: feature→main 병합으로 라이브에 교사 UI 노출 → 교사 실 브라우저에서 junglim 등 실작품 1장 smoke. (전체 공개 아님 — 버튼은 교사 from=maker 세션만.)
+- 어느 쪽이든 실변환 시 §2 14단계 + §3 중단기준 적용.

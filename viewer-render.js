@@ -407,8 +407,13 @@ function renderScene(scene) {
 function _renderSceneText(stage, scene) {
   const choices  = Array.isArray(scene.choices) ? scene.choices : [];
   let bgImage  = scene.imageData || null;
+  /* IMAGE-S2-RENDER-1: 교사가 발행 선택(imageSelections=s2)한 장면이면 AI 결과로 표시(학생/감상 포함).
+     선택 없음/stale/누락 → 원본 그대로. always-loaded(viewer-data) hook이라 viewer-ai 미로딩 감상에도 적용. */
+  if (typeof window !== 'undefined' && typeof window.getPublishedImageDisplaySrc === 'function') {
+    bgImage = window.getPublishedImageDisplaySrc(scene, bgImage);
+  }
   /* P5-IMAGE-VARIANT-1: 이미지 보기 모드(aiS1/aiS2)면 variant url로 표시. 원본 보기면 그대로(동작 변화 0).
-     원본 scene.imageData/imageUrl은 절대 변경하지 않음(read-only hook). */
+     원본 scene.imageData/imageUrl은 절대 변경하지 않음(read-only hook). 토글은 위 발행 결과 위에 덧씌움(교사 비교). */
   if (typeof window !== 'undefined' && window.viewerAi && typeof window.viewerAi._getDisplayImageSrc === 'function') {
     bgImage = window.viewerAi._getDisplayImageSrc(scene, bgImage);
   }
@@ -578,7 +583,12 @@ function _renderScenePicturebook(stage, scene, submode) {
   /* W4 디버그: 그림 데이터 소스 — viewer-edit은 imageData||imageUrl 둘 다 보고
      viewer-render는 이전엔 imageData만 봤음. 데이터 소스 일치를 위해 둘 다 본다. */
   let bgImage = scene.imageData || scene.imageUrl || null;
-  /* P5-IMAGE-VARIANT-1: 이미지 보기 모드면 variant url로 표시(원본 보기는 그대로·동작 변화 0). 원본 필드 불변. */
+  /* IMAGE-S2-RENDER-1: 교사가 발행 선택(imageSelections=s2)한 장면이면 AI 결과로 표시(학생/감상 포함).
+     선택 없음/stale/누락 → 원본 그대로. always-loaded(viewer-data) hook이라 viewer-ai 미로딩 감상에도 적용. */
+  if (typeof window !== 'undefined' && typeof window.getPublishedImageDisplaySrc === 'function') {
+    bgImage = window.getPublishedImageDisplaySrc(scene, bgImage);
+  }
+  /* P5-IMAGE-VARIANT-1: 이미지 보기 모드면 variant url로 표시(원본 보기는 그대로·동작 변화 0). 원본 필드 불변. 토글은 발행 결과 위에 덧씌움. */
   if (typeof window !== 'undefined' && window.viewerAi && typeof window.viewerAi._getDisplayImageSrc === 'function') {
     bgImage = window.viewerAi._getDisplayImageSrc(scene, bgImage);
   }

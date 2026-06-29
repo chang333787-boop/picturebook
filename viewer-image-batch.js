@@ -21,8 +21,37 @@
     if (o.isTeacher !== true) return { canStart: false, state: 'not-teacher', reason: '담당 선생님만 사용할 수 있어요.' };
     if (o.imageS2Enabled !== true) return { canStart: false, state: 'disabled', reason: '관리자 설정에서 ‘AI 그림책 마감’을 켜 주세요.' };
     if (o.imageSceneCount != null && o.imageSceneCount <= 0) return { canStart: false, state: 'no-images', reason: '변환할 이미지 장면이 없어요.' };
+    /* ★ 사전 감지: 작품에 imagePolicy(입력 방식 upload/draw) 없으면 서버가 IMAGE_POLICY_REQUIRED로 전부 거부 →
+       헛돌이(20장면 즉시 실패) 대신 시작 전에 차단·안내. (레거시 그림 작품 = 정책 잠금 이전 생성) */
+    if (o.imageSceneCount != null && o.imageSceneCount > 0 && o.hasPolicy === false)
+      return { canStart: false, state: 'no-policy', reason: '이 작품의 그림은 입력 방식(업로드·그림판) 정보가 없어 아직 변환할 수 없어요. 관리자에게 문의해 주세요.' };
     if (o.pendingCount != null && o.pendingCount <= 0) return { canStart: false, state: 'all-done', reason: '모든 그림이 이미 마감됐어요. ‘결과 보기’에서 확인하세요.' };
     return { canStart: true, state: 'ready', reason: null, privacyNotice: o.privacyAcknowledged !== true };
+  }
+
+  /* 실패 코드 → 교사용 친화 문구. */
+  function describeBatchFailCode(code) {
+    switch (String(code)) {
+      case 'IMAGE_POLICY_REQUIRED': return '그림의 입력 방식(업로드·그림판) 정보가 없어요';
+      case 'IMAGE_SOURCE_MISSING':  return '원본 그림이 없어요';
+      case 'CORRUPT_IMAGE_POLICY':  return '그림 정책 정보가 손상됐어요';
+      case 'TEACHER_ONLY':          return '담당 선생님만 변환할 수 있어요';
+      case 'IMAGE_AI_NOT_CONFIGURED': return 'AI 이미지 서비스 설정이 필요해요';
+      case 'SCENE_NOT_FOUND':       return '장면을 찾을 수 없어요';
+      default: return '변환 실패(' + String(code || 'ERROR') + ')';
+    }
+  }
+
+  /* 배치 결과 요약(순수) — 성공/실패 집계 + 사유. 0 성공이면 "완료"가 아니라 실패로 본다. */
+  function summarizeBatchResult(o) {
+    var t = o || {}; var total = t.total || 0, ok = t.succeeded || 0, fail = t.failed || 0;
+    var codes = t.failCodes || {};
+    var reasons = Object.keys(codes).map(function (c) { return describeBatchFailCode(c) + ' — ' + codes[c] + '개'; });
+    var headline = (ok > 0)
+      ? (ok + '개 성공' + (fail ? ' / ' + fail + '개 실패' : ''))
+      : ('AI 결과가 생성되지 않았어요 (0개 성공' + (fail ? ' / ' + fail + '개 실패' : '') + ')');
+    var allPolicy = (ok === 0 && fail > 0 && Object.keys(codes).length === 1 && codes.IMAGE_POLICY_REQUIRED === fail);
+    return { headline: headline, reasons: reasons, anySuccess: ok > 0, allFailedPolicy: allPolicy };
   }
 
   function formatCostUsd(usd) {
@@ -124,6 +153,7 @@
     summarizeBatchPlan: summarizeBatchPlan, sanitizeBatchRequest: sanitizeBatchRequest,
     sceneStatusLabel: sceneStatusLabel, progressSummary: progressSummary, nextTarget: nextTarget,
     resolveCompareImages: resolveCompareImages,
+    describeBatchFailCode: describeBatchFailCode, summarizeBatchResult: summarizeBatchResult,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.ImageS2Batch = api;

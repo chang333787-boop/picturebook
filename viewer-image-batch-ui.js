@@ -41,14 +41,16 @@
       isTeacher: _isTeacherSession(), imageS2Enabled: enabled,
       privacyAcknowledged: img.privacyAcknowledged === true,   /* 안내 표시용(차단 아님) */
       imageSceneCount: sceneCount, pendingCount: pending,
+      hasPolicy: plan ? plan.hasPolicy : undefined,            /* 정책 없으면 사전 차단(서버 IMAGE_POLICY_REQUIRED 방지) */
     });
   }
 
-  /* 시작 전 계획 추정(클라 read만) — 이미지 있는 장면 / 최신 s2 있는 장면. */
+  /* 시작 전 계획 추정(클라 read만) — 이미지 있는 장면 / 최신 s2 있는 장면 / imagePolicy 유무. */
   async function _planEstimate() {
     var ctx = _ctx(); var base = 'classes/' + ctx.classId + '/teams/' + _enc(ctx.teamName);
     var scenes = (await _read(base + '/scenes')) || {};
     var variants = (await _read(base + '/aiVariants/image')) || {};
+    var policy = (await _read(base + '/viewer-meta/imagePolicy')) || null;
     var total = 0, cached = 0;
     Object.keys(scenes).forEach(function (id) {
       var sc = scenes[id] || {};
@@ -57,7 +59,10 @@
       if (v && v.url && v.stale !== true) cached++;
       else total++;
     });
-    return L.summarizeBatchPlan({ totalScenes: total, cachedCount: cached });
+    var summary = L.summarizeBatchPlan({ totalScenes: total, cachedCount: cached });
+    /* imagePolicy(입력 방식)가 upload/draw로 잠겨 있어야 서버가 생성 허용. 없으면 IMAGE_POLICY_REQUIRED로 전부 거부. */
+    summary.hasPolicy = !!(policy && (policy.sourceMode === 'upload' || policy.sourceMode === 'draw'));
+    return summary;
   }
 
   /* ── DOM ── */
@@ -143,9 +148,11 @@
     var start = await _call('callStartImageS2Batch', req);
     if (!start || !start.ok || !start.jobId) { body.innerHTML = '<p style="color:#c0392b;font-size:13px;">시작할 수 없어요(' + _esc((start && start.code) || 'ERROR') + ').</p>'; return; }
     var jobId = start.jobId; var targets = start.targets || []; var done = {};
+    var succeeded = 0, failed = 0, failCodes = {};
     function paint() {
-      var doneN = Object.keys(done).length;
-      body.innerHTML = '<div style="font-size:14px;">변환 중… <b>' + doneN + ' / ' + targets.length + '</b></div>'
+      var doneN = succeeded + failed;
+      body.innerHTML = '<div style="font-size:14px;">변환 중… <b>' + doneN + ' / ' + targets.length + '</b>'
+        + (failed ? ' <span style="color:#c0392b;">(실패 ' + failed + ')</span>' : '') + '</div>'
         + '<div style="height:8px;background:#eee;border-radius:6px;margin-top:8px;overflow:hidden;"><div style="height:100%;width:' + (targets.length ? Math.round(doneN / targets.length * 100) : 100) + '%;background:#6a8a5b;"></div></div>'
         + '<p style="font-size:12px;color:#888;margin-top:8px;">창을 닫으면 변환이 멈춰요. 완료 전에는 이 화면을 유지해 주세요.<br>(지금까지 만든 결과는 저장돼요 — 다시 열어 이어서 변환할 수 있어요.)</p>';
     }
@@ -158,9 +165,21 @@
         body.innerHTML = '<p style="color:#c0392b;font-size:13px;line-height:1.6;">AI 이미지 서비스 설정을 확인해 주세요.<br>관리자에게 secret 등록·배포 설정을 요청하세요.</p>';
         return;
       }
+      /* 성공/실패 정확 집계 — 실패를 '완료'로 세지 않는다(과거: done만 세어 0결과인데 '완료'처럼 보임). */
+      var okOne = !!(res && (res.ok === true || res.status === 'succeeded' || res.status === 'cached' || res.reused === true));
+      if (okOne) succeeded++;
+      else { failed++; var c = (res && res.code) || 'ERROR'; failCodes[c] = (failCodes[c] || 0) + 1; }
       done[sid] = true; paint();
     }
-    _renderResults(body);
+    /* 0개 성공이면 결과 화면 대신 명확한 실패 요약(사유 포함). 성공이 있으면 결과 비교로. */
+    var summary = L.summarizeBatchResult({ total: targets.length, succeeded: succeeded, failed: failed, failCodes: failCodes });
+    if (summary.anySuccess) { _renderResults(body); return; }
+    var extra = summary.allFailedPolicy
+      ? '<p style="font-size:12px;color:#777;margin-top:8px;line-height:1.6;">이 작품의 그림은 예전에 만들어져 입력 방식(업로드·그림판) 정보가 없어요. 관리자에게 문의해 주세요. 원본 그림은 그대로 보존됐어요.</p>'
+      : '<p style="font-size:12px;color:#777;margin-top:8px;">원본 그림은 그대로 보존됐어요.</p>';
+    body.innerHTML = '<div style="font-size:14px;color:#c0392b;font-weight:600;">' + _esc(summary.headline) + '</div>'
+      + (summary.reasons.length ? '<ul style="margin:8px 0 0;padding-left:18px;font-size:12px;color:#a0522d;line-height:1.7;">' + summary.reasons.map(function (r) { return '<li>' + _esc(r) + '</li>'; }).join('') + '</ul>' : '')
+      + extra;
   }
 
   /* 결과 비교/선택 — 원본↔s2(resolveCompareImages) + 적용 콜러블. */

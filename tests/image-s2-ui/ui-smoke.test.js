@@ -62,11 +62,13 @@ function loadUi(DATA, opts) {
 const DATA_READY = {
   'classes/c/aiSettings': { enabled: true, modes: { imageS2: true }, imageS2: { providerReady: true, privacyAcknowledged: true } },
   'classes/c/teams/0000/scenes': { 1: { imageData: 'data:o1' }, 2: { imageData: 'data:o2' }, 3: { title: 'no-img' } },
+  'classes/c/teams/0000/viewer-meta/imagePolicy': { sourceMode: 'upload' },   /* 정책 잠금된 정상 작품 */
   'classes/c/teams/0000/aiVariants/image': { 1: { s2: { url: 'data:s2-1', stale: false } } },
   'classes/c/teams/0000/aiVariants/imageSelections': { 1: { selected: 's2' } },
 };
 const DATA_NOTREADY = Object.assign({}, DATA_READY, { 'classes/c/aiSettings': { enabled: true, modes: { imageS2: true } } });   /* provider/privacy 없음 — 이제는 시작 가능(차단 아님) */
 const DATA_OFF = Object.assign({}, DATA_READY, { 'classes/c/aiSettings': { enabled: true, modes: { imageS2: false } } });        /* imageS2 OFF — 시작 disabled */
+const DATA_NOPOLICY = Object.assign({}, DATA_READY); delete DATA_NOPOLICY['classes/c/teams/0000/viewer-meta/imagePolicy'];      /* 레거시: imagePolicy 없음 → 사전 차단 */
 
 test('교사 세션 — 진입 버튼 자가 주입', () => {
   const { dom } = loadUi(DATA_READY);
@@ -117,4 +119,15 @@ test('게이트 — imageS2 ON이면 provider/privacy 없이도 시작 enabled(�
   assert.equal(startBtn.disabled, false, 'imageS2 ON(+이미지 장면) → enabled');
   const panel = ui.dom.document.getElementById('imageS2-batch-panel');
   assert.equal(String(panel.textContent).indexOf('준비 중'), -1, '“준비 중” 문구 없음');
+});
+
+test('게이트 — imagePolicy 없는 레거시 작품은 사전 차단(no-policy)', async () => {
+  const ui = loadUi(DATA_NOPOLICY);
+  await global.window.imageS2BatchUi.open();
+  await new Promise((r) => setTimeout(r, 0));
+  const startBtn = _startBtn(ui);
+  assert.ok(startBtn, '시작 버튼 존재');
+  assert.equal(startBtn.disabled, true, 'imagePolicy 없음 → disabled');
+  const bodyEl = ui.dom.document.getElementById('imageS2-batch-panel-body');
+  assert.ok(bodyEl.innerHTML.indexOf('입력 방식') !== -1, '입력 방식 안내 표시');
 });

@@ -34,13 +34,16 @@
 - 원본 scene.imageData 어떤 경로로도 미수정(hash 불변 입증).
 - live 감상 렌더 resolver 미연결(설계대로 — 교사 선택 저장까지만 검증).
 
-## 4. 정리 상태 (사용자 결정 필요)
-- 테스트 학급 `cls_smoke_20260629` aiSettings.modes.imageS2 = **false로 복구 완료**.
-- **테스트 데이터는 무단 삭제하지 않음**. 정리 대상(사용자 승인 후 삭제 가능):
-  - `classes/cls_smoke_20260629` (테스트 작품 + 생성된 s2 variant + selection)
-  - Storage `ai-images/cls_smoke_20260629/…` (생성 PNG 2.4MB)
-  - `teachers/KhqcbZ…`, `teacherClasses/KhqcbZ…`, `classCodes/SMOKE1`
-- 생성 이미지·raw 응답·DB export는 repo에 commit하지 않음.
+## 4. 정리 상태 — ✅ CLEANED (2026-06-29, 사용자 승인 후 IMAGE-S2-SMOKE-TESTDATA-CLEANUP-LOOP)
+삭제 전 모두 smoke 전용임을 확인(teachers 노드 `smokeTest:true`, teacherClasses/classCodes는 smoke class만) 후 안전 삭제:
+- ✅ RTDB `classes/cls_smoke_20260629` → null
+- ✅ RTDB `classCodes/SMOKE1` → null
+- ✅ RTDB `teacherClasses/KhqcbZ…` → null
+- ✅ RTDB `teachers/KhqcbZ…` → null
+- ✅ Storage `ai-images/cls_smoke_20260629/` prefix → 파일 1개(2.4MB PNG) DELETE 204, 잔여 0 (stray 0, prefix 한정)
+- 삭제 방법: RTDB=firebase CLI `database:remove`. Storage=gcloud/ADC 부재로 firebase CLI refresh token→access token 발급 후 GCS JSON API DELETE(prefix 한정). 임시 자격/스크립트 파일은 작업 후 제거(repo·로그 미노출).
+- **무영향 확인**: classes 목록 원래 3개(junglim 포함) 유지, junglim imageS2=false 불변, 전 학급 imageS2 OFF. 실학생 데이터 영향 0.
+- 생성 이미지·raw 응답·DB export·secret은 repo에 commit하지 않음.
 
 ## 5. 결론
 배포된 imageS2 콜러블 전체 경로(인증→게이트→quota→adapter→gpt-image-2 실호출→Storage→aiVariants→선택)와 feature 교사 UI가 **운영 환경에서 실제로 동작함**을 격리 검증 완료. 남은 것은 모델/플러밍이 아니라 **운영 정책**: 개인정보 정식 반영·라이브 감상 렌더 resolver 연결·실작품 적용 범위.

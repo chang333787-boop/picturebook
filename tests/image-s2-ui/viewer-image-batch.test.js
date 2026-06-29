@@ -6,14 +6,21 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const B = require('../../viewer-image-batch.js');
 
-test('computeBatchGate — 단계별 차단/허용', () => {
+test('computeBatchGate — 교사+imageS2 ON이면 시작 가능(provider/privacy 미구현 플래그가 막지 않음)', () => {
   assert.equal(B.computeBatchGate({ isTeacher: false }).state, 'not-teacher');
   assert.equal(B.computeBatchGate({ isTeacher: true, imageS2Enabled: false }).state, 'disabled');
-  assert.equal(B.computeBatchGate({ isTeacher: true, imageS2Enabled: true }).state, 'provider');
-  assert.equal(B.computeBatchGate({ isTeacher: true, imageS2Enabled: true, providerReady: true }).state, 'privacy');
-  const ok = B.computeBatchGate({ isTeacher: true, imageS2Enabled: true, providerReady: true, privacyAcknowledged: true });
-  assert.equal(ok.canStart, true); assert.equal(ok.state, 'ready');
-  /* 모든 게이트는 canStart=false에서 reason 제공 */
+  /* ★ 핵심 회귀 방지: imageS2 ON이면 providerReady/privacyAcknowledged 없이도 시작 가능(과거 'provider' 버그). */
+  const onlyEnabled = B.computeBatchGate({ isTeacher: true, imageS2Enabled: true });
+  assert.equal(onlyEnabled.canStart, true); assert.equal(onlyEnabled.state, 'ready');
+  /* privacyAcknowledged 없으면 안내 플래그만 true(차단 아님). */
+  assert.equal(onlyEnabled.privacyNotice, true);
+  assert.equal(B.computeBatchGate({ isTeacher: true, imageS2Enabled: true, privacyAcknowledged: true }).privacyNotice, false);
+  /* 장면 수 게이트(선택적) */
+  assert.equal(B.computeBatchGate({ isTeacher: true, imageS2Enabled: true, imageSceneCount: 0 }).state, 'no-images');
+  assert.equal(B.computeBatchGate({ isTeacher: true, imageS2Enabled: true, imageSceneCount: 3, pendingCount: 0 }).state, 'all-done');
+  assert.equal(B.computeBatchGate({ isTeacher: true, imageS2Enabled: true, imageSceneCount: 3, pendingCount: 2 }).canStart, true);
+  /* 미전달이면 검사 생략(순수 게이트 호환) */
+  assert.equal(B.computeBatchGate({ isTeacher: true, imageS2Enabled: true }).canStart, true);
   assert.ok(B.computeBatchGate({ isTeacher: true }).reason);
 });
 

@@ -12,14 +12,17 @@
   var PER_IMAGE_USD = 0.05;        /* gpt-image-2 medium landscape 추정 */
   var PER_IMAGE_SECONDS = 70;      /* 보수적(실측 50~70s) */
 
-  /* 시작 게이트 — 교사 + imageS2 ON + provider 준비 + 개인정보 안내 모두 충족해야 실제 시작 가능. */
+  /* 시작 게이트 — 교사 + 관리자 설정(modes.imageS2 ON) + 변환할 이미지 장면이 있어야 시작 가능.
+     ★ providerReady/privacyAcknowledged는 미구현 플래그 → 시작을 "영구" 차단하지 않는다(과거 '준비 중' 버그의 원인).
+       secret/배포 문제는 서버가 not-configured 오류로 방어, 개인정보는 차단이 아니라 안내 문구(privacyNotice)로 표시.
+     ★ imageSceneCount/pendingCount는 선택적(미전달이면 검사 생략 — 순수 게이트 테스트 호환). */
   function computeBatchGate(opts) {
     var o = opts || {};
     if (o.isTeacher !== true) return { canStart: false, state: 'not-teacher', reason: '담당 선생님만 사용할 수 있어요.' };
-    if (o.imageS2Enabled !== true) return { canStart: false, state: 'disabled', reason: '선생님이 AI 그림책 마감을 아직 켜지 않았어요.' };
-    if (o.providerReady !== true) return { canStart: false, state: 'provider', reason: 'AI 그림책 마감 준비 중이에요(설정 완료 후 사용 가능).' };
-    if (o.privacyAcknowledged !== true) return { canStart: false, state: 'privacy', reason: '학교 안내와 설정이 완료된 뒤 사용할 수 있어요.' };
-    return { canStart: true, state: 'ready', reason: null };
+    if (o.imageS2Enabled !== true) return { canStart: false, state: 'disabled', reason: '관리자 설정에서 ‘AI 그림책 마감’을 켜 주세요.' };
+    if (o.imageSceneCount != null && o.imageSceneCount <= 0) return { canStart: false, state: 'no-images', reason: '변환할 이미지 장면이 없어요.' };
+    if (o.pendingCount != null && o.pendingCount <= 0) return { canStart: false, state: 'all-done', reason: '모든 그림이 이미 마감됐어요. ‘결과 보기’에서 확인하세요.' };
+    return { canStart: true, state: 'ready', reason: null, privacyNotice: o.privacyAcknowledged !== true };
   }
 
   function formatCostUsd(usd) {

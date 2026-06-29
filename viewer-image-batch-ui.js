@@ -29,12 +29,19 @@
     catch (e) { return { ok: false, code: (e && e.code) || 'CALL_FAILED', error: e && e.message }; }
   }
 
-  async function _gate() {
+  async function _gate(plan) {
     var ctx = _ctx();
     var ai = (await _read('classes/' + ctx.classId + '/aiSettings')) || {};
     var enabled = !!(ai && ai.enabled === true && ai.modes && ai.modes.imageS2 === true);
     var img = ai.imageS2 || {};
-    return L.computeBatchGate({ isTeacher: _isTeacherSession(), imageS2Enabled: enabled, providerReady: img.providerReady === true, privacyAcknowledged: img.privacyAcknowledged === true });
+    /* plan(_planEstimate)에서 이미지 장면 수/대기 수 — 게이트가 0개 장면도 구분. */
+    var sceneCount = plan ? ((plan.needCount || 0) + (plan.cachedCount || 0)) : null;
+    var pending = plan ? (plan.needCount || 0) : null;
+    return L.computeBatchGate({
+      isTeacher: _isTeacherSession(), imageS2Enabled: enabled,
+      privacyAcknowledged: img.privacyAcknowledged === true,   /* 안내 표시용(차단 아님) */
+      imageSceneCount: sceneCount, pendingCount: pending,
+    });
   }
 
   /* 시작 전 계획 추정(클라 read만) — 이미지 있는 장면 / 최신 s2 있는 장면. */
@@ -84,14 +91,24 @@
     return '<ul style="margin:8px 0 0;padding-left:18px;font-size:12px;color:#777;line-height:1.7;">'
       + '<li>원본은 그대로 보존됩니다.</li>'
       + '<li>AI 결과는 자동 적용되지 않아요(장면별로 비교 후 선택).</li>'
-      + '<li>그림 이미지가 외부 AI 서비스로 전송될 수 있어요.</li>'
-      + '<li>학교 안내와 설정이 완료된 뒤 사용할 수 있어요.</li></ul>';
+      + '<li>그림 이미지가 외부 AI 서비스로 전송될 수 있어요 — 학교 안내 후 사용하세요.</li></ul>';
+  }
+
+  /* 교사용 짧은 순서 안내(접이식). 버튼 활성/비활성과 무관하게 표시. */
+  function _orderGuide() {
+    return '<details style="margin-top:10px;font-size:12px;color:#666;">'
+      + '<summary style="cursor:pointer;color:#3a5a2a;">사용 순서 보기</summary>'
+      + '<ol style="margin:6px 0 0;padding-left:18px;line-height:1.7;">'
+      + '<li>관리자 설정에서 ‘AI 그림책 마감’을 켭니다.</li>'
+      + '<li>변환할 장면 수와 예상 비용을 확인합니다.</li>'
+      + '<li>‘AI 그림책 마감 시작’을 누릅니다.</li>'
+      + '<li>결과를 장면별로 비교해 ‘AI 결과 사용’ 또는 ‘원본 유지’를 선택합니다.</li></ol></details>';
   }
 
   async function _renderStart(body, foot, closeBtn) {
     var gate, plan;
-    try { gate = await _gate(); } catch (e) { gate = { canStart: false, state: 'provider', reason: '준비 중이에요.' }; }
     try { plan = await _planEstimate(); } catch (e) { plan = null; }
+    try { gate = await _gate(plan); } catch (e) { gate = { canStart: false, state: 'error', reason: '설정을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.' }; }
     var html = '';
     if (plan) {
       html += '<div style="background:#f7f9f5;border:1px solid #e3ead9;border-radius:10px;padding:12px;font-size:13px;line-height:1.8;">'
@@ -101,7 +118,8 @@
         + '<div>' + _esc(plan.costLabel) + '</div></div>';
     }
     html += '<div style="margin-top:10px;font-size:12px;color:' + (gate.canStart ? '#2e7d32' : '#b26a00') + ';">'
-      + (gate.canStart ? '✅ 사용 가능' : '⏳ ' + _esc(gate.reason || '준비 중')) + '</div>';
+      + (gate.canStart ? '✅ 시작할 수 있어요' : '⛔ ' + _esc(gate.reason || '시작할 수 없어요')) + '</div>';
+    html += _orderGuide();
     html += _notice();
     body.innerHTML = html;
 
@@ -134,7 +152,12 @@
     paint();
     for (var i = 0; i < targets.length; i++) {
       var sid = L.nextTarget(targets, done); if (!sid) break;
-      await _call('callImageAiS2', { classId: ctx.classId, teamName: ctx.teamName, sceneId: sid, jobId: jobId });
+      var res = await _call('callImageAiS2', { classId: ctx.classId, teamName: ctx.teamName, sceneId: sid, jobId: jobId });
+      /* secret/배포 미설정(not-configured) → 명확 안내 후 중단. 원본 불변·추가 호출 없음. */
+      if (res && res.ok === false && /NOT_CONFIGURED|CONFIG/i.test(String((res && res.code) || ''))) {
+        body.innerHTML = '<p style="color:#c0392b;font-size:13px;line-height:1.6;">AI 이미지 서비스 설정을 확인해 주세요.<br>관리자에게 secret 등록·배포 설정을 요청하세요.</p>';
+        return;
+      }
       done[sid] = true; paint();
     }
     _renderResults(body);

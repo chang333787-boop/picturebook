@@ -65,7 +65,8 @@ const DATA_READY = {
   'classes/c/teams/0000/aiVariants/image': { 1: { s2: { url: 'data:s2-1', stale: false } } },
   'classes/c/teams/0000/aiVariants/imageSelections': { 1: { selected: 's2' } },
 };
-const DATA_NOTREADY = Object.assign({}, DATA_READY, { 'classes/c/aiSettings': { enabled: true, modes: { imageS2: true } } });   /* provider/privacy 없음 */
+const DATA_NOTREADY = Object.assign({}, DATA_READY, { 'classes/c/aiSettings': { enabled: true, modes: { imageS2: true } } });   /* provider/privacy 없음 — 이제는 시작 가능(차단 아님) */
+const DATA_OFF = Object.assign({}, DATA_READY, { 'classes/c/aiSettings': { enabled: true, modes: { imageS2: false } } });        /* imageS2 OFF — 시작 disabled */
 
 test('교사 세션 — 진입 버튼 자가 주입', () => {
   const { dom } = loadUi(DATA_READY);
@@ -92,13 +93,28 @@ test('open() — 시작 패널 빌드(요약+안내+버튼) throw 없음', async
   assert.ok(bodyEl.innerHTML.indexOf('원본은 그대로 보존') !== -1, '안내 문구');
 });
 
-test('게이트 미준비 — 시작 버튼 disabled', async () => {
+function _startBtn(ui) {
+  const panel = ui.dom.document.getElementById('imageS2-batch-panel');
+  const buttons = panel.querySelectorAll('button');
+  return buttons.filter((b) => String(b.innerHTML).indexOf('마감 시작') !== -1)[0];
+}
+
+test('게이트 — imageS2 OFF면 시작 disabled', async () => {
+  const ui = loadUi(DATA_OFF);
+  await global.window.imageS2BatchUi.open();
+  await new Promise((r) => setTimeout(r, 0));
+  const startBtn = _startBtn(ui);
+  assert.ok(startBtn, '시작 버튼 존재');
+  assert.equal(startBtn.disabled, true, 'imageS2 OFF → disabled');
+});
+
+test('게이트 — imageS2 ON이면 provider/privacy 없이도 시작 enabled(회귀 방지)', async () => {
   const ui = loadUi(DATA_NOTREADY);
   await global.window.imageS2BatchUi.open();
   await new Promise((r) => setTimeout(r, 0));
-  const panel = ui.dom.document.getElementById('imageS2-batch-panel');
-  const buttons = panel.querySelectorAll('button');
-  const startBtn = buttons.filter((b) => String(b.innerHTML).indexOf('마감 시작') !== -1)[0];
+  const startBtn = _startBtn(ui);
   assert.ok(startBtn, '시작 버튼 존재');
-  assert.equal(startBtn.disabled, true, 'provider/privacy 미준비 → disabled');
+  assert.equal(startBtn.disabled, false, 'imageS2 ON(+이미지 장면) → enabled');
+  const panel = ui.dom.document.getElementById('imageS2-batch-panel');
+  assert.equal(String(panel.textContent).indexOf('준비 중'), -1, '“준비 중” 문구 없음');
 });

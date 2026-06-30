@@ -319,13 +319,15 @@ async function _renderClassBar(classId) {
    · 교사가 처음 저장하면 노드 생성 → 그때부터 서버가 aiSettings 우선 적용.
    · imageS2 = 'AI 그림책 마감'(교사용·활성). imageS1은 폐기(UI 미노출·저장값 보존·마이그레이션 안 함).
    ════════════════════════════════════════════════════════════════ */
-/* imageS1(그림 1단계)은 폐기 — 설정 UI 미노출. 기존 저장값은 보존(state/payload에 유지·마이그레이션 안 함).
-   imageS2 = 'AI 그림책 마감'(교사용). 마스터 토글은 enabled만 켜고 modes는 개별이라 우발 ON 없음. */
+/* imageS1(그림 1단계)·textS1(텍스트 1단계 문장 정돈)은 폐기 — 설정 UI 미노출.
+   기존 저장값은 보존(state/payload에 유지·마이그레이션 안 함·서버 callable/QUOTA 보존).
+   WRITE-AFTER-UI-VISIBLE-FIX: textS1은 작품검사와 역할 중복 → 쓰기 후 활동에서 제거. UI만 숨김.
+   imageS2 = 'AI 그림책 마감'(교사용). 마스터 토글은 enabled만 켜고 modes는 개별이라 우발 ON 없음
+   (AI_MODE_DEFS에 없는 textS1/imageS1은 마스터로도 신규 ON 안 됨 — 기존 DB값만 보존 재기록). */
 const AI_MODE_DEFS = [
-  { key: 'textS1',   label: '텍스트 1단계 (문장 정돈)', soon: false },
-  { key: 'textS2',   label: '텍스트 2단계 (장면 발전)', soon: false },
-  { key: 'workCheck',label: '작품 검사',               soon: false },
-  { key: 'imageS2',  label: 'AI 그림책 마감',          soon: false, badge: '교사용' },
+  { key: 'textS2',   label: 'AI 장면발전',    soon: false },
+  { key: 'workCheck',label: '작품 검사',      soon: false },
+  { key: 'imageS2',  label: 'AI 그림책 마감', soon: false, badge: '교사용' },
 ];
 
 async function _renderAiSettingsPanel(classId) {
@@ -343,6 +345,7 @@ async function _renderAiSettingsPanel(classId) {
   const state = {
     enabled: exists ? saved.enabled === true : false,
     modes: {
+      /* textS1·imageS1 = 폐기(UI 미노출). 기존 저장값을 그대로 로드해 보존만 — 저장 시 변경 없이 재기록. */
       textS1:   exists ? !!(saved.modes && saved.modes.textS1)   : false,
       textS2:   exists ? !!(saved.modes && saved.modes.textS2)   : false,
       workCheck:exists ? !!(saved.modes && saved.modes.workCheck): false,
@@ -427,6 +430,7 @@ async function _saveAiSettings(classId, state, panel, saveBtn, statusEl) {
   const payload = {
     enabled: state.enabled === true,
     modes: {
+      /* textS1·imageS1 = 폐기. UI 없지만 state에서 로드한 기존값을 그대로 재기록(보존·임의 false 금지). */
       textS1:    state.modes.textS1    === true,
       textS2:    state.modes.textS2    === true,
       workCheck: state.modes.workCheck === true,

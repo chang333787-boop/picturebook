@@ -2295,11 +2295,18 @@
      별도 토글 바 박음. maker-return-bar 박지 X.
      viewer-render.js 박은 6 곳 박은 거 박은 _getDisplayBody 박은 거 박을 거.
      ════════════════════════════════════════════════════════════════ */
+  /* WRITE-AFTER-UI-REBUILD-1: 텍스트 1단계(aiS1) 보기 폐기 — 신규 쓰기 후 흐름에서 숨김.
+     저장된 view mode가 'aiS1'이어도 원본으로 정규화(보기만 차단·서버/데이터/구작품 s1은 보존).
+     남은 글 보기 = 원본 | AI 장면발전(aiS2). */
+  function _normalizeTextAiViewMode(mode) {
+    return (mode === 'aiS2') ? 'aiS2' : 'original';
+  }
+
   function _getAiViewMode() {
-    /* v140 fix 2026-05-21: 팀별 namespace 박음. 2026-06: aiS2 추가(3-way). */
+    /* v140 fix 2026-05-21: 팀별 namespace 박음. 2026-06: aiS2 추가. UI-REBUILD-1: aiS1 정규화. */
     try {
       const v = localStorage.getItem(_getMockViewModeKey());
-      return (v === 'aiS1' || v === 'aiS2') ? v : 'original';
+      return _normalizeTextAiViewMode(v);
     } catch (e) { return 'original'; }
   }
 
@@ -2509,16 +2516,16 @@
   function _showAiToggleBar() {
     /* Phase 4-A: text/picturebook 작품에서만. movie/experience엔 절대 표시 X. */
     if (!_aiToggleProjectTypeAllowed()) { _hideAiToggleBar(); return; }
-    /* 2026-06: 3-way. s1 또는 s2가 finalized(localStorage) 또는 Firebase 후보 존재면 표시. */
-    const hasS1 = _isS1Finalized();
+    /* UI-REBUILD-1: 글 보기 = 원본 | AI 장면발전(s2)만. 텍스트 1단계(s1) 토글 폐기.
+       s2 후보 없으면 바 미표시(s1만 있는 구작품도 바 숨김 → 본문은 원본 표시). */
     const hasS2 = _isS2Finalized();
-    if (!hasS1 && !hasS2) { _hideAiToggleBar(); return; }
-    /* Phase 4-A: 감상자/편집자 공통 표시. (이전엔 editMode에서만 표시 → 감상자 토글 불가였음.)
-       감상자는 editMode=false라 편집 핸들/contenteditable이 원천적으로 없어 보기 전용으로 안전. */
+    if (!hasS2) { _hideAiToggleBar(); return; }
+    /* Phase 4-A: 감상자/편집자 공통 표시. 감상자는 editMode=false라 보기 전용으로 안전. */
 
-    /* 현재 보기 mode가 더 이상 유효하지 않으면 원본으로 정리 (setMode가 재렌더+업데이트) */
+    /* 현재 보기 mode가 더 이상 유효하지 않으면 원본으로 정리 (setMode가 재렌더+업데이트).
+       _getAiViewMode가 aiS1을 이미 original로 정규화하므로 s2 유효성만 확인. */
     const cur = _getAiViewMode();
-    if ((cur === 'aiS1' && !hasS1) || (cur === 'aiS2' && !hasS2)) {
+    if (cur === 'aiS2' && !hasS2) {
       _setAiViewMode('original');
     }
 
@@ -2526,10 +2533,9 @@
     const bar = document.createElement('div');
     bar.id = 'ai-view-toggle-bar';
     bar.className = 'ai-view-toggle-bar';
-    let html = '<span class="ai-view-toggle-bar__label">보기 모드:</span>'
+    let html = '<span class="ai-view-toggle-bar__label">글 보기:</span>'
       + '<button type="button" class="ai-view-toggle-btn js-ai-view-original" data-mode="original">원본</button>';
-    if (hasS1) html += '<button type="button" class="ai-view-toggle-btn js-ai-view-ais1" data-mode="aiS1">AI 문장 정돈</button>';
-    if (hasS2) html += '<button type="button" class="ai-view-toggle-btn js-ai-view-ais2" data-mode="aiS2">AI 장면 발전</button>';
+    if (hasS2) html += '<button type="button" class="ai-view-toggle-btn js-ai-view-ais2" data-mode="aiS2">AI 장면발전</button>';
     bar.innerHTML = html;
     document.body.appendChild(bar);
     /* TOP-HUD-AI-LAYOUT-1B: AI 보기모드 바가 떠 있을 때만 body에 상태 class.
@@ -3095,45 +3101,44 @@
 
     const html = `
       <div class="ai-modal__header">
-        <div class="ai-modal__title">🤖 AI 작품 다듬기</div>
+        <div class="ai-modal__title">📔 작품 마무리</div>
         <button class="ai-modal__close js-ai-modal-close" aria-label="닫기">✕</button>
       </div>
       <div class="ai-modal__body">
         <p class="ai-mode-intro">
-          AI는 작품을 대신 만들지 않아요. 내가 만든 작품을 읽고 더 자연스럽게 다듬거나 확인할 점을 알려줘요.
+          질문과 검사로 고칠 곳을 찾고, 내가 직접 고친 뒤, 마지막에 AI 도움을 받아 작품을 완성해요.
+          AI는 작품을 대신 만들거나 고치지 않아요.
         </p>
         <div class="ai-mode-grid">
           ${(() => {
             /* Phase A fix 2026-05-21: 실 API 박을 때 client mock quota 박지 X (Functions가 quota 박음) */
             const realApi = _shouldUseRealApi();
-            const s1Remain = realApi ? Infinity : _getRemaining('s1');
             const checkRemain = realApi ? Infinity : _getRemaining('check');
+            /* WRITE-AFTER-UI-REBUILD-1: 텍스트 1단계(문장 정돈) 카드 제거 — 작품검사와 역할 중복.
+               서버 callTextAiBatch·기존 aiVariants/text/{sid}/s1 데이터는 보존(삭제 0), UI 신규 노출만 제거.
+               순서 = 작품 검사 → 직접 고치기(안내) → AI 장면발전 → AI 그림책 마감(그림책). */
             return `
-          ${_renderModeCard({
-            key: 's1',
-            icon: '📝',
-            title: '텍스트 1단계',
-            desc: '문장을 읽기 좋게 다듬어요. 새로운 내용은 만들지 않아요.',
-            enabled: a.s1.enabled && s1Remain > 0,
-            disabledReason: s1Remain === 0 ? '이번 작품에서 사용할 수 있는 횟수를 모두 사용했어요' : a.s1.reason,
-            remaining: realApi ? null : s1Remain,
-          })}
           ${_renderModeCard({
             key: 'check',
             icon: '🔍',
             title: '작품 검사',
-            desc: '작품 전체의 흐름, 선택지 연결, 캐릭터 일관성을 점검해요. AI가 직접 고치지는 않아요.',
+            desc: '이야기 흐름, 선택지 연결, 인물과 엔딩을 확인해요. AI가 대신 고치지 않고 고칠 곳을 알려줘요.',
             enabled: a.check.enabled && checkRemain > 0,
             disabledReason: checkRemain === 0 ? '이번 작품에서 사용할 수 있는 횟수를 모두 사용했어요' : a.check.reason,
             remaining: realApi ? null : checkRemain,
           })}
             `;
           })()}
+          <div class="ai-mode-card ai-mode-card--info" aria-disabled="true" style="cursor:default;">
+            <div class="ai-mode-card__icon">✏️</div>
+            <div class="ai-mode-card__title">직접 고치기</div>
+            <div class="ai-mode-card__desc">검사 결과의 ‘장면으로 이동’을 눌러 내가 직접 고쳐요. 내가 고친 글이 최종 작품이 돼요.</div>
+          </div>
           ${_renderModeCard({
             key: 's2',
             icon: '✨',
-            title: '텍스트 2단계',
-            desc: '장면을 더 생생하게 발전시켜요. 원작의 핵심 사건과 선택지는 지켜요.',
+            title: 'AI 장면발전',
+            desc: '내가 고친 글을 바탕으로 장면을 더 풍부하게 해요. 사건·선택지·엔딩은 그대로 두고 표현만 발전시킨 후보를 만들어요.',
             enabled: a.s2.enabled,
             disabledReason: a.s2.reason,
             remaining: null,
@@ -3176,14 +3181,12 @@
       _removeModalRoot('ai-mode-modal');
     });
 
-    root.querySelectorAll('.ai-mode-card:not(.ai-mode-card--disabled)').forEach(card => {
+    /* UI-REBUILD-1: data-ai-mode 있는 실제 카드만 핸들러(직접 고치기 안내 카드는 data-ai-mode 없음 → 제외). */
+    root.querySelectorAll('.ai-mode-card[data-ai-mode]:not(.ai-mode-card--disabled)').forEach(card => {
       card.addEventListener('click', () => {
         const mode = card.getAttribute('data-ai-mode');
         _removeModalRoot('ai-mode-modal');
-        if (mode === 's1') {
-          /* v140-step2: 후보 3회 흐름. 옛 _startTextS1 (비교 모달 + _rtSaveBody 적용)은 호출 박지 X */
-          _startTextS1V140();
-        } else if (mode === 's2') {
+        if (mode === 's2') {
           _startTextS2();
         } else if (mode === 'check') {
           _startWorkCheck();

@@ -14,7 +14,7 @@
    ════════════════════════════════════════════════════════════════ */
 
 const DEFAULT_MODEL = 'gpt-image-2';
-const PROMPT_VERSION = 'imgS2-openai-gpt-image-2-P3-v1';
+const PROMPT_VERSION = 'imgS2-openai-gpt-image-2-P4-v1';
 const ENDPOINT = 'https://api.openai.com/v1/images/edits';
 const SIZE = '1536x1024';            /* 가로 3:2 */
 const QUALITY = 'medium';
@@ -25,15 +25,16 @@ const ALLOWED_OUTPUT_MIME = ['image/png', 'image/jpeg', 'image/webp'];
 /* 원본 다운로드 허용 호스트(SSRF) — Firebase Storage 만 */
 const ALLOWED_SOURCE_HOSTS = ['firebasestorage.googleapis.com', 'storage.googleapis.com'];
 
-/* P3(표현 강화) 정본 프롬프트 — 보존 제약 + 한글/재설계 금지 명문화. */
+/* P4(완성형 그림책 마감) 정본 프롬프트 — 보존 가드(수·위치·구도·말풍선·손글씨·재설계금지)는 유지하되
+   배경·빛·색·질감·공간 밀도를 꽉 채워 "정돈"이 아니라 "완성된 그림책 한 장"으로 마감. (P3=보존 강해 약했음) */
 const OPENAI_S2_PROMPT = [
-  'Start from the provided child-drawn picture and improve only its finish, while keeping it clearly the same drawing.',
-  'Keep exactly the same characters, animals, and objects that are already in the picture — the same count, the same positions, and the same relationships between them.',
-  'Do not add, remove, merge, split, resize, or redesign any character, animal, object, face, hand, or body part.',
-  'Keep the hand-drawn, child-like look: the original lines, shapes, and color choices must stay recognizable. Do not turn it into a polished commercial or photorealistic illustration, and do not imitate any specific artist or studio.',
-  'If any handwritten Korean text or speech bubble is present, preserve it as a visual drawing mark; do not blur, rewrite, translate, clean up, or regenerate it.',
-  'Only already-empty areas and the background may be filled in, and only in a simple, natural way; keep the same time of day and weather.',
-  'Strengthen mood, lighting, and the sense of space, but keep the same events, subjects, composition, and meaning.',
+  'Turn the provided child-drawn picture into a warm, fully finished picture-book illustration of the SAME scene — clearly the same drawing, but completed and richly painted like a published storybook page.',
+  'Keep exactly the same characters, animals, and objects that are already in the picture: the same count, the same positions, the same poses, and the same relationships and overall composition. Do not add, remove, merge, split, or move any of them.',
+  'Keep each character, animal, and object recognizable as the same one the child drew — same identity, expression, pose, and overall design. You may refine and clean the rendering, but do not redesign faces, hands, or bodies into different-looking characters.',
+  'If any handwritten Korean text or speech bubble is present, preserve it exactly as a drawn mark in the same place; do not blur, rewrite, translate, clean up, or regenerate it.',
+  'Finish the scene fully: fill every empty or blank-white area and the whole background with a complete, fitting environment (sky, ground, grass, trees, path, sunlight). Leave no unfinished white paper. Add rich but natural color, soft storybook lighting, gentle depth and distance, atmosphere, and hand-painted texture so it reads as a complete, polished picture-book page rather than a tidied sketch.',
+  'Render it with a warm hand-made look that blends watercolor and colored pencil, with cozy, harmonious colors; keep the child-made imagination and hand-feel.',
+  'Do not make it photorealistic, 3D, or a glossy commercial / anime style, and do not imitate any specific artist or studio. Keep the same events, subjects, meaning, time of day, and weather.',
   'Produce a horizontal landscape image with a 3:2 ratio (about 1536x1024), with the original drawing fitted and centered, never cropped or shifted.',
 ].join('\n');
 

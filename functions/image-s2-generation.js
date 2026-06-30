@@ -10,7 +10,7 @@
    ════════════════════════════════════════════════════════════════ */
 
 /* ── 상수 (PRD §6·§11) ───────────────────────────────────────── */
-const PROMPT_VERSION = 'imgS2-fixed-v1';   /* 고정 프롬프트 1종(강도 선택 없음) 버전 태그 */
+const PROMPT_VERSION = 'imgS2-p4-v1';   /* P4 완성형 그림책 마감 프롬프트(변환 결과 태그). 실제 프롬프트는 adapter OPENAI_S2_PROMPT. */
 const FIT_POLICY = 'fit-imagecenter-landscape';
 /* 그림중심형 가로 프레임. 실측 px 는 PRD §16 미결 → 제안 기본값(3:2). 모델 확정 후 확정. */
 const TARGET_FRAME = { w: 1536, h: 1024, aspect: '3:2' };

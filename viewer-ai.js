@@ -771,7 +771,7 @@
     }).join('');
 
     const html = ''
-      + '<div class="ai-modal__header"><div class="ai-modal__title">✨ AI 장면 발전 결과 — 2단계</div>'
+      + '<div class="ai-modal__header"><div class="ai-modal__title">✨ AI 장면발전 결과</div>'
       +   '<button class="ai-modal__close js-ai-modal-close" aria-label="닫기">✕</button></div>'
       + '<div class="ai-modal__body">'
       +   '<p class="ai-mode-intro">원작의 핵심 사건과 선택지는 지키면서 장면을 더 생생하게 발전시킨 후보예요. 마음에 드는 장면만 적용할 수 있고, 원본은 그대로 남아요. <b>AI가 원문에 없던 내용이나 어색한 표현을 만들 수 있으니, 반드시 다시 읽고 적용할지 선택하세요.</b></p>'
@@ -3027,14 +3027,14 @@
   function _showOnboardingModal(onConfirm) {
     const html = `
       <div class="ai-modal__header">
-        <div class="ai-modal__title">🤖 AI 작품 다듬기</div>
+        <div class="ai-modal__title">📔 작품 마무리</div>
       </div>
       <div class="ai-modal__body">
         <p class="ai-onboarding-text">
-          AI는 작품을 대신 만드는 기능이 아니에요.<br/>
+          AI는 작품을 대신 만들거나 고치지 않아요.<br/>
           여러분이 만든 작품을 읽고,<br/>
-          더 자연스럽게 다듬을 수 있는 후보를 보여줘요.<br/>
-          마음에 드는 장면만 골라 적용할 수 있어요.
+          질문과 검사로 고칠 곳을 알려줘요.<br/>
+          내가 직접 고친 뒤, 마지막에 AI 장면발전·그림책 마감을 후보로 받을 수 있어요.
         </p>
         <div class="ai-onboarding-hint">
           AI 결과는 후보로만 보여줘요. 내가 직접 골라 적용해야 반영되고, 원본은 그대로 남아요.

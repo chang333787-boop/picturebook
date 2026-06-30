@@ -1426,16 +1426,27 @@
      원본 보기 → originalSrc 그대로 반환(각 렌더 사이트의 fallback 체인을 그대로 보존 → 동작 변화 0).
      aiS1/aiS2 보기 → 해당 variant url 있으면 그것, 없으면 originalSrc fallback.
      원본 scene.imageData/imageUrl은 절대 변경하지 않음(read-only). */
+  function _trueOriginalSrc(scene, fallback) {
+    if (scene && typeof scene.imageData === 'string' && scene.imageData) return scene.imageData;
+    if (scene && typeof scene.imageUrl === 'string' && scene.imageUrl) return scene.imageUrl;
+    return fallback;
+  }
   function _getDisplayImageSrc(scene, originalSrc) {
     try {
-      const mode = _getAiImageViewMode();
-      if (mode !== 'aiS1' && mode !== 'aiS2') return originalSrc;
       if (!scene) return originalSrc;
+      var raw = null;
+      try { raw = localStorage.getItem(_getMockImageViewModeKey()); } catch (e) { raw = null; }   /* null|'original'|'aiS1'|'aiS2' */
       const sid = (scene.id != null) ? scene.id : scene.sceneId;
-      if (sid == null) return originalSrc;
-      const variantKey = (mode === 'aiS2') ? 's2' : 's1';
-      const url = _getFbImageVariantUrl(variantKey, sid);
-      return (typeof url === 'string' && url) ? url : originalSrc;
+      if (raw === 'aiS1' || raw === 'aiS2') {
+        if (sid == null) return originalSrc;
+        const variantKey = (raw === 'aiS2') ? 's2' : 's1';
+        const url = _getFbImageVariantUrl(variantKey, sid);
+        return (typeof url === 'string' && url) ? url : _trueOriginalSrc(scene, originalSrc);
+      }
+      /* ★ 명시적 '원본' 보기(교사가 원본 버튼 클릭) → 발행 선택(s2) 무시하고 진짜 원본 표시(원본 버튼이 원본을 보장). */
+      if (raw === 'original') return _trueOriginalSrc(scene, originalSrc);
+      /* 토글 안 함(기본·학생) → 전달된 src 그대로(= getPublishedImageDisplaySrc 발행 선택 결과). */
+      return originalSrc;
     } catch (e) { return originalSrc; }
   }
 
@@ -2562,8 +2573,10 @@
      ════════════════════════════════════════════════════════════════ */
   function _setAiImageViewMode(mode) {
     try {
+      /* ★ '원본'도 명시값으로 저장(키 제거 X) — _getDisplayImageSrc가 null(기본=발행선택)과 'original'(명시 원본)을
+         구분해, 교사가 원본 버튼을 누르면 발행 s2를 무시하고 진짜 원본을 보여준다(원본 버튼이 원본을 보장). */
       if (mode === 'aiS1' || mode === 'aiS2') localStorage.setItem(_getMockImageViewModeKey(), mode);
-      else localStorage.removeItem(_getMockImageViewModeKey());
+      else localStorage.setItem(_getMockImageViewModeKey(), 'original');
     } catch (e) { /* noop */ }
     _updateAiImageToggleBar();
     /* 본문 프레임 재렌더 → _getDisplayImageSrc가 새 모드 반영. 원본 필드는 불변. */
@@ -2583,13 +2596,13 @@
 
   function _showAiImageToggleBar() {
     if (!_aiToggleProjectTypeAllowed()) { _hideAiImageToggleBar(); return; }
-    const hasS1 = _hasImageVariantS1();
+    /* imageS1(AI 그림 정돈)은 폐기 — 'AI 그림책 마감'(s2)만. s2 후보 없으면 바 미표시. */
     const hasS2 = _hasImageVariantS2();
-    if (!hasS1 && !hasS2) { _hideAiImageToggleBar(); return; }
+    if (!hasS2) { _hideAiImageToggleBar(); return; }
 
-    /* 현재 이미지 보기 모드가 더 이상 유효하지 않으면 원본으로 정리 */
+    /* 현재 이미지 보기 모드가 더 이상 유효하지 않으면(aiS1 폐기/ s2 없음) 원본으로 정리 */
     const cur = _getAiImageViewMode();
-    if ((cur === 'aiS1' && !hasS1) || (cur === 'aiS2' && !hasS2)) {
+    if (cur === 'aiS1' || (cur === 'aiS2' && !hasS2)) {
       _setAiImageViewMode('original');
     }
 
@@ -2600,11 +2613,8 @@
     bar.className = 'ai-view-toggle-bar ai-view-toggle-bar--image';
     bar.style.top = '48px';
     let html = '<span class="ai-view-toggle-bar__label">그림 보기:</span>'
-      + '<button type="button" class="ai-view-toggle-btn js-ai-image-view-original" data-mode="original">원본</button>';
-    if (hasS1) html += '<button type="button" class="ai-view-toggle-btn js-ai-image-view-ais1" data-mode="aiS1">AI 그림 정돈</button>';
-    else html += '<button type="button" class="ai-view-toggle-btn" data-mode="aiS1" disabled>AI 그림 정돈(후보 없음)</button>';
-    if (hasS2) html += '<button type="button" class="ai-view-toggle-btn js-ai-image-view-ais2" data-mode="aiS2">AI 그림 발전</button>';
-    else html += '<button type="button" class="ai-view-toggle-btn" data-mode="aiS2" disabled>AI 그림 발전(후보 없음)</button>';
+      + '<button type="button" class="ai-view-toggle-btn js-ai-image-view-original" data-mode="original">원본</button>'
+      + '<button type="button" class="ai-view-toggle-btn js-ai-image-view-ais2" data-mode="aiS2">AI 그림책 마감</button>';
     bar.innerHTML = html;
     document.body.appendChild(bar);
     bar.querySelectorAll('.ai-view-toggle-btn').forEach(function (btn) {

@@ -206,15 +206,18 @@
       pair.appendChild(_el('figure', { style: 'flex:1;margin:0;' }, '<figcaption style="font-size:11px;color:#888;">원본</figcaption>' + (cmp.original ? '<img src="' + _esc(cmp.original) + '" style="width:100%;border:1px solid #eee;border-radius:6px;' + (cmp.shown === 'original' ? 'outline:2px solid #6a8a5b;' : '') + '">' : '<div style="height:90px;background:#f3f3f3;border-radius:6px;"></div>')));
       pair.appendChild(_el('figure', { style: 'flex:1;margin:0;' }, '<figcaption style="font-size:11px;color:#888;">AI 결과</figcaption>' + (cmp.s2 ? '<img src="' + _esc(cmp.s2) + '" style="width:100%;border:1px solid #eee;border-radius:6px;' + (cmp.shown === 's2' ? 'outline:2px solid #6a8a5b;' : '') + (cmp.stale ? 'opacity:.5;' : '') + '">' : '<div style="height:90px;background:#f3f3f3;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#bbb;font-size:12px;">없음</div>')));
       row.appendChild(pair);
-      if (cmp.s2 && !cmp.stale) {
-        var btns = _el('div', { style: 'display:flex;gap:6px;margin-top:8px;' });
-        var useBtn = _el('button', { style: 'flex:1;padding:6px;border-radius:7px;border:1px solid #6a8a5b;background:' + (cmp.shown === 's2' ? '#6a8a5b' : '#fff') + ';color:' + (cmp.shown === 's2' ? '#fff' : '#3a5a2a') + ';font-size:12px;cursor:pointer;' }, 'AI 결과 사용');
-        var keepBtn = _el('button', { style: 'flex:1;padding:6px;border-radius:7px;border:1px solid #ccc;background:' + (cmp.shown === 'original' ? '#eee' : '#fff') + ';font-size:12px;cursor:pointer;' }, '원본 유지');
-        useBtn.onclick = function () { _apply(ctx, id, 's2', row, s2v); };
-        keepBtn.onclick = function () { _apply(ctx, id, 'original', row, s2v); };
-        btns.appendChild(useBtn); btns.appendChild(keepBtn);
-        row.appendChild(btns);
-      }
+      /* 버튼을 컬럼과 정렬: 왼쪽(원본 컬럼) 아래 = 원본 유지, 오른쪽(AI 결과 컬럼) 아래 = AI 결과 사용.
+         AI 결과 없음/stale이면 AI 결과 사용 비활성. */
+      var aiUsable = !!(cmp.s2 && !cmp.stale);
+      var btns = _el('div', { style: 'display:flex;gap:6px;margin-top:8px;' });
+      var keepBtn = _el('button', { style: 'flex:1;padding:6px;border-radius:7px;border:1px solid #ccc;background:' + (cmp.shown === 'original' ? '#eee' : '#fff') + ';font-size:12px;cursor:pointer;' }, '원본 유지');
+      keepBtn.onclick = function () { _apply(ctx, id, 'original', row, s2v); };
+      var useLabel = aiUsable ? 'AI 결과 사용' : (cmp.stale ? 'AI 결과 사용(오래됨)' : 'AI 결과 없음');
+      var useBtn = _el('button', { style: 'flex:1;padding:6px;border-radius:7px;border:1px solid ' + (aiUsable ? '#6a8a5b' : '#ddd') + ';background:' + (aiUsable ? (cmp.shown === 's2' ? '#6a8a5b' : '#fff') : '#f3f3f3') + ';color:' + (aiUsable ? (cmp.shown === 's2' ? '#fff' : '#3a5a2a') : '#bbb') + ';font-size:12px;cursor:' + (aiUsable ? 'pointer' : 'not-allowed') + ';' }, useLabel);
+      useBtn.disabled = !aiUsable;
+      if (aiUsable) useBtn.onclick = function () { _apply(ctx, id, 's2', row, s2v); };
+      btns.appendChild(keepBtn); btns.appendChild(useBtn);   /* 좌: 원본 유지 / 우: AI 결과 사용 */
+      row.appendChild(btns);
       wrap.appendChild(row);
     });
     body.innerHTML = ''; body.appendChild(wrap);
@@ -233,8 +236,10 @@
 
   /* ── 교사 전용 진입 버튼(자가 주입) ── */
   function _injectEntry() {
-    /* 학생 미노출 + 감상 모드 미노출 — 다듬기(edit=1&from=maker) 세션에서만 진입 버튼 표시.
-       (감상 화면에선 'AI 그림책 마감' 진입을 띄우지 않음. 교사는 다듬기에서 진행.) */
+    /* ★ floating 진입 버튼 기본 제거 — 정식 진입점은 '🤖 AI 작품 다듬기' 모달의 'AI 그림책 마감' 카드.
+       디버그/빠른접근용으로 ?debugImageS2=1 일 때만 표시. */
+    if (_params().get('debugImageS2') !== '1') return;
+    /* 학생 미노출 + 감상 모드 미노출 — 다듬기(edit=1&from=maker) 세션에서만. */
     if (!(window.isEditViewerSession && window.isEditViewerSession(location.search))) return;
     if (['picturebook', 'text'].indexOf(_ptype()) === -1 && _ptype()) return;
     if (document.getElementById('imageS2-batch-entry')) return;

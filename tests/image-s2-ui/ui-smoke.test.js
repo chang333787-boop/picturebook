@@ -71,10 +71,15 @@ const DATA_NOTREADY = Object.assign({}, DATA_READY, { 'classes/c/aiSettings': { 
 const DATA_OFF = Object.assign({}, DATA_READY, { 'classes/c/aiSettings': { enabled: true, modes: { imageS2: false } } });        /* imageS2 OFF — 시작 disabled */
 const DATA_NOPOLICY = Object.assign({}, DATA_READY); delete DATA_NOPOLICY['classes/c/teams/0000/viewer-meta/imagePolicy'];      /* 레거시: imagePolicy 없음 → 사전 차단 */
 
-test('교사 세션 — 진입 버튼 자가 주입', () => {
-  const { dom } = loadUi(DATA_READY);
+test('floating 진입 버튼 — 기본 제거(모달 카드가 정식 진입점)', () => {
+  const { dom } = loadUi(DATA_READY);   /* edit=1&from=maker, debugImageS2 없음 */
+  assert.equal(dom.document.getElementById('imageS2-batch-entry'), null, '기본은 floating 버튼 미주입');
+});
+
+test('floating 진입 버튼 — ?debugImageS2=1 일 때만 표시(교사 세션)', () => {
+  const { dom } = loadUi(DATA_READY, { search: '?classId=c&team=0000&ptype=picturebook&from=maker&edit=1&debugImageS2=1' });
   const entry = dom.document.getElementById('imageS2-batch-entry');
-  assert.ok(entry, '진입 버튼 바 주입됨');
+  assert.ok(entry, 'debug 플래그면 주입');
   assert.ok(entry.children.length >= 1);
 });
 

@@ -126,11 +126,14 @@ function decideGenerationGate(opts) {
   return { action: 'proceed', sceneId, sourceMode: pc.sourceMode, originalSrc };
 }
 
-/* ── dedup (PRD §10 — 동일 원본 hash → 재사용, 차감 0) ── */
-function decideDedup(existingVariant, fingerprint, forceRegenerate) {
+/* ── dedup (PRD §10 — 동일 원본 hash → 재사용, 차감 0) ──
+   ★ promptVersion 포함: 원본 그림이 같아도 프롬프트 버전(P3→P4 등)이 다르면 재사용하지 않고 재생성한다.
+     (기존 P3 결과가 P4 품질을 막던 문제 수정.) currentPromptVersion 미전달(테스트) 시 검사 생략(하위호환). */
+function decideDedup(existingVariant, fingerprint, forceRegenerate, currentPromptVersion) {
   if (forceRegenerate === true) return { action: 'generate' };
   const v = existingVariant;
-  if (v && typeof v === 'object' && v.url && v.stale !== true && v.basedOnImageHash === fingerprint) {
+  if (v && typeof v === 'object' && v.url && v.stale !== true && v.basedOnImageHash === fingerprint
+      && (!currentPromptVersion || v.promptVersion === currentPromptVersion)) {
     return { action: 'reuse' };
   }
   return { action: 'generate' };
@@ -183,10 +186,12 @@ function buildS2Variant(opts) {
 
 /* ── stale 판정 (PRD §9) — 원본 hash 또는 sourceMode 불일치면 stale ──
    실제 자동 stale 표시는 원본 저장 성공 지점에서 수행(향후 S2-7 결선). 여기선 순수 비교. */
-function decideStale(variant, currentFingerprint, currentSourceMode) {
+function decideStale(variant, currentFingerprint, currentSourceMode, currentPromptVersion) {
   if (!variant || typeof variant !== 'object') return true;
   if (variant.basedOnImageHash !== currentFingerprint) return true;
   if (currentSourceMode && variant.sourceMode !== currentSourceMode) return true;
+  /* ★ 프롬프트 버전 불일치(P3→P4 등) → stale(다시 생성 권장). currentPromptVersion 미전달 시 생략. */
+  if (currentPromptVersion && variant.promptVersion !== currentPromptVersion) return true;
   return false;
 }
 
@@ -260,7 +265,7 @@ async function runImageS2Generation(input, deps) {
   /* 4) dedup — 동일 원본 결과 존재 시 재사용(차감 0) */
   let existing = null;
   try { existing = await d.readExistingVariant(sceneId); } catch (e) { existing = null; }
-  if (decideDedup(existing, fingerprint, i.forceRegenerate).action === 'reuse') {
+  if (decideDedup(existing, fingerprint, i.forceRegenerate, PROMPT_VERSION).action === 'reuse') {
     log({ stage: 'cached', sceneId });
     return { ok: true, status: 'cached', reused: true, sceneId, variant: existing, quotaConsumed: 0 };
   }

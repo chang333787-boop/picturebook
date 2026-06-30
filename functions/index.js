@@ -2262,7 +2262,7 @@ exports.callStartImageS2Batch = onCall(
 
     const force = req.data && req.data.forceRegenerate === true;
     const onlyIds = Array.isArray(req.data && req.data.sceneIds) ? req.data.sceneIds.map(_sanitizeFbKeySegment).filter(Boolean) : null;
-    const plan = ImageS2Batch.planImageS2Batch({ scenes: scenes || {}, existingVariants, forceRegenerate: force, sceneIds: onlyIds });
+    const plan = ImageS2Batch.planImageS2Batch({ scenes: scenes || {}, existingVariants, forceRegenerate: force, sceneIds: onlyIds, currentPromptVersion: ImageS2Gen.PROMPT_VERSION });
     const jobId = require('crypto').randomUUID();
     const state = ImageS2Batch.initBatchState({ jobId, requestedBy: ctx.uid, now: Date.now(), targets: plan.targets, cached: plan.cached, model: 'gpt-image-2', promptVersion: ImageS2OpenAi.PROMPT_VERSION });
     try { await baseRef.child(`aiVariants/imageJobs/${jobId}`).set(state); } catch (e) { throw new HttpsError('internal', 'JOB_CREATE_FAILED'); }

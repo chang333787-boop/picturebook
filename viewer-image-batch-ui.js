@@ -56,7 +56,8 @@
       var sc = scenes[id] || {};
       if (!(sc.imageData || sc.imageUrl)) return;
       var v = variants[id] && variants[id].s2;
-      if (v && v.url && v.stale !== true) cached++;
+      /* 최신 프롬프트 버전 결과만 cached(변환 불필요). 이전 버전(P3)·없음·stale → total(재생성 대상). */
+      if (L.isVariantCurrent(v)) cached++;
       else total++;
     });
     var summary = L.summarizeBatchPlan({ totalScenes: total, cachedCount: cached });
@@ -199,7 +200,7 @@
       var s2v = variants[id] && variants[id].s2;
       var cmp = L.resolveCompareImages(scenes[id], selections[id], s2v);
       var row = _el('div', { style: 'border:1px solid #eee;border-radius:10px;padding:10px;margin:10px 0;' });
-      var head = '장면 ' + _esc(id) + (cmp.s2 ? '' : ' · <span style="color:#999;">AI 결과 없음</span>') + (cmp.stale ? ' · <span style="color:#b26a00;">오래된 결과(원본이 바뀜 — 다시 생성 권장)</span>' : '');
+      var head = '장면 ' + _esc(id) + (cmp.s2 ? '' : ' · <span style="color:#999;">AI 결과 없음</span>') + (cmp.stale ? ' · <span style="color:#b26a00;">오래된 결과(원본이 바뀜 — 다시 생성 권장)</span>' : '') + ((cmp.oldVersion && !cmp.stale) ? ' · <span style="color:#8a7350;">이전 버전 결과(다시 생성하면 최신 품질)</span>' : '');
       row.appendChild(_el('div', { style: 'font-size:12px;color:#555;margin-bottom:6px;' }, head));
       var pair = _el('div', { style: 'display:flex;gap:8px;' });
       pair.appendChild(_el('figure', { style: 'flex:1;margin:0;' }, '<figcaption style="font-size:11px;color:#888;">원본</figcaption>' + (cmp.original ? '<img src="' + _esc(cmp.original) + '" style="width:100%;border:1px solid #eee;border-radius:6px;' + (cmp.shown === 'original' ? 'outline:2px solid #6a8a5b;' : '') + '">' : '<div style="height:90px;background:#f3f3f3;border-radius:6px;"></div>')));

@@ -118,3 +118,19 @@ test('resolveCompareImages — 선택/usable/stale 결정 (원본 미수정)', (
   /* 원본은 imageUrl fallback */
   assert.equal(B.resolveCompareImages({ imageUrl: 'u.png' }, null, null).original, 'u.png');
 });
+
+test('promptVersion 캐시 정책 — isVariantCurrent / oldVersion', () => {
+  const CUR = B.CURRENT_PROMPT_VERSION;
+  /* 최신 버전 + url + !stale → current(cached 대상) */
+  assert.equal(B.isVariantCurrent({ url: 's2.png', stale: false, promptVersion: CUR }), true);
+  /* 이전 버전 → not current(재생성 대상) */
+  assert.equal(B.isVariantCurrent({ url: 's2.png', stale: false, promptVersion: 'imgS2-p3-OLD' }), false);
+  /* promptVersion 없음/stale/없음 → false */
+  assert.equal(B.isVariantCurrent({ url: 's2.png', stale: false }), false);
+  assert.equal(B.isVariantCurrent({ url: 's2.png', stale: true, promptVersion: CUR }), false);
+  assert.equal(B.isVariantCurrent(null), false);
+  /* resolveCompareImages oldVersion 플래그 */
+  const scene = { imageData: 'orig.png' };
+  assert.equal(B.resolveCompareImages(scene, { selected: 's2' }, { url: 's2.png', promptVersion: 'imgS2-p3-OLD' }).oldVersion, true);
+  assert.equal(B.resolveCompareImages(scene, { selected: 's2' }, { url: 's2.png', promptVersion: CUR }).oldVersion, false);
+});

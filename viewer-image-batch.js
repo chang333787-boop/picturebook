@@ -11,6 +11,13 @@
 
   var PER_IMAGE_USD = 0.05;        /* gpt-image-2 medium landscape 추정 */
   var PER_IMAGE_SECONDS = 70;      /* 보수적(실측 50~70s) */
+  /* ★ 현재 프롬프트 버전 — functions/image-s2-generation.js PROMPT_VERSION 과 일치시킬 것(P3→P4 등 변경 시 양쪽 갱신).
+     이전 버전(P3) 변형은 cached로 보지 않고 '다시 생성 대상'으로 센다(서버 dedup/stale 정책과 정합). */
+  var CURRENT_PROMPT_VERSION = 'imgS2-p4-v1';
+  /* 변형이 "최신 버전 + 사용 가능"한가 — cached(변환 불필요) 판정용. 이전 버전이면 false(=재생성 대상). */
+  function isVariantCurrent(v) {
+    return !!(v && typeof v.url === 'string' && v.url && v.stale !== true && v.promptVersion === CURRENT_PROMPT_VERSION);
+  }
 
   /* 시작 게이트 — 교사 + 관리자 설정(modes.imageS2 ON) + 변환할 이미지 장면이 있어야 시작 가능.
      ★ providerReady/privacyAcknowledged는 미구현 플래그 → 시작을 "영구" 차단하지 않는다(과거 '준비 중' 버그의 원인).
@@ -138,11 +145,13 @@
     var s2Usable = !!(s2 && !stale);
     var selected = (selection && selection.selected === 's2') ? 's2' : 'original';
     var shown = (selected === 's2' && s2Usable) ? 's2' : 'original';
+    var oldVersion = !!(s2Variant && s2Variant.promptVersion && s2Variant.promptVersion !== CURRENT_PROMPT_VERSION);
     return {
       original: orig, s2: s2, s2Usable: s2Usable, stale: stale,
       selected: selected, shown: shown,
       shownSrc: shown === 's2' ? s2 : orig,
       staleWarning: selected === 's2' && stale,   /* 선택은 s2인데 stale → 경고 + 원본 표시 */
+      oldVersion: oldVersion,   /* 이전 프롬프트 버전 결과 — '다시 생성하면 최신 품질' 안내용 */
     };
   }
 
@@ -153,6 +162,7 @@
     sceneStatusLabel: sceneStatusLabel, progressSummary: progressSummary, nextTarget: nextTarget,
     resolveCompareImages: resolveCompareImages,
     describeBatchFailCode: describeBatchFailCode, summarizeBatchResult: summarizeBatchResult,
+    CURRENT_PROMPT_VERSION: CURRENT_PROMPT_VERSION, isVariantCurrent: isVariantCurrent,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.ImageS2Batch = api;

@@ -29,6 +29,21 @@ test('planImageS2Batch — forceRegenerate면 cached도 target / hash 불일치�
   assert.deepEqual(B.planImageS2Batch({ scenes, existingVariants: { 1: { url: 'u', stale: true, basedOnImageHash: 'h1' } }, fingerprints: { 1: 'h1' } }).targets, ['1']);   /* stale */
 });
 
+test('planImageS2Batch — promptVersion 다르면(P3→P4) cached 아님 → target', () => {
+  const scenes = { 1: { imageData: 'a' }, 2: { imageData: 'b' } };
+  const ev = {
+    1: { url: 'u', stale: false, basedOnImageHash: 'h1', promptVersion: 'imgS2-p3-OLD' },   /* 이전 버전 → 재생성 */
+    2: { url: 'u', stale: false, basedOnImageHash: 'h2', promptVersion: 'imgS2-p4-v1' },     /* 최신 → cached */
+  };
+  const fps = { 1: 'h1', 2: 'h2' };
+  const p = B.planImageS2Batch({ scenes, existingVariants: ev, fingerprints: fps, currentPromptVersion: 'imgS2-p4-v1' });
+  assert.deepEqual(p.targets, ['1']);
+  assert.deepEqual(p.cached, ['2']);
+  /* currentPromptVersion 미전달이면 둘 다 cached(하위호환) */
+  const p2 = B.planImageS2Batch({ scenes, existingVariants: ev, fingerprints: fps });
+  assert.deepEqual(p2.cached, ['1', '2']);
+});
+
 test('planImageS2Batch — sceneIds 필터(only)', () => {
   const scenes = { 1: { imageData: 'a' }, 2: { imageData: 'b' }, 3: { imageData: 'c' } };
   assert.deepEqual(B.planImageS2Batch({ scenes, sceneIds: ['2'] }).targets, ['2']);

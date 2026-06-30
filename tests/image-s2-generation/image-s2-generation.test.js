@@ -53,9 +53,9 @@ test('happy path — fake adapter → succeeded, ai-images 경로, quota 1, 원�
   assert.equal(res.variant.promptVersion, G.PROMPT_VERSION);
 });
 
-test('cached — 동일 hash 결과 존재 → 재사용, 모델/quota 호출 0', async () => {
+test('cached — 동일 hash + 동일 promptVersion → 재사용, 모델/quota 호출 0', async () => {
   const fp = G.computeImageBasedHash('data:orig', '3', 'upload');
-  const existing = { url: 'u', storagePath: 'ai-images/old', basedOnImageHash: fp, stale: false, sourceMode: 'upload' };
+  const existing = { url: 'u', storagePath: 'ai-images/old', basedOnImageHash: fp, stale: false, sourceMode: 'upload', promptVersion: G.PROMPT_VERSION };
   const adapter = A.createFakeAdapter();
   const deps = makeDeps({ existing, adapter });
   const res = await G.runImageS2Generation(baseInput(), deps);
@@ -168,6 +168,22 @@ test('verifyDownloadable=false → 환불, UPLOAD_FAILED', async () => {
   assert.equal(res.code, 'IMAGE_AI_UPLOAD_FAILED');
   assert.equal(deps._calls.refund, 1);
   assert.equal(deps._calls.write, 0);
+});
+
+test('cache 정책 — 동일 hash라도 promptVersion 다르면 재생성(P3→P4)', async () => {
+  const fp = G.computeImageBasedHash('data:orig', '3', 'upload');
+  const oldVariant = { url: 'u', storagePath: 'ai-images/old', basedOnImageHash: fp, stale: false, sourceMode: 'upload', promptVersion: 'imgS2-p3-OLD' };
+  const adapter = A.createFakeAdapter();
+  const deps = makeDeps({ existing: oldVariant, adapter, uniqueId: () => 'NEW' });
+  const res = await G.runImageS2Generation(baseInput(), deps);
+  assert.equal(res.status, 'succeeded', '이전 프롬프트 버전이라 재생성');
+  assert.notEqual(res.reused, true);
+  assert.equal(res.variant.promptVersion, G.PROMPT_VERSION, '새 변형은 최신 버전');
+  /* 순수 함수 직접 — promptVersion 포함 dedup/stale */
+  assert.equal(G.decideDedup({ url: 'u', basedOnImageHash: fp, stale: false, promptVersion: 'imgS2-p3-OLD' }, fp, false, G.PROMPT_VERSION).action, 'generate');
+  assert.equal(G.decideDedup({ url: 'u', basedOnImageHash: fp, stale: false, promptVersion: G.PROMPT_VERSION }, fp, false, G.PROMPT_VERSION).action, 'reuse');
+  assert.equal(G.decideStale({ basedOnImageHash: fp, sourceMode: 'upload', promptVersion: 'imgS2-p3-OLD' }, fp, 'upload', G.PROMPT_VERSION), true);
+  assert.equal(G.decideStale({ basedOnImageHash: fp, sourceMode: 'upload', promptVersion: G.PROMPT_VERSION }, fp, 'upload', G.PROMPT_VERSION), false);
 });
 
 test('forceRegenerate — 동일 hash라도 재생성 + 이전 객체 cleanup 기록', async () => {

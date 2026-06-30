@@ -17,9 +17,11 @@ const _TERMINAL = [SCENE_STATUS.SUCCEEDED, SCENE_STATUS.FAILED, SCENE_STATUS.SKI
 const _OK = [SCENE_STATUS.SUCCEEDED, SCENE_STATUS.CACHED, SCENE_STATUS.SKIPPED];
 
 function _hasImage(scene) { return !!(scene && (scene.imageData || scene.imageUrl)); }
-function _variantFresh(variant, fingerprint) {
+function _variantFresh(variant, fingerprint, currentPromptVersion) {
   if (!variant || !variant.url || variant.stale === true) return false;
   if (fingerprint && variant.basedOnImageHash !== fingerprint) return false;
+  /* ★ 프롬프트 버전 다르면(P3→P4) cached 아님 → 일괄 변환 target에 포함(재생성). */
+  if (currentPromptVersion && variant.promptVersion !== currentPromptVersion) return false;
   return true;
 }
 
@@ -37,7 +39,7 @@ function planImageS2Batch(opts) {
   for (const id of ids) {
     if (onlySet && !onlySet.has(String(id))) continue;
     if (!_hasImage(scenes[id])) { skipped.push({ sceneId: id, reason: 'NO_IMAGE' }); continue; }
-    if (!force && _variantFresh(variants[id], fps[id])) { cached.push(id); continue; }
+    if (!force && _variantFresh(variants[id], fps[id], o.currentPromptVersion)) { cached.push(id); continue; }
     targets.push(id);
   }
   return {

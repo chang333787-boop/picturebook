@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400" width="600" height="400">
+  <rect width="600" height="400" fill="#ffffff"/>
+  
+    <circle cx="220" cy="200" r="21.599999999999998" fill="#ffe0b2" stroke="#5d4037" stroke-width="4.8"/>
+    <circle cx="212.8" cy="196.4" r="3" fill="#3e2723"/>
+    <circle cx="227.2" cy="196.4" r="3" fill="#3e2723"/>
+    <path d="M 211.6 208.4 Q 220 214.4 228.4 207.2" stroke="#3e2723" stroke-width="3" fill="none"/>
+    <rect x="203.2" y="221.6" width="33.6" height="40.8" rx="7.199999999999999" fill="#4fc3f7" stroke="#5d4037" stroke-width="4.8"/>
+    <line x1="203.2" y1="231.2" x2="184" y2="248" stroke="#5d4037" stroke-width="4.8"/>
+    <line x1="236.8" y1="231.2" x2="256" y2="248" stroke="#5d4037" stroke-width="4.8"/><path d="M330 90 h180 a14 14 0 0 1 14 14 v60 a14 14 0 0 1 -14 14 h-150 l-26 26 v-26 h-4 a14 14 0 0 1 -14 -14 v-60 a14 14 0 0 1 14 -14 z" fill="#ffffff" stroke="#5d4037" stroke-width="3"/><text x="420" y="150" font-size="40" text-anchor="middle" fill="#3e2723" font-family="sans-serif">안녕</text>
+</svg>

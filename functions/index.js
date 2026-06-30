@@ -41,6 +41,12 @@ const { TEXT_S1_SYSTEM_PROMPT, TEXT_S2_SYSTEM_PROMPT, WORK_CHECK_SYSTEM_PROMPT, 
 const TCFollowUp = require('./thought-compass-followup');
 /* IMAGE-S2-2 — sourceMode 잠금/초기화 순수 결정 로직(firebase 비의존). callable이 RTDB transaction으로 감쌈. */
 const ImageS2Policy = require('./image-s2-policy');
+/* IMAGE-S2-3/4/5 — 이미지 AI(imageS2) 단일 장면 생성 순수 로직 + provider-neutral adapter(firebase 비의존). */
+const ImageS2Gen = require('./image-s2-generation');
+const ImageS2Adapter = require('./image-s2-adapter');
+/* IMAGE-S2-9 — production OpenAI(gpt-image-2) adapter + 일괄 batch 상태 머신(firebase 비의존). */
+const ImageS2OpenAi = require('./image-s2-adapter-openai');
+const ImageS2Batch = require('./image-s2-batch');
 
 /* Firebase Admin 초기화 — 1번만 */
 if (!admin.apps.length) {
@@ -56,6 +62,8 @@ setGlobalOptions({
 
 /* Anthropic API key — Google Cloud Secret Manager 박음 (step3 박을 때 박을 거) */
 const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY');
+/* IMAGE-S2-9 — 이미지 변환용 OpenAI key(텍스트 Anthropic과 분리). secret 미존재 시 adapter=not-configured(생성 차단·차감 0). */
+const IMAGE_OPENAI_API_KEY = defineSecret('IMAGE_OPENAI_API_KEY');
 
 /* ════════════════════════════════════════════════════════════════
    Phase A 테스트용 임시 허용 목록 (AI_SAFETY_COST_RULES.md 최상단)
@@ -81,12 +89,17 @@ const QUOTA = {
   s1: 3,         /* 1단계 — 브랜치당 후보 3회 */
   s2: 2,         /* 2단계 — 브랜치당 2회 (발전은 무겁고 신중) */
   check: 5,      /* 작품 검사 — 브랜치당 5회 */
+  imageS2: 60,   /* 이미지 변환 — 작품당 월 상한(PRD §10 상한 60). 20장 작품 + 재시도/재생성 여유.
+                    기존 flat 30은 20장 작품을 한 번에 못 끝내고(재시도 누적 시 30 초과 → resource-exhausted)
+                    교사가 "갑자기 안 됨"을 겪던 원인. 동적 max(30,장면수×2)는 후속(여기선 안전 상한 60 고정). */
 };
 /* AI mode 내부값(s1/s2/check)을 사용자용 이름으로 — 사용자 메시지에 raw mode 노출 방지 */
 function _aiModeLabel(mode) {
   if (mode === 's1') return '문장 정돈';
   if (mode === 's2') return '장면 발전';
   if (mode === 'check') return '작품 검사';
+  if (mode === 'imageS1') return 'AI 그림 정돈';
+  if (mode === 'imageS2') return 'AI 그림책 변환';
   return 'AI 기능';
 }
 const ROOT_DAILY_LIMIT = 50;       /* rootBranchId 묶음 — 하루 50회 */
@@ -2064,6 +2077,239 @@ exports.callImageAiS1 = onCall(
     });
 
     return plan;
+  }
+);
+
+/* ════════════════════════════════════════════════════════════════
+   IMAGE-S2-3/4/5 — callImageAiS2 (단일 장면 이미지 변환 생성)
+   ──────────────────────────────────────────────────────────────
+   정본 PRD §4·§9·§10·§11·§13·§14. 순수 로직은 image-s2-generation.js,
+   provider 계약은 image-s2-adapter.js. 이 콜러블은 thin wrapper:
+     1) _validateRequest(imageS2) — auth/aiSettings.modes.imageS2/origin/killswitch + quota 게이트.
+     2) 생성=교사만(PRD §8) → teacher_uid/super_admin 확인, 아니면 permission-denied.
+     3) client는 sceneId만(임의 URL/경로/프롬프트 금지) → normalizeGenerationRequest.
+     4) runImageS2Generation 에 Firebase read/write·Storage·모델 adapter·quota 를 deps 주입.
+   ⚠️ 모델 미확정(PRD §16) → 기본 adapter=not-configured(생성 차단, 차감 0). env IMAGE_S2_ADAPTER=fake 일 때만 stub.
+   원본 scene.imageData/imageUrl 는 절대 write 안 함. 결과는 ai-images/ + aiVariants/image 만.
+   ════════════════════════════════════════════════════════════════ */
+/* 원본 bytes 다운로드 — SSRF 안전: data: 디코드 또는 우리 bucket 객체만 admin.storage 로 read.
+   외부 URL/임의 호스트는 절대 fetch 하지 않는다(firebasestorage URL의 객체 path만 추출). */
+async function _downloadImageS2Source(src) {
+  const s = String(src == null ? '' : src);
+  if (s.indexOf('data:') === 0) {
+    const m = s.match(/^data:([^;]+);base64,(.*)$/);
+    if (!m) throw new Error('BAD_DATA_URI');
+    return { bytes: Buffer.from(m[2], 'base64'), mime: m[1] };
+  }
+  let u;
+  try { u = new URL(s); } catch (e) { throw new Error('BAD_SOURCE_URL'); }
+  const bkt = admin.storage().bucket();
+  /* 우리 버킷 별칭(별도 GCS 버킷 read 금지) — Storage 마이그레이션 작품은 storage.googleapis.com URL로 저장됨. */
+  const OUR_BUCKETS = [bkt.name, 'picturebook-8731f.firebasestorage.app', 'picturebook-8731f.appspot.com'];
+  let objectPath = null;
+  if (u.host === 'firebasestorage.googleapis.com') {
+    /* https://firebasestorage.googleapis.com/v0/b/{bucket}/o/{encodedObjectPath}?alt=media&token=... */
+    const m = u.pathname.match(/\/o\/(.+)$/);
+    if (!m) throw new Error('BAD_OBJECT_PATH');
+    objectPath = decodeURIComponent(m[1]);
+  } else if (u.host === 'storage.googleapis.com') {
+    /* https://storage.googleapis.com/{bucket}/{objectPath} — 우리 버킷만. */
+    const segs = u.pathname.replace(/^\/+/, '').split('/');
+    const urlBucket = segs.shift() || '';
+    if (OUR_BUCKETS.indexOf(urlBucket) === -1) throw new Error('SOURCE_HOST_NOT_ALLOWED');
+    objectPath = decodeURIComponent(segs.join('/'));
+  } else {
+    throw new Error('SOURCE_HOST_NOT_ALLOWED');
+  }
+  if (!objectPath || objectPath.indexOf('..') !== -1) throw new Error('BAD_OBJECT_PATH');
+  /* 원본 이미지 경로(images/)만 — ai-images/·videos/·기타 버킷 객체 read 차단(defense-in-depth). */
+  if (objectPath.indexOf('images/') !== 0) throw new Error('SOURCE_PATH_NOT_ALLOWED');
+  const [buf] = await bkt.file(objectPath).download();
+  return { bytes: buf, mime: ImageS2OpenAi.sniffMime(buf) };
+}
+
+/* adapter 선택 — IMAGE_OPENAI_API_KEY secret 있으면 production OpenAI(gpt-image-2),
+   없으면 not-configured(생성 차단·차감 0). env IMAGE_S2_ADAPTER=fake 는 테스트 stub. */
+function _selectImageS2Adapter(opts) {
+  if (process.env.IMAGE_S2_ADAPTER === 'fake') return ImageS2Adapter.createFakeAdapter();
+  let key = '';
+  try { key = IMAGE_OPENAI_API_KEY.value() || ''; } catch (e) { key = ''; }
+  if (key) {
+    return ImageS2OpenAi.createOpenAiImageS2Adapter({
+      apiKey: key, model: 'gpt-image-2', timeoutMs: 150000,
+      downloadImpl: (opts && opts.downloadImpl) || _downloadImageS2Source,
+    });
+  }
+  return ImageS2Adapter.createNotConfiguredAdapter();
+}
+
+/* 이미지 결과 Storage 업로드(Admin SDK) — ai-images/ 경로에 고유 객체 저장 + 다운로드 토큰 URL 반환. */
+async function _uploadImageS2Result(opts) {
+  const { storagePath, bytes, mimeType } = opts;
+  if (!ImageS2Gen.isAllowedS2StoragePath(storagePath) || ImageS2Gen.isOriginalImageStoragePath(storagePath)) {
+    throw new Error('IMAGE_AI_INTERNAL_PATH');   /* ai-images/ 외 경로 업로드 금지(원본 보호) */
+  }
+  const token = require('crypto').randomUUID();
+  const bucket = admin.storage().bucket();
+  const file = bucket.file(storagePath);
+  await file.save(Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes), {
+    resumable: false,
+    contentType: mimeType || 'image/png',
+    metadata: {
+      cacheControl: 'public,max-age=31536000,immutable',
+      metadata: { firebaseStorageDownloadTokens: token },
+    },
+  });
+  const url = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(storagePath)}?alt=media&token=${token}`;
+  return { url, storagePath };
+}
+
+exports.callImageAiS2 = onCall(
+  /* IMAGE-S2-9: OpenAI secret 결선. gpt-image-2 medium 50~70s+ → per-function timeout 상향(전역 60s override).
+     secret 미존재 시 adapter=not-configured → 생성 차단·차감 0(안전 기본 유지). */
+  { enforceAppCheck: false, secrets: [IMAGE_OPENAI_API_KEY], timeoutSeconds: 300 },
+  async (req) => {
+    /* 권한 + quota 게이트(imageS2). MODE_KEY_MAP.imageS2 → aiSettings.modes.imageS2 필요. */
+    const ctx = await _validateRequest(req, 'imageS2', { skipUsageLimits: false });
+
+    /* 생성=교사만(PRD §8). super_admin 또는 이 학급 teacher_uid. 학생은 거부(원본 토글 미리보기만). */
+    let isTeacher = ((req.auth.token && req.auth.token.role) === 'super_admin');
+    if (!isTeacher) {
+      try {
+        const tSnap = await admin.database().ref(`classes/${ctx.classId}/meta/teacher_uid`).once('value');
+        if (tSnap.val() === ctx.uid) isTeacher = true;
+      } catch (e) { isTeacher = false; }
+    }
+    if (!isTeacher) {
+      throw new HttpsError('permission-denied', '그림 변환은 담당 선생님만 할 수 있어요.');
+    }
+
+    /* client는 sceneId만 — 임의 URL/Storage path/base64/프롬프트 거부(PRD §13). */
+    const norm = ImageS2Gen.normalizeGenerationRequest(req.data);
+    if (!norm.ok) {
+      throw new HttpsError('invalid-argument', norm.message || '요청 형식이 올바르지 않아요.');
+    }
+    const sid = norm.value.sceneId;
+    const enc = encodeURIComponent(ctx.teamName);
+    const baseRef = admin.database().ref(`classes/${ctx.classId}/teams/${enc}`);
+    const adapter = _selectImageS2Adapter();
+
+    const result = await ImageS2Gen.runImageS2Generation(
+      { classId: ctx.classId, enc, sceneId: sid, forceRegenerate: norm.value.forceRegenerate, isTeacher },
+      {
+        readScene: async (s) => { const snap = await baseRef.child(`scenes/${s}`).once('value'); return snap.val(); },
+        readPolicy: async () => { const snap = await baseRef.child('viewer-meta/imagePolicy').once('value'); return snap.val(); },
+        readExistingVariant: async (s) => { const snap = await baseRef.child(`aiVariants/image/${s}/s2`).once('value'); return snap.val(); },
+        adapter,
+        uploadResult: _uploadImageS2Result,
+        verifyDownloadable: async (/* url */) => true,   /* 업로드 직후 save 성공 = 객체 존재. 실 다운로드 확인은 S2-4 강화. */
+        writeVariant: async (s, variant) => { await baseRef.child(`aiVariants/image/${s}/s2`).set(variant); },
+        recordCleanup: async (rec) => { await admin.database().ref('cleanup-queue/imageS2').push(rec); },
+        consumeQuota: () => _consumeQuota(ctx),
+        refundQuota: () => _refundQuota(ctx),
+        now: () => Date.now(),
+        uniqueId: () => require('crypto').randomUUID(),
+        logSafe: (o) => logger.info('[ai/imageS2] stage', { uid: ctx.uid, classId: ctx.classId, teamName: ctx.teamName, sceneId: sid, stage: (o && o.stage) || null }),
+      }
+    );
+
+    /* 일괄(batch) 진행 중이면 jobId 로 해당 장면 상태 갱신(best-effort, 본 결과엔 영향 없음). */
+    const jobId = _sanitizeFbKeySegment(req.data && req.data.jobId);
+    if (jobId) {
+      try {
+        const jobRef = baseRef.child(`aiVariants/imageJobs/${jobId}`);
+        const js = (await jobRef.once('value')).val();
+        if (js) {
+          const updated = ImageS2Batch.applySceneResult(js, sid, { ok: !!result.ok, cached: result.status === 'cached', code: result.code });
+          await jobRef.update({ sceneStates: updated.sceneStates, status: updated.status });
+        }
+      } catch (e) { logger.warn('[ai/imageS2] job update 실패', { jobId, sceneId: sid }); }
+    }
+
+    /* 로그에는 원문(base64/URL) 노출 X — status/code/sceneId만. */
+    logger.info('[ai/imageS2] result', {
+      uid: ctx.uid, classId: ctx.classId, teamName: ctx.teamName,
+      sceneId: sid, status: result.status || null, code: result.code || null, reused: !!result.reused,
+    });
+    return result;
+  }
+);
+
+/* ════════════════════════════════════════════════════════════════
+   IMAGE-S2-9 — callStartImageS2Batch (작품 전체 일괄 변환 job 생성)
+   ──────────────────────────────────────────────────────────────
+   ⚠️ 장당 50~70s → 한 콜러블에서 20장 순차는 timeout 위험. MVP: 이 콜러블은
+   "계획 + job 상태 생성"만 하고, 교사 클라가 targets 를 callImageAiS2(jobId)로 순차 호출한다.
+   job 상태는 aiVariants/imageJobs/{jobId}(이미 read:true·write:false=Admin만) 에 저장.
+   ════════════════════════════════════════════════════════════════ */
+exports.callStartImageS2Batch = onCall(
+  { enforceAppCheck: false },
+  async (req) => {
+    const ctx = await _validateRequest(req, 'imageS2', { skipUsageLimits: true });   /* 계획만 — quota는 장면별 callImageAiS2가 차감 */
+    let isTeacher = ((req.auth.token && req.auth.token.role) === 'super_admin');
+    if (!isTeacher) {
+      try { const t = await admin.database().ref(`classes/${ctx.classId}/meta/teacher_uid`).once('value'); if (t.val() === ctx.uid) isTeacher = true; } catch (e) { isTeacher = false; }
+    }
+    if (!isTeacher) throw new HttpsError('permission-denied', '그림 변환은 담당 선생님만 할 수 있어요.');
+
+    const enc = encodeURIComponent(ctx.teamName);
+    const baseRef = admin.database().ref(`classes/${ctx.classId}/teams/${enc}`);
+    let scenes = null, variants = null;
+    try { scenes = (await baseRef.child('scenes').once('value')).val(); } catch (e) { scenes = null; }
+    try { variants = (await baseRef.child('aiVariants/image').once('value')).val(); } catch (e) { variants = null; }
+    const existingVariants = {};
+    if (variants && typeof variants === 'object') { Object.keys(variants).forEach((sid) => { if (variants[sid] && variants[sid].s2) existingVariants[sid] = variants[sid].s2; }); }
+
+    const force = req.data && req.data.forceRegenerate === true;
+    const onlyIds = Array.isArray(req.data && req.data.sceneIds) ? req.data.sceneIds.map(_sanitizeFbKeySegment).filter(Boolean) : null;
+    const plan = ImageS2Batch.planImageS2Batch({ scenes: scenes || {}, existingVariants, forceRegenerate: force, sceneIds: onlyIds, currentPromptVersion: ImageS2Gen.PROMPT_VERSION });
+    const jobId = require('crypto').randomUUID();
+    const state = ImageS2Batch.initBatchState({ jobId, requestedBy: ctx.uid, now: Date.now(), targets: plan.targets, cached: plan.cached, model: 'gpt-image-2', promptVersion: ImageS2OpenAi.PROMPT_VERSION });
+    try { await baseRef.child(`aiVariants/imageJobs/${jobId}`).set(state); } catch (e) { throw new HttpsError('internal', 'JOB_CREATE_FAILED'); }
+
+    logger.info('[ai/imageS2] batch start', { uid: ctx.uid, classId: ctx.classId, teamName: ctx.teamName, jobId, targets: plan.targets.length, cached: plan.cachedCount });
+    return { ok: true, jobId, targets: plan.targets, cachedCount: plan.cachedCount, skipped: plan.skipped, totalScenes: plan.totalScenes, estCostUsd: plan.estCostUsd, estSeconds: plan.estSeconds };
+  }
+);
+
+/* ════════════════════════════════════════════════════════════════
+   IMAGE-S2-9 — callApplyImageS2Selection (교사 적용/원본유지 — 서버 전용 write)
+   ──────────────────────────────────────────────────────────────
+   client는 {classId,teamName,sceneId,selected:'s2'|'original'} 만. 원본 scene.imageData 절대 미접촉.
+   ★보안: 선택은 aiVariants/imageSelections/{sceneId} 에 기록한다(viewer-meta 아님).
+     viewer-meta 는 `.write:auth!=null`(cascade)이라 child `.write:false`가 무효 → 멤버(학생)가
+     직접 selection 을 덮어 교사 게이트를 우회할 수 있다. aiVariants 는 `.write:false`(부모 grant 없음)
+     라 Admin SDK 단독 write → 우회 불가. read:true 라 감상 표시에는 지장 없음. (copy 시 복사 안 됨=부수효과)
+   's2'는 usable(있고·url·!stale) 일 때만.
+   ════════════════════════════════════════════════════════════════ */
+exports.callApplyImageS2Selection = onCall(
+  { enforceAppCheck: false },
+  async (req) => {
+    const ctx = await _validateRequest(req, 'imageS2', { skipUsageLimits: true });
+    let isTeacher = ((req.auth.token && req.auth.token.role) === 'super_admin');
+    if (!isTeacher) {
+      try { const t = await admin.database().ref(`classes/${ctx.classId}/meta/teacher_uid`).once('value'); if (t.val() === ctx.uid) isTeacher = true; } catch (e) { isTeacher = false; }
+    }
+    if (!isTeacher) throw new HttpsError('permission-denied', '적용은 담당 선생님만 할 수 있어요.');
+
+    const sid = _sanitizeFbKeySegment(req.data && req.data.sceneId);
+    if (!sid) throw new HttpsError('invalid-argument', 'sceneId가 올바르지 않아요.');
+    const selected = (req.data && req.data.selected === 's2') ? 's2' : 'original';
+    const enc = encodeURIComponent(ctx.teamName);
+    const baseRef = admin.database().ref(`classes/${ctx.classId}/teams/${enc}`);
+    const selRef = baseRef.child(`aiVariants/imageSelections/${sid}`);   /* 서버 전용(.write:false) */
+
+    if (selected === 's2') {
+      /* s2 usable(있고·url 있고·stale 아님) 일 때만 적용 */
+      const s2 = (await baseRef.child(`aiVariants/image/${sid}/s2`).once('value')).val();
+      const usable = s2 && typeof s2.url === 'string' && s2.url && s2.stale !== true;
+      if (!usable) return { ok: false, code: 'S2_NOT_USABLE' };
+      await selRef.set({ selected: 's2', selectedBy: ctx.uid, selectedAt: Date.now(), selectionSource: 'teacher-batch' });
+    } else {
+      await selRef.set({ selected: 'original', selectedBy: ctx.uid, selectedAt: Date.now(), selectionSource: 'teacher-batch' });
+    }
+    logger.info('[ai/imageS2] apply selection', { uid: ctx.uid, classId: ctx.classId, teamName: ctx.teamName, sceneId: sid, selected });
+    return { ok: true, sceneId: sid, selected };
   }
 );
 

@@ -317,14 +317,15 @@ async function _renderClassBar(classId) {
    · 교사가 학급 단위로 AI 전체 ON/OFF + 기능별 ON/OFF 제어.
    · aiSettings 노드가 없으면 UI는 OFF로 보이되, 저장 전에는 서버 fallback(aiPermission/기본 ON) 유지.
    · 교사가 처음 저장하면 노드 생성 → 그때부터 서버가 aiSettings 우선 적용.
-   · 이미지 1/2단계는 노출만(준비 중) — 저장 구조엔 포함하되 카드 구현은 안 함.
+   · imageS2 = 'AI 그림책 마감'(교사용·활성). imageS1은 폐기(UI 미노출·저장값 보존·마이그레이션 안 함).
    ════════════════════════════════════════════════════════════════ */
+/* imageS1(그림 1단계)은 폐기 — 설정 UI 미노출. 기존 저장값은 보존(state/payload에 유지·마이그레이션 안 함).
+   imageS2 = 'AI 그림책 마감'(교사용). 마스터 토글은 enabled만 켜고 modes는 개별이라 우발 ON 없음. */
 const AI_MODE_DEFS = [
   { key: 'textS1',   label: '텍스트 1단계 (문장 정돈)', soon: false },
   { key: 'textS2',   label: '텍스트 2단계 (장면 발전)', soon: false },
   { key: 'workCheck',label: '작품 검사',               soon: false },
-  { key: 'imageS1',  label: '그림 1단계 (정돈)',        soon: true  },
-  { key: 'imageS2',  label: '그림 2단계 (발전)',        soon: true  },
+  { key: 'imageS2',  label: 'AI 그림책 마감',          soon: false, badge: '교사용' },
 ];
 
 async function _renderAiSettingsPanel(classId) {
@@ -369,9 +370,10 @@ function _drawAiSettingsPanel(panel, classId, state, exists) {
     const dis = d.soon ? ' is-disabled' : '';
     const disAttr = d.soon ? 'disabled' : '';
     const soonTag = d.soon ? '<span class="admin-ai-soon">준비 중</span>' : '';
+    const badgeTag = d.badge ? `<span class="admin-ai-soon" style="color:#3a5a2a;">${_escHtml(d.badge)}</span>` : '';
     return `<label class="admin-ai-toggle${dis}" data-mode-toggle="${d.key}">
       <input type="checkbox" ${checked} ${disAttr} data-ai-mode="${d.key}">
-      ${_escHtml(d.label)}${soonTag}
+      ${_escHtml(d.label)}${badgeTag}${soonTag}
     </label>`;
   }).join('');
 
@@ -390,7 +392,7 @@ function _drawAiSettingsPanel(panel, classId, state, exists) {
       ${modeToggles}
     </div>
     <div class="admin-ai-head">
-      <span class="admin-ai-hint">학생에게는 선생님이 켠 기능만 보이고 사용할 수 있어요. 그림 기능은 준비 중이에요.</span>
+      <span class="admin-ai-hint">학생에게는 선생님이 켠 기능만 보이고 사용할 수 있어요. ‘AI 그림책 마감’은 교사용이에요 — 학생 그림이 외부 AI 서비스로 전송될 수 있어 학교 안내·설정 후 사용하세요. 학생에게는 생성 버튼이 보이지 않습니다.</span>
       <button class="admin-ai-save" id="admin-ai-save" style="margin-left:auto;">저장</button>
     </div>
   `;

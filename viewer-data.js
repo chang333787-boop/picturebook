@@ -151,6 +151,13 @@ function normalizePicturebookTheme(theme) {
    classId: v2 경로에서 필요 (v1에서는 null)
    fromMaker: 교사/제작자 테스트 세션 여부 (isPublic 차단 제외용)
    ================================================================ */
+/* IMAGE-S2-RENDER-1: 작품(team) 단위로 1회 로드하는 "발행된" 이미지 AI 결과/선택 캐시.
+   · aiVariants/image(s2 변형) + aiVariants/imageSelections(교사 선택) — 둘 다 read:true(학생도 읽기 가능).
+   · 렌더(viewer-render)가 동기 helper getPublishedImageDisplaySrc로 참조 → 매 렌더 fetch 없음.
+   · viewer-ai(편집/AI 전용·지연로딩)와 무관하게 항상 로드되는 viewer-data에 둠 → 일반 감상(학생)에도 반영. */
+let _pubImageS2BySid  = null;   /* { sid: aiVariants.image[sid].s2 (raw) } */
+let _pubImageSelBySid = null;   /* { sid: aiVariants.imageSelections[sid] (raw) } */
+
 async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHint = null) {
   const db          = getViewerDb();
   const encodedName = encodeURIComponent(teamName);
@@ -177,14 +184,20 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
      · 이전엔 scenes 다 받은 뒤(수MB 가능) viewer-meta 받음 → 순차 1~3초 + 그림책 깜빡임.
      · 이제 둘 다 동시 시작. viewer-meta가 보통 더 빨리 와 projectType 즉시 결정.
      · 더 이상 RTDB round-trip 두 번 + 직렬 대기 없음. */
-  const [snapshot, metaSnap] = await Promise.all([
+  const [snapshot, metaSnap, imgVarSnap, imgSelSnap] = await Promise.all([
     db.ref(`${basePath}/scenes`).once('value'),
     db.ref(`${basePath}/viewer-meta`).once('value'),
+    /* IMAGE-S2-RENDER-1: AI 이미지 변형/선택 — 비치명적(.catch→null). 없거나 실패해도 원본 표시는 무영향. */
+    db.ref(`${basePath}/aiVariants/image`).once('value').then((s) => s.val()).catch(() => null),
+    db.ref(`${basePath}/aiVariants/imageSelections`).once('value').then((s) => s.val()).catch(() => null),
   ]);
   const rawScenes = snapshot.val();
   const meta      = metaSnap.val();
 
   if (!rawScenes) throw new Error(`"${teamName}" 작품을 찾을 수 없어요.`);
+
+  /* IMAGE-S2-RENDER-1: 발행된 이미지 선택/변형 캐시 적재(team 1회). 실패/부재 시 빈 캐시 → 원본 표시. */
+  _setPublishedImageCaches(imgVarSnap, imgSelSnap);
 
   /* W7 projectType 강제 lock (사용자 결정):
      "무슨일이있어도 다른모드로 맘대로 못넘어가게 설정해"
@@ -1640,6 +1653,61 @@ function resolveSceneImageSource(scene, imageSelection, s2Variant, previewMode) 
   return { kind: 'original', src: origSrc, isAiTransformed: false, fallbackReason: reason };
 }
 
+/* IMAGE-S2-RENDER-1: loadTeamData가 적재하는 발행 캐시 setter(team 1회). raw 노드 그대로 보관 —
+   정규화/판정은 resolveSceneImageSource가 담당(이중 정규화 방지). */
+function _setPublishedImageCaches(imageNode, selNode) {
+  const s2 = {};
+  const sel = {};
+  if (imageNode && typeof imageNode === 'object') {
+    Object.keys(imageNode).forEach(function (sid) {
+      const node = imageNode[sid];
+      if (node && node.s2 && typeof node.s2 === 'object') s2[String(sid)] = node.s2;
+    });
+  }
+  if (selNode && typeof selNode === 'object') {
+    Object.keys(selNode).forEach(function (sid) {
+      if (selNode[sid] && typeof selNode[sid] === 'object') sel[String(sid)] = selNode[sid];
+    });
+  }
+  _pubImageS2BySid  = s2;
+  _pubImageSelBySid = sel;
+}
+
+/* ★ IMAGE-S2-RENDER-1: 렌더용 동기 helper — 호출부가 해석한 originalSrc(scene.imageData||imageUrl)를 받아,
+   교사가 발행 선택(imageSelections.selected==='s2')한 장면이면 usable(url·!stale)한 s2 url로 표시.
+   - selection 없음/original/누락/stale/url없음/키불일치 → originalSrc 그대로(기존 동작 100% 유지).
+   - 원본 scene.imageData/imageUrl은 절대 변경하지 않음(표시용 src만 결정).
+   - 캐시 미적재(loadTeamData 전·구작품) → originalSrc. viewer-ai 보기 토글과 독립(토글은 호출부에서 이 결과 위에 덧씌움). */
+function getPublishedImageDisplaySrc(scene, originalSrc) {
+  try {
+    if (!scene || typeof resolveSceneImageSource !== 'function') return originalSrc;
+    const sid = (scene.id != null) ? scene.id : scene.sceneId;
+    if (sid == null) return originalSrc;
+    const key = String(sid);
+    const sel = _pubImageSelBySid ? _pubImageSelBySid[key] : null;
+    if (!sel || sel.selected !== 's2') return originalSrc;   /* 선택 없음/original → 원본(기존 동작) */
+    const s2 = _pubImageS2BySid ? _pubImageS2BySid[key] : null;
+    const r = resolveSceneImageSource(scene, sel, s2, null);  /* previewMode 없음 = 작품 발행 기준 */
+    return (r && r.kind === 's2' && typeof r.src === 'string' && r.src) ? r.src : originalSrc;
+  } catch (e) { return originalSrc; }
+}
+
+/* ★ IMAGE-S2-RENDER-2: 교사가 선택 적용(callApplyImageS2Selection 성공) 직후, 발행 캐시를 동기 갱신.
+   서버 저장이 진실 — 이 함수는 **저장 성공 후에만** 호출(클라 직접 DB write 아님). 원본 scene.imageData 불변.
+   s2VariantNode를 주면 변형 캐시도 갱신(이번 세션에 새로 생성된 s2가 team 진입 캐시에 없을 수 있으므로). */
+function setPublishedImageSelectionForScene(sceneId, selected, s2VariantNode) {
+  try {
+    if (sceneId == null) return;
+    const sid = String(sceneId);
+    if (!_pubImageSelBySid) _pubImageSelBySid = {};
+    if (!_pubImageS2BySid)  _pubImageS2BySid = {};
+    _pubImageSelBySid[sid] = { selected: (selected === 's2') ? 's2' : 'original' };
+    if (s2VariantNode && typeof s2VariantNode === 'object') {
+      _pubImageS2BySid[sid] = s2VariantNode;   /* url 없거나 stale이면 resolver가 알아서 원본 fallback */
+    }
+  } catch (e) { /* noop — 표시 갱신 실패는 원본 유지 */ }
+}
+
 /* IMAGE-S2-1 helper 전역 노출(브라우저) — edit viewer / 완성본 보기 / 일반 감상 공용 결정. */
 if (typeof window !== 'undefined') {
   window.normalizeImagePolicy = normalizeImagePolicy;
@@ -1647,6 +1715,8 @@ if (typeof window !== 'undefined') {
   window.normalizeS2Variant = normalizeS2Variant;
   window.pickS2VariantForScene = pickS2VariantForScene;
   window.resolveSceneImageSource = resolveSceneImageSource;
+  window.getPublishedImageDisplaySrc = getPublishedImageDisplaySrc;   /* IMAGE-S2-RENDER-1 */
+  window.setPublishedImageSelectionForScene = setPublishedImageSelectionForScene;   /* IMAGE-S2-RENDER-2 */
 }
 
 /* 테스트 전용 export — 브라우저에선 module 미정의라 무시된다(membership-login.js와 동일 패턴).
@@ -1656,5 +1726,7 @@ if (typeof module !== 'undefined' && module.exports) {
     isEditViewerSession, isMakerAuthSession, getViewerApp,
     normalizeImagePolicy, normalizeImageSelection, normalizeS2Variant,
     pickS2VariantForScene, resolveSceneImageSource,
+    _setPublishedImageCaches, getPublishedImageDisplaySrc,   /* IMAGE-S2-RENDER-1 */
+    setPublishedImageSelectionForScene,                      /* IMAGE-S2-RENDER-2 */
   };
 }

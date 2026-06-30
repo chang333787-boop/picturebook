@@ -2791,10 +2791,11 @@ function _bindApplyStyleAllHandlers(panel, scene) {
     /* v75 fix: ViewerState.scenes는 num 필드 없고 id만 박힘 (adaptScenes에서 id = String(raw.num)).
        Firebase 노드 키도 num 값과 동일하니 s.id 그대로 saveSceneText(id) 호출 OK.
        2026-05-31 Text-4: 텍스트 모드는 엔딩도 textTheme/textStyle을 쓰므로(Text-4로 일반 장면과
-       동일 판형) 전체 적용 대상에 엔딩 포함. 표지(coverTheme 별개)는 계속 제외. 그림책/무비/체험은
-       엔딩이 별도 시스템이라 옛대로 엔딩 제외(회귀 차단) — _includeEnding은 text일 때만 true. */
+       동일 판형) 전체 적용 대상에 엔딩 포함. 표지(coverTheme 별개)는 계속 제외.
+       2026-06-30 IMAGE-S2 정리: 그림책 엔딩도 렌더가 textStyle/textTheme을 읽으므로(viewer-render renderTerminal)
+       '모든 페이지 적용'에 포함 — 일반 장면만 꾸며지고 엔딩만 안 먹던 불일치 해소. 무비/체험은 옛대로 제외. */
     const _ptype = (ViewerState && ViewerState.project) ? ViewerState.project.projectType : null;
-    const _includeEnding = _ptype === 'text';
+    const _includeEnding = (_ptype === 'text' || _ptype === 'picturebook');
     const targets = list.filter(s => {
       if (!s) return false;
       if (s.type === 'cover' || s.isCover) return false;

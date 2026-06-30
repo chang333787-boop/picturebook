@@ -55,6 +55,7 @@
     s2: 1,        /* 텍스트 2단계 — Phase B */
     s3: 1,        /* 텍스트 3단계 — Phase C */
     check: 5,     /* 작품 검사 */
+    writeAfterQuestions: 5,  /* WRITE-AFTER Phase 3: 생각 점검 질문 (서버 QUOTA.writeAfterQuestions와 동일). */
   };
 
   /* mock 응답 지연 (사용자에게 호출 중 UI lock 보여주려고) */
@@ -3435,31 +3436,30 @@
   function _saveMockUsage(usage) {
     try { localStorage.setItem(_getMockUsageKey(), JSON.stringify(usage)); } catch (e) {}
   }
+  /* WRITE-AFTER-QUOTA-FIX: mode별 mock quota를 제네릭으로 처리(사용키 = mode+'Used' = 기존 규약과 동일:
+     s1Used/s2Used/checkUsed…). 이전엔 s1/s2/s3/check만 하드코딩돼 신규 mode(writeAfterQuestions)가
+     _getRemaining에서 무조건 0 → '횟수 부족'으로 즉시 차단되는 버그가 있었다. 이제 MOCK_QUOTA에 mode를
+     추가하기만 하면 세 함수가 자동 지원(재발 방지). MOCK_QUOTA에 없는 mode는 0(기존 호환). */
   function _getRemaining(mode) {
+    const cap = MOCK_QUOTA[mode];
+    if (cap == null) return 0;
     const u = _loadMockUsage();
-    if (mode === 's1')    return Math.max(0, MOCK_QUOTA.s1 - (u.s1Used || 0));
-    if (mode === 's2')    return Math.max(0, MOCK_QUOTA.s2 - (u.s2Used || 0));
-    if (mode === 's3')    return Math.max(0, MOCK_QUOTA.s3 - (u.s3Used || 0));
-    if (mode === 'check') return Math.max(0, MOCK_QUOTA.check - (u.checkUsed || 0));
-    return 0;
+    return Math.max(0, cap - (u[mode + 'Used'] || 0));
   }
   function _consumeQuota(mode) {
+    if (MOCK_QUOTA[mode] == null) return;
     const u = _loadMockUsage();
-    if (mode === 's1')    u.s1Used = (u.s1Used || 0) + 1;
-    if (mode === 's2')    u.s2Used = (u.s2Used || 0) + 1;
-    if (mode === 's3')    u.s3Used = (u.s3Used || 0) + 1;
-    if (mode === 'check') u.checkUsed = (u.checkUsed || 0) + 1;
+    u[mode + 'Used'] = (u[mode + 'Used'] || 0) + 1;
     u.lastUsedAt = Date.now();
     _saveMockUsage(u);
   }
   function _refundQuota(mode) {
     /* 7가지 환불 정책 (AI_SAFETY_COST_RULES.md 5-1):
        - 모델 실패 / 정책 위반 거부 / 네트워크 오류 → 환불 */
+    if (MOCK_QUOTA[mode] == null) return;
     const u = _loadMockUsage();
-    if (mode === 's1' && u.s1Used > 0)       u.s1Used--;
-    if (mode === 's2' && u.s2Used > 0)       u.s2Used--;
-    if (mode === 's3' && u.s3Used > 0)       u.s3Used--;
-    if (mode === 'check' && u.checkUsed > 0) u.checkUsed--;
+    const k = mode + 'Used';
+    if ((u[k] || 0) > 0) u[k]--;
     _saveMockUsage(u);
   }
 

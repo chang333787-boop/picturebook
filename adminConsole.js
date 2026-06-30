@@ -325,8 +325,9 @@ async function _renderClassBar(classId) {
    imageS2 = 'AI 그림책 마감'(교사용). 마스터 토글은 enabled만 켜고 modes는 개별이라 우발 ON 없음
    (AI_MODE_DEFS에 없는 textS1/imageS1은 마스터로도 신규 ON 안 됨 — 기존 DB값만 보존 재기록). */
 const AI_MODE_DEFS = [
-  { key: 'textS2',   label: 'AI 장면발전',    soon: false },
+  { key: 'writeAfterQuestions', label: '생각 점검 질문', soon: false, badge: '새 기능' },
   { key: 'workCheck',label: '작품 검사',      soon: false },
+  { key: 'textS2',   label: 'AI 장면발전',    soon: false },
   { key: 'imageS2',  label: 'AI 그림책 마감', soon: false, badge: '교사용' },
 ];
 
@@ -349,6 +350,8 @@ async function _renderAiSettingsPanel(classId) {
       textS1:   exists ? !!(saved.modes && saved.modes.textS1)   : false,
       textS2:   exists ? !!(saved.modes && saved.modes.textS2)   : false,
       workCheck:exists ? !!(saved.modes && saved.modes.workCheck): false,
+      /* WRITE-AFTER Phase 3: 생각 점검 질문 — 기본 OFF(미저장 시 false). 교사가 명시적으로 켜야 노출. */
+      writeAfterQuestions: exists ? !!(saved.modes && saved.modes.writeAfterQuestions) : false,
       imageS1:  exists ? !!(saved.modes && saved.modes.imageS1)  : false,
       imageS2:  exists ? !!(saved.modes && saved.modes.imageS2)  : false,
     },
@@ -434,6 +437,7 @@ async function _saveAiSettings(classId, state, panel, saveBtn, statusEl) {
       textS1:    state.modes.textS1    === true,
       textS2:    state.modes.textS2    === true,
       workCheck: state.modes.workCheck === true,
+      writeAfterQuestions: state.modes.writeAfterQuestions === true,
       imageS1:   state.modes.imageS1   === true,
       imageS2:   state.modes.imageS2   === true,
     },

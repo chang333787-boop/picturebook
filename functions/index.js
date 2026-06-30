@@ -36,7 +36,9 @@ const { setGlobalOptions } = require('firebase-functions/v2');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
 const Anthropic = require('@anthropic-ai/sdk');
-const { TEXT_S1_SYSTEM_PROMPT, TEXT_S2_SYSTEM_PROMPT, WORK_CHECK_SYSTEM_PROMPT, THOUGHT_COMPASS_FOLLOWUP_SYSTEM_PROMPT, buildUserMessage, buildUserMessageS2Chunk } = require('./prompts');
+const { TEXT_S1_SYSTEM_PROMPT, TEXT_S2_SYSTEM_PROMPT, WORK_CHECK_SYSTEM_PROMPT, WRITE_AFTER_QUESTIONS_SYSTEM_PROMPT, THOUGHT_COMPASS_FOLLOWUP_SYSTEM_PROMPT, buildUserMessage, buildUserMessageS2Chunk } = require('./prompts');
+/* WRITE-AFTER Phase 3 — 생각 점검 질문 순수 로직(검증/정규화/snapshot 제한). firebase 비의존. */
+const WAQ = require('./write-after-questions');
 /* THOUGHT-COMPASS Phase 1 — AI 후속질문 순수 로직(입력/출력 검증·fallback·메시지). firebase 비의존 → 하니스 단독 검증. */
 const TCFollowUp = require('./thought-compass-followup');
 /* IMAGE-S2-2 — sourceMode 잠금/초기화 순수 결정 로직(firebase 비의존). callable이 RTDB transaction으로 감쌈. */
@@ -89,6 +91,7 @@ const QUOTA = {
   s1: 3,         /* 1단계 — 브랜치당 후보 3회 */
   s2: 2,         /* 2단계 — 브랜치당 2회 (발전은 무겁고 신중) */
   check: 5,      /* 작품 검사 — 브랜치당 5회 */
+  writeAfterQuestions: 5,  /* 생각 점검 질문 — 작품검사와 동일(브랜치당 5회) */
   imageS2: 60,   /* 이미지 변환 — 작품당 월 상한(PRD §10 상한 60). 20장 작품 + 재시도/재생성 여유.
                     기존 flat 30은 20장 작품을 한 번에 못 끝내고(재시도 누적 시 30 초과 → resource-exhausted)
                     교사가 "갑자기 안 됨"을 겪던 원인. 동적 max(30,장면수×2)는 후속(여기선 안전 상한 60 고정). */
@@ -98,6 +101,7 @@ function _aiModeLabel(mode) {
   if (mode === 's1') return '문장 정돈';
   if (mode === 's2') return '장면 발전';
   if (mode === 'check') return '작품 검사';
+  if (mode === 'writeAfterQuestions') return '생각 점검 질문';
   if (mode === 'imageS1') return 'AI 그림 정돈';
   if (mode === 'imageS2') return 'AI 그림책 변환';
   return 'AI 기능';
@@ -416,7 +420,7 @@ async function _validateRequest(req, mode, opts) {
        (c) aiSettings 없음 → 기존 teams/{teamName}/aiPermission fallback (동작 보존).
        (d) 둘 다 없음 → 기본 ON (Phase A 호환).
      모든 검사는 quota 차감(_consumeQuota, 핸들러) 전에 수행됨. */
-  const MODE_KEY_MAP = { s1: 'textS1', s2: 'textS2', check: 'workCheck', imageS1: 'imageS1', imageS2: 'imageS2' };
+  const MODE_KEY_MAP = { s1: 'textS1', s2: 'textS2', check: 'workCheck', writeAfterQuestions: 'writeAfterQuestions', imageS1: 'imageS1', imageS2: 'imageS2' };
   /* aiSettings는 위(2번)에서 이미 읽음(AI-STAB-1) — 재읽기 없이 재사용. 게이트 판정은 여기서 기존 그대로. */
   if (aiSettings) {
     if (aiSettings.enabled !== true) {
@@ -1774,6 +1778,113 @@ exports.callWorkCheck = onCall(
 
       await _refundQuota(ctx);
       logger.error('[ai/check] 호출 실패 — 환불 박음', { error: e.message, stack: e.stack });
+      throw new HttpsError('internal', 'AI 호출 실패: ' + (e.message || String(e)));
+    }
+  }
+);
+
+/* ════════════════════════════════════════════════════════════════
+   WRITE-AFTER Phase 3 — callWriteAfterQuestions (생각 점검 질문)
+   ─────────────────────────────────────────────
+   AI는 작품을 읽고 학생이 스스로 돌아볼 "질문"만 만든다. 글/사건/대사/결말 대필 금지.
+   callWorkCheck 패턴 동일(권한·precheck·quota·Anthropic·환불). 차이:
+   · 전송 전 WAQ.sanitizeSnapshotForQuestions로 장면/글자수 제한 + 이미지/내부필드 제거.
+   · WAQ.validateQuestionsResponse로 질문 3~6개·실존 sceneId·대필키 거부 검증.
+   · 결과는 aiChecks/writeAfterQuestions/latest에 best-effort 저장(최근 결과 보기). 해시캐시는 후속.
+   ⚠️ 운영 활성화는 secret(기존 ANTHROPIC_API_KEY)·functions deploy·aiSettings.modes.writeAfterQuestions
+      ON 필요(기본 OFF). 미배포 시 클라는 functions/not-found로 안전 실패. */
+exports.callWriteAfterQuestions = onCall(
+  {
+    secrets: [ANTHROPIC_API_KEY],
+    enforceAppCheck: false,
+  },
+  async (req) => {
+    const ctx = await _validateRequest(req, 'writeAfterQuestions');
+
+    const rawSnapshot = (req.data && req.data.snapshot) || {};
+    if (!rawSnapshot || Object.keys(rawSnapshot).length === 0) {
+      throw new HttpsError('invalid-argument', 'snapshot이 없어요 (본문이 있는 장면이 없어요)');
+    }
+    /* 전송 전 안전 제한(장면 ≤25·body 500자·선택지 100자·이미지/내부필드 제거). */
+    const snapshot = WAQ.sanitizeSnapshotForQuestions(rawSnapshot);
+    const validSceneIds = Object.keys(snapshot);
+    if (validSceneIds.length === 0) {
+      throw new HttpsError('invalid-argument', '질문을 만들 장면이 없어요.');
+    }
+
+    logger.info('[ai/writeAfterQuestions] 검증 통과', {
+      uid: ctx.uid, classId: ctx.classId, teamName: ctx.teamName, workId: ctx.workId,
+      used: ctx.used, quotaMax: ctx.quotaMax, sceneCount: validSceneIds.length,
+    });
+
+    /* Phase 2 — safety precheck + quick check (quota 차감 前, AI 호출 前) */
+    const precheck = await _runAiPrecheck(ctx, snapshot, 'writeAfterQuestions');
+    if (precheck && precheck.blocked) {
+      logger.info('[ai/writeAfterQuestions] precheck 차단', { reasonCode: precheck.reasonCode });
+      return precheck;
+    }
+
+    await _consumeQuota(ctx);
+
+    try {
+      const userMsg = buildUserMessage(snapshot, 'writeAfterQuestions');
+      const ai = await _callAnthropic(ANTHROPIC_API_KEY.value(), WRITE_AFTER_QUESTIONS_SYSTEM_PROMPT, userMsg);
+
+      logger.info('[ai/writeAfterQuestions] Anthropic 응답', {
+        inputTokens: ai.inputTokens, outputTokens: ai.outputTokens, stopReason: ai.stopReason,
+      });
+
+      let parsed;
+      try {
+        parsed = _parseJsonStrict(ai.text);
+        parsed = WAQ.validateQuestionsResponse(parsed, { validSceneIds, promptVersion: 'waq-v1' });
+      } catch (parseErr) {
+        await _refundQuota(ctx);
+        logger.error('[ai/writeAfterQuestions] schema 위반 — 환불', { error: parseErr.message, code: parseErr.code, text: ai.text.slice(0, 500) });
+        throw new HttpsError('internal', 'AI 응답 검증 실패: ' + parseErr.message);
+      }
+
+      const cost = _estimateCostUsd(ai.inputTokens, ai.outputTokens);
+      _logUsageStats(ctx, ai, cost).catch(e => logger.warn('stats 실패', e));
+
+      const result = {
+        ok: true,
+        type: 'writeAfterQuestions',
+        summary: parsed.summary,
+        questions: parsed.questions,
+        meta: {
+          model: HAIKU_MODEL,
+          inputTokens: ai.inputTokens,
+          outputTokens: ai.outputTokens,
+          estimatedCostUsd: cost,
+          promptVersion: parsed.version,
+          phase: 'phase-a',
+        },
+      };
+
+      /* 최근 결과 저장(best-effort) — 학생이 'AI 재호출 없이 마지막 질문 보기'에 사용. 저장 실패는 무시. */
+      try {
+        const _enc = encodeURIComponent(ctx.teamName);
+        await admin.database()
+          .ref(`classes/${ctx.classId}/teams/${_enc}/aiChecks/writeAfterQuestions/latest`)
+          .set({
+            result,
+            sceneCount: validSceneIds.length,
+            checkedAt: Date.now(),
+            checkedBy: ctx.uid,
+            model: HAIKU_MODEL,
+            version: 'waq-v1',
+          });
+      } catch (e) {
+        logger.error('[ai/writeAfterQuestions] latest write 실패(결과는 정상 반환)', { error: e && e.message });
+      }
+
+      return result;
+
+    } catch (e) {
+      if (e instanceof HttpsError) throw e;
+      await _refundQuota(ctx);
+      logger.error('[ai/writeAfterQuestions] 호출 실패 — 환불', { error: e.message, stack: e.stack });
       throw new HttpsError('internal', 'AI 호출 실패: ' + (e.message || String(e)));
     }
   }

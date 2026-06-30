@@ -453,7 +453,7 @@
        null      = 읽었으나 노드 없음 → 기본 ON (기존 동작 보존).
        object    = 교사 설정 존재 → enabled + modes[modeKey] 게이트.
      클라 게이트는 UX용. 실제 차단은 서버 _validateRequest가 보장. ════════════════════════════════════════════════════════════════ */
-  const AI_MODE_KEY_MAP = { s1: 'textS1', s2: 'textS2', check: 'workCheck', imageS1: 'imageS1', imageS2: 'imageS2' };
+  const AI_MODE_KEY_MAP = { s1: 'textS1', s2: 'textS2', check: 'workCheck', writeAfterQuestions: 'writeAfterQuestions', imageS1: 'imageS1', imageS2: 'imageS2' };
   let _classAiSettings = undefined;        // undefined|null|object
   let _classAiSettingsClassId = null;
   let _classAiSettingsLoading = false;
@@ -549,6 +549,19 @@
     const { classId, teamName } = _getCurrentClassIdTeamName();
     const branchLineage = (typeof ViewerState !== 'undefined' && ViewerState.branchLineage) || {};
     return _callPhaseAFunction('callWorkCheck', {
+      classId, teamName,
+      workId: teamName,
+      rootBranchId: branchLineage.rootBranchId || null,
+      copyDepth: branchLineage.copyDepth || 0,
+      snapshot,
+    });
+  }
+
+  /* WRITE-AFTER Phase 3: 생각 점검 질문 — callWorkCheck와 동일 호출 형태(payload 동일). */
+  async function _phaseACallWriteAfterQuestions(snapshot) {
+    const { classId, teamName } = _getCurrentClassIdTeamName();
+    const branchLineage = (typeof ViewerState !== 'undefined' && ViewerState.branchLineage) || {};
+    return _callPhaseAFunction('callWriteAfterQuestions', {
       classId, teamName,
       workId: teamName,
       rootBranchId: branchLineage.rootBranchId || null,
@@ -2882,7 +2895,13 @@
     const s1Teacher    = _isModeAllowedByTeacher('s1');
     const s2Teacher    = _isModeAllowedByTeacher('s2');
     const checkTeacher = _isModeAllowedByTeacher('check');
+    const waqTeacher   = _isModeAllowedByTeacher('writeAfterQuestions');
     return {
+      writeAfterQuestions: {
+        /* WRITE-AFTER Phase 3: 생각 점검 질문. 기본 OFF(교사가 켜야 함) + 본문 2개 이상. */
+        enabled: waqTeacher && bodyCount >= 2,
+        reason:  !waqTeacher ? NOT_OPENED : (bodyCount < 2 ? '본문이 있는 장면이 2개 이상 필요해요' : ''),
+      },
       s1: {
         enabled: s1Teacher && bodyCount >= 1,
         reason:  !s1Teacher ? NOT_OPENED : (bodyCount < 1 ? '본문이 있는 장면이 1개 이상 필요해요' : ''),
@@ -3114,10 +3133,19 @@
             /* Phase A fix 2026-05-21: 실 API 박을 때 client mock quota 박지 X (Functions가 quota 박음) */
             const realApi = _shouldUseRealApi();
             const checkRemain = realApi ? Infinity : _getRemaining('check');
-            /* WRITE-AFTER-UI-REBUILD-1: 텍스트 1단계(문장 정돈) 카드 제거 — 작품검사와 역할 중복.
-               서버 callTextAiBatch·기존 aiVariants/text/{sid}/s1 데이터는 보존(삭제 0), UI 신규 노출만 제거.
-               순서 = 작품 검사 → 직접 고치기(안내) → AI 장면발전 → AI 그림책 마감(그림책). */
+            const waqRemain = realApi ? Infinity : _getRemaining('writeAfterQuestions');
+            /* WRITE-AFTER-UI-REBUILD-1 + Phase 3: 텍스트 1단계 카드 제거(역할 중복·데이터 보존).
+               순서 = 생각 점검 질문 → 작품 검사 → 직접 고치기(안내) → AI 장면발전 → AI 그림책 마감(그림책). */
             return `
+          ${_renderModeCard({
+            key: 'writeAfterQuestions',
+            icon: '💭',
+            title: '생각 점검 질문',
+            desc: '내 이야기를 더 자세히 돌아볼 질문을 받아요. AI가 대신 고치지 않고 질문만 해요.',
+            enabled: a.writeAfterQuestions.enabled && waqRemain > 0,
+            disabledReason: waqRemain === 0 ? '이번 작품에서 사용할 수 있는 횟수를 모두 사용했어요' : a.writeAfterQuestions.reason,
+            remaining: realApi ? null : waqRemain,
+          })}
           ${_renderModeCard({
             key: 'check',
             icon: '🔍',
@@ -3186,7 +3214,9 @@
       card.addEventListener('click', () => {
         const mode = card.getAttribute('data-ai-mode');
         _removeModalRoot('ai-mode-modal');
-        if (mode === 's2') {
+        if (mode === 'writeAfterQuestions') {
+          _startWriteAfterQuestions();
+        } else if (mode === 's2') {
           _startTextS2();
         } else if (mode === 'check') {
           _startWorkCheck();
@@ -3839,6 +3869,138 @@
         ${jumpHtml}
       </div>
     `;
+  }
+
+  /* ════════════════════════════════════════════════════════════════
+     WRITE-AFTER Phase 3 — 생각 점검 질문 (mock·시작·결과 모달)
+     AI는 질문만 한다. 글/사건/대사/결말 대필 금지. 학생이 직접 고친다.
+     ════════════════════════════════════════════════════════════════ */
+  async function _mockCallWriteAfterQuestions(snapshot) {
+    const delayMs = MOCK_DELAY_MIN + Math.random() * (MOCK_DELAY_MAX - MOCK_DELAY_MIN);
+    await _delay(delayMs);
+    const ids = Object.keys(snapshot || {});
+    const pick = (i) => ids[Math.min(i, ids.length - 1)] || '1';
+    const types = ['선택지 연결', '이야기 흐름', '인물/물건 이어짐', '엔딩 이해'];
+    const tmpl = [
+      '이 장면에서 주인공은 왜 그렇게 했을까요? 이유를 한 가지 더 떠올려 볼까요?',
+      '앞 장면과 이 장면이 자연스럽게 이어지나요? 빠진 이야기가 있을까요?',
+      '여기 나온 인물이나 물건이 다음 장면에도 잘 이어지나요?',
+      '읽는 친구가 이 부분을 이해할 수 있을까요?',
+    ];
+    const n = Math.min(4, Math.max(3, ids.length));
+    const questions = [];
+    for (let i = 0; i < n; i++) {
+      const sid = pick(i);
+      questions.push({
+        id: 'q' + (i + 1), sceneId: String(sid), sceneLabel: '장면 ' + sid,
+        type: types[i % types.length], question: tmpl[i % tmpl.length],
+        reason: '스스로 더 생각해 볼 부분이에요.', studentAction: '장면 ' + sid + '에 한 문장을 더 써 볼까요?',
+      });
+    }
+    return { ok: true, type: 'writeAfterQuestions', isMock: true, createdAt: Date.now(),
+      summary: '내 이야기를 다시 읽으며 아래 질문을 생각해 봐요. (연습용 예시 질문)', questions };
+  }
+
+  async function _startWriteAfterQuestions() {
+    if (_getRemaining('writeAfterQuestions') <= 0) {
+      showAiNotice('이 작품에서 사용할 수 있는 ‘생각 점검 질문’ 횟수를 모두 사용했어요.\n최근 질문이 있다면 먼저 확인해 보세요.');
+      return;
+    }
+    if (typeof _editText !== 'undefined' && _editText.editable === false) {
+      showAiNotice('다른 사용자가 편집 중이라 지금은 AI를 사용할 수 없어요.\n잠시 후 다시 시도해 주세요.', { title: '지금은 AI를 사용할 수 없어요' });
+      return;
+    }
+    if (typeof _flushPendingSave === 'function') await _flushPendingSave();
+
+    const snapshot = _buildWorkSnapshot();
+    const sceneCount = Object.keys(snapshot).length;
+    if (sceneCount < 2) { alert('본문이 있는 장면이 2개 이상 필요해요.'); return; }
+
+    _consumeQuota('writeAfterQuestions');
+    _currentAbort = { aborted: false };
+    _showCallingModal(sceneCount);
+
+    let result = null;
+    const useRealApi = _shouldUseRealApi();
+    try {
+      result = useRealApi ? await _phaseACallWriteAfterQuestions(snapshot) : await _mockCallWriteAfterQuestions(snapshot);
+    } catch (e) {
+      _hideCallingModal();
+      if (e && e.message === 'cancelled') return;
+      if (!useRealApi) _refundQuota('writeAfterQuestions');
+      console.error('[Phase A] 생각 점검 질문 실패', e);
+      showAiNotice('생각 점검 질문을 만들지 못했어요. 잠시 후 다시 시도해 주세요.\n' + (e && e.message ? e.message : ''));
+      return;
+    }
+    _hideCallingModal();
+    if (result && result.cached) _refundQuota('writeAfterQuestions');
+    if (result && result.blocked) { _showAiPrecheckBlockedModal(result, 'writeAfterQuestions'); return; }
+    _showWriteAfterQuestionsResultModal(result);
+  }
+
+  /* 생각 점검 질문 결과 모달 — 질문 카드 목록 + "장면 X로 이동"(editNavigateTo 재사용). 수정/대필 없음. */
+  function _showWriteAfterQuestionsResultModal(res) {
+    res = res || {};
+    const questions = Array.isArray(res.questions) ? res.questions : [];
+    const summaryHtml = res.summary
+      ? `<div class="ai-check-intro">${_escapeHtml(res.summary)}</div>`
+      : '';
+    const latestNote = (res && res.latestLoaded)
+      ? '<div class="ai-check-latest" style="margin-bottom:8px;padding:6px 10px;background:#fff6e6;border:1px solid #f0dcae;border-radius:8px;color:#8a6d2f;font-size:12px;">💾 저장된 질문이에요. 작품을 수정했다면 다시 받아 보세요.</div>'
+      : '';
+    const cardsHtml = questions.length === 0
+      ? '<div class="ai-check-empty">표시할 질문이 없어요.</div>'
+      : questions.map((q) => {
+          const sid = (q && q.sceneId != null && q.sceneId !== '') ? String(q.sceneId) : '';
+          const label = _escapeHtml(q.sceneLabel || (sid ? ('장면 ' + sid) : ''));
+          const typeTag = q.type ? `<span class="ai-check-category__count">${_escapeHtml(q.type)}</span>` : '';
+          const reason = q.reason ? `<div class="ai-check-item__where" style="margin-top:2px;color:#8a8f98;font-size:12px;">${_escapeHtml(q.reason)}</div>` : '';
+          const action = q.studentAction ? `<div class="ai-waq-action" style="margin-top:4px;color:#3a6ea5;font-size:13px;">✏️ ${_escapeHtml(q.studentAction)}</div>` : '';
+          const jump = sid
+            ? `<button class="ai-check-item__jump js-ai-waq-jump" data-scene-id="${_escapeHtml(sid)}">장면 ${_escapeHtml(sid)} 이동</button>`
+            : '';
+          return `
+            <div class="ai-check-category">
+              <div class="ai-check-category__head"><span>💭 ${label}</span>${typeTag}</div>
+              <div class="ai-check-item">
+                <div class="ai-check-item__text">${_escapeHtml(q.question || '')}${reason}${action}</div>
+                ${jump}
+              </div>
+            </div>`;
+        }).join('');
+
+    const html = `
+      <div class="ai-modal__header">
+        <div class="ai-modal__title">💭 생각 점검 질문</div>
+        <button class="ai-modal__close js-ai-modal-close" aria-label="닫기">✕</button>
+      </div>
+      <div class="ai-modal__body">
+        ${latestNote}
+        <div class="ai-check-intro">
+          AI는 <b>질문만 해요</b>. 글을 대신 고쳐 주지 않아요. 질문을 읽고 <b>내가 직접</b> 생각해서 고쳐요.
+        </div>
+        ${summaryHtml}
+        ${cardsHtml}
+      </div>
+      <div class="ai-modal__footer">
+        <button class="ai-btn ai-btn--primary js-ai-waq-close">닫기</button>
+      </div>
+    `;
+    const root = _createModalRoot('ai-waq-modal', html, { size: 'large' });
+    root.querySelector('.js-ai-modal-close').addEventListener('click', () => _removeModalRoot('ai-waq-modal'));
+    root.querySelector('.js-ai-waq-close').addEventListener('click', () => _removeModalRoot('ai-waq-modal'));
+    root.querySelectorAll('.js-ai-waq-jump').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const sceneId = btn.getAttribute('data-scene-id');
+        if (!sceneId) return;
+        if (typeof editNavigateTo === 'function') {
+          editNavigateTo(sceneId);
+          _removeModalRoot('ai-waq-modal');
+        } else {
+          alert('해당 장면으로 이동할 수 없어요. 새로고침 후 다시 시도해주세요.');
+        }
+      });
+    });
   }
 
   /* ════════════════════════════════════════════════════════════════

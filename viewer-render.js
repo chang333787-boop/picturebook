@@ -1558,8 +1558,13 @@ function _renderStoryEnding(stage, scene) {
   /* v37: 메인 장면(picturebook split)과 동일 구조 — 위 그림 / 아래 텍스트.
      사용자 결정: "엔딩도 그림 있고 본문 아래 + 행동 버튼 자리에 결말 문구".
      scene.imageData 있으면 위 그림, 없으면 placeholder. 텍스트 영역에 엔딩 콘텐츠. */
-  let endingImage = scene.imageData || null;
-  /* P5-IMAGE-VARIANT-1: 이미지 보기 모드면 variant url로 표시(원본 보기는 그대로·동작 변화 0). 원본 필드 불변. */
+  let endingImage = scene.imageData || scene.imageUrl || null;
+  /* IMAGE-S2-RENDER-1(엔딩): 교사가 발행 선택(imageSelections=s2)한 엔딩 장면도 AI 결과로 표시(학생/감상 포함).
+     일반 장면과 동일 — 누락돼 있어 엔딩에선 'AI 결과 사용'이 반영 안 되던 버그 수정. 선택 없음/stale/누락 → 원본. */
+  if (typeof window !== 'undefined' && typeof window.getPublishedImageDisplaySrc === 'function') {
+    endingImage = window.getPublishedImageDisplaySrc(scene, endingImage);
+  }
+  /* P5-IMAGE-VARIANT-1: 이미지 보기 모드면 variant url로 표시(원본 보기는 그대로·동작 변화 0). 원본 필드 불변. 토글은 발행 결과 위에 덧씌움. */
   if (typeof window !== 'undefined' && window.viewerAi && typeof window.viewerAi._getDisplayImageSrc === 'function') {
     endingImage = window.viewerAi._getDisplayImageSrc(scene, endingImage);
   }

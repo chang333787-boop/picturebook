@@ -48,6 +48,7 @@ function loadUi(DATA, opts) {
   global.location = { search: (opts && opts.search) || '?classId=c&team=0000&ptype=picturebook&from=maker&edit=1' };
   global.window.ImageS2Batch = PURE;
   global.window.isMakerAuthSession = function () { return !(opts && opts.notTeacher); };
+  global.window.isEditViewerSession = function () { return !(opts && opts.notTeacher); };   /* 다듬기 세션(진입 버튼 게이트) */
   let lastCall = null;
   global.window.viewerAi = {
     _getViewerFirebaseApp() { return fakeApp(DATA); },

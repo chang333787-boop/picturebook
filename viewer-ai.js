@@ -3075,11 +3075,12 @@
   function _showModeModal() {
     const a = _getModeAvailability();
 
-    /* IMAGE-S2-ENTRY: 'AI 그림책 마감' 카드 — 교사(from=maker) + 그림책 작품일 때만 노출(학생/텍스트 작품 미노출).
-       enabled=imageS2 ON(설정). 클릭은 batch 패널만 열고, 실제 변환은 패널의 자체 gate(provider/privacy)가 막음(클릭=API 호출 아님). */
-    const _isTeacherSess = !!(window.isMakerAuthSession && window.isMakerAuthSession(typeof location !== 'undefined' ? location.search : ''));
+    /* IMAGE-S2-ENTRY: 'AI 그림책 마감' 카드 — 다듬기(edit=1&from=maker) 세션 + 그림책 작품일 때만 노출.
+       감상 모드·학생·텍스트 작품엔 미노출. enabled=imageS2 ON(설정). 클릭은 batch 패널만 열고 변환은 패널 gate가 막음. */
+    const _searchStr = (typeof location !== 'undefined') ? location.search : '';
+    const _isEditSess = !!(window.isEditViewerSession && window.isEditViewerSession(_searchStr));
     const _isPicturebook = !!(typeof ViewerState !== 'undefined' && ViewerState.project && ViewerState.project.projectType === 'picturebook');
-    const _showImageS2Card = _isTeacherSess && _isPicturebook;
+    const _showImageS2Card = _isEditSess && _isPicturebook;
     const _imageS2Allowed = _isModeAllowedByTeacher('imageS2');
 
     const html = `

@@ -105,7 +105,7 @@
       + '<summary style="cursor:pointer;color:#3a5a2a;">사용 순서 보기</summary>'
       + '<ol style="margin:6px 0 0;padding-left:18px;line-height:1.7;">'
       + '<li>관리자 설정에서 ‘AI 그림책 마감’을 켭니다.</li>'
-      + '<li>변환할 장면 수와 예상 비용을 확인합니다.</li>'
+      + '<li>변환할 장면 수를 확인합니다.</li>'
       + '<li>‘AI 그림책 마감 시작’을 누릅니다.</li>'
       + '<li>결과를 장면별로 비교해 ‘AI 결과 사용’ 또는 ‘원본 유지’를 선택합니다.</li></ol></details>';
   }
@@ -119,8 +119,7 @@
       html += '<div style="background:#f7f9f5;border:1px solid #e3ead9;border-radius:10px;padding:12px;font-size:13px;line-height:1.8;">'
         + '<div><b>' + _esc(plan.needLabel) + '</b></div>'
         + (plan.cachedLabel ? '<div style="color:#777;">' + _esc(plan.cachedLabel) + '</div>' : '')
-        + '<div>' + _esc(plan.timeLabel) + '</div>'
-        + '<div>' + _esc(plan.costLabel) + '</div></div>';
+        + '<div>' + _esc(plan.timeLabel) + '</div></div>';   /* 예상 비용 표시 제거(사용자 요청) */
     }
     html += '<div style="margin-top:10px;font-size:12px;color:' + (gate.canStart ? '#2e7d32' : '#b26a00') + ';">'
       + (gate.canStart ? '✅ 시작할 수 있어요' : '⛔ ' + _esc(gate.reason || '시작할 수 없어요')) + '</div>';
@@ -233,7 +232,9 @@
 
   /* ── 교사 전용 진입 버튼(자가 주입) ── */
   function _injectEntry() {
-    if (!_isTeacherSession()) return;                /* 학생 미노출 */
+    /* 학생 미노출 + 감상 모드 미노출 — 다듬기(edit=1&from=maker) 세션에서만 진입 버튼 표시.
+       (감상 화면에선 'AI 그림책 마감' 진입을 띄우지 않음. 교사는 다듬기에서 진행.) */
+    if (!(window.isEditViewerSession && window.isEditViewerSession(location.search))) return;
     if (['picturebook', 'text'].indexOf(_ptype()) === -1 && _ptype()) return;
     if (document.getElementById('imageS2-batch-entry')) return;
     var bar = _el('div', { id: 'imageS2-batch-entry', style: 'position:fixed;right:12px;bottom:12px;z-index:99990;' });

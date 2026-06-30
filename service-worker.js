@@ -31,7 +31,16 @@ self.addEventListener('fetch', function (event) {
      Firebase / Google API / CDN 등 cross-origin은 브라우저 기본 흐름 유지. */
   if (url.origin !== self.location.origin) return;
 
-  /* navigation 포함 모든 same-origin GET = 항상 네트워크에서 최신 응답.
+  /* WRITE-AFTER-VIEWER-HTML-CACHE-HARDENED: 진입 HTML(navigation)은 브라우저 HTTP 캐시까지
+     우회(cache:'no-store')해 항상 최신 viewer.html/maker.html/index.html을 받는다. 옛 진입 HTML이
+     캐시에 남아 옛 cachebuster(AI_SRC 등)로 옛 JS를 로드하던 문제 방지. Cache Storage는 여전히
+     미사용(network-only 유지). JS/CSS/이미지는 ?v= cachebuster가 버전을 보장하므로 기본 fetch. */
+  if (request.mode === 'navigate') {
+    event.respondWith(fetch(request, { cache: 'no-store' }).catch(function () { return fetch(request); }));
+    return;
+  }
+
+  /* 그 외 same-origin GET = 항상 네트워크에서 최신 응답(network-only).
      실패해도 오래된 화면 fallback 없음(네트워크 오류를 그대로 전달). */
   event.respondWith(fetch(request));
 });

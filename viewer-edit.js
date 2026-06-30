@@ -5958,10 +5958,12 @@ function _isPbImageCenterNormalScene(scene) {
    허용값 외(기본)=null → Firebase update가 키 삭제. picturebookSubmode 저장과 동일 정책. */
 function _saveSceneMoodField(scene, field, val, allow) {
   if (!scene) return;
-  if (typeof _isVariantViewLocked === 'function' && _isVariantViewLocked()) {
-    if (typeof _showSaveStatus === 'function') _showSaveStatus('AI 버전은 보기 전용입니다. 편집은 원본에서 해 주세요.', 2500);
-    return;
-  }
+  /* PICTUREBOOK_MOOD_AI_TEXT_VIEW_FIX: 장면 분위기(pbStoryStage/pbEndingMood)는 본문이 아니라
+     그림책 페이지 프레임/배경 스타일이라, 글 보기 모드(원본/AI 장면발전)와 무관하게 적용돼야 한다.
+     이전엔 variant-view 잠금(원본 body 보호용)에 묶여 'AI 장면발전' 보기에선 분위기 변경이 통째로
+     차단됐다 → mood는 잠금 면제. data-story-stage는 viewer-render에서 view-mode 독립으로 부착되므로,
+     저장+재렌더만 하면 현재 글 보기 모드(s2)를 유지한 채 주변 분위기만 갱신된다.
+     (원본 body/imageData/aiVariants/text는 건드리지 않음 — pbStoryStage/pbEndingMood만 저장.) */
   const v = (allow.indexOf(val) >= 0) ? val : null;
   scene[field] = v;                                   /* 메모리 즉시 반영 */
   const id = scene.num != null ? scene.num : scene.id;

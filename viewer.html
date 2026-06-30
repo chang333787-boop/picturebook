@@ -2,6 +2,12 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8"/>
+  <!-- WRITE-AFTER-VIEWER-HTML-CACHE-HARDENED: 진입 HTML이 오래 캐시돼 옛 JS cachebuster(AI_SRC 등)로
+       옛 번들을 로드하던 문제 방지. http-equiv meta는 GitHub Pages HTTP 헤더를 완전히 못 이길 수 있어
+       보조 수단이며, 실질 보강은 service-worker.js의 navigation no-store fetch가 담당한다. JS/CSS ?v= 유지. -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+  <meta http-equiv="Pragma" content="no-cache"/>
+  <meta http-equiv="Expires" content="0"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
   <meta name="theme-color" content="#0d1117"/>
   <!-- v36: PWA — 홈 화면에 추가하면 전체화면 앱처럼 동작 -->
@@ -206,6 +212,9 @@
 (function () {
   var EDIT_SRC = 'viewer-edit.js?v=140p5imglock1copyfix2c1coverstart1heuristic1advedithide1absorbtitle1advedithidetext1toptoolbar2atoptoolbar3atoptoolbar3btoptoolbar4atoptoolbar4bprojectsettings1aprojectsettings1bprojectsettings1ccoverhint1dprojectsettings2aprojectsettings2bprojectsettings2cprojectsettings2ccpbimage1apbimage1bpbimage1cpbimage1dscenestyle1scenestyle1cglyphstyle1aglyphstyle1bglyphstyle1cglyphstyle1dglyphapplyalltextmode1btextmode1ctextmode1dmoviesettings1movietool1abmovietool1cmovietool1dpanelcleanup1apanelcleanup1bpanelcleanup1cpblayout1apblayout1bpblayout1cpbbodybox1apbbodybox1bpbbodybox1cpanelempty1backbone1aibackbone1aiinavtitle1abackbone1bbackbone1cdeadcode1backbone2iideadcode2scenetitle1bviewertopbar1pbskins5d8clean1d8clean1bttheme1refineia2textdefaults1markers2perfqa1ia3polishauth1pbmood2savecompassview2hudmenufix1imgs2a1imgs2afix1imgs2afix2imgs2uipolish1';
   var AI_SRC   = 'viewer-ai.js?v=workcheckhistory1copyfix2c1hudai1bpolishauth1imgs2lock1imgs2a1imgs2afix1imgs2afix2imgs2teacherui1imgs2entry1imgs2viewhide1imgs2uipolish2writeafterui2';
+  /* WRITE-AFTER-VIEWER-HTML-CACHE-HARDENED: 디버그 마커 — 로드된 진입 HTML이 어떤 번들 cachebuster를
+     들고 있는지 콘솔로 확인(옛 viewer.html 캐시 의심 시 한눈에 비교). 동작 영향 없음. */
+  try { console.log('[viewer] bundle cachebuster: AI_SRC=' + AI_SRC.split('?v=')[1] + ' / EDIT_SRC=' + EDIT_SRC.split('?v=')[1]); } catch (e) {}
   /* PERF-2B-1: 편집 전용 viewer-image-edit.js(그림 편집툴)·storyAnalyzer.js(루트/구조 보기)도 지연 로드.
      감상 모드는 미로드(추가 ~70KB 감소). 편집 진입 시 edit 번들에 포함. */
   var IMG_SRC   = 'viewer-image-edit.js?v=96copyfix1';

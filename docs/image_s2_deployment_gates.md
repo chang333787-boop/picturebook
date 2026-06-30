@@ -1,10 +1,11 @@
 # 가지 imageS2 — production 파이프라인 상태 & 배포 게이트 (IMAGE-S2-9)
 
-> 2026-06-29. feature `feature/image-s2-first-generation`. **실 API 호출·secret 등록·배포·main 병합 없음.**
-> 모델=gpt-image-2 / 강도=P3 확정. 서버 production 파이프라인 결선 완료(mock 검증). 라이브는 아래 게이트 통과 후.
+> 2026-06-29 작성. feature `feature/image-s2-first-generation`.
+> **상태 갱신(2026-06-30, 릴리즈 감사)**: secret 등록 완료 · Functions 3종(callImageAiS2/callStartImageS2Batch/callApplyImageS2Selection) **배포 완료**(asia-northeast3·nodejs20) · 실 OpenAI 변환 검증 완료. **main 병합만 미수행.** 배포·smoke 근거는 `image_s2_isolated_smoke_result_20260629.md` 참조.
+> 모델=gpt-image-2 / 강도=**P4 확정**(`imgS2-openai-gpt-image-2-P4-v1`, 2026-06-29 배포. P3→P4 개선). 라이브 전체공개는 아래 게이트 통과 후.
 
 ## 1. 완료 (서버, mock 검증)
-- `functions/image-s2-adapter-openai.js` — production OpenAI adapter. `createOpenAiImageS2Adapter({apiKey,...})` → `{configured:!!apiKey, generate(req)}`. 고정 **P3 정본 프롬프트**(보존·한글·재설계금지·3:2·사실화금지), `/v1/images/edits`, 출력 MIME/크기/refusal 검증, timeout. fetch/download 주입 → mock 테스트.
+- `functions/image-s2-adapter-openai.js` — production OpenAI adapter. `createOpenAiImageS2Adapter({apiKey,...})` → `{configured:!!apiKey, generate(req)}`. 고정 **P4 정본 프롬프트**(`imgS2-openai-gpt-image-2-P4-v1`. 보존·한글·재설계금지·3:2·사실화금지. P3→P4=완성형 마감), `/v1/images/edits`, 출력 MIME/크기/refusal 검증, timeout. fetch/download 주입 → mock 테스트.
 - `functions/index.js`:
   - `IMAGE_OPENAI_API_KEY = defineSecret('IMAGE_OPENAI_API_KEY')` (텍스트 Anthropic과 분리).
   - `_selectImageS2Adapter()` — **secret 있으면 OpenAI adapter, 없으면 not-configured**(생성 차단·차감 0=안전 기본 유지).

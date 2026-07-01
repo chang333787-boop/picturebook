@@ -1823,8 +1823,11 @@ function _attachChoiceLabelEditable(el, scene) {
     if (typeof _flushPendingSave === 'function') _flushPendingSave();
   });
 
-  /* Enter — 한 줄 입력 (title과 동일) */
+  /* Enter — 한 줄 입력 (title과 동일).
+     HOTFIX-IME: 한글 IME 조합 중 Enter는 '확정'용이므로 blur/저장을 실행하지 않는다.
+     (isComposing/keyCode===229 미체크 시 마지막 글자가 중복 커밋되는 버그 — 예: "문을 연다"→"문을 연다다") */
   el.addEventListener('keydown', e => {
+    if (e.isComposing || e.keyCode === 229) return;
     if (e.key === 'Enter') {
       e.preventDefault();
       el.blur();

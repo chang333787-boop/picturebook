@@ -3160,14 +3160,20 @@
           })}
           </div>
         </div>`;
+          /* WRITE-AFTER Phase 5B: 2구역 = 1단계에서 만든 자료(최근 결과)를 다시 보며 직접 고치기. */
           const sec2 = `
         <div class="ai-finish-section" style="margin-top:16px;">
-          <div class="ai-finish-section-title" style="${T}">2. 직접 고치기</div>
-          <div class="ai-finish-section-desc" style="${D}">질문과 검사 결과를 보고 장면을 직접 고쳐요.</div>
+          <div class="ai-finish-section-title" style="${T}">2. 자료 보며 직접 고치기</div>
+          <div class="ai-finish-section-desc" style="${D}">생각 점검 질문과 작품 검사 결과를 보며 장면을 직접 고쳐요.</div>
           <div class="ai-mode-grid">
           ${_renderModeCard({
-            key: 'directEdit', icon: '✏️', title: '현재 장면 고치기',
-            desc: '질문과 검사 결과를 보고 지금 장면을 직접 고쳐요. 내가 고친 글이 최종 작품이 돼요.',
+            key: 'latestQuestions', icon: '💭', title: '생각 점검 질문 결과 보기',
+            desc: 'AI가 준 질문을 다시 보며 고칠 장면을 골라요.',
+            enabled: true, remaining: null,
+          })}
+          ${_renderModeCard({
+            key: 'latestWorkCheck', icon: '🔍', title: '작품 검사 결과 보기',
+            desc: '확인할 점을 다시 보며 고칠 장면을 골라요.',
             enabled: true, remaining: null,
           })}
           </div>
@@ -3224,12 +3230,12 @@
       card.addEventListener('click', () => {
         const mode = card.getAttribute('data-ai-mode');
         _removeModalRoot('ai-mode-modal');
-        if (mode === 'directEdit') {
-          /* Phase 5: 현재 선택 장면을 직접 편집(모달 이미 닫힘). AI 호출 없음. */
-          const cur = (typeof ViewerState !== 'undefined' && ViewerState.currentSceneId != null)
-            ? String(ViewerState.currentSceneId) : '';
-          if (!cur) { alert('먼저 고칠 장면을 선택해 주세요.'); return; }
-          _enterDirectEditFromWriteAfter(cur, 'directEdit');
+        if (mode === 'latestQuestions') {
+          /* Phase 5B: 최근 생각 점검 질문 결과 다시 보기(AI 재호출 없음). 없으면 안내. */
+          _showLatestWriteAfterQuestions();
+        } else if (mode === 'latestWorkCheck') {
+          /* Phase 5B: 최근 작품 검사 결과 다시 보기(AI 재호출 없음). 없으면 안내. */
+          _showLatestWorkCheck();
         } else if (mode === 'writeAfterQuestions') {
           _startWriteAfterQuestions();
         } else if (mode === 's2') {
@@ -3686,6 +3692,71 @@
     _showCheckResultModal(modalResult);
   }
 
+  /* WRITE-AFTER Phase 5B: 최근 생각 점검 질문 결과 다시 보기 — AI 재호출 없음, aiChecks/writeAfterQuestions/latest read만. */
+  async function _showLatestWriteAfterQuestions() {
+    const { classId, teamName } = _getCurrentClassIdTeamName();
+    if (!classId || !teamName) { alert('현재 작품 정보를 확인하지 못했어요.'); return; }
+    const app = _getViewerFirebaseApp();
+    if (!app || !app.database) { alert('연결 상태를 확인하지 못했어요. 잠시 후 다시 시도해 주세요.'); return; }
+    const enc = encodeURIComponent(teamName);
+    let latest = null;
+    try {
+      const snap = await app.database()
+        .ref('classes/' + classId + '/teams/' + enc + '/aiChecks/writeAfterQuestions/latest')
+        .once('value');
+      latest = snap.val();
+    } catch (e) {
+      console.warn('[WAQ-HISTORY] latest 읽기 실패', e);
+      alert('저장된 질문을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.');
+      return;
+    }
+    if (!latest || !latest.result) {
+      alert('아직 생각 점검 질문 결과가 없어요. 1단계에서 질문을 먼저 받아 보세요.');
+      return;
+    }
+    const modalResult = Object.assign({}, latest.result, { latestLoaded: true });
+    _showWriteAfterQuestionsResultModal(modalResult);
+  }
+
+  /* WRITE-AFTER Phase 5B: '확인했어요' 체크 — session/local만(DB write 0). key=classId:teamName:type:itemKey.
+     본문/개인정보 저장 안 함(체크 상태만). item id 없으면 index fallback. */
+  function _waqSeenKey(type, itemKey) {
+    const { classId, teamName } = _getCurrentClassIdTeamName();
+    return 'writeAfterSeen:' + (classId || '') + ':' + (teamName || '') + ':' + type + ':' + itemKey;
+  }
+  function _isWaqSeen(type, itemKey) {
+    try { return localStorage.getItem(_waqSeenKey(type, itemKey)) === '1'; } catch (e) { return false; }
+  }
+  function _setWaqSeen(type, itemKey, on) {
+    try { if (on) localStorage.setItem(_waqSeenKey(type, itemKey), '1'); else localStorage.removeItem(_waqSeenKey(type, itemKey)); } catch (e) {}
+  }
+  /* 확인했어요 토글 버튼 HTML(결과 항목 우측). data-seen-type/data-seen-key로 위임 처리. */
+  function _seenToggleHtml(type, itemKey) {
+    const on = _isWaqSeen(type, itemKey);
+    return `<button type="button" class="ai-waq-seen js-ai-waq-seen${on ? ' is-seen' : ''}" data-seen-type="${_escapeHtml(type)}" data-seen-key="${_escapeHtml(itemKey)}" aria-pressed="${on}" `
+      + `style="flex:none;margin-left:6px;padding:4px 9px;border:1px solid ${on ? '#8bbf6a' : '#d9cba8'};border-radius:8px;background:${on ? '#e9f5e0' : '#fff'};color:${on ? '#4a6b3a' : '#8a7a5e'};font-size:12px;cursor:pointer;">${on ? '✅ 확인했어요' : '□ 확인했어요'}</button>`;
+  }
+  /* 결과 모달 공통: 확인했어요 토글 위임 바인딩. */
+  function _bindSeenToggles(root) {
+    if (!root) return;
+    root.querySelectorAll('.js-ai-waq-seen').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const type = btn.getAttribute('data-seen-type');
+        const key = btn.getAttribute('data-seen-key');
+        const next = !_isWaqSeen(type, key);
+        _setWaqSeen(type, key, next);
+        btn.classList.toggle('is-seen', next);
+        btn.setAttribute('aria-pressed', String(next));
+        btn.textContent = next ? '✅ 확인했어요' : '□ 확인했어요';
+        btn.style.border = '1px solid ' + (next ? '#8bbf6a' : '#d9cba8');
+        btn.style.background = next ? '#e9f5e0' : '#fff';
+        btn.style.color = next ? '#4a6b3a' : '#8a7a5e';
+        const item = btn.closest('.ai-check-item');
+        if (item) item.style.opacity = next ? '0.6' : '';
+      });
+    });
+  }
+
   async function _startWorkCheck() {
     /* quota 검사 */
     if (_getRemaining('check') <= 0) {
@@ -3762,7 +3833,23 @@
   }
   function _showWriteAfterReturnHint(source) {
     _hideWriteAfterReturnHint();
-    try { sessionStorage.setItem('pb_write_after_source', String(source || '')); } catch (e) {}
+    const src = String(source || 'directEdit');
+    try { sessionStorage.setItem('pb_write_after_source', src); } catch (e) {}
+    /* WRITE-AFTER Phase 5B: 온 곳(source)에 따라 복귀 문구/버튼/동작을 바꾼다. 결과 재오픈은 latest read만(AI 0). */
+    let msg, btnLabel, onReturn;
+    if (src === 'questions') {
+      msg = '고친 뒤 <b>생각 점검 질문</b>으로 돌아와 남은 질문을 확인하세요.';
+      btnLabel = '생각 점검 질문으로 돌아가기';
+      onReturn = function () { _hideWriteAfterReturnHint(); Promise.resolve().then(_showLatestWriteAfterQuestions).catch(_returnToWriteAfterModal); };
+    } else if (src === 'workCheck') {
+      msg = '고친 뒤 <b>작품 검사 결과</b>로 돌아와 남은 확인할 점을 보세요.';
+      btnLabel = '작품 검사 결과로 돌아가기';
+      onReturn = function () { _hideWriteAfterReturnHint(); Promise.resolve().then(_showLatestWorkCheck).catch(_returnToWriteAfterModal); };
+    } else {
+      msg = '고친 뒤 <b>작품 마무리</b>로 돌아와 다음 단계를 이어가세요.';
+      btnLabel = '작품 마무리로 돌아가기';
+      onReturn = _returnToWriteAfterModal;
+    }
     const bar = document.createElement('div');
     bar.id = 'write-after-return-hint';
     bar.setAttribute('role', 'status');
@@ -3771,11 +3858,11 @@
       + 'background:#fff7e8;border:1px solid #e8d3a0;border-radius:12px;box-shadow:0 4px 16px rgba(80,60,20,.18);'
       + 'font-family:inherit;font-size:13px;color:#6b5a3a;';
     bar.innerHTML =
-      '<span>✏️ 고친 뒤 <b>작품 마무리</b>로 돌아와 다음 단계를 이어가세요.</span>'
-      + '<button type="button" class="js-waq-return" style="flex:none;padding:6px 12px;border:none;border-radius:8px;background:#5b8a3a;color:#fff;font-size:13px;font-weight:700;cursor:pointer;">작품 마무리로 돌아가기</button>'
+      '<span>✏️ ' + msg + '</span>'
+      + '<button type="button" class="js-waq-return" style="flex:none;padding:6px 12px;border:none;border-radius:8px;background:#5b8a3a;color:#fff;font-size:13px;font-weight:700;cursor:pointer;">' + btnLabel + '</button>'
       + '<button type="button" class="js-waq-return-close" aria-label="닫기" style="flex:none;padding:4px 8px;border:none;background:transparent;color:#a8895a;font-size:15px;cursor:pointer;line-height:1;">✕</button>';
     document.body.appendChild(bar);
-    bar.querySelector('.js-waq-return').addEventListener('click', _returnToWriteAfterModal);
+    bar.querySelector('.js-waq-return').addEventListener('click', onReturn);
     bar.querySelector('.js-waq-return-close').addEventListener('click', _hideWriteAfterReturnHint);
   }
   /* 결과 카드/직접 고치기 카드 공통 진입: 해당 장면 편집 상태로 이동 + 복귀 안내. source=questions|workCheck|directEdit */
@@ -3815,7 +3902,7 @@
       if (sec.items.length === 0) {
         itemsHtml = '<div class="ai-check-empty">확인할 점 없어요 ✓</div>';
       } else {
-        itemsHtml = sec.items.map(item => _renderCheckItem(sec.key, item)).join('');
+        itemsHtml = sec.items.map((item, idx) => _renderCheckItem(sec.key, item, idx)).join('');
       }
       return `
         <div class="ai-check-category">
@@ -3871,7 +3958,7 @@
       _removeModalRoot('ai-check-modal');
     });
 
-    /* Phase 5: '이 장면 고치기' — 모달 닫고 해당 장면 편집 진입 + 작품 마무리 복귀 안내. */
+    /* Phase 5: '이 장면 고치기' — 모달 닫고 해당 장면 편집 진입 + 작품 검사 결과 복귀 안내. */
     root.querySelectorAll('.js-ai-check-jump').forEach(btn => {
       btn.addEventListener('click', () => {
         const sceneId = btn.getAttribute('data-scene-id');
@@ -3880,11 +3967,12 @@
         _enterDirectEditFromWriteAfter(sceneId, 'workCheck');
       });
     });
+    _bindSeenToggles(root);   /* Phase 5B: 확인했어요 토글 */
   }
 
   /* CHECK-UI-1: real(sceneId·message·where) + 구버전 mock(wrong/correct·sceneIdFrom/To·issue·scenes·character)
      항목을 필드 존재 여부로 렌더. 누락 필드의 undefined·빈 "→" 노출을 막는다. catKey는 호환용으로만 받음. */
-  function _renderCheckItem(catKey, item) {
+  function _renderCheckItem(catKey, item, idx) {
     item = item || {};
 
     /* ── 장면 라벨 + 점프 타겟 ── (real: sceneId / 구 mock coherence: from→to / 구 mock character: scenes[]) */
@@ -3935,10 +4023,14 @@
     const jumpHtml = jumpId
       ? `<button class="ai-check-item__jump js-ai-check-jump" data-scene-id="${_escapeHtml(jumpId)}">✏️ 이 장면 고치기</button>`
       : '';
+    /* Phase 5B: '확인했어요' 체크(session/local). itemKey = 카테고리:index:장면. */
+    const seenKey = String(catKey || 'x') + ':' + (idx != null ? idx : 0) + ':' + (jumpId || oneId || '');
+    const seenHtml = _seenToggleHtml('workCheck', seenKey);
+    const seenOn = _isWaqSeen('workCheck', seenKey);
     return `
-      <div class="ai-check-item">
+      <div class="ai-check-item"${seenOn ? ' style="opacity:0.6;"' : ''}>
         <div class="ai-check-item__text">${textHtml}${whereHtml}</div>
-        ${jumpHtml}
+        <div class="ai-check-item__actions" style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-top:4px;">${jumpHtml}${seenHtml}</div>
       </div>
     `;
   }
@@ -4022,7 +4114,7 @@
       : '';
     const cardsHtml = questions.length === 0
       ? '<div class="ai-check-empty">표시할 질문이 없어요.</div>'
-      : questions.map((q) => {
+      : questions.map((q, idx) => {
           const sid = (q && q.sceneId != null && q.sceneId !== '') ? String(q.sceneId) : '';
           const label = _escapeHtml(q.sceneLabel || (sid ? ('장면 ' + sid) : ''));
           const typeTag = q.type ? `<span class="ai-check-category__count">${_escapeHtml(q.type)}</span>` : '';
@@ -4031,12 +4123,16 @@
           const jump = sid
             ? `<button class="ai-check-item__jump js-ai-waq-jump" data-scene-id="${_escapeHtml(sid)}">✏️ 이 장면 고치기</button>`
             : '';
+          /* Phase 5B: '확인했어요' 체크(session/local). itemKey = 질문id(없으면 index):장면. */
+          const seenKey = String((q && q.id) || ('q' + idx)) + ':' + sid;
+          const seenHtml = _seenToggleHtml('questions', seenKey);
+          const seenOn = _isWaqSeen('questions', seenKey);
           return `
             <div class="ai-check-category">
               <div class="ai-check-category__head"><span>💭 ${label}</span>${typeTag}</div>
-              <div class="ai-check-item">
+              <div class="ai-check-item"${seenOn ? ' style="opacity:0.6;"' : ''}>
                 <div class="ai-check-item__text">${_escapeHtml(q.question || '')}${reason}${action}</div>
-                ${jump}
+                <div class="ai-check-item__actions" style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-top:4px;">${jump}${seenHtml}</div>
               </div>
             </div>`;
         }).join('');
@@ -4069,6 +4165,7 @@
         _enterDirectEditFromWriteAfter(sceneId, 'questions');
       });
     });
+    _bindSeenToggles(root);   /* Phase 5B: 확인했어요 토글 */
   }
 
   /* ════════════════════════════════════════════════════════════════

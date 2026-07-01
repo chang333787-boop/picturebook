@@ -395,6 +395,10 @@ function _drawAiSettingsPanel(panel, classId, state, exists) {
       </div>
     </div>
     <div class="admin-ai-modes ${state.enabled ? '' : 'is-locked'}" id="admin-ai-modes">
+      <div class="admin-ai-group" style="flex:0 0 100%;margin-bottom:2px;padding:9px 12px;background:#f4f6f2;border:1px solid #dfe6d8;border-radius:10px;">
+        <div class="admin-ai-group-title" style="font-weight:700;color:#3a5a2a;font-size:13px;">📁 작품 마무리 활동</div>
+        <div class="admin-ai-group-desc" style="margin-top:3px;color:#5f6b57;font-size:12px;line-height:1.5;">작품 마무리 활동은 질문 만들기, 작품 검사, 직접 고치기, 마지막 다듬기를 한 흐름으로 진행해요. 아래에서 켠 기능만 학생에게 보여요.</div>
+      </div>
       ${modeToggles}
     </div>
     <div class="admin-ai-head">

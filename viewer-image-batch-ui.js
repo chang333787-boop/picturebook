@@ -236,7 +236,7 @@
 
   /* ── 교사 전용 진입 버튼(자가 주입) ── */
   function _injectEntry() {
-    /* ★ floating 진입 버튼 기본 제거 — 정식 진입점은 '🤖 AI 작품 다듬기' 모달의 'AI 그림책 마감' 카드.
+    /* ★ floating 진입 버튼 기본 제거 — 정식 진입점은 '📁 작품 마무리' 모달의 'AI 그림책 마감' 카드.
        디버그/빠른접근용으로 ?debugImageS2=1 일 때만 표시. */
     if (_params().get('debugImageS2') !== '1') return;
     /* 학생 미노출 + 감상 모드 미노출 — 다듬기(edit=1&from=maker) 세션에서만. */

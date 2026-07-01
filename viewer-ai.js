@@ -3053,13 +3053,13 @@
       </div>
       <div class="ai-modal__body">
         <p class="ai-onboarding-text">
+          작품 마무리는 질문과 검사로 고칠 곳을 찾고,<br/>
+          내가 직접 고친 뒤, 마지막에 AI 후보를 비교해 보는 활동이에요.<br/>
           AI는 작품을 대신 만들거나 고치지 않아요.<br/>
-          여러분이 만든 작품을 읽고,<br/>
-          질문과 검사로 고칠 곳을 알려줘요.<br/>
-          내가 직접 고친 뒤, 마지막에 AI 장면발전·그림책 마감을 후보로 받을 수 있어요.
+          질문과 확인할 점을 보여주고 마지막 다듬기 후보를 보여줘요. 고치고 고르는 건 내가 직접 해요.
         </p>
         <div class="ai-onboarding-hint">
-          AI 결과는 후보로만 보여줘요. 내가 직접 골라 적용해야 반영되고, 원본은 그대로 남아요.
+          AI 결과는 참고 자료예요. 내가 직접 읽고 판단해 골라 적용해야 반영되고, 원본은 그대로 남아요.
         </div>
       </div>
       <div class="ai-modal__footer">
@@ -3128,7 +3128,7 @@
       </div>
       <div class="ai-modal__body">
         <p class="ai-mode-intro">
-          질문과 검사로 고칠 곳을 찾고, 내가 직접 고친 뒤, 마지막에 AI 도움을 받아 작품을 완성해요.
+          질문과 검사로 고칠 곳을 찾고, 자료를 보며 직접 고친 뒤, 마지막에 AI 후보를 비교해 보세요.
           AI는 작품을 대신 만들거나 고치지 않아요.
         </p>
         ${(() => {
@@ -4277,7 +4277,7 @@
 
     const html = `
       <div class="ai-modal__header">
-        <div class="ai-modal__title">🤖 AI 다듬기 결과 — 1단계 <span class="ai-mock-badge ai-mock-badge--header">Phase 0.5 mock</span></div>
+        <div class="ai-modal__title">✨ 장면 발전 결과 <span class="ai-mock-badge ai-mock-badge--header">Phase 0.5 mock</span></div>
         <button class="ai-modal__close js-ai-modal-close" aria-label="닫기">✕</button>
       </div>
       <div class="ai-modal__body">
@@ -4392,7 +4392,7 @@
     }
 
     /* 안내 */
-    let msg = `✅ ${appliedCount}개 장면에 AI 다듬기 적용했어요.`;
+    let msg = `✅ ${appliedCount}개 장면에 장면 발전을 적용했어요.`;
     if (raceCount > 0) msg += `\n⚠ ${raceCount}개 장면은 본문이 바뀌어서 건너뛰었어요. 다시 생성해주세요.`;
     if (failedIds.length > 0) msg += `\n❌ ${failedIds.length}개 장면 저장 실패`;
     msg += '\n\n⚠️ Phase 0.5 mock — 적용된 본문에 "※mock" 라벨이 붙어요. 다음 step에서 라벨이 빠져요.';
@@ -4429,7 +4429,7 @@
   }
 
   /* ════════════════════════════════════════════════════════════════
-     openModal — viewer 상단 [🤖 AI 작품 다듬기] 진입점
+     openModal — viewer 상단 [📁 작품 마무리] 진입점
      ════════════════════════════════════════════════════════════════ */
   async function openModal() {
     /* Phase 1: 카드가 교사 권한을 반영하도록 모달 전에 aiSettings 로드 보장. */

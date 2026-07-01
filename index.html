@@ -129,6 +129,12 @@
 </div><!-- /v accent-coral -->
 
 <style>
+  /* HOTFIX-MOBILE-HOME-BG: html/body에 배경/margin 리셋이 없어 모바일에서 앱 영역 밖·하단(Safari 주소창 아래)
+     흰색이 보였음. 종이색(=tokens --paper #fbf6ea 리터럴; 토큰은 .v에만 정의돼 html/body에선 var 미접근)으로
+     채우고 동적 뷰포트(100dvh)로 화면 전체 커버. index.html(홈)만 스코프. */
+  html, body { margin: 0; padding: 0; background: #fbf6ea; }
+  body { min-height: 100vh; min-height: 100dvh; }
+  .v { min-height: 100vh; min-height: 100dvh; }
   /* 설치 CTA wrap — CTA + 펼침 안내를 세로로 묶음. 미설치면 JS가 display:'' 로 표시. */
   .wh__install { display: flex; flex-direction: column; align-items: center; margin: 14px auto 2px; }
   /* 설치 보조 CTA — 한 줄 compact pill. 메인 카드보다 위계 낮게, 종이·크림 톤 유지. */

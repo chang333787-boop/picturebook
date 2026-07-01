@@ -499,8 +499,8 @@ function _textTitleHtml(scene, allowEdit) {
 function _renderSceneCard(scene, choices) {
   const title = String(scene.title || '').trim();
   const _orig = String(scene.body  || '');  /* v127: trim 박지 X — \n\n 등 의도된 빈 줄 유지 */
-  /* TEXT-S2-SELECT(P7): 발행 선택(textSelections.s2)이면 s2 body를 표시 기준으로. _orig(원문)은 편집용으로 불변. */
-  const _pubBody = (window.getPublishedBodyDisplay) ? window.getPublishedBodyDisplay(scene, _orig) : _orig;
+  /* TEXT-S2-SELECT(P7): C1FIX: 감상(비편집)에서만 발행 선택(textSelections.s2) 반영. 편집 세션(editMode)은 _orig(원문) 고정 → 편집 필드 오염 방지. */
+  const _pubBody = (typeof ViewerState !== 'undefined' && ViewerState.editMode) ? _orig : ((window.getPublishedBodyDisplay) ? window.getPublishedBodyDisplay(scene, _orig) : _orig);
   /* v140-step4: aiViewMode가 aiS1 박혀있고 final 박혀있을 때만 AI 본문 박음. 원본 scene.body는 절대 변경 X */
   const body = (window.viewerAi && window.viewerAi._getDisplayBody) ? window.viewerAi._getDisplayBody(scene.id, _pubBody) : _pubBody;
   const isLong = scene.textLength === 'long';
@@ -650,8 +650,8 @@ function _renderScenePicturebook(stage, scene, submode) {
   /* 텍스트 영역 — 제목 → 본문 → 버튼 */
   const title = String(scene.title || '').trim();
   const _orig = String(scene.body  || '');  /* v127: trim 박지 X — \n\n 등 의도된 빈 줄 유지 */
-  /* TEXT-S2-SELECT(P7): 발행 선택(textSelections.s2)이면 s2 body를 표시 기준으로. _orig(원문)은 편집용으로 불변. */
-  const _pubBody = (window.getPublishedBodyDisplay) ? window.getPublishedBodyDisplay(scene, _orig) : _orig;
+  /* TEXT-S2-SELECT(P7): C1FIX: 감상(비편집)에서만 발행 선택(textSelections.s2) 반영. 편집 세션(editMode)은 _orig(원문) 고정 → 편집 필드 오염 방지. */
+  const _pubBody = (typeof ViewerState !== 'undefined' && ViewerState.editMode) ? _orig : ((window.getPublishedBodyDisplay) ? window.getPublishedBodyDisplay(scene, _orig) : _orig);
   /* v140-step4: aiViewMode가 aiS1 박혀있고 final 박혀있을 때만 AI 본문 박음. 원본 scene.body는 절대 변경 X */
   const body = (window.viewerAi && window.viewerAi._getDisplayBody) ? window.viewerAi._getDisplayBody(scene.id, _pubBody) : _pubBody;
   /* W8: 다듬기 모드에선 contenteditable — viewer에서 직접 수정 가능 + 다듬기 패널 양방향 동기화 */
@@ -910,8 +910,8 @@ function _renderSceneMovie(stage, scene) {
      영상 후 노출 흐름: 영상 재생 후 본문/선택지 노출 — 시각 분기는 CSS의
      data-movie-reveal 속성으로 처리, 여기선 데이터만 셋팅. */
   const _orig = String(scene.body || '');  /* v127: trim 박지 X — 줄바꿈 유지 */
-  /* TEXT-S2-SELECT(P7): 발행 선택(textSelections.s2)이면 s2 body를 표시 기준으로. _orig(원문)은 편집용으로 불변. */
-  const _pubBody = (window.getPublishedBodyDisplay) ? window.getPublishedBodyDisplay(scene, _orig) : _orig;
+  /* TEXT-S2-SELECT(P7): C1FIX: 감상(비편집)에서만 발행 선택(textSelections.s2) 반영. 편집 세션(editMode)은 _orig(원문) 고정 → 편집 필드 오염 방지. */
+  const _pubBody = (typeof ViewerState !== 'undefined' && ViewerState.editMode) ? _orig : ((window.getPublishedBodyDisplay) ? window.getPublishedBodyDisplay(scene, _orig) : _orig);
   /* v140-step4: aiViewMode가 aiS1 박혀있고 final 박혀있을 때만 AI 본문 박음. 원본 scene.body는 절대 변경 X */
   const body = (window.viewerAi && window.viewerAi._getDisplayBody) ? window.viewerAi._getDisplayBody(scene.id, _pubBody) : _pubBody;
   const bodyEnabled = (scene.bodyEnabled === true) ? true
@@ -1011,8 +1011,8 @@ function _renderSceneExperience(stage, scene) {
 
   const title = String(scene.title || '').trim();
   const _orig = String(scene.body  || '');  /* v127: trim 박지 X — \n\n 등 의도된 빈 줄 유지 */
-  /* TEXT-S2-SELECT(P7): 발행 선택(textSelections.s2)이면 s2 body를 표시 기준으로. _orig(원문)은 편집용으로 불변. */
-  const _pubBody = (window.getPublishedBodyDisplay) ? window.getPublishedBodyDisplay(scene, _orig) : _orig;
+  /* TEXT-S2-SELECT(P7): C1FIX: 감상(비편집)에서만 발행 선택(textSelections.s2) 반영. 편집 세션(editMode)은 _orig(원문) 고정 → 편집 필드 오염 방지. */
+  const _pubBody = (typeof ViewerState !== 'undefined' && ViewerState.editMode) ? _orig : ((window.getPublishedBodyDisplay) ? window.getPublishedBodyDisplay(scene, _orig) : _orig);
   /* v140-step4: aiViewMode가 aiS1 박혀있고 final 박혀있을 때만 AI 본문 박음. 원본 scene.body는 절대 변경 X */
   const body = (window.viewerAi && window.viewerAi._getDisplayBody) ? window.viewerAi._getDisplayBody(scene.id, _pubBody) : _pubBody;
 
@@ -1347,8 +1347,8 @@ function renderTextBox(scene) {
   const isLong   = scene.textLength === 'long';
   const title    = String(scene.title || '').trim();
   const _orig    = String(scene.body  || '');  /* v127: trim 박지 X — 줄바꿈 유지 */
-  /* TEXT-S2-SELECT(P7): 발행 선택(textSelections.s2)이면 s2 body를 표시 기준으로. _orig(원문)은 편집용으로 불변. */
-  const _pubBody = (window.getPublishedBodyDisplay) ? window.getPublishedBodyDisplay(scene, _orig) : _orig;
+  /* TEXT-S2-SELECT(P7): C1FIX: 감상(비편집)에서만 발행 선택(textSelections.s2) 반영. 편집 세션(editMode)은 _orig(원문) 고정 → 편집 필드 오염 방지. */
+  const _pubBody = (typeof ViewerState !== 'undefined' && ViewerState.editMode) ? _orig : ((window.getPublishedBodyDisplay) ? window.getPublishedBodyDisplay(scene, _orig) : _orig);
   /* v140-step4: aiViewMode가 aiS1 박혀있고 final 박혀있을 때만 AI 본문 박음. 원본 scene.body는 절대 변경 X */
   const body = (window.viewerAi && window.viewerAi._getDisplayBody) ? window.viewerAi._getDisplayBody(scene.id, _pubBody) : _pubBody;
   /* UX 마감 (1-2): 둘 다 비어있으면 text-box 자체를 렌더하지 않음 —
@@ -1544,8 +1544,8 @@ function _renderStoryEnding(stage, scene) {
      · 진엔딩 배지 + path 요약 + 다른 결말 찾기 버튼은 그대로 */
   const userTitle = String(scene.title || '').trim();
   const _orig     = String(scene.body  || '');  /* v127: trim 박지 X — 엔딩 줄바꿈 유지 */
-  /* TEXT-S2-SELECT(P7): 발행 선택(textSelections.s2)이면 s2 body를 표시 기준으로. _orig(원문)은 편집용으로 불변. */
-  const _pubBody = (window.getPublishedBodyDisplay) ? window.getPublishedBodyDisplay(scene, _orig) : _orig;
+  /* TEXT-S2-SELECT(P7): C1FIX: 감상(비편집)에서만 발행 선택(textSelections.s2) 반영. 편집 세션(editMode)은 _orig(원문) 고정 → 편집 필드 오염 방지. */
+  const _pubBody = (typeof ViewerState !== 'undefined' && ViewerState.editMode) ? _orig : ((window.getPublishedBodyDisplay) ? window.getPublishedBodyDisplay(scene, _orig) : _orig);
   /* v140-step4: aiViewMode가 aiS1 박혀있고 final 박혀있을 때만 AI 본문 박음. 원본 scene.body는 절대 변경 X */
   const userBody = (window.viewerAi && window.viewerAi._getDisplayBody) ? window.viewerAi._getDisplayBody(scene.id, _pubBody) : _pubBody;
   const hasUserBody = userBody.length > 0;
@@ -1855,8 +1855,8 @@ function _renderTextEnding(stage, scene) {
 
   const userTitle = String(scene.title || '').trim();
   const _orig     = String(scene.body || '');   /* trim X — 엔딩 줄바꿈 유지 */
-  /* TEXT-S2-SELECT(P7): 발행 선택(textSelections.s2)이면 s2 body를 표시 기준으로. _orig(원문)은 편집용으로 불변. */
-  const _pubBody  = (window.getPublishedBodyDisplay) ? window.getPublishedBodyDisplay(scene, _orig) : _orig;
+  /* TEXT-S2-SELECT(P7): C1FIX: 감상(비편집)에서만 발행 선택(textSelections.s2) 반영. 편집 세션(editMode)은 _orig(원문) 고정 → 편집 필드 오염 방지. */
+  const _pubBody  = (typeof ViewerState !== 'undefined' && ViewerState.editMode) ? _orig : ((window.getPublishedBodyDisplay) ? window.getPublishedBodyDisplay(scene, _orig) : _orig);
   const userBody  = (window.viewerAi && window.viewerAi._getDisplayBody)
     ? window.viewerAi._getDisplayBody(scene.id, _pubBody) : _pubBody;
 
@@ -1990,8 +1990,8 @@ function _renderMovieEnding(stage, scene) {
   const steps     = ViewerState.historyStack.length + 1;
   const userTitle = String(scene.title || '').trim();
   const _orig     = String(scene.body || '');   /* trim X — 줄바꿈 유지 */
-  /* TEXT-S2-SELECT(P7): 발행 선택(textSelections.s2)이면 s2 body를 표시 기준으로. _orig(원문)은 편집용으로 불변. */
-  const _pubBody  = (window.getPublishedBodyDisplay) ? window.getPublishedBodyDisplay(scene, _orig) : _orig;
+  /* TEXT-S2-SELECT(P7): C1FIX: 감상(비편집)에서만 발행 선택(textSelections.s2) 반영. 편집 세션(editMode)은 _orig(원문) 고정 → 편집 필드 오염 방지. */
+  const _pubBody  = (typeof ViewerState !== 'undefined' && ViewerState.editMode) ? _orig : ((window.getPublishedBodyDisplay) ? window.getPublishedBodyDisplay(scene, _orig) : _orig);
   const userBody  = (window.viewerAi && window.viewerAi._getDisplayBody)
     ? window.viewerAi._getDisplayBody(scene.id, _pubBody) : _pubBody;
   const systemLabel = isTrueEnd ? '진짜 결말' : '이야기 끝';

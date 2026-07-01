@@ -10,6 +10,8 @@
 - live 캐시버스터: viewer-ai `…stepgate1finishname1textsel2ui` · viewer-data `…textsel1textsel2ui` · viewer-render `…finishname1textsel1` · adminConsole `…finishgroup1` — **전부 최신 반영**.
 - 로컬 서버 미사용(CDN·Playwright만). 8000 미접촉.
 
+> **[2026-07-01 수정됨]** C-1은 이후 루프에서 수정 완료(편집 세션이면 `_pubBody`를 `_orig`로 고정·8지점). 상세: [fix 문서](fix_text_selection_original_body_pollution_20260701.md). 아래는 발견 당시 원문.
+
 ## 🔴 CRITICAL (1) — 즉시 수정 후보 (미적용·승인 필요)
 
 ### C-1. 교사가 s2 발행선택한 장면을 원본 보기에서 편집하면 원본 scene.body가 AI(s2) 텍스트로 덮임

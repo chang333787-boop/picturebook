@@ -1829,6 +1829,15 @@ function getPublishedBodyDisplay(scene, originalBody) {
   } catch (e) { return originalBody; }
 }
 
+/* TEXT-S2-SELECT: 현재 발행 선택 상태 읽기(캐시 기준·UI 표시용). 값 없음/original → 'original'. */
+function getPublishedTextSelectionForScene(sceneId) {
+  try {
+    if (sceneId == null || !_pubTextSelBySid) return 'original';
+    const sel = _pubTextSelBySid[String(sceneId)];
+    return (sel && sel.selected === 's2') ? 's2' : 'original';
+  } catch (e) { return 'original'; }
+}
+
 /* ★ TEXT-S2-SELECT: 교사가 선택 적용(callApplyTextS2Selection 성공) 직후 발행 캐시 동기 갱신.
    서버 저장이 진실 — 저장 성공 후에만 호출(클라 직접 DB write 아님). 원본 scene.body 불변. */
 function setPublishedTextSelectionForScene(sceneId, selected, s2VariantNode) {
@@ -1858,6 +1867,7 @@ if (typeof window !== 'undefined') {
   window.normalizeTextS2Variant = normalizeTextS2Variant;
   window.resolveSceneBodySource = resolveSceneBodySource;
   window.getPublishedBodyDisplay = getPublishedBodyDisplay;
+  window.getPublishedTextSelectionForScene = getPublishedTextSelectionForScene;
   window.setPublishedTextSelectionForScene = setPublishedTextSelectionForScene;
 }
 
@@ -1872,6 +1882,7 @@ if (typeof module !== 'undefined' && module.exports) {
     setPublishedImageSelectionForScene,                      /* IMAGE-S2-RENDER-2 */
     /* TEXT-S2-SELECT (P7) */
     normalizeTextSelection, normalizeTextS2Variant, resolveSceneBodySource,
-    _setPublishedTextCaches, getPublishedBodyDisplay, setPublishedTextSelectionForScene,
+    _setPublishedTextCaches, getPublishedBodyDisplay,
+    getPublishedTextSelectionForScene, setPublishedTextSelectionForScene,
   };
 }

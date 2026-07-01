@@ -157,6 +157,9 @@ function normalizePicturebookTheme(theme) {
    · viewer-ai(편집/AI 전용·지연로딩)와 무관하게 항상 로드되는 viewer-data에 둠 → 일반 감상(학생)에도 반영. */
 let _pubImageS2BySid  = null;   /* { sid: aiVariants.image[sid].s2 (raw) } */
 let _pubImageSelBySid = null;   /* { sid: aiVariants.imageSelections[sid] (raw) } */
+/* TEXT-S2-SELECT (P7): 텍스트 발행 캐시 — aiVariants/text(s2 변형) + aiVariants/textSelections(교사 선택). */
+let _pubTextS2BySid   = null;   /* { sid: aiVariants.text[sid].s2 (raw) } */
+let _pubTextSelBySid  = null;   /* { sid: aiVariants.textSelections[sid] (raw) } */
 
 async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHint = null) {
   const db          = getViewerDb();
@@ -184,12 +187,15 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
      · 이전엔 scenes 다 받은 뒤(수MB 가능) viewer-meta 받음 → 순차 1~3초 + 그림책 깜빡임.
      · 이제 둘 다 동시 시작. viewer-meta가 보통 더 빨리 와 projectType 즉시 결정.
      · 더 이상 RTDB round-trip 두 번 + 직렬 대기 없음. */
-  const [snapshot, metaSnap, imgVarSnap, imgSelSnap] = await Promise.all([
+  const [snapshot, metaSnap, imgVarSnap, imgSelSnap, txtVarSnap, txtSelSnap] = await Promise.all([
     db.ref(`${basePath}/scenes`).once('value'),
     db.ref(`${basePath}/viewer-meta`).once('value'),
     /* IMAGE-S2-RENDER-1: AI 이미지 변형/선택 — 비치명적(.catch→null). 없거나 실패해도 원본 표시는 무영향. */
     db.ref(`${basePath}/aiVariants/image`).once('value').then((s) => s.val()).catch(() => null),
     db.ref(`${basePath}/aiVariants/imageSelections`).once('value').then((s) => s.val()).catch(() => null),
+    /* TEXT-S2-SELECT (P7): AI 장면발전 변형/선택 — 동일하게 비치명적. 없으면 원본 body 표시. */
+    db.ref(`${basePath}/aiVariants/text`).once('value').then((s) => s.val()).catch(() => null),
+    db.ref(`${basePath}/aiVariants/textSelections`).once('value').then((s) => s.val()).catch(() => null),
   ]);
   const rawScenes = snapshot.val();
   const meta      = metaSnap.val();
@@ -198,6 +204,8 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
 
   /* IMAGE-S2-RENDER-1: 발행된 이미지 선택/변형 캐시 적재(team 1회). 실패/부재 시 빈 캐시 → 원본 표시. */
   _setPublishedImageCaches(imgVarSnap, imgSelSnap);
+  /* TEXT-S2-SELECT (P7): 발행된 텍스트 선택/변형 캐시 적재(team 1회). 실패/부재 시 빈 캐시 → 원본 body 표시. */
+  _setPublishedTextCaches(txtVarSnap, txtSelSnap);
 
   /* W7 projectType 강제 lock (사용자 결정):
      "무슨일이있어도 다른모드로 맘대로 못넘어가게 설정해"
@@ -1708,6 +1716,134 @@ function setPublishedImageSelectionForScene(sceneId, selected, s2VariantNode) {
   } catch (e) { /* noop — 표시 갱신 실패는 원본 유지 */ }
 }
 
+/* ════════════════════════════════════════════════════════════════
+   TEXT-S2-SELECT (P7): 원본 글 ↔ AI 장면발전(textS2) 발행 선택 — 이미지 imageSelections 축의
+   텍스트 평행 복제. 저장/판정 정책은 이미지와 동일:
+   · selection = aiVariants/textSelections/{sid}(서버 전용 write·부모 aiVariants가 .write:false 상속·rules 무변경).
+   · s2 변형 = aiVariants/text/{sid}/s2 (이미 saveTextVariant가 저장·인프라 존재).
+   · 원본 scene.body는 절대 변경하지 않음(표시용 body 문자열만 결정).
+   · 선택 없음/original/누락/stale → 원본(기존 동작 100% 유지). 구작품·캐시 미적재 → 원본.
+   ════════════════════════════════════════════════════════════════ */
+
+/* textSelections[sceneId] 정규화 — imageSelections와 동일 schema. 허용 안 된 selected → 'original'. */
+function normalizeTextSelection(raw) {
+  const r = (raw && typeof raw === 'object') ? raw : {};
+  return {
+    selected: (r.selected === 's2') ? 's2' : 'original',
+    selectedBy: (typeof r.selectedBy === 'string' && r.selectedBy) ? r.selectedBy : null,
+    selectedAt: Number.isFinite(r.selectedAt) ? r.selectedAt : null,
+    selectionSource: (r.selectionSource === 'teacher-batch' || r.selectionSource === 'system-stale')
+      ? r.selectionSource : null,
+  };
+}
+
+/* aiVariants.text[sceneId].s2 정규화 — body 없거나 공백이면 null(=사용 불가). 이미지의 url 검증에 대응. */
+function normalizeTextS2Variant(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const body = (typeof raw.body === 'string') ? raw.body : '';
+  if (!body.trim()) return null;   /* body 없음/공백 → 사용 불가 */
+  const str = (v) => (typeof v === 'string' && v) ? v : null;
+  return {
+    body,
+    basedOnBodyHash: str(raw.basedOnBodyHash),
+    status: str(raw.status),
+    model: str(raw.model),
+    modelVersion: str(raw.modelVersion),
+    promptVersion: str(raw.promptVersion),
+    finalizedAt: Number.isFinite(raw.finalizedAt) ? raw.finalizedAt : null,
+    stale: raw.stale === true,
+  };
+}
+
+/* 원본 본문 — 렌더 관례(String(scene.body)) 유지. 빈 문자열도 정상(회귀 0). */
+function _originalSceneBody(scene) {
+  if (!scene || typeof scene !== 'object') return '';
+  return (typeof scene.body === 'string') ? scene.body : '';
+}
+
+/* textS2 사용 가능 = body 있고 stale 아님. (텍스트는 stale 필드가 없으면 !==true 로 통과.) */
+function _isTextS2Usable(s2) {
+  return !!(s2 && typeof s2.body === 'string' && s2.body.trim() && s2.stale !== true);
+}
+
+/* ★ 표시 본문 결정(순수). scene · 작품선택 · s2변형 · (미리보기)previewMode 로 무엇을 보일지.
+   반환: { kind:'original'|'s2', body, isAiTransformed, fallbackReason }.
+   - 작품 감상(previewMode 없음): selected==='s2' + s2 body유효 + !stale 일 때만 s2.
+   - 미리보기(previewMode==='s2'): s2 body유효 + !stale 이면 s2(작품 선택 상태와 무관·로컬만).
+   - 그 외 전부 original. stale/누락/body없음/키불일치 → 반드시 original(원본 body). */
+function resolveSceneBodySource(scene, textSelection, s2Variant, previewMode) {
+  const origBody = _originalSceneBody(scene);
+  const sel = normalizeTextSelection(textSelection);
+  const s2 = normalizeTextS2Variant(s2Variant);
+  const wantS2 = (previewMode === 's2') || (sel.selected === 's2');
+
+  if (wantS2 && _isTextS2Usable(s2)) {
+    return { kind: 's2', body: s2.body, isAiTransformed: true, fallbackReason: null };
+  }
+
+  let reason = null;
+  if (wantS2) {
+    if (s2 && s2.stale === true) reason = 'stale';
+    else if (s2Variant && typeof s2Variant === 'object' &&
+             Object.keys(s2Variant).length > 0 && !s2) reason = 'invalid-body';
+    else reason = 'missing-s2';
+  }
+  return { kind: 'original', body: origBody, isAiTransformed: false, fallbackReason: reason };
+}
+
+/* TEXT-S2-SELECT: loadTeamData가 적재하는 발행 캐시 setter(team 1회). raw 노드 그대로 보관. */
+function _setPublishedTextCaches(textNode, selNode) {
+  const s2 = {};
+  const sel = {};
+  if (textNode && typeof textNode === 'object') {
+    Object.keys(textNode).forEach(function (sid) {
+      const node = textNode[sid];
+      if (node && node.s2 && typeof node.s2 === 'object') s2[String(sid)] = node.s2;
+    });
+  }
+  if (selNode && typeof selNode === 'object') {
+    Object.keys(selNode).forEach(function (sid) {
+      if (selNode[sid] && typeof selNode[sid] === 'object') sel[String(sid)] = selNode[sid];
+    });
+  }
+  _pubTextS2BySid  = s2;
+  _pubTextSelBySid = sel;
+}
+
+/* ★ TEXT-S2-SELECT: 렌더용 동기 helper — 호출부가 해석한 originalBody(String(scene.body))를 받아,
+   교사가 발행 선택(textSelections.selected==='s2')한 장면이면 usable(body·!stale)한 s2 body로 표시.
+   - selection 없음/original/누락/stale/body없음/키불일치 → originalBody 그대로(기존 동작 100% 유지).
+   - 원본 scene.body는 절대 변경하지 않음(표시용 문자열만 결정).
+   - 캐시 미적재(loadTeamData 전·구작품) → originalBody. viewer-ai 보기 토글과 독립(토글은 이 결과 위에 덧씌움). */
+function getPublishedBodyDisplay(scene, originalBody) {
+  try {
+    if (!scene || typeof resolveSceneBodySource !== 'function') return originalBody;
+    const sid = (scene.id != null) ? scene.id : scene.sceneId;
+    if (sid == null) return originalBody;
+    const key = String(sid);
+    const sel = _pubTextSelBySid ? _pubTextSelBySid[key] : null;
+    if (!sel || sel.selected !== 's2') return originalBody;   /* 선택 없음/original → 원본(기존 동작) */
+    const s2 = _pubTextS2BySid ? _pubTextS2BySid[key] : null;
+    const r = resolveSceneBodySource(scene, sel, s2, null);   /* previewMode 없음 = 작품 발행 기준 */
+    return (r && r.kind === 's2' && typeof r.body === 'string') ? r.body : originalBody;
+  } catch (e) { return originalBody; }
+}
+
+/* ★ TEXT-S2-SELECT: 교사가 선택 적용(callApplyTextS2Selection 성공) 직후 발행 캐시 동기 갱신.
+   서버 저장이 진실 — 저장 성공 후에만 호출(클라 직접 DB write 아님). 원본 scene.body 불변. */
+function setPublishedTextSelectionForScene(sceneId, selected, s2VariantNode) {
+  try {
+    if (sceneId == null) return;
+    const sid = String(sceneId);
+    if (!_pubTextSelBySid) _pubTextSelBySid = {};
+    if (!_pubTextS2BySid)  _pubTextS2BySid = {};
+    _pubTextSelBySid[sid] = { selected: (selected === 's2') ? 's2' : 'original' };
+    if (s2VariantNode && typeof s2VariantNode === 'object') {
+      _pubTextS2BySid[sid] = s2VariantNode;   /* body 없거나 stale이면 resolver가 알아서 원본 fallback */
+    }
+  } catch (e) { /* noop — 표시 갱신 실패는 원본 유지 */ }
+}
+
 /* IMAGE-S2-1 helper 전역 노출(브라우저) — edit viewer / 완성본 보기 / 일반 감상 공용 결정. */
 if (typeof window !== 'undefined') {
   window.normalizeImagePolicy = normalizeImagePolicy;
@@ -1717,6 +1853,12 @@ if (typeof window !== 'undefined') {
   window.resolveSceneImageSource = resolveSceneImageSource;
   window.getPublishedImageDisplaySrc = getPublishedImageDisplaySrc;   /* IMAGE-S2-RENDER-1 */
   window.setPublishedImageSelectionForScene = setPublishedImageSelectionForScene;   /* IMAGE-S2-RENDER-2 */
+  /* TEXT-S2-SELECT (P7) */
+  window.normalizeTextSelection = normalizeTextSelection;
+  window.normalizeTextS2Variant = normalizeTextS2Variant;
+  window.resolveSceneBodySource = resolveSceneBodySource;
+  window.getPublishedBodyDisplay = getPublishedBodyDisplay;
+  window.setPublishedTextSelectionForScene = setPublishedTextSelectionForScene;
 }
 
 /* 테스트 전용 export — 브라우저에선 module 미정의라 무시된다(membership-login.js와 동일 패턴).
@@ -1728,5 +1870,8 @@ if (typeof module !== 'undefined' && module.exports) {
     pickS2VariantForScene, resolveSceneImageSource,
     _setPublishedImageCaches, getPublishedImageDisplaySrc,   /* IMAGE-S2-RENDER-1 */
     setPublishedImageSelectionForScene,                      /* IMAGE-S2-RENDER-2 */
+    /* TEXT-S2-SELECT (P7) */
+    normalizeTextSelection, normalizeTextS2Variant, resolveSceneBodySource,
+    _setPublishedTextCaches, getPublishedBodyDisplay, setPublishedTextSelectionForScene,
   };
 }

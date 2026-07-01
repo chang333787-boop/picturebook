@@ -458,6 +458,8 @@
   let _classAiSettings = undefined;        // undefined|null|object
   let _classAiSettingsClassId = null;
   let _classAiSettingsLoading = false;
+  /* WRITE-AFTER Phase 5C: 1단계 최근 결과 존재 여부(모달 열 때 aiChecks latest read로 채움·best-effort). */
+  let _writeAfterLatest = { waq: false, wc: false };
 
   function getClassAiSettings() { return _classAiSettings; }
 
@@ -3139,59 +3141,69 @@
           const waqRemain = realApi ? Infinity : _getRemaining('writeAfterQuestions');
           const T = 'font-size:14px;font-weight:700;color:#5b4a2e;margin:0 0 2px;';
           const D = 'font-size:12px;color:#8a7a5e;margin:0 0 8px;line-height:1.4;';
+          /* WRITE-AFTER Phase 5C: 단계 완료 게이트. rewriteDone(2단계 완료·localStorage) 전엔 3단계 잠금. */
+          const rewriteDone = _isRewriteDone();
+          const waqBadge = _writeAfterLatest.waq ? ' ✅' : '';
+          const wcBadge = _writeAfterLatest.wc ? ' ✅' : '';
           const sec1 = `
         <div class="ai-finish-section" style="margin-top:4px;">
-          <div class="ai-finish-section-title" style="${T}">1. 고쳐쓰기 자료 보기</div>
-          <div class="ai-finish-section-desc" style="${D}">AI가 질문과 점검 결과를 보여줘요. 글은 내가 직접 고쳐요. (두 가지 모두 참고 자료예요.)</div>
+          <div class="ai-finish-section-title" style="${T}">1. 고쳐쓰기 자료 만들기</div>
+          <div class="ai-finish-section-desc" style="${D}">AI가 질문과 점검 결과를 만들어 줘요. 글은 내가 직접 고쳐요.</div>
           <div class="ai-mode-grid">
           ${_renderModeCard({
-            key: 'writeAfterQuestions', icon: '💭', title: '생각 점검 질문',
-            desc: '내 이야기를 더 깊게 돌아볼 질문을 받아요. AI가 대신 고치지 않고 질문만 해요.',
+            key: 'writeAfterQuestions', icon: '💭', title: '생각 점검 질문' + waqBadge,
+            desc: _writeAfterLatest.waq ? '이미 질문을 받았어요. 2단계에서 다시 볼 수 있어요. (다시 받을 수도 있어요.)' : '내 이야기를 더 깊게 돌아볼 질문을 받아요. AI가 대신 고치지 않고 질문만 해요.',
             enabled: a.writeAfterQuestions.enabled && waqRemain > 0,
             disabledReason: waqRemain === 0 ? '이번 작품에서 사용할 수 있는 횟수를 모두 사용했어요' : a.writeAfterQuestions.reason,
             remaining: realApi ? null : waqRemain,
           })}
           ${_renderModeCard({
-            key: 'check', icon: '🔍', title: '작품 검사',
-            desc: '맞춤법, 장면 연결, 인물 이름처럼 확인할 점을 찾아요. AI가 대신 고치지 않고 알려줘요.',
+            key: 'check', icon: '🔍', title: '작품 검사' + wcBadge,
+            desc: _writeAfterLatest.wc ? '이미 검사했어요. 2단계에서 확인할 점을 다시 볼 수 있어요. (다시 검사할 수도 있어요.)' : '맞춤법, 장면 연결, 인물 이름처럼 확인할 점을 찾아요. AI가 대신 고치지 않고 알려줘요.',
             enabled: a.check.enabled && checkRemain > 0,
             disabledReason: checkRemain === 0 ? '이번 작품에서 사용할 수 있는 횟수를 모두 사용했어요' : a.check.reason,
             remaining: realApi ? null : checkRemain,
           })}
           </div>
         </div>`;
-          /* WRITE-AFTER Phase 5B: 2구역 = 1단계에서 만든 자료(최근 결과)를 다시 보며 직접 고치기. */
+          /* Phase 5B/5C: 2구역 = 최근 결과 다시 보며 고치기 + '모두 고쳤어요'(rewriteDone) 잠금. */
+          const rewriteBox = rewriteDone
+            ? `<div class="ai-waq-rewrite-box" style="margin-top:8px;padding:8px 12px;background:#eef7ea;border:1px solid #cfe6c2;border-radius:10px;color:#4a6b3a;font-size:13px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><span>✅ <b>고쳐쓰기 완료</b> — 이제 마지막 다듬기를 할 수 있어요.</span><button type="button" class="js-waq-rewrite-undo" style="flex:none;padding:5px 11px;border:1px solid #c9b78e;border-radius:8px;background:#fff;color:#8a6d2f;font-size:12px;font-weight:700;cursor:pointer;">다시 고칠래요</button></div>`
+            : `<div class="ai-waq-rewrite-box" style="margin-top:8px;padding:8px 12px;background:#fff7e8;border:1px solid #e8d3a0;border-radius:10px;color:#6b5a3a;font-size:13px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><span>자료를 보고 필요한 장면을 고쳤나요?</span><button type="button" class="js-waq-rewrite-done" style="flex:none;padding:5px 11px;border:none;border-radius:8px;background:#5b8a3a;color:#fff;font-size:12px;font-weight:700;cursor:pointer;">□ 모두 고쳤어요</button></div>`;
+          const doneReason = '이미 고쳐쓰기 완료로 표시했어요. 다시 보거나 고치려면 ‘다시 고칠래요’를 눌러 주세요.';
           const sec2 = `
         <div class="ai-finish-section" style="margin-top:16px;">
           <div class="ai-finish-section-title" style="${T}">2. 자료 보며 직접 고치기</div>
-          <div class="ai-finish-section-desc" style="${D}">생각 점검 질문과 작품 검사 결과를 보며 장면을 직접 고쳐요.</div>
+          <div class="ai-finish-section-desc" style="${D}">${rewriteDone ? '필요한 장면을 고쳤어요. 다시 고치려면 아래 버튼을 눌러요.' : '생각 점검 질문과 작품 검사 결과를 보며 장면을 직접 고쳐요.'}</div>
           <div class="ai-mode-grid">
           ${_renderModeCard({
             key: 'latestQuestions', icon: '💭', title: '생각 점검 질문 결과 보기',
             desc: 'AI가 준 질문을 다시 보며 고칠 장면을 골라요.',
-            enabled: true, remaining: null,
+            enabled: !rewriteDone, disabledReason: doneReason, remaining: null,
           })}
           ${_renderModeCard({
             key: 'latestWorkCheck', icon: '🔍', title: '작품 검사 결과 보기',
             desc: '확인할 점을 다시 보며 고칠 장면을 골라요.',
-            enabled: true, remaining: null,
+            enabled: !rewriteDone, disabledReason: doneReason, remaining: null,
           })}
           </div>
+          ${rewriteBox}
         </div>`;
+          const lockReason = '먼저 2단계에서 자료를 보고 고친 뒤 ‘모두 고쳤어요’를 눌러 주세요.';
           const sec3 = `
-        <div class="ai-finish-section" style="margin-top:16px;">
-          <div class="ai-finish-section-title" style="${T}">3. 마지막 다듬기</div>
-          <div class="ai-finish-section-desc" style="${D}">고친 뒤에 AI가 만든 후보를 비교해 볼 수 있어요.</div>
+        <div class="ai-finish-section" style="margin-top:16px;${!rewriteDone ? 'opacity:0.62;' : ''}">
+          <div class="ai-finish-section-title" style="${T}">3. 마지막 다듬기${!rewriteDone ? ' 🔒' : ''}</div>
+          <div class="ai-finish-section-desc" style="${D}">${rewriteDone ? '고친 글을 바탕으로 AI가 만든 후보를 비교해 볼 수 있어요.' : '2단계에서 자료를 보고 고친 뒤 마지막 다듬기를 할 수 있어요.'}</div>
           <div class="ai-mode-grid">
           ${_renderModeCard({
             key: 's2', icon: '✨', title: 'AI 장면발전',
             desc: '고친 글을 바탕으로 더 자연스러운 표현 후보를 받아요. 사건·선택지·엔딩은 그대로 두고 표현만 발전시켜요.',
-            enabled: a.s2.enabled, disabledReason: a.s2.reason, remaining: null,
+            enabled: rewriteDone && a.s2.enabled, disabledReason: !rewriteDone ? lockReason : a.s2.reason, remaining: null,
           })}
           ${_showImageS2Card ? _renderModeCard({
             key: 'imageS2', icon: '🖼', title: 'AI 그림책 마감',
             desc: '그림책 그림을 더 완성된 느낌으로 다듬어요. 원본은 그대로 두고 결과를 비교한 뒤 선택해요. (교사용 · 외부 AI 전송 가능)',
-            enabled: _imageS2Allowed, disabledReason: '설정에서 ‘AI 그림책 마감’을 켜 주세요', remaining: null,
+            enabled: rewriteDone && _imageS2Allowed, disabledReason: !rewriteDone ? lockReason : '설정에서 ‘AI 그림책 마감’을 켜 주세요', remaining: null,
           }) : ''}
           </div>
         </div>`;
@@ -3249,6 +3261,20 @@
           }
         }
       });
+    });
+
+    /* Phase 5C: '모두 고쳤어요' / '다시 고칠래요' — rewriteDone 토글(localStorage·DB 0·AI 0) 후 모달 재렌더. */
+    const rwDoneBtn = root.querySelector('.js-waq-rewrite-done');
+    if (rwDoneBtn) rwDoneBtn.addEventListener('click', function () {
+      _setRewriteDone(true);
+      _removeModalRoot('ai-mode-modal');
+      _showModeModal();
+    });
+    const rwUndoBtn = root.querySelector('.js-waq-rewrite-undo');
+    if (rwUndoBtn) rwUndoBtn.addEventListener('click', function () {
+      _setRewriteDone(false);
+      _removeModalRoot('ai-mode-modal');
+      _showModeModal();
     });
 
     /* WORKCHECK-HISTORY-1: 저장된 마지막 작품검사 결과를 다시 보기 — AI 재호출/quota 없음, DB read만 */
@@ -3755,6 +3781,39 @@
         if (item) item.style.opacity = next ? '0.6' : '';
       });
     });
+  }
+
+  /* ════════════════════════════════════════════════════════════════
+     WRITE-AFTER Phase 5C — 단계 완료 게이트 (localStorage만·DB write 0·AI 0)
+     · 1단계 완료 = 최근 결과 존재(aiChecks latest) / · 2단계 완료 = rewriteDone(localStorage)
+     · 3단계(마지막 다듬기)는 rewriteDone일 때만 활성. '다시 고칠래요'로 해제.
+     ════════════════════════════════════════════════════════════════ */
+  function _rewriteDoneKey() {
+    const { classId, teamName } = _getCurrentClassIdTeamName();
+    return 'writeAfterStepDone:' + (classId || '') + ':' + (teamName || '') + ':rewrite';
+  }
+  function _isRewriteDone() {
+    try { return localStorage.getItem(_rewriteDoneKey()) === '1'; } catch (e) { return false; }
+  }
+  function _setRewriteDone(on) {
+    try { if (on) localStorage.setItem(_rewriteDoneKey(), '1'); else localStorage.removeItem(_rewriteDoneKey()); } catch (e) {}
+  }
+  /* 최근 결과(생각 점검 질문·작품 검사) 존재 여부 로드 — aiChecks latest read만(AI 0). best-effort. */
+  async function _preloadWriteAfterLatestFlags() {
+    _writeAfterLatest = { waq: false, wc: false };
+    const { classId, teamName } = _getCurrentClassIdTeamName();
+    if (!classId || !teamName) return;
+    const app = _getViewerFirebaseApp();
+    if (!app || !app.database) return;
+    const enc = encodeURIComponent(teamName);
+    const base = 'classes/' + classId + '/teams/' + enc + '/aiChecks/';
+    try {
+      const [waqSnap, wcSnap] = await Promise.all([
+        app.database().ref(base + 'writeAfterQuestions/latest/result').once('value'),
+        app.database().ref(base + 'workCheck/latest/result').once('value'),
+      ]);
+      _writeAfterLatest = { waq: !!(waqSnap && waqSnap.val()), wc: !!(wcSnap && wcSnap.val()) };
+    } catch (e) { /* 실패 시 false 유지(표시만 생략) */ }
   }
 
   async function _startWorkCheck() {
@@ -4375,6 +4434,8 @@
   async function openModal() {
     /* Phase 1: 카드가 교사 권한을 반영하도록 모달 전에 aiSettings 로드 보장. */
     try { await _loadClassAiSettings(); } catch (e) { /* fallback 허용 */ }
+    /* Phase 5C: 1단계 완료 표시용 최근 결과 존재 여부 로드(best-effort·DB read만·AI 0). */
+    try { await _preloadWriteAfterLatestFlags(); } catch (e) { /* 무시 */ }
     if (!_hasSeenOnboarding()) {
       _showOnboardingModal(_showModeModal);
     } else {

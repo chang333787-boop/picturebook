@@ -39,6 +39,8 @@ const Anthropic = require('@anthropic-ai/sdk');
 const { TEXT_S1_SYSTEM_PROMPT, TEXT_S2_SYSTEM_PROMPT, WORK_CHECK_SYSTEM_PROMPT, WRITE_AFTER_QUESTIONS_SYSTEM_PROMPT, THOUGHT_COMPASS_FOLLOWUP_SYSTEM_PROMPT, buildUserMessage, buildUserMessageS2Chunk } = require('./prompts');
 /* WRITE-AFTER Phase 3 — 생각 점검 질문 순수 로직(검증/정규화/snapshot 제한). firebase 비의존. */
 const WAQ = require('./write-after-questions');
+/* WRITE-AFTER H1/H2 — 팀 AI 접근 권한 순수 결정(super_admin/teacher/active member). RTDB read는 _checkTeamAiMembership. */
+const TeamAiAuth = require('./team-ai-auth');
 /* THOUGHT-COMPASS Phase 1 — AI 후속질문 순수 로직(입력/출력 검증·fallback·메시지). firebase 비의존 → 하니스 단독 검증. */
 const TCFollowUp = require('./thought-compass-followup');
 /* IMAGE-S2-2 — sourceMode 잠금/초기화 순수 결정 로직(firebase 비의존). callable이 RTDB transaction으로 감쌈. */
@@ -347,6 +349,37 @@ function _sanitizeVariantTextStyle(raw) {
    각 박힌 단계 박지 X 박혀있으면 HttpsError throw.
    순서: 가벼운 검증 박은 거 박은 거 박은 박은 → 무거운 검증 (DB 박은 거 박은 거 박은 박은)
    ════════════════════════════════════════════════════════════════ */
+
+/* WRITE-AFTER H1/H2 — soft-launch 플래그. aiAuthEnforce/enabled === true 일 때만 팀 권한 차단.
+   기본(부재/false) = log-only(기존 동작 유지). read 실패도 log-only로 안전 fallback. */
+async function _isAiAuthEnforced() {
+  try {
+    const s = await admin.database().ref('aiAuthEnforce/enabled').once('value');
+    return s.val() === true;
+  } catch (e) { return false; }
+}
+
+/* WRITE-AFTER H1/H2 — 팀 AI 접근 권한 검사(RTDB read + 순수 결정 TeamAiAuth.decideTeamAiAccess).
+   super_admin → teacher_uid → members/{uid}/status 순으로 최소 read(먼저 통과하면 이후 read 생략).
+   반환: { allowed, role, reason? }. 결정 로직은 functions/team-ai-auth.js(테스트됨). */
+async function _checkTeamAiMembership(args) {
+  const classId = args.classId; const teamName = args.teamName; const uid = args.uid; const role = args.role || null;
+  if (role === 'super_admin') return TeamAiAuth.decideTeamAiAccess({ role: 'super_admin' });
+  let isTeacher = false;
+  try {
+    const t = await admin.database().ref(`classes/${classId}/meta/teacher_uid`).once('value');
+    if (t.val() === uid) isTeacher = true;
+  } catch (e) { isTeacher = false; }
+  if (isTeacher) return TeamAiAuth.decideTeamAiAccess({ isTeacher: true });
+  let memberStatus = null;
+  try {
+    const enc = encodeURIComponent(teamName);
+    const m = await admin.database().ref(`classes/${classId}/teams/${enc}/members/${uid}/status`).once('value');
+    memberStatus = m.val();
+  } catch (e) { memberStatus = null; }
+  return TeamAiAuth.decideTeamAiAccess({ isTeacher: false, memberStatus });
+}
+
 async function _validateRequest(req, mode, opts) {
   /* opts.skipUsageLimits=true → 사용량 한도(전역/root/브랜치 quota) 검사를 건너뜀.
      saveTextVariant(저장 전용)는 AI를 호출하지 않으므로 quota 소진 후에도 저장 가능해야 함.
@@ -445,6 +478,22 @@ async function _validateRequest(req, mode, opts) {
       }
     } else {
       logger.info('[ai] aiSettings/aiPermission 박지 X — 기본 ON 박음', { classId, teamName });
+    }
+  }
+
+  /* H1/H2 FIX — 팀 소유권 게이트 (quota 차감 前). super_admin/이 학급 teacher_uid/이 팀 active member만.
+     soft-launch: aiAuthEnforce/enabled=true 일 때만 차단, 아니면 log-only(기존 동작 유지). PIN/body/작품내용 로그 금지. */
+  {
+    const tokenRole = (req.auth.token && req.auth.token.role) || null;
+    const access = await _checkTeamAiMembership({ classId, teamName, uid: req.auth.uid, role: tokenRole });
+    if (!access.allowed) {
+      const enforced = await _isAiAuthEnforced();
+      if (enforced) {
+        throw new HttpsError('permission-denied', '이 팀에서 AI 기능을 사용할 권한이 없어요. 다시 입장해 주세요.');
+      }
+      logger.warn('[ai/auth] AI_AUTH_MEMBERSHIP_MISSING (soft-launch log-only)', {
+        classId, teamName, uid: req.auth.uid, mode, reason: access.reason,
+      });
     }
   }
 

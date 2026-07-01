@@ -3129,59 +3129,68 @@
           질문과 검사로 고칠 곳을 찾고, 내가 직접 고친 뒤, 마지막에 AI 도움을 받아 작품을 완성해요.
           AI는 작품을 대신 만들거나 고치지 않아요.
         </p>
-        <div class="ai-mode-grid">
-          ${(() => {
-            /* Phase A fix 2026-05-21: 실 API 박을 때 client mock quota 박지 X (Functions가 quota 박음) */
-            const realApi = _shouldUseRealApi();
-            const checkRemain = realApi ? Infinity : _getRemaining('check');
-            const waqRemain = realApi ? Infinity : _getRemaining('writeAfterQuestions');
-            /* WRITE-AFTER-UI-REBUILD-1 + Phase 3: 텍스트 1단계 카드 제거(역할 중복·데이터 보존).
-               순서 = 생각 점검 질문 → 작품 검사 → 직접 고치기(안내) → AI 장면발전 → AI 그림책 마감(그림책). */
-            return `
+        ${(() => {
+          /* WRITE-AFTER-FLOW-GROUPING-UX: 작품 마무리 흐름을 목적별 3구역으로 묶는다.
+             1구역(고쳐쓰기 자료: 생각 점검 질문·작품 검사=동등)·2구역(직접 고치기)·3구역(마지막 다듬기).
+             생각 점검 질문↔작품 검사는 순서/합침이 아니라 둘 다 고쳐쓰기 전 참고 자료. 기능/핸들러 무변경.
+             Phase A fix: 실 API면 client mock quota 안 씀(Functions가 quota). */
+          const realApi = _shouldUseRealApi();
+          const checkRemain = realApi ? Infinity : _getRemaining('check');
+          const waqRemain = realApi ? Infinity : _getRemaining('writeAfterQuestions');
+          const T = 'font-size:14px;font-weight:700;color:#5b4a2e;margin:0 0 2px;';
+          const D = 'font-size:12px;color:#8a7a5e;margin:0 0 8px;line-height:1.4;';
+          const sec1 = `
+        <div class="ai-finish-section" style="margin-top:4px;">
+          <div class="ai-finish-section-title" style="${T}">1. 고쳐쓰기 자료 보기</div>
+          <div class="ai-finish-section-desc" style="${D}">AI가 질문과 점검 결과를 보여줘요. 글은 내가 직접 고쳐요. (두 가지 모두 참고 자료예요.)</div>
+          <div class="ai-mode-grid">
           ${_renderModeCard({
-            key: 'writeAfterQuestions',
-            icon: '💭',
-            title: '생각 점검 질문',
-            desc: '내 이야기를 더 자세히 돌아볼 질문을 받아요. AI가 대신 고치지 않고 질문만 해요.',
+            key: 'writeAfterQuestions', icon: '💭', title: '생각 점검 질문',
+            desc: '내 이야기를 더 깊게 돌아볼 질문을 받아요. AI가 대신 고치지 않고 질문만 해요.',
             enabled: a.writeAfterQuestions.enabled && waqRemain > 0,
             disabledReason: waqRemain === 0 ? '이번 작품에서 사용할 수 있는 횟수를 모두 사용했어요' : a.writeAfterQuestions.reason,
             remaining: realApi ? null : waqRemain,
           })}
           ${_renderModeCard({
-            key: 'check',
-            icon: '🔍',
-            title: '작품 검사',
-            desc: '이야기 흐름, 선택지 연결, 인물과 엔딩을 확인해요. AI가 대신 고치지 않고 고칠 곳을 알려줘요.',
+            key: 'check', icon: '🔍', title: '작품 검사',
+            desc: '맞춤법, 장면 연결, 인물 이름처럼 확인할 점을 찾아요. AI가 대신 고치지 않고 알려줘요.',
             enabled: a.check.enabled && checkRemain > 0,
             disabledReason: checkRemain === 0 ? '이번 작품에서 사용할 수 있는 횟수를 모두 사용했어요' : a.check.reason,
             remaining: realApi ? null : checkRemain,
           })}
-            `;
-          })()}
+          </div>
+        </div>`;
+          const sec2 = `
+        <div class="ai-finish-section" style="margin-top:16px;">
+          <div class="ai-finish-section-title" style="${T}">2. 직접 고치기</div>
+          <div class="ai-finish-section-desc" style="${D}">질문과 검사 결과를 보고 장면을 직접 고쳐요.</div>
+          <div class="ai-mode-grid">
           <div class="ai-mode-card ai-mode-card--info" aria-disabled="true" style="cursor:default;">
             <div class="ai-mode-card__icon">✏️</div>
             <div class="ai-mode-card__title">직접 고치기</div>
-            <div class="ai-mode-card__desc">검사 결과의 ‘장면으로 이동’을 눌러 내가 직접 고쳐요. 내가 고친 글이 최종 작품이 돼요.</div>
+            <div class="ai-mode-card__desc">AI가 알려준 내용을 보고 내가 직접 장면을 고쳐요. 결과의 ‘장면으로 이동’을 누르면 그 장면으로 가요. 내가 고친 글이 최종 작품이 돼요.</div>
           </div>
+          </div>
+        </div>`;
+          const sec3 = `
+        <div class="ai-finish-section" style="margin-top:16px;">
+          <div class="ai-finish-section-title" style="${T}">3. 마지막 다듬기</div>
+          <div class="ai-finish-section-desc" style="${D}">고친 뒤에 AI가 만든 후보를 비교해 볼 수 있어요.</div>
+          <div class="ai-mode-grid">
           ${_renderModeCard({
-            key: 's2',
-            icon: '✨',
-            title: 'AI 장면발전',
-            desc: '내가 고친 글을 바탕으로 장면을 더 풍부하게 해요. 사건·선택지·엔딩은 그대로 두고 표현만 발전시킨 후보를 만들어요.',
-            enabled: a.s2.enabled,
-            disabledReason: a.s2.reason,
-            remaining: null,
+            key: 's2', icon: '✨', title: 'AI 장면발전',
+            desc: '고친 글을 바탕으로 더 자연스러운 표현 후보를 받아요. 사건·선택지·엔딩은 그대로 두고 표현만 발전시켜요.',
+            enabled: a.s2.enabled, disabledReason: a.s2.reason, remaining: null,
           })}
           ${_showImageS2Card ? _renderModeCard({
-            key: 'imageS2',
-            icon: '🖼',
-            title: 'AI 그림책 마감',
-            desc: '학생 그림을 보존하면서 그림책 느낌으로 마감해요. 원본은 그대로 두고 결과를 비교한 뒤 선택할 수 있어요. (교사용 · 외부 AI 전송 가능)',
-            enabled: _imageS2Allowed,
-            disabledReason: '설정에서 ‘AI 그림책 마감’을 켜 주세요',
-            remaining: null,
+            key: 'imageS2', icon: '🖼', title: 'AI 그림책 마감',
+            desc: '그림책 그림을 더 완성된 느낌으로 다듬어요. 원본은 그대로 두고 결과를 비교한 뒤 선택해요. (교사용 · 외부 AI 전송 가능)',
+            enabled: _imageS2Allowed, disabledReason: '설정에서 ‘AI 그림책 마감’을 켜 주세요', remaining: null,
           }) : ''}
-        </div>
+          </div>
+        </div>`;
+          return sec1 + sec2 + sec3;
+        })()}
         <div class="ai-mode-history" style="margin-top:14px;padding-top:14px;border-top:1px solid #ecdfc4;text-align:center;">
           <button type="button" class="ai-btn ai-btn--ghost js-ai-show-latest-check">🔍 최근 검사 결과 보기</button>
           <div style="margin-top:6px;color:#8a7a5e;font-size:12px;">AI를 다시 부르지 않고 마지막 작품 검사 결과를 보여줘요.</div>

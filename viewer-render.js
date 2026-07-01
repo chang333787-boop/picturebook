@@ -1241,12 +1241,20 @@ function _v03ChoiceBtnHtml(scene, choice, mode, idx, dispIdx) {
     const _labelEditAttrs = _allowChoiceEdit
       ? ` contenteditable="true" data-pb-editable="choice-label" data-choice-idx="${idx != null ? idx : 0}"`
       : '';
+    /* HOTFIX-PLACEHOLDER: 편집 가능 상태에선 fallback 문구(label)를 실제 content로 넣지 않는다.
+       진짜 원본 라벨(_rawLabelPb·빈 값 허용) + is-empty 클래스 → CSS ::before placeholder로 안내.
+       (기존엔 빈 라벨에 '(행동 버튼을 적어보세요)'가 textContent로 들어가 사용자가 직접 지워야 했음.)
+       비편집(감상/AI보기)에선 종전대로 안내 문구(label) 표시. */
+    const _rawLabelPb = String(choice.label || '');
+    const _pbEmptyCls = (_allowChoiceEdit && !_rawLabelPb.trim()) ? ' is-empty' : '';
+    const _pbLabelContent = _allowChoiceEdit ? escHtml(_rawLabelPb) : escHtml(label);
+    const _pbPlaceholder = _allowChoiceEdit ? '(행동 버튼을 적어보세요)' : '(버튼 문구)';
     return `<button class="choice-v03 choice-v03--picturebook scene-choice-button js-choice${emptyClass}"
       data-choice-id="${escHtml(choice.id)}"
       data-pb-color="${colorIdx}"
       ${disabled}${unlinkedAttr}>
       <span class="pb-choice-num">${_num + 1}</span>
-      <span class="pb-choice-label"${_labelEditAttrs} data-placeholder="(버튼 문구)">${escHtml(label)}</span>
+      <span class="pb-choice-label${_pbEmptyCls}"${_labelEditAttrs} data-placeholder="${_pbPlaceholder}">${_pbLabelContent}</span>
       <span class="pb-choice-arrow" aria-hidden="true">›</span>
     </button>`;
   }

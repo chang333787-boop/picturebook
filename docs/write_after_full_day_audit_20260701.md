@@ -57,6 +57,13 @@
 - CDN grep(캐시버스터·UI 문구·resolver·textS1 0·imageS2 안내), Playwright(학생 게이트·교사 세션 게이트·관리자 390px·콘솔0), 스샷 `text-selection-ui-live.png`·`write-after-admin-finishgroup-LIVE.png`. 코드경로 근거는 위 파일:라인.
 - 실 AI 호출 0 · 운영 DB write 0 · Functions/Rules deploy 0 · 코드 수정 0.
 
+## 재감사 (2026-07-01, C-1 FIXED · main `73d601b`)
+- **C-1 FIXED 재검증**: live viewer-render.js에 8개 `ViewerState.editMode ? _orig :` 게이트 서빙·`const _orig` 9개 보존. **live 브라우저 E2E**(shipped `_pubBody` 표현식 재현): 편집 세션→편집필드 `학생_원본` / 감상→발행 `S2_발전본` / resolver `S2_발전본` / `scene.body` 불변 / s2 없는 장면 selection s2 강제해도 `원본9`(원본 fallback). → **원본 오염 경로 해소**.
+- **새 Critical 없음.** 20개 항목 재확인 결과 등급 변화: Critical 1→**0**, 나머지 동일.
+- 재검증 PASS(live): §1 캐시버스터 전부 최신(render `textsel2uifixorig1`·ai/data `textsel2ui`·admin `finishgroup1`) · §5/6 resolver·게이트·callable · §12 관리자 그룹(textS1 DEFS 0·외부AI 안내) · §19 용어(노출 'AI 다듬기' 0·📁 버튼·s1 카드 0·imageS2 외부AI) · §18 콘솔 0.
+- H-1/H-2는 **기록 유지·별도 안전모드 루프로 이관**(이번 감사 미수정).
+- 최종 재판정: **`FULL_DAY_AUDIT_PASS_WITH_LOW`** (Critical 0·High 2 이관·Low 1).
+
 ## 다음 패치 루프 추천 순서
 1. **C-1 수정**(최우선): 편집 필드는 항상 `_orig` 렌더(감상만 `_pubBody`). 8지점 + edit 회귀 테스트 + s2 발행 후 편집 시 원본 불변 E2E.
 2. **H-1/H-2 검토**: `_validateRequest`에 team membership 검사 추가 여부(안전 모드·rules/functions 배포 승인 게이트).

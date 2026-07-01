@@ -3674,7 +3674,7 @@
       return;
     }
     if (!latest || !latest.result) {
-      alert('아직 저장된 검사 결과가 없어요. 먼저 작품 검사를 실행해 주세요.');
+      alert('아직 작품 검사 결과가 없어요. ‘작품 검사’를 눌러 확인할 점을 받아 보세요.');
       return;
     }
     const modalResult = Object.assign({}, latest.result, {
@@ -3799,18 +3799,21 @@
     const cats = check.categories || {};
     /* CHECK-UI-1: real 응답 카테고리 키는 character, 구버전 mock은 characterConsistency.
        존재하는 쪽을 읽어 누락·카운트 0 방지. (빈 배열도 truthy라 real character:[]가 우선) */
+    /* WRITE-AFTER Phase 4: 학생용 라벨(고쳐쓰기 점검표). schema key(spelling/coherence/character/branchFlow)는
+       무변경 — 화면 표시 title만 학생 친화 문구로. 기존 저장 결과와 호환. */
     const sections = [
-      { key: 'spelling',   icon: '📝', title: '맞춤법',        items: cats.spelling || [] },
-      { key: 'coherence',  icon: '🔗', title: '장면 간 유기성', items: cats.coherence || [] },
-      { key: 'character',  icon: '👤', title: '캐릭터 일관성',  items: cats.character || cats.characterConsistency || [] },
-      { key: 'branchFlow', icon: '🌳', title: '분기 흐름',      items: cats.branchFlow || [] },
+      { key: 'spelling',   icon: '📝', title: '글자와 문장 확인',   items: cats.spelling || [] },
+      { key: 'coherence',  icon: '🔗', title: '장면 연결 확인',     items: cats.coherence || [] },
+      { key: 'character',  icon: '👤', title: '인물과 이름 확인',   items: cats.character || cats.characterConsistency || [] },
+      { key: 'branchFlow', icon: '🌳', title: '선택지·마무리 확인', items: cats.branchFlow || [] },
     ];
+    const _totalFindings = sections.reduce((n, s) => n + s.items.length, 0);
 
     const sectionsHtml = sections.map(sec => {
       const countCls = sec.items.length === 0 ? ' ai-check-category__count--zero' : '';
       let itemsHtml = '';
       if (sec.items.length === 0) {
-        itemsHtml = '<div class="ai-check-empty">문제 없음 ✓</div>';
+        itemsHtml = '<div class="ai-check-empty">확인할 점 없어요 ✓</div>';
       } else {
         itemsHtml = sec.items.map(item => _renderCheckItem(sec.key, item)).join('');
       }
@@ -3835,18 +3838,24 @@
           + (check.checkedAt ? ('<span style="display:block;margin-top:2px;color:#a8895a;">마지막 검사: ' + _formatCheckedAt(check.checkedAt) + '</span>') : '')
           + '</div>')
       : '';
+    /* 문제가 거의 없을 때(전 카테고리 0) — 부담 없는 안내. */
+    const fewNote = (_totalFindings === 0)
+      ? '<div class="ai-check-few" style="margin:2px 0 10px;padding:8px 12px;background:#eef7ea;border:1px solid #cfe6c2;border-radius:10px;color:#4a6b3a;font-size:13px;">크게 고칠 부분이 많지 않아요. 그래도 한 번 더 읽으며 선택지와 마무리를 확인해 보세요.</div>'
+      : '';
     const html = `
       <div class="ai-modal__header">
-        <div class="ai-modal__title">🔍 작품 검사 결과</div>
+        <div class="ai-modal__title">🔍 작품 검사 — 고쳐 볼 점</div>
         <button class="ai-modal__close js-ai-modal-close" aria-label="닫기">✕</button>
       </div>
       <div class="ai-modal__body">
         ${cachedNote}
         ${latestNote}
-        <div class="ai-check-intro">
-          AI는 <b>문제만 알려드려요</b>. 수정은 안 해드려요. 학생이 직접 보고 본인이 고치는 기능이에요.
-          <span style="display:block;margin-top:2px;color:#8a8f98;font-size:12px;">검사 결과는 참고용이며, 실제로 고칠지는 사람이 판단해요.</span>
+        <div class="ai-check-intro ai-check-intro--student">
+          AI가 작품에서 <b>확인할 점</b>을 찾아줬어요. 글은 <b>내가 직접</b> 고쳐요.
+          아래에서 고쳐 볼 장면을 골라 <b>‘이 장면 고치기’</b>를 눌러요.
+          <span style="display:block;margin-top:3px;color:#8a8f98;font-size:12px;">생각 점검 질문은 더 생각할 질문을, 작품 검사는 고쳐 볼 부분을 찾아줘요. 고친 뒤 작품 마무리로 돌아와 마지막 다듬기를 해요.</span>
         </div>
+        ${fewNote}
         ${sectionsHtml}
       </div>
       <div class="ai-modal__footer">
@@ -3918,7 +3927,11 @@
       ? `<div class="ai-check-item__where" style="margin-top:2px;color:#8a8f98;font-size:12px;">${_escapeHtml(item.where)}</div>`
       : '';
 
-    const textHtml = sceneLabel ? `${sceneLabel}: ${body}` : body;
+    /* WRITE-AFTER Phase 4: 장면 라벨 강조 + '확인할 점:' 라벨(고쳐쓰기 점검표). 완성문 제시 아님 — 확인 대상만. */
+    const sceneBadge = sceneLabel
+      ? `<span class="ai-check-item__scene" style="font-weight:700;color:#5b4a2e;">${sceneLabel}</span> `
+      : '';
+    const textHtml = `${sceneBadge}<span class="ai-check-item__point">확인할 점: ${body}</span>`;
     const jumpHtml = jumpId
       ? `<button class="ai-check-item__jump js-ai-check-jump" data-scene-id="${_escapeHtml(jumpId)}">✏️ 이 장면 고치기</button>`
       : '';

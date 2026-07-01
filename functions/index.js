@@ -2425,6 +2425,45 @@ exports.callApplyImageS2Selection = onCall(
 );
 
 /* ════════════════════════════════════════════════════════════════
+   TEXT-S2-SELECT (P7) — callApplyTextS2Selection (교사 적용/원본유지 — 서버 전용 write)
+   ──────────────────────────────────────────────────────────────
+   callApplyImageS2Selection의 텍스트 평행. client는 {classId,teamName,sceneId,selected:'s2'|'original'} 만.
+   원본 scene.body 절대 미접촉. 선택은 aiVariants/textSelections/{sceneId} 에 기록(부모 aiVariants가
+   `.write:false`라 Admin SDK 단독 write → 학생 우회 불가·rules 무변경). 's2'는 usable(body 있음) 일 때만.
+   ⚠️ 아직 클라 UI 미연결·미배포(dormant). 배포는 사용자 승인 후.
+   ════════════════════════════════════════════════════════════════ */
+exports.callApplyTextS2Selection = onCall(
+  { enforceAppCheck: false },
+  async (req) => {
+    const ctx = await _validateRequest(req, 's2', { skipUsageLimits: true });
+    let isTeacher = ((req.auth.token && req.auth.token.role) === 'super_admin');
+    if (!isTeacher) {
+      try { const t = await admin.database().ref(`classes/${ctx.classId}/meta/teacher_uid`).once('value'); if (t.val() === ctx.uid) isTeacher = true; } catch (e) { isTeacher = false; }
+    }
+    if (!isTeacher) throw new HttpsError('permission-denied', '적용은 담당 선생님만 할 수 있어요.');
+
+    const sid = _sanitizeFbKeySegment(req.data && req.data.sceneId);
+    if (!sid) throw new HttpsError('invalid-argument', 'sceneId가 올바르지 않아요.');
+    const selected = (req.data && req.data.selected === 's2') ? 's2' : 'original';
+    const enc = encodeURIComponent(ctx.teamName);
+    const baseRef = admin.database().ref(`classes/${ctx.classId}/teams/${enc}`);
+    const selRef = baseRef.child(`aiVariants/textSelections/${sid}`);   /* 서버 전용(.write:false) */
+
+    if (selected === 's2') {
+      /* s2 usable(있고·body 비어있지 않음) 일 때만 적용 */
+      const s2 = (await baseRef.child(`aiVariants/text/${sid}/s2`).once('value')).val();
+      const usable = s2 && typeof s2.body === 'string' && s2.body.trim() && s2.stale !== true;
+      if (!usable) return { ok: false, code: 'S2_NOT_USABLE' };
+      await selRef.set({ selected: 's2', selectedBy: ctx.uid, selectedAt: Date.now(), selectionSource: 'teacher-batch' });
+    } else {
+      await selRef.set({ selected: 'original', selectedBy: ctx.uid, selectedAt: Date.now(), selectionSource: 'teacher-batch' });
+    }
+    logger.info('[ai/textS2] apply selection', { uid: ctx.uid, classId: ctx.classId, teamName: ctx.teamName, sceneId: sid, selected });
+    return { ok: true, sceneId: sid, selected };
+  }
+);
+
+/* ════════════════════════════════════════════════════════════════
    IMAGE-S2-2 — sourceMode 잠금/초기화 최소 권한 게이트
    ──────────────────────────────────────────────────────────────
    ⚠️ _validateRequest(AI 게이트/quota/kill switch)를 쓰지 않는다.

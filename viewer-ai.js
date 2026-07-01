@@ -3165,11 +3165,11 @@
           <div class="ai-finish-section-title" style="${T}">2. 직접 고치기</div>
           <div class="ai-finish-section-desc" style="${D}">질문과 검사 결과를 보고 장면을 직접 고쳐요.</div>
           <div class="ai-mode-grid">
-          <div class="ai-mode-card ai-mode-card--info" aria-disabled="true" style="cursor:default;">
-            <div class="ai-mode-card__icon">✏️</div>
-            <div class="ai-mode-card__title">직접 고치기</div>
-            <div class="ai-mode-card__desc">AI가 알려준 내용을 보고 내가 직접 장면을 고쳐요. 결과의 ‘장면으로 이동’을 누르면 그 장면으로 가요. 내가 고친 글이 최종 작품이 돼요.</div>
-          </div>
+          ${_renderModeCard({
+            key: 'directEdit', icon: '✏️', title: '현재 장면 고치기',
+            desc: '질문과 검사 결과를 보고 지금 장면을 직접 고쳐요. 내가 고친 글이 최종 작품이 돼요.',
+            enabled: true, remaining: null,
+          })}
           </div>
         </div>`;
           const sec3 = `
@@ -3224,7 +3224,13 @@
       card.addEventListener('click', () => {
         const mode = card.getAttribute('data-ai-mode');
         _removeModalRoot('ai-mode-modal');
-        if (mode === 'writeAfterQuestions') {
+        if (mode === 'directEdit') {
+          /* Phase 5: 현재 선택 장면을 직접 편집(모달 이미 닫힘). AI 호출 없음. */
+          const cur = (typeof ViewerState !== 'undefined' && ViewerState.currentSceneId != null)
+            ? String(ViewerState.currentSceneId) : '';
+          if (!cur) { alert('먼저 고칠 장면을 선택해 주세요.'); return; }
+          _enterDirectEditFromWriteAfter(cur, 'directEdit');
+        } else if (mode === 'writeAfterQuestions') {
           _startWriteAfterQuestions();
         } else if (mode === 's2') {
           _startTextS2();
@@ -3740,7 +3746,55 @@
     _showCheckResultModal(result);
   }
 
-  /* 검사 결과 모달 — 수정 X. 진단만. "장면 X로 이동" 버튼만 박음. */
+  /* ════════════════════════════════════════════════════════════════
+     WRITE-AFTER Phase 5 — 고쳐쓰기 자료(질문/검사) → 직접 고치기 → 작품 마무리 복귀
+     editNavigateTo(편집 모드=본문 contenteditable) 재사용. AI 호출/DB write 0
+     (원본 body는 학생이 저장할 때만 바뀜). 복귀 안내는 작은 하단 바(닫기 가능).
+     ════════════════════════════════════════════════════════════════ */
+  function _hideWriteAfterReturnHint() {
+    const el = document.getElementById('write-after-return-hint');
+    if (el && el.parentNode) el.parentNode.removeChild(el);
+  }
+  function _returnToWriteAfterModal() {
+    _hideWriteAfterReturnHint();
+    try { if (typeof openModal === 'function') { openModal(); return; } } catch (e) { /* fallthrough */ }
+    try { _showModeModal(); } catch (e2) { /* noop */ }
+  }
+  function _showWriteAfterReturnHint(source) {
+    _hideWriteAfterReturnHint();
+    try { sessionStorage.setItem('pb_write_after_source', String(source || '')); } catch (e) {}
+    const bar = document.createElement('div');
+    bar.id = 'write-after-return-hint';
+    bar.setAttribute('role', 'status');
+    bar.style.cssText = 'position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:9000;'
+      + 'display:flex;align-items:center;gap:10px;max-width:92vw;padding:8px 12px;'
+      + 'background:#fff7e8;border:1px solid #e8d3a0;border-radius:12px;box-shadow:0 4px 16px rgba(80,60,20,.18);'
+      + 'font-family:inherit;font-size:13px;color:#6b5a3a;';
+    bar.innerHTML =
+      '<span>✏️ 고친 뒤 <b>작품 마무리</b>로 돌아와 다음 단계를 이어가세요.</span>'
+      + '<button type="button" class="js-waq-return" style="flex:none;padding:6px 12px;border:none;border-radius:8px;background:#5b8a3a;color:#fff;font-size:13px;font-weight:700;cursor:pointer;">작품 마무리로 돌아가기</button>'
+      + '<button type="button" class="js-waq-return-close" aria-label="닫기" style="flex:none;padding:4px 8px;border:none;background:transparent;color:#a8895a;font-size:15px;cursor:pointer;line-height:1;">✕</button>';
+    document.body.appendChild(bar);
+    bar.querySelector('.js-waq-return').addEventListener('click', _returnToWriteAfterModal);
+    bar.querySelector('.js-waq-return-close').addEventListener('click', _hideWriteAfterReturnHint);
+  }
+  /* 결과 카드/직접 고치기 카드 공통 진입: 해당 장면 편집 상태로 이동 + 복귀 안내. source=questions|workCheck|directEdit */
+  function _enterDirectEditFromWriteAfter(sceneId, source) {
+    const sid = (sceneId == null) ? '' : String(sceneId);
+    if (!sid || typeof editNavigateTo !== 'function') {
+      alert('해당 장면으로 이동할 수 없어요. 새로고침 후 다시 시도해주세요.');
+      return false;
+    }
+    if (typeof ViewerState !== 'undefined' && ViewerState.scenes && !ViewerState.scenes[sid]) {
+      alert('그 장면을 찾지 못했어요.');
+      return false;
+    }
+    editNavigateTo(sid);
+    _showWriteAfterReturnHint(source || 'directEdit');
+    return true;
+  }
+
+  /* 검사 결과 모달 — 수정 X. 진단만. "이 장면 고치기" 버튼(직접 편집 진입) 박음. */
   function _showCheckResultModal(check) {
     const cats = check.categories || {};
     /* CHECK-UI-1: real 응답 카테고리 키는 character, 구버전 mock은 characterConsistency.
@@ -3808,17 +3862,13 @@
       _removeModalRoot('ai-check-modal');
     });
 
-    /* 장면 X로 이동 — viewer의 editNavigateTo 재사용 (v138) */
+    /* Phase 5: '이 장면 고치기' — 모달 닫고 해당 장면 편집 진입 + 작품 마무리 복귀 안내. */
     root.querySelectorAll('.js-ai-check-jump').forEach(btn => {
       btn.addEventListener('click', () => {
         const sceneId = btn.getAttribute('data-scene-id');
         if (!sceneId) return;
-        if (typeof editNavigateTo === 'function') {
-          editNavigateTo(sceneId);
-          _removeModalRoot('ai-check-modal');
-        } else {
-          alert('해당 장면으로 이동할 수 없어요. 새로고침 후 다시 시도해주세요.');
-        }
+        _removeModalRoot('ai-check-modal');
+        _enterDirectEditFromWriteAfter(sceneId, 'workCheck');
       });
     });
   }
@@ -3870,7 +3920,7 @@
 
     const textHtml = sceneLabel ? `${sceneLabel}: ${body}` : body;
     const jumpHtml = jumpId
-      ? `<button class="ai-check-item__jump js-ai-check-jump" data-scene-id="${_escapeHtml(jumpId)}">장면 ${_escapeHtml(jumpId)} 이동</button>`
+      ? `<button class="ai-check-item__jump js-ai-check-jump" data-scene-id="${_escapeHtml(jumpId)}">✏️ 이 장면 고치기</button>`
       : '';
     return `
       <div class="ai-check-item">
@@ -3966,7 +4016,7 @@
           const reason = q.reason ? `<div class="ai-check-item__where" style="margin-top:2px;color:#8a8f98;font-size:12px;">${_escapeHtml(q.reason)}</div>` : '';
           const action = q.studentAction ? `<div class="ai-waq-action" style="margin-top:4px;color:#3a6ea5;font-size:13px;">✏️ ${_escapeHtml(q.studentAction)}</div>` : '';
           const jump = sid
-            ? `<button class="ai-check-item__jump js-ai-waq-jump" data-scene-id="${_escapeHtml(sid)}">장면 ${_escapeHtml(sid)} 이동</button>`
+            ? `<button class="ai-check-item__jump js-ai-waq-jump" data-scene-id="${_escapeHtml(sid)}">✏️ 이 장면 고치기</button>`
             : '';
           return `
             <div class="ai-check-category">
@@ -4002,12 +4052,8 @@
       btn.addEventListener('click', () => {
         const sceneId = btn.getAttribute('data-scene-id');
         if (!sceneId) return;
-        if (typeof editNavigateTo === 'function') {
-          editNavigateTo(sceneId);
-          _removeModalRoot('ai-waq-modal');
-        } else {
-          alert('해당 장면으로 이동할 수 없어요. 새로고침 후 다시 시도해주세요.');
-        }
+        _removeModalRoot('ai-waq-modal');
+        _enterDirectEditFromWriteAfter(sceneId, 'questions');
       });
     });
   }

@@ -3234,7 +3234,7 @@
             <button type="button" class="ai-btn js-ai-open-routes">🛤 이야기 길 보기</button>
             ${_isPbProject ? '<button type="button" class="ai-btn ai-btn--ghost js-ai-print-pb" title="장면마다 한 쪽씩 그림책처럼 인쇄해요. 깔끔하게 출력하려면 인쇄 창에서 머리글과 바닥글을 꺼 주세요. (선생님 컴퓨터 인쇄 권장)">🖨 그림책 인쇄</button>' : ''}
           </div>
-          ${_isPbProject ? '<div style="margin-top:6px;padding:7px 10px;background:#fff7e8;border:1px solid #e8d3a0;border-radius:8px;font-size:12px;color:#6b5a3a;">🖨 <b>출판용으로 뽑을 때</b>는 인쇄 창의 ‘설정 더보기’에서 <b>머리글과 바닥글</b>을 꺼 주세요. 그래야 날짜·주소 없이 깔끔한 그림책이 돼요.</div>' : ''}
+          ${_isPbProject ? '<div style="margin-top:6px;padding:7px 10px;background:#fff7e8;border:1px solid #e8d3a0;border-radius:8px;font-size:12px;color:#6b5a3a;">⚠️ <b>중요:</b> 인쇄 창에서 <b>설정 더보기 → 머리글과 바닥글</b>을 꼭 꺼 주세요. 켜져 있으면 날짜와 주소가 그림책에 함께 찍혀요.</div>' : ''}
         </div>`;
           const sec3 = `
         <div class="ai-finish-section" style="margin-top:16px;${!rewriteDone ? 'opacity:0.62;' : ''}">

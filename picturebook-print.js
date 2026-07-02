@@ -174,15 +174,14 @@
       const img = _publishedImage(s);
       const page = _el('div', 'pbp-page pbp-publish');
       const card = _el('div', 'pbp-scene pbp-scene--full' + (img ? '' : ' pbp-scene--noimg'));
-      const head = _el('div', 'pbp-scene-head');
-      head.appendChild(_el('span', 'pbp-scene-num', res.numberByKey[k] + '번 장면'));
+      /* LAYOUT-4: 장면번호 = 그림 좌상단 오버레이 배지(별도 행 제거 → 세로 공간 절약).
+         플래그(엔딩/추가 장면)는 배지에 병기. 제목은 있을 때만 본문 위 작은 캡션. */
       const flags = [];
       if (res.numberByKey[k] > res.reachableCount) flags.push('추가 장면');
       if (s.type === 'ending') flags.push('엔딩');
-      if (flags.length) head.appendChild(_el('span', 'pbp-scene-flag', flags.join(' · ')));
-      if ((s.title || '').trim()) head.appendChild(_el('span', 'pbp-scene-title', s.title.trim()));
-      card.appendChild(head);
+      card.appendChild(_el('span', 'pbp-num-overlay', res.numberByKey[k] + '번' + (flags.length ? ' · ' + flags.join(' · ') : '')));
       if (img) { const im = document.createElement('img'); im.className = 'pbp-scene-img'; im.src = img; card.appendChild(im); }
+      if ((s.title || '').trim()) card.appendChild(_el('div', 'pbp-scene-caption', s.title.trim()));
       const body = (_publishedBody(s) || '').trim();
       card.appendChild(_el('div', 'pbp-scene-body' + (body ? '' : ' pbp-scene-body--empty'), body || '(글 없음)'));
       const chs = _choices(s);

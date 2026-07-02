@@ -1415,22 +1415,27 @@
   /* ── PICTUREBOOK-PUBLISH-PRINT-1: 출판형 — 장면당 1페이지·큰 그림·큰 글 ──
      구 점검형(2장면/페이지 축소 카드) 규칙을 .pbp-publish 페이지에서 덮어씀.
      A4 세로·교사 PC Chrome 기준. 흑백 출력도 읽히도록 무채색 유지. */
-  body.print-picturebook .pbp-publish { min-height: 90vh; display: flex; flex-direction: column; }
+  /* LAYOUT-4: 86vh — Chrome 머리글/바닥글·기본 여백 변동에도 한 장면=한 페이지가 깨지지 않는 여유 */
+  body.print-picturebook .pbp-publish { min-height: 86vh; display: flex; flex-direction: column; }
   body.print-picturebook .pbp-publish .pbp-scene--full {
-    /* DESIGN-3: 페이지 전체 얇은 프레임 — 책 페이지 카드감 */
-    border: 1.5px solid #555; border-radius: 14px; padding: 14px 20px 18px; margin: 2px; min-height: 0;
+    border: 1.5px solid #555; border-radius: 14px; padding: 10px 16px 14px; margin: 2px; min-height: 0;
     display: flex; flex-direction: column; flex: 1 1 auto; break-inside: avoid;
+    position: relative;   /* LAYOUT-4: 장면번호 오버레이 기준 */
   }
-  body.print-picturebook .pbp-publish .pbp-scene-head {
-    border-bottom: none; justify-content: center; align-items: center; gap: 10px; margin-bottom: 12px;
+  body.print-picturebook .pbp-publish .pbp-num-overlay {
+    /* LAYOUT-4: N번 배지 = 그림 좌상단 오버레이 — 별도 행 제거(세로 공간 0) */
+    position: absolute; top: 18px; left: 24px; z-index: 2;
+    background: rgba(255,255,255,0.92); border: 1.5px solid #333; border-radius: 8px;
+    padding: 2px 10px; font-size: 11pt; font-weight: 800; color: #111;
   }
-  body.print-picturebook .pbp-publish .pbp-scene-num { font-size: 13pt; padding: 2px 12px; }
-  body.print-picturebook .pbp-publish .pbp-scene-title { font-size: 13pt; }
+  body.print-picturebook .pbp-publish .pbp-scene-caption {
+    text-align: center; font-size: 12pt; font-weight: 700; margin: 2px 0 4px;
+  }
   body.print-picturebook .pbp-publish .pbp-scene-img {
     /* DESIGN-3: 그림이 페이지의 주인공 — width:100%로 저해상도 원본도 페이지 폭까지 확대
        (max-height 상한만으론 intrinsic이 작은 그림이 그대로 작게 나옴). contain=크롭 0. */
-    width: 100%; height: auto; max-height: 560px; object-fit: contain;
-    margin: 0 auto 14px; border: 1px solid #bbb; border-radius: 10px; box-sizing: border-box;
+    width: 100%; height: auto; max-height: 500px; object-fit: contain;
+    margin: 0 auto 12px; border: 1px solid #bbb; border-radius: 10px; box-sizing: border-box;
   }
   body.print-picturebook .pbp-publish .pbp-img-missing {
     margin: 0 auto 14px; padding: 64px 20px; width: 82%; box-sizing: border-box;
@@ -1447,18 +1452,24 @@
     padding: 26px 32px; border: 1px solid #999; border-radius: 12px; width: 84%; box-sizing: border-box;
   }
   body.print-picturebook .pbp-publish .pbp-scene--noimg .pbp-choices {
-    margin-top: 26px; margin-bottom: auto; border-top: none; padding: 14px 30px 0;
+    margin-top: 22px; margin-bottom: auto; border-top: none; padding: 0 30px;
   }
   body.print-picturebook .pbp-publish .pbp-scene--noimg .pbp-end-mark {
-    margin-top: 26px; margin-bottom: auto; padding: 0;
+    margin-top: 22px; margin-bottom: auto; padding: 0;
   }
-  /* 선택지/엔딩 = 페이지 하단 고정(내용이 짧아도 아래로) */
+  body.print-picturebook .pbp-publish .pbp-scene--noimg .pbp-num-overlay { top: 14px; left: 18px; }
+  /* LAYOUT-4: 선택지 = 본문 아래 흐름 배치(하단 고정 폐기) — 다음 페이지로 선택지만 넘어가는
+     현상 제거. 구분선으로 본문과 구분. 긴 선택지는 어절 줄바꿈. */
   body.print-picturebook .pbp-publish .pbp-choices {
-    margin-top: auto; border-top: 1.5px solid #999; padding-top: 12px;
+    margin-top: 12px; border-top: 1.5px solid #999; padding-top: 8px; break-inside: avoid;
   }
-  body.print-picturebook .pbp-publish .pbp-choice { font-size: 12pt; padding: 4px 0; }
+  body.print-picturebook .pbp-publish .pbp-choice {
+    font-size: 12pt; padding: 2.5px 0; display: flex; justify-content: space-between; gap: 10px;
+  }
+  body.print-picturebook .pbp-publish .pbp-choice-label { word-break: keep-all; }
+  body.print-picturebook .pbp-publish .pbp-choice-goto { white-space: nowrap; flex: none; }
   body.print-picturebook .pbp-publish .pbp-end-mark {
-    margin-top: auto; font-size: 14pt; padding: 16px 0 6px;
+    margin-top: 14px; font-size: 14pt; padding: 8px 0 4px;
   }
   body.print-picturebook .pbp-cover-date { margin-top: 6px; font-size: 10.5pt; color: #444; }
 }

@@ -1727,12 +1727,12 @@ function setPublishedImageSelectionForScene(sceneId, selected, s2VariantNode) {
 }
 
 /* ════════════════════════════════════════════════════════════════
-   TEXT-S2-SELECT (P7): 원본 글 ↔ AI 장면발전(textS2) 발행 선택 — 이미지 imageSelections 축의
-   텍스트 평행 복제. 저장/판정 정책은 이미지와 동일:
-   · selection = aiVariants/textSelections/{sid}(서버 전용 write·부모 aiVariants가 .write:false 상속·rules 무변경).
-   · s2 변형 = aiVariants/text/{sid}/s2 (이미 saveTextVariant가 저장·인프라 존재).
-   · 원본 scene.body는 절대 변경하지 않음(표시용 body 문자열만 결정).
-   · 선택 없음/original/누락/stale → 원본(기존 동작 100% 유지). 구작품·캐시 미적재 → 원본.
+   TEXT-S2-SELECT (P7) — ⚠️ 폐기됨(TEXT-S2-PUBLISH-CHOICE-REMOVAL-1·2026-07-02).
+   '감상 글 정하기'(textSelections 발행 확정) 제도는 제거 — 원본/AI 비교는 viewer-ai
+   '글 보기' 토글만 담당하고, getPublishedBodyDisplay는 항상 원본을 반환한다.
+   아래 normalize/resolve/캐시/setter는 dormant로 유지(레거시 데이터 호환·테스트 계약·
+   미리보기 경로). 신규 write 없음. 서버 callable도 dormant(삭제/deploy 금지).
+   배경: docs/text_s2_publish_choice_removal_audit_20260702.md
    ════════════════════════════════════════════════════════════════ */
 
 /* textSelections[sceneId] 정규화 — imageSelections와 동일 schema. 허용 안 된 selected → 'original'. */
@@ -1840,8 +1840,8 @@ function getPublishedTextSelectionForScene(sceneId) {
   } catch (e) { return 'original'; }
 }
 
-/* ★ TEXT-S2-SELECT: 교사가 선택 적용(callApplyTextS2Selection 성공) 직후 발행 캐시 동기 갱신.
-   서버 저장이 진실 — 저장 성공 후에만 호출(클라 직접 DB write 아님). 원본 scene.body 불변. */
+/* TEXT-S2 폐기 후 dormant — 호출부(감상 글 정하기 모달)는 제거됨. 캐시만 갱신하며 표시엔
+   영향 없음(getPublishedBodyDisplay가 원본 고정). 테스트 계약 유지용으로만 남김. */
 function setPublishedTextSelectionForScene(sceneId, selected, s2VariantNode) {
   try {
     if (sceneId == null) return;

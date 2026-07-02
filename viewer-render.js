@@ -499,7 +499,7 @@ function _textTitleHtml(scene, allowEdit) {
 function _renderSceneCard(scene, choices) {
   const title = String(scene.title || '').trim();
   const _orig = String(scene.body  || '');  /* v127: trim 박지 X — \n\n 등 의도된 빈 줄 유지 */
-  /* TEXT-S2-SELECT(P7): C1FIX: 감상(비편집)에서만 발행 선택(textSelections.s2) 반영. 편집 세션(editMode)은 _orig(원문) 고정 → 편집 필드 오염 방지. */
+  /* TEXT-S2 폐기(2026-07-02): getPublishedBodyDisplay는 항상 원본 반환(발행 선택 제도 제거) — 이 줄은 사실상 _orig 통과. 호출 형태는 유지(계약 안정). 원본/AI 비교는 아래 _getDisplayBody 토글만. */
   const _pubBody = (typeof ViewerState !== 'undefined' && ViewerState.editMode) ? _orig : ((window.getPublishedBodyDisplay) ? window.getPublishedBodyDisplay(scene, _orig) : _orig);
   /* v140-step4: aiViewMode가 aiS1 박혀있고 final 박혀있을 때만 AI 본문 박음. 원본 scene.body는 절대 변경 X */
   const body = (window.viewerAi && window.viewerAi._getDisplayBody) ? window.viewerAi._getDisplayBody(scene.id, _pubBody) : _pubBody;
@@ -650,7 +650,7 @@ function _renderScenePicturebook(stage, scene, submode) {
   /* 텍스트 영역 — 제목 → 본문 → 버튼 */
   const title = String(scene.title || '').trim();
   const _orig = String(scene.body  || '');  /* v127: trim 박지 X — \n\n 등 의도된 빈 줄 유지 */
-  /* TEXT-S2-SELECT(P7): C1FIX: 감상(비편집)에서만 발행 선택(textSelections.s2) 반영. 편집 세션(editMode)은 _orig(원문) 고정 → 편집 필드 오염 방지. */
+  /* TEXT-S2 폐기(2026-07-02): getPublishedBodyDisplay는 항상 원본 반환(발행 선택 제도 제거) — 이 줄은 사실상 _orig 통과. 호출 형태는 유지(계약 안정). 원본/AI 비교는 아래 _getDisplayBody 토글만. */
   const _pubBody = (typeof ViewerState !== 'undefined' && ViewerState.editMode) ? _orig : ((window.getPublishedBodyDisplay) ? window.getPublishedBodyDisplay(scene, _orig) : _orig);
   /* v140-step4: aiViewMode가 aiS1 박혀있고 final 박혀있을 때만 AI 본문 박음. 원본 scene.body는 절대 변경 X */
   const body = (window.viewerAi && window.viewerAi._getDisplayBody) ? window.viewerAi._getDisplayBody(scene.id, _pubBody) : _pubBody;
@@ -916,7 +916,7 @@ function _renderSceneMovie(stage, scene) {
      영상 후 노출 흐름: 영상 재생 후 본문/선택지 노출 — 시각 분기는 CSS의
      data-movie-reveal 속성으로 처리, 여기선 데이터만 셋팅. */
   const _orig = String(scene.body || '');  /* v127: trim 박지 X — 줄바꿈 유지 */
-  /* TEXT-S2-SELECT(P7): C1FIX: 감상(비편집)에서만 발행 선택(textSelections.s2) 반영. 편집 세션(editMode)은 _orig(원문) 고정 → 편집 필드 오염 방지. */
+  /* TEXT-S2 폐기(2026-07-02): getPublishedBodyDisplay는 항상 원본 반환(발행 선택 제도 제거) — 이 줄은 사실상 _orig 통과. 호출 형태는 유지(계약 안정). 원본/AI 비교는 아래 _getDisplayBody 토글만. */
   const _pubBody = (typeof ViewerState !== 'undefined' && ViewerState.editMode) ? _orig : ((window.getPublishedBodyDisplay) ? window.getPublishedBodyDisplay(scene, _orig) : _orig);
   /* v140-step4: aiViewMode가 aiS1 박혀있고 final 박혀있을 때만 AI 본문 박음. 원본 scene.body는 절대 변경 X */
   const body = (window.viewerAi && window.viewerAi._getDisplayBody) ? window.viewerAi._getDisplayBody(scene.id, _pubBody) : _pubBody;
@@ -1017,7 +1017,7 @@ function _renderSceneExperience(stage, scene) {
 
   const title = String(scene.title || '').trim();
   const _orig = String(scene.body  || '');  /* v127: trim 박지 X — \n\n 등 의도된 빈 줄 유지 */
-  /* TEXT-S2-SELECT(P7): C1FIX: 감상(비편집)에서만 발행 선택(textSelections.s2) 반영. 편집 세션(editMode)은 _orig(원문) 고정 → 편집 필드 오염 방지. */
+  /* TEXT-S2 폐기(2026-07-02): getPublishedBodyDisplay는 항상 원본 반환(발행 선택 제도 제거) — 이 줄은 사실상 _orig 통과. 호출 형태는 유지(계약 안정). 원본/AI 비교는 아래 _getDisplayBody 토글만. */
   const _pubBody = (typeof ViewerState !== 'undefined' && ViewerState.editMode) ? _orig : ((window.getPublishedBodyDisplay) ? window.getPublishedBodyDisplay(scene, _orig) : _orig);
   /* v140-step4: aiViewMode가 aiS1 박혀있고 final 박혀있을 때만 AI 본문 박음. 원본 scene.body는 절대 변경 X */
   const body = (window.viewerAi && window.viewerAi._getDisplayBody) ? window.viewerAi._getDisplayBody(scene.id, _pubBody) : _pubBody;
@@ -1361,7 +1361,7 @@ function renderTextBox(scene) {
   const isLong   = scene.textLength === 'long';
   const title    = String(scene.title || '').trim();
   const _orig    = String(scene.body  || '');  /* v127: trim 박지 X — 줄바꿈 유지 */
-  /* TEXT-S2-SELECT(P7): C1FIX: 감상(비편집)에서만 발행 선택(textSelections.s2) 반영. 편집 세션(editMode)은 _orig(원문) 고정 → 편집 필드 오염 방지. */
+  /* TEXT-S2 폐기(2026-07-02): getPublishedBodyDisplay는 항상 원본 반환(발행 선택 제도 제거) — 이 줄은 사실상 _orig 통과. 호출 형태는 유지(계약 안정). 원본/AI 비교는 아래 _getDisplayBody 토글만. */
   const _pubBody = (typeof ViewerState !== 'undefined' && ViewerState.editMode) ? _orig : ((window.getPublishedBodyDisplay) ? window.getPublishedBodyDisplay(scene, _orig) : _orig);
   /* v140-step4: aiViewMode가 aiS1 박혀있고 final 박혀있을 때만 AI 본문 박음. 원본 scene.body는 절대 변경 X */
   const body = (window.viewerAi && window.viewerAi._getDisplayBody) ? window.viewerAi._getDisplayBody(scene.id, _pubBody) : _pubBody;
@@ -1558,7 +1558,7 @@ function _renderStoryEnding(stage, scene) {
      · 진엔딩 배지 + path 요약 + 다른 결말 찾기 버튼은 그대로 */
   const userTitle = String(scene.title || '').trim();
   const _orig     = String(scene.body  || '');  /* v127: trim 박지 X — 엔딩 줄바꿈 유지 */
-  /* TEXT-S2-SELECT(P7): C1FIX: 감상(비편집)에서만 발행 선택(textSelections.s2) 반영. 편집 세션(editMode)은 _orig(원문) 고정 → 편집 필드 오염 방지. */
+  /* TEXT-S2 폐기(2026-07-02): getPublishedBodyDisplay는 항상 원본 반환(발행 선택 제도 제거) — 이 줄은 사실상 _orig 통과. 호출 형태는 유지(계약 안정). 원본/AI 비교는 아래 _getDisplayBody 토글만. */
   const _pubBody = (typeof ViewerState !== 'undefined' && ViewerState.editMode) ? _orig : ((window.getPublishedBodyDisplay) ? window.getPublishedBodyDisplay(scene, _orig) : _orig);
   /* v140-step4: aiViewMode가 aiS1 박혀있고 final 박혀있을 때만 AI 본문 박음. 원본 scene.body는 절대 변경 X */
   const userBody = (window.viewerAi && window.viewerAi._getDisplayBody) ? window.viewerAi._getDisplayBody(scene.id, _pubBody) : _pubBody;
@@ -1869,7 +1869,7 @@ function _renderTextEnding(stage, scene) {
 
   const userTitle = String(scene.title || '').trim();
   const _orig     = String(scene.body || '');   /* trim X — 엔딩 줄바꿈 유지 */
-  /* TEXT-S2-SELECT(P7): C1FIX: 감상(비편집)에서만 발행 선택(textSelections.s2) 반영. 편집 세션(editMode)은 _orig(원문) 고정 → 편집 필드 오염 방지. */
+  /* TEXT-S2 폐기(2026-07-02): getPublishedBodyDisplay는 항상 원본 반환(발행 선택 제도 제거) — 이 줄은 사실상 _orig 통과. 호출 형태는 유지(계약 안정). 원본/AI 비교는 아래 _getDisplayBody 토글만. */
   const _pubBody  = (typeof ViewerState !== 'undefined' && ViewerState.editMode) ? _orig : ((window.getPublishedBodyDisplay) ? window.getPublishedBodyDisplay(scene, _orig) : _orig);
   const userBody  = (window.viewerAi && window.viewerAi._getDisplayBody)
     ? window.viewerAi._getDisplayBody(scene.id, _pubBody) : _pubBody;
@@ -2004,7 +2004,7 @@ function _renderMovieEnding(stage, scene) {
   const steps     = ViewerState.historyStack.length + 1;
   const userTitle = String(scene.title || '').trim();
   const _orig     = String(scene.body || '');   /* trim X — 줄바꿈 유지 */
-  /* TEXT-S2-SELECT(P7): C1FIX: 감상(비편집)에서만 발행 선택(textSelections.s2) 반영. 편집 세션(editMode)은 _orig(원문) 고정 → 편집 필드 오염 방지. */
+  /* TEXT-S2 폐기(2026-07-02): getPublishedBodyDisplay는 항상 원본 반환(발행 선택 제도 제거) — 이 줄은 사실상 _orig 통과. 호출 형태는 유지(계약 안정). 원본/AI 비교는 아래 _getDisplayBody 토글만. */
   const _pubBody  = (typeof ViewerState !== 'undefined' && ViewerState.editMode) ? _orig : ((window.getPublishedBodyDisplay) ? window.getPublishedBodyDisplay(scene, _orig) : _orig);
   const userBody  = (window.viewerAi && window.viewerAi._getDisplayBody)
     ? window.viewerAi._getDisplayBody(scene.id, _pubBody) : _pubBody;

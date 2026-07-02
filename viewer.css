@@ -1465,6 +1465,31 @@ body[data-page-orientation="portrait"] #stage-wrap.letterbox-v #viewer-frame {
   padding-top: clamp(12px, 2vw, 20px);
 }
 
+/* HOTFIX-MOBILE-TEXT-COVER: 모바일(≤600px) 텍스트 표지만 compact.
+   기본 .cover-book는 1fr:2fr:1fr로 페이지 전체에 제목/장식/시작버튼을 분산해 모바일에서
+   큰 빈 박스처럼 보였다. 모바일만 콘텐츠 기반(auto 행)+중앙 정렬+적정 gap로 모아 준다.
+   ★스코프: .cover-as-pb--text = 텍스트 표지 전용. 이미지 표지(cover-as-pb·--text 없음)·
+   일반 그림책 장면(cover-as-pb 없음)엔 미적용. 데스크톱/태블릿(>600px) 기존 유지. */
+@media (max-width: 600px) {
+  .cover-as-pb--text .pb-page {
+    justify-content: center;
+  }
+  .cover-as-pb--text .cover-book {
+    flex: 0 1 auto;
+    height: auto;
+    min-height: 0;
+    max-height: 100%;
+    grid-template-rows: auto auto auto;   /* 1fr:2fr:1fr → 콘텐츠 기반(빈 공간 분산 제거) */
+    align-content: center;
+    gap: clamp(10px, 2dvh, 18px);         /* 제목·장식·시작버튼을 가깝게 */
+    padding: clamp(20px, 5vw, 32px) clamp(18px, 5vw, 32px);
+  }
+  /* center 행 내부(제목·장식) 간격도 축소 */
+  .cover-as-pb--text .cover-book__center { gap: clamp(8px, 1.5dvh, 14px); }
+  /* bottom(시작버튼) 상단 여백 축소 — 제목과 가깝게 */
+  .cover-as-pb--text .cover-book__bottom { padding-top: clamp(10px, 2dvh, 16px); }
+}
+
 /* 표지 텍스트 영역 — 가운데 정렬 + 작품 정보 */
 .pb-text--cover {
   display: flex;

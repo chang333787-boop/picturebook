@@ -61,9 +61,11 @@
       try { const r = await Store.loadThoughtCompassStateResult(ctx); state = r && r.raw; } catch (e) { state = null; }
     }
     const rp = TC.resolveResumePoint(state);
-    const vm = Flow.createFlow({ resume: { index: rp.questionIndex, answers: rp.answers } });
+    /* V2: 질문 세트 버전 판별(fresh/v2 데이터→2, v1 진행·완료 데이터→1). 저장 시 재스탬프용으로 S에 보존. */
+    const qVersion = (typeof TC.resolveQuestionSetVersion === 'function') ? TC.resolveQuestionSetVersion(state) : 1;
+    const vm = Flow.createFlow({ version: qVersion, resume: { index: rp.questionIndex, answers: rp.answers } });
     const followUps = Array.isArray(rp.followUps) ? rp.followUps.slice() : [];
-    S = { ctx: ctx, vm: vm, busy: false, draftTimer: null, error: null,
+    S = { ctx: ctx, vm: vm, busy: false, draftTimer: null, error: null, version: qVersion,
           followUps: followUps, followUpsUsed: followUps.length, followUp: null, aiBusy: false,
           editMode: false, onEditComplete: null, customMode: null };
     _render();
@@ -72,7 +74,9 @@
   /* 검토 화면 '고치기' — 특정 핵심 질문 1개만 수정 후 검토로 복귀(Phase I, D-09). 다른 답변 보존. */
   function openForEdit(ctx, vm, index, onComplete) {
     const Flow = _Flow();
-    S = { ctx: ctx, vm: Flow.goToIndex(vm, index), busy: false, draftTimer: null, error: null,
+    /* V2: vm 질문 세트로 버전 파생(검토 화면 '고치기' 경유 — 저장 재스탬프용). */
+    const qVersion = (vm && Array.isArray(vm.questions) && vm.questions.some(function (q) { return q && q.id === 'targetLength'; })) ? 2 : 1;
+    S = { ctx: ctx, vm: Flow.goToIndex(vm, index), busy: false, draftTimer: null, error: null, version: qVersion,
           followUps: [], followUpsUsed: 0, followUp: null, aiBusy: false,
           editMode: true, onEditComplete: (typeof onComplete === 'function') ? onComplete : null, customMode: null };
     _render();
@@ -138,26 +142,28 @@
       b.addEventListener('click', function () { _onChoice(c.id); });
       opts.appendChild(b);
     });
-    /* 직접 적기 카드 */
-    const customWrap = _el('div', 'tc-flow-custom' + (isCustom ? ' is-active' : ''));
-    const customBtn = _el('button', 'tc-flow-choice tc-flow-choice--custom' + (isCustom ? ' is-selected' : ''), '✏️ ' + (q.customLabel || '직접 적을래요'));
-    customBtn.type = 'button';
-    customBtn.setAttribute('aria-pressed', isCustom ? 'true' : 'false');
-    customBtn.addEventListener('click', function () { _onCustomActivate(); });
-    customWrap.appendChild(customBtn);
-    if (isCustom) {
-      const ta = _el('textarea', 'tc-flow-custom-input');
-      ta.value = customText;
-      ta.maxLength = q.maxLength || 200;
-      ta.setAttribute('aria-label', q.customLabel || '직접 적기');
-      ta.placeholder = '여기에 적어 보세요';
-      ta.addEventListener('input', function () { _onCustomInput(ta.value); });
-      customWrap.appendChild(ta);
-      const counter = _el('div', 'tc-flow-counter', customText.length + ' / ' + (q.maxLength || 200));
-      ta.addEventListener('input', function () { counter.textContent = ta.value.length + ' / ' + (q.maxLength || 200); });
-      customWrap.appendChild(counter);
+    /* 직접 적기 카드 — V2 targetLength(allowCustom:false)는 보기 전용이라 미노출. */
+    if (q.allowCustom !== false) {
+      const customWrap = _el('div', 'tc-flow-custom' + (isCustom ? ' is-active' : ''));
+      const customBtn = _el('button', 'tc-flow-choice tc-flow-choice--custom' + (isCustom ? ' is-selected' : ''), '✏️ ' + (q.customLabel || '직접 적을래요'));
+      customBtn.type = 'button';
+      customBtn.setAttribute('aria-pressed', isCustom ? 'true' : 'false');
+      customBtn.addEventListener('click', function () { _onCustomActivate(); });
+      customWrap.appendChild(customBtn);
+      if (isCustom) {
+        const ta = _el('textarea', 'tc-flow-custom-input');
+        ta.value = customText;
+        ta.maxLength = q.maxLength || 200;
+        ta.setAttribute('aria-label', q.customLabel || '직접 적기');
+        ta.placeholder = '여기에 적어 보세요';
+        ta.addEventListener('input', function () { _onCustomInput(ta.value); });
+        customWrap.appendChild(ta);
+        const counter = _el('div', 'tc-flow-counter', customText.length + ' / ' + (q.maxLength || 200));
+        ta.addEventListener('input', function () { counter.textContent = ta.value.length + ' / ' + (q.maxLength || 200); });
+        customWrap.appendChild(counter);
+      }
+      opts.appendChild(customWrap);
     }
-    opts.appendChild(customWrap);
     card.appendChild(opts);
 
     /* 모르겠어요 */
@@ -238,7 +244,7 @@
     if (!Store) return;
     try {
       const patch = Flow.buildSavePatch(S.vm, { index: S.vm.index });
-      await Store.saveThoughtCompassProgress(S.ctx, { status: 'inProgress' }, patch);
+      await Store.saveThoughtCompassProgress(S.ctx, { status: 'inProgress', version: (S && S.version) || 1 }, patch);
     } catch (e) { /* draft 실패는 조용히(다음에서 flush 재시도) */ }
   }
   function _onUnsure() {
@@ -271,7 +277,7 @@
     if (Store) {
       try {
         const patch = Flow.buildSavePatch(S.vm, { index: targetIndex });
-        await Store.saveThoughtCompassProgress(S.ctx, { status: 'inProgress' }, patch);
+        await Store.saveThoughtCompassProgress(S.ctx, { status: 'inProgress', version: (S && S.version) || 1 }, patch);
       } catch (e) { ok = false; }
     }
     if (!ok) {
@@ -314,7 +320,9 @@
     const ans = Flow.currentAnswer(S.vm);
     const meta = { followUpsUsed: S.followUpsUsed };
     let decision = null;
-    if (Flow.followUpBudgetLeft(meta) && window.ThoughtCompassAI && typeof window.ThoughtCompassAI.requestFollowUp === 'function') {
+    /* V2: AI 후속 판정 스킵 — 서버 callable allowlist가 v1 7키 정본(functions 무수정 원칙,
+       v2 키/priorSummaries는 서버 검증에서 거부됨). COMPASS-V2-FOLLOWUP 루프에서 별도 갱신. */
+    if (S.version !== 2 && Flow.followUpBudgetLeft(meta) && window.ThoughtCompassAI && typeof window.ThoughtCompassAI.requestFollowUp === 'function') {
       S.aiBusy = true; _render();
       try {
         decision = await window.ThoughtCompassAI.requestFollowUp({

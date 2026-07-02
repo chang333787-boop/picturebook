@@ -4616,7 +4616,7 @@ function _ensureCompassReviewBundle() {
       const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'thought-compass.css?v=compassview2';
       l.setAttribute('data-tc-review-css', '1'); document.head.appendChild(l);
     }
-    const V = '?v=compassview2';
+    const V = '?v=tcv2q1';
     await load('thought-compass.js' + V);
     await load('thought-compass-questions.js' + V);
     await load('thought-compass-flow.js' + V);

@@ -10,6 +10,8 @@
   'use strict';
 
   const VERSION = 1;
+  /* STORY-COMPASS-V2: 신규 세션 질문 세트 버전. v1 데이터(version 1/누락 + 진행·완료)는 v1 유지. */
+  const QUESTION_VERSION_LATEST = 2;
   const STATUS = { NOT_STARTED: 'notStarted', IN_PROGRESS: 'inProgress', COMPLETED: 'completed' };
   const MODES = { REQUIRED: 'required', OPTIONAL: 'optional', NONE: 'none' };
   /* 생각 나침반 적용 대상 = 그림책·텍스트만. movie/experience 제외(PRD D-01). */
@@ -59,7 +61,8 @@
     if (idx < 0) idx = 0;
 
     const out = {
-      version: VERSION,
+      /* V2: 저장된 version 2는 보존(질문 세트 판별). 그 외(1/누락/이상값)는 1로 정규화. */
+      version: (raw.version === QUESTION_VERSION_LATEST) ? QUESTION_VERSION_LATEST : VERSION,
       status: status,
       mode: (raw.mode === MODES.REQUIRED || raw.mode === MODES.OPTIONAL || raw.mode === MODES.NONE) ? raw.mode : MODES.OPTIONAL,
       projectType: _isType(raw.projectType) ? raw.projectType : null,
@@ -143,7 +146,26 @@
   /* ── 완료 판정·이야기 seed(순수) ──
      7개 핵심 답변(PRD G1~G7 / 요약 필드). "이야기를 만들면서 정할래요"(최소 답변)도 유효로 인정. */
   const CORE_QUESTION_KEYS = ['audience', 'purpose', 'protagonist', 'goal', 'obstacle', 'branchChoice', 'protectedCore'];
+  /* V2 A안 10키(정본: thought-compass-questions.js CORE_QUESTIONS_V2 · 테스트로 교차검증). */
+  const CORE_QUESTION_KEYS_V2 = ['targetLength', 'protagonist', 'goal', 'mainlineStart', 'incitingEvent', 'risingTrouble', 'keyChoice', 'trueEnding', 'alternatePath', 'coreMessage'];
+  /* V2 전용 answer 키(v1 세트에 없는 키) — version 필드 유실 시 자가복구 판별용. */
+  const V2_ONLY_ANSWER_KEYS = ['targetLength', 'mainlineStart', 'incitingEvent', 'risingTrouble', 'keyChoice', 'trueEnding', 'alternatePath', 'coreMessage'];
   const MINIMAL_ANSWER = '이야기를 만들면서 정할래요';
+
+  /* 세션이 사용할 질문 세트 버전 판별(raw preWriting 기준):
+     · fresh(데이터 없음/notStarted) → 최신(v2) — 신규 세션은 v2로 시작
+     · version===2 → 2
+     · v2 전용 answer 키 존재 → 2 (markStarted 실패 등으로 version 필드 유실 시 자가복구)
+     · 그 외(v1 진행/완료 데이터) → 1 (기존 세션은 v1으로 완주 — 하위호환) */
+  function resolveQuestionSetVersion(raw) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return QUESTION_VERSION_LATEST;
+    if (raw.version === QUESTION_VERSION_LATEST) return QUESTION_VERSION_LATEST;
+    if (raw.answers && typeof raw.answers === 'object' && !Array.isArray(raw.answers)) {
+      for (const k of V2_ONLY_ANSWER_KEYS) if (raw.answers[k]) return QUESTION_VERSION_LATEST;
+    }
+    if (_coerceStatus(raw.status) === STATUS.NOT_STARTED) return QUESTION_VERSION_LATEST;
+    return VERSION;
+  }
 
   function _answerPresent(a) {
     if (!a) return false;
@@ -165,9 +187,17 @@
   function validateThoughtCompassCompletion(state) {
     const s = normalizeThoughtCompassState(state);
     const answers = s.answers || {};
+    /* V2 세션은 10키 완주 필요 — version===2(normalize 보존) 또는 v2 전용 답 존재(자가복구). */
+    const keys = (s.version === QUESTION_VERSION_LATEST || _hasV2Answers(answers))
+      ? CORE_QUESTION_KEYS_V2 : CORE_QUESTION_KEYS;
     const missing = [];
-    for (const k of CORE_QUESTION_KEYS) if (!_answerPresent(answers[k])) missing.push(k);
+    for (const k of keys) if (!_answerPresent(answers[k])) missing.push(k);
     return { valid: missing.length === 0, missing: missing };
+  }
+  function _hasV2Answers(answers) {
+    if (!answers || typeof answers !== 'object') return false;
+    for (const k of V2_ONLY_ANSWER_KEYS) if (answers[k]) return true;
+    return false;
   }
 
   /* 완료 plan — 7문항 충족 시에만 completed. (실제 question UI는 후속 Phase) */
@@ -282,7 +312,9 @@
       update.status = STATUS.IN_PROGRESS;
       update.startedAt = SERVER_TS;
       update.currentQuestionIndex = 0;
-      update.version = VERSION;
+      update.version = QUESTION_VERSION_LATEST;   /* V2: 신규 시작 세션은 v2 */
+    } else if (s.version === QUESTION_VERSION_LATEST) {
+      update.version = QUESTION_VERSION_LATEST;   /* v2 세션 재개 — version 필드 유실 대비 재스탬프(멱등) */
     }
     return { path: paths.preWriting, update: update };
   }
@@ -305,7 +337,8 @@
     }
     /* 진행 저장은 status를 완료→진행으로 되돌리지 않음(완료 보호) */
     const s = normalizeThoughtCompassState(state);
-    if (s.status === STATUS.NOT_STARTED) { update.status = STATUS.IN_PROGRESS; update.version = VERSION; }
+    if (s.status === STATUS.NOT_STARTED) { update.status = STATUS.IN_PROGRESS; update.version = QUESTION_VERSION_LATEST; }
+    else if (s.version === QUESTION_VERSION_LATEST) update.version = QUESTION_VERSION_LATEST;   /* V2 세션 매 저장 재스탬프(멱등·자가복구) */
     return { path: paths.preWriting, update: update };
   }
 
@@ -315,7 +348,7 @@
     const s = normalizeThoughtCompassState(state);
     /* 이미 완료면 멱등(완료 시각 보존) */
     if (s.status === STATUS.COMPLETED) return { path: paths.preWriting, update: { updatedAt: SERVER_TS } };
-    return { path: paths.preWriting, update: { status: STATUS.COMPLETED, completedAt: SERVER_TS, updatedAt: SERVER_TS, version: VERSION } };
+    return { path: paths.preWriting, update: { status: STATUS.COMPLETED, completedAt: SERVER_TS, updatedAt: SERVER_TS, version: s.version } };   /* V2: 세션 version 보존(1 또는 2) */
   }
 
   /* 교사 초기화(생각 나침반만) — preWriting을 notStarted로. onboarding/tutorial·scenes 미접근. */
@@ -350,7 +383,9 @@
   }
 
   return {
-    VERSION, STATUS, MODES, COMPASS_TYPES, SERVER_TS, ACCESS, CORE_QUESTION_KEYS, MINIMAL_ANSWER,
+    VERSION, QUESTION_VERSION_LATEST, STATUS, MODES, COMPASS_TYPES, SERVER_TS, ACCESS,
+    CORE_QUESTION_KEYS, CORE_QUESTION_KEYS_V2, MINIMAL_ANSWER,
+    resolveQuestionSetVersion,
     resolveProjectAccessState, describeGate, resolveResumePoint, describeOptionalEntryButton,
     validateThoughtCompassCompletion, planCompleteIfValid, buildStorySeedFromAnswers, canGenerateDefaultScenes,
     planMarkStarted, planSaveProgress, planMarkCompleted, planResetCompassOnly, planResetFullOnboarding, planCopyResetOnboarding,

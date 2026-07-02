@@ -173,11 +173,24 @@
     const sec = _el('div', 'tc-sheet');
     const head = _el('div', 'tc-sheet-head');
     head.appendChild(_el('div', 'tc-sheet-title', '🧭 내 이야기 큰줄기 설계도'));
+    const headBtns = _el('div', 'tc-sheet-head-btns');
+    /* COMPASS-ROSE-1: 나침반형 보기·인쇄 — v2 결과보기(read-only) 전용 선택 보기.
+       카드형이 기본(모바일 정본 — ≤600px에서 버튼 CSS 숨김). 검토(완료 전)·v1엔 미노출. */
+    if (R.readOnly && window.ThoughtCompassRose && typeof window.ThoughtCompassRose.open === 'function') {
+      const roseBtn = _el('button', 'tc-sheet-print-btn tc-sheet-rose-btn', '🧭 나침반형');
+      roseBtn.type = 'button';
+      roseBtn.title = '나침반 모양 설계도로 보고 인쇄해요 (태블릿 가로·인쇄용)';
+      roseBtn.addEventListener('click', function () {
+        window.ThoughtCompassRose.open({ map: map, memo: R.userNotes || '' });
+      });
+      headBtns.appendChild(roseBtn);
+    }
     const printBtn = _el('button', 'tc-sheet-print-btn', '🖨 인쇄하기');
     printBtn.type = 'button';
     printBtn.title = '설계도를 1장으로 인쇄해요';
     printBtn.addEventListener('click', _printSheet);
-    head.appendChild(printBtn);
+    headBtns.appendChild(printBtn);
+    head.appendChild(headBtns);
     sec.appendChild(head);
 
     /* 한 문단 줄거리(진엔딩까지 시간축) */

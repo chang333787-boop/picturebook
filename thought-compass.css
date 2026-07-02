@@ -178,6 +178,7 @@
   background: #f7faf3; padding: 14px 14px 12px; margin: 0 0 16px;
 }
 .tc-sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.tc-sheet-head-btns { display: flex; gap: 6px; flex: 0 0 auto; }
 .tc-sheet-title { font-size: 16px; font-weight: 800; color: #4a6a3c; }
 .tc-sheet-print-btn {
   background: #fffefb; border: 1.5px solid #b6cda6; color: #4a6a3c;
@@ -236,4 +237,86 @@
   body.tc-print-sheet .tc-sheet-defer-hint { font-size: 10.5px; margin-top: 5px; }
   body.tc-print-sheet .tc-note-title { font-size: 12px; }
   body.tc-print-sheet .tc-note-view { font-size: 12px; padding: 8px 10px; }
+}
+
+/* ── COMPASS-ROSE-1: 나침반형 이야기 설계도(v2 결과보기 전용 선택 보기) ──
+   카드형(SHEET-1)이 기본·모바일 정본. 나침반형은 태블릿 가로/인쇄용 오버레이.
+   종이 폭 690px = A4 기본 인쇄 여백 안에 무스케일 수납(1페이지 목표). */
+.tc-rose-overlay {
+  position: fixed; inset: 0; z-index: 100001;   /* 결과보기(100000) 위 */
+  background: rgba(40, 32, 20, .6); overflow: auto;
+  padding: 18px 12px 30px; -webkit-tap-highlight-color: transparent;
+}
+.tc-rose-toolbar { position: sticky; top: 0; z-index: 2; width: 690px; max-width: 100%; margin: 0 auto 10px; display: flex; justify-content: flex-end; gap: 8px; }
+.tc-rose-print, .tc-rose-close {
+  font-size: 13px; font-weight: 700; border-radius: 50px; padding: 8px 16px; cursor: pointer; min-height: 36px;
+}
+.tc-rose-print { background: #7aa06a; color: #fff; border: 2px solid #7aa06a; }
+.tc-rose-print:hover { background: #6b9159; }
+.tc-rose-close { background: #fffefb; color: #6b5638; border: 2px solid #e4dbc8; }
+.tc-rose-close:hover { border-color: #cfc3a6; }
+.tc-rose-paper {
+  width: 690px; max-width: 100%; margin: 0 auto; background: #fffdf8; border-radius: 10px;
+  box-shadow: 0 12px 40px rgba(60, 40, 10, .3); padding: 26px 28px 20px;
+  display: flex; flex-direction: column; gap: 12px; word-break: keep-all; outline: none; box-sizing: border-box;
+}
+.tc-rose-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; border-bottom: 2px solid #e2ead8; padding-bottom: 9px; }
+.tc-rose-title { margin: 0; font-size: 21px; color: #4a6a3c; }
+.tc-rose-sub { font-size: 11.5px; color: #8a7350; margin-top: 4px; }
+.tc-rose-badge { display: inline-block; background: #f7faf3; border: 1.5px solid #b6cda6; color: #4a6a3c; border-radius: 50px; font-size: 11px; font-weight: 700; padding: 2px 10px; margin-left: 4px; }
+.tc-rose-who { font-size: 11.5px; color: #6b5638; text-align: right; line-height: 2; flex: 0 0 auto; }
+.tc-rose-line { display: inline-block; width: 96px; border-bottom: 1.5px solid #cdb98c; margin-left: 6px; }
+/* 나침반 스테이지 */
+.tc-rose-stage { position: relative; height: 420px; }
+.tc-rose-stage svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.tc-rose-letter { position: absolute; font-size: 10.5px; font-weight: 800; color: #7aa06a; }
+.tc-rose-card { position: absolute; width: 170px; background: #fffefb; border: 1.5px solid #e2ead8; border-radius: 13px; padding: 8px 11px; box-shadow: 0 2px 8px rgba(90,70,40,.06); box-sizing: border-box; }
+.tc-rose-card.dir-n { top: 0;    left: 50%; transform: translateX(-50%); }
+.tc-rose-card.dir-e { top: 50%;  right: 0;  transform: translateY(-50%); }
+.tc-rose-card.dir-s { bottom: 0; left: 50%; transform: translateX(-50%); }
+.tc-rose-card.dir-w { top: 50%;  left: 0;   transform: translateY(-50%); }
+.tc-rose-card-label { font-size: 11px; font-weight: 800; color: #4a6a3c; margin-bottom: 3px; }
+.tc-rose-card-value { font-size: 12.5px; line-height: 1.45; color: #3a2c14; overflow-wrap: anywhere; }
+.tc-rose-card-value.is-deferred, .tc-rose-stop-text.is-deferred, .tc-rose-center-value.is-deferred { color: #a3936f; font-style: italic; }
+.tc-rose-center {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 196px; height: 196px; border-radius: 50%;
+  background: radial-gradient(circle at 50% 42%, #ffffff 0%, #f7faf3 78%);
+  border: 2.5px solid #7aa06a; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; padding: 18px; gap: 4px; box-shadow: 0 3px 14px rgba(90,120,70,.15); box-sizing: border-box;
+}
+.tc-rose-pin { font-size: 16px; }
+.tc-rose-center-label { font-size: 10.5px; font-weight: 800; color: #4a6a3c; letter-spacing: .04em; }
+.tc-rose-center-value { font-size: 13px; font-weight: 700; line-height: 1.45; color: #3a2c14; overflow-wrap: anywhere; }
+/* 시간띠 */
+.tc-rose-band { background: #f7faf3; border: 2px solid #e2ead8; border-radius: 14px; padding: 11px 14px 13px; }
+.tc-rose-band-title { font-size: 12.5px; font-weight: 800; color: #4a6a3c; margin-bottom: 9px; }
+.tc-rose-band-hint { font-weight: 400; font-size: 10.5px; color: #8a7350; }
+.tc-rose-flow { position: relative; display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.tc-rose-flow::before { content: ''; position: absolute; top: 12px; left: 4%; right: 4%; height: 3px; background: #b6cda6; border-radius: 2px; }
+.tc-rose-stop { position: relative; text-align: center; }
+.tc-rose-dot { position: relative; z-index: 1; width: 24px; height: 24px; border-radius: 50%; background: #fff; border: 2.5px solid #7aa06a; margin: 0 auto 5px; display: flex; align-items: center; justify-content: center; font-size: 11px; }
+.tc-rose-stop.is-final .tc-rose-dot { background: #7aa06a; }
+.tc-rose-stop-label { font-size: 10.5px; font-weight: 800; color: #4a6a3c; margin-bottom: 2px; }
+.tc-rose-stop-text { font-size: 10.5px; line-height: 1.4; color: #6b5638; overflow-wrap: anywhere; }
+.tc-rose-alt { margin-top: 10px; margin-left: 58%; position: relative; max-width: 40%; }
+.tc-rose-alt::before { content: ''; position: absolute; left: -13px; top: -12px; width: 11px; height: 23px; border-left: 2.5px dashed #cdb98c; border-bottom: 2.5px dashed #cdb98c; border-radius: 0 0 0 9px; }
+.tc-rose-alt-card { background: #fbf7ec; border: 1.5px dashed #cdb98c; border-radius: 11px; padding: 7px 10px; }
+.tc-rose-alt-card .tc-rose-card-label { color: #8a6f3c; }
+/* 메모/푸터 */
+.tc-rose-memo { border: 2px solid #e2ead8; border-radius: 14px; padding: 10px 14px 8px; }
+.tc-rose-memo-title { font-size: 11.5px; font-weight: 800; color: #4a6a3c; margin-bottom: 5px; }
+.tc-rose-memo-line { height: 24px; border-bottom: 1.5px dashed #ddd2b8; }
+.tc-rose-memo-text { font-size: 12px; color: #3a2c14; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+.tc-rose-foot { font-size: 10px; color: #8a7350; text-align: center; }
+/* 모바일: 기본 결과보기=카드형 유지 — 나침반 진입 버튼 자체를 숨김 */
+@media (max-width: 600px) { .tc-sheet-rose-btn { display: none !important; } }
+
+/* ── COMPASS-ROSE-1 인쇄: 기존 gate 패턴(tc-print-rose·버튼 경유만) — 나침반 1장 ── */
+@media print {
+  body.tc-print-rose > *:not(.tc-rose-overlay) { display: none !important; }
+  body.tc-print-rose .tc-rose-overlay { position: static !important; padding: 0 !important; background: none !important; overflow: visible !important; }
+  body.tc-print-rose .tc-rose-toolbar { display: none !important; }
+  body.tc-print-rose .tc-rose-paper { box-shadow: none !important; border-radius: 0 !important; margin: 0 auto !important; }
+  body.tc-print-rose .tc-rose-stage, body.tc-print-rose .tc-rose-band, body.tc-print-rose .tc-rose-memo { break-inside: avoid; }
 }

@@ -1345,3 +1345,45 @@
   body.print-write-after .wa-print-sub { font-size: 9.5pt; color: #444; margin-top: 2px; }
   body.print-write-after .wa-print-memoline { height: 20px; border-bottom: 1px dashed #888; margin-top: 6px; }
 }
+
+/* ══ PICTUREBOOK-PRINT-1: 그림책 분기 인쇄 (gate: body.print-picturebook) ══
+   root 화면 상시 숨김 — 버튼 경유 인쇄에만 print 매체 표시. 교사 PC A4 기준·흑백 가독. */
+.pb-print-root { display: none; }
+@media print {
+  body.print-picturebook > *:not(.pb-print-root) { display: none !important; }
+  body.print-picturebook .pb-print-root {
+    display: block; width: 690px; margin: 0 auto; color: #111;
+    font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; line-height: 1.5;
+  }
+  body.print-picturebook .pbp-page { break-after: page; }
+  body.print-picturebook .pbp-page:last-child { break-after: auto; }
+  /* 표지 */
+  body.print-picturebook .pbp-cover { text-align: center; padding-top: 60px; }
+  body.print-picturebook .pbp-cover-tag { font-size: 10pt; color: #555; letter-spacing: .3em; }
+  body.print-picturebook .pbp-cover-title { font-size: 26pt; margin: 12px 0 6px; }
+  body.print-picturebook .pbp-cover-sub { font-size: 12pt; color: #333; margin-bottom: 14px; }
+  body.print-picturebook .pbp-cover-img { max-width: 520px; max-height: 380px; object-fit: contain; border: 1px solid #999; border-radius: 8px; }
+  body.print-picturebook .pbp-cover-team { margin-top: 18px; font-size: 11pt; }
+  /* 이야기 길 지도 */
+  body.print-picturebook .pbp-map-title { font-size: 15pt; margin: 0 0 4px; }
+  body.print-picturebook .pbp-map-guide { font-size: 10pt; color: #333; border: 1.5px solid #999; border-radius: 6px; padding: 5px 9px; margin-bottom: 8px; }
+  body.print-picturebook .pbp-map-line { display: flex; gap: 8px; font-size: 10.5pt; padding: 2.5px 0; border-bottom: 1px dotted #bbb; }
+  body.print-picturebook .pbp-map-num { flex: 0 0 40px; font-weight: 700; }
+  body.print-picturebook .pbp-map-name { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  body.print-picturebook .pbp-map-goto { flex: 0 0 auto; color: #333; }
+  body.print-picturebook .pbp-map-line--extra { color: #666; }
+  body.print-picturebook .pbp-map-extra-note { font-size: 9.5pt; color: #444; margin-top: 6px; }
+  /* 장면(2개/페이지) */
+  body.print-picturebook .pbp-scene { border: 1.5px solid #888; border-radius: 8px; padding: 9px 12px; margin-bottom: 10px; break-inside: avoid; min-height: 44%; }
+  body.print-picturebook .pbp-scene-head { display: flex; align-items: baseline; gap: 8px; border-bottom: 1px solid #ccc; padding-bottom: 4px; margin-bottom: 6px; }
+  body.print-picturebook .pbp-scene-num { font-size: 12pt; font-weight: 800; border: 2px solid #111; border-radius: 6px; padding: 1px 8px; }
+  body.print-picturebook .pbp-scene-flag { font-size: 9pt; color: #333; border: 1px solid #999; border-radius: 50px; padding: 1px 8px; }
+  body.print-picturebook .pbp-scene-title { font-size: 11pt; font-weight: 700; }
+  body.print-picturebook .pbp-scene-img { display: block; max-width: 100%; max-height: 230px; object-fit: contain; margin: 0 auto 6px; }
+  body.print-picturebook .pbp-scene-body { font-size: 11pt; white-space: pre-wrap; }
+  body.print-picturebook .pbp-scene-body--empty { color: #777; font-style: italic; }
+  body.print-picturebook .pbp-choices { margin-top: 7px; border-top: 1px dashed #aaa; padding-top: 5px; }
+  body.print-picturebook .pbp-choice { display: flex; justify-content: space-between; gap: 10px; font-size: 10.5pt; padding: 1.5px 0; }
+  body.print-picturebook .pbp-choice-goto { font-weight: 700; text-decoration: underline; white-space: nowrap; }
+  body.print-picturebook .pbp-end-mark { margin-top: 8px; text-align: center; font-size: 11pt; font-weight: 700; letter-spacing: .2em; }
+}

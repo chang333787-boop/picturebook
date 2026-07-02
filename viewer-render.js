@@ -2282,6 +2282,9 @@ function renderHUD() {
               : '<button type="button" role="menuitem" class="hud-more-item js-edit-project-popover" title="작품 전체에 적용되는 설정이에요" aria-label="작품 전체 설정">⚙ 작품 설정</button>'}
             <div class="hud-more-sep" role="separator"></div>
             <button type="button" role="menuitem" class="hud-more-item js-edit-open-routes" title="엔딩별 이야기 흐름 점검">🛤 이야기 길 보기</button>
+            ${(ViewerState.project && ViewerState.project.projectType === 'picturebook')
+              ? '<button type="button" role="menuitem" class="hud-more-item js-edit-print-pb" title="장면 번호와 이동 안내가 있는 종이 그림책으로 인쇄해요 (선생님 컴퓨터 인쇄 권장)">🖨 그림책 인쇄</button>'
+              : ''}
             <button type="button" role="menuitem" class="hud-more-item js-edit-open-map" title="장면 연결을 한눈에 확인">🔍 구조 보기</button>
             <!-- HOTFIX(생각 나침반 결과 보기): 작품 단위 참고 도구. 생각 나침반 기록이 있을 때만 표시
                  (viewer-edit.js _applyCompassMenuVisibility). 읽기 전용 — 저장된 결과만 다시 봄. 기본 숨김. -->

@@ -4779,6 +4779,15 @@ function _bindHudEditActions() {
      storyAnalyzer는 maker의 전역 scenes/projectMeta를 참조하고, scene 객체에서
      num/buttons/nextA/B 박음. viewer adaptScenes는 {id, choices} 박는 다른 구조라
      변환 어댑터 필수. */
+  /* PICTUREBOOK-PRINT-1: 그림책 분기 인쇄 — read만·번호 즉석 계산·발행 선택본 기준. */
+  document.querySelector('.js-edit-print-pb')?.addEventListener('click', () => {
+    if (window.PicturebookPrint && typeof window.PicturebookPrint.open === 'function') {
+      window.PicturebookPrint.open();
+    } else {
+      alert('인쇄 기능을 불러오지 못했어요. 페이지를 새로고침해 주세요.');
+    }
+  });
+
   document.querySelector('.js-edit-open-routes')?.addEventListener('click', () => {
     if (typeof openRoutePanel !== 'function') {
       alert('루트 보기 기능을 불러오지 못했어요. 페이지를 새로고침해 주세요.');

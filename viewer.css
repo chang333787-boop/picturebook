@@ -7968,3 +7968,76 @@ body.pb-is-scene-switching .choice-preset--ghost {
   backdrop-filter: blur(3px);
   -webkit-backdrop-filter: blur(3px);
 }
+
+/* ══ DRAWING-STUDIO-2-SIMPLE: 간단 모드(핵심 도구만 기본)+상태 문구+선택 강조+저장 토스트 ══
+   기능 삭제 없음 — 고급 도구는 .pb-draw-adv(기본 접힘)로 이동. 캔버스가 주인이 되도록 도구바 압축. */
+
+/* 현재 도구 상태 1줄 */
+.pb-draw-status {
+  padding: 7px 18px 0;
+  font-family: var(--font-ui, 'Jua', sans-serif);
+  font-size: 13px;
+  color: #5a7a4c;
+}
+
+/* 핵심 도구 한 줄(랩 허용) — 터치 타깃 40px+ */
+.pb-draw-core {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px;
+}
+.pb-draw-core .pb-draw-tool { min-height: 42px; padding: 8px 14px; font-size: 14px; }
+.pb-draw-core .pb-draw-color { width: 34px; height: 34px; }
+.pb-draw-core .pb-draw-color-pick { width: 34px; height: 34px; }
+.pb-draw-core .pb-draw-size { min-width: 42px; min-height: 42px; }
+.pb-draw-core .pb-draw-action { min-height: 42px; padding: 8px 12px; }
+
+/* 선택 도구 강조 강화 — 크림 배경(대비 약함) → sage 채움 */
+.pb-draw-tool.is-on {
+  background: #7aa06a;
+  color: #fff;
+  box-shadow: 0 1px 4px rgba(90, 120, 70, 0.35);
+}
+.pb-draw-tool.is-on:hover { color: #fff; }
+
+/* 도구 더보기 토글 */
+.pb-draw-more-btn {
+  min-height: 42px;
+  padding: 8px 14px;
+  border: 1.5px dashed #cdb98c;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-muted, #6b5638);
+  font-family: var(--font-ui, 'Jua', sans-serif);
+  font-size: 13px;
+  cursor: pointer;
+}
+.pb-draw-more-btn:hover { background: var(--surface, #fbf6ea); color: var(--text, #2b1f10); }
+.pb-draw-more-btn[aria-expanded="true"] { border-style: solid; background: var(--surface, #fbf6ea); }
+
+/* 고급 도구(접힘 기본) — hidden 속성 우선 보장 */
+.pb-draw-adv { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed #e4d5b8; }
+.pb-draw-adv[hidden] { display: none !important; }
+
+/* 저장 성공 토스트 */
+.pb-draw-saved-toast {
+  position: fixed; left: 50%; bottom: 34px; transform: translateX(-50%);
+  z-index: 100010;
+  background: #4a6a3c; color: #fff;
+  font-family: var(--font-ui, 'Jua', sans-serif); font-size: 14px;
+  padding: 10px 22px; border-radius: 50px;
+  box-shadow: 0 6px 20px rgba(40, 60, 30, 0.35);
+  opacity: 1; transition: opacity 0.4s ease;
+  pointer-events: none;
+}
+.pb-draw-saved-toast.is-out { opacity: 0; }
+
+/* 모바일(≤768): 도구바 압축 — 캔버스 공간 회복이 목적 */
+@media (max-width: 768px) {
+  .pb-draw-status { font-size: 12px; padding-top: 5px; }
+  .pb-draw-core { gap: 6px 8px; }
+  .pb-draw-core .pb-draw-tool { min-height: 40px; padding: 7px 10px; font-size: 13px; }
+  .pb-draw-core .pb-draw-color { width: 30px; height: 30px; }
+  .pb-draw-core .pb-draw-color-pick { width: 30px; height: 30px; }
+  .pb-draw-core .pb-draw-size { min-width: 40px; min-height: 40px; }
+  .pb-draw-core .pb-draw-action { min-height: 40px; padding: 7px 9px; font-size: 12px; }
+  .pb-draw-more-btn { min-height: 40px; font-size: 12px; padding: 7px 10px; }
+}

@@ -1316,7 +1316,14 @@
     if (mode !== 'aiS1' && mode !== 'aiS2') return originalBox;
     const variantKey = (mode === 'aiS2') ? 's2' : 's1';
     const box = _getFbVariantLayout(variantKey, sceneId) || _getLocalVariantLayout(variantKey, sceneId);
-    return box || originalBox;
+    if (!box) return originalBox;
+    /* REFINE-STAB-B: 글상자 진하기/배경(backdropOpacity)은 항상 원본(장면 꾸미기) 설정을 따른다.
+       variant layout은 위치/크기(x/y/width/height)만 variant 고유 — 저장 시점 opacity가 굳어
+       원본에서 진하기를 바꿔도 AI 보기에 반영되지 않던 문제 수정(필드 누락 시 무효 CSS 방지 겸). */
+    const opacity = (originalBox && typeof originalBox.backdropOpacity === 'number')
+      ? originalBox.backdropOpacity
+      : (typeof box.backdropOpacity === 'number' ? box.backdropOpacity : 0.85);
+    return Object.assign({}, box, { backdropOpacity: opacity });
   }
 
   /* 렌더 통합 진입점 — { picturebookBodyBox } 반환. originalBox는 호출부(render)가 getPicturebookBodyBox(scene)로 전달. */
@@ -3315,6 +3322,17 @@
           ${rewriteBox}
         </div>`;
           const lockReason = '먼저 2단계에서 자료를 보고 고친 뒤 ‘모두 고쳤어요’를 눌러 주세요.';
+          /* REFINE-STAB-D: 이야기 길 확인 — HUD 더보기에서 이동. 2단계 완료 뒤·3단계 앞 위치. */
+          const _isPbProject = (typeof ViewerState !== 'undefined' && ViewerState.project && ViewerState.project.projectType === 'picturebook');
+          const secRoute = `
+        <div class="ai-finish-section" style="margin-top:16px;">
+          <div class="ai-finish-section-title" style="${T}">🗺 이야기 길 확인</div>
+          <div class="ai-finish-section-desc" style="${D}">엔딩까지 가는 길을 읽어보며 이야기가 자연스럽게 이어지는지 확인해요.</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button type="button" class="ai-btn js-ai-open-routes">🛤 이야기 길 보기</button>
+            ${_isPbProject ? '<button type="button" class="ai-btn ai-btn--ghost js-ai-print-pb" title="장면 번호와 이동 안내가 있는 종이 그림책으로 인쇄해요 (선생님 컴퓨터 인쇄 권장)">🖨 그림책 인쇄</button>' : ''}
+          </div>
+        </div>`;
           const sec3 = `
         <div class="ai-finish-section" style="margin-top:16px;${!rewriteDone ? 'opacity:0.62;' : ''}">
           <div class="ai-finish-section-title" style="${T}">3. 마지막 다듬기${!rewriteDone ? ' 🔒' : ''}</div>
@@ -3332,7 +3350,7 @@
           }) : ''}
           </div>
         </div>`;
-          return sec1 + sec2 + sec3;
+          return sec1 + sec2 + secRoute + sec3;
         })()}
         <div class="ai-mode-history" style="margin-top:14px;padding-top:14px;border-top:1px solid #ecdfc4;text-align:center;">
           <button type="button" class="ai-btn ai-btn--ghost js-ai-show-latest-check">🔍 최근 검사 결과 보기</button>
@@ -3386,6 +3404,19 @@
           }
         }
       });
+    });
+
+    /* REFINE-STAB-D: 이야기 길 보기(다듬기 HUD에서 이동) + 그림책 인쇄 — 모달 닫고 실행. */
+    const openRoutesBtn = root.querySelector('.js-ai-open-routes');
+    if (openRoutesBtn) openRoutesBtn.addEventListener('click', function () {
+      _removeModalRoot('ai-mode-modal');
+      if (typeof window._openViewerRoutePanel === 'function') window._openViewerRoutePanel();
+      else alert('이야기 길 보기를 불러오지 못했어요. 페이지를 새로고침해 주세요.');
+    });
+    const pbPrintBtn = root.querySelector('.js-ai-print-pb');
+    if (pbPrintBtn) pbPrintBtn.addEventListener('click', function () {
+      if (window.PicturebookPrint && typeof window.PicturebookPrint.open === 'function') window.PicturebookPrint.open();
+      else alert('인쇄 기능을 불러오지 못했어요. 페이지를 새로고침해 주세요.');
     });
 
     /* WRITE-AFTER-PRINT-1: 고쳐쓰기 자료 인쇄 — latest read만(AI 0·DB write 0·단계 게이트 무변경). */

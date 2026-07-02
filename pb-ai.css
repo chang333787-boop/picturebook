@@ -1320,3 +1320,28 @@
   .viewer-confirm-cancel,
   .viewer-confirm-ok { width: 100%; }
 }
+
+/* ══ WRITE-AFTER-PRINT-1: 고쳐쓰기 자료 인쇄 (gate: body.print-write-after) ══
+   root는 화면에서 항상 숨김 — 버튼 경유 인쇄 동안에만 print 매체에서 표시.
+   기존 tc-print-*(나침반) gate와 독립. 흑백 가독 우선(색 의존 없음). */
+.write-after-print-root { display: none; }
+@media print {
+  body.print-write-after > *:not(.write-after-print-root) { display: none !important; }
+  body.print-write-after .write-after-print-root {
+    display: block; width: 690px; margin: 0 auto; color: #111;
+    font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; font-size: 11pt; line-height: 1.5;
+  }
+  body.print-write-after .wa-print-title { font-size: 18pt; margin: 0 0 4px; }
+  body.print-write-after .wa-print-meta { font-size: 10pt; color: #333; }
+  body.print-write-after .wa-print-guide { font-size: 10.5pt; margin: 6px 0 2px; padding: 6px 10px; border: 1.5px solid #999; border-radius: 6px; }
+  body.print-write-after .wa-print-head { border-bottom: 2px solid #111; padding-bottom: 8px; margin-bottom: 10px; }
+  body.print-write-after .wa-print-section { margin-top: 12px; }
+  body.print-write-after .wa-print-section-title { font-size: 13pt; margin: 0 0 6px; border-left: 4px solid #111; padding-left: 8px; }
+  body.print-write-after .wa-print-item { border: 1px solid #aaa; border-radius: 6px; padding: 7px 10px; margin-bottom: 7px; break-inside: avoid; }
+  body.print-write-after .wa-print-item-row { display: flex; justify-content: space-between; gap: 8px; font-size: 10pt; margin-bottom: 3px; }
+  body.print-write-after .wa-print-check { font-weight: 700; }
+  body.print-write-after .wa-print-scene { color: #333; font-weight: 700; }
+  body.print-write-after .wa-print-text { font-size: 11pt; }
+  body.print-write-after .wa-print-sub { font-size: 9.5pt; color: #444; margin-top: 2px; }
+  body.print-write-after .wa-print-memoline { height: 20px; border-bottom: 1px dashed #888; margin-top: 6px; }
+}

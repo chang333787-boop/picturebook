@@ -3307,6 +3307,11 @@
             enabled: !rewriteDone, disabledReason: doneReason, remaining: null,
           })}
           </div>
+          ${(_writeAfterLatest.waq || _writeAfterLatest.wc) ? `
+          <div style="margin-top:8px;text-align:right;">
+            <button type="button" class="ai-btn ai-btn--ghost js-ai-print-writeafter"
+              title="생각 점검 질문과 작품 검사 결과를 종이로 인쇄해요 (선생님 컴퓨터 인쇄 권장)">🖨 고쳐쓰기 자료 인쇄</button>
+          </div>` : ''}
           ${rewriteBox}
         </div>`;
           const lockReason = '먼저 2단계에서 자료를 보고 고친 뒤 ‘모두 고쳤어요’를 눌러 주세요.';
@@ -3382,6 +3387,10 @@
         }
       });
     });
+
+    /* WRITE-AFTER-PRINT-1: 고쳐쓰기 자료 인쇄 — latest read만(AI 0·DB write 0·단계 게이트 무변경). */
+    const waPrintBtn = root.querySelector('.js-ai-print-writeafter');
+    if (waPrintBtn) waPrintBtn.addEventListener('click', function () { _openWriteAfterPrint(); });
 
     /* Phase 5C: '모두 고쳤어요' / '다시 고칠래요' — rewriteDone 토글(localStorage·DB 0·AI 0) 후 모달 재렌더. */
     const rwDoneBtn = root.querySelector('.js-waq-rewrite-done');
@@ -3836,6 +3845,122 @@
       model: latest.model || null,
     });
     _showCheckResultModal(modalResult);
+  }
+
+  /* ══ WRITE-AFTER-PRINT-1: 고쳐쓰기 자료 인쇄 (교사 PC A4 기준·태블릿은 보조) ══
+     · aiChecks latest(질문·검사) read만 — AI 호출 0·DB write 0·원본 무변경·단계 게이트 무변경.
+     · gate: body.print-write-after + #write-after-print-root — 기존 tc-print-*와 독립(충돌 0).
+     · 항목: real 필드(sceneId/message/where)+구 mock fallback. 전부 textContent(이스케이프 안전). */
+  function _buildWriteAfterPrintModel(scenes, waqLatest, wcLatest) {
+    const sc = (scenes && typeof scenes === 'object') ? scenes : {};
+    const sceneLabel = (sid, fallbackLabel) => {
+      if (fallbackLabel) return fallbackLabel;
+      if (sid == null || sid === '') return '작품 전체';
+      const s = sc[String(sid)];
+      const t = s && typeof s.title === 'string' && s.title.trim() ? ' · ' + s.title.trim() : '';
+      return '장면 ' + sid + t + (s ? '' : ' (장면 정보 없음)');
+    };
+    const sections = [];
+    /* 섹션 1 — 생각 점검 질문 */
+    const qs = waqLatest && waqLatest.result && Array.isArray(waqLatest.result.questions) ? waqLatest.result.questions : [];
+    if (qs.length) {
+      sections.push({
+        title: '💭 생각 점검 질문',
+        items: qs.map(q => ({
+          scene: sceneLabel(q && q.sceneId, q && q.sceneLabel),
+          text: (q && q.question) || '',
+          sub: (q && (q.studentAction || q.reason)) || '',
+        })).filter(it => it.text),
+      });
+    }
+    /* 섹션 2 — 작품 검사(4카테고리·화면 라벨과 동일) */
+    const cats = wcLatest && wcLatest.result && wcLatest.result.categories ? wcLatest.result.categories : {};
+    const CAT_DEFS = [
+      ['spelling', '📝 글자와 문장 확인'], ['coherence', '🔗 장면 연결 확인'],
+      ['character', '👤 인물과 이름 확인'], ['branchFlow', '🌳 선택지·마무리 확인'],
+    ];
+    const wcItems = [];
+    for (const [key, label] of CAT_DEFS) {
+      const arr = Array.isArray(cats[key]) ? cats[key]
+        : (key === 'character' && Array.isArray(cats.characterConsistency)) ? cats.characterConsistency : [];
+      for (const it of arr) {
+        if (!it || typeof it !== 'object') continue;
+        const sid = (it.sceneId != null && it.sceneId !== '') ? it.sceneId
+          : (it.sceneIdFrom != null && it.sceneIdFrom !== '') ? it.sceneIdFrom : null;
+        const msg = it.message || it.issue || (it.wrong && it.correct ? ('‘' + it.wrong + '’ → ‘' + it.correct + '’') : '') || '';
+        if (!msg) continue;
+        wcItems.push({ scene: sceneLabel(sid, null), text: msg, sub: [label.replace(/^\S+\s/, ''), it.where || ''].filter(Boolean).join(' · ') });
+      }
+    }
+    if (wcItems.length) sections.push({ title: '🔍 작품 검사', items: wcItems });
+    return sections;
+  }
+
+  async function _openWriteAfterPrint() {
+    const { classId, teamName } = _getCurrentClassIdTeamName();
+    if (!classId || !teamName) { alert('현재 작품 정보를 확인하지 못했어요.'); return; }
+    const app = _getViewerFirebaseApp();
+    if (!app || !app.database) { alert('연결 상태를 확인하지 못했어요. 잠시 후 다시 시도해 주세요.'); return; }
+    const enc = encodeURIComponent(teamName);
+    const _read = async (p) => { try { return (await app.database().ref(p).once('value')).val(); } catch (e) { return null; } };
+    const base = 'classes/' + classId + '/teams/' + enc + '/aiChecks/';
+    const [waq, wc] = await Promise.all([_read(base + 'writeAfterQuestions/latest'), _read(base + 'workCheck/latest')]);
+    const scenes = (typeof window !== 'undefined' && window.ViewerState && window.ViewerState.scenes) ? window.ViewerState.scenes : {};
+    const sections = _buildWriteAfterPrintModel(scenes, waq, wc);
+    if (!sections.length) { alert('아직 인쇄할 자료가 없어요. 1단계에서 질문이나 작품 검사를 먼저 받아 보세요.'); return; }
+
+    /* 인쇄 root — 중복 생성 방지(기존 제거 후 재생성). 전부 textContent. */
+    const old = document.getElementById('write-after-print-root');
+    if (old) old.remove();
+    const root = document.createElement('div');
+    root.id = 'write-after-print-root';
+    root.className = 'write-after-print-root';
+    const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+    const head = el('div', 'wa-print-head');
+    head.appendChild(el('h1', 'wa-print-title', '✍ 고쳐쓰기 자료'));
+    const today = new Date();
+    head.appendChild(el('div', 'wa-print-meta', '모둠: ' + teamName + '   ·   ' + today.getFullYear() + '년 ' + (today.getMonth() + 1) + '월 ' + today.getDate() + '일'));
+    head.appendChild(el('div', 'wa-print-guide', '아래 내용을 보며 장면을 고친 뒤, 고친 항목에 체크해요.'));
+    root.appendChild(head);
+    sections.forEach(sec => {
+      const s = el('div', 'wa-print-section');
+      s.appendChild(el('h2', 'wa-print-section-title', sec.title));
+      sec.items.forEach(it => {
+        const item = el('div', 'wa-print-item');
+        const row = el('div', 'wa-print-item-row');
+        row.appendChild(el('span', 'wa-print-check', '☐ 고쳤어요'));
+        row.appendChild(el('span', 'wa-print-scene', it.scene));
+        item.appendChild(row);
+        item.appendChild(el('div', 'wa-print-text', it.text));
+        if (it.sub) item.appendChild(el('div', 'wa-print-sub', it.sub));
+        item.appendChild(el('div', 'wa-print-memoline'));
+        s.appendChild(item);
+      });
+      root.appendChild(s);
+    });
+    const foot = el('div', 'wa-print-section');
+    foot.appendChild(el('h2', 'wa-print-section-title', '📝 오늘 내가 고친 것'));
+    for (let i = 0; i < 3; i++) foot.appendChild(el('div', 'wa-print-memoline'));
+    root.appendChild(foot);
+    document.body.appendChild(root);
+
+    /* gate 클래스 — 인쇄 동안만(취소 포함 afterprint+2s 정리). tc-print-*와 독립. */
+    try {
+      document.body.classList.add('print-write-after');
+      const cleanup = function () {
+        document.body.classList.remove('print-write-after');
+        const r = document.getElementById('write-after-print-root');
+        if (r) r.remove();
+        window.removeEventListener('afterprint', cleanup);
+      };
+      window.addEventListener('afterprint', cleanup);
+      window.print();
+      setTimeout(cleanup, 2000);
+    } catch (e) {
+      document.body.classList.remove('print-write-after');
+      const r = document.getElementById('write-after-print-root');
+      if (r) r.remove();
+    }
   }
 
   /* WRITE-AFTER Phase 5B: 최근 생각 점검 질문 결과 다시 보기 — AI 재호출 없음, aiChecks/writeAfterQuestions/latest read만. */
@@ -4626,6 +4751,9 @@
      ════════════════════════════════════════════════════════════════ */
   if (typeof window !== 'undefined') {
     window.viewerAi = {
+      /* WRITE-AFTER-PRINT-1: 인쇄 builder/실행 노출(하니스 검증·외부 진입용) */
+      _buildWriteAfterPrintModel,
+      _openWriteAfterPrint,
       PHASE:      PHASE,
       MOCK_ONLY:  MOCK_ONLY,
       openModal:  openModal,

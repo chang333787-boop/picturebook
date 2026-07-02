@@ -1820,23 +1820,15 @@ function _setPublishedTextCaches(textNode, selNode) {
   _pubTextSelBySid = sel;
 }
 
-/* ★ TEXT-S2-SELECT: 렌더용 동기 helper — 호출부가 해석한 originalBody(String(scene.body))를 받아,
-   교사가 발행 선택(textSelections.selected==='s2')한 장면이면 usable(body·!stale)한 s2 body로 표시.
-   - selection 없음/original/누락/stale/body없음/키불일치 → originalBody 그대로(기존 동작 100% 유지).
-   - 원본 scene.body는 절대 변경하지 않음(표시용 문자열만 결정).
-   - 캐시 미적재(loadTeamData 전·구작품) → originalBody. viewer-ai 보기 토글과 독립(토글은 이 결과 위에 덧씌움). */
+/* ★ TEXT-S2-PUBLISH-CHOICE-REMOVAL-1: '감상 글 정하기'(발행 선택) 제도 폐기 — 항상 originalBody 반환.
+   textSelections='s2' 확정 장면은 토글을 '원본'에 둬도 s2가 보이는 이중 레이어 모순이 있었고,
+   AI 장면발전은 확정본이 아니라 비교 후보라는 제품 원칙에 따라 발행 레이어를 무력화한다.
+   - 레거시 aiVariants/textSelections 데이터는 DB에 남지만 표시 결정에는 쓰지 않는다(삭제 안 함).
+   - 원본/AI 비교는 viewer-ai '글 보기' 토글(_getDisplayBody)만 담당 → 토글 '원본'=진짜 원본 보장.
+   - 시그니처/전역 노출 유지 → 렌더 8지점·picturebook-print 호출부 무수정으로 전부 원본 통일.
+   배경: docs/text_s2_publish_choice_removal_audit_20260702.md */
 function getPublishedBodyDisplay(scene, originalBody) {
-  try {
-    if (!scene || typeof resolveSceneBodySource !== 'function') return originalBody;
-    const sid = (scene.id != null) ? scene.id : scene.sceneId;
-    if (sid == null) return originalBody;
-    const key = String(sid);
-    const sel = _pubTextSelBySid ? _pubTextSelBySid[key] : null;
-    if (!sel || sel.selected !== 's2') return originalBody;   /* 선택 없음/original → 원본(기존 동작) */
-    const s2 = _pubTextS2BySid ? _pubTextS2BySid[key] : null;
-    const r = resolveSceneBodySource(scene, sel, s2, null);   /* previewMode 없음 = 작품 발행 기준 */
-    return (r && r.kind === 's2' && typeof r.body === 'string') ? r.body : originalBody;
-  } catch (e) { return originalBody; }
+  return originalBody;
 }
 
 /* TEXT-S2-SELECT: 현재 발행 선택 상태 읽기(캐시 기준·UI 표시용). 값 없음/original → 'original'. */

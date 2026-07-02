@@ -2568,14 +2568,8 @@
     let html = '<span class="ai-view-toggle-bar__label">글 보기:</span>'
       + '<button type="button" class="ai-view-toggle-btn js-ai-view-original" data-mode="original">원본</button>';
     if (hasS2) html += '<button type="button" class="ai-view-toggle-btn js-ai-view-ais2" data-mode="aiS2">AI 장면발전</button>';
-    /* TEXT-S2-SELECT (P7): 교사/편집 세션에서만 '감상 글 정하기' 진입(발행 선택 모달). 감상자/학생엔 미노출.
-       글 보기(임시 비교)와 분리 — 감상에 실제로 보여줄 글은 여기서 정한다. */
-    const _selEditSess = !!(typeof window !== 'undefined' && window.isEditViewerSession
-      && window.isEditViewerSession((typeof location !== 'undefined') ? location.search : ''));
-    if (hasS2 && _selEditSess) {
-      html += '<span class="ai-view-toggle-bar__sep" aria-hidden="true">·</span>'
-        + '<button type="button" class="ai-view-toggle-btn js-ai-textsel-open" title="감상 화면에 보여줄 글을 장면마다 정해요(원본 보존)">감상 글 정하기</button>';
-    }
+    /* TEXT-S2-PUBLISH-CHOICE-REMOVAL-1: '감상 글 정하기'(발행 선택) 진입 버튼 제거 —
+       AI 장면발전은 확정본이 아니라 비교 후보. 감상/다듬기 모두 이 토글로만 원본/AI를 오가며 본다. */
     bar.innerHTML = html;
     document.body.appendChild(bar);
     /* TOP-HUD-AI-LAYOUT-1B: AI 보기모드 바가 떠 있을 때만 body에 상태 class.
@@ -2588,9 +2582,6 @@
         _setAiViewMode(btn.getAttribute('data-mode'));
       });
     });
-    /* TEXT-S2-SELECT (P7): '감상 글 정하기' → 발행 선택 모달 */
-    const _selBtn = bar.querySelector('.js-ai-textsel-open');
-    if (_selBtn) _selBtn.addEventListener('click', function () { _showTextS2SelectionModal(); });
     _updateAiToggleBar();
     _applyVariantEditPanelLock();
   }
@@ -2612,114 +2603,10 @@
     document.body.classList.remove('has-ai-view-toggle');
   }
 
-  /* ════════════════════════════════════════════════════════════════
-     TEXT-S2-SELECT (P7) — '감상에 보여줄 글' 발행 선택 모달 (교사 전용·서버 callable)
-     ──────────────────────────────────────────────────────────────
-     · 글 보기 토글(임시 비교)과 분리 — 여기서 정한 글만 감상 화면에 발행된다.
-     · scene별 [원본 / AI 장면발전] 선택. 기본값 원본. s2 없으면 AI 버튼 disabled.
-     · 저장 = callApplyTextS2Selection(교사 전용·aiVariants/textSelections). 원본 scene.body 절대 불변.
-     · 성공 후 setPublishedTextSelectionForScene로 캐시 동기 갱신 + 프레임 재렌더.
-     ════════════════════════════════════════════════════════════════ */
-  function _textSelScenesWithS2() {
-    const out = [];
-    const VS = (typeof ViewerState !== 'undefined') ? ViewerState : (typeof window !== 'undefined' ? window.ViewerState : null);
-    if (!VS || !VS.scenes) return out;
-    Object.keys(VS.scenes).forEach(function (sid) {
-      const sc = VS.scenes[sid];
-      if (!sc || sc.isCover) return;
-      const s2body = _getFbVariantBody('s2', sid);
-      if (typeof s2body === 'string' && s2body.trim()) {
-        out.push({ id: sid, title: (sc.title || ''), orig: String(sc.body || ''), s2: s2body });
-      }
-    });
-    return out;
-  }
-
-  function _textSelClip(s, n) {
-    const t = String(s || '').replace(/\s+/g, ' ').trim();
-    return t.length > n ? (t.slice(0, n) + '…') : (t || '(빈 글)');
-  }
-
-  function _showTextS2SelectionModal() {
-    const scenes = _textSelScenesWithS2();
-    const T = 'font-size:14px;font-weight:700;color:#5b4a2e;margin:0 0 2px;';
-    let rows;
-    if (!scenes.length) {
-      rows = '<p style="color:#8a7a5e;font-size:13px;margin:8px 0;">AI 장면발전 결과가 아직 없어요. 먼저 ‘마지막 다듬기 → AI 장면발전’으로 후보를 만든 뒤 정할 수 있어요.</p>';
-    } else {
-      rows = scenes.map(function (s) {
-        const cur = (typeof window !== 'undefined' && window.getPublishedTextSelectionForScene)
-          ? window.getPublishedTextSelectionForScene(s.id) : 'original';
-        const curLabel = (cur === 's2') ? 'AI 장면발전' : '원본';
-        return ''
-          + '<div class="ai-textsel-row" data-sid="' + _escapeHtml(String(s.id)) + '" style="border:1px solid #e6ddc8;border-radius:10px;padding:10px 12px;margin:8px 0;">'
-          +   '<div style="font-size:12px;color:#8a7a5e;margin-bottom:4px;">장면 ' + _escapeHtml(String(s.id)) + (s.title ? (' · ' + _escapeHtml(s.title)) : '') + '</div>'
-          +   '<div style="display:flex;gap:8px;flex-wrap:wrap;font-size:12px;color:#5f5540;margin-bottom:8px;">'
-          +     '<div style="flex:1 1 45%;min-width:120px;"><b>원본</b><br/>' + _escapeHtml(_textSelClip(s.orig, 90)) + '</div>'
-          +     '<div style="flex:1 1 45%;min-width:120px;"><b>AI 장면발전</b><br/>' + _escapeHtml(_textSelClip(s.s2, 90)) + '</div>'
-          +   '</div>'
-          +   '<div class="ai-textsel-state" style="font-size:12px;color:#3a7d3a;margin-bottom:6px;">현재 감상 글: <b>' + curLabel + '</b></div>'
-          +   '<div style="display:flex;gap:8px;flex-wrap:wrap;">'
-          +     '<button type="button" class="ai-btn js-textsel-orig" data-sid="' + _escapeHtml(String(s.id)) + '"' + (cur === 'original' ? ' disabled' : '') + '>원본으로 정하기</button>'
-          +     '<button type="button" class="ai-btn ai-btn--primary js-textsel-s2" data-sid="' + _escapeHtml(String(s.id)) + '"' + (cur === 's2' ? ' disabled' : '') + '>AI 장면발전으로 정하기</button>'
-          +   '</div>'
-          + '</div>';
-      }).join('');
-    }
-    const html = ''
-      + '<div class="ai-modal__header"><div class="ai-modal__title">📖 감상에 보여줄 글</div>'
-      +   '<button class="ai-modal__close js-ai-modal-close" aria-label="닫기">✕</button></div>'
-      + '<div class="ai-modal__body">'
-      +   '<p class="ai-mode-intro" style="' + T + 'font-weight:400;font-size:12px;color:#8a7a5e;">원본은 그대로 보존돼요. 선택한 글만 감상 화면에 보여요. (글 보기 토글은 임시 비교용이에요.)</p>'
-      +   rows
-      + '</div>';
-    const root = _createModalRoot('ai-textsel-modal', html);
-    const closeBtn = root.querySelector('.js-ai-modal-close');
-    if (closeBtn) closeBtn.addEventListener('click', function () { _removeModalRoot('ai-textsel-modal'); });
-    root.querySelectorAll('.js-textsel-orig').forEach(function (b) {
-      b.addEventListener('click', function () { _applyTextSelection(b.getAttribute('data-sid'), 'original'); });
-    });
-    root.querySelectorAll('.js-textsel-s2').forEach(function (b) {
-      b.addEventListener('click', function () { _applyTextSelection(b.getAttribute('data-sid'), 's2'); });
-    });
-  }
-
-  async function _applyTextSelection(sceneId, selected) {
-    const { classId, teamName } = _getCurrentClassIdTeamName();
-    if (!classId || !teamName) { showAiNotice('작품 정보를 확인할 수 없어요.', { title: '감상 글 정하기' }); return; }
-    if (selected === 's2') {
-      const s2body = _getFbVariantBody('s2', sceneId);
-      if (!(typeof s2body === 'string' && s2body.trim())) {
-        showAiNotice('AI 장면발전 결과가 아직 없어요.', { title: '감상 글 정하기' });
-        return;
-      }
-    }
-    let res;
-    try {
-      res = await _callPhaseAFunction('callApplyTextS2Selection', { classId: classId, teamName: teamName, sceneId: sceneId, selected: selected });
-    } catch (e) {
-      showAiNotice('저장에 실패했어요. 잠시 후 다시 시도해 주세요. (원본은 그대로예요)', { title: '감상 글 정하기' });
-      return;
-    }
-    if (!res || res.ok !== true) {
-      if (res && res.code === 'S2_NOT_USABLE') showAiNotice('AI 장면발전 결과가 아직 없어요.', { title: '감상 글 정하기' });
-      else showAiNotice('저장에 실패했어요. (원본은 그대로예요)', { title: '감상 글 정하기' });
-      return;
-    }
-    /* 저장 성공 — 캐시 동기 갱신(원본 body 불변) + 프레임 재렌더 + 모달 새로고침 */
-    try {
-      if (typeof window !== 'undefined' && window.setPublishedTextSelectionForScene) {
-        const s2node = (selected === 's2') ? { body: _getFbVariantBody('s2', sceneId) } : null;
-        window.setPublishedTextSelectionForScene(sceneId, selected, s2node);
-      }
-    } catch (e) { /* noop — 표시 갱신 실패해도 서버 저장은 됨 */ }
-    if (typeof window !== 'undefined' && typeof window._scheduleViewerFrameReRender === 'function') {
-      try { window._scheduleViewerFrameReRender(); } catch (e) { /* noop */ }
-    }
-    showAiToast('감상 글을 ' + (selected === 's2' ? 'AI 장면발전' : '원본') + '으로 정했어요. 원본은 그대로예요.');
-    _removeModalRoot('ai-textsel-modal');
-    _showTextS2SelectionModal();
-  }
+  /* TEXT-S2-PUBLISH-CHOICE-REMOVAL-1: '감상에 보여줄 글' 발행 선택 모달(_showTextS2SelectionModal/
+     _applyTextSelection)과 callApplyTextS2Selection 클라 호출 제거 — 감상본 확정 저장 제도 폐기.
+     원본/AI 비교는 위 '글 보기' 토글(_getDisplayBody)만 사용. 서버 callable·레거시 textSelections
+     데이터는 dormant로 유지(삭제/deploy 없음). 배경: docs/text_s2_publish_choice_removal_audit_20260702.md */
 
   /* ════════════════════════════════════════════════════════════════
      P5-IMAGE-VARIANT-1: 이미지 보기 토글 바 (텍스트 토글과 독립)

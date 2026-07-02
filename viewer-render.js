@@ -730,7 +730,13 @@ function _renderScenePicturebook(stage, scene, submode) {
       : _origBodyBox;
     /* 배경막 색상은 흰색 기준 — opacity로 강도 조절. 0이면 완전 투명, 1이면 완전 불투명.
        height: null이면 콘텐츠 자동, 숫자면 명시 높이 (W4: 사용자가 모서리 리사이즈로 박스 높이 명시 가능). */
-    const heightStyle = (typeof bodyBox.height === 'number') ? ` height: ${bodyBox.height}%;` : '';
+    /* TEXT-S2-PUBLISH-CHOICE-REMOVAL-1: AI 장면발전 보기에서 variant 전용 layout이 없어 원본 box를
+       fallback으로 쓰는 장면은 명시 height를 렌더에서만 생략 → 원본보다 긴 AI 글이 원본 고정 높이의
+       내부 스크롤에 갇히지 않고 글 분량대로 자동 확장. variant layout이 저장돼 있으면(bodyBox 참조가
+       원본과 다름) 그 height 그대로. 원본 보기·scene.picturebookBodyBox 저장값은 완전 불변. */
+    const _pbShowsVariantBody = (_aiViewModePb === 'aiS1' || _aiViewModePb === 'aiS2') && body !== _orig;
+    const heightStyle = (typeof bodyBox.height === 'number' && !(_pbShowsVariantBody && bodyBox === _origBodyBox))
+      ? ` height: ${bodyBox.height}%;` : '';
     const bodyOverlayStyle = body
       ? `left: ${bodyBox.x}%; top: ${bodyBox.y}%; width: ${bodyBox.width}%;${heightStyle}`
         /* D8-CLEAN-1B: 글상자 진하기 = --pb-box-opacity. 신규 5스킨 imageCenter는 v03-modes.css가

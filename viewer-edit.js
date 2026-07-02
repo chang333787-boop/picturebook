@@ -6113,10 +6113,12 @@ function _bindSceneStylePopover(pop) {
 
   /* PB-BODYBOX-1B: 글상자 진하기(backdropOpacity) — 우측 _pbBbBindRange의 op 슬라이더와 동일 저장 경로
      (scene.picturebookBodyBox + _queueSave + _flushPendingSave). 우측 _pbBbBindRange는 panel 클로저라
-     재사용 불가 → root(pop) scope로 최소 복제. ★ 우측엔 없던 variant 가드 추가: AI(s1/s2) 보기 중엔
-     원본 picturebookBodyBox 미변경(input=무동작, change=안내). 위치/크기 오버레이·variant layout
-     save는 무관·무수정. renderEditPanel 미호출(값 라벨만 갱신). helper가 imageCenter 아닐 땐 슬라이더
-     자체를 안 그려 range null → no-op. */
+     재사용 불가 → root(pop) scope로 최소 복제. renderEditPanel 미호출(값 라벨만 갱신).
+     helper가 imageCenter 아닐 땐 슬라이더 자체를 안 그려 range null → no-op.
+     FIELD-FIX-C(2026-07-02): 구 variant 가드 제거 — REFINE-STAB-B에서 진하기는 '항상 원본
+     설정을 따름'(AI 보기의 _getDisplayPbBodyBox가 원본 backdropOpacity를 merge)으로 정리됐으므로,
+     AI(s1/s2) 보기 중에도 이 슬라이더=원본 진하기 설정 변경이고 화면에 즉시 반영되는 게 맞다.
+     variant layout(x/y/w/h)·본문 편집 잠금은 별개 경로로 계속 유지(여긴 진하기만). */
   (function _bindPbBodyBoxOpacity() {
     const range = pop.querySelector('.js-pb-bb-op');
     const valEl = pop.querySelector('.js-pb-bb-op-val');
@@ -6132,8 +6134,6 @@ function _bindSceneStylePopover(pop) {
     };
     range.addEventListener('input', () => {
       if (!_editText.editable) return;
-      /* AI 보기 중엔 원본 미변경 — toast 스팸 방지로 input은 조용히 무동작(안내는 change에서). */
-      if (typeof _isVariantViewLocked === 'function' && _isVariantViewLocked()) return;
       const bb = _ensureBb();
       const numeric = Number(range.value);
       bb.backdropOpacity = numeric / 100;
@@ -6142,10 +6142,6 @@ function _bindSceneStylePopover(pop) {
     });
     range.addEventListener('change', () => {
       if (!_editText.editable) return;
-      if (typeof _isVariantViewLocked === 'function' && _isVariantViewLocked()) {
-        _showSaveStatus('AI 버전은 보기 전용입니다. 편집은 원본에서 해 주세요.', 2500);
-        return;
-      }
       const bb = _ensureBb();
       _queueSave(scene.num || scene.id, { picturebookBodyBox: { ...bb } });
       _flushPendingSave();

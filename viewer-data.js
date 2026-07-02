@@ -207,6 +207,19 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
   /* TEXT-S2-SELECT (P7): 발행된 텍스트 선택/변형 캐시 적재(team 1회). 실패/부재 시 빈 캐시 → 원본 body 표시. */
   _setPublishedTextCaches(txtVarSnap, txtSelSnap);
 
+  /* FIELD-FIX-B(2026-07-02): 감상 세션에서 s2 변형(글/그림)이 있는 작품이면 viewer-ai.js를
+     지연 로드 → '글 보기: 원본/AI 장면발전'·'그림 보기' 토글이 감상자에게도 복원(Phase 4-A 원설계).
+     PERF-2 이득 유지: s2 없는 작품(대부분)은 기존과 동일하게 아무것도 로드하지 않음.
+     로드 후 토글 표시/캐시는 viewer-ai 자체 부트스트랩이 담당. 실패해도 원본 감상은 완전 동작. */
+  try {
+    const _hasAnyS2 = (_pubTextS2BySid && Object.keys(_pubTextS2BySid).length > 0)
+      || (_pubImageS2BySid && Object.keys(_pubImageS2BySid).length > 0);
+    if (_hasAnyS2 && typeof window !== 'undefined' && !window.viewerAi
+        && typeof window.ensureAiViewBundle === 'function' && !isEditViewerSession()) {
+      window.ensureAiViewBundle().catch(() => { /* 감상은 원본만으로 완전 동작 */ });
+    }
+  } catch (e) { /* noop */ }
+
   /* W7 projectType 강제 lock (사용자 결정):
      "무슨일이있어도 다른모드로 맘대로 못넘어가게 설정해"
      ─────────────────────────────────────────────────────────────

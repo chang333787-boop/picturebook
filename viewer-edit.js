@@ -7093,7 +7093,10 @@ function _openPbDrawModal(scene) {
      해상도 1800 → 1200 (v36 태블릿): 태블릿 CPU에서 putImageData/getImageData/flood fill
      빠르게. 디테일 충분 + 메모리·성능 균형. */
   const submode = scene.picturebookSubmode === 'imageCenter' ? 'imageCenter' : 'split';
-  let canvasW = 1200, canvasH = 505;   /* fallback — landscape split 근사 */
+  let canvasW = 1200;
+  /* fallback(측정 실패 시): imageCenter는 가로 감상 stage(3:2 page) 비율 ≈1.914 → 627,
+     split은 기존 landscape 근사 ≈2.376 → 505. */
+  let canvasH = submode === 'imageCenter' ? 627 : 505;
   const illustEl = document.querySelector(
     submode === 'imageCenter'
       ? '.scene-screen--pb.pb--imagecenter .pb-illust'
@@ -7102,8 +7105,23 @@ function _openPbDrawModal(scene) {
   if (illustEl) {
     const rect = illustEl.getBoundingClientRect();
     if (rect.width > 0 && rect.height > 0) {
-      const ratio = rect.width / rect.height;
-      canvasW = 1200;
+      let ratio = rect.width / rect.height;
+      /* DRAWING-CANVAS-RATIO: imageCenter 감상 화면은 contain(크롭 없음)이라, 편집 컨텍스트
+         (A4 297:210)에서 측정한 그림 박스(≈1.80)와 주 감상 컨텍스트(가로 3:2)의 박스(≈1.91)가
+         달라 감상 시 좌우 여백이 남는다. illust 박스 비율은 page 비율에 선형 비례하므로,
+         측정값을 "가로 감상 표준" page 비율(3:2)로 재보정해 신규 캔버스를 주 감상에 맞춘다.
+         · 세로 작품(data-page-orientation=portrait)은 감상도 세로 → 재보정 no-op(회귀 없음).
+         · split은 감상이 cover(꽉 채움)라 재보정 시 크롭 증가 위험 → 현 측정 유지.
+         좌표는 _pos()가 getBoundingClientRect 스케일링이라 내부 해상도 변경에 안전. */
+      if (submode === 'imageCenter'
+          && document.body.getAttribute('data-page-orientation') !== 'portrait') {
+        const pageEl = illustEl.closest('.pb-page');
+        const pr = pageEl && pageEl.getBoundingClientRect();
+        if (pr && pr.width > 0 && pr.height > 0) {
+          const VIEW_PAGE_RATIO = 3 / 2;   /* VIEWER-PLAY-ASPECT-1A: 가로 감상 페이지 3:2 */
+          ratio = ratio * (VIEW_PAGE_RATIO / (pr.width / pr.height));
+        }
+      }
       canvasH = Math.max(1, Math.round(canvasW / ratio));
     }
   }

@@ -6705,32 +6705,38 @@ body[data-page-orientation="portrait"] .terminal-screen--story .ending-page {
   overflow-y: auto;
   background: transparent;
 }
-/* HOTFIX-MOBILE-TEXT-COMPACT: 모바일(≤600px) 텍스트 감상 = 독서형 compact 레이아웃.
-   지난 패치(aspect 고정 해제 + height:100% 화면 채움)는 짧은 본문에서도 카드가 화면 전체를
-   차지해 선택지가 바닥으로 멀어지고 빈 공간이 컸다. 이제 카드를 '내용 기반'으로:
-   · 페이지/카드 height:auto (짧으면 내용만큼만) + max-height:100%(화면 안) + grid place-items:center로 중앙.
-   · 본문 flex:0 1 auto(그로우 금지)라 짧은 글은 선택지가 본문 바로 아래로 붙음.
-   · 긴 본문만 max-height(58dvh)+overflow(기존 min-height:0·overflow-y:auto) → 본문 내부 스크롤·선택지 보존.
-   데스크톱/태블릿(>600px)은 기존 고정 페이지 유지. 표지도 같은 카드라 함께 compact. */
+/* HOTFIX-MOBILE-TEXT-FIXEDFRAME: 모바일(≤600px) 텍스트 본문 = 고정 독서 프레임.
+   직전 compact(height:auto·place-items:center)는 장면마다 카드 높이/위치가 달라져 화면이 왔다갔다(멀미).
+   이제 프레임을 화면 상단부터 안정적으로 채워(장면 무관 동일 top/height/actions) 본문만 내부 스크롤.
+   · place-items:center→stretch + padding-top 축소 → 카드가 위에서 시작(상단 낭비 감소).
+   · text-page/card height:100% → 장면 길이와 무관하게 프레임 고정.
+   · 본문 flex:1 1 auto + min-height:0 + overflow-y:auto(후자 둘은 v03-modes HOTFIX-LAYOUT) → 길면 본문만 스크롤.
+   · actions flex:0 0 auto → 항상 카드 하단 안정.
+   표지(cover-as-pb--text)는 별도 규칙 유지(무영향). 데스크톱/태블릿(>600px) 기존 고정 페이지 유지. */
 @media (max-width: 600px) {
-  .scene-screen--text-paged { padding: 10px; place-items: center; }
+  .scene-screen--text-paged {
+    padding: 8px 10px 10px;
+    place-items: stretch;
+  }
   .scene-screen--text-paged .text-page {
     aspect-ratio: auto;
     width: 100%;
-    height: auto;
+    height: 100%;
     max-height: 100%;
   }
   .scene-screen--text-paged .text-page .text-card {
-    height: auto;
+    height: 100%;
     max-height: 100%;
-    padding: 18px 18px 16px;
+    padding: 16px 18px 14px;
   }
-  /* 본문: 그로우 금지 → 짧은 글은 카드가 내용에 맞게 줄고 선택지가 가까워짐.
-     긴 글은 58dvh 상한 + 내부 스크롤(min-height:0·overflow-y:auto는 v03-modes HOTFIX-LAYOUT). */
-  .scene-screen--text .text-card__body {
-    flex: 0 1 auto;
-    max-height: 58dvh;
-    margin-bottom: 14px;
+  /* text-paged 스코프로 compact의 flex:0 1 auto/max-height 덮어씀(본문 장면 전용·표지 무관). */
+  .scene-screen--text-paged .text-card__body {
+    flex: 1 1 auto;
+    max-height: none;
+    margin-bottom: 12px;
+  }
+  .scene-screen--text-paged .text-card__actions {
+    flex: 0 0 auto;
   }
 }
 .scene-screen--text .scene-bg {

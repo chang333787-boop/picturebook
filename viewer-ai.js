@@ -1379,11 +1379,7 @@
       if (typeof _showAiToggleBar === 'function') {
         try { _showAiToggleBar(); } catch (e) { /* noop */ }
       }
-      if (typeof window._scheduleViewerFrameReRender === 'function') {
-        window._scheduleViewerFrameReRender();
-      } else if (typeof _scheduleViewerFrameReRender === 'function') {
-        _scheduleViewerFrameReRender();
-      }
+      _requestViewerFrameRerender();   /* VIEWER-TOGGLE-LIVE-REFRESH-FIX: 감상 fallback 포함 */
     }
     return out;
   }
@@ -1489,11 +1485,7 @@
       if (typeof _showAiImageToggleBar === 'function') {
         try { _showAiImageToggleBar(); } catch (e) { /* noop */ }
       }
-      if (typeof window._scheduleViewerFrameReRender === 'function') {
-        window._scheduleViewerFrameReRender();
-      } else if (typeof _scheduleViewerFrameReRender === 'function') {
-        _scheduleViewerFrameReRender();
-      }
+      _requestViewerFrameRerender();   /* VIEWER-TOGGLE-LIVE-REFRESH-FIX: 감상 fallback 포함 */
     }
     return out;
   }
@@ -2481,6 +2473,27 @@
     } catch (e) { /* noop */ }
   }
 
+  /* VIEWER-TOGGLE-LIVE-REFRESH-FIX(2026-07-02): 현재 장면 재렌더 요청.
+     편집 세션 = viewer-edit의 _scheduleViewerFrameReRender(디바운스·편집 상태 보존) 그대로.
+     감상 세션(viewer-ai 단독 로드·FIELD-FIX-B) = 그 함수가 없어 토글이 상태만 바꾸고
+     현재 장면엔 다음 이동 때에야 반영되던 문제 → viewer-render 전역 renderCurrentScene 직접 호출.
+     같은 currentSceneId를 다시 그릴 뿐 — 장면 이동/기록/선택 진행 상태 변화 0·데이터 write 0. */
+  function _requestViewerFrameRerender() {
+    try {
+      if (typeof window !== 'undefined' && typeof window._scheduleViewerFrameReRender === 'function') {
+        window._scheduleViewerFrameReRender();
+        return;
+      }
+    } catch (e) { /* noop */ }
+    try {
+      if (typeof _scheduleViewerFrameReRender === 'function') { _scheduleViewerFrameReRender(); return; }
+    } catch (e) { /* noop */ }
+    try {
+      if (typeof renderCurrentScene === 'function') renderCurrentScene();
+      else if (typeof window !== 'undefined' && typeof window.renderCurrentScene === 'function') window.renderCurrentScene();
+    } catch (e) { /* noop */ }
+  }
+
   function _setAiViewMode(mode) {
     /* Phase 4-A: 모드 전환 전, 원본 보기에서 편집 중이던 pending save를 먼저 flush.
        전환 후엔 잠금 상태라 _flushPendingSave가 막히므로 반드시 변경 전에. */
@@ -2503,12 +2516,8 @@
     } catch (e) { /* noop */ }
     _updateAiToggleBar();
     _applyVariantEditPanelLock();
-    /* viewer 본문 박은 거 박은 거 박은 거 박은 거 — v138 박은 _scheduleViewerFrameReRender 박은 거 박음 */
-    if (typeof window._scheduleViewerFrameReRender === 'function') {
-      window._scheduleViewerFrameReRender();
-    } else if (typeof _scheduleViewerFrameReRender === 'function') {
-      _scheduleViewerFrameReRender();
-    }
+    /* VIEWER-TOGGLE-LIVE-REFRESH-FIX: 편집=스케줄러/감상=renderCurrentScene fallback — 즉시 반영 */
+    _requestViewerFrameRerender();
     /* P4-D-2B-FIX4: 패널은 재렌더되지 않으므로(슬라이더 DOM 값이 직전 모드에 머묾) 글자 크기
        슬라이더 value/라벨 + 본문 CSS 변수를 새 보기 모드의 표시 style로 다시 동기화한다.
        원본 scene.textStyle은 건드리지 않는다(viewer-edit.js 전역 함수). */
@@ -2624,12 +2633,9 @@
       else localStorage.setItem(_getMockImageViewModeKey(), 'original');
     } catch (e) { /* noop */ }
     _updateAiImageToggleBar();
-    /* 본문 프레임 재렌더 → _getDisplayImageSrc가 새 모드 반영. 원본 필드는 불변. */
-    if (typeof window._scheduleViewerFrameReRender === 'function') {
-      window._scheduleViewerFrameReRender();
-    } else if (typeof _scheduleViewerFrameReRender === 'function') {
-      _scheduleViewerFrameReRender();
-    }
+    /* 본문 프레임 재렌더 → _getDisplayImageSrc가 새 모드 반영. 원본 필드는 불변.
+       VIEWER-TOGGLE-LIVE-REFRESH-FIX: 감상 세션도 즉시 반영(fallback=renderCurrentScene). */
+    _requestViewerFrameRerender();
     /* P5-IMAGE-LOCK-1: 이미지 보기 모드 전환 시 편집 패널의 원본 이미지 편집 잠금 즉시 동기화
        (편집 패널은 재렌더되지 않으므로 명시 호출). viewer-edit.js 전역 함수. */
     try {

@@ -99,8 +99,8 @@
 .tc-review-card { max-width: 600px; }
 .tc-review-list { display: flex; flex-direction: column; gap: 12px; margin-top: 6px; }
 .tc-review-item { position: relative; border: 1px solid #ece3d2; border-radius: 14px; padding: 14px 14px 12px; background: #fffefb; }
-.tc-review-q { font-size: 14px; font-weight: 700; color: #6b5638; margin-bottom: 6px; line-height: 1.45; word-break: keep-all; padding-right: 64px; }
-.tc-review-a { font-size: 16px; color: #3a2c14; line-height: 1.5; word-break: keep-all; }
+.tc-review-q { font-size: 14px; font-weight: 700; color: #6b5638; margin-bottom: 6px; line-height: 1.45; word-break: keep-all; overflow-wrap: anywhere; padding-right: 64px; }
+.tc-review-a { font-size: 16px; color: #3a2c14; line-height: 1.5; word-break: keep-all; overflow-wrap: anywhere; }
 .tc-review-a.is-empty { color: #b0a384; font-style: italic; }
 .tc-review-followup { margin-top: 8px; padding-left: 10px; border-left: 2px solid #e4dbc8; }
 .tc-review-fq { font-size: 13px; color: #8a7350; line-height: 1.45; }
@@ -187,14 +187,14 @@
 .tc-sheet-print-btn:hover { background: #eef4e8; }
 .tc-sheet-print-btn:focus-visible { outline: 3px solid #b6cda6; outline-offset: 2px; }
 .tc-sheet-summary {
-  font-size: 15px; color: #3a2c14; line-height: 1.7; word-break: keep-all;
+  font-size: 15px; color: #3a2c14; line-height: 1.7; word-break: keep-all; overflow-wrap: anywhere;
   background: #fffefb; border: 1px solid #e2ead8; border-radius: 12px;
   padding: 12px 14px; margin: 0 0 12px;
 }
 .tc-sheet-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .tc-sheet-card { background: #fffefb; border: 1px solid #e2ead8; border-radius: 12px; padding: 9px 11px; min-width: 0; }
 .tc-sheet-card-label { font-size: 12px; font-weight: 700; color: #7a8f6a; margin-bottom: 3px; }
-.tc-sheet-card-value { font-size: 14px; color: #3a2c14; line-height: 1.45; word-break: keep-all; }
+.tc-sheet-card-value { font-size: 14px; color: #3a2c14; line-height: 1.45; word-break: keep-all; overflow-wrap: anywhere; }
 .tc-sheet-card.is-deferred .tc-sheet-card-value { color: #a3936f; font-style: italic; }
 .tc-sheet-defer-hint { font-size: 12px; color: #8a7350; margin: 8px 0 0; }
 @media (max-width: 480px) { .tc-sheet-grid { grid-template-columns: 1fr; } }
@@ -225,4 +225,15 @@
   body.tc-print-sheet .tc-sheet-summary,
   body.tc-print-sheet .tc-sheet-card { border-color: #ccc; }
   body.tc-print-sheet .tc-note-section { break-inside: avoid; }
+  /* COMPASS-SHEET-POLISH: A4 1장 안정 — 게이트 내부에서만 spacing/폰트 컴팩트 */
+  body.tc-print-sheet .tc-flow-title { font-size: 18px; margin-bottom: 4px; }
+  body.tc-print-sheet .tc-sheet { padding: 10px 10px 8px; margin-bottom: 10px; }
+  body.tc-print-sheet .tc-sheet-summary { font-size: 12.5px; line-height: 1.55; padding: 9px 11px; margin-bottom: 8px; }
+  body.tc-print-sheet .tc-sheet-grid { gap: 6px; grid-template-columns: 1fr 1fr; }
+  body.tc-print-sheet .tc-sheet-card { padding: 6px 9px; }
+  body.tc-print-sheet .tc-sheet-card-label { font-size: 10.5px; margin-bottom: 2px; }
+  body.tc-print-sheet .tc-sheet-card-value { font-size: 12px; line-height: 1.4; }
+  body.tc-print-sheet .tc-sheet-defer-hint { font-size: 10.5px; margin-top: 5px; }
+  body.tc-print-sheet .tc-note-title { font-size: 12px; }
+  body.tc-print-sheet .tc-note-view { font-size: 12px; padding: 8px 10px; }
 }

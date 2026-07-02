@@ -308,11 +308,12 @@
       return;                 /* 저장 실패 → 완료 차단(maker 미진입) */
     }
 
-    /* Phase J — 완료 후 기본 장면 생성(훅). 실패해도 완료/진입은 막지 않음. */
+    /* Phase J — 완료 후 기본 장면 생성(훅). 실패해도 완료/진입은 막지 않음.
+       COMPASS-LENGTH-BASE: answers 동봉 → v2 targetLength(8/12/15)가 기본 장면 수에 반영(v1=8 기존 동일). */
     try {
       if (typeof window.ThoughtCompassComplete !== 'undefined' && window.ThoughtCompassComplete
           && typeof window.ThoughtCompassComplete.afterComplete === 'function') {
-        await window.ThoughtCompassComplete.afterComplete(R.ctx);
+        await window.ThoughtCompassComplete.afterComplete(Object.assign({}, R.ctx, { answers: R.vm.answers }));
       }
     } catch (e) { /* noop — 장면 생성 실패는 maker에서 수동 생성 가능 */ }
 

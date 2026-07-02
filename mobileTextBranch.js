@@ -2294,6 +2294,11 @@ function _base10PositionFor(num, source) {
 
 function _mtbBuildBase10Scenes(opts) {
   const source = (opts && opts.source) || 'mobile';
+  /* COMPASS-LENGTH-BASE: 이야기 장면 수(표지·엔딩 제외) — 나침반 v2 targetLength 연결.
+     허용 8/12/15만, 그 외/미지정=8(기존 BASE10과 byte-identical: 2~9 + 엔딩 10).
+     선형 구조만 늘어남(1→2→…→끝) — 분기 자동 생성 없음(학생이 직접 붙임). */
+  const _sc = (opts && (opts.storyCount === 12 || opts.storyCount === 15)) ? opts.storyCount : 8;
+  const endingKey = _sc + 2;   /* 8→10(현행), 12→14, 15→17 */
   const out = {};
   /* 표지 = key 1 */
   const p1 = _base10PositionFor(1, source);
@@ -2305,8 +2310,8 @@ function _mtbBuildBase10Scenes(opts) {
     _hasBody: true, presentationMode: 'picturebook',
     x: p1.x, y: p1.y,
   };
-  /* 이야기 장면 — key 2~9 normal (다음 장면으로 연결) */
-  for (let n = 2; n <= 9; n++) {
+  /* 이야기 장면 — key 2~(storyCount+1) normal (다음 장면으로 연결) */
+  for (let n = 2; n <= endingKey - 1; n++) {
     const p = _base10PositionFor(n, source);
     out[String(n)] = {
       num: n, title: '', body: '', type: 'normal',
@@ -2316,10 +2321,10 @@ function _mtbBuildBase10Scenes(opts) {
       x: p.x, y: p.y,
     };
   }
-  /* 마지막 = key 10 엔딩 (감상 흐름이 자연스럽게 끝남) */
-  const p10 = _base10PositionFor(10, source);
-  out['10'] = {
-    num: 10, title: '', body: '', type: 'ending', trueEnding: false,
+  /* 마지막 = 엔딩 (감상 흐름이 자연스럽게 끝남) */
+  const p10 = _base10PositionFor(endingKey, source);
+  out[String(endingKey)] = {
+    num: endingKey, title: '', body: '', type: 'ending', trueEnding: false,
     buttons: [],
     choiceA: '', choiceB: '', choiceCount: 1,
     _hasBody: true, presentationMode: 'picturebook',
@@ -2373,9 +2378,10 @@ async function _writeBase10IfEmpty(opts) {
     const latest = snap.val() || {};
     if (Object.keys(latest).length > 0) return { ok: false, reason: 'remote-exists' };
 
-    /* 10장면 1회 기록 (set 전체 덮어쓰기 X — update 사용) */
-    /* HOTFIX: ptype 전달 → 그림책이면 빌더가 imageCenter 명시 */
-    const raw = _mtbBuildBase10Scenes({ source, ptype: opts.ptype });
+    /* 기본 장면 1회 기록 (set 전체 덮어쓰기 X — update 사용) */
+    /* HOTFIX: ptype 전달 → 그림책이면 빌더가 imageCenter 명시.
+       COMPASS-LENGTH-BASE: storyCount(8/12/15) 전달 — 미지정=8(기존 BASE10 동일). */
+    const raw = _mtbBuildBase10Scenes({ source, ptype: opts.ptype, storyCount: opts.storyCount });
     const payload = {};
     Object.keys(raw).forEach(k => {
       payload[k] = (typeof _sceneToDbShape === 'function') ? _sceneToDbShape(raw[k]) : raw[k];
@@ -2497,9 +2503,13 @@ async function _isStarterTemplateInitialized() {
    ★ projectMeta fallback(DEFAULT='picturebook')에 의존하지 않고 호출자가 넘긴
      명시 ptype만 신뢰한다 → 유형 미설정/로딩중 작품 오판 차단.
    movie/experience·기존작품·전체삭제후(meta 플래그)·비어있지 않음은 내부 가드로 제외. */
-async function createStarterTemplateForNewProject(explicitPtype) {
+async function createStarterTemplateForNewProject(explicitPtype, starterOpts) {
   /* 1. 명시 유형이 text/picturebook일 때만 (movie/experience/기타 차단) */
   if (explicitPtype !== 'text' && explicitPtype !== 'picturebook') return false;
+  /* COMPASS-LENGTH-BASE: 나침반 완료 경로가 넘기는 storyCount(8/12/15)만 인정 — 그 외 8.
+     기존 호출부(ui.js 폴백 등, 인자 1개)는 undefined → 8 = 기존 BASE10 그대로(하위호환). */
+  const _storyCount = (starterOpts && (starterOpts.storyCount === 12 || starterOpts.storyCount === 15))
+    ? starterOpts.storyCount : 8;
 
   /* 2. admin 미리보기는 자동 생성 안 함 (수동 버튼과 동일 정책) */
   const isAdmin = new URLSearchParams(location.search).get('admin') === '1';
@@ -2515,7 +2525,7 @@ async function createStarterTemplateForNewProject(explicitPtype) {
 
   /* 5. 쓰기 코어 — empty 재확인 + once-recheck + 생성 + 플래그 기록(모달 없음) */
   /* HOTFIX: 명시 ptype 전달 → 그림책이면 imageCenter 기본 레이아웃 명시 저장 */
-  const res = await _writeBase10IfEmpty({ source: 'desktop', markInitialized: true, ptype: explicitPtype });
+  const res = await _writeBase10IfEmpty({ source: 'desktop', markInitialized: true, ptype: explicitPtype, storyCount: _storyCount });
   if (res.ok) {
     _mtbToast('기본 이야기 틀이 준비됐어요.');
     return true;

@@ -91,6 +91,105 @@
     },
   ];
 
+  /* ── V2 핵심 10질문 (STORY-COMPASS-V2, docs/story_compass_v2_question_design_20260702.md A안) ──
+     재료(1~3) + 진엔딩 한 줄기 시간축(4~8) + 분기(9) + 앵커(10).
+     v1 audience/purpose는 질문에서 제외(결과지 표지 칸으로 강등 — SHEET-1 사안).
+     targetLength만 직접입력 없음(allowCustom:false, 보기 전용) — "아직 모르겠어요"는
+     공통 모르겠어요 흐름(유예 답변)으로 처리(결과지에 "만들면서 정하기" 표기 예정). */
+  const CORE_QUESTION_KEYS_V2 = ['targetLength', 'protagonist', 'goal', 'mainlineStart', 'incitingEvent', 'risingTrouble', 'keyChoice', 'trueEnding', 'alternatePath', 'coreMessage'];
+  const CORE_QUESTIONS_V2 = [
+    {
+      id: 'targetLength', order: 1, g: 'V2-1',
+      title: '진엔딩까지 가는 기본 이야기를 몇 장면 정도로 만들고 싶나요?',
+      help: '여기서 말하는 장면 수는 진엔딩까지 가는 기본 길이에요. 나중에 다른 선택지와 다른 엔딩을 붙이면 전체 장면 수는 더 늘어날 수 있어요.',
+      choices: [_choice('targetlen_8', '짧게 만들래요 (약 8장면)'), _choice('targetlen_12', '보통으로 만들래요 (약 12장면)'), _choice('targetlen_15', '조금 길게 만들래요 (약 15장면)')],
+      allowCustom: false, customLabel: '', allowUnsure: true, maxLength: MAX_CORE_LEN,
+      sufficientWhen: '보기 선택(판정 불필요)',
+      followUpTrigger: '없음(AI 후속 대상 아님)',
+    },
+    {
+      id: 'protagonist', order: 2, g: 'G3',
+      title: '누구의 이야기인가요?',
+      help: '사람이 아니어도 괜찮아요. 동물이나 상상 속 존재도 주인공이 될 수 있어요.',
+      choices: [_choice('protagonist_person', '사람'), _choice('protagonist_animal', '동물이나 생물'), _choice('protagonist_thing', '사물·로봇·상상 속 존재')],
+      allowCustom: true, customLabel: '직접 적을래요', allowUnsure: true, maxLength: MAX_CORE_LEN,
+      sufficientWhen: '대상 분명 + 특징 1가지',
+      followUpTrigger: '이름만(특징 없음)',
+    },
+    {
+      id: 'goal', order: 3, g: 'G4',
+      title: '주인공이 가장 원하는 것은 무엇인가요?',
+      help: '주인공이 가장 바라는 것을 떠올려 보세요.',
+      choices: [_choice('goal_find', '중요한 사람이나 물건을 찾고 싶어요'), _choice('goal_help', '누군가를 돕거나 지키고 싶어요'), _choice('goal_challenge', '새로운 곳에 가거나 도전하고 싶어요')],
+      allowCustom: true, customLabel: '직접 적을래요', allowUnsure: true, maxLength: MAX_CORE_LEN,
+      sufficientWhen: '원하는 행동·결과 대상이 분명',
+      followUpTrigger: '보기만 고르고 대상 빔',
+    },
+    {
+      id: 'mainlineStart', order: 4, g: 'V2-4',
+      title: '이야기는 어떤 장면에서 시작하나요?',
+      help: '이야기의 첫 장면을 떠올려 보세요.',
+      choices: [_choice('start_ordinary', '평범한 하루에서 시작해요'), _choice('start_strange', '이상한 일이 벌어지며 시작해요'), _choice('start_newplace', '주인공이 낯선 곳에 가며 시작해요')],
+      allowCustom: true, customLabel: '직접 적을래요', allowUnsure: true, maxLength: MAX_CORE_LEN,
+      sufficientWhen: '첫 장면 그림 1개 분명',
+      followUpTrigger: '너무 넓을 때',
+    },
+    {
+      id: 'incitingEvent', order: 5, g: 'V2-5',
+      title: '주인공에게 어떤 일이 생기나요?',
+      help: '이야기가 움직이기 시작하는 사건을 떠올려 보세요.',
+      choices: [_choice('event_meet', '누군가를 만나며 일이 시작돼요'), _choice('event_find', '중요한 물건이나 단서를 발견해요'), _choice('event_problem', '갑자기 문제가 생겨요')],
+      allowCustom: true, customLabel: '직접 적을래요', allowUnsure: true, maxLength: MAX_CORE_LEN,
+      sufficientWhen: '사건 1개 분명',
+      followUpTrigger: '너무 넓을 때',
+    },
+    {
+      id: 'risingTrouble', order: 6, g: 'V2-6',
+      title: '일이 어떻게 점점 어려워지나요?',
+      help: '주인공을 힘들게 만드는 것이 커지는 과정을 생각해 보세요.',
+      choices: [_choice('trouble_someone', '누군가가 방해해요'), _choice('trouble_time', '시간이 부족해져요'), _choice('trouble_inner', '마음이 흔들리거나 겁이 나요')],
+      allowCustom: true, customLabel: '직접 적을래요', allowUnsure: true, maxLength: MAX_CORE_LEN,
+      sufficientWhen: '커지는 어려움 1개 분명',
+      followUpTrigger: '너무 넓을 때',
+    },
+    {
+      id: 'keyChoice', order: 7, g: 'G6',
+      title: '주인공은 어떤 중요한 선택을 하나요?',
+      help: '이야기에서 고민하게 되는 중요한 순간 하나를 떠올려 보세요.',
+      choices: [_choice('choice_approach', '먼저 다가갈지 기다릴지 선택해요'), _choice('choice_truth', '솔직하게 말할지 숨길지 선택해요'), _choice('choice_risk', '위험을 감수할지 안전한 길을 갈지 선택해요')],
+      allowCustom: true, customLabel: '직접 적을래요', allowUnsure: true, maxLength: MAX_CORE_LEN,
+      sufficientWhen: '고민하는 선택 순간 1개 분명',
+      followUpTrigger: '너무 넓을 때',
+    },
+    {
+      id: 'trueEnding', order: 8, g: 'V2-8',
+      title: '진엔딩에서는 어떻게 끝나나요?',
+      help: '기본 이야기의 마지막 장면을 떠올려 보세요.',
+      choices: [_choice('ending_achieve', '주인공이 원하는 것을 이루어요'), _choice('ending_realize', '주인공이 중요한 것을 깨달아요'), _choice('ending_changed', '모두가 달라진 모습으로 끝나요')],
+      allowCustom: true, customLabel: '직접 적을래요', allowUnsure: true, maxLength: MAX_CORE_LEN,
+      sufficientWhen: '마지막 장면 방향 분명',
+      followUpTrigger: '너무 넓을 때',
+    },
+    {
+      id: 'alternatePath', order: 9, g: 'V2-9',
+      title: '다른 선택을 하면 어떤 일이 생기나요?',
+      help: '다른 길도 흥미로운 이야기가 될 수 있어요. 실패가 아니어도 괜찮아요.',
+      choices: [_choice('alt_ending', '다른 엔딩으로 이어져요'), _choice('alt_return', '돌아가는 길이 생겨요'), _choice('alt_event', '새로운 사건이 생겨요')],
+      allowCustom: true, customLabel: '직접 적을래요', allowUnsure: true, maxLength: MAX_CORE_LEN,
+      sufficientWhen: '다른 길 방향 1개 분명',
+      followUpTrigger: '너무 넓을 때',
+    },
+    {
+      id: 'coreMessage', order: 10, g: 'G7',
+      title: '끝까지 지키고 싶은 이야기의 중심은 무엇인가요?',
+      help: '이야기를 고치더라도 끝까지 지키고 싶은 것을 골라 보세요.',
+      choices: [_choice('anchor_character', '주인공의 성격이나 마음'), _choice('anchor_scene', '꼭 넣고 싶은 장면이나 대사'), _choice('anchor_ending', '결말의 의미나 이야기 분위기')],
+      allowCustom: true, customLabel: '직접 적을래요', allowUnsure: true, maxLength: MAX_CORE_LEN,
+      sufficientWhen: '지키고 싶은 중심 1개 분명',
+      followUpTrigger: '너무 넓을 때',
+    },
+  ];
+
   /* 깊은 freeze(정의 불변성 — 런타임 변조 방지). */
   function _deepFreeze(o) {
     if (o && typeof o === 'object' && !Object.isFrozen(o)) {
@@ -100,19 +199,23 @@
     return o;
   }
   _deepFreeze(CORE_QUESTIONS);
+  _deepFreeze(CORE_QUESTIONS_V2);
 
-  function getCoreQuestions() { return CORE_QUESTIONS; }
-  function getQuestionById(id) {
-    for (const q of CORE_QUESTIONS) if (q.id === id) return q;
+  /* version 미지정/1 = v1(기존 데이터 하위호환), 2 = v2. */
+  function getCoreQuestions(version) { return version === 2 ? CORE_QUESTIONS_V2 : CORE_QUESTIONS; }
+  function getQuestionById(id, version) {
+    for (const q of getCoreQuestions(version)) if (q.id === id) return q;
     return null;
   }
-  function getQuestionByOrder(order) {
-    for (const q of CORE_QUESTIONS) if (q.order === order) return q;
+  function getQuestionByOrder(order, version) {
+    for (const q of getCoreQuestions(version)) if (q.order === order) return q;
     return null;
   }
 
-  /* 단일 질문 정의 검증 — 구조·동등 보기 3개·직접 적기·모르겠어요 원칙. */
-  function validateQuestionDefinition(q) {
+  /* 단일 질문 정의 검증 — 구조·동등 보기 3개·직접 적기·모르겠어요 원칙.
+     opts.allowNoCustom=true면 allowCustom:false 허용(V2 targetLength: 보기 전용). */
+  function validateQuestionDefinition(q, opts) {
+    opts = opts || {};
     const errors = [];
     if (!q || typeof q !== 'object') return { valid: false, errors: ['질문 객체 아님'] };
     if (typeof q.id !== 'string' || !q.id) errors.push('id 누락');
@@ -131,8 +234,10 @@
         if (c.id) seen[c.id] = true;
       });
     }
-    if (q.allowCustom !== true) errors.push('직접 적기(allowCustom) 허용 필수');
-    if (typeof q.customLabel !== 'string' || !q.customLabel.trim()) errors.push('customLabel 누락');
+    if (q.allowCustom !== true) {
+      if (!(opts.allowNoCustom === true && q.allowCustom === false)) errors.push('직접 적기(allowCustom) 허용 필수');
+    }
+    if (q.allowCustom === true && (typeof q.customLabel !== 'string' || !q.customLabel.trim())) errors.push('customLabel 누락');
     if (q.allowUnsure !== true) errors.push('모르겠어요(allowUnsure) 허용 필수');
     if (!Number.isInteger(q.maxLength) || q.maxLength <= 0) errors.push('maxLength 양의 정수 아님');
     /* movie 전용 질문 금지(생각 나침반=그림책·텍스트만) */
@@ -140,24 +245,28 @@
     return { valid: errors.length === 0, errors: errors };
   }
 
-  /* 핵심 7질문 집합 검증 — 정확히 7개·id 유일·CORE_QUESTION_KEYS 일치·order 1~7. */
-  function validateCoreQuestionSet(arr) {
-    const list = arr || CORE_QUESTIONS;
+  /* 핵심 질문 집합 검증 — v1: 정확히 7개·CORE_QUESTION_KEYS 일치·order 1~7.
+     version===2: 정확히 10개·CORE_QUESTION_KEYS_V2 일치·order 1~10·targetLength만 보기 전용 허용. */
+  function validateCoreQuestionSet(arr, version) {
+    const v2 = version === 2;
+    const list = arr || (v2 ? CORE_QUESTIONS_V2 : CORE_QUESTIONS);
+    const KEYS = v2 ? CORE_QUESTION_KEYS_V2 : CORE_QUESTION_KEYS;
+    const COUNT = KEYS.length;
     const errors = [];
     if (!Array.isArray(list)) return { valid: false, errors: ['배열 아님'] };
-    if (list.length !== 7) errors.push('핵심 질문은 정확히 7개여야 함 (현재 ' + list.length + ')');
+    if (list.length !== COUNT) errors.push('핵심 질문은 정확히 ' + COUNT + '개여야 함 (현재 ' + list.length + ')');
     const ids = {}, orders = {};
     for (const q of list) {
-      const r = validateQuestionDefinition(q);
+      const r = validateQuestionDefinition(q, { allowNoCustom: v2 && q && q.id === 'targetLength' });
       if (!r.valid) errors.push((q && q.id ? q.id : '?') + ': ' + r.errors.join(', '));
       if (q && q.id) { if (ids[q.id]) errors.push('id 중복: ' + q.id); ids[q.id] = true; }
       if (q && Number.isInteger(q.order)) { if (orders[q.order]) errors.push('order 중복: ' + q.order); orders[q.order] = true; }
     }
-    /* id 집합이 CORE_QUESTION_KEYS와 정확히 일치 */
-    for (const k of CORE_QUESTION_KEYS) if (!ids[k]) errors.push('CORE_QUESTION_KEYS 누락: ' + k);
-    for (const id of Object.keys(ids)) if (CORE_QUESTION_KEYS.indexOf(id) < 0) errors.push('정의되지 않은 키: ' + id);
-    /* order는 1~7 연속 */
-    for (let i = 1; i <= 7; i++) if (!orders[i]) errors.push('order 누락: ' + i);
+    /* id 집합이 정본 키와 정확히 일치 */
+    for (const k of KEYS) if (!ids[k]) errors.push('핵심 키 누락: ' + k);
+    for (const id of Object.keys(ids)) if (KEYS.indexOf(id) < 0) errors.push('정의되지 않은 키: ' + id);
+    /* order 연속 */
+    for (let i = 1; i <= COUNT; i++) if (!orders[i]) errors.push('order 누락: ' + i);
     return { valid: errors.length === 0, errors: errors };
   }
 
@@ -221,7 +330,7 @@
   }
 
   return {
-    CORE_QUESTION_KEYS, MINIMAL_ANSWER, MAX_CORE_LEN, ANSWER_STATUS, ASSISTANCE_PROMPTS,
+    CORE_QUESTION_KEYS, CORE_QUESTION_KEYS_V2, MINIMAL_ANSWER, MAX_CORE_LEN, ANSWER_STATUS, ASSISTANCE_PROMPTS,
     getCoreQuestions, getQuestionById, getQuestionByOrder,
     validateQuestionDefinition, validateCoreQuestionSet,
     normalizeAnswerValue, isMinimumDeferredAnswer, isAnswerPresent,

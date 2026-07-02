@@ -62,13 +62,15 @@
   /* 완료된 생각 나침반 '다시 보기'(Phase L, D-17) — read-only. 원본 보존(D-16): 고치기/완료 없음.
      메모(다듬기 전용 300자, UX-15) + 브랜치/다듬기 서랍(WIRE-13/14)은 후속 단계로 보류. */
   async function openReadOnly(ctx) {
-    const Store = _Store(), Q = _Q();
+    const Store = _Store(), Q = _Q(), TC = _TC();
     let state = null;
     if (Store && typeof Store.loadThoughtCompassStateResult === 'function') {
       try { const r = await Store.loadThoughtCompassStateResult(ctx); state = r && r.raw; } catch (e) { state = null; }
     }
     state = state || {};
-    const vm = { questions: Q ? Q.getCoreQuestions() : [], answers: (state.answers && typeof state.answers === 'object') ? state.answers : {} };
+    /* V2: 저장 데이터 기준 질문 세트 선택(v1 완료본은 v1 그대로 표시 — 하위호환). */
+    const qVersion = (TC && typeof TC.resolveQuestionSetVersion === 'function') ? TC.resolveQuestionSetVersion(state) : 1;
+    const vm = { questions: Q ? Q.getCoreQuestions(qVersion) : [], answers: (state.answers && typeof state.answers === 'object') ? state.answers : {} };
     R = { ctx: ctx, vm: vm, followUps: Array.isArray(state.followUps) ? state.followUps : [], busy: false, error: null, readOnly: true, userNotes: _userNotesText(state) };
     _render();
   }
@@ -92,7 +94,9 @@
     card.appendChild(_el('p', 'tc-flow-help tc-flow-help--guide', '생각 나침반은 이야기를 시작하기 위한 참고 자료예요. 만들면서 새로운 생각이 떠오르면 자유롭게 바꾸어도 괜찮아요.'));
 
     const list = _el('div', 'tc-review-list');
-    const questions = Q ? Q.getCoreQuestions() : R.vm.questions;
+    /* V2: vm이 실은 질문 세트가 정본(버전 일치 보장). 없을 때만 v1 fallback. */
+    const questions = (R.vm && Array.isArray(R.vm.questions) && R.vm.questions.length)
+      ? R.vm.questions : (Q ? Q.getCoreQuestions() : []);
     questions.forEach((q, idx) => {
       const item = _el('div', 'tc-review-item');
       const head = _el('div', 'tc-review-q', q.title);
@@ -227,8 +231,9 @@
     const _noteTa = document.querySelector('#' + OVERLAY_ID + ' .tc-note-input');
     if (_noteTa) { try { await _saveUserNotes(_noteTa.value); } catch (_) {} }
     const TC = _TC(), Store = _Store(), Flow = _Flow();
-    /* 완료 조건 — 7핵심 모두 유효(유예 답변 포함). */
-    const state = { status: 'inProgress', answers: R.vm.answers, followUps: R.followUps, completedAt: null };
+    /* 완료 조건 — 핵심 전부 유효(유예 포함). V2: vm 질문 세트로 version 파생(10키 판정+완료 스탬프). */
+    const qVersion = (R.vm && Array.isArray(R.vm.questions) && R.vm.questions.some(function (q) { return q && q.id === 'targetLength'; })) ? 2 : 1;
+    const state = { version: qVersion, status: 'inProgress', answers: R.vm.answers, followUps: R.followUps, completedAt: null };
     const v = TC ? TC.validateThoughtCompassCompletion(state) : { valid: Flow.allAnswered(R.vm) };
     if (!v.valid) {
       R.error = '아직 정하지 않은 질문이 있어요. “고치기”로 채워 주세요.';

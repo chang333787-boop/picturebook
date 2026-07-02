@@ -24,11 +24,11 @@
     };
   }
 
-  /* opts: { questions?, resume?:{ index, answers } } */
+  /* opts: { questions?, version?, resume?:{ index, answers } } — version 2 = V2 10문항 세트. */
   function createFlow(opts) {
     opts = opts || {};
     const Q = _Q();
-    const questions = opts.questions || (Q ? Q.getCoreQuestions() : []);
+    const questions = opts.questions || (Q ? Q.getCoreQuestions(opts.version) : []);
     const resume = opts.resume || {};
     const answers = (resume.answers && typeof resume.answers === 'object') ? Object.assign({}, resume.answers) : {};
     let index = Number.isInteger(resume.index) ? resume.index : 0;

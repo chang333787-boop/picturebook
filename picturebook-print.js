@@ -121,6 +121,9 @@
     const coverImg = _publishedImage(coverScene);
     if (coverImg) { const im = document.createElement('img'); im.className = 'pbp-cover-img'; im.src = coverImg; coverPage.appendChild(im); }
     coverPage.appendChild(_el('div', 'pbp-cover-team', '만든 모둠: ' + title));
+    /* PICTUREBOOK-PUBLISH-PRINT-1: 출판물 표지 날짜(인쇄 시점·저장 0) */
+    const _d = new Date();
+    coverPage.appendChild(_el('div', 'pbp-cover-date', _d.getFullYear() + '년 ' + (_d.getMonth() + 1) + '월 ' + _d.getDate() + '일'));
     rootEl.appendChild(coverPage);
 
     /* ── 2p: 이야기 길 지도(텍스트 목록형) ── */
@@ -145,43 +148,43 @@
     }
     rootEl.appendChild(mapPage);
 
-    /* ── 본문: 장면 2개 = 1페이지 ── */
-    for (let i = 0; i < res.order.length; i += 2) {
-      const page = _el('div', 'pbp-page pbp-scenes');
-      [res.order[i], res.order[i + 1]].forEach((k, j) => {
-        if (!k) return;
-        const s = scenes[k];
-        const card = _el('div', 'pbp-scene');
-        const head = _el('div', 'pbp-scene-head');
-        head.appendChild(_el('span', 'pbp-scene-num', res.numberByKey[k] + '번 장면'));
-        const flags = [];
-        if (res.numberByKey[k] > res.reachableCount) flags.push('추가 장면');
-        if (s.type === 'ending') flags.push('엔딩');
-        if (flags.length) head.appendChild(_el('span', 'pbp-scene-flag', flags.join(' · ')));
-        if ((s.title || '').trim()) head.appendChild(_el('span', 'pbp-scene-title', s.title.trim()));
-        card.appendChild(head);
-        const img = _publishedImage(s);
-        if (img) { const im = document.createElement('img'); im.className = 'pbp-scene-img'; im.src = img; card.appendChild(im); }
-        const body = (_publishedBody(s) || '').trim();
-        card.appendChild(_el('div', 'pbp-scene-body' + (body ? '' : ' pbp-scene-body--empty'), body || '(글 없음)'));
-        const chs = _choices(s);
-        if (chs.length) {
-          const box = _el('div', 'pbp-choices');
-          chs.forEach(c => {
-            const d = describeChoice(c, res.numberByKey);
-            const row = _el('div', 'pbp-choice');
-            row.appendChild(_el('span', 'pbp-choice-label', '▸ ' + d.label));
-            row.appendChild(_el('span', 'pbp-choice-goto', d.note));
-            box.appendChild(row);
-          });
-          card.appendChild(box);
-        } else {
-          card.appendChild(_el('div', 'pbp-end-mark', '— 이야기 끝 —'));
-        }
-        page.appendChild(card);
-      });
+    /* ── 본문: 출판형 — 장면당 1페이지 (PICTUREBOOK-PUBLISH-PRINT-1) ──
+       구 2장면/페이지(점검형 축소 카드)를 폐기하고 큰 그림+큰 글의 그림책 출판물로 전환.
+       번호(BFS)·선택지 안내(describeChoice)·발행 헬퍼·gate는 그대로 재사용. */
+    res.order.forEach((k) => {
+      const s = scenes[k];
+      const img = _publishedImage(s);
+      const page = _el('div', 'pbp-page pbp-publish');
+      const card = _el('div', 'pbp-scene pbp-scene--full' + (img ? '' : ' pbp-scene--noimg'));
+      const head = _el('div', 'pbp-scene-head');
+      head.appendChild(_el('span', 'pbp-scene-num', res.numberByKey[k] + '번 장면'));
+      const flags = [];
+      if (res.numberByKey[k] > res.reachableCount) flags.push('추가 장면');
+      if (s.type === 'ending') flags.push('엔딩');
+      if (flags.length) head.appendChild(_el('span', 'pbp-scene-flag', flags.join(' · ')));
+      if ((s.title || '').trim()) head.appendChild(_el('span', 'pbp-scene-title', s.title.trim()));
+      card.appendChild(head);
+      if (img) { const im = document.createElement('img'); im.className = 'pbp-scene-img'; im.src = img; card.appendChild(im); }
+      const body = (_publishedBody(s) || '').trim();
+      card.appendChild(_el('div', 'pbp-scene-body' + (body ? '' : ' pbp-scene-body--empty'), body || '(글 없음)'));
+      const chs = _choices(s);
+      if (chs.length) {
+        const box = _el('div', 'pbp-choices');
+        chs.forEach(c => {
+          const d = describeChoice(c, res.numberByKey);
+          const row = _el('div', 'pbp-choice');
+          /* 선택지 글이 비어 있으면('(선택)' placeholder) 이동 안내만 크게 표시 */
+          if (d.label !== '(선택)') row.appendChild(_el('span', 'pbp-choice-label', '▸ ' + d.label));
+          row.appendChild(_el('span', 'pbp-choice-goto', d.note));
+          box.appendChild(row);
+        });
+        card.appendChild(box);
+      } else {
+        card.appendChild(_el('div', 'pbp-end-mark', '— 이야기 끝 —'));
+      }
+      page.appendChild(card);
       rootEl.appendChild(page);
-    }
+    });
     document.body.appendChild(rootEl);
 
     /* gate — 버튼 경유 인쇄 동안만(취소 포함 afterprint+2s 정리). */

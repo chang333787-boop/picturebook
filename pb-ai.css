@@ -1386,4 +1386,38 @@
   body.print-picturebook .pbp-choice { display: flex; justify-content: space-between; gap: 10px; font-size: 10.5pt; padding: 1.5px 0; }
   body.print-picturebook .pbp-choice-goto { font-weight: 700; text-decoration: underline; white-space: nowrap; }
   body.print-picturebook .pbp-end-mark { margin-top: 8px; text-align: center; font-size: 11pt; font-weight: 700; letter-spacing: .2em; }
+
+  /* ── PICTUREBOOK-PUBLISH-PRINT-1: 출판형 — 장면당 1페이지·큰 그림·큰 글 ──
+     구 점검형(2장면/페이지 축소 카드) 규칙을 .pbp-publish 페이지에서 덮어씀.
+     A4 세로·교사 PC Chrome 기준. 흑백 출력도 읽히도록 무채색 유지. */
+  body.print-picturebook .pbp-publish { min-height: 90vh; display: flex; flex-direction: column; }
+  body.print-picturebook .pbp-publish .pbp-scene--full {
+    border: none; border-radius: 0; padding: 0; margin: 0; min-height: 0;
+    display: flex; flex-direction: column; flex: 1 1 auto; break-inside: avoid;
+  }
+  body.print-picturebook .pbp-publish .pbp-scene-head {
+    border-bottom: none; justify-content: center; align-items: center; gap: 10px; margin-bottom: 12px;
+  }
+  body.print-picturebook .pbp-publish .pbp-scene-num { font-size: 13pt; padding: 2px 12px; }
+  body.print-picturebook .pbp-publish .pbp-scene-title { font-size: 13pt; }
+  body.print-picturebook .pbp-publish .pbp-scene-img {
+    max-height: 480px; max-width: 100%; object-fit: contain;
+    margin: 0 auto 16px; border: 1px solid #bbb; border-radius: 10px;
+  }
+  body.print-picturebook .pbp-publish .pbp-scene-body {
+    font-size: 13.5pt; line-height: 1.7; word-break: keep-all; padding: 0 8px;
+  }
+  /* 그림 없는 장면 — 본문을 세로 중앙에 더 크게(독서형 페이지) */
+  body.print-picturebook .pbp-publish .pbp-scene--noimg .pbp-scene-body {
+    margin: auto 0; font-size: 15pt; text-align: center; padding: 0 30px;
+  }
+  /* 선택지/엔딩 = 페이지 하단 고정(내용이 짧아도 아래로) */
+  body.print-picturebook .pbp-publish .pbp-choices {
+    margin-top: auto; border-top: 1.5px solid #999; padding-top: 12px;
+  }
+  body.print-picturebook .pbp-publish .pbp-choice { font-size: 12pt; padding: 4px 0; }
+  body.print-picturebook .pbp-publish .pbp-end-mark {
+    margin-top: auto; font-size: 14pt; padding: 16px 0 6px;
+  }
+  body.print-picturebook .pbp-cover-date { margin-top: 6px; font-size: 10.5pt; color: #444; }
 }

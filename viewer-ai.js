@@ -3232,7 +3232,7 @@
           <div class="ai-finish-section-desc" style="${D}">엔딩까지 가는 길을 읽어보며 이야기가 자연스럽게 이어지는지 확인해요.</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <button type="button" class="ai-btn js-ai-open-routes">🛤 이야기 길 보기</button>
-            ${_isPbProject ? '<button type="button" class="ai-btn ai-btn--ghost js-ai-print-pb" title="장면 번호와 이동 안내가 있는 종이 그림책으로 인쇄해요 (선생님 컴퓨터 인쇄 권장)">🖨 그림책 인쇄</button>' : ''}
+            ${_isPbProject ? '<button type="button" class="ai-btn ai-btn--ghost js-ai-print-pb" title="장면마다 한 쪽씩 그림책처럼 인쇄해요 (선생님 컴퓨터 인쇄 권장)">🖨 그림책 인쇄</button>' : ''}
           </div>
         </div>`;
           const sec3 = `

@@ -3232,8 +3232,9 @@
           <div class="ai-finish-section-desc" style="${D}">엔딩까지 가는 길을 읽어보며 이야기가 자연스럽게 이어지는지 확인해요.</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <button type="button" class="ai-btn js-ai-open-routes">🛤 이야기 길 보기</button>
-            ${_isPbProject ? '<button type="button" class="ai-btn ai-btn--ghost js-ai-print-pb" title="장면마다 한 쪽씩 그림책처럼 인쇄해요 (선생님 컴퓨터 인쇄 권장)">🖨 그림책 인쇄</button>' : ''}
+            ${_isPbProject ? '<button type="button" class="ai-btn ai-btn--ghost js-ai-print-pb" title="장면마다 한 쪽씩 그림책처럼 인쇄해요. 깔끔하게 출력하려면 인쇄 창에서 머리글과 바닥글을 꺼 주세요. (선생님 컴퓨터 인쇄 권장)">🖨 그림책 인쇄</button>' : ''}
           </div>
+          ${_isPbProject ? '<div style="margin-top:6px;font-size:11.5px;color:#8a7a5e;">💡 깔끔한 그림책으로 출력하려면 인쇄 창의 ‘설정 더보기’에서 <b>머리글과 바닥글</b>을 꺼 주세요.</div>' : ''}
         </div>`;
           const sec3 = `
         <div class="ai-finish-section" style="margin-top:16px;${!rewriteDone ? 'opacity:0.62;' : ''}">

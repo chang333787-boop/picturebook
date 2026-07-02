@@ -86,7 +86,9 @@
     return orig;
   }
   function _publishedImage(scene) {
-    const orig = (scene && scene.imageData) || null;
+    /* POLISH-2: imageUrl fallback — viewer-render(587·1015·1587)와 동일하게 imageData||imageUrl.
+       v113 Storage 이전 작품은 그림이 imageUrl(Storage URL)에만 있어 인쇄에서 전부 누락되던 버그. */
+    const orig = (scene && (scene.imageData || scene.imageUrl)) || null;
     try {
       if (typeof window !== 'undefined' && typeof window.getPublishedImageDisplaySrc === 'function') {
         return window.getPublishedImageDisplaySrc(scene, orig) || orig;
@@ -126,27 +128,9 @@
     coverPage.appendChild(_el('div', 'pbp-cover-date', _d.getFullYear() + '년 ' + (_d.getMonth() + 1) + '월 ' + _d.getDate() + '일'));
     rootEl.appendChild(coverPage);
 
-    /* ── 2p: 이야기 길 지도(텍스트 목록형) ── */
-    const mapPage = _el('div', 'pbp-page pbp-map');
-    mapPage.appendChild(_el('h2', 'pbp-map-title', '🛤 이야기 길 지도'));
-    mapPage.appendChild(_el('div', 'pbp-map-guide', '선택에 따라 다음 장면 번호로 이동하며 읽어요. 1번 장면부터 시작해요.'));
-    res.order.forEach((k, idx) => {
-      const s = scenes[k];
-      const line = _el('div', 'pbp-map-line' + (idx >= res.reachableCount ? ' pbp-map-line--extra' : ''));
-      const nEl = _el('span', 'pbp-map-num', res.numberByKey[k] + '번');
-      line.appendChild(nEl);
-      const t = (s.title || '').trim();
-      const desc = t || ((_publishedBody(s) || '').trim().slice(0, 20) || '(빈 장면)');
-      line.appendChild(_el('span', 'pbp-map-name', desc + (s.type === 'ending' ? ' 🏁' : '')));
-      const chs = _choices(s);
-      const gotos = chs.map(c => describeChoice(c, res.numberByKey).note.replace('→ ', '').replace('번 장면으로 가세요', '')).map(v => v === '(연결되지 않음)' ? '미연결' : v);
-      line.appendChild(_el('span', 'pbp-map-goto', chs.length ? ('→ ' + gotos.join(', ')) : '끝'));
-      mapPage.appendChild(line);
-    });
-    if (res.order.length > res.reachableCount) {
-      mapPage.appendChild(_el('div', 'pbp-map-extra-note', '※ ' + (res.reachableCount + 1) + '번부터는 아직 큰길과 연결되지 않은 추가 장면이에요.'));
-    }
-    rootEl.appendChild(mapPage);
+    /* POLISH-2: '이야기 길 지도' 페이지 제거 — 구조 점검 성격이라 학생 그림책 출판물과 안 맞음
+       (사용자 결정 2026-07-03). 선택지의 '→ N번 장면으로 가세요'만으로 읽기 가능. BFS 번호 계산은
+       buildPrintOrder가 담당하므로 무영향. 지도가 다시 필요하면 별도 버튼/기능으로 분리. */
 
     /* ── 본문: 출판형 — 장면당 1페이지 (PICTUREBOOK-PUBLISH-PRINT-1) ──
        구 2장면/페이지(점검형 축소 카드)를 폐기하고 큰 그림+큰 글의 그림책 출판물로 전환.

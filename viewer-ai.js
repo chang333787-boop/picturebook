@@ -420,8 +420,17 @@
       const cur = authObj.currentUser;
       if (cur) return cur;
       /* POLISH-AUTH-FIX: 편집 세션은 maker UID(복원됨)만 사용 — 새 익명 로그인 금지
-         (default app maker UID를 덮어쓰면 권한이 깨진다). 복원 전이면 null 반환→호출측 안전 실패. */
-      if (typeof isEditViewerSession === 'function' && isEditViewerSession()) return null;
+         (default app maker UID를 덮어쓰면 권한이 깨진다).
+         REFINE-STAB-A 보강: 복원이 아직이면 viewerAuthReady(_awaitMakerAuth)를 잠시 대기 후 재확인
+         — 진입 직후 호출이 auth 없이 나가 unauthenticated로 실패하던 케이스(로그 실증) 방지. */
+      if (typeof isEditViewerSession === 'function' && isEditViewerSession()) {
+        try {
+          if (typeof window !== 'undefined' && window.viewerAuthReady) {
+            await Promise.race([window.viewerAuthReady, new Promise(r => setTimeout(r, 3000))]);
+          }
+        } catch (e) { /* noop */ }
+        return authObj.currentUser || null;   /* 복원 실패면 null — 새 익명 금지 유지 */
+      }
       const cred = await authObj.signInAnonymously();
       return cred && cred.user;
     } catch (e) {

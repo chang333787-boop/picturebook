@@ -2446,11 +2446,21 @@ exports.callApplyImageS2Selection = onCall(
   { enforceAppCheck: false },
   async (req) => {
     const ctx = await _validateRequest(req, 'imageS2', { skipUsageLimits: true });
-    let isTeacher = ((req.auth.token && req.auth.token.role) === 'super_admin');
-    if (!isTeacher) {
-      try { const t = await admin.database().ref(`classes/${ctx.classId}/meta/teacher_uid`).once('value'); if (t.val() === ctx.uid) isTeacher = true; } catch (e) { isTeacher = false; }
+    /* REFINE-STAB-A(사용자 승인 2026-07-02): 선택(발행) 적용은 담당 교사 '또는 해당 팀 active member'.
+       maker 제작 세션(익명 uid)이 자기 팀 감상본을 정하는 흐름 허용 — 생성(callImageAiS2)은 여전히
+       teacher-only(비용). 원본은 계속 불변(선택 노드만 Admin write). */
+    let _selAllowed = ((req.auth.token && req.auth.token.role) === 'super_admin');
+    if (!_selAllowed) {
+      try { const t = await admin.database().ref(`classes/${ctx.classId}/meta/teacher_uid`).once('value'); if (t.val() === ctx.uid) _selAllowed = true; } catch (e) { /* 아래 member 확인 */ }
     }
-    if (!isTeacher) throw new HttpsError('permission-denied', '적용은 담당 선생님만 할 수 있어요.');
+    if (!_selAllowed) {
+      try {
+        const _encM = encodeURIComponent(ctx.teamName);
+        const m = await admin.database().ref(`classes/${ctx.classId}/teams/${_encM}/members/${ctx.uid}/status`).once('value');
+        if (m.val() === 'active') _selAllowed = true;
+      } catch (e) { /* noop */ }
+    }
+    if (!_selAllowed) throw new HttpsError('permission-denied', '이 모둠에서만 정할 수 있어요.');
 
     const sid = _sanitizeFbKeySegment(req.data && req.data.sceneId);
     if (!sid) throw new HttpsError('invalid-argument', 'sceneId가 올바르지 않아요.');
@@ -2485,11 +2495,21 @@ exports.callApplyTextS2Selection = onCall(
   { enforceAppCheck: false },
   async (req) => {
     const ctx = await _validateRequest(req, 's2', { skipUsageLimits: true });
-    let isTeacher = ((req.auth.token && req.auth.token.role) === 'super_admin');
-    if (!isTeacher) {
-      try { const t = await admin.database().ref(`classes/${ctx.classId}/meta/teacher_uid`).once('value'); if (t.val() === ctx.uid) isTeacher = true; } catch (e) { isTeacher = false; }
+    /* REFINE-STAB-A(사용자 승인 2026-07-02): 선택(발행) 적용은 담당 교사 '또는 해당 팀 active member'.
+       maker 제작 세션(익명 uid)이 자기 팀 감상본을 정하는 흐름 허용 — 생성(callImageAiS2)은 여전히
+       teacher-only(비용). 원본은 계속 불변(선택 노드만 Admin write). */
+    let _selAllowed = ((req.auth.token && req.auth.token.role) === 'super_admin');
+    if (!_selAllowed) {
+      try { const t = await admin.database().ref(`classes/${ctx.classId}/meta/teacher_uid`).once('value'); if (t.val() === ctx.uid) _selAllowed = true; } catch (e) { /* 아래 member 확인 */ }
     }
-    if (!isTeacher) throw new HttpsError('permission-denied', '적용은 담당 선생님만 할 수 있어요.');
+    if (!_selAllowed) {
+      try {
+        const _encM = encodeURIComponent(ctx.teamName);
+        const m = await admin.database().ref(`classes/${ctx.classId}/teams/${_encM}/members/${ctx.uid}/status`).once('value');
+        if (m.val() === 'active') _selAllowed = true;
+      } catch (e) { /* noop */ }
+    }
+    if (!_selAllowed) throw new HttpsError('permission-denied', '이 모둠에서만 정할 수 있어요.');
 
     const sid = _sanitizeFbKeySegment(req.data && req.data.sceneId);
     if (!sid) throw new HttpsError('invalid-argument', 'sceneId가 올바르지 않아요.');

@@ -61,3 +61,11 @@ viewer-ai(AI_SRC)·viewer-edit(EDIT_SRC)·viewer-render·v03-modes.css·firebase
 
 ## 판정
 **REFINE_STABILIZE_BUNDLE_1_PARTIAL_PASS** — B/C/D/E live. A는 서버 권한 정책 결정 대기(옵션 ①~③).
+
+---
+## 후속: Phase A 해결 (같은 날·사용자 승인 옵션①)
+선택(발행) 적용 권한을 교사 **또는 해당 팀 active member**로 완화 — `callApplyTextS2Selection`·
+`callApplyImageS2Selection` 2개만 deploy 완료(unauth 거부 확인). 생성(callImageAiS2)은 teacher-only
+유지. 클라 보강: 편집 세션 auth 복원 전 호출 unauthenticated 케이스 viewerAuthReady 대기(+3s).
+버스터 `textsel3`. 주의: 레거시팀(membership 미기록)은 여전히 거부 — H-1 백필 트랙에서 처리.
+판정 갱신: **REFINE_STABILIZE_BUNDLE_1_LIVE_PASS** (A~E 전부 해소).

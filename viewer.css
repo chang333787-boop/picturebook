@@ -6680,21 +6680,32 @@ body[data-page-orientation="portrait"] .terminal-screen--story .ending-page {
   overflow-y: auto;
   background: transparent;
 }
-/* HOTFIX-MOBILE-TEXT: 모바일(≤600px)에선 210:297 페이지 비율 고정이 세로로 긴 폰에서
-   상하 여백을 크게 낭비하고 표지가 갇혀 잘려 보임. 모바일만 비율 고정을 풀고 화면(컨테이너)을
-   채워 공간을 효율적으로 쓴다. 데스크톱/태블릿(>600px)은 기존 고정 페이지 유지.
-   본문 스크롤/행동버튼 하단 고정은 .text-card__body(min-height:0·overflow-y:auto)+
-   .text-card__actions(flex-shrink:0) 기존 규칙이 담당. */
+/* HOTFIX-MOBILE-TEXT-COMPACT: 모바일(≤600px) 텍스트 감상 = 독서형 compact 레이아웃.
+   지난 패치(aspect 고정 해제 + height:100% 화면 채움)는 짧은 본문에서도 카드가 화면 전체를
+   차지해 선택지가 바닥으로 멀어지고 빈 공간이 컸다. 이제 카드를 '내용 기반'으로:
+   · 페이지/카드 height:auto (짧으면 내용만큼만) + max-height:100%(화면 안) + grid place-items:center로 중앙.
+   · 본문 flex:0 1 auto(그로우 금지)라 짧은 글은 선택지가 본문 바로 아래로 붙음.
+   · 긴 본문만 max-height(58dvh)+overflow(기존 min-height:0·overflow-y:auto) → 본문 내부 스크롤·선택지 보존.
+   데스크톱/태블릿(>600px)은 기존 고정 페이지 유지. 표지도 같은 카드라 함께 compact. */
 @media (max-width: 600px) {
-  .scene-screen--text-paged { padding: 8px; }
+  .scene-screen--text-paged { padding: 10px; place-items: center; }
   .scene-screen--text-paged .text-page {
     aspect-ratio: auto;
     width: 100%;
-    height: 100%;
+    height: auto;
     max-height: 100%;
   }
   .scene-screen--text-paged .text-page .text-card {
-    padding: 16px 16px 14px;
+    height: auto;
+    max-height: 100%;
+    padding: 18px 18px 16px;
+  }
+  /* 본문: 그로우 금지 → 짧은 글은 카드가 내용에 맞게 줄고 선택지가 가까워짐.
+     긴 글은 58dvh 상한 + 내부 스크롤(min-height:0·overflow-y:auto는 v03-modes HOTFIX-LAYOUT). */
+  .scene-screen--text .text-card__body {
+    flex: 0 1 auto;
+    max-height: 58dvh;
+    margin-bottom: 14px;
   }
 }
 .scene-screen--text .scene-bg {

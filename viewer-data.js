@@ -293,7 +293,7 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
     /* v64: 장면 전환 효과 (작품 단위 메타)
        v73: 속도는 string('fast'/'normal'/'slow')에서 number(0~100)로 마이그레이션.
        옛 string 그대로 박혀있으면 자동 변환 (fast=0, normal=50, slow=100). */
-    const VALID_TRANS = ['fade', 'book', 'scale', 'slide-up', 'flip3d'];
+    const VALID_TRANS = ['none', 'fade', 'book', 'scale', 'slide-up', 'flip3d'];
     const LEGACY_SPEED_MAP = { fast: 0, normal: 50, slow: 100 };
     ViewerState.project.sceneTransition = VALID_TRANS.includes(meta.sceneTransition)
       ? meta.sceneTransition : 'fade';
@@ -1400,10 +1400,20 @@ function getTextTheme(scene) {
   if (canon) return canon;
   return 'classic';
 }
+/* CLEANUP-GLOBAL-EFFECTS: 텍스트 등장 효과는 작품 전체(전역 project.textEntrance) 기준으로 통일.
+   장면별 scene.textEffect는 무시한다(DB 삭제 X·레거시 보존). 그림책/표지는 원래부터 전역(축 A)을 쓰므로
+   이 한 곳만 전역화하면 텍스트 모드도 같은 전역 효과를 따른다.
+   전역 textEntrance(none/fade/slide-up/blur-in/pop/typewriter)를 텍스트 모드 CSS 어휘({entrance,body})로 매핑:
+     typewriter → body typewriter / slide-up → slide / blur-in·pop → fade(텍스트 모드 대응 키프레임 없어 안전 폴백) / none → none. */
 function getTextEffect(scene) {
-  const v = scene && scene.textEffect;
-  if (v && typeof v === 'object') return v;
-  return { ...TEXT_EFFECT_DEFAULTS };
+  const proj = (typeof ViewerState !== 'undefined' && ViewerState.project) ? ViewerState.project
+             : (typeof window !== 'undefined' && window.ViewerState && window.ViewerState.project ? window.ViewerState.project : null);
+  const te = (proj && typeof proj.textEntrance === 'string') ? proj.textEntrance : 'none';
+  if (te === 'typewriter') return { entrance: 'none', body: 'typewriter' };
+  if (te === 'slide-up')   return { entrance: 'slide', body: 'none' };
+  if (te === 'fade')       return { entrance: 'fade',  body: 'none' };
+  if (te === 'blur-in' || te === 'pop') return { entrance: 'fade', body: 'none' };  /* 텍스트 모드 폴백 */
+  return { entrance: 'none', body: 'none' };  /* none 또는 미설정(구작품) */
 }
 
 /* viewer-render / viewer-edit에서 사용 — 항상 배열 반환 (null/undef → []). */

@@ -12,6 +12,9 @@
   'use strict';
 
   const TYPES = ['picturebook', 'text'];
+  /* COMPASS-LENGTH-BASE: 허용 이야기 장면 수(표지·엔딩 제외) — v2 targetLength 보기와 1:1. */
+  const STORY_COUNTS = [8, 12, 15];
+  const TARGETLEN_CHOICE_MAP = { targetlen_8: 8, targetlen_12: 12, targetlen_15: 15 };
 
   /* 순수 게이트 — 생성 대상 여부(자동 생성 시 호출자가 참고). 멱등/empty 재확인은 생성기 내부가 최종 판정. */
   function shouldGenerateStarter(ctx) {
@@ -21,17 +24,34 @@
     return true;
   }
 
-  /* 완료 후 기본 장면 생성(브라우저) — 기존 멱등 생성기 위임. 실패해도 완료/진입은 막지 않음(호출자). */
+  /* COMPASS-LENGTH-BASE: answers.targetLength → 이야기 장면 수(순수).
+     · choiceId(targetlen_8/12/15) 우선, 없으면 답 텍스트의 "약 N장면" 파싱.
+     · 유예("만들면서 정할래요")/v1(targetLength 없음)/이상값 → 8 = 기존 BASE10과 동일.
+       (설계문서 "모르겠어요=12 가정" 대신 기존 기본 틀 유지가 최소 놀람 — 안전 fallback 결정.) */
+  function resolveStoryCount(answers) {
+    const a = (answers && typeof answers === 'object') ? answers.targetLength : null;
+    if (!a || typeof a !== 'object') return 8;
+    if (a.deferred === true) return 8;
+    if (typeof a.choiceId === 'string' && TARGETLEN_CHOICE_MAP[a.choiceId]) return TARGETLEN_CHOICE_MAP[a.choiceId];
+    if (typeof a.answerText === 'string') {
+      const m = a.answerText.match(/약\s*(\d+)\s*장면/);
+      if (m && STORY_COUNTS.indexOf(parseInt(m[1], 10)) >= 0) return parseInt(m[1], 10);
+    }
+    return 8;
+  }
+
+  /* 완료 후 기본 장면 생성(브라우저) — 기존 멱등 생성기 위임. 실패해도 완료/진입은 막지 않음(호출자).
+     COMPASS-LENGTH-BASE: ctx.answers(v2 targetLength)로 장면 수 결정 — v1/미지정=8(기존 동일). */
   async function afterComplete(ctx) {
     ctx = ctx || {};
     if (TYPES.indexOf(ctx.projectType) < 0) return false;
     if (typeof window === 'undefined' || typeof window.createStarterTemplateForNewProject !== 'function') return false;
     try {
-      return await window.createStarterTemplateForNewProject(ctx.projectType);
+      return await window.createStarterTemplateForNewProject(ctx.projectType, { storyCount: resolveStoryCount(ctx.answers) });
     } catch (e) {
       return false;
     }
   }
 
-  return { shouldGenerateStarter, afterComplete };
+  return { shouldGenerateStarter, afterComplete, resolveStoryCount, STORY_COUNTS };
 });

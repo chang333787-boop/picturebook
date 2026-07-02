@@ -97,7 +97,34 @@
     return orig;
   }
 
-  function open(opts) {
+  /* DESIGN-3: 인쇄 전 <img> 로드 대기 — 원격 그림(imageUrl=Storage URL)이 로드되기 전에
+     window.print()가 뜨면 미리보기/PDF에서 그림이 비어 보임(실작품에서 base64 표지만 나오고
+     Storage 장면 그림이 전부 빠지던 재현 경로). 전 이미지 load/error를 최대 PRELOAD_MAX_MS
+     기다린 뒤 인쇄. 실패 이미지는 자리표시 박스로 교체(깨진 아이콘 방지). 데이터 write 0. */
+  const PRELOAD_MAX_MS = 4000;
+  function _waitForImages(rootEl) {
+    const imgs = Array.prototype.slice.call(rootEl.querySelectorAll('img'));
+    const swapToMissing = (im) => {
+      const ph = _el('div', 'pbp-img-missing', '(그림을 불러오지 못했어요)');
+      if (im && im.parentNode) im.parentNode.replaceChild(ph, im);
+    };
+    const waits = [];
+    imgs.forEach((im) => {
+      if (im.complete && im.naturalWidth > 0) return;               /* 이미 로드됨(data URI 등) */
+      if (im.complete && im.naturalWidth === 0) { swapToMissing(im); return; }  /* 이미 실패 */
+      waits.push(new Promise((res) => {
+        im.addEventListener('load', () => res(), { once: true });
+        im.addEventListener('error', () => { swapToMissing(im); res(); }, { once: true });
+      }));
+    });
+    if (!waits.length) return Promise.resolve();
+    return Promise.race([
+      Promise.all(waits),
+      new Promise((res) => setTimeout(res, PRELOAD_MAX_MS)),
+    ]);
+  }
+
+  async function open(opts) {
     if (typeof document === 'undefined') return false;
     opts = opts || {};
     const scenes = opts.scenes
@@ -117,15 +144,22 @@
     /* ── 1p: 표지 ── */
     const coverScene = res.coverKey ? scenes[res.coverKey] : null;
     const coverPage = _el('div', 'pbp-page pbp-cover');
-    coverPage.appendChild(_el('div', 'pbp-cover-tag', '표지'));
-    coverPage.appendChild(_el('h1', 'pbp-cover-title', (coverScene && (coverScene.title || '').trim()) || title));
-    if (coverScene && (coverScene.subtitle || '').trim()) coverPage.appendChild(_el('div', 'pbp-cover-sub', coverScene.subtitle.trim()));
+    /* DESIGN-3: 표지를 프레임 카드로 — 상단 브랜드 라인 + 제목 묶음 + 그림 + 하단 모둠/날짜 */
+    const coverInner = _el('div', 'pbp-cover-frame');
+    coverPage.appendChild(coverInner);
+    coverInner.appendChild(_el('div', 'pbp-cover-brand', '🌿 가지 branch 그림책'));
+    const coverTitleWrap = _el('div', 'pbp-cover-titlewrap');
+    coverTitleWrap.appendChild(_el('h1', 'pbp-cover-title', (coverScene && (coverScene.title || '').trim()) || title));
+    if (coverScene && (coverScene.subtitle || '').trim()) coverTitleWrap.appendChild(_el('div', 'pbp-cover-sub', coverScene.subtitle.trim()));
+    coverInner.appendChild(coverTitleWrap);
     const coverImg = _publishedImage(coverScene);
-    if (coverImg) { const im = document.createElement('img'); im.className = 'pbp-cover-img'; im.src = coverImg; coverPage.appendChild(im); }
-    coverPage.appendChild(_el('div', 'pbp-cover-team', '만든 모둠: ' + title));
-    /* PICTUREBOOK-PUBLISH-PRINT-1: 출판물 표지 날짜(인쇄 시점·저장 0) */
+    if (coverImg) { const im = document.createElement('img'); im.className = 'pbp-cover-img'; im.src = coverImg; coverInner.appendChild(im); }
+    else coverInner.appendChild(_el('div', 'pbp-cover-noimg-deco', '⸙'));   /* 그림 없는 표지 — 은은한 장식 */
+    const coverFoot = _el('div', 'pbp-cover-foot');
+    coverFoot.appendChild(_el('div', 'pbp-cover-team', '만든 모둠: ' + title));
     const _d = new Date();
-    coverPage.appendChild(_el('div', 'pbp-cover-date', _d.getFullYear() + '년 ' + (_d.getMonth() + 1) + '월 ' + _d.getDate() + '일'));
+    coverFoot.appendChild(_el('div', 'pbp-cover-date', _d.getFullYear() + '년 ' + (_d.getMonth() + 1) + '월 ' + _d.getDate() + '일'));
+    coverInner.appendChild(coverFoot);
     rootEl.appendChild(coverPage);
 
     /* POLISH-2: '이야기 길 지도' 페이지 제거 — 구조 점검 성격이라 학생 그림책 출판물과 안 맞음
@@ -170,6 +204,9 @@
       rootEl.appendChild(page);
     });
     document.body.appendChild(rootEl);
+
+    /* DESIGN-3: 인쇄 전 그림 로드 대기(원격 Storage 그림 누락 방지·최대 4초) */
+    try { await _waitForImages(rootEl); } catch (e) { /* 대기 실패해도 인쇄는 진행 */ }
 
     /* gate — 버튼 경유 인쇄 동안만(취소 포함 afterprint+2s 정리).
        FIELD-REGRESSION-FIX-2: <html>에도 print-doc-unclip 부여 — viewer.css의 화면용

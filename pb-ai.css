@@ -1364,18 +1364,31 @@
 @media print {
   body.print-picturebook > *:not(.pb-print-root) { display: none !important; }
   body.print-picturebook .pb-print-root {
-    display: block; width: 690px; margin: 0 auto; color: #111;
+    display: block; width: auto; max-width: 100%; margin: 0; color: #111;
     font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; line-height: 1.5;
   }
   body.print-picturebook .pbp-page { break-after: page; }
   body.print-picturebook .pbp-page:last-child { break-after: auto; }
-  /* 표지 */
-  body.print-picturebook .pbp-cover { text-align: center; padding-top: 60px; }
-  body.print-picturebook .pbp-cover-tag { font-size: 10pt; color: #555; letter-spacing: .3em; }
-  body.print-picturebook .pbp-cover-title { font-size: 26pt; margin: 12px 0 6px; }
-  body.print-picturebook .pbp-cover-sub { font-size: 12pt; color: #333; margin-bottom: 14px; }
-  body.print-picturebook .pbp-cover-img { max-width: 520px; max-height: 380px; object-fit: contain; border: 1px solid #999; border-radius: 8px; }
-  body.print-picturebook .pbp-cover-team { margin-top: 18px; font-size: 11pt; }
+  /* 표지 — DESIGN-3: 전면 프레임 카드(이중 테두리)·제목 묶음·큰 표지 그림·하단 모둠/날짜 */
+  body.print-picturebook .pbp-cover { min-height: 92vh; display: flex; }
+  body.print-picturebook .pbp-cover-frame {
+    flex: 1 1 auto; display: flex; flex-direction: column; align-items: center; text-align: center;
+    border: 2px solid #333; border-radius: 14px; outline: 1px solid #aaa; outline-offset: 5px;
+    padding: 30px 28px 24px; margin: 6px;
+  }
+  body.print-picturebook .pbp-cover-brand { font-size: 10.5pt; color: #555; letter-spacing: .22em; }
+  body.print-picturebook .pbp-cover-titlewrap { margin-top: 30px; }
+  body.print-picturebook .pbp-cover-title { font-size: 30pt; line-height: 1.25; margin: 0 0 8px; word-break: keep-all; }
+  body.print-picturebook .pbp-cover-sub { font-size: 13pt; color: #333; word-break: keep-all; }
+  body.print-picturebook .pbp-cover-img {
+    margin-top: 24px; width: 92%; height: auto; max-height: 480px; object-fit: contain;
+    border: 1px solid #999; border-radius: 10px; box-sizing: border-box;
+  }
+  body.print-picturebook .pbp-cover-noimg-deco { font-size: 40pt; color: #c9c2b4; margin: auto 0; }
+  body.print-picturebook .pbp-cover-foot {
+    margin-top: auto; padding-top: 16px; border-top: 1px solid #ccc; width: 72%;
+  }
+  body.print-picturebook .pbp-cover-team { font-size: 11.5pt; font-weight: 700; }
   /* 이야기 길 지도 */
   body.print-picturebook .pbp-map-title { font-size: 15pt; margin: 0 0 4px; }
   body.print-picturebook .pbp-map-guide { font-size: 10pt; color: #333; border: 1.5px solid #999; border-radius: 6px; padding: 5px 9px; margin-bottom: 8px; }
@@ -1404,7 +1417,8 @@
      A4 세로·교사 PC Chrome 기준. 흑백 출력도 읽히도록 무채색 유지. */
   body.print-picturebook .pbp-publish { min-height: 90vh; display: flex; flex-direction: column; }
   body.print-picturebook .pbp-publish .pbp-scene--full {
-    border: none; border-radius: 0; padding: 0; margin: 0; min-height: 0;
+    /* DESIGN-3: 페이지 전체 얇은 프레임 — 책 페이지 카드감 */
+    border: 1.5px solid #555; border-radius: 14px; padding: 14px 20px 18px; margin: 2px; min-height: 0;
     display: flex; flex-direction: column; flex: 1 1 auto; break-inside: avoid;
   }
   body.print-picturebook .pbp-publish .pbp-scene-head {
@@ -1413,8 +1427,14 @@
   body.print-picturebook .pbp-publish .pbp-scene-num { font-size: 13pt; padding: 2px 12px; }
   body.print-picturebook .pbp-publish .pbp-scene-title { font-size: 13pt; }
   body.print-picturebook .pbp-publish .pbp-scene-img {
-    max-height: 480px; max-width: 100%; object-fit: contain;
-    margin: 0 auto 16px; border: 1px solid #bbb; border-radius: 10px;
+    /* DESIGN-3: 그림이 페이지의 주인공 — width:100%로 저해상도 원본도 페이지 폭까지 확대
+       (max-height 상한만으론 intrinsic이 작은 그림이 그대로 작게 나옴). contain=크롭 0. */
+    width: 100%; height: auto; max-height: 560px; object-fit: contain;
+    margin: 0 auto 14px; border: 1px solid #bbb; border-radius: 10px; box-sizing: border-box;
+  }
+  body.print-picturebook .pbp-publish .pbp-img-missing {
+    margin: 0 auto 14px; padding: 64px 20px; width: 82%; box-sizing: border-box;
+    border: 1.5px dashed #999; border-radius: 10px; text-align: center; color: #666; font-size: 11pt;
   }
   body.print-picturebook .pbp-publish .pbp-scene-body {
     font-size: 13.5pt; line-height: 1.7; word-break: keep-all; padding: 0 8px;
@@ -1423,7 +1443,8 @@
      POLISH-2: 선택지/엔딩을 하단 고정(margin-top:auto) 대신 본문 바로 아래 고정 간격으로 —
      본문 위쪽·선택지 맨 아래로 갈라져 가운데가 텅 비어 보이던 문제 수정(본문+선택지 묶음이 중앙). */
   body.print-picturebook .pbp-publish .pbp-scene--noimg .pbp-scene-body {
-    margin: auto 0 0; font-size: 15pt; line-height: 1.9; text-align: center; padding: 0 30px;
+    margin: auto auto 0; font-size: 15pt; line-height: 1.9; text-align: center;
+    padding: 26px 32px; border: 1px solid #999; border-radius: 12px; width: 84%; box-sizing: border-box;
   }
   body.print-picturebook .pbp-publish .pbp-scene--noimg .pbp-choices {
     margin-top: 26px; margin-bottom: auto; border-top: none; padding: 14px 30px 0;

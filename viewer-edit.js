@@ -7161,52 +7161,17 @@ function _openPbDrawModal(scene) {
         <button type="button" class="pb-draw-close js-pb-draw-cancel" title="취소">✕</button>
       </div>
 
+      <!-- DRAWING-STUDIO-2-SIMPLE: 현재 도구 상태 1줄 — 학생이 지금 모드를 항상 알 수 있게 -->
+      <div class="pb-draw-status js-pb-draw-status" role="status">지금은 ✏️ 펜으로 그리고 있어요.</div>
+
       <div class="pb-draw-toolbar">
-        <!-- 도구: 펜 / 지우개 / 직선 / 사각형 / 원 / 페인트 버킷 / 스포이드 / 글자 (v36) -->
-        <div class="pb-draw-tools">
-          <button type="button" class="pb-draw-tool js-pb-draw-tool is-on" data-tool="pen" title="자유롭게 그리기">✏️ 펜</button>
-          <button type="button" class="pb-draw-tool js-pb-draw-tool" data-tool="eraser" title="지우기">🧽 지우개</button>
-          <button type="button" class="pb-draw-tool js-pb-draw-tool" data-tool="line" title="직선">📏 직선</button>
-          <button type="button" class="pb-draw-tool js-pb-draw-tool" data-tool="rect" title="사각형">▭ 사각</button>
-          <button type="button" class="pb-draw-tool js-pb-draw-tool" data-tool="circle" title="원">◯ 원</button>
-          <button type="button" class="pb-draw-tool js-pb-draw-tool" data-tool="bucket" title="영역 채우기">🪣 채우기</button>
-          <button type="button" class="pb-draw-tool js-pb-draw-tool" data-tool="eyedropper" title="캔버스에서 색 가져오기 — 클릭한 점의 색이 펜 색이 됩니다">💧 색 따기</button>
-          <button type="button" class="pb-draw-tool js-pb-draw-tool" data-tool="pan" title="화면 이동 — 확대 후 다른 영역 보기">✋ 이동</button>
-        </div>
-
-        <!-- 확대·축소 (v37): 캔버스 안에서 줌 인/아웃, 이동 도구로 다른 영역 보기 -->
-        <div class="pb-draw-section">
-          <span class="pb-draw-section-label">확대</span>
-          <div class="pb-draw-zoom">
-            <button type="button" class="pb-draw-zoom-btn js-pb-draw-zoom-out" title="축소">−</button>
-            <span class="pb-draw-zoom-val js-pb-draw-zoom-val">100%</span>
-            <button type="button" class="pb-draw-zoom-btn js-pb-draw-zoom-in" title="확대">＋</button>
-            <button type="button" class="pb-draw-zoom-btn js-pb-draw-zoom-reset" title="원래대로">↺</button>
+        <!-- DRAWING-STUDIO-2-SIMPLE 간단 모드(기본): 펜·지우개·색·굵기·되돌리기·다시 + 도구 더보기.
+             고급 도구는 아래 .pb-draw-adv로 이동(기능 삭제 아님 — 접기만). 핸들러는 클래스 기반이라 무변경. -->
+        <div class="pb-draw-core">
+          <div class="pb-draw-tools">
+            <button type="button" class="pb-draw-tool js-pb-draw-tool is-on" data-tool="pen" title="자유롭게 그리기">✏️ 펜</button>
+            <button type="button" class="pb-draw-tool js-pb-draw-tool" data-tool="eraser" title="지우기">🧽 지우개</button>
           </div>
-        </div>
-
-        <!-- 펜 종류 (펜 도구일 때만 활성) - v36 -->
-        <div class="pb-draw-section js-pb-draw-pentype-wrap">
-          <span class="pb-draw-section-label">펜 종류</span>
-          <div class="pb-draw-pentypes">
-            <button type="button" class="pb-draw-pentype js-pb-draw-pentype is-on" data-pentype="normal" title="일반 펜">✒️ 일반</button>
-            <button type="button" class="pb-draw-pentype js-pb-draw-pentype" data-pentype="marker" title="마커 (부드럽고 진함)">🖍 마커</button>
-            <button type="button" class="pb-draw-pentype js-pb-draw-pentype" data-pentype="pencil" title="연필 (얇고 거침)">✏️ 연필</button>
-            <button type="button" class="pb-draw-pentype js-pb-draw-pentype" data-pentype="crayon" title="크레용 (거친 질감)">🖌 크레용</button>
-          </div>
-        </div>
-
-        <!-- 채움 토글 (도형 도구일 때만 의미 — UI는 항상 표시) - v36 -->
-        <div class="pb-draw-section">
-          <label class="pb-draw-fill-label">
-            <input type="checkbox" class="js-pb-draw-fill">
-            <span>도형 채움</span>
-          </label>
-        </div>
-
-        <!-- 색 — 8색 + 자유 선택 -->
-        <div class="pb-draw-section">
-          <span class="pb-draw-section-label">색</span>
           <div class="pb-draw-colors">
             ${COLORS.map((c, i) => `
               <button type="button" class="pb-draw-color js-pb-draw-color${i===0?' is-on':''}"
@@ -7215,11 +7180,6 @@ function _openPbDrawModal(scene) {
             <input type="color" class="pb-draw-color-pick js-pb-draw-color-pick"
               value="${COLORS[0]}" title="자유 색 선택">
           </div>
-        </div>
-
-        <!-- 굵기 — 4단계 + 슬라이더 -->
-        <div class="pb-draw-section">
-          <span class="pb-draw-section-label">굵기</span>
           <div class="pb-draw-sizes">
             ${SIZES.map((s, i) => `
               <button type="button" class="pb-draw-size js-pb-draw-size${i===1?' is-on':''}"
@@ -7227,33 +7187,83 @@ function _openPbDrawModal(scene) {
                 <span class="pb-draw-size-dot" style="width:${s.px}px;height:${s.px}px;"></span>
               </button>
             `).join('')}
+          </div>
+          <div class="pb-draw-actions">
+            <button type="button" class="pb-draw-action js-pb-draw-undo" title="되돌리기 (Ctrl+Z)">↶ 되돌리기</button>
+            <button type="button" class="pb-draw-action js-pb-draw-redo" title="다시 실행 (Ctrl+Shift+Z)">↷ 다시</button>
+          </div>
+          <button type="button" class="pb-draw-more-btn js-pb-draw-more" aria-expanded="false" title="도형·채우기·이동 같은 도구를 더 볼 수 있어요">🧰 도구 더보기</button>
+        </div>
+
+        <!-- 고급 도구(기본 접힘) — 기존 기능 전부 그대로, 노출만 접기 -->
+        <div class="pb-draw-adv js-pb-draw-adv" hidden>
+          <div class="pb-draw-tools">
+            <button type="button" class="pb-draw-tool js-pb-draw-tool" data-tool="line" title="직선">📏 직선</button>
+            <button type="button" class="pb-draw-tool js-pb-draw-tool" data-tool="rect" title="사각형">▭ 사각</button>
+            <button type="button" class="pb-draw-tool js-pb-draw-tool" data-tool="circle" title="원">◯ 원</button>
+            <button type="button" class="pb-draw-tool js-pb-draw-tool" data-tool="bucket" title="영역 채우기">🪣 채우기</button>
+            <button type="button" class="pb-draw-tool js-pb-draw-tool" data-tool="eyedropper" title="캔버스에서 색 가져오기 — 클릭한 점의 색이 펜 색이 됩니다">💧 색 따기</button>
+            <button type="button" class="pb-draw-tool js-pb-draw-tool" data-tool="pan" title="화면 이동 — 확대 후 다른 영역 보기">✋ 이동</button>
+          </div>
+
+          <!-- 확대·축소 (v37) -->
+          <div class="pb-draw-section">
+            <span class="pb-draw-section-label">확대</span>
+            <div class="pb-draw-zoom">
+              <button type="button" class="pb-draw-zoom-btn js-pb-draw-zoom-out" title="축소">−</button>
+              <span class="pb-draw-zoom-val js-pb-draw-zoom-val">100%</span>
+              <button type="button" class="pb-draw-zoom-btn js-pb-draw-zoom-in" title="확대">＋</button>
+              <button type="button" class="pb-draw-zoom-btn js-pb-draw-zoom-reset" title="원래대로">↺</button>
+            </div>
+          </div>
+
+          <!-- 펜 종류 (v36) -->
+          <div class="pb-draw-section js-pb-draw-pentype-wrap">
+            <span class="pb-draw-section-label">펜 종류</span>
+            <div class="pb-draw-pentypes">
+              <button type="button" class="pb-draw-pentype js-pb-draw-pentype is-on" data-pentype="normal" title="일반 펜">✒️ 일반</button>
+              <button type="button" class="pb-draw-pentype js-pb-draw-pentype" data-pentype="marker" title="마커 (부드럽고 진함)">🖍 마커</button>
+              <button type="button" class="pb-draw-pentype js-pb-draw-pentype" data-pentype="pencil" title="연필 (얇고 거침)">✏️ 연필</button>
+              <button type="button" class="pb-draw-pentype js-pb-draw-pentype" data-pentype="crayon" title="크레용 (거친 질감)">🖌 크레용</button>
+            </div>
+          </div>
+
+          <!-- 채움 토글 (v36) -->
+          <div class="pb-draw-section">
+            <label class="pb-draw-fill-label">
+              <input type="checkbox" class="js-pb-draw-fill">
+              <span>도형 채움</span>
+            </label>
+          </div>
+
+          <!-- 자유 굵기 슬라이더(고급) — 4단계 프리셋은 기본 화면에 유지 -->
+          <div class="pb-draw-section">
+            <span class="pb-draw-section-label">자유 굵기</span>
             <input type="range" class="pb-draw-size-slider js-pb-draw-size-slider"
               min="1" max="30" value="5" title="자유 굵기">
             <span class="pb-draw-size-val js-pb-draw-size-val">5px</span>
           </div>
-        </div>
 
-        <!-- 불투명도 -->
-        <div class="pb-draw-section">
-          <span class="pb-draw-section-label">투명도</span>
-          <input type="range" class="pb-draw-opacity-slider js-pb-draw-opacity"
-            min="20" max="100" value="100" title="투명도 (낮을수록 부드러움)">
-          <span class="pb-draw-opacity-val js-pb-draw-opacity-val">100%</span>
-        </div>
+          <!-- 불투명도 -->
+          <div class="pb-draw-section">
+            <span class="pb-draw-section-label">투명도</span>
+            <input type="range" class="pb-draw-opacity-slider js-pb-draw-opacity"
+              min="20" max="100" value="100" title="투명도 (낮을수록 부드러움)">
+            <span class="pb-draw-opacity-val js-pb-draw-opacity-val">100%</span>
+          </div>
 
-        <!-- 펜 압력 (태블릿 펜) -->
-        <div class="pb-draw-section">
-          <label class="pb-draw-pressure-label">
-            <input type="checkbox" class="js-pb-draw-pressure" checked>
-            <span>펜 압력</span>
-          </label>
-        </div>
+          <!-- 펜 압력 (태블릿 펜) -->
+          <div class="pb-draw-section">
+            <label class="pb-draw-pressure-label">
+              <input type="checkbox" class="js-pb-draw-pressure" checked>
+              <span>펜 압력</span>
+            </label>
+          </div>
 
-        <!-- 액션 -->
-        <div class="pb-draw-actions">
-          <button type="button" class="pb-draw-action js-pb-draw-undo" title="되돌리기 (Ctrl+Z)">↶ 되돌리기</button>
-          <button type="button" class="pb-draw-action js-pb-draw-redo" title="다시 실행 (Ctrl+Shift+Z)">↷ 다시</button>
-          <button type="button" class="pb-draw-action js-pb-draw-clear" title="전체 지우기">🗑 전체 지우기</button>
+          <!-- 전체 지우기 — 실수 방지 위해 고급으로 이동(confirm은 기존 유지) -->
+          <div class="pb-draw-actions">
+            <button type="button" class="pb-draw-action js-pb-draw-clear" title="전체 지우기">🗑 전체 지우기</button>
+          </div>
         </div>
       </div>
 
@@ -7703,6 +7713,22 @@ function _openPbDrawModal(scene) {
       b.classList.toggle('is-on', parseInt(b.dataset.size, 10) === activeSize));
   }
 
+  /* DRAWING-STUDIO-2-SIMPLE: 현재 도구 상태 문구 — 고급 도구가 접혀 있어도 지금 모드를 알 수 있게. */
+  const DRAW_STATUS_TEXT = {
+    pen: '지금은 ✏️ 펜으로 그리고 있어요.',
+    eraser: '지금은 🧽 지우개로 지우고 있어요.',
+    line: '지금은 🔷 도형(직선)을 그리고 있어요.',
+    rect: '지금은 🔷 도형(사각형)을 그리고 있어요.',
+    circle: '지금은 🔷 도형(원)을 그리고 있어요.',
+    bucket: '지금은 🪣 색을 채우고 있어요.',
+    eyedropper: '지금은 🎨 캔버스에서 색을 고르고 있어요.',
+    pan: '지금은 ✋ 그림을 움직이고 있어요. (그려지지 않아요)',
+  };
+  function _updateDrawStatus() {
+    const el = modal.querySelector('.js-pb-draw-status');
+    if (el) el.textContent = DRAW_STATUS_TEXT[state.tool] || DRAW_STATUS_TEXT.pen;
+  }
+
   modal.querySelectorAll('.js-pb-draw-tool').forEach(btn => {
     btn.addEventListener('click', () => {
       state.tool = btn.dataset.tool || 'pen';
@@ -7715,8 +7741,23 @@ function _openPbDrawModal(scene) {
       else if (state.tool === 'pan') canvas.style.cursor = 'grab';
       else canvas.style.cursor = 'crosshair';
       _syncSizeSliderForTool();
+      _updateDrawStatus();
     });
   });
+
+  /* DRAWING-STUDIO-2-SIMPLE: 도구 더보기 접기/펼치기 — 기능 삭제 없음(노출만).
+     접힘/펼침 시 캔버스 표시 크기 재계산(도구바 높이 변동). */
+  const _moreBtn = modal.querySelector('.js-pb-draw-more');
+  const _advWrap = modal.querySelector('.js-pb-draw-adv');
+  if (_moreBtn && _advWrap) {
+    _moreBtn.addEventListener('click', () => {
+      const open = _advWrap.hidden;
+      _advWrap.hidden = !open;
+      _moreBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      _moreBtn.textContent = open ? '🧰 도구 접기' : '🧰 도구 더보기';
+      requestAnimationFrame(_resizeCanvasDisplay);
+    });
+  }
 
   /* v37: 줌 버튼 — 25%씩 ± . 50~400% 범위. */
   modal.querySelector('.js-pb-draw-zoom-in')?.addEventListener('click', () => _setZoom(state.zoom + 25));
@@ -7882,11 +7923,65 @@ function _openPbDrawModal(scene) {
     _close();
   });
 
+  /* DRAWING-STUDIO-2-SIMPLE 빈 캔버스 판정 — 축소 샘플(60×40)에서 흰색이 아닌 픽셀 비율.
+     기존 그림 이어 그리기(배경으로 그려짐)·모든 스트로크가 픽셀 기준이라 오판 없음.
+     전체 지우기 후=전부 흰색→confirm. 흰 펜 완벽 판정은 하지 않음(정책). */
+  function _isCanvasBlank() {
+    try {
+      /* 150×100 샘플 — 60×40은 가는 선 하나(5px)가 안티앨리어스로 사라져 오판(하니스 실측 nonWhite 4).
+         가는 선 하나 ≈ 40+픽셀로 잡히는 해상도. 임계는 절대 12픽셀(점 하나 수준만 '거의 없음'). */
+      const w = 150, h = 100;
+      const off = document.createElement('canvas');
+      off.width = w; off.height = h;
+      const octx = off.getContext('2d');
+      octx.drawImage(canvas, 0, 0, w, h);
+      const d = octx.getImageData(0, 0, w, h).data;
+      let nonWhite = 0;
+      for (let i = 0; i < d.length; i += 4) {
+        if (d[i] < 246 || d[i + 1] < 246 || d[i + 2] < 246) nonWhite++;
+      }
+      return nonWhite < 12;
+    } catch (e) { return false; }          /* 판정 실패 → 저장 진행(차단 금지) */
+  }
+  /* DRAWING-STUDIO-2-SIMPLE 저장 성공 토스트 — 모달 닫힌 뒤 짧게. */
+  function _drawSavedToast() {
+    try {
+      const t = document.createElement('div');
+      t.className = 'pb-draw-saved-toast';
+      t.textContent = '✅ 그림을 저장했어요.';
+      document.body.appendChild(t);
+      setTimeout(() => { t.classList.add('is-out'); }, 1600);
+      setTimeout(() => { if (t.parentNode) t.parentNode.removeChild(t); }, 2100);
+    } catch (e) { /* noop */ }
+  }
+
   /* 저장 — 캔버스 → data URL → Storage 업로드 → URL을 scene.imageData에 박음.
-     v114: base64 RTDB 폭탄 차단. 그림 그리기도 Storage 박음. */
-  modal.querySelector('.js-pb-draw-save')?.addEventListener('click', async () => {
+     v114: base64 RTDB 폭탄 차단. 그림 그리기도 Storage 박음.
+     DRAWING-STUDIO-2-SIMPLE: busy 가드(중복 업로드 방지)+빈 캔버스 confirm+성공 토스트. */
+  const _saveBtn = modal.querySelector('.js-pb-draw-save');
+  _saveBtn?.addEventListener('click', async () => {
     /* P5-IMAGE-LOCK-1: AI 이미지 보기 중엔 그림판 저장(원본 imageData write) 차단. */
     if (_aiImageVariantBlocksOriginalEdit()) return;
+    if (state.isSaving) return;                       /* 빠른 중복 클릭 → 1회만 */
+    /* ★ busy는 confirm await 이전에 세워야 함 — confirm 대기 중 재클릭 재진입 차단. */
+    state.isSaving = true;
+    const _saveLabel = _saveBtn.textContent;
+    _saveBtn.disabled = true;
+    _saveBtn.textContent = '저장 중...';
+    const _restoreSaveBtn = () => {
+      state.isSaving = false;
+      if (_saveBtn) { _saveBtn.disabled = false; _saveBtn.textContent = _saveLabel; }
+    };
+    /* 빈 캔버스 확인 — 차단 아님(confirm 후 저장 가능). 기존 그림은 배경으로 그려져 있어 오판 없음. */
+    if (_isCanvasBlank()) {
+      const ok = await showViewerConfirm({
+        title: '아직 그린 내용이 거의 없어요',
+        message: '이대로 저장할까요?',
+        confirmText: '저장하기',
+        cancelText: '계속 그리기',
+      });
+      if (!ok) { _restoreSaveBtn(); return; }
+    }
     try {
       const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
       const _sid = scene.num || scene.id;
@@ -7894,7 +7989,7 @@ function _openPbDrawModal(scene) {
       const _gate = (typeof window !== 'undefined' && window.viewerAi && typeof window.viewerAi._preCheckSourceMode === 'function')
         ? await window.viewerAi._preCheckSourceMode('draw', _sid)
         : { allow: true };
-      if (!_gate.allow) { _notifySourceModeBlock(_gate); return; }
+      if (!_gate.allow) { _notifySourceModeBlock(_gate); _restoreSaveBtn(); return; }
       /* ② 고유 경로 업로드(기존 객체 overwrite 안 함). */
       let storageUrl, _storagePath;
       try {
@@ -7904,13 +7999,14 @@ function _openPbDrawModal(scene) {
       } catch (e) {
         console.error('[viewer-edit] 그림 업로드 실패:', e);
         alert('❌ 그림을 올리지 못했어요. 잠시 후 다시 시도해 주세요.');
+        _restoreSaveBtn();
         return;
       }
       /* ③ 서버 lock 확정. 실패/충돌이면 방금 만든 고유 객체만 삭제, scene 무변경. */
       const _commit = (typeof window !== 'undefined' && window.viewerAi && typeof window.viewerAi._commitImageSourceMode === 'function')
         ? await window.viewerAi._commitImageSourceMode('draw', _sid, _storagePath)
         : { ok: true };
-      if (!_commit.ok) { _notifySourceModeBlock(_commit); return; }   /* scene 미변경 → 승자/기존 무손상 */
+      if (!_commit.ok) { _notifySourceModeBlock(_commit); _restoreSaveBtn(); return; }   /* scene 미변경 → 승자/기존 무손상 */
       /* ④ lock 성공일 때만 scene.imageData 기록 + flush await. */
       const _beforeImageData = scene.imageData || null;   /* S2-2A-FIX2: flush 실패 시 로컬 복원 기준 */
       scene.imageData = storageUrl;
@@ -7921,13 +8017,15 @@ function _openPbDrawModal(scene) {
       }
       /* S2-2A-FIX2: flush 실패면 신규 객체 cleanup + 로컬 복원(모달 유지·lock 유지·재시도 가능). */
       const _flushOk = await _handleImageFlushResult(scene, _beforeImageData, storageUrl, _storagePath, _flushRes);
-      if (!_flushOk) return;   /* 모달 유지 — 같은 방식으로 다시 시도 */
+      if (!_flushOk) { _restoreSaveBtn(); return; }   /* 모달 유지 — 같은 방식으로 다시 시도 */
       renderEditPanel();
       _scheduleViewerFrameReRender();
       _close();
+      _drawSavedToast();   /* DRAWING-STUDIO-2-SIMPLE: 저장 성공 안내 */
     } catch (err) {
       console.error('[viewer-edit] 그림 저장 실패:', err);
       alert('저장하지 못했어요. 잠시 후 다시 시도해 주세요.');
+      _restoreSaveBtn();
     }
   });
 }

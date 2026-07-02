@@ -773,6 +773,25 @@ function bindCardEvents(el, s) {
       }
     });
 
+  /* CARD-QUICK-EDIT-1: 본문 미리보기 클릭 → '장면 글 고치기' 미니모달(ui.js).
+     드래그와 구분 — pointerdown 좌표를 기억해 8px 이하 이동일 때만 연다(카드 이동 임계값과 동일).
+     pointerdown은 전파 유지(미리보기를 잡고 카드 드래그 가능), click만 카드로 전파 차단. */
+  const bodyPreview = el.querySelector('.pb-body-preview');
+  if (bodyPreview) {
+    let _pvDown = null;
+    bodyPreview.addEventListener('pointerdown', e => { _pvDown = { x: e.clientX, y: e.clientY }; });
+    bodyPreview.addEventListener('click', e => {
+      e.stopPropagation();
+      if (typeof dragState !== 'undefined' && dragState) return;
+      if (_pvDown) {
+        const dx = e.clientX - _pvDown.x, dy = e.clientY - _pvDown.y;
+        _pvDown = null;
+        if (Math.sqrt(dx * dx + dy * dy) > 8) return;
+      }
+      if (typeof showBodyQuickEditModal === 'function') showBodyQuickEditModal(num);
+    });
+  }
+
   /* 진엔딩 체크박스 */
   el.querySelector('.js-true-ending')
     ?.addEventListener('change', e => updateTrueEnding(num, e.target.checked));

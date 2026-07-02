@@ -325,6 +325,85 @@ function flushTitleSaves(num) {
 window.addEventListener('beforeunload', () => { flushTitleSaves(); flushBodySaves(); });
 window.addEventListener('pagehide',    () => { flushTitleSaves(); flushBodySaves(); });
 
+/* ================================================================
+   CARD-QUICK-EDIT-1 — 카드 본문 미리보기 클릭 → 미니모달 '장면 글 고치기'
+   ─────────────────────────────────────────────────────────────
+   · 카드 크기 고정 원칙: 인라인 확장 대신 작은 모달로 원본 scene.body만 수정.
+   · AI 장면발전(s2)/글 보기 토글과 무관 — aiVariants·textSelections 경로 접근 0.
+   · 저장 = 기존 updateBody + flushBodySaves 재사용(잠금·debounce·_hasBody 정책 동일).
+   · 취소/ESC/배경 클릭 = 변경 없음. 저장 시 카드 미리보기·숨은 textarea 동기.
+   ================================================================ */
+function showBodyQuickEditModal(num) {
+  const s = scenes[num];
+  if (!s || s.type === 'cover') return;
+  if (typeof isLockedByOther === 'function' && isLockedByOther(num)) {
+    alert('다른 사람이 이 장면을 편집하고 있어요.');
+    return;
+  }
+  document.querySelector('.body-quickedit-overlay')?.remove();
+
+  const overlay = document.createElement('div');
+  overlay.className = 'body-quickedit-overlay';
+  overlay.innerHTML = `
+    <div class="body-quickedit-card" role="dialog" aria-modal="true" aria-label="장면 글 고치기">
+      <div class="body-quickedit-head">
+        <h3>✏️ 장면 ${num} 글 고치기</h3>
+        <button type="button" class="body-quickedit-close" aria-label="닫기">✕</button>
+      </div>
+      <textarea class="body-quickedit-ta" placeholder="장면에서 일어나는 일을 적어 보세요."></textarea>
+      <div class="body-quickedit-hint">AI 장면발전 글이 아니라, 학생이 직접 쓰는 원본 글을 고칩니다.</div>
+      <div class="body-quickedit-actions">
+        <button type="button" class="body-quickedit-cancel">취소</button>
+        <button type="button" class="body-quickedit-save">저장</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  const ta = overlay.querySelector('.body-quickedit-ta');
+  ta.value = String(s.body || '');   /* .value 대입 — 이스케이프 이슈 0 */
+
+  /* 잠금은 모달을 먼저 열고 백그라운드 확보(스냅한 UX) — 실패 시 닫고 안내 */
+  let lockOk = null;
+  const lockP = (typeof ensureEditable === 'function') ? ensureEditable(num) : Promise.resolve(true);
+  lockP.then(ok => {
+    lockOk = !!ok;
+    if (!ok && document.body.contains(overlay)) {
+      close(false);
+      alert('다른 사람이 이 장면을 편집하고 있어요.');
+    }
+  });
+
+  function close(save) {
+    if (save) {
+      const val = ta.value;
+      updateBody(num, val);
+      flushBodySaves(num);
+      /* 카드 숨은 textarea + 접힌 미리보기 동기(전체 재렌더 없이) */
+      const cardEl = document.getElementById('card-' + num);
+      if (cardEl) {
+        const hiddenTa = cardEl.querySelector('.js-body-input');
+        if (hiddenTa) hiddenTa.value = val;
+        if (typeof _pbSyncPreviewFromTextarea === 'function') _pbSyncPreviewFromTextarea(cardEl);
+      }
+    }
+    document.removeEventListener('keydown', onKey);
+    overlay.remove();
+  }
+  function onKey(e) { if (e.key === 'Escape') close(false); }
+
+  overlay.querySelector('.body-quickedit-save').addEventListener('click', () => {
+    if (lockOk === false) { close(false); return; }
+    close(true);
+  });
+  overlay.querySelector('.body-quickedit-cancel').addEventListener('click', () => close(false));
+  overlay.querySelector('.body-quickedit-close').addEventListener('click', () => close(false));
+  overlay.addEventListener('pointerdown', e => e.stopPropagation());   /* 캔버스 팬/줌으로 전파 차단 */
+  overlay.addEventListener('click', e => { if (e.target === overlay) close(false); });
+  document.addEventListener('keydown', onKey);
+  ta.focus();
+  try { ta.setSelectionRange(ta.value.length, ta.value.length); } catch (e) { /* noop */ }
+}
+
 /* ENDING-GUARD-1: drawArrows()와 동일한 우선순위로 "뒤로 이어지는 연결" 유무 판정.
    buttons[]가 있으면 buttons[i].nextId(앞 6개), 없으면 legacy nextA/(choiceCount>1 시)nextB.
    화면 화살표가 그려지는 조건과 정확히 일치 → 안내가 사용자 눈에 보이는 연결과 어긋나지 않음. */

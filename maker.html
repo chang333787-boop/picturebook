@@ -1548,6 +1548,41 @@
     .pb-mapcard.is-expanded .pb-body-preview{ display:none; }
     .pb-mapcard .card-more{ font-size:18px; }
 
+    /* ── CARD-QUICK-EDIT-1: 본문 미리보기 클릭 → '장면 글 고치기' 미니모달 ── */
+    .pb-mapcard .pb-body-preview{ cursor:pointer; border-radius:6px; }
+    .pb-mapcard .pb-body-preview:hover{ background:rgba(198,111,74,0.08); }
+    .body-quickedit-overlay{
+      position:fixed; inset:0; z-index:520;
+      background:rgba(40,28,16,0.40);
+      display:flex; align-items:center; justify-content:center; padding:16px;
+    }
+    .body-quickedit-card{
+      background:#fffaee; border:1px solid rgba(80,50,20,0.18); border-radius:14px;
+      box-shadow:0 12px 40px rgba(120,90,50,0.24);
+      width:min(440px,94vw); max-height:86dvh;
+      padding:14px 16px; overflow:auto; display:flex; flex-direction:column; gap:10px;
+    }
+    .body-quickedit-head{ display:flex; justify-content:space-between; align-items:center; }
+    .body-quickedit-head h3{ margin:0; font-family:var(--font-h); font-size:16px; color:var(--text); }
+    .body-quickedit-close{ background:none; border:none; font-size:18px; cursor:pointer; color:var(--muted); padding:2px 6px; }
+    .body-quickedit-ta{
+      width:100%; box-sizing:border-box; min-height:130px; max-height:46dvh; resize:vertical;
+      padding:10px; border:1.5px solid rgba(80,50,20,0.14); border-radius:9px; background:#fdf8eb;
+      font-family:var(--font-b); font-size:16px; line-height:1.55;
+      white-space:pre-wrap; word-break:keep-all; overflow-wrap:anywhere;
+    }
+    .body-quickedit-ta:focus{ outline:none; border-color:var(--primary); background:#fffaee; }
+    .body-quickedit-hint{ font-size:11.5px; color:#8a7a5e; }
+    .body-quickedit-actions{ display:flex; justify-content:flex-end; gap:8px; }
+    .body-quickedit-cancel,.body-quickedit-save{
+      padding:8px 18px; border-radius:9px; font-family:var(--font-h); font-size:13px; cursor:pointer;
+      border:1.5px solid rgba(80,50,20,0.25);
+    }
+    .body-quickedit-cancel{ background:#fff; color:var(--text); }
+    .body-quickedit-cancel:hover{ background:rgba(80,50,20,0.06); }
+    .body-quickedit-save{ background:var(--primary); color:#fff; border-color:var(--primary); }
+    .body-quickedit-save:hover{ filter:brightness(0.95); }
+
     /* 미리보기 선택지 버튼 */
     .preview-choice-btn{width:100%;padding:14px 18px;border-radius:14px;border:2px solid;font-family:var(--font-h);font-size:16px;cursor:pointer;text-align:left;transition:transform .1s,filter .1s;backdrop-filter:blur(4px);}
     .preview-choice-btn:hover{filter:brightness(1.2);transform:translateY(-2px);}
@@ -3193,13 +3228,13 @@
 <script src="thought-compass-scenes.js?v=compassbundle1"></script>
 <script src="firebase.js?v=141admin1cbase10amemberlogin1sec5tcphase1drefinestab1"></script>
 <script src="canvasInteraction.js?v=120"></script>
-<script src="sceneRenderer.js?v=119base10bbase10auto1coverstart1scenetitle1ascenetitle2apwanav2vpreturn1perfqa1branchcard1branchcard2branchcard3branchcard4cover1cover2cover3compassbtn1pbflowcopy1"></script>
+<script src="sceneRenderer.js?v=119base10bbase10auto1coverstart1scenetitle1ascenetitle2apwanav2vpreturn1perfqa1branchcard1branchcard2branchcard3branchcard4cover1cover2cover3compassbtn1pbflowcopy1cardquickedit1"></script>
 <script src="storyAnalyzer.js?v=136checkbuttons1heuristic3"></script>
 <script src="mediaManager.js?v=114copyfix1"></script>
 <script src="adminConsole.js?v=103copyfix1pwanav2imgs2settings1writeafterui1waq1finishgroup1"></script>
 <script src="preview.js?v=96"></script>
 <script src="projectSettings.js?v=114copyfix1coverstart2"></script>
-<script src="ui.js?v=109copyfix2c2base10bfixendingguard1addscene1base10auto1branchtopbar1cscenetitle1asessionrefresh1apwanav2homenav1vpreturn1sec5tcphase1dcompassbtn1"></script>
+<script src="ui.js?v=109copyfix2c2base10bfixendingguard1addscene1base10auto1branchtopbar1cscenetitle1asessionrefresh1apwanav2homenav1vpreturn1sec5tcphase1dcompassbtn1cardquickedit1"></script>
 <!-- v95: 모바일 텍스트형 브랜치 전용 (텍스트 작품 + 모바일에서만 활성) -->
 <script src="mobileTextBranch.js?v=compassbundle1"></script>
 

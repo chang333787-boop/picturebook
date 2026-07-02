@@ -158,13 +158,17 @@
     return { vm: next, deferred: true };
   }
 
-  /* ── AI 후속질문 분기(Phase H) ── 클라이언트 상한도 서버와 동일하게 강제. */
+  /* ── AI 후속질문 분기(Phase H) ── 클라이언트 상한도 서버와 동일하게 강제.
+     COMPASS-V2-FOLLOWUP: 세트별 상한 — v1(핵심7)=전체12 · v2(핵심10)=전체15(서버 MAX_TOTAL=15). */
   const FOLLOWUP_MAX = 5;     /* 세션 후속질문 상한 */
-  const TOTAL_MAX = 12;       /* 전체 질문 상한 */
+  const TOTAL_MAX = 12;       /* v1 전체 질문 상한(기존 상수 유지 — 하위호환) */
+  const TOTAL_MAX_V2 = 15;    /* v2 전체 질문 상한(핵심 10 + 후속 5) */
   const CORE_TOTAL = 7;
   function followUpBudgetLeft(meta) {
     const used = (meta && Number.isInteger(meta.followUpsUsed)) ? meta.followUpsUsed : 0;
-    return used < FOLLOWUP_MAX && (CORE_TOTAL + used) < TOTAL_MAX;
+    const core = (meta && Number.isInteger(meta.coreTotal) && meta.coreTotal > 0) ? meta.coreTotal : CORE_TOTAL;
+    const totalMax = core >= 10 ? TOTAL_MAX_V2 : TOTAL_MAX;
+    return used < FOLLOWUP_MAX && (core + used) < totalMax;
   }
   /* AI decision(NEXT/ASK_FOLLOW_UP/ASK_EASIER, null 가능) → UI 동작('next'|'followUp'|'easier'). */
   function resolveAfterAnswer(decision, meta) {
@@ -191,6 +195,6 @@
     hasValidAnswer, canNext, canPrev, buildSavePatch,
     goPrev, commitNext, goToIndex, goToQuestionId, allAnswered,
     assistanceLevel, setAssistanceLevel, assistancePrompt, handleUnsure,
-    followUpBudgetLeft, resolveAfterAnswer, FOLLOWUP_MAX, TOTAL_MAX, CORE_TOTAL,
+    followUpBudgetLeft, resolveAfterAnswer, FOLLOWUP_MAX, TOTAL_MAX, TOTAL_MAX_V2, CORE_TOTAL,
   };
 });

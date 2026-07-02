@@ -318,17 +318,19 @@
     const Flow = _Flow();
     const q = Flow.currentQuestion(S.vm);
     const ans = Flow.currentAnswer(S.vm);
-    const meta = { followUpsUsed: S.followUpsUsed };
+    /* COMPASS-V2-FOLLOWUP: v2 가드 해제 — 서버 allowlist가 v1+v2 합집합으로 확장됨(15키).
+       coreTotal은 vm 기반(v1=7·v2=10) — 상한도 세트별(12/15, flow.followUpBudgetLeft).
+       targetLength(보기 전용)는 판정 가치가 없어 후속 요청 자체를 생략(비용·시간 절약).
+       ※ 서버 deploy 전까지는 v2 요청이 거부→null→NEXT 안전 진행(현행과 동일 체감). */
+    const meta = { followUpsUsed: S.followUpsUsed, coreTotal: S.vm.total };
     let decision = null;
-    /* V2: AI 후속 판정 스킵 — 서버 callable allowlist가 v1 7키 정본(functions 무수정 원칙,
-       v2 키/priorSummaries는 서버 검증에서 거부됨). COMPASS-V2-FOLLOWUP 루프에서 별도 갱신. */
-    if (S.version !== 2 && Flow.followUpBudgetLeft(meta) && window.ThoughtCompassAI && typeof window.ThoughtCompassAI.requestFollowUp === 'function') {
+    if (q.id !== 'targetLength' && Flow.followUpBudgetLeft(meta) && window.ThoughtCompassAI && typeof window.ThoughtCompassAI.requestFollowUp === 'function') {
       S.aiBusy = true; _render();
       try {
         decision = await window.ThoughtCompassAI.requestFollowUp({
           classId: S.ctx.classId, teamName: S.ctx.teamName, projectType: S.ctx.projectType,
           coreQuestionId: q.id, currentAnswer: (ans && ans.answerText) || '',
-          followUpCount: S.followUpsUsed, totalQuestionCount: Flow.CORE_TOTAL + S.followUpsUsed,
+          followUpCount: S.followUpsUsed, totalQuestionCount: S.vm.total + S.followUpsUsed,
           priorSummaries: _priorSummaries(),
         });
       } catch (e) { decision = null; }

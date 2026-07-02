@@ -504,6 +504,16 @@ async function _resumeTeamFromSession(ctx) {
     return false;
   }
   try {
+    /* REFINE-STAB-C: auth 복원(IndexedDB 비동기)이 끝나기 전에 currentUser=null을 보고
+       signInAnonymously()를 부르면 "새 익명 uid"가 만들어져 members/{기존uid} 확인에 실패
+       → 멀쩡한 세션이 재로그인 화면으로 떨어짐(간헐 '로그아웃처럼 보임'의 원인).
+       onAuthStateChanged 첫 발화(=복원 완료)까지 대기 후에만 필요 시 익명 로그인. */
+    await new Promise(resolve => {
+      let done = false;
+      const finish = () => { if (!done) { done = true; try { unsub(); } catch (e) {} resolve(); } };
+      const unsub = auth.onAuthStateChanged(finish, finish);
+      setTimeout(finish, 3000);   /* 방어: 복원 이벤트 미발화 시에도 진행 */
+    });
     if (!auth.currentUser) {
       await auth.signInAnonymously();
     }

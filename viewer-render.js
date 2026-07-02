@@ -2271,27 +2271,17 @@ function renderHUD() {
           ${_aiAllowed ? '<button class="maker-return-btn maker-return-btn--ai js-ai-trigger" title="작품 마무리 — 질문·검사로 고칠 곳을 찾고, 직접 고친 뒤, 마지막 다듬기" aria-label="작품 마무리 — 질문·검사·직접 고치기·마지막 다듬기">📁 작품 마무리</button>' : ''}
           <button class="maker-return-btn maker-return-btn--test js-edit-preview-test" title="실제 관람자 화면으로 확인">▶ 감상해 보기</button>
           <button class="maker-return-btn maker-return-btn--save js-edit-save" title="즉시 저장">💾 저장</button>
+          <!-- REFINE-STAB-D: ⋯ 더보기 제거 — 작업 흐름 중심 정리.
+               · ⚙ 감상/작품 설정 = 상단 단독(기존 js-edit-project-popover 핸들러 그대로)
+               · 🧭 나침반 = 상단 단독(기록 있을 때만 — _applyCompassMenuVisibility가 display 제어)
+               · 🛤 이야기 길 보기·🖨 그림책 인쇄 = 작품 마무리 모달 안 '이야기 길 확인'으로 이동(viewer-ai)
+               · 🔍 구조 보기 = 다듬기에서 삭제(브랜치 화면의 이야기 길 점검이 담당)
+               · 🌿 처음으로 = 다듬기에서 제거(브랜치 화면에는 유지) -->
+          ${(ViewerState.project && ViewerState.project.projectType === 'text')
+            ? '<button class="maker-return-btn maker-return-btn--tool js-edit-project-popover" title="장면이 바뀌고 글이 나타나는 방식(작품 전체)" aria-label="감상 설정 — 작품 전체 재생 방식">⚙ 감상 설정</button>'
+            : '<button class="maker-return-btn maker-return-btn--tool js-edit-project-popover" title="작품 전체에 적용되는 설정이에요" aria-label="작품 전체 설정">⚙ 작품 설정</button>'}
+          <button class="maker-return-btn maker-return-btn--tool js-edit-compass-result" title="이 작품의 생각 나침반 결과를 다시 봐요" style="display:none;">🧭 생각 나침반</button>
           <button class="maker-return-btn js-edit-return-maker" title="브랜치 화면으로 돌아가기" aria-label="브랜치 화면으로 돌아가기">← 브랜치 화면으로</button>
-          <button class="maker-return-btn maker-return-btn--more js-hud-more" type="button"
-            aria-haspopup="menu" aria-expanded="false" aria-controls="hud-more-menu"
-            title="더 많은 도구 — AI·설정·루트/구조 보기·처음으로">⋯ 더보기</button>
-          <div class="hud-more-menu" id="hud-more-menu" role="menu" aria-label="더 많은 편집 도구" hidden>
-            <!-- AI-BUTTON-SURFACE: 📁 작품 마무리(구 'AI 다듬기')는 상단 직접 노출로 이동(발견성). 더보기 중복 제거. -->
-            ${(ViewerState.project && ViewerState.project.projectType === 'text')
-              ? '<button type="button" role="menuitem" class="hud-more-item js-edit-project-popover" title="장면이 바뀌고 글이 나타나는 방식(작품 전체)" aria-label="감상 설정 — 작품 전체 재생 방식">⚙ 감상 설정</button>'
-              : '<button type="button" role="menuitem" class="hud-more-item js-edit-project-popover" title="작품 전체에 적용되는 설정이에요" aria-label="작품 전체 설정">⚙ 작품 설정</button>'}
-            <div class="hud-more-sep" role="separator"></div>
-            <button type="button" role="menuitem" class="hud-more-item js-edit-open-routes" title="엔딩별 이야기 흐름 점검">🛤 이야기 길 보기</button>
-            ${(ViewerState.project && ViewerState.project.projectType === 'picturebook')
-              ? '<button type="button" role="menuitem" class="hud-more-item js-edit-print-pb" title="장면 번호와 이동 안내가 있는 종이 그림책으로 인쇄해요 (선생님 컴퓨터 인쇄 권장)">🖨 그림책 인쇄</button>'
-              : ''}
-            <button type="button" role="menuitem" class="hud-more-item js-edit-open-map" title="장면 연결을 한눈에 확인">🔍 구조 보기</button>
-            <!-- HOTFIX(생각 나침반 결과 보기): 작품 단위 참고 도구. 생각 나침반 기록이 있을 때만 표시
-                 (viewer-edit.js _applyCompassMenuVisibility). 읽기 전용 — 저장된 결과만 다시 봄. 기본 숨김. -->
-            <button type="button" role="menuitem" class="hud-more-item js-edit-compass-result" title="이 작품의 생각 나침반 결과를 다시 봐요" style="display:none;">🧭 생각 나침반</button>
-            <div class="hud-more-sep" role="separator"></div>
-            <button type="button" role="menuitem" class="hud-more-item hud-more-item--danger js-return-home" title="서비스 첫 화면으로">🌿 처음으로</button>
-          </div>
         ` : `
           <button class="maker-return-btn js-return-to-maker">← 브랜치 화면으로</button>
           <button class="maker-return-btn js-return-home" title="서비스 첫 화면으로">🌿 처음으로</button>

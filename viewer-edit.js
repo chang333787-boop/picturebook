@@ -4788,7 +4788,9 @@ function _bindHudEditActions() {
     }
   });
 
-  document.querySelector('.js-edit-open-routes')?.addEventListener('click', () => {
+  /* REFINE-STAB-D: 이야기 길 보기 — HUD 더보기에서 '작품 마무리' 모달로 이동.
+     viewer-ai(작품 마무리 카드)가 호출하도록 window 노출. 기존 변환/닫기 로직 그대로. */
+  window._openViewerRoutePanel = function () {
     if (typeof openRoutePanel !== 'function') {
       alert('루트 보기 기능을 불러오지 못했어요. 페이지를 새로고침해 주세요.');
       return;
@@ -4839,7 +4841,9 @@ function _bindHudEditActions() {
       });
       panel.dataset.bgBound = '1';
     }
-  });
+  };
+  /* 하위호환: 같은 클래스 버튼이 어딘가 남아 있으면 동일 함수로 동작 */
+  document.querySelector('.js-edit-open-routes')?.addEventListener('click', window._openViewerRoutePanel);
 
   document.querySelector('.js-edit-return-maker')?.addEventListener('click', async () => {
     /* 작업 복귀 전에도 저장 마무리 + 잠금 릴리스 */

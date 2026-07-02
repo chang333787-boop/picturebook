@@ -441,7 +441,7 @@ function _buildPicturebookCardContent(s) {
   const _bodyTrim = (typeof s.body === 'string') ? s.body.trim() : '';
   const _previewText = _bodyTrim
     ? _escapeHtml(_bodyTrim)
-    : '이 장면의 내용을 적어보세요.';
+    : '그림과 글을 채워 보세요.';
   const _emptyCls = _bodyTrim ? '' : ' pb-body-preview--empty';
   return `
     ${_buildImageAreaHtml(s)}
@@ -613,7 +613,7 @@ function _pbSyncPreviewFromTextarea(cardEl) {
   if (!ta || !pv) return;
   const v = (ta.value || '').trim();
   if (v) { pv.textContent = v; pv.classList.remove('pb-body-preview--empty'); }
-  else   { pv.textContent = '이 장면의 내용을 적어보세요.'; pv.classList.add('pb-body-preview--empty'); }
+  else   { pv.textContent = '그림과 글을 채워 보세요.'; pv.classList.add('pb-body-preview--empty'); }
 }
 
 /* ── 모드 배지 (모드 시스템 뼈대 1차) ──

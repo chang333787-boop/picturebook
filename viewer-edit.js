@@ -6719,7 +6719,7 @@ function renderTestingBanner() {
   ].join(';');
   banner.innerHTML = `
     <span style="font-family:var(--font-ui,Jua,sans-serif);font-size:12px;color:rgba(88,166,255,0.9);">
-      ▶ 감상 테스트 중 — 실제 관람자 화면이에요
+      ▶ 감상해 보는 중 — 실제 관람자 화면이에요
     </span>
     <button id="btn-edit-test-return"
       style="padding:5px 14px;border-radius:50px;border:1.5px solid rgba(88,166,255,0.5);

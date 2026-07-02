@@ -64,3 +64,11 @@ PANEL-CLEANUP·작품 마무리 그룹화)이 이미 큰 위계를 잡아 둠.
 ## 최종 판정
 **PICTUREBOOK_FLOW_NEEDS_COPY_FIX** — 구조·동선·위계는 준비됨(Critical/High 0).
 문구 4건만 학생용으로 교체하면 됨(A안). 모바일 그림책은 범위 제외 결정 반영.
+
+---
+## 후속: COPY-FIX-1 반영 완료 (같은 날)
+A안 4건 교체 라이브(버스터 `pbflowcopy1`): ①그림책 카드 빈 문구→"그림과 글을 채워 보세요."
+(sceneRenderer 2곳 — `_buildPicturebookCardContent` 그림책 전용 확인) ②ptype 카드→"선택에 따라
+이야기가 갈라지는 글" ③"▶ 감상해 보기"(브랜치 상단+다듬기 HUD+복귀 배너 "감상해 보는 중" —
+명칭 일관 위해 3곳) ④"이야기 길 점검/보기"(버튼+패널 타이틀+다듬기 메뉴). id/핸들러/셀렉터
+무변경·테스트 참조 0 확인. mtb(모바일 텍스트)·adminConsole(교사용)·mockup은 범위 외 유지.

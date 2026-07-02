@@ -2269,7 +2269,7 @@ function renderHUD() {
             : '<button class="maker-return-btn maker-return-btn--tool js-edit-scene-style-popover" title="현재 장면의 글과 화면을 꾸며요. 같은 스타일을 모든 장면에 복사할 수 있어요" aria-label="장면 꾸미기 — 현재 장면의 글과 화면">🎨 장면 꾸미기</button>') : ''}
           ${_isMovieToolHudScene ? '<button class="maker-return-btn maker-return-btn--tool js-edit-movie-tool-modal" title="이 장면의 영상과 본문 표시를 설정합니다" aria-label="이 장면의 영상과 본문 표시를 설정합니다">🎬 무비</button>' : ''}
           ${_aiAllowed ? '<button class="maker-return-btn maker-return-btn--ai js-ai-trigger" title="작품 마무리 — 질문·검사로 고칠 곳을 찾고, 직접 고친 뒤, 마지막 다듬기" aria-label="작품 마무리 — 질문·검사·직접 고치기·마지막 다듬기">📁 작품 마무리</button>' : ''}
-          <button class="maker-return-btn maker-return-btn--test js-edit-preview-test" title="실제 관람자 화면으로 확인">▶ 감상 테스트</button>
+          <button class="maker-return-btn maker-return-btn--test js-edit-preview-test" title="실제 관람자 화면으로 확인">▶ 감상해 보기</button>
           <button class="maker-return-btn maker-return-btn--save js-edit-save" title="즉시 저장">💾 저장</button>
           <button class="maker-return-btn js-edit-return-maker" title="브랜치 화면으로 돌아가기" aria-label="브랜치 화면으로 돌아가기">← 브랜치 화면으로</button>
           <button class="maker-return-btn maker-return-btn--more js-hud-more" type="button"
@@ -2281,7 +2281,7 @@ function renderHUD() {
               ? '<button type="button" role="menuitem" class="hud-more-item js-edit-project-popover" title="장면이 바뀌고 글이 나타나는 방식(작품 전체)" aria-label="감상 설정 — 작품 전체 재생 방식">⚙ 감상 설정</button>'
               : '<button type="button" role="menuitem" class="hud-more-item js-edit-project-popover" title="작품 전체에 적용되는 설정이에요" aria-label="작품 전체 설정">⚙ 작품 설정</button>'}
             <div class="hud-more-sep" role="separator"></div>
-            <button type="button" role="menuitem" class="hud-more-item js-edit-open-routes" title="엔딩별 이야기 흐름 점검">🛤 루트 보기</button>
+            <button type="button" role="menuitem" class="hud-more-item js-edit-open-routes" title="엔딩별 이야기 흐름 점검">🛤 이야기 길 보기</button>
             <button type="button" role="menuitem" class="hud-more-item js-edit-open-map" title="장면 연결을 한눈에 확인">🔍 구조 보기</button>
             <!-- HOTFIX(생각 나침반 결과 보기): 작품 단위 참고 도구. 생각 나침반 기록이 있을 때만 표시
                  (viewer-edit.js _applyCompassMenuVisibility). 읽기 전용 — 저장된 결과만 다시 봄. 기본 숨김. -->

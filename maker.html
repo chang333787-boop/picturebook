@@ -2804,7 +2804,7 @@
         <span class="ptype-card-prev-badge">✓ 이전 선택</span>
         <div class="ptype-card-body">
           <h2 class="ptype-card-name">텍스트형</h2>
-          <p class="ptype-card-desc">글이 주인공인 분기형 스토리</p>
+          <p class="ptype-card-desc">선택에 따라 이야기가 갈라지는 글</p>
         </div>
       </button>
       <button class="ptype-card ptype-card--picturebook" data-ptype="picturebook">
@@ -2880,7 +2880,7 @@
       </div>
       <!-- W8: 다음 단계 — 상단 바에 자연스럽게 녹임 (floating 패널 폐기) -->
       <a class="tb-btn tb-btn-test" id="btn-open-viewer" href="#"
-         title="실제 관람자 화면 확인">▶ 감상 테스트</a>
+         title="실제 관람자 화면 확인">▶ 감상해 보기</a>
       <button class="tb-btn tb-btn-viewedit" id="btn-viewer-edit"
               title="선택지 위치·스타일을 마감해요">🎨 감상 화면 다듬기</button>
     </div>
@@ -2896,8 +2896,8 @@
       <div class="tb-group-btns">
         <!-- BRANCH-TOPBAR-2B: 구조 편집 4버튼을 한 계열(tb-btn-tool)로 통일 — 개별 색 inline 제거.
              id/handler 불변, 색만 CSS 토큰으로. 구조 점검은 tb-btn-check(리드 강조). -->
-        <button class="tb-btn tb-btn-check" id="btn-check" title="장면 연결 구조를 점검해요">🔍 구조 점검</button>
-        <button class="tb-btn tb-btn-tool" id="btn-route" title="장면 흐름(루트)을 살펴봐요">🛤 루트 보기</button>
+        <button class="tb-btn tb-btn-check" id="btn-check" title="장면 연결 구조를 점검해요">🔍 이야기 길 점검</button>
+        <button class="tb-btn tb-btn-tool" id="btn-route" title="장면 흐름(루트)을 살펴봐요">🛤 이야기 길 보기</button>
         <!-- HOTFIX(생각 나침반 결과 보기): 생각 나침반 기록이 있는 작품에서만 표시(ui.js _updateCompassResultButton).
              읽기 전용 — 저장된 결과만 다시 봄(질문 생성·API 호출 없음). 기본 숨김. -->
         <button class="tb-btn tb-btn-tool" id="btn-compass-result" title="이 작품의 생각 나침반 결과를 다시 봐요" style="display:none;">🧭 생각 나침반</button>
@@ -3054,7 +3054,7 @@
   <div style="background:#fff;border-radius:20px;width:100%;max-width:600px;box-shadow:0 16px 48px rgba(0,0,0,.25);overflow:hidden;">
     <div style="background:linear-gradient(135deg,#9b4dca,#c084fc);padding:16px 24px;display:flex;align-items:center;justify-content:space-between;">
       <div>
-        <div style="font-family:var(--font-h);font-size:20px;color:#fff;">🛤 루트 보기</div>
+        <div style="font-family:var(--font-h);font-size:20px;color:#fff;">🛤 이야기 길 보기</div>
         <div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:2px;">엔딩별로 이야기 흐름을 읽어보며 점검하는 도구</div>
       </div>
       <button id="btn-route-close" style="background:rgba(255,255,255,.2);border:none;color:#fff;width:32px;height:32px;border-radius:50%;font-size:18px;cursor:pointer;">✕</button>
@@ -3110,7 +3110,7 @@
 
 <!-- 구조 검사 패널 -->
 <div id="check-panel">
-  <h3>🔍 구조 점검 결과</h3>
+  <h3>🔍 이야기 길 점검 결과</h3>
   <div id="check-result"></div>
   <button id="check-close">닫기</button>
 </div>
@@ -3193,7 +3193,7 @@
 <script src="thought-compass-scenes.js?v=compassbundle1"></script>
 <script src="firebase.js?v=141admin1cbase10amemberlogin1sec5tcphase1d"></script>
 <script src="canvasInteraction.js?v=120"></script>
-<script src="sceneRenderer.js?v=119base10bbase10auto1coverstart1scenetitle1ascenetitle2apwanav2vpreturn1perfqa1branchcard1branchcard2branchcard3branchcard4cover1cover2cover3compassbtn1"></script>
+<script src="sceneRenderer.js?v=119base10bbase10auto1coverstart1scenetitle1ascenetitle2apwanav2vpreturn1perfqa1branchcard1branchcard2branchcard3branchcard4cover1cover2cover3compassbtn1pbflowcopy1"></script>
 <script src="storyAnalyzer.js?v=136checkbuttons1heuristic3"></script>
 <script src="mediaManager.js?v=114copyfix1"></script>
 <script src="adminConsole.js?v=103copyfix1pwanav2imgs2settings1writeafterui1waq1finishgroup1"></script>

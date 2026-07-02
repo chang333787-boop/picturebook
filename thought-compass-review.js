@@ -93,6 +93,10 @@
     /* FREE-NOTE: 참고 자료 안내 — 반드시 이대로 써야 한다는 인상 주지 않기. */
     card.appendChild(_el('p', 'tc-flow-help tc-flow-help--guide', '생각 나침반은 이야기를 시작하기 위한 참고 자료예요. 만들면서 새로운 생각이 떠오르면 자유롭게 바꾸어도 괜찮아요.'));
 
+    /* COMPASS-SHEET-1: v2면 "내 이야기 큰줄기 설계도" — 템플릿 줄거리+핵심 카드+인쇄.
+       v1 결과보기는 기존 그대로(하위호환 — 설계도 미노출). 렌더 시 파생 계산(DB 저장 없음). */
+    _appendSheetSection(card);
+
     const list = _el('div', 'tc-review-list');
     /* V2: vm이 실은 질문 세트가 정본(버전 일치 보장). 없을 때만 v1 fallback. */
     const questions = (R.vm && Array.isArray(R.vm.questions) && R.vm.questions.length)
@@ -153,6 +157,56 @@
     overlay.appendChild(card);
     document.body.appendChild(overlay);
     try { t.setAttribute('tabindex', '-1'); t.focus(); } catch (e) {}
+  }
+
+  /* ── COMPASS-SHEET-1: 내 이야기 큰줄기 설계도(v2 전용) ──
+     · ThoughtCompassSheet(순수 helper)로 answers→storyMapV2 파생(렌더 시 계산·저장 없음)
+     · 한 문단 줄거리(템플릿·AI 0) + 핵심 카드 10개 + 인쇄(1장 결과지)
+     · 인쇄: body.tc-print-sheet 클래스를 인쇄 동안만 부여 → @media print에서 설계도만 출력.
+       버튼 경유가 아니면(일반 Cmd+P) 클래스가 없어 일반 화면/인쇄 영향 0. */
+  function _appendSheetSection(card) {
+    const Sheet = window.ThoughtCompassSheet;
+    if (!Sheet || typeof Sheet.buildStoryMapV2 !== 'function') return;                 /* 미로드 → 기존 화면 그대로 */
+    if (!Sheet.isV2Questions(R.vm && R.vm.questions)) return;                          /* v1 → 미노출(하위호환) */
+    const map = Sheet.buildStoryMapV2(R.vm.answers);
+
+    const sec = _el('div', 'tc-sheet');
+    const head = _el('div', 'tc-sheet-head');
+    head.appendChild(_el('div', 'tc-sheet-title', '🧭 내 이야기 큰줄기 설계도'));
+    const printBtn = _el('button', 'tc-sheet-print-btn', '🖨 인쇄하기');
+    printBtn.type = 'button';
+    printBtn.title = '설계도를 1장으로 인쇄해요';
+    printBtn.addEventListener('click', _printSheet);
+    head.appendChild(printBtn);
+    sec.appendChild(head);
+
+    /* 한 문단 줄거리(진엔딩까지 시간축) */
+    sec.appendChild(_el('p', 'tc-sheet-summary', map.summaryText));
+
+    /* 핵심 카드 10개 — 질문 순서(재료→한줄기→분기→앵커) */
+    const grid = _el('div', 'tc-sheet-grid');
+    map.fields.forEach(f => {
+      const cardEl = _el('div', 'tc-sheet-card' + (f.deferred || !f.text ? ' is-deferred' : ''));
+      cardEl.appendChild(_el('div', 'tc-sheet-card-label', f.icon + ' ' + f.label));
+      cardEl.appendChild(_el('div', 'tc-sheet-card-value', f.text || Sheet.DEFERRED_LABEL));
+      grid.appendChild(cardEl);
+    });
+    sec.appendChild(grid);
+    if (map.deferredKeys.length) {
+      sec.appendChild(_el('p', 'tc-sheet-defer-hint', '“' + Sheet.DEFERRED_LABEL + '” 칸은 이야기를 만들면서 채워 가요.'));
+    }
+    card.appendChild(sec);
+  }
+  /* 설계도만 1장 인쇄 — 인쇄 동안만 body 클래스 부여(일반 화면 영향 0). */
+  function _printSheet() {
+    try {
+      document.body.classList.add('tc-print-sheet');
+      const cleanup = function () { document.body.classList.remove('tc-print-sheet'); window.removeEventListener('afterprint', cleanup); };
+      window.addEventListener('afterprint', cleanup);
+      window.print();
+      /* afterprint 미발화 브라우저 방어(사파리 일부) — 지연 제거 */
+      setTimeout(cleanup, 2000);
+    } catch (e) { document.body.classList.remove('tc-print-sheet'); }
   }
 
   /* FREE-NOTE: 자유 메모 섹션 — 완료 화면=입력란(선택, blur 저장), 결과 패널=표시+[메모 수정]. */

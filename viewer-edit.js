@@ -4613,14 +4613,15 @@ function _ensureCompassReviewBundle() {
       s.onload = () => res(); s.onerror = () => rej(new Error('load fail ' + src)); document.head.appendChild(s);
     });
     if (!document.querySelector('link[data-tc-review-css]')) {
-      const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'thought-compass.css?v=compassview2';
+      const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'thought-compass.css?v=tcsheet1';
       l.setAttribute('data-tc-review-css', '1'); document.head.appendChild(l);
     }
-    const V = '?v=tcv2q1';
+    const V = '?v=tcsheet1';
     await load('thought-compass.js' + V);
     await load('thought-compass-questions.js' + V);
     await load('thought-compass-flow.js' + V);
     await load('thought-compass-store.js' + V);
+    await load('thought-compass-sheet.js' + V);   /* COMPASS-SHEET-1: v2 설계도 helper */
     await load('thought-compass-review.js' + V);
     return !!(window.ThoughtCompassReview && typeof window.ThoughtCompassReview.openReadOnly === 'function');
   })().catch((e) => { _compassBundlePromise = null; try { console.warn('[compass-view] 번들 로드 실패', e); } catch(_){} return false; });

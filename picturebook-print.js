@@ -187,11 +187,16 @@
     });
     document.body.appendChild(rootEl);
 
-    /* gate — 버튼 경유 인쇄 동안만(취소 포함 afterprint+2s 정리). */
+    /* gate — 버튼 경유 인쇄 동안만(취소 포함 afterprint+2s 정리).
+       FIELD-REGRESSION-FIX-2: <html>에도 print-doc-unclip 부여 — viewer.css의 화면용
+       html,body{height:100%;overflow:hidden}이 인쇄 fragmentation을 1페이지로 잘라
+       표지/지도/장면이 한 장에 뭉치던(1/1) 실환경 문제 해제. CSS는 pb-ai.css @media print. */
     try {
       document.body.classList.add('print-picturebook');
+      document.documentElement.classList.add('print-doc-unclip');
       const cleanup = function () {
         document.body.classList.remove('print-picturebook');
+        document.documentElement.classList.remove('print-doc-unclip');
         const r = document.getElementById('pb-print-root');
         if (r) r.remove();
         window.removeEventListener('afterprint', cleanup);
@@ -201,6 +206,7 @@
       setTimeout(cleanup, 2000);
     } catch (e) {
       document.body.classList.remove('print-picturebook');
+      document.documentElement.classList.remove('print-doc-unclip');
       const r = document.getElementById('pb-print-root');
       if (r) r.remove();
     }

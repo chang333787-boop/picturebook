@@ -3877,11 +3877,15 @@
     root.appendChild(foot);
     document.body.appendChild(root);
 
-    /* gate 클래스 — 인쇄 동안만(취소 포함 afterprint+2s 정리). tc-print-*와 독립. */
+    /* gate 클래스 — 인쇄 동안만(취소 포함 afterprint+2s 정리). tc-print-*와 독립.
+       FIELD-REGRESSION-FIX-2: <html> print-doc-unclip — viewer.css의 html,body 고정
+       (height:100%·overflow:hidden)이 다중 페이지 인쇄를 1페이지로 자르던 문제 해제. */
     try {
       document.body.classList.add('print-write-after');
+      document.documentElement.classList.add('print-doc-unclip');
       const cleanup = function () {
         document.body.classList.remove('print-write-after');
+        document.documentElement.classList.remove('print-doc-unclip');
         const r = document.getElementById('write-after-print-root');
         if (r) r.remove();
         window.removeEventListener('afterprint', cleanup);
@@ -3891,6 +3895,7 @@
       setTimeout(cleanup, 2000);
     } catch (e) {
       document.body.classList.remove('print-write-after');
+      document.documentElement.classList.remove('print-doc-unclip');
       const r = document.getElementById('write-after-print-root');
       if (r) r.remove();
     }

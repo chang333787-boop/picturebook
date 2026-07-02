@@ -1321,6 +1321,18 @@
   .viewer-confirm-ok { width: 100%; }
 }
 
+/* ══ FIELD-REGRESSION-FIX-2: 인쇄 게이트 공통 — 문서 클리핑 해제 ══
+   viewer.css의 화면용 html,body{height:100%;overflow:hidden}이 인쇄 fragmentation을
+   뷰포트 1페이지로 잘라(그림책 인쇄가 표지+지도+장면 한 장·1/1) 다중 페이지 인쇄를 막았다.
+   각 인쇄 open()이 <html>에 print-doc-unclip을 부여/제거(afterprint 포함) — 게이트 인쇄에만 적용.
+   tc-print(1장짜리)는 기존 동작 유지라 무변경. */
+@media print {
+  html.print-doc-unclip, html.print-doc-unclip body {
+    height: auto !important;
+    overflow: visible !important;
+  }
+}
+
 /* ══ WRITE-AFTER-PRINT-1: 고쳐쓰기 자료 인쇄 (gate: body.print-write-after) ══
    root는 화면에서 항상 숨김 — 버튼 경유 인쇄 동안에만 print 매체에서 표시.
    기존 tc-print-*(나침반) gate와 독립. 흑백 가독 우선(색 의존 없음). */

@@ -3322,7 +3322,7 @@
           })}
           ${_showImageS2Card ? _renderModeCard({
             key: 'imageS2', icon: '🖼', title: 'AI 그림책 마감',
-            desc: '그림책 그림을 더 완성된 느낌으로 다듬어요. 원본은 그대로 두고 결과를 비교한 뒤 선택해요. (교사용 · 외부 AI 전송 가능)',
+            desc: '그림책 그림을 더 완성된 느낌으로 다듬어요. AI가 만든 그림은 후보로만 저장돼요. 학생이 그린 원본 그림은 그대로 남아요. (교사용 · 외부 AI 전송 가능)',
             enabled: rewriteDone && _imageS2Allowed, disabledReason: !rewriteDone ? lockReason : '설정에서 ‘AI 그림책 마감’을 켜 주세요', remaining: null,
           }) : ''}
           </div>

@@ -2636,6 +2636,7 @@ function _workSettingsSectionHtml() {
     ? ViewerState.project.textEntranceSpeed : 50;
 
   const TRANS = [
+    { id: 'none',     label: '⛔ 없음' },
     { id: 'fade',     label: '✨ 부드럽게' },
     { id: 'book',     label: '📖 책 넘기기' },
     { id: 'scale',    label: '🔍 확대' },
@@ -2659,7 +2660,7 @@ function _workSettingsSectionHtml() {
   return `
     <div class="edit-row">
       <label class="edit-label">🎞 장면 전환 효과 <span class="edit-label-note">(작품 전체)</span></label>
-      <div class="edit-section-hint">scene 진입할 때 들어가는 효과예요. 모든 장면에 적용돼요.</div>
+      <div class="edit-section-hint">장면이 바뀔 때 적용되는 효과예요. 모든 장면에 적용돼요. (눈이 피로하면 ‘없음’으로 끌 수 있어요.)</div>
       <div class="edit-toggle-group" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">
         ${transPills}
       </div>
@@ -2670,8 +2671,8 @@ function _workSettingsSectionHtml() {
         min="0" max="100" step="1" value="${curS}">
     </div>
     <div class="edit-row">
-      <label class="edit-label">📝 기본 텍스트 등장 효과 <span class="edit-label-note">(작품 전체)</span></label>
-      <div class="edit-section-hint">작품 전체에서 기본으로 사용할 효과예요. (장면별로 따로 정하면 그 장면이 우선해요.)</div>
+      <label class="edit-label">📝 텍스트 등장 효과 <span class="edit-label-note">(작품 전체)</span></label>
+      <div class="edit-section-hint">본문이 나타날 때 적용되는 효과예요. 모든 장면에 똑같이 적용돼요.</div>
       <div class="edit-toggle-group" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">
         ${textEntPills}
       </div>
@@ -5877,10 +5878,10 @@ function _renderSceneStylePopoverBody() {
         <div class="edit-scene-style-divider"></div>
         <div class="edit-scene-style-subtitle">🅰 글자 스타일</div>
         ${scene ? _textGlyphStyleSectionHtml(scene, { overrideChips: ovr }) : ''}
-        <div class="edit-scene-style-divider"></div>
-        <div class="edit-scene-style-subtitle">✨ 이 장면의 텍스트 효과</div>
-        <div class="edit-section-hint">효과는 항상 이 장면에만 적용돼요.</div>
-        ${scene ? _textEffectSectionHtml(scene) : ''}
+        <!-- CLEANUP-GLOBAL-EFFECTS: 장면별 '이 장면의 텍스트 효과'(subtitle+hint+_textEffectSectionHtml) 제거.
+             텍스트 등장 효과는 감상 설정의 '텍스트 등장 효과(작품 전체)'로 통일. 장면별 저장값(scene.textEffect)은
+             getTextEffect가 전역 우선으로 무시(DB 삭제 X). 관련 함수/핸들러(_textEffectSectionHtml·
+             js-edit-text-entrance·js-edit-text-body-effect)는 미렌더로 dead(바인딩 0·에러 없음). -->
         <div class="edit-scene-style-apply-all">
           <button type="button" class="js-scene-style-reset-all edit-style-reset-all-btn" ${anyOvr ? '' : 'disabled'}>↩ 이 장면을 작품 기본값으로 되돌리기</button>
           <details class="edit-style-advanced">

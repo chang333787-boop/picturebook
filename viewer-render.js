@@ -2619,6 +2619,18 @@ function _stageReplaceScene(stage, newHtml) {
     return;
   }
 
+  /* CLEANUP-GLOBAL-EFFECTS: 장면 전환 효과 '없음' — 애니메이션/leaving 없이 즉시 교체(멀미·눈 피로 방지).
+     __pbEditPreviewRerender 즉시-교체 로직 재사용. 텍스트 등장 효과(entrance/typewriter)는 별개 축이라 유지.
+     is-leaving fade 잔상도 원천 차단(이전 장면 즉시 제거). */
+  if ((stage.dataset.transition || 'fade') === 'none') {
+    newScene.style.animation = 'none';
+    stage.querySelectorAll('.scene-screen').forEach(function (el) { el.remove(); });
+    stage.insertBefore(newScene, stage.firstChild);
+    while (tmp.firstChild) stage.appendChild(tmp.firstChild);
+    _applyTextEntranceTypewriter(stage, newScene);
+    return;
+  }
+
   /* v133: 실제 duration 계산 — sceneSpeedPct가 없으면 50 fallback */
   const sPct = parseInt(stage.dataset.sceneSpeedPct, 10);
   const duration = _sceneTransMs(isNaN(sPct) ? 50 : sPct);

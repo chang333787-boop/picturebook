@@ -6,18 +6,23 @@
 /* AI 결정/이유 코드 — PRD AI-01/AI-02 정본(allowlist). */
 const DECISIONS = ['NEXT', 'ASK_FOLLOW_UP', 'ASK_EASIER'];
 const REASON_CODES = ['SUFFICIENT', 'TOO_VAGUE', 'MISSING_DETAIL', 'CONTRADICTION', 'STUDENT_STUCK', 'OFF_TOPIC'];
-const CORE_QUESTION_KEYS = ['audience', 'purpose', 'protagonist', 'goal', 'obstacle', 'branchChoice', 'protectedCore'];
+/* COMPASS-V2-FOLLOWUP: v1 7키 + v2 10키 합집합 = 15키(protagonist/goal 공통).
+   v1 세션 회귀 0(기존 7키 전부 유지) · v2 세션 후속 허용. 정본 세트: thought-compass-questions.js. */
+const CORE_QUESTION_KEYS_V1 = ['audience', 'purpose', 'protagonist', 'goal', 'obstacle', 'branchChoice', 'protectedCore'];
+const CORE_QUESTION_KEYS_V2 = ['targetLength', 'protagonist', 'goal', 'mainlineStart', 'incitingEvent', 'risingTrouble', 'keyChoice', 'trueEnding', 'alternatePath', 'coreMessage'];
+const CORE_QUESTION_KEYS = CORE_QUESTION_KEYS_V1.concat(
+  CORE_QUESTION_KEYS_V2.filter(k => CORE_QUESTION_KEYS_V1.indexOf(k) < 0));
 const PROJECT_TYPES = ['picturebook', 'text'];   /* movie/experience 거부(D-01) */
 
 const MAX_FOLLOWUPS = 5;        /* 세션 후속질문 상한(D-05 연동) */
-const MAX_TOTAL = 12;           /* 전체 질문 상한(D-05) */
-const MIN_TOTAL = 7;            /* 핵심 7개 */
+const MAX_TOTAL = 15;           /* 전체 질문 상한 — v2 핵심 10 + 후속 5 (v1은 클라가 12로 자체 제한) */
+const MIN_TOTAL = 7;            /* 핵심 최소(v1 7 · v2 10 둘 다 충족) */
 const MAX_ANSWER_LEN = 200;     /* 핵심 답변 직접입력(D-24) */
 const MAX_SUMMARY_LEN = 200;
 const MAX_FOLLOWUP_Q_LEN = 40;  /* 후속질문 한 문장(AI-04) */
 const MAX_ACK_LEN = 80;
 const MAX_SUPPORT = 3;
-const MAX_SUMMARIES = 7;
+const MAX_SUMMARIES = 10;       /* v2 핵심 10키까지 요약 동봉 허용 */
 
 /* D-11 평가어 금지(완벽·최고·정답 류). AI ack에 포함 시 거부. */
 const BANNED_ACK_WORDS = ['완벽', '최고', '정답', '훌륭', '대단', '짱', '천재'];
@@ -26,8 +31,11 @@ const BANNED_OUTPUT_KEYS = ['body', 'revisedText', 'scene', 'scenes', 'nextId', 
 /* 개인식별/비밀 입력 거부 */
 const FORBIDDEN_INPUT_KEYS = ['pin', 'PIN', 'uid', 'studentName', 'realName', 'password', 'token', 'sessionToken', 'fullLog', 'rawLog'];
 
-/* 질문 brief — AI 맥락용(생각 나침반 질문 모듈 미의존). 정본 문구는 thought-compass-questions.js. */
+/* 질문 brief — AI 맥락용(생각 나침반 질문 모듈 미의존). 정본 문구는 thought-compass-questions.js.
+   COMPASS-V2-FOLLOWUP: v2 8키 추가(protagonist/goal은 공통 — 기존 brief 그대로).
+   targetLength는 보기 선택형이라 클라가 후속 요청을 보내지 않는 게 정상이나, 방어적으로 brief 유지. */
 const QUESTION_BRIEF = {
+  /* v1 */
   audience:     { label: '예상 독자', sufficientWhen: '특정 사람 또는 비교적 분명한 집단' },
   purpose:      { label: '전하고 싶은 느낌·생각', sufficientWhen: '전하려는 느낌/생각 방향 있음' },
   protagonist:  { label: '주인공', sufficientWhen: '대상 분명 + 특징 1가지' },
@@ -35,6 +43,15 @@ const QUESTION_BRIEF = {
   obstacle:     { label: '문제와 어려움', sufficientWhen: '방해 요소 1개 분명' },
   branchChoice: { label: '중요한 갈림길', sufficientWhen: '고민하는 선택 순간 1개 분명' },
   protectedCore:{ label: '꼭 지키고 싶은 중심', sufficientWhen: '지키고 싶은 중심 1개 분명' },
+  /* v2 (시간축 큰줄기) */
+  targetLength: { label: '기본 길이(장면 수)', sufficientWhen: '보기 선택(판정 사실상 불필요)' },
+  mainlineStart:{ label: '이야기의 시작 장면', sufficientWhen: '첫 장면 그림 1개 분명' },
+  incitingEvent:{ label: '주인공에게 생기는 일', sufficientWhen: '이야기를 움직이는 사건 1개 분명' },
+  risingTrouble:{ label: '점점 어려워지는 일', sufficientWhen: '커지는 어려움 1개 분명' },
+  keyChoice:    { label: '중요한 선택', sufficientWhen: '고민하는 선택 순간 1개 분명' },
+  trueEnding:   { label: '진엔딩(기본 이야기의 끝)', sufficientWhen: '마지막 장면 방향 분명' },
+  alternatePath:{ label: '다른 선택을 하면 생기는 일', sufficientWhen: '다른 길 방향 1개 분명' },
+  coreMessage:  { label: '끝까지 지키고 싶은 중심', sufficientWhen: '지키고 싶은 중심 1개 분명' },
 };
 
 function _isSafeSeg(v, maxLen) {
@@ -122,11 +139,17 @@ function validateFollowUpResponse(parsed) {
   return { ok: true, value: { decision, reasonCode, acknowledgement, followUpQuestion, supportOptions } };
 }
 
-/* AI 실패 fallback(RECOVERY-03/04) — G3(주인공)·G4(목표)는 고정 후속, 그 외는 NEXT 안전 통과.
-   무조건 NEXT가 아니라, 구체화가 중요한 두 질문은 정해진 후속으로 학생을 돕는다. */
+/* AI 실패 fallback(RECOVERY-03/04) — 구체화 가치가 큰 질문은 고정 후속, 그 외는 NEXT 안전 통과.
+   COMPASS-V2-FOLLOWUP: v2에서 큰줄기 완성도에 결정적인 3키 추가(진엔딩·중요한 선택·생기는 일).
+   전부 "한 단계 더 생각하게 하는 질문"만 — 답을 대신 쓰는 문구·평가어 없음(D-11·1.2). */
 const FIXED_FOLLOWUPS = {
+  /* v1 (기존 유지 — 회귀 0) */
   protagonist: { decision: 'ASK_FOLLOW_UP', reasonCode: 'MISSING_DETAIL', acknowledgement: '', followUpQuestion: '그 주인공만의 특별한 점은 무엇인가요?', supportOptions: ['특별한 능력이 있어요', '성격이 남달라요', '어려워하는 것이 있어요'] },
   goal:        { decision: 'ASK_FOLLOW_UP', reasonCode: 'MISSING_DETAIL', acknowledgement: '', followUpQuestion: '무엇을 가장 이루고 싶은지 조금 더 말해 줄래요?', supportOptions: ['무언가를 찾고 싶어요', '누군가를 돕고 싶어요', '어딘가에 가고 싶어요'] },
+  /* v2 */
+  trueEnding:  { decision: 'ASK_FOLLOW_UP', reasonCode: 'MISSING_DETAIL', acknowledgement: '', followUpQuestion: '마지막 장면에서 주인공은 어떤 모습인가요?', supportOptions: ['웃고 있어요', '무언가를 얻었어요', '누군가와 함께 있어요'] },
+  keyChoice:   { decision: 'ASK_FOLLOW_UP', reasonCode: 'MISSING_DETAIL', acknowledgement: '', followUpQuestion: '그 선택이 왜 고민되는지 말해 줄래요?', supportOptions: ['둘 다 좋아 보여요', '둘 다 무서워요', '무엇을 잃을지 몰라요'] },
+  incitingEvent:{ decision: 'ASK_FOLLOW_UP', reasonCode: 'MISSING_DETAIL', acknowledgement: '', followUpQuestion: '그 일은 어디에서 일어나나요?', supportOptions: ['학교나 집이에요', '낯선 곳이에요', '상상 속 세계예요'] },
 };
 function followUpFallback(coreQuestionId) {
   if (FIXED_FOLLOWUPS[coreQuestionId]) return Object.assign({}, FIXED_FOLLOWUPS[coreQuestionId], { fallback: true });
@@ -169,7 +192,7 @@ function stubDecision(input) {
 }
 
 module.exports = {
-  DECISIONS, REASON_CODES, CORE_QUESTION_KEYS, PROJECT_TYPES,
+  DECISIONS, REASON_CODES, CORE_QUESTION_KEYS, CORE_QUESTION_KEYS_V1, CORE_QUESTION_KEYS_V2, PROJECT_TYPES,
   stubDecision,
   MAX_FOLLOWUPS, MAX_TOTAL, MIN_TOTAL, MAX_ANSWER_LEN, MAX_FOLLOWUP_Q_LEN,
   BANNED_ACK_WORDS, BANNED_OUTPUT_KEYS, FORBIDDEN_INPUT_KEYS, QUESTION_BRIEF,

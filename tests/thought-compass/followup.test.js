@@ -41,9 +41,9 @@ test('followUpCount 범위(0~5) 밖 거부', () => {
   assert.equal(TC.validateFollowUpInput(baseInput({ followUpCount: 1.5 })).ok, false);
 });
 
-test('totalQuestionCount 범위(7~12) 밖 거부', () => {
+test('totalQuestionCount 범위(7~15) 밖 거부 — V2-FOLLOWUP에서 상한 12→15', () => {
   assert.equal(TC.validateFollowUpInput(baseInput({ totalQuestionCount: 6 })).ok, false);
-  assert.equal(TC.validateFollowUpInput(baseInput({ totalQuestionCount: 13 })).ok, false);
+  assert.equal(TC.validateFollowUpInput(baseInput({ totalQuestionCount: 16 })).ok, false);
 });
 
 test('currentAnswer 200자 초과 거부', () => {
@@ -67,8 +67,8 @@ test('priorSummaries 잘못된 키/형태 거부, 정상은 통과', () => {
 test('follow-up 5회 도달 → NEXT 강제', () => {
   assert.equal(TC.shouldForceNext(baseInput({ followUpCount: 5 })), true);
 });
-test('전체 12문항 도달 → NEXT 강제', () => {
-  assert.equal(TC.shouldForceNext(baseInput({ totalQuestionCount: 12 })), true);
+test('전체 15문항 도달 → NEXT 강제 — V2-FOLLOWUP 상한(v1 12는 클라 flow가 자체 제한)', () => {
+  assert.equal(TC.shouldForceNext(baseInput({ totalQuestionCount: 15 })), true);
 });
 test('상한 미만 → 강제 아님', () => {
   assert.equal(TC.shouldForceNext(baseInput({ followUpCount: 4, totalQuestionCount: 11 })), false);

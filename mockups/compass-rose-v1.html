@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>COMPASS-ROSE-MOCKUP-1 · 내 이야기 나침반 (시안)</title>
+<!--
+  나침반형 이야기 설계도 목업 (COMPASS-ROSE-MOCKUP-1)
+  · 독립 시안 — 운영 기능/데이터 연결 없음. 예시 storyMapV2는 아래 JS 상수.
+  · 구조: 중앙=coreMessage · 4방위=주인공/목표/어려움/선택 · 하단 시간띠=시작→사건→어려움→선택→진엔딩
+    · 다른 선택 길=시간띠 '선택'에서 점선 옆가지.
+  · 라이브러리 0 — 선/원만 인라인 SVG, 텍스트는 HTML 카드(줄바꿈 유지보수 쉬움).
+  · 대상: 인쇄(A4 세로 1장)·태블릿 가로. 모바일(≤600px)은 카드형 안내 fallback.
+  · 팔레트: thought-compass.css 톤(sage/cream/brown) 준수 — 장식은 방위선+원까지만.
+-->
+<style>
+  :root {
+    --ink: #3a2c14; --sub: #6b5638; --soft: #8a7350;
+    --sage: #7aa06a; --sage-deep: #4a6a3c; --sage-line: #b6cda6;
+    --cream: #fffdf8; --card: #fffefb; --border: #e2ead8; --band: #f7faf3;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: #efe9db; font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; color: var(--ink); word-break: keep-all; }
+
+  /* ── A4 세로 종이 ── */
+  .paper {
+    width: 794px; min-height: 1123px; margin: 24px auto; background: var(--cream);
+    border-radius: 6px; box-shadow: 0 10px 36px rgba(60,40,10,.18);
+    padding: 34px 38px 28px; position: relative; display: flex; flex-direction: column; gap: 14px;
+  }
+
+  /* 헤더 */
+  .head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; border-bottom: 2px solid var(--border); padding-bottom: 10px; }
+  .head h1 { margin: 0; font-size: 24px; color: var(--sage-deep); letter-spacing: .01em; }
+  .head .sub { font-size: 12px; color: var(--soft); margin-top: 4px; }
+  .who { font-size: 12px; color: var(--sub); text-align: right; line-height: 2; }
+  .who .line { display: inline-block; width: 110px; border-bottom: 1.5px solid #cdb98c; margin-left: 6px; }
+  .len-badge { display: inline-block; background: var(--band); border: 1.5px solid var(--sage-line); color: var(--sage-deep); border-radius: 50px; font-size: 12px; font-weight: 700; padding: 3px 12px; }
+
+  /* ── 나침반 영역: SVG 선 레이어 + HTML 카드 레이어 ── */
+  .rose { position: relative; height: 470px; margin-top: 2px; }
+  .rose svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .rose-card { position: absolute; width: 190px; background: var(--card); border: 1.5px solid var(--border); border-radius: 14px; padding: 9px 12px; box-shadow: 0 2px 8px rgba(90,70,40,.06); }
+  .rose-card .label { font-size: 11.5px; font-weight: 800; color: var(--sage-deep); margin-bottom: 3px; }
+  .rose-card .value { font-size: 13px; line-height: 1.45; }
+  .rose-card.dir-n { top: 0;   left: 50%; transform: translateX(-50%); }
+  .rose-card.dir-e { top: 50%; right: 0;  transform: translateY(-50%); }
+  .rose-card.dir-s { bottom: 0;left: 50%; transform: translateX(-50%); }
+  .rose-card.dir-w { top: 50%; left: 0;   transform: translateY(-50%); }
+  .rose-center {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 218px; height: 218px; border-radius: 50%;
+    background: radial-gradient(circle at 50% 42%, #ffffff 0%, var(--band) 78%);
+    border: 2.5px solid var(--sage); display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 20px; gap: 5px; box-shadow: 0 3px 14px rgba(90,120,70,.15);
+  }
+  .rose-center .label { font-size: 11.5px; font-weight: 800; color: var(--sage-deep); letter-spacing: .04em; }
+  .rose-center .value { font-size: 14.5px; font-weight: 700; line-height: 1.5; color: var(--ink); }
+  .rose-center .pin { font-size: 17px; }
+  .compass-letter { position: absolute; font-size: 11px; font-weight: 800; color: var(--sage); }
+
+  /* ── 시간띠(진엔딩까지 가는 기본 길) ── */
+  .band { background: var(--band); border: 2px solid var(--border); border-radius: 16px; padding: 13px 16px 15px; }
+  .band-title { font-size: 13.5px; font-weight: 800; color: var(--sage-deep); margin-bottom: 10px; }
+  .band-title .hint { font-weight: 400; font-size: 11px; color: var(--soft); margin-left: 6px; }
+  .band-flow { position: relative; display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+  .band-flow::before { /* 큰길 실선 */
+    content: ''; position: absolute; top: 13px; left: 4%; right: 4%; height: 3px;
+    background: var(--sage-line); border-radius: 2px;
+  }
+  .stop { position: relative; text-align: center; }
+  .dot { position: relative; z-index: 1; width: 26px; height: 26px; border-radius: 50%; background: #fff; border: 2.5px solid var(--sage); margin: 0 auto 6px; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+  .stop.final .dot { background: var(--sage); color: #fff; font-weight: 800; }
+  .stop .s-label { font-size: 11px; font-weight: 800; color: var(--sage-deep); margin-bottom: 3px; }
+  .stop .s-text { font-size: 11.5px; line-height: 1.4; color: var(--sub); }
+  /* 옆가지(다른 선택) — '선택' 정거장에서 아래로 점선 */
+  .alt { margin-top: 12px; margin-left: calc(60% + 5px); position: relative; max-width: 38%; }
+  .alt::before { content: ''; position: absolute; left: -14px; top: -14px; width: 12px; height: 26px; border-left: 2.5px dashed #cdb98c; border-bottom: 2.5px dashed #cdb98c; border-radius: 0 0 0 10px; }
+  .alt-card { background: #fbf7ec; border: 1.5px dashed #cdb98c; border-radius: 12px; padding: 8px 11px; }
+  .alt-card .label { font-size: 11px; font-weight: 800; color: #8a6f3c; margin-bottom: 2px; }
+  .alt-card .value { font-size: 11.5px; line-height: 1.4; color: var(--sub); }
+
+  /* 메모칸 — 학생 손글씨 공간 */
+  .memo { border: 2px solid var(--border); border-radius: 16px; padding: 12px 16px 8px; flex: 1; }
+  .memo .m-title { font-size: 12.5px; font-weight: 800; color: var(--sage-deep); margin-bottom: 6px; }
+  .memo .m-line { height: 26px; border-bottom: 1.5px dashed #ddd2b8; }
+  .foot { font-size: 10.5px; color: var(--soft); text-align: center; }
+
+  /* 화면용 도구(인쇄 제외) */
+  .toolbar { max-width: 794px; margin: 18px auto 0; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .toolbar b { color: var(--sage-deep); font-size: 14px; }
+  .print-btn { background: var(--card); border: 1.5px solid var(--sage-line); color: var(--sage-deep); font-size: 13px; font-weight: 700; border-radius: 50px; padding: 8px 18px; cursor: pointer; }
+
+  /* ── 모바일(≤600px): 나침반형은 비권장 — 안내 + 카드형 fallback ── */
+  .mobile-note { display: none; }
+  @media (max-width: 600px) {
+    .paper { width: auto; min-height: auto; margin: 12px; padding: 18px 16px; }
+    .rose, .toolbar .spacer { display: none; }
+    .mobile-note { display: block; background: var(--band); border: 1.5px solid var(--sage-line); border-radius: 12px; padding: 10px 12px; font-size: 12.5px; color: var(--sage-deep); }
+    .m-cards { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+    .m-card { background: var(--card); border: 1.5px solid var(--border); border-radius: 12px; padding: 8px 11px; }
+    .m-card .label { font-size: 11px; font-weight: 800; color: var(--sage-deep); }
+    .m-card .value { font-size: 13px; line-height: 1.45; }
+    .band-flow { grid-template-columns: 1fr; gap: 6px; }
+    .band-flow::before { display: none; }
+    .alt { margin-left: 14px; max-width: none; }
+  }
+  @media (min-width: 601px) { .m-cards, .mobile-note { display: none; } }
+
+  /* ── 인쇄: A4 세로 1장 ── */
+  @media print {
+    @page { size: A4 portrait; margin: 0; }
+    html, body { background: #fff; }
+    .toolbar { display: none; }
+    .paper { width: 210mm; min-height: 287mm; margin: 0 auto; box-shadow: none; border-radius: 0; padding: 12mm 13mm 8mm; }
+    .rose-card, .rose-center, .band, .memo { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <b>COMPASS-ROSE-MOCKUP-1 · 시안(운영 미연결)</b>
+  <span class="spacer"></span>
+  <button class="print-btn" onclick="window.print()">🖨 A4로 인쇄 미리보기</button>
+</div>
+
+<div class="paper">
+  <!-- 헤더 -->
+  <div class="head">
+    <div>
+      <h1>🧭 내 이야기 나침반</h1>
+      <div class="sub">글을 쓰기 전에 보는 나의 이야기 설계도 <span class="len-badge" id="len-badge"></span></div>
+    </div>
+    <div class="who">
+      모둠 <span class="line"></span><br>
+      이름 <span class="line"></span>
+    </div>
+  </div>
+
+  <!-- 나침반: 중앙 + 4방위 -->
+  <div class="rose">
+    <svg viewBox="0 0 718 470" aria-hidden="true">
+      <!-- 방위선(중앙→4방위) -->
+      <line x1="359" y1="235" x2="359" y2="58"  stroke="#b6cda6" stroke-width="2.5"/>
+      <line x1="359" y1="235" x2="359" y2="412" stroke="#b6cda6" stroke-width="2.5"/>
+      <line x1="359" y1="235" x2="120" y2="235" stroke="#b6cda6" stroke-width="2.5"/>
+      <line x1="359" y1="235" x2="598" y2="235" stroke="#b6cda6" stroke-width="2.5"/>
+      <!-- 대각 짧은 눈금(나침반 느낌 — 절제) -->
+      <g stroke="#d9e4cf" stroke-width="2">
+        <line x1="262" y1="138" x2="286" y2="162"/><line x1="456" y1="138" x2="432" y2="162"/>
+        <line x1="262" y1="332" x2="286" y2="308"/><line x1="456" y1="332" x2="432" y2="308"/>
+      </g>
+      <!-- 바깥 안내 원(점선) -->
+      <circle cx="359" cy="235" r="168" fill="none" stroke="#d9e4cf" stroke-width="2" stroke-dasharray="5 7"/>
+    </svg>
+    <!-- 방위 글자 — 점선 원 바로 안쪽(카드에 가리지 않게) -->
+    <span class="compass-letter" style="top: calc(50% - 158px); left: calc(50% + 10px);">N</span>
+    <span class="compass-letter" style="top: calc(50% - 24px); left: calc(50% + 138px);">E</span>
+    <span class="compass-letter" style="top: calc(50% + 136px); left: calc(50% + 10px);">S</span>
+    <span class="compass-letter" style="top: calc(50% - 24px); left: calc(50% - 150px);">W</span>
+
+    <div class="rose-card dir-n"><div class="label">🧒 주인공</div><div class="value" data-f="protagonist"></div></div>
+    <div class="rose-card dir-e"><div class="label">⭐ 원하는 것</div><div class="value" data-f="goal"></div></div>
+    <div class="rose-card dir-s"><div class="label">🌊 어려움</div><div class="value" data-f="risingTrouble"></div></div>
+    <div class="rose-card dir-w"><div class="label">🔀 중요한 선택</div><div class="value" data-f="keyChoice"></div></div>
+    <div class="rose-center">
+      <span class="pin">💎</span>
+      <span class="label">끝까지 지킬 중심</span>
+      <span class="value" data-f="coreMessage"></span>
+    </div>
+  </div>
+
+  <!-- 모바일 fallback -->
+  <div class="mobile-note">📱 나침반 그림은 태블릿 가로나 인쇄물에서 크게 볼 수 있어요. 여기서는 카드로 보여 드려요.</div>
+  <div class="m-cards" id="m-cards"></div>
+
+  <!-- 시간띠: 진엔딩까지 가는 기본 길 -->
+  <div class="band">
+    <div class="band-title">🛤 진엔딩까지 가는 기본 길 <span class="hint">— 다른 선택지와 다른 엔딩은 나중에 이 길에 붙여요</span></div>
+    <div class="band-flow">
+      <div class="stop"><div class="dot">🌅</div><div class="s-label">시작</div><div class="s-text" data-f="mainlineStart"></div></div>
+      <div class="stop"><div class="dot">⚡</div><div class="s-label">생기는 일</div><div class="s-text" data-f="incitingEvent"></div></div>
+      <div class="stop"><div class="dot">🌊</div><div class="s-label">점점 어려워져요</div><div class="s-text" data-f="risingTrouble"></div></div>
+      <div class="stop"><div class="dot">🔀</div><div class="s-label">중요한 선택</div><div class="s-text" data-f="keyChoice"></div></div>
+      <div class="stop final"><div class="dot">🏁</div><div class="s-label">진엔딩</div><div class="s-text" data-f="trueEnding"></div></div>
+    </div>
+    <div class="alt">
+      <div class="alt-card"><div class="label">🌿 다른 선택을 하면</div><div class="value" data-f="alternatePath"></div></div>
+    </div>
+  </div>
+
+  <!-- 학생 메모칸 -->
+  <div class="memo">
+    <div class="m-title">📝 떠오른 생각 메모 — 만들면서 자유롭게 적어요</div>
+    <div class="m-line"></div><div class="m-line"></div><div class="m-line"></div>
+  </div>
+
+  <div class="foot">가지 · 생각 나침반 — 이 설계도는 참고 자료예요. 만들면서 자유롭게 바꿔도 괜찮아요.</div>
+</div>
+
+<script>
+/* 예시 storyMapV2 — 목업 전용 fixture(운영 데이터 연결 없음) */
+const storyMapV2 = {
+  targetLength: "12",
+  protagonist: "리쿠",
+  goal: "새 반에서 친구를 사귀고 싶다",
+  mainlineStart: "새 학년 첫날, 아무도 모르는 교실에서 시작한다",
+  incitingEvent: "모둠 활동을 하게 된다",
+  risingTrouble: "말을 걸 용기가 나지 않아 혼자 남게 된다",
+  keyChoice: "먼저 말을 걸지, 조용히 기다릴지 선택한다",
+  trueEnding: "용기를 내어 친구와 가까워진다",
+  alternatePath: "기다리기만 하면 오해가 생기고 다른 사건으로 이어진다",
+  coreMessage: "용기를 내면 새로운 관계가 시작될 수 있다",
+};
+document.querySelectorAll('[data-f]').forEach(el => { el.textContent = storyMapV2[el.getAttribute('data-f')] || ''; });
+document.getElementById('len-badge').textContent = '기본 길이 · 약 ' + storyMapV2.targetLength + '장면';
+/* 모바일 fallback 카드 */
+const M = [['🧒 주인공','protagonist'],['⭐ 원하는 것','goal'],['🌊 어려움','risingTrouble'],['🔀 중요한 선택','keyChoice'],['💎 끝까지 지킬 중심','coreMessage']];
+document.getElementById('m-cards').innerHTML = M.map(([l,k]) =>
+  '<div class="m-card"><div class="label">' + l + '</div><div class="value">' + (storyMapV2[k]||'') + '</div></div>').join('');
+</script>
+</body>
+</html>

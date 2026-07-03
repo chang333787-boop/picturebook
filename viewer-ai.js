@@ -3162,7 +3162,13 @@
     } catch (e) { return false; }
   }
 
-  function _showPbPrintOptionsModal() {
+  async function _showPbPrintOptionsModal() {
+    /* FOLLOWUP-1: AI 후보 존재 판정은 FB 캐시 기반(_isS2Finalized/_hasImageVariantS2)인데,
+       모달이 비동기 캐시 로드보다 먼저 열리면 실제 결과가 있어도 '아직 없음'으로 비활성되던
+       race 수정 — 모달 구성 전에 두 캐시 로드를 await(이미 로드됐으면 즉시 반환·실패해도
+       원본 옵션으로 진행). 감상 토글과 동일 데이터 기준 보장. */
+    try { await _loadFirebaseTextVariants(false); } catch (e) { /* noop */ }
+    try { await _loadFirebaseImageVariants(false); } catch (e) { /* noop */ }
     const hasTextS2 = _isS2Finalized();
     const hasImageS2 = _hasImageVariantS2();
     const T = 'font-family:\'Jua\',sans-serif;font-size:13.5px;color:#5b4a2e;margin:0 0 6px;';

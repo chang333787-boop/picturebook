@@ -1370,7 +1370,9 @@
   body.print-picturebook .pbp-page { break-after: page; }
   body.print-picturebook .pbp-page:last-child { break-after: auto; }
   /* 표지 — DESIGN-3: 전면 프레임 카드(이중 테두리)·제목 묶음·큰 표지 그림·하단 모둠/날짜 */
-  body.print-picturebook .pbp-cover { min-height: 92vh; display: flex; }
+  /* FOLLOWUP-2: vh 예산 폐기 → 고정 950px — 브라우저 여백/vh 해석 변동에도 A4 콘텐츠(~1027px)
+     안에 항상 수납(표지 92vh 실측 1033px가 페이지를 넘겨 이후 장면이 경계에 걸리던 트리거 제거). */
+  body.print-picturebook .pbp-cover { height: 950px; min-height: 0; display: flex; box-sizing: border-box; }
   body.print-picturebook .pbp-cover-frame {
     flex: 1 1 auto; display: flex; flex-direction: column; align-items: center; text-align: center;
     border: 2px solid #333; border-radius: 14px; outline: 1px solid #aaa; outline-offset: 5px;
@@ -1415,8 +1417,11 @@
   /* ── PICTUREBOOK-PUBLISH-PRINT-1: 출판형 — 장면당 1페이지·큰 그림·큰 글 ──
      구 점검형(2장면/페이지 축소 카드) 규칙을 .pbp-publish 페이지에서 덮어씀.
      A4 세로·교사 PC Chrome 기준. 흑백 출력도 읽히도록 무채색 유지. */
-  /* LAYOUT-4: 86vh — Chrome 머리글/바닥글·기본 여백 변동에도 한 장면=한 페이지가 깨지지 않는 여유 */
-  body.print-picturebook .pbp-publish { min-height: 86vh; display: flex; flex-direction: column; }
+  /* FOLLOWUP-2: 고정 950px 예산 — 한 장면=한 페이지 구조 보장(vh 폐기) */
+  body.print-picturebook .pbp-publish {
+    height: 950px; min-height: 0; display: flex; flex-direction: column;
+    break-inside: avoid; page-break-inside: avoid; overflow: hidden; box-sizing: border-box;
+  }
   body.print-picturebook .pbp-publish .pbp-scene--full {
     border: 1.5px solid #555; border-radius: 14px; padding: 10px 16px 14px; margin: 2px; min-height: 0;
     display: flex; flex-direction: column; flex: 1 1 auto; break-inside: avoid;
@@ -1483,13 +1488,22 @@
   /* ── SCENE-PUBLISH-PRINT-1: '장면 그대로' 무대 재현 ──
      인쇄 페이지 폭은 A4에서 일정 → 3:2 무대 + % 좌표 + px 고정 폰트 = 태블릿/PC 해상도와
      무관하게 항상 같은 출력(화면의 cqw/cqh 가변 폰트 문제 제거). 캡처 아님 — DOM 재현. */
-  body.print-picturebook .pbp-scenepub { min-height: 86vh; display: flex; flex-direction: column; }
+  /* FOLLOWUP-2: 장면 페이지 = 고정 950px grid [무대 1fr | 선택지 auto] + 분할 금지 —
+     stage와 선택지 사이에 page break가 구조적으로 불가능(overflow:hidden = 초과 시에도 분할 대신
+     내부 수납·선택지 공간 우선 보장). 무대는 남은 높이 안에서 3:2 유지 fit. */
+  body.print-picturebook .pbp-scenepub {
+    height: 950px; min-height: 0; box-sizing: border-box;
+    display: grid; grid-template-rows: minmax(0, 1fr) auto auto;   /* 무대 | (split 본문) | 선택지 */
+    break-inside: avoid; page-break-inside: avoid; overflow: hidden;
+  }
   body.print-picturebook .pbp-stagewrap {
-    width: 100%; aspect-ratio: 3 / 2; position: relative;
+    min-height: 0; display: flex; align-items: center; justify-content: center;
+  }
+  body.print-picturebook .pbp-stage2 {
+    position: relative; width: 100%; aspect-ratio: 3 / 2; max-height: 100%;
     border: 1.5px solid #555; border-radius: 12px; overflow: hidden;
     background: #fff; box-sizing: border-box;
   }
-  body.print-picturebook .pbp-stage2 { position: absolute; inset: 0; }
   body.print-picturebook .pbp-stage2-img {
     position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain;   /* 감상과 동일·크롭 0 */
   }

@@ -21,6 +21,11 @@ export function fixtureTree() {
             'viewer-meta': { projectType: 'picturebook', isPublic: false },
             /* studentA는 teamPrivate의 active member (membership 발급된 상태 가정) */
             members: { [STUDENT_A]: { status: 'active', membershipVersion: 1 } },
+            /* AICHECKS-RULES-READ-1: 서버(Functions Admin)가 저장하는 AI 결과 노드 — read 규칙 검증용 */
+            aiChecks: {
+              writeAfterQuestions: { latest: { result: { questions: [{ sceneId: '1', question: 'q1' }] } } },
+              workCheck: { latest: { result: { categories: { spelling: [] } } } },
+            },
           },
           teamLegacy: {
             scenes: { 1: { num: 1, body: 'legacy scene' } },
@@ -57,4 +62,7 @@ export const P = {
   accountPin: (cls, team) => `classes/${cls}/teams/${team}/account/pin`,
   account: (cls, team) => `classes/${cls}/teams/${team}/account`,
   members: (cls, team, uid) => `classes/${cls}/teams/${team}/members/${uid}`,
+  aiChecks: (cls, team) => `classes/${cls}/teams/${team}/aiChecks`,
+  waqLatest: (cls, team) => `classes/${cls}/teams/${team}/aiChecks/writeAfterQuestions/latest`,
+  wcLatest: (cls, team) => `classes/${cls}/teams/${team}/aiChecks/workCheck/latest`,
 };

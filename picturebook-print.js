@@ -136,6 +136,35 @@
     const title = opts.title
       || (typeof window !== 'undefined' && window.ViewerState && window.ViewerState.project && window.ViewerState.project.teamName) || '우리들의 그림책';
 
+    /* PRINT-VIEW-MODE-OPTIONS-1: 인쇄 기준 옵션 — 글/그림 각각 'original'|'s2'(독립).
+       · 일회성(DB 저장 0)·기본 원본/원본. s2 접근자는 호출부(viewer-ai)가 콜백으로 주입 —
+         이 모듈은 aiVariants 구조를 모름(감상 토글과 동일 데이터 소스 보장).
+       · s2 선택이어도 해당 장면에 후보가 없으면 장면 단위로 원본 fallback(빈 페이지 방지).
+       · 'original' 그림 = 진짜 원본(imageData||imageUrl) — 감상 '그림 보기: 원본' 토글과 동일 의미.
+       · opts 미지정(테스트/구 호출) = 기존 경로 그대로. */
+    const _textMode = (opts.textMode === 's2') ? 's2' : 'original';
+    const _imageMode = (opts.imageMode === 's2') ? 's2' : 'original';
+    const _sidOf = (s) => (s && (s.id != null ? s.id : s.num));
+    const bodyOf = (s) => {
+      if (_textMode === 's2' && typeof opts.getS2Body === 'function') {
+        try {
+          const v = opts.getS2Body(_sidOf(s));
+          if (typeof v === 'string' && v.trim()) return v;
+        } catch (e) { /* 원본 fallback */ }
+      }
+      return _publishedBody(s);
+    };
+    const imageOf = (s) => {
+      if (_imageMode === 's2' && typeof opts.getS2Image === 'function') {
+        try {
+          const u = opts.getS2Image(_sidOf(s));
+          if (typeof u === 'string' && u) return u;
+        } catch (e) { /* 원본 fallback */ }
+      }
+      if (opts.textMode || opts.imageMode) return (s && (s.imageData || s.imageUrl)) || null;   /* 옵션 경유 = 명시 원본 */
+      return _publishedImage(s);
+    };
+
     const old = document.getElementById('pb-print-root');
     if (old) old.remove();
     const rootEl = _el('div', 'pb-print-root');
@@ -152,7 +181,7 @@
     coverTitleWrap.appendChild(_el('h1', 'pbp-cover-title', (coverScene && (coverScene.title || '').trim()) || title));
     if (coverScene && (coverScene.subtitle || '').trim()) coverTitleWrap.appendChild(_el('div', 'pbp-cover-sub', coverScene.subtitle.trim()));
     coverInner.appendChild(coverTitleWrap);
-    const coverImg = _publishedImage(coverScene);
+    const coverImg = imageOf(coverScene);
     if (coverImg) { const im = document.createElement('img'); im.className = 'pbp-cover-img'; im.src = coverImg; coverInner.appendChild(im); }
     else coverInner.appendChild(_el('div', 'pbp-cover-noimg-deco', '⸙'));   /* 그림 없는 표지 — 은은한 장식 */
     const coverFoot = _el('div', 'pbp-cover-foot');
@@ -171,7 +200,7 @@
        번호(BFS)·선택지 안내(describeChoice)·발행 헬퍼·gate는 그대로 재사용. */
     res.order.forEach((k) => {
       const s = scenes[k];
-      const img = _publishedImage(s);
+      const img = imageOf(s);
       const page = _el('div', 'pbp-page pbp-publish');
       const card = _el('div', 'pbp-scene pbp-scene--full' + (img ? '' : ' pbp-scene--noimg'));
       /* LAYOUT-4: 장면번호 = 그림 좌상단 오버레이 배지(별도 행 제거 → 세로 공간 절약).
@@ -182,7 +211,7 @@
       card.appendChild(_el('span', 'pbp-num-overlay', res.numberByKey[k] + '번' + (flags.length ? ' · ' + flags.join(' · ') : '')));
       if (img) { const im = document.createElement('img'); im.className = 'pbp-scene-img'; im.src = img; card.appendChild(im); }
       if ((s.title || '').trim()) card.appendChild(_el('div', 'pbp-scene-caption', s.title.trim()));
-      const body = (_publishedBody(s) || '').trim();
+      const body = (bodyOf(s) || '').trim();
       card.appendChild(_el('div', 'pbp-scene-body' + (body ? '' : ' pbp-scene-body--empty'), body || '(글 없음)'));
       const chs = _choices(s);
       if (chs.length) {

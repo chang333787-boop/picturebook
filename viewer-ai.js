@@ -3139,6 +3139,81 @@
     `;
   }
 
+  /* ════════════════════════════════════════════════════════════════
+     PRINT-VIEW-MODE-OPTIONS-1 — 그림책 인쇄 기준 선택 모달
+     ──────────────────────────────────────────────────────────────
+     · 인쇄 전 글/그림 기준을 각각 선택: 원본 / AI 후보(s2). 기본 = 원본/원본.
+     · 일회성 옵션 — DB 저장 0·감상 토글 상태와 분리(안전 기본 우선·textSelections 무관).
+     · AI 후보가 없으면 해당 옵션 비활성 + 안내. s2 선택이어도 후보 없는 장면은
+       print 모듈이 장면 단위 원본 fallback.
+     · 데이터 소스 = 감상 토글과 동일(_getFbVariantBody/_getFbImageVariantUrl) — 화면에서
+       보던 AI 후보가 그대로 인쇄됨. 원본 scene.body/imageData/imageUrl 무변경(read만).
+     ════════════════════════════════════════════════════════════════ */
+  function _showPbPrintOptionsModal() {
+    const hasTextS2 = _isS2Finalized();
+    const hasImageS2 = _hasImageVariantS2();
+    const T = 'font-family:\'Jua\',sans-serif;font-size:13.5px;color:#5b4a2e;margin:0 0 6px;';
+    const row = (group, val, label, checked, disabled, note) => ''
+      + '<label style="display:flex;align-items:center;gap:8px;padding:9px 12px;border:1.5px solid ' + (disabled ? '#e5ddca' : '#d8c7a6') + ';border-radius:10px;'
+      +   (disabled ? 'color:#b6a887;background:#fbf8ef;cursor:not-allowed;' : 'cursor:pointer;background:#fff;') + 'font-size:13.5px;">'
+      +   '<input type="radio" name="' + group + '" value="' + val + '"' + (checked ? ' checked' : '') + (disabled ? ' disabled' : '') + ' style="accent-color:#c66f4a;">'
+      +   '<span>' + label + (note ? ' <span style="font-size:11.5px;color:#a4977c;">' + note + '</span>' : '') + '</span>'
+      + '</label>';
+    const html = ''
+      + '<div class="ai-modal__header"><div class="ai-modal__title">🖨 그림책 인쇄</div>'
+      +   '<button class="ai-modal__close js-ai-modal-close" aria-label="닫기">✕</button></div>'
+      + '<div class="ai-modal__body">'
+      +   '<p class="ai-mode-intro" style="margin-top:0;">어떤 글과 그림으로 그림책을 인쇄할까요? 원본은 그대로 보존돼요.</p>'
+      +   '<div style="' + T + '">📖 글</div>'
+      +   '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">'
+      +     row('pbprint-text', 'original', '원본 글', true, false, '')
+      +     row('pbprint-text', 's2', 'AI 장면발전 글', false, !hasTextS2, hasTextS2 ? '' : '(아직 만든 결과가 없어요)')
+      +   '</div>'
+      +   '<div style="' + T + '">🎨 그림</div>'
+      +   '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">'
+      +     row('pbprint-image', 'original', '원본 그림', true, false, '')
+      +     row('pbprint-image', 's2', 'AI 그림책 마감 그림', false, !hasImageS2, hasImageS2 ? '' : '(아직 만든 결과가 없어요)')
+      +   '</div>'
+      +   '<div style="padding:8px 11px;background:#fff7e8;border:1px solid #e8d3a0;border-radius:8px;font-size:12px;color:#6b5a3a;">'
+      +     '⚠️ <b>중요:</b> 인쇄 창에서 <b>설정 더보기 → 머리글과 바닥글</b>을 꼭 꺼 주세요. 켜져 있으면 날짜와 주소가 그림책에 함께 찍혀요.'
+      +   '</div>'
+      + '</div>'
+      + '<div class="ai-modal__footer">'
+      +   '<button type="button" class="ai-btn ai-btn--ghost js-pbprint-cancel">취소</button>'
+      +   '<button type="button" class="ai-btn ai-btn--primary js-pbprint-go">🖨 그림책 인쇄하기</button>'
+      + '</div>';
+    const root = _createModalRoot('ai-pbprint-modal', html);
+    const closeAll = function () { _removeModalRoot('ai-pbprint-modal'); };
+    const closeBtn = root.querySelector('.js-ai-modal-close');
+    if (closeBtn) closeBtn.addEventListener('click', closeAll);
+    const cancelBtn = root.querySelector('.js-pbprint-cancel');
+    if (cancelBtn) cancelBtn.addEventListener('click', closeAll);
+    const goBtn = root.querySelector('.js-pbprint-go');
+    if (goBtn) goBtn.addEventListener('click', function () {
+      const pick = (name) => { const el = root.querySelector('input[name="' + name + '"]:checked'); return el ? el.value : 'original'; };
+      const textMode = pick('pbprint-text');
+      const imageMode = pick('pbprint-image');
+      closeAll();
+      window.PicturebookPrint.open({
+        textMode: textMode,
+        imageMode: imageMode,
+        /* 감상 토글과 동일한 s2 소스 — 후보 없으면 null 반환 → print가 장면 단위 원본 fallback */
+        getS2Body: function (sid) {
+          /* _getDisplayBody와 동일 순서: FB 캐시 → localStorage finalized fallback */
+          const b = _getFbVariantBody('s2', String(sid));
+          if (typeof b === 'string') return _brToNewline(b);
+          try {
+            const v = _loadAiVariants();
+            const f = v.textS2 && v.textS2.status === 'finalized' && v.textS2.final && v.textS2.final[String(sid)];
+            if (f && typeof f.body === 'string') return _brToNewline(f.body);
+          } catch (e) { /* noop */ }
+          return null;
+        },
+        getS2Image: function (sid) { return _getFbImageVariantUrl('s2', String(sid)); },
+      });
+    });
+  }
+
   function _showModeModal() {
     const a = _getModeAvailability();
 
@@ -3318,7 +3393,8 @@
     });
     const pbPrintBtn = root.querySelector('.js-ai-print-pb');
     if (pbPrintBtn) pbPrintBtn.addEventListener('click', function () {
-      if (window.PicturebookPrint && typeof window.PicturebookPrint.open === 'function') window.PicturebookPrint.open();
+      /* PRINT-VIEW-MODE-OPTIONS-1: 바로 인쇄하지 않고 글/그림 기준 선택 모달 경유 */
+      if (window.PicturebookPrint && typeof window.PicturebookPrint.open === 'function') _showPbPrintOptionsModal();
       else alert('인쇄 기능을 불러오지 못했어요. 페이지를 새로고침해 주세요.');
     });
 

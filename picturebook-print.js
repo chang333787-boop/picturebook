@@ -198,7 +198,7 @@
     coverInner.appendChild(coverTitleWrap);
     const coverImg = imageOf(coverScene);
     if (coverImg) { const im = document.createElement('img'); im.className = 'pbp-cover-img'; im.src = coverImg; coverInner.appendChild(im); }
-    else coverInner.appendChild(_el('div', 'pbp-cover-noimg-deco', '⸙'));   /* 그림 없는 표지 — 은은한 장식 */
+    /* FOLLOWUP-3: 그림 없는 표지 장식 글리프(⸙) 제거 — 일부 폰트에서 투피(☒)로 찍혀 깨진 이미지처럼 보임. 여백이 자연스러움. */
     const coverFoot = _el('div', 'pbp-cover-foot');
     coverFoot.appendChild(_el('div', 'pbp-cover-team', '만든 모둠: ' + title));
     const _d = new Date();

@@ -1372,7 +1372,10 @@
   /* 표지 — DESIGN-3: 전면 프레임 카드(이중 테두리)·제목 묶음·큰 표지 그림·하단 모둠/날짜 */
   /* FOLLOWUP-2: vh 예산 폐기 → 고정 950px — 브라우저 여백/vh 해석 변동에도 A4 콘텐츠(~1027px)
      안에 항상 수납(표지 92vh 실측 1033px가 페이지를 넘겨 이후 장면이 경계에 걸리던 트리거 제거). */
-  body.print-picturebook .pbp-cover { height: 950px; min-height: 0; display: flex; box-sizing: border-box; }
+  /* FOLLOWUP-3: 950px 고정은 A4 '세로' 가정 — 사용자가 가로 모드로 인쇄하면(콘텐츠 ~700px)
+     페이지마다 넘쳐 분할되던 문제. 96vh = 인쇄 페이지 박스 기준 → 용지 방향 자동 대응.
+     (이전 vh 문제는 min-height+avoid 부재 조합이 원인 — 지금은 height 고정+hidden+avoid라 초과 불가) */
+  body.print-picturebook .pbp-cover { height: 96vh; min-height: 0; display: flex; box-sizing: border-box; overflow: hidden; break-inside: avoid; page-break-inside: avoid; }
   body.print-picturebook .pbp-cover-frame {
     flex: 1 1 auto; display: flex; flex-direction: column; align-items: center; text-align: center;
     border: 2px solid #333; border-radius: 14px; outline: 1px solid #aaa; outline-offset: 5px;
@@ -1419,7 +1422,7 @@
      A4 세로·교사 PC Chrome 기준. 흑백 출력도 읽히도록 무채색 유지. */
   /* FOLLOWUP-2: 고정 950px 예산 — 한 장면=한 페이지 구조 보장(vh 폐기) */
   body.print-picturebook .pbp-publish {
-    height: 950px; min-height: 0; display: flex; flex-direction: column;
+    height: 96vh; min-height: 0; display: flex; flex-direction: column;
     break-inside: avoid; page-break-inside: avoid; overflow: hidden; box-sizing: border-box;
   }
   body.print-picturebook .pbp-publish .pbp-scene--full {
@@ -1432,6 +1435,7 @@
     /* LAYOUT-4: N번 배지 = 그림 좌상단 오버레이 — 별도 행 제거(세로 공간 0) */
     position: absolute; top: 18px; left: 24px; z-index: 2;
     background: rgba(255,255,255,0.92); border: 1.5px solid #333; border-radius: 8px;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
     padding: 2px 10px; font-size: 11pt; font-weight: 800; color: #111;
   }
   body.print-picturebook .pbp-publish .pbp-scene-caption {
@@ -1492,7 +1496,7 @@
      stage와 선택지 사이에 page break가 구조적으로 불가능(overflow:hidden = 초과 시에도 분할 대신
      내부 수납·선택지 공간 우선 보장). 무대는 남은 높이 안에서 3:2 유지 fit. */
   body.print-picturebook .pbp-scenepub {
-    height: 950px; min-height: 0; box-sizing: border-box;
+    height: 96vh; min-height: 0; box-sizing: border-box;
     display: grid; grid-template-rows: minmax(0, 1fr) auto auto;   /* 무대 | (split 본문) | 선택지 */
     break-inside: avoid; page-break-inside: avoid; overflow: hidden;
   }
@@ -1511,11 +1515,13 @@
     position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
     max-width: 88%; padding: 4px 14px; border-radius: 9px;
     background: rgba(255,255,255,0.88); font-size: 20px; font-weight: 800; color: #222;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
     text-align: center; word-break: keep-all; z-index: 2;
   }
   body.print-picturebook .pbp-stage2-bubble {
     position: absolute; box-sizing: border-box; padding: 10px 14px;
     border-radius: 10px; z-index: 1; overflow: visible;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;   /* '배경 그래픽' OFF여도 말풍선 배경 인쇄 */
   }
   body.print-picturebook .pbp-stage2-bubble-p {
     margin: 0; font-size: 19px; line-height: 1.55;

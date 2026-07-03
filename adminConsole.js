@@ -504,12 +504,20 @@ async function _renderTeamModePanel(classId) {
     : '';
   const sel = (mode === 'locked') ? 'teacher_managed' : mode;
 
+  /* ACCOUNT-MODE-DEFAULT-1: 현재 입장 방식 상태 배지.
+     · teacher_managed(신규 학급 기본) → 교사 등록 모둠만 입장.
+     · legacy_open(기존 학급 fallback) → 자유 입장 + 전환 가능 안내. 자동 전환하지 않음(교사 선택). */
+  const modeBadge = (mode === 'teacher_managed')
+    ? '<div class="admin-tm-badge admin-tm-badge--managed">🔒 <b>교사 등록 모둠만 입장</b> — 선생님이 만든 모둠만 들어올 수 있어요.</div>'
+    : '<div class="admin-tm-badge admin-tm-badge--open">🚪 <b>자유 입장 상태</b> — 지금은 학생이 새 모둠을 직접 만들 수 있어요. 아래에서 <b>교사 등록 모둠만 입장</b>으로 바꾸면 오타·장난 모둠 생성을 막을 수 있어요.</div>';
+
   panel.style.display = 'block';
   panel.innerHTML = `
     <div class="admin-tm-head">
       <div class="admin-tm-title">🚪 학생 팀 생성 방식</div>
       <div class="admin-tm-desc">학생이 입장할 때 팀을 직접 만들 수 있게 할지, 선생님이 등록한 팀만 들어오게 할지 정해요.</div>
     </div>
+    ${modeBadge}
     <div class="admin-tm-options">
       <label class="admin-tm-opt">
         <input type="radio" name="admin-tm" value="legacy_open" ${sel === 'legacy_open' ? 'checked' : ''}>

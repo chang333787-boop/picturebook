@@ -677,10 +677,15 @@ document.getElementById('btn-create-class').addEventListener('click', async () =
   try {
     /* 1단계 */
     await db.ref(`classes/${classId}/meta`).set(meta);
-    /* 2단계 */
+    /* 2단계 — ACCOUNT-MODE-DEFAULT-1: 신규 학급 기본값을 teacher_managed로 명시 기록
+       (오타·장난 팀 무한 생성 차단). 전역 fallback(legacy_open)은 불변 — 기존 학급 무영향.
+       settings write 룰은 root.classes/{id}/meta/teacher_uid===uid를 보는데 1단계에서 이미
+       커밋됐으므로 통과, teamCreationMode child .validate('teacher_managed')도 통과.
+       원자 update라 검증 실패 시 학급 생성 전체 롤백(부분 생성 없음). */
     await db.ref().update({
       [`classCodes/${code}`]:         classId,
       [`teacherClasses/${user.uid}`]: classId,
+      [`classes/${classId}/settings/teamCreationMode`]: 'teacher_managed',
     });
     /* 성공 → 인증 화면 */
     await _showLoggedIn(user, 'teacher');

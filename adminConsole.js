@@ -64,12 +64,14 @@ window.addEventListener('DOMContentLoaded', () => {
     const moreBtn     = e.target.closest('.js-admin-more');
     const publicBtn   = e.target.closest('.js-admin-toggle-public');
     const issueBtn    = e.target.closest('.js-admin-issue-code');
+    const printBtn    = e.target.closest('.js-admin-print');    /* SCENE-PUBLISH-PRINT-1 */
     const pinBtn      = e.target.closest('.js-admin-pin');     // ADMIN-1D: 등록 팀 PIN 변경
     const lockBtn     = e.target.closest('.js-admin-lock');    // ADMIN-1D: 등록 팀 잠금/해제
     const regBtn      = e.target.closest('.js-admin-register'); // ADMIN-1E: 기존 팀 관리팀 등록
 
     if (makerBtn)  _openMaker(makerBtn.dataset.name);
     if (viewerBtn) _openViewer(viewerBtn.dataset.name);
+    if (printBtn)  _openViewer(printBtn.dataset.name, '&print=pb');   /* viewer에서 인쇄 옵션 모달 자동 오픈 */
     if (detailBtn) _toggleDetail(detailBtn.dataset.encoded);
     if (deleteBtn) _deleteTeam(deleteBtn.dataset.encoded, deleteBtn.dataset.name);
     if (moreBtn)   _toggleMoreMenu(moreBtn);
@@ -1123,6 +1125,7 @@ function _teamCardHtml(t) {
   const moreBtn   = `<button class="admin-action-btn admin-action-btn--more js-admin-more" title="더 보기">⋯</button>
     <div class="admin-more-menu" style="display:none;">
       ${accountMenuItems}
+      <button class="admin-more-item js-admin-print" data-name="${t.name}" title="장면 무대 그대로 그림책처럼 인쇄해요 (그림책 작품용)">🖨 그림책 인쇄</button>
       <button class="admin-more-item js-admin-issue-code" data-encoded="${t.encodedName}" data-name="${t.name}">📤 복사 코드 발급</button>
       <button class="admin-more-item js-admin-delete" data-encoded="${t.encodedName}" data-name="${t.name}">🗑 팀 삭제</button>
     </div>`;
@@ -1175,7 +1178,7 @@ function _openMaker(teamName) {
   else window.location.href = _murl;
 }
 
-function _openViewer(teamName) {
+function _openViewer(teamName, extraQuery) {
   const cid = adminState.adminClassId
     ? `&classId=${encodeURIComponent(adminState.adminClassId)}` : '';
   /* ★ admin → viewer 직접 진입: 복귀 대상은 admin 화면
@@ -1187,7 +1190,7 @@ function _openViewer(teamName) {
       savedAt: Date.now(),
     }));
   } catch (e) { /* storage 실패해도 진입은 계속 */ }
-  const _vurl = `viewer.html?team=${encodeURIComponent(teamName)}${cid}&from=maker`;
+  const _vurl = `viewer.html?team=${encodeURIComponent(teamName)}${cid}&from=maker${extraQuery || ''}`;
   /* 항상 같은 창 이동 (opener 없어도 source='admin' ctx로 정확 복귀). */
   if (typeof _openInternalUrl === 'function') _openInternalUrl(_vurl);
   else window.location.href = _vurl;

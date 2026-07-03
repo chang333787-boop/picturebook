@@ -214,7 +214,11 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
   try {
     const _hasAnyS2 = (_pubTextS2BySid && Object.keys(_pubTextS2BySid).length > 0)
       || (_pubImageS2BySid && Object.keys(_pubImageS2BySid).length > 0);
-    if (_hasAnyS2 && typeof window !== 'undefined' && !window.viewerAi
+    /* SCENE-PUBLISH-PRINT-1: ?print=pb(교사 인쇄 진입)면 s2 유무와 무관하게 viewer-ai 로드
+       (인쇄 옵션 모달이 viewer-ai에 있음). */
+    let _printEntry = false;
+    try { _printEntry = new URLSearchParams(location.search).get('print') === 'pb'; } catch (e) { /* noop */ }
+    if ((_hasAnyS2 || _printEntry) && typeof window !== 'undefined' && !window.viewerAi
         && typeof window.ensureAiViewBundle === 'function' && !isEditViewerSession()) {
       window.ensureAiViewBundle().catch(() => { /* 감상은 원본만으로 완전 동작 */ });
     }

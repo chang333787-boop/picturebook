@@ -3149,6 +3149,19 @@
      · 데이터 소스 = 감상 토글과 동일(_getFbVariantBody/_getFbImageVariantUrl) — 화면에서
        보던 AI 후보가 그대로 인쇄됨. 원본 scene.body/imageData/imageUrl 무변경(read만).
      ════════════════════════════════════════════════════════════════ */
+  /* SCENE-PUBLISH-PRINT-1: 그림책 인쇄 = 교사/관리용 — 노출 게이트.
+     admin 대시보드 경유(branchReturnContext.source='admin'·adminConsole이 저장) 또는
+     ?print=pb(관리 카드의 인쇄 진입) 일 때만 인쇄 버튼/자동 진입을 연다.
+     localStorage 마커라 보안 게이트가 아니라 '학생 태블릿 화면 단순화' 목적(인쇄는 위험 동작 아님). */
+  function _hasAdminEntryMarker() {
+    try {
+      const p = new URLSearchParams((typeof location !== 'undefined') ? location.search : '');
+      if (p.get('print') === 'pb') return true;
+      const ctx = JSON.parse(localStorage.getItem('branchReturnContext') || 'null');
+      return !!(ctx && ctx.source === 'admin');
+    } catch (e) { return false; }
+  }
+
   function _showPbPrintOptionsModal() {
     const hasTextS2 = _isS2Finalized();
     const hasImageS2 = _hasImageVariantS2();
@@ -3210,6 +3223,10 @@
           return null;
         },
         getS2Image: function (sid) { return _getFbImageVariantUrl('s2', String(sid)); },
+        /* SCENE-PUBLISH-PRINT-1: 글=AI일 때 말풍선 variant layout(감상 AI 보기와 동일 소스) */
+        getS2Layout: function (sid) {
+          return _getFbVariantLayout('s2', String(sid)) || _getLocalVariantLayout('s2', String(sid)) || null;
+        },
       });
     });
   }
@@ -3307,9 +3324,9 @@
           <div class="ai-finish-section-desc" style="${D}">엔딩까지 가는 길을 읽어보며 이야기가 자연스럽게 이어지는지 확인해요.</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <button type="button" class="ai-btn js-ai-open-routes">🛤 이야기 길 보기</button>
-            ${_isPbProject ? '<button type="button" class="ai-btn ai-btn--ghost js-ai-print-pb" title="장면마다 한 쪽씩 그림책처럼 인쇄해요. 깔끔하게 출력하려면 인쇄 창에서 머리글과 바닥글을 꺼 주세요. (선생님 컴퓨터 인쇄 권장)">🖨 그림책 인쇄</button>' : ''}
+            ${(_isPbProject && _hasAdminEntryMarker()) ? '<button type="button" class="ai-btn ai-btn--ghost js-ai-print-pb" title="장면 무대(그림+말풍선) 그대로 그림책처럼 인쇄해요. (선생님 컴퓨터 인쇄용)">🖨 그림책 인쇄</button>' : ''}
           </div>
-          ${_isPbProject ? '<div style="margin-top:6px;padding:7px 10px;background:#fff7e8;border:1px solid #e8d3a0;border-radius:8px;font-size:12px;color:#6b5a3a;">⚠️ <b>중요:</b> 인쇄 창에서 <b>설정 더보기 → 머리글과 바닥글</b>을 꼭 꺼 주세요. 켜져 있으면 날짜와 주소가 그림책에 함께 찍혀요.</div>' : ''}
+          ${(_isPbProject && _hasAdminEntryMarker()) ? '<div style="margin-top:6px;padding:7px 10px;background:#fff7e8;border:1px solid #e8d3a0;border-radius:8px;font-size:12px;color:#6b5a3a;">⚠️ <b>중요:</b> 인쇄 창에서 <b>설정 더보기 → 머리글과 바닥글</b>을 꼭 꺼 주세요. 켜져 있으면 날짜와 주소가 그림책에 함께 찍혀요.</div>' : ''}
         </div>`;
           const sec3 = `
         <div class="ai-finish-section" style="margin-top:16px;${!rewriteDone ? 'opacity:0.62;' : ''}">
@@ -4759,6 +4776,28 @@
     } else {
       tick();
     }
+  })();
+
+  /* SCENE-PUBLISH-PRINT-1: ?print=pb — admin 카드 [🖨 그림책 인쇄] 진입.
+     팀 로드(ViewerState.scenes)와 인쇄 모듈이 준비되면 인쇄 옵션 모달을 1회 자동 오픈.
+     자동 print는 하지 않음(옵션 확인 후 교사가 인쇄하기 클릭). 최대 ~20초 폴링 후 포기. */
+  (function _bootstrapPrintEntry() {
+    let p = null;
+    try { p = new URLSearchParams(location.search); } catch (e) { return; }
+    if (!p || p.get('print') !== 'pb') return;
+    let tries = 0;
+    const MAX = 50;
+    const tick = function () {
+      tries++;
+      const ready = (typeof window !== 'undefined')
+        && window.PicturebookPrint && typeof window.PicturebookPrint.open === 'function'
+        && (typeof ViewerState !== 'undefined') && ViewerState && ViewerState.scenes
+        && Object.keys(ViewerState.scenes).length > 0;
+      if (ready) { try { _showPbPrintOptionsModal(); } catch (e) { /* noop */ } return; }
+      if (tries < MAX) setTimeout(tick, 400);
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', tick);
+    else tick();
   })();
 
   /* ════════════════════════════════════════════════════════════════

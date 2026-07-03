@@ -23,7 +23,7 @@
   <link rel="stylesheet" href="v03-modes.css?v=140movieh3wintab1viewerplaylayout1viewerplayaspect1aviewerplaychoicecompact1designsys6d7d8bubble1bd9cozy1d9cozy2d9cozy3d9safeareaD9paperd9safeareaalld94bto7d95bgalleryd94c6b7bd97bnightinkd96c7cbtnd9finald9final2d9final3d9final4d9final5d9final6ttheme1pbmood1apbmood2saveimehotfix1refinestab1"/>
   <link rel="stylesheet" href="pb-tone.css?v=16"/>
   <!-- Phase 0.5 mock — AI 기능 UI (step1: 진입 버튼만) -->
-  <link rel="stylesheet" href="pb-ai.css?v=phaseA10copyfix2c1vieweraimodebar1aviewerplaytopchrome1writeafterprint1pbprint1publishprint1fieldfix2publishprint2publishprint3publishprint4"/>
+  <link rel="stylesheet" href="pb-ai.css?v=phaseA10copyfix2c1vieweraimodebar1aviewerplaytopchrome1writeafterprint1pbprint1publishprint1fieldfix2publishprint2publishprint3publishprint4scenepubprint1"/>
   <!-- W8: 자동 진입(?team= 있을 때) 깜빡임 차단.
        maker → "감상 테스트" / "다듬기" 진입 시 entry 화면이 잠깐 보였다가 사라지는 현상 제거.
        JS 로드 전에 inline으로 처리 — CSS의 #entry-screen{display:flex} 효과 무력화. -->
@@ -197,7 +197,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-functions-compat.js"></script>
 <!-- v37f 캐시 — 표지 높낮이/사이드/구조 + 텍스트 portrait 강제 -->
 <script src="viewer-state.js?v=137"></script>
-<script src="viewer-data.js?v=140movieh1pbskins5d97cendcolorttheme1refineia2textdefaults1markers2ia3pbmood1apolishauth1makerscope1pbmood2savecozyskin1imgs2data1imgs2render1imgs2render2textsel1textsel2uiglobaleffects1texts2toggle1fieldfix1"></script>
+<script src="viewer-data.js?v=140movieh1pbskins5d97cendcolorttheme1refineia2textdefaults1markers2ia3pbmood1apolishauth1makerscope1pbmood2savecozyskin1imgs2data1imgs2render1imgs2render2textsel1textsel2uiglobaleffects1texts2toggle1fieldfix1scenepubprint1"></script>
 <!-- IMAGE-S2-10 교사 UI: 순수 로직 + 독립 패널(교사 from=maker 세션에서만 자가활성·학생 미노출). 기존 렌더 무변경. -->
 <script src="viewer-image-batch.js?v=imgs2teacherui1imgs2gatefix1imgs2batchdiag1imgs2legacy1imgs2p4cache1"></script>
 <script src="viewer-image-batch-ui.js?v=imgs2teacherui2imgs2render2imgs2gatefix1imgs2batchdiag1imgs2viewhide2imgs2legacy1imgs2p4cache1imgs2uipolish1"></script>
@@ -211,7 +211,7 @@
 <script>
 (function () {
   var EDIT_SRC = 'viewer-edit.js?v=140p5imglock1copyfix2c1coverstart1heuristic1advedithide1absorbtitle1advedithidetext1toptoolbar2atoptoolbar3atoptoolbar3btoptoolbar4atoptoolbar4bprojectsettings1aprojectsettings1bprojectsettings1ccoverhint1dprojectsettings2aprojectsettings2bprojectsettings2cprojectsettings2ccpbimage1apbimage1bpbimage1cpbimage1dscenestyle1scenestyle1cglyphstyle1aglyphstyle1bglyphstyle1cglyphstyle1dglyphapplyalltextmode1btextmode1ctextmode1dmoviesettings1movietool1abmovietool1cmovietool1dpanelcleanup1apanelcleanup1bpanelcleanup1cpblayout1apblayout1bpblayout1cpbbodybox1apbbodybox1bpbbodybox1cpanelempty1backbone1aibackbone1aiinavtitle1abackbone1bbackbone1cdeadcode1backbone2iideadcode2scenetitle1bviewertopbar1pbskins5d8clean1d8clean1bttheme1refineia2textdefaults1markers2perfqa1ia3polishauth1pbmood2savecompassview2hudmenufix1imgs2a1imgs2afix1imgs2afix2imgs2uipolish1pbmoodaiview1imehotfix1globaleffects1drawingratio1tcv2q1tcsheet1compassbundle1compassrose1compassfollowup1drawingstudio2simplepbflowcopy1pbprint1refinestab1fieldfix1';
-  var AI_SRC   = 'viewer-ai.js?v=workcheckhistory1copyfix2c1hudai1bpolishauth1imgs2lock1imgs2a1imgs2afix1imgs2afix2imgs2teacherui1imgs2entry1imgs2viewhide1imgs2uipolish2writeafterui2waq1waq2group1editreturn1workcheckux1resulteditflow1stepgate1finishname1textsel2uipbfinishux1writeafterprint1refinestab1textsel3texts2toggle1togglelive1publishprint1fieldfix2publishprint2publishprint3publishprint4pbprintopts1';
+  var AI_SRC   = 'viewer-ai.js?v=workcheckhistory1copyfix2c1hudai1bpolishauth1imgs2lock1imgs2a1imgs2afix1imgs2afix2imgs2teacherui1imgs2entry1imgs2viewhide1imgs2uipolish2writeafterui2waq1waq2group1editreturn1workcheckux1resulteditflow1stepgate1finishname1textsel2uipbfinishux1writeafterprint1refinestab1textsel3texts2toggle1togglelive1publishprint1fieldfix2publishprint2publishprint3publishprint4pbprintopts1scenepubprint1';
   /* WRITE-AFTER-VIEWER-HTML-CACHE-HARDENED: 디버그 마커 — 로드된 진입 HTML이 어떤 번들 cachebuster를
      들고 있는지 콘솔로 확인(옛 viewer.html 캐시 의심 시 한눈에 비교). 동작 영향 없음. */
   try { console.log('[viewer] bundle cachebuster: AI_SRC=' + AI_SRC.split('?v=')[1] + ' / EDIT_SRC=' + EDIT_SRC.split('?v=')[1]); } catch (e) {}
@@ -246,7 +246,7 @@
   window.ensureAiViewBundle = function () { return loadOnce(AI_SRC, 'ai'); };
 })();
 </script>
-<script src="picturebook-print.js?v=pbprint1publishprint1fieldfix2publishprint2publishprint3publishprint4pbprintopts1"></script>
+<script src="picturebook-print.js?v=pbprint1publishprint1fieldfix2publishprint2publishprint3publishprint4pbprintopts1scenepubprint1"></script>
 <script src="viewer-entry.js?v=96polishauth1"></script>
 
 </body>

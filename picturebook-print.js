@@ -164,6 +164,21 @@
       if (opts.textMode || opts.imageMode) return (s && (s.imageData || s.imageUrl)) || null;   /* 옵션 경유 = 명시 원본 */
       return _publishedImage(s);
     };
+    /* SCENE-PUBLISH-PRINT-1: 말풍선(글상자) layout — 원본 scene.picturebookBodyBox(%),
+       글=AI(s2)면 variant layout(호출부 콜백) 우선. REFINE-STAB-B 원칙: 진하기(backdropOpacity)는
+       항상 원본을 따름. 저장값 read만 — 변경 0. */
+    const _PB_BOX_DEFAULT = { x: 15, y: 25, width: 55, height: null, backdropOpacity: 0.85 };
+    const layoutOf = (s) => {
+      const orig = (s && s.picturebookBodyBox && typeof s.picturebookBodyBox === 'object')
+        ? Object.assign({}, _PB_BOX_DEFAULT, s.picturebookBodyBox) : Object.assign({}, _PB_BOX_DEFAULT);
+      if (_textMode === 's2' && typeof opts.getS2Layout === 'function') {
+        try {
+          const v = opts.getS2Layout(_sidOf(s));
+          if (v && typeof v === 'object') return Object.assign({}, _PB_BOX_DEFAULT, v, { backdropOpacity: orig.backdropOpacity });
+        } catch (e) { /* 원본 layout fallback */ }
+      }
+      return orig;
+    };
 
     const old = document.getElementById('pb-print-root');
     if (old) old.remove();
@@ -195,41 +210,76 @@
        (사용자 결정 2026-07-03). 선택지의 '→ N번 장면으로 가세요'만으로 읽기 가능. BFS 번호 계산은
        buildPrintOrder가 담당하므로 무영향. 지도가 다시 필요하면 별도 버튼/기능으로 분리. */
 
-    /* ── 본문: 출판형 — 장면당 1페이지 (PICTUREBOOK-PUBLISH-PRINT-1) ──
-       구 2장면/페이지(점검형 축소 카드)를 폐기하고 큰 그림+큰 글의 그림책 출판물로 전환.
-       번호(BFS)·선택지 안내(describeChoice)·발행 헬퍼·gate는 그대로 재사용. */
+    /* ── 본문: 장면당 1페이지 (SCENE-PUBLISH-PRINT-1 — '장면 그대로' 출판형) ──
+       그림 있는 장면 = 화면의 그림중심 무대(그림+말풍선 % 좌표+진하기)를 인쇄 전용 고정
+       무대(.pbp-stage2·3:2·px 폰트)에 DOM으로 재현(캡처/래스터화 0·화질 손실 0). 선택지는
+       화면 버튼 대신 하단 인쇄용 안내로 정리. split형 장면(말풍선 없음)은 본문을 무대 아래 배치.
+       무그림 장면 = 기존 text-only 출판 페이지(LAYOUT-4) 유지. 번호(BFS)·선택지 안내·gate 재사용. */
+    const _choicesBoxOf = (sc) => {
+      const chs = _choices(sc);
+      if (!chs.length) return _el('div', 'pbp-end-mark', '— 이야기 끝 —');
+      const box = _el('div', 'pbp-choices');
+      chs.forEach(c => {
+        const d = describeChoice(c, res.numberByKey);
+        const row = _el('div', 'pbp-choice');
+        if (d.label !== '(선택)') row.appendChild(_el('span', 'pbp-choice-label', '▸ ' + d.label));
+        row.appendChild(_el('span', 'pbp-choice-goto', d.note));
+        box.appendChild(row);
+      });
+      return box;
+    };
     res.order.forEach((k) => {
       const s = scenes[k];
       const img = imageOf(s);
-      const page = _el('div', 'pbp-page pbp-publish');
-      const card = _el('div', 'pbp-scene pbp-scene--full' + (img ? '' : ' pbp-scene--noimg'));
-      /* LAYOUT-4: 장면번호 = 그림 좌상단 오버레이 배지(별도 행 제거 → 세로 공간 절약).
-         플래그(엔딩/추가 장면)는 배지에 병기. 제목은 있을 때만 본문 위 작은 캡션. */
+      const body = (bodyOf(s) || '').trim();
       const flags = [];
       if (res.numberByKey[k] > res.reachableCount) flags.push('추가 장면');
       if (s.type === 'ending') flags.push('엔딩');
-      card.appendChild(_el('span', 'pbp-num-overlay', res.numberByKey[k] + '번' + (flags.length ? ' · ' + flags.join(' · ') : '')));
-      if (img) { const im = document.createElement('img'); im.className = 'pbp-scene-img'; im.src = img; card.appendChild(im); }
-      if ((s.title || '').trim()) card.appendChild(_el('div', 'pbp-scene-caption', s.title.trim()));
-      const body = (bodyOf(s) || '').trim();
-      card.appendChild(_el('div', 'pbp-scene-body' + (body ? '' : ' pbp-scene-body--empty'), body || '(글 없음)'));
-      const chs = _choices(s);
-      if (chs.length) {
-        const box = _el('div', 'pbp-choices');
-        chs.forEach(c => {
-          const d = describeChoice(c, res.numberByKey);
-          const row = _el('div', 'pbp-choice');
-          /* 선택지 글이 비어 있으면('(선택)' placeholder) 이동 안내만 크게 표시 */
-          if (d.label !== '(선택)') row.appendChild(_el('span', 'pbp-choice-label', '▸ ' + d.label));
-          row.appendChild(_el('span', 'pbp-choice-goto', d.note));
-          box.appendChild(row);
-        });
-        card.appendChild(box);
+      const numText = res.numberByKey[k] + '번' + (flags.length ? ' · ' + flags.join(' · ') : '');
+
+      if (img) {
+        /* 장면 그대로: 고정 3:2 무대 — 인쇄 페이지 폭은 A4에서 일정하므로 % 좌표+px 폰트 = 기기 무관 결정적 */
+        const page = _el('div', 'pbp-page pbp-scenepub');
+        const wrap = _el('div', 'pbp-stagewrap');
+        const st = _el('div', 'pbp-stage2');
+        const im = document.createElement('img'); im.className = 'pbp-stage2-img'; im.src = img;
+        st.appendChild(im);
+        st.appendChild(_el('span', 'pbp-num-overlay', numText));
+        if ((s.title || '').trim()) st.appendChild(_el('div', 'pbp-stage2-title', s.title.trim()));
+        const isImageCenter = (s.picturebookSubmode === 'imageCenter');
+        if (body && isImageCenter) {
+          /* 말풍선 재현 — 화면과 동일한 % 좌표·진하기. 명시 height는 min-height로(인쇄는 스크롤
+             불가 → 긴 글 자동 확장·잘림 0). 좌표는 저장 시 이미 무대 안으로 클램프됨. */
+          const bb = layoutOf(s);
+          const op = (typeof bb.backdropOpacity === 'number') ? bb.backdropOpacity : 0.85;
+          const bub = _el('div', 'pbp-stage2-bubble');
+          bub.style.cssText = 'left:' + bb.x + '%;top:' + bb.y + '%;width:' + bb.width + '%;'
+            + (typeof bb.height === 'number' ? 'min-height:' + bb.height + '%;' : '')
+            + 'background:rgba(255,255,255,' + op + ');'
+            + 'box-shadow:0 2px 6px rgba(0,0,0,' + (0.08 * op).toFixed(3) + ');';
+          const p = _el('p', 'pbp-stage2-bubble-p', body);
+          bub.appendChild(p);
+          st.appendChild(bub);
+        }
+        wrap.appendChild(st);
+        page.appendChild(wrap);
+        if (body && !isImageCenter) {
+          /* 분할형: 말풍선 좌표가 없으므로 본문을 무대 아래 인쇄용 박스로 */
+          page.appendChild(_el('div', 'pbp-scenepub-body', body));
+        }
+        page.appendChild(_choicesBoxOf(s));
+        rootEl.appendChild(page);
       } else {
-        card.appendChild(_el('div', 'pbp-end-mark', '— 이야기 끝 —'));
+        /* 무그림 — text-only 출판 페이지(LAYOUT-4 유지) */
+        const page = _el('div', 'pbp-page pbp-publish');
+        const card = _el('div', 'pbp-scene pbp-scene--full pbp-scene--noimg');
+        card.appendChild(_el('span', 'pbp-num-overlay', numText));
+        if ((s.title || '').trim()) card.appendChild(_el('div', 'pbp-scene-caption', s.title.trim()));
+        card.appendChild(_el('div', 'pbp-scene-body' + (body ? '' : ' pbp-scene-body--empty'), body || '(글 없음)'));
+        card.appendChild(_choicesBoxOf(s));
+        page.appendChild(card);
+        rootEl.appendChild(page);
       }
-      page.appendChild(card);
-      rootEl.appendChild(page);
     });
     document.body.appendChild(rootEl);
 

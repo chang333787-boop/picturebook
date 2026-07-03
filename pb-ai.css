@@ -1422,7 +1422,8 @@
     display: flex; flex-direction: column; flex: 1 1 auto; break-inside: avoid;
     position: relative;   /* LAYOUT-4: 장면번호 오버레이 기준 */
   }
-  body.print-picturebook .pbp-publish .pbp-num-overlay {
+  body.print-picturebook .pbp-publish .pbp-num-overlay,
+  body.print-picturebook .pbp-scenepub .pbp-num-overlay {
     /* LAYOUT-4: N번 배지 = 그림 좌상단 오버레이 — 별도 행 제거(세로 공간 0) */
     position: absolute; top: 18px; left: 24px; z-index: 2;
     background: rgba(255,255,255,0.92); border: 1.5px solid #333; border-radius: 8px;
@@ -1437,7 +1438,8 @@
     width: 100%; height: auto; max-height: 500px; object-fit: contain;
     margin: 0 auto 12px; border: 1px solid #bbb; border-radius: 10px; box-sizing: border-box;
   }
-  body.print-picturebook .pbp-publish .pbp-img-missing {
+  body.print-picturebook .pbp-publish .pbp-img-missing,
+  body.print-picturebook .pbp-scenepub .pbp-img-missing {
     margin: 0 auto 14px; padding: 64px 20px; width: 82%; box-sizing: border-box;
     border: 1.5px dashed #999; border-radius: 10px; text-align: center; color: #666; font-size: 11pt;
   }
@@ -1460,16 +1462,55 @@
   body.print-picturebook .pbp-publish .pbp-scene--noimg .pbp-num-overlay { top: 14px; left: 18px; }
   /* LAYOUT-4: 선택지 = 본문 아래 흐름 배치(하단 고정 폐기) — 다음 페이지로 선택지만 넘어가는
      현상 제거. 구분선으로 본문과 구분. 긴 선택지는 어절 줄바꿈. */
-  body.print-picturebook .pbp-publish .pbp-choices {
+  body.print-picturebook .pbp-publish .pbp-choices,
+  body.print-picturebook .pbp-scenepub .pbp-choices {
     margin-top: 12px; border-top: 1.5px solid #999; padding-top: 8px; break-inside: avoid;
   }
-  body.print-picturebook .pbp-publish .pbp-choice {
+  body.print-picturebook .pbp-publish .pbp-choice,
+  body.print-picturebook .pbp-scenepub .pbp-choice {
     font-size: 12pt; padding: 2.5px 0; display: flex; justify-content: space-between; gap: 10px;
   }
-  body.print-picturebook .pbp-publish .pbp-choice-label { word-break: keep-all; }
-  body.print-picturebook .pbp-publish .pbp-choice-goto { white-space: nowrap; flex: none; }
-  body.print-picturebook .pbp-publish .pbp-end-mark {
+  body.print-picturebook .pbp-publish .pbp-choice-label,
+  body.print-picturebook .pbp-scenepub .pbp-choice-label { word-break: keep-all; }
+  body.print-picturebook .pbp-publish .pbp-choice-goto,
+  body.print-picturebook .pbp-scenepub .pbp-choice-goto { white-space: nowrap; flex: none; }
+  body.print-picturebook .pbp-publish .pbp-end-mark,
+  body.print-picturebook .pbp-scenepub .pbp-end-mark {
     margin-top: 14px; font-size: 14pt; padding: 8px 0 4px;
   }
   body.print-picturebook .pbp-cover-date { margin-top: 6px; font-size: 10.5pt; color: #444; }
+
+  /* ── SCENE-PUBLISH-PRINT-1: '장면 그대로' 무대 재현 ──
+     인쇄 페이지 폭은 A4에서 일정 → 3:2 무대 + % 좌표 + px 고정 폰트 = 태블릿/PC 해상도와
+     무관하게 항상 같은 출력(화면의 cqw/cqh 가변 폰트 문제 제거). 캡처 아님 — DOM 재현. */
+  body.print-picturebook .pbp-scenepub { min-height: 86vh; display: flex; flex-direction: column; }
+  body.print-picturebook .pbp-stagewrap {
+    width: 100%; aspect-ratio: 3 / 2; position: relative;
+    border: 1.5px solid #555; border-radius: 12px; overflow: hidden;
+    background: #fff; box-sizing: border-box;
+  }
+  body.print-picturebook .pbp-stage2 { position: absolute; inset: 0; }
+  body.print-picturebook .pbp-stage2-img {
+    position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain;   /* 감상과 동일·크롭 0 */
+  }
+  body.print-picturebook .pbp-stage2-title {
+    position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+    max-width: 88%; padding: 4px 14px; border-radius: 9px;
+    background: rgba(255,255,255,0.88); font-size: 20px; font-weight: 800; color: #222;
+    text-align: center; word-break: keep-all; z-index: 2;
+  }
+  body.print-picturebook .pbp-stage2-bubble {
+    position: absolute; box-sizing: border-box; padding: 10px 14px;
+    border-radius: 10px; z-index: 1; overflow: visible;
+  }
+  body.print-picturebook .pbp-stage2-bubble-p {
+    margin: 0; font-size: 19px; line-height: 1.55;
+    white-space: pre-wrap; word-break: keep-all; overflow-wrap: anywhere; color: #222;
+  }
+  body.print-picturebook .pbp-scenepub .pbp-num-overlay { top: 10px; left: 12px; }
+  body.print-picturebook .pbp-scenepub-body {
+    margin-top: 10px; padding: 8px 12px; font-size: 15px; line-height: 1.65;
+    border: 1px solid #bbb; border-radius: 10px;
+    white-space: pre-wrap; word-break: keep-all;
+  }
 }

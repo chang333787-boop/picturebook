@@ -1379,7 +1379,13 @@
       if (typeof _showAiToggleBar === 'function') {
         try { _showAiToggleBar(); } catch (e) { /* noop */ }
       }
-      _requestViewerFrameRerender();   /* VIEWER-TOGGLE-LIVE-REFRESH-FIX: 감상 fallback 포함 */
+      /* VIEW-RENDER-DEDUP-1(2026-07-05): 원본 보기 중엔 variant 캐시 도착이 화면 내용을 하나도
+         바꾸지 않는다(토글 바 노출은 위에서 별도 처리). 그런데 재렌더 fallback=통째
+         renderCurrentScene이라 감상 진입 직후 같은 장면이 페이드로 다시 나타나던 원인.
+         복원된 보기 모드가 s1/s2일 때만(FB 캐시 도착으로 실제 표시가 바뀜) 재렌더. */
+      if (_isAiVariantViewMode()) {
+        _requestViewerFrameRerender();   /* VIEWER-TOGGLE-LIVE-REFRESH-FIX: 감상 fallback 포함 */
+      }
     }
     return out;
   }
@@ -1485,7 +1491,11 @@
       if (typeof _showAiImageToggleBar === 'function') {
         try { _showAiImageToggleBar(); } catch (e) { /* noop */ }
       }
-      _requestViewerFrameRerender();   /* VIEWER-TOGGLE-LIVE-REFRESH-FIX: 감상 fallback 포함 */
+      /* VIEW-RENDER-DEDUP-1: 텍스트 preload와 동일 — 원본 보기 중 재렌더 skip(불필요한 전체
+         페이드 재시작 방지). 이미지 보기 모드가 s1/s2로 복원된 경우에만 재렌더. */
+      if (_getAiImageViewMode() !== 'original') {
+        _requestViewerFrameRerender();   /* VIEWER-TOGGLE-LIVE-REFRESH-FIX: 감상 fallback 포함 */
+      }
     }
     return out;
   }

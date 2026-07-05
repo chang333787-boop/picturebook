@@ -1,18 +1,18 @@
 /* ====================================================================
    functions/index.js — 가지 AI Phase A (Anthropic Claude Haiku)
    --------------------------------------------------------------------
-   Phase A 박은 거:
+   Phase A 포함 기능:
    - callTextAiBatch: 텍스트 1단계 (안심 정돈) — Haiku
    - callWorkCheck:   작품 검사 (진단 + 확인 방향) — Haiku
 
-   v140 정책 박힘 (AI_POLICY_V140.md):
-   - 원본 body 박지 X (Functions는 aiVariants / aiDrafts 노드만 박음)
+   v140 정책 반영 (AI_POLICY_V140.md):
+   - 원본 body 수정 금지 (Functions는 aiVariants / aiDrafts 노드에만 기록)
    - aiVariants.textS1.final 저장 (덮어쓰기 X)
    - 1단계 후보 3회 (브랜치당)
-   - testMode 우회 박지 X (운영 강제)
+   - testMode 우회 금지 (운영 강제)
 
-   11단 방어 박힘 (AI_COST_GUARD_PLAN.md):
-   1. Firebase auth (req.auth 박지 X 박혀있으면 거부)
+   11단 방어 적용 (AI_COST_GUARD_PLAN.md):
+   1. Firebase auth (req.auth 없으면 거부)
    2. 임시 허용 목록 (AI_TEST_ALLOWED)
    3. aiPermission.enabled + allowedModes[mode]
    4. branchLineage.copyDepth <= 1
@@ -20,13 +20,13 @@
    6. 브랜치 quota
    7. rootBranchId 묶음 quota
    8. 전역 일일 / 월간 hard cap
-   9. maxInstances: 5 (Functions invocation 폭주 박지 X)
-   10. Origin 검증 (가지 도메인 박지 X 박혀있으면 거부)
+   9. maxInstances: 5 (Functions invocation 폭주 방지)
+   10. Origin 검증 (가지 도메인이 아니면 거부)
    11. kill switch (Firebase ai-kill-switch/enabled)
 
    step1 ✓ 골격
-   step2 ✓ 11단 검증 박음
-   step3 ✓ Anthropic SDK + prompt + 응답 검증 박음 (지금)
+   step2 ✓ 11단 검증 구현
+   step3 ✓ Anthropic SDK + prompt + 응답 검증 구현 (지금)
    step4 ⏳ database.rules.json + viewer-ai.js Firebase Functions 호출
    ==================================================================== */
 
@@ -57,25 +57,25 @@ if (!admin.apps.length) {
   admin.initializeApp();
 }
 
-/* 전역 옵션 박음 — 모든 함수 박은 거 박은 거 박은 박은 적용 */
+/* 전역 옵션 설정 — 모든 함수에 공통 적용 */
 setGlobalOptions({
-  region: 'asia-northeast3',   /* 서울 — 한국 사용자 latency 박음 */
-  maxInstances: 5,             /* 11단 #9 — invocation 폭주 박지 X */
-  timeoutSeconds: 60,          /* 1분 timeout (호출 lock 박은 거 박은 거 박은 박은 정합) */
+  region: 'asia-northeast3',   /* 서울 — 한국 사용자 latency 최소화 */
+  maxInstances: 5,             /* 11단 #9 — invocation 폭주 방지 */
+  timeoutSeconds: 60,          /* 1분 timeout (클라이언트 호출 lock과 정합) */
 });
 
-/* Anthropic API key — Google Cloud Secret Manager 박음 (step3 박을 때 박을 거) */
+/* Anthropic API key — Google Cloud Secret Manager에 보관 (step3에서 사용) */
 const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY');
 /* IMAGE-S2-9 — 이미지 변환용 OpenAI key(텍스트 Anthropic과 분리). secret 미존재 시 adapter=not-configured(생성 차단·차감 0). */
 const IMAGE_OPENAI_API_KEY = defineSecret('IMAGE_OPENAI_API_KEY');
 
 /* ════════════════════════════════════════════════════════════════
    Phase A 테스트용 임시 허용 목록 (AI_SAFETY_COST_RULES.md 최상단)
-   ⚠️ 운영 박힐 때 teacherId/account 기반으로 교체
+   ⚠️ 운영 전환 시 teacherId/account 기반으로 교체
    ════════════════════════════════════════════════════════════════ */
 const AI_TEST_ALLOWED = [
-  /* 실제 Firebase classId 박음 (사용자 친화 코드 JL26A → classCodes 박은 거 박은 거 박은 박은 매핑)
-     viewer가 URL에 박은 classId 박은 거 박은 거 박은 박은 — Firebase 박은 거 박은 거 박은 박은 그대로 박음 (코드 변환 X) */
+  /* 실제 Firebase classId 사용 (사용자 친화 코드 JL26A → classCodes에서 매핑)
+     viewer가 URL에 넘기는 classId는 Firebase 값을 그대로 사용 (코드 변환 X) */
   { classId: 'class_2026_junglim_1', teamName: '0000' },
   { classId: 'class_2026_junglim_1', teamName: '은규' },
   { classId: 'class_2026_junglim_1', teamName: '예지유은인우' },
@@ -87,7 +87,7 @@ function isAiTestAllowed(classId, teamName) {
 }
 
 /* ════════════════════════════════════════════════════════════════
-   quota 박힌 거 박은 거 박은 박은 (AI_COST_GUARD_PLAN.md 2-3·2-4·2-8)
+   quota 상한 정의 (AI_COST_GUARD_PLAN.md 2-3·2-4·2-8)
    ════════════════════════════════════════════════════════════════ */
 const QUOTA = {
   s1: 3,         /* 1단계 — 브랜치당 후보 3회 */
@@ -112,12 +112,12 @@ const ROOT_DAILY_LIMIT = 50;       /* rootBranchId 묶음 — 하루 50회 */
 const GLOBAL_DAILY_LIMIT = 500;    /* 전역 일일 hard cap */
 
 /* ════════════════════════════════════════════════════════════════
-   Origin 검증 — 가지 도메인 박은 거 박은 거 박은 박은만 허용
-   ⚠️ 박은 도메인 박은 거 박은 거 박은 박은 — 사용자 박을 거 박은 거 박은 박은 (Firebase Hosting URL 박힐 때)
-   localhost 박은 거 박은 거 박은 박은 박혀있어 — 개발 박을 때 박음
+   Origin 검증 — 가지 도메인에서 온 요청만 허용
+   ⚠️ 허용 도메인 목록 — 사용자 확정 대기 (Firebase Hosting URL 확정될 때)
+   localhost 포함 — 개발할 때 사용
    ════════════════════════════════════════════════════════════════ */
 const ALLOWED_ORIGINS = [
-  /* Firebase Hosting URL — 사용자 박을 거 박은 거 박은 박은 (deploy 박힐 때 박을 거) */
+  /* Firebase Hosting URL — 사용자 확정 대기 (deploy 시 주석 해제 예정) */
   /* 'https://branch-picturebook.web.app', */
   /* 'https://branch-picturebook.firebaseapp.com', */
 
@@ -133,7 +133,7 @@ const ALLOWED_ORIGINS = [
 
 function isOriginAllowed(origin) {
   if (!origin) return false;
-  /* ALLOWED_ORIGINS 박지 X 박혀있으면 — 박은 거 박은 거 박은 박은 X 박은 거 박은 거 박은 박은 박지 X */
+  /* ALLOWED_ORIGINS가 비어 있으면 — origin 제한 없이 모두 허용 */
   if (ALLOWED_ORIGINS.length === 0) return true;
   return ALLOWED_ORIGINS.includes(origin);
 }
@@ -142,7 +142,7 @@ function isOriginAllowed(origin) {
    날짜 helper
    ════════════════════════════════════════════════════════════════ */
 function _todayYmd() {
-  /* 서버 박은 거 박은 거 박은 박은 UTC — 한국 박은 거 박은 거 박은 박은 +9. 단 박은 거 박은 거 박은 박은 박은 — UTC 박은 거 박은 거 박은 박은 박음 (Anthropic 콘솔과 정합) */
+  /* 서버 시간은 UTC — 한국은 +9. 단순화를 위해 UTC 기준 날짜 사용 (Anthropic 콘솔과 정합) */
   return new Date().toISOString().slice(0, 10);
 }
 
@@ -344,10 +344,10 @@ function _sanitizeVariantTextStyle(raw) {
 }
 
 /* ════════════════════════════════════════════════════════════════
-   11단 검증 — 호출 진입 단 박음
+   11단 검증 — 호출 진입 시 수행
    ──────────────────────────────────────────────────────────────
-   각 박힌 단계 박지 X 박혀있으면 HttpsError throw.
-   순서: 가벼운 검증 박은 거 박은 거 박은 박은 → 무거운 검증 (DB 박은 거 박은 거 박은 박은)
+   각 단계에서 조건을 통과하지 못하면 HttpsError throw.
+   순서: 가벼운 검증 먼저 → 무거운 검증 (DB read) 나중
    ════════════════════════════════════════════════════════════════ */
 
 /* WRITE-AFTER H1/H2 — soft-launch 플래그. aiAuthEnforce/enabled === true 일 때만 팀 권한 차단.
@@ -386,18 +386,18 @@ async function _validateRequest(req, mode, opts) {
      권한 게이트(auth/testMode/허용목록/copyDepth/origin/killswitch/aiSettings)는 그대로 적용. */
   const skipUsageLimits = !!(opts && opts.skipUsageLimits);
 
-  /* 1. Firebase auth (anonymous라도 박힘) */
+  /* 1. Firebase auth (anonymous라도 필요) */
   if (!req.auth || !req.auth.uid) {
     throw new HttpsError('unauthenticated', '로그인이 필요해요.');
   }
 
-  /* 5. testMode 거부 — v140 핵심. client testMode 박혀있어도 실 API 박지 X */
+  /* 5. testMode 거부 — v140 핵심. client가 testMode를 보내도 실 API 호출 금지 */
   if (req.data && req.data.testMode === true) {
     logger.warn('[ai] testMode 우회 시도 박힘', { uid: req.auth.uid, data: req.data });
     throw new HttpsError('permission-denied', 'testMode로는 실제 AI를 사용할 수 없어요.');
   }
 
-  /* 데이터 박은 거 박은 거 박은 박은 박음 */
+  /* 요청 데이터 추출 */
   const data = req.data || {};
   const classId = String(data.classId || '');
   const teamName = String(data.teamName || '');
@@ -408,7 +408,7 @@ async function _validateRequest(req, mode, opts) {
   if (!classId || !teamName) {
     throw new HttpsError('invalid-argument', 'classId / teamName이 없어요.');
   }
-  /* workId 박은 거 박은 거 박은 박은 — 가지 데이터 모델 박은 거 박은 거 박은 박은 — team 자체 박은 거 박은 거 박은 박은 한 작품. workId 박지 X 박혀있으면 teamName 박음. */
+  /* workId 참고 — 가지 데이터 모델에서는 team 자체가 곧 한 작품. workId가 없으면 teamName을 사용. */
   const workIdEffective = workId || teamName;
 
   /* 2. 권한 1차 — aiSettings 우선 모델 (AI-STAB-1).
@@ -423,7 +423,7 @@ async function _validateRequest(req, mode, opts) {
       'AI 사용 권한이 없어요 (Phase A 테스트 대상이 아니에요 — ' + classId + '/' + teamName + ')');
   }
 
-  /* 4. copyDepth <= 1 (모/자식 브랜치만 박음 — 손자 박지 X) */
+  /* 4. copyDepth <= 1 (모/자식 브랜치만 허용 — 손자 금지) */
   if (copyDepth > 1) {
     throw new HttpsError('permission-denied',
       'AI_BLOCKED_BY_DEPTH — copyDepth ' + copyDepth + ' (모/자식 브랜치만 가능해요)');
@@ -443,10 +443,10 @@ async function _validateRequest(req, mode, opts) {
   }
 
   /* 3. 권한 게이트 (aiSettings 우선 / aiPermission fallback)
-     박을 노드 박은 거 박은 거 박은 박은: classes/{classId}/teams/{teamName}/works/{workId}/aiPermission
-     ⚠️ 실제 가지 박은 거 박은 거 박은 박은 박은 거 박은 거 박은 박은 — 박을 노드 위치 박은 거 박은 거 박은 박은 데이터 모델에 정합 박을 거.
-     박은 거 박은 거 박은 박은 박은 거 박은 거 박은 박은 — Phase A 박을 때 박지 X 박혀있을 가능성 — 박지 X 박혀있으면 기본 ON 박음 (Phase A 테스트라).
-     운영 박은 거 박은 거 박은 박은 — 박혀있어야 박을 거 (사용자가 박을 거 박은 거 박은 박은 maker.html에서 박을 거). */
+     참조 노드: classes/{classId}/teams/{teamName}/works/{workId}/aiPermission
+     ⚠️ 실제 가지 운영 적용 시 — 노드 위치를 실제 데이터 모델에 맞춰야 함.
+     주의 — Phase A 시점에는 이 노드가 없을 가능성 — 없으면 기본 ON 처리 (Phase A 테스트라).
+     운영 시점 — 노드가 있어야 함 (사용자가 maker.html에서 설정할 예정). */
   /* Phase 1 — 교사 AI 권한 게이트. 우선순위:
        (a) AI_TEST_ALLOWED 하드게이트 = 위(2번)에서 이미 통과해야 도달.
        (b) classes/{classId}/aiSettings 존재 → 진실. enabled + modes[modeKey].
@@ -543,11 +543,11 @@ async function _validateRequest(req, mode, opts) {
 }
 
 /* ════════════════════════════════════════════════════════════════
-   quota 차감 / 환불 (Firebase 트랜잭션 박음)
+   quota 차감 / 환불 (Firebase 트랜잭션 사용)
    ──────────────────────────────────────────────────────────────
-   7가지 환불 정책 (AI_SAFETY_COST_RULES.md 5-1 박힘):
-   1. 호출 전 취소 → 차감 X (호출 박지 X 박혀있어 차감 안 박음)
-   2. 호출 도중 [취소] → 차감 그대로 (환불 X) — 박힌 비용 박은 거 박은 거 박은 박은
+   7가지 환불 정책 (AI_SAFETY_COST_RULES.md 5-1 반영):
+   1. 호출 전 취소 → 차감 X (호출 자체가 없어 차감이 일어나지 않음)
+   2. 호출 도중 [취소] → 차감 그대로 (환불 X) — 이미 발생한 비용이므로
    3. 모델 실패 (timeout / 5xx) → 환불
    4. 네트워크 실패 → 환불
    5. JSON schema 위반 → 환불
@@ -815,14 +815,14 @@ async function _runAiPrecheck(ctx, snapshot, mode) {
    Anthropic SDK 호출 (Haiku)
    ──────────────────────────────────────────────────────────────
    사용 모델: claude-haiku-4-5 (Phase A — 가격·속도 최적)
-   max_tokens: 8000 (AI_COST_GUARD_PLAN.md 2-2-1 박힘)
+   max_tokens: 8000 (AI_COST_GUARD_PLAN.md 2-2-1 반영)
    ════════════════════════════════════════════════════════════════ */
 const HAIKU_MODEL = 'claude-haiku-4-5';
 /* 텍스트 2단계 전용 모델 — 기본은 Haiku로 선테스트. 품질/원작보존이 부족하면 이 한 줄만
    Sonnet으로 승격(예: const S2_MODEL = 'claude-sonnet-4-5';). s1/작품검사는 Haiku 그대로. */
 const S2_MODEL = HAIKU_MODEL;
 const MAX_TOKENS = 8000;
-const ANTHROPIC_TIMEOUT_MS = 50000;  /* Functions timeout 60s 박힘 — 여유 10s */
+const ANTHROPIC_TIMEOUT_MS = 50000;  /* Functions timeout 60s 기준 — 여유 10s */
 
 /* ════════════════════════════════════════════════════════════════
    텍스트 2단계 chunk 설정 (T2-INFRA-1) — 대형 작품 timeout 해결
@@ -851,7 +851,7 @@ async function _callAnthropic(apiKey, systemPrompt, userMessage, model) {
     ],
   });
 
-  /* 응답 박은 거 박은 거 박은 박은 text 박음 */
+  /* 응답에서 text block 추출 */
   const textBlock = (response.content || []).find(b => b.type === 'text');
   if (!textBlock || !textBlock.text) {
     throw new Error('Anthropic 응답이 없어요 — text block이 없어요');
@@ -869,9 +869,9 @@ async function _callAnthropic(apiKey, systemPrompt, userMessage, model) {
 /* ════════════════════════════════════════════════════════════════
    JSON 파싱 + 검증 (1단계)
    ──────────────────────────────────────────────────────────────
-   prompts/text-strength-1.md v3 박힌 규칙:
-   - safeAddition / creativeAddition 박혀있으면 자동 거부 (1단계 위반)
-   - revisedText 또는 skip union 박혀야
+   prompts/text-strength-1.md v3에 정의된 규칙:
+   - safeAddition / creativeAddition이 있으면 자동 거부 (1단계 위반)
+   - revisedText 또는 skip union이어야 함
    - 글자수 hard cut (분할형 500 / 그림 중심형 300)
    - 한글 비율 70% 미만 거부
    ════════════════════════════════════════════════════════════════ */
@@ -923,13 +923,13 @@ function _hangulRatio(s) {
   const str = String(s || '');
   if (str.length === 0) return 1;
   const hangul = (str.match(/[가-힣]/g) || []).length;
-  /* 공백·문장부호 박지 X 박은 거 박은 거 박은 박은 박은 (영문·숫자만 검사) */
+  /* 공백·문장부호는 분모에서 제외 (한글·영문·숫자만 검사) */
   const text = (str.match(/[가-힣a-zA-Z0-9]/g) || []).length;
   if (text === 0) return 1;
   return hangul / text;
 }
 
-/* sceneId 정규화 — Anthropic이 'scene_1' 박혀있을 때 '1'로 박음. 존재하지 않는 sceneId 제거. */
+/* sceneId 정규화 — Anthropic이 'scene_1'처럼 반환할 때 '1'로 변환. 존재하지 않는 sceneId 제거. */
 function _normalizeResults(results, snapshot) {
   if (!results || typeof results !== 'object') return {};
   const validIds = new Set(Object.keys(snapshot || {}));
@@ -937,7 +937,7 @@ function _normalizeResults(results, snapshot) {
   const dropped = [];
   for (const rawKey of Object.keys(results)) {
     let key = String(rawKey);
-    /* scene_, scene-, scene 박은 접두사 박지 X */
+    /* scene_, scene-, scene 형태 접두사 제거 */
     if (/^scene[_\-]?(\d+)$/i.test(key)) {
       key = key.replace(/^scene[_\-]?/i, '');
     }
@@ -1210,7 +1210,7 @@ function _validateWorkCheckResponse(parsed) {
   if (!parsed.categories || typeof parsed.categories !== 'object') {
     throw new Error('categories가 없어요');
   }
-  /* 본문 수정 결과 박혀있으면 거부 (검사 위반) */
+  /* 본문 수정 결과가 들어 있으면 거부 (검사 위반) */
   const cats = parsed.categories;
   for (const catKey of Object.keys(cats)) {
     const items = cats[catKey];
@@ -1406,19 +1406,19 @@ function _validateS2Response(parsed, snapshot) {
 /* ════════════════════════════════════════════════════════════════
    callTextAiBatch — 텍스트 1단계 (안심 정돈)
    ──────────────────────────────────────────────────────────────
-   step2 박은 거 박은 거 박은 박은 — 11단 검증 + quota 차감 박음.
-   Anthropic 호출은 step3 박을 때.
+   step2 범위 — 11단 검증 + quota 차감 구현.
+   Anthropic 호출은 step3에서.
    ════════════════════════════════════════════════════════════════ */
 exports.callTextAiBatch = onCall(
   {
     secrets: [ANTHROPIC_API_KEY],
-    enforceAppCheck: false,   /* AI_APP_CHECK_ANALYSIS.md 결론 B — Phase A 박지 X (Phase B 박음) */
+    enforceAppCheck: false,   /* AI_APP_CHECK_ANALYSIS.md 결론 B — Phase A 미적용 (Phase B에서 적용) */
   },
   async (req) => {
-    /* 1~11단 검증 박음 */
+    /* 1~11단 검증 수행 */
     const ctx = await _validateRequest(req, 's1');
 
-    /* snapshot 박지 X 박혀있으면 거부 */
+    /* snapshot이 없으면 거부 */
     const snapshot = (req.data && req.data.snapshot) || {};
     if (!snapshot || Object.keys(snapshot).length === 0) {
       throw new HttpsError('invalid-argument', 'snapshot이 없어요 (본문이 있는 장면이 없어요)');
@@ -1436,7 +1436,7 @@ exports.callTextAiBatch = onCall(
       return precheck;
     }
 
-    /* quota 차감 (호출 박은 거 박은 거 박은 박은) */
+    /* quota 차감 (호출 직전) */
     await _consumeQuota(ctx);
 
     try {
@@ -1460,7 +1460,7 @@ exports.callTextAiBatch = onCall(
         throw new HttpsError('internal', 'AI 응답 검증 실패: ' + parseErr.message);
       }
 
-      /* 비용 추정 + stats 박음 */
+      /* 비용 추정 + stats 기록 */
       const cost = _estimateCostUsd(ai.inputTokens, ai.outputTokens);
       _logUsageStats(ctx, ai, cost).catch(e => logger.warn('stats 박지 X', e));
 
@@ -1476,7 +1476,7 @@ exports.callTextAiBatch = onCall(
       };
 
     } catch (e) {
-      /* HttpsError 박은 거 박은 거 박은 박은 그대로 throw */
+      /* HttpsError는 그대로 throw */
       if (e instanceof HttpsError) throw e;
 
       /* 환불 정책 #3·#4 — Anthropic / 네트워크 실패 → 환불 */
@@ -2653,9 +2653,9 @@ exports.lockImageSourceMode = onCall(
    이미지 존재 + policy 없음 상태가 생길 수 있다. 방지:
    1) scenes empty 확인.
    2) 현재 imagePolicy 캡처(prev) → CAS transaction(현재값이 prev와 같을 때만 null).
-      그 사이 racing lock이 새 policy를 박았으면 CAS abort → RESET_RACE_RETRY.
+      그 사이 racing lock이 새 policy를 기록했으면 CAS abort → RESET_RACE_RETRY.
    3) clear 후 scenes 재확인 → 그 사이 저장이 들어왔으면 RESET_RACE_RETRY
-      (그 저장의 lock이 policy를 다시 박으므로 최종은 이미지+policy로 수렴. 교사 재시도).
+      (그 저장의 lock이 policy를 다시 기록하므로 최종은 이미지+policy로 수렴. 교사 재시도).
    ════════════════════════════════════════════════════════════════ */
 function _imagePolicyEq(a, b) {
   const na = ImageS2Policy.normalizePolicy(a);
@@ -2686,7 +2686,7 @@ exports.resetImageSourceMode = onCall(
       logger.error('[sourceMode] reset transaction 실패', { classId: ctx.classId, error: e && e.message });
       throw new HttpsError('internal', 'INTERNAL');
     }
-    /* 실제로 비워졌는지 재확인: 정책이 남아 있으면(=racing lock이 박음) RESET_RACE_RETRY. */
+    /* 실제로 비워졌는지 재확인: 정책이 남아 있으면(=racing lock이 다시 기록함) RESET_RACE_RETRY. */
     const afterPolicy = (await policyRef.once('value')).val();
     if (afterPolicy != null && ImageS2Policy.classifyPolicy(afterPolicy) !== 'absent') {
       return { ok: false, code: 'RESET_RACE_RETRY' };
@@ -2702,7 +2702,7 @@ exports.resetImageSourceMode = onCall(
 );
 
 /* ════════════════════════════════════════════════════════════════
-   비용 추정 + stats (Cloud Logging 박음)
+   비용 추정 + stats (Cloud Logging에 기록)
    ──────────────────────────────────────────────────────────────
    Haiku 4.5 단가 (2026-05 기준):
    - input:  $1 / 1M tokens
@@ -2714,7 +2714,7 @@ const HAIKU_OUTPUT_USD_PER_M = 5.0;
 function _estimateCostUsd(inputTokens, outputTokens) {
   const inCost = (inputTokens / 1_000_000) * HAIKU_INPUT_USD_PER_M;
   const outCost = (outputTokens / 1_000_000) * HAIKU_OUTPUT_USD_PER_M;
-  return Math.round((inCost + outCost) * 1_000_000) / 1_000_000;  /* 6자리 박음 */
+  return Math.round((inCost + outCost) * 1_000_000) / 1_000_000;  /* 소수점 6자리 반올림 */
 }
 
 async function _logUsageStats(ctx, ai, costUsd) {
@@ -2726,7 +2726,7 @@ async function _logUsageStats(ctx, ai, costUsd) {
   await statsRef.child(`tokens/${mode}/input`).transaction(n => (n || 0) + ai.inputTokens);
   await statsRef.child(`tokens/${mode}/output`).transaction(n => (n || 0) + ai.outputTokens);
 
-  /* 비용 누적 (마이크로달러 박음 — 정수 박는 게 안전) */
+  /* 비용 누적 (마이크로달러 단위 — 정수로 다루는 게 안전) */
   const costMicro = Math.round(costUsd * 1_000_000);
   await statsRef.child(`cost/${mode}/microUsd`).transaction(n => (n || 0) + costMicro);
   await statsRef.child(`cost/total/microUsd`).transaction(n => (n || 0) + costMicro);
@@ -2891,7 +2891,7 @@ exports.joinTeamMembership = onCall(
 );
 
 /* ════════════════════════════════════════════════════════════════
-   helper export (step3 박을 때 박을 거)
+   helper export (step3에서 사용)
    ════════════════════════════════════════════════════════════════ */
 /* ════════════════════════════════════════════════════════════════
    callThoughtCompassFollowUp — 생각 나침반 AI 후속질문 판정 (Phase 1)

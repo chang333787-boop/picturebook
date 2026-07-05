@@ -164,18 +164,18 @@ async function deleteVideoFromStorage(storagePath) {
    v114: 이미지 업로드 헬퍼 (Firebase Storage)
    ─────────────────────────────────────────────────────────────
    배경:
-   · v113까지 그림책 이미지는 base64 → RTDB scenes/{num}/imageData 박힘
-   · 사용자 사진 4MB × 20장 = 80MB RTDB 박힘 → 감상자 1명당 80MB egress
-   · 만원 결제 사건 (2026-05-17) 박힘 → v113에 옛 작품 마이그
-   · v114부터 신규 이미지도 Storage 박음 — 같은 폭탄 재발 차단
+   · v113까지 그림책 이미지는 base64 → RTDB scenes/{num}/imageData에 저장됨
+   · 사용자 사진 4MB × 20장 = 80MB RTDB 적재 → 감상자 1명당 80MB egress
+   · 만원 결제 사건 (2026-05-17) 발생 → v113에 옛 작품 마이그
+   · v114부터 신규 이미지도 Storage에 저장 — 같은 폭탄 재발 차단
 
    정책:
-   · 입력 = base64 data URL (mediaManager가 압축 박은 후 박는 거)
+   · 입력 = base64 data URL (mediaManager가 압축한 후 전달하는 값)
    · Storage 경로: images/{classId|'_legacy'}/{encodedTeamName}/scene_{num}.{ext}
    · 같은 경로에 덮어쓰기 — 한 장면 = 한 이미지
    · public, max-age=1년 — CDN 캐시 영구
-   · 반환 = public URL (token 없이 박을 수 있는 GCS public URL)
-   · viewer-render는 imageData || imageUrl 둘 다 <img src>에 박음 — 변경 X
+   · 반환 = public URL (token 없이 접근할 수 있는 GCS public URL)
+   · viewer-render는 imageData || imageUrl 둘 다 <img src>에 설정 — 변경 X
    ──────────────────────────────────────────────────────────────── */
 const IMAGE_STORAGE_MAX_BYTES = 6 * 1024 * 1024;   /* 6MB — mediaManager 5MB + 여유 1MB */
 const IMAGE_ALLOWED_MIME_PREFIX = 'image/';
@@ -202,7 +202,7 @@ function _dataUrlToBlob(dataUrl) {
   return new Blob([buf], { type: mime });
 }
 
-/* 이미지 업로드 — dataUrl 또는 Blob/File 둘 다 박음 */
+/* 이미지 업로드 — dataUrl 또는 Blob/File 둘 다 지원 */
 async function uploadImageToStorage(input, sceneNum, opts) {
   if (!storage) throw new Error('Storage가 초기화되지 않았어요. 페이지를 새로고침해주세요.');
   if (!input) throw new Error('이미지가 없어요.');
@@ -235,15 +235,15 @@ async function uploadImageToStorage(input, sceneNum, opts) {
   const storagePath = _imageStoragePath(sceneNum, opts || {}, ext);
   const ref = storage.ref(storagePath);
 
-  /* put — 진행률 안 박음 (이미지는 작아서 불필요) */
+  /* put — 진행률 추적 안 함 (이미지는 작아서 불필요) */
   await ref.put(blob, {
     contentType: blob.type,
     cacheControl: 'public, max-age=31536000',  /* 1년 */
   });
 
-  /* 2026-05-22 fix: GCS direct URL은 신규 업로드 시 public ACL이 박지 X 박혀서 HTTP 403.
-     v113 옛 마이그 작품은 ACL 박혀있어 작동하지만 신규 업로드는 박지 X.
-     ref.getDownloadURL()로 토큰 박힌 Firebase Storage URL을 받아 어디서든 접근 가능. */
+  /* 2026-05-22 fix: GCS direct URL은 신규 업로드 시 public ACL이 적용되지 않아 HTTP 403.
+     v113 옛 마이그 작품은 ACL이 설정돼 있어 작동하지만 신규 업로드는 아님.
+     ref.getDownloadURL()로 토큰이 포함된 Firebase Storage URL을 받아 어디서든 접근 가능. */
   let downloadURL;
   try {
     downloadURL = await ref.getDownloadURL();
@@ -351,7 +351,7 @@ async function refreshAuthClaims() {
 }
 
 /* v93: role 해석 helper — Custom Claim 우선, 없으면 teachers/{uid} 노드 확인.
-   신규 가입자(v90~v92)는 claim 없고 teachers 노드만 박혀있어 이걸 통과시켜야
+   신규 가입자(v90~v92)는 claim 없고 teachers 노드만 존재해 이걸 통과시켜야
    isTeacher()가 true. teacher-auth.html / ui.js와 같은 로직. */
 async function _resolveRole(user, tokenResult) {
   const claim = tokenResult.claims.role ?? null;
@@ -539,8 +539,8 @@ async function _resumeTeamFromSession(ctx) {
 
 /* ── 공통 입장 처리 — v1/v2 공유 ──
    v109: opts.skipPtypeScreenIfExisting (default false)
-   = true면 viewer-meta/projectType 박혀있는 기존 작품일 때 ptype-screen 안 띄움.
-   resume 흐름에서만 박음. 일반 새 로그인은 false (기존 흐름 유지). */
+   = true면 viewer-meta/projectType이 저장돼 있는 기존 작품일 때 ptype-screen 안 띄움.
+   resume 흐름에서만 true로 설정. 일반 새 로그인은 false (기존 흐름 유지). */
 function _enterTeam(val, teamRef, opts) {
   opts = opts || {};
   teamName = val;
@@ -681,9 +681,9 @@ function _enterTeam(val, teamRef, opts) {
           focused.classList.contains('js-body-input')   ||
           focused.classList.contains('js-choice-label'));
 
-    /* v118: pan/drag/pinch 중엔 renderAll 박지 X — Firebase echo로 박혀있는 사용자 조작
-       방해 박힘. 조작 박지 X 박힌 후 사용자가 카드 박은 거 박지 X면 다음 박은 거에
-       자동 동기 박힘. 안전 — scenes 메모리는 박혀있음. */
+    /* v118: pan/drag/pinch 중엔 renderAll 호출 X — Firebase echo가 진행 중인 사용자 조작을
+       방해함. 조작이 끝난 후 사용자가 카드 입력 중이 아니면 다음 업데이트에서
+       자동 동기화됨. 안전 — scenes 메모리는 최신으로 유지됨. */
     const isInteracting = (typeof panState !== 'undefined' && panState)
                        || (typeof dragState !== 'undefined' && dragState)
                        || (typeof pinchState !== 'undefined' && pinchState);
@@ -691,11 +691,11 @@ function _enterTeam(val, teamRef, opts) {
     if (!isTypingCard && !isInteracting) {
       renderAll();
     }
-    /* v116: 모바일 텍스트형이 박힌 상태면 노드 구조 화면도 같이 박음.
-       옛엔 renderAll(PC sceneRenderer)만 호출 → 모바일 _mtbRender 박지 X →
-       사용자가 편집한 본문/라벨이 구조 화면 노드 상태(branchCount, ⚠) 박지 못함.
-       박는 조건: MTB 박혀있고 active. 편집 화면 안의 textarea/input은 손 안 댐
-       (_mtbRender는 #mtb-nodes 영역만 박음, #mtb-edit-view는 별도). */
+    /* v116: 모바일 텍스트형이 활성 상태면 노드 구조 화면도 같이 갱신.
+       옛엔 renderAll(PC sceneRenderer)만 호출 → 모바일 _mtbRender 호출 X →
+       사용자가 편집한 본문/라벨이 구조 화면 노드 상태(branchCount, ⚠)에 반영되지 못함.
+       갱신 조건: MTB 존재하고 active. 편집 화면 안의 textarea/input은 손 안 댐
+       (_mtbRender는 #mtb-nodes 영역만 갱신, #mtb-edit-view는 별도). */
     if (typeof MTB !== 'undefined' && MTB && MTB.active && typeof window.mtbRender === 'function') {
       window.mtbRender();
     }
@@ -725,7 +725,7 @@ function _enterTeam(val, teamRef, opts) {
       entrySceneId:   (meta.entrySceneId  !== undefined && meta.entrySceneId  !== null) ? String(meta.entrySceneId)  : null,
       replaySceneId:  (meta.replaySceneId !== undefined && meta.replaySceneId !== null) ? String(meta.replaySceneId) : null,
     };
-    /* v95: 모바일 텍스트형 브랜치 활성화 트리거 — projectType 박힌 후 알림 */
+    /* v95: 모바일 텍스트형 브랜치 활성화 트리거 — projectType 확정된 후 알림 */
     window.dispatchEvent(new CustomEvent('mtb-project-ready'));
     /* ★ 역할 배지([첫 감상 시작]/[다시 시작점])가 영향받는 카드만 재렌더 —
        entry/replay가 바뀐 이전/현재 num 모두 커버. 편집 중 카드는 스킵하여
@@ -1000,7 +1000,7 @@ function _ensureSaveErrorBanner() {
 }
 
 function setSaveStatus(s) {
-  /* v99: 모바일 텍스트형 status element도 동기화 — 진짜 저장 완료 시에만 박음 */
+  /* v99: 모바일 텍스트형 status element도 동기화 — 진짜 저장 완료 시에만 갱신 */
   const mtbStatus = document.getElementById('mtb-edit-status');
   if (mtbStatus) {
     if (s === 'saved')       mtbStatus.textContent = '✓ 저장됨';
@@ -1079,11 +1079,11 @@ function pushProjectMetaToFirebase(partial) {
    v40: 작품 복사 — 4자리 코드 기반 양방향 공유
    ─────────────────────────────────────────────────────────────
    · 발급(교사 admin): issueCopyCode(classId, teamEncoded)
-     → 4자리 숫자 코드(1000~9999) + copyCodes/{code} 노드 박음
+     → 4자리 숫자 코드(1000~9999) + copyCodes/{code} 노드 생성
      → 24시간 후 만료 (다회용)
    · 소환(빈 슬롯 학생): redeemCopyCode(code, dstClassId, dstTeamEncoded)
      → 검증(코드 유효·만료·src 존재·dst 빈슬롯) → multi-path update
-     → isPublic:false 강제 + copiedFrom 메타 박음
+     → isPublic:false 강제 + copiedFrom 메타 기록
    · 영상 storagePath는 그대로 공유 (Storage 객체 복사 안 함)
    · 이미지 imageData는 base64 인라인이라 자동 복사
    ================================================================ */
@@ -1094,7 +1094,7 @@ const COPY_CODE_TTL_MS = 24 * 60 * 60 * 1000;
 async function issueCopyCode(classId, teamEncoded) {
   if (!classId || !teamEncoded) throw new Error('classId/teamEncoded 누락');
 
-  /* 원본 존재 확인 — 빈 작품에 코드 박지 않게 */
+  /* 원본 존재 확인 — 빈 작품에 코드 발급하지 않게 */
   const srcSnap = await db.ref(`classes/${classId}/teams/${teamEncoded}/scenes`).once('value');
   if (!srcSnap.exists()) throw new Error('원본 작품에 장면이 없어요. 코드를 발급할 수 없어요.');
 
@@ -1167,7 +1167,7 @@ async function redeemCopyCode(code, dstClassId, dstTeamEncoded) {
     },
   });
 
-  /* multi-path atomic update — scenes/viewer-meta 통째 박음 */
+  /* multi-path atomic update — scenes/viewer-meta 통째 저장 */
   const updates = {};
   updates[`${dstBase}/scenes`]        = srcScenes;
   updates[`${dstBase}/viewer-meta`]   = dstMeta;

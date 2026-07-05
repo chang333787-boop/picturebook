@@ -15,10 +15,10 @@ function renderCurrentScene() {
   /* 테마 클래스 적용 */
   stage.className = `theme-${ViewerState.project.theme}`;
 
-  /* v122: 매 장면 박을 때마다 효과/속도 CSS 변수 다시 박음.
-     옛엔 작품 로드 시 한 번 + 다듬기 슬라이더 박을 때만 박음 → 다듬기 후 "감상 테스트"
-     박는 시점에 옛 값 박힐 가능성. 사용자 박은 "느림으로 박았는데 표지에서 빠르게 나옴".
-     ViewerState.project가 최신 박혀있어 그대로 박으면 정합 보장. */
+  /* v122: 매 장면 렌더 때마다 효과/속도 CSS 변수 다시 적용.
+     옛엔 작품 로드 시 한 번 + 다듬기 슬라이더 조작할 때만 적용 → 다듬기 후 "감상 테스트"
+     여는 시점에 옛 값 남을 가능성. 사용자 보고 "느림으로 설정했는데 표지에서 빠르게 나옴".
+     ViewerState.project가 최신으로 유지돼 그대로 적용하면 정합 보장. */
   if (typeof applyWorkEffectVars === 'function' && ViewerState.project) {
     stage.dataset.transition   = ViewerState.project.sceneTransition || 'fade';
     stage.dataset.textEntrance = ViewerState.project.textEntrance || 'none';
@@ -57,8 +57,8 @@ function renderCurrentScene() {
   stage.classList.toggle('edit-mode-on', ViewerState.editMode);
   document.body.classList.toggle('edit-mode-active', ViewerState.editMode);
   /* v128: 감상 테스트 상태 명시 — 다듬기 화면 안에서 "▶ 감상 테스트" 눌렀을 때
-     ViewerState._testingEdit = true 박힘. CSS animation:none 룰이 감상 테스트에선
-     적용되면 안 됨 (실제 감상과 동일 조건으로 보여줘야). class를 명시적으로 박아 두면
+     ViewerState._testingEdit = true 설정됨. CSS animation:none 룰이 감상 테스트에선
+     적용되면 안 됨 (실제 감상과 동일 조건으로 보여줘야). class를 명시적으로 지정해 두면
      edit-mode-on/active 잔재가 있어도 CSS에서 안전하게 분기 가능. */
   stage.classList.toggle('viewer-test-active', !!ViewerState._testingEdit);
   document.body.classList.toggle('viewer-test-active', !!ViewerState._testingEdit);
@@ -98,12 +98,12 @@ function renderCurrentScene() {
      기존 어두운 파란 배너가 콘텐츠 위에 겹쳐 가리던 문제 해결. */
   document.getElementById('edit-test-banner')?.remove();
 
-  /* v85: v83 안전 재박음 + v82 letterbox 룰 폐기 — 사용자 의도 정정. */
+  /* v85: v83 안전 재적용 + v82 letterbox 룰 폐기 — 사용자 의도 정정. */
   document.getElementById('debug-theme-box')?.remove();
 
-  /* v127: 행동버튼 등장 후에만 클릭 박음 (사용자 명: "보이기 전에는 절대 눌리면 안 됨").
-     CSS는 :not(.is-ready) pointer-events:none 박혀있음. JS에서 animationend 박힐 때
-     .is-ready 박음. 다듬기 모드는 처음부터 박음. fallback 6초 — 애니메이션 박지 X 박힌
+  /* v127: 행동버튼 등장 후에만 클릭 허용 (사용자 명령: "보이기 전에는 절대 눌리면 안 됨").
+     CSS는 :not(.is-ready) pointer-events:none 적용돼 있음. JS에서 animationend 발생할 때
+     .is-ready 추가. 다듬기 모드는 처음부터 추가. fallback 6초 — 애니메이션이 실행되지 않는
      경우(reduced-motion 등) 영구 잠금 차단. */
   stage.querySelectorAll('.pb-text__actions').forEach(el => {
     if (document.body && document.body.classList.contains('edit-mode-active')) {
@@ -116,7 +116,7 @@ function renderCurrentScene() {
       el.removeEventListener('animationend', onEnd);
     };
     el.addEventListener('animationend', onEnd);
-    /* fallback — animation 박지 X 또는 prefers-reduced-motion 박힌 경우 */
+    /* fallback — animation이 실행되지 않거나 prefers-reduced-motion이 설정된 경우 */
     setTimeout(() => el.classList.add('is-ready'), 6000);
   });
 }
@@ -137,15 +137,15 @@ function _shouldShowCover() {
   /* _coverShown 플래그 — restartStory 시 cover 생략하고 replay 장면으로 바로 가기 위함 */
   if (ViewerState._coverShown === true) return false;
   /* v112: cover scene이 존재하면 첫 진입에 무조건 표시.
-     옛 조건(currentSceneId === entrySceneId)은 모바일에서 entrySceneId 명시 박지 않은
-     작품(p.entrySceneId=null)에선 false가 되어 cover가 안 박혔음. 그게 v111 표지 감상 버그.
-     cover scene 자체가 진실의 원천이므로 cover 있으면 첫 진입엔 박음. */
+     옛 조건(currentSceneId === entrySceneId)은 모바일에서 entrySceneId 명시하지 않은
+     작품(p.entrySceneId=null)에선 false가 되어 cover가 표시되지 않았음. 그게 v111 표지 감상 버그.
+     cover scene 자체가 진실의 원천이므로 cover 있으면 첫 진입엔 표시. */
   const hasCoverScene = ViewerState.scenes && Object.values(ViewerState.scenes).some(
     s => s && (s.type === 'cover' || s.isCover)
   );
   if (hasCoverScene) return true;
-  /* cover scene 없는 옛 작품 — p.coverTitle/coverImageData만 박힌 경우.
-     이땐 currentSceneId === entrySceneId일 때만 cover 박음 (옛 동작 유지). */
+  /* cover scene 없는 옛 작품 — p.coverTitle/coverImageData만 저장된 경우.
+     이땐 currentSceneId === entrySceneId일 때만 cover 표시 (옛 동작 유지). */
   const cur = ViewerState.currentSceneId;
   const eid = ViewerState.project.entrySceneId;
   return !!cur && !!eid && String(cur) === String(eid);
@@ -157,12 +157,12 @@ function renderCover() {
   const p         = ViewerState.project;
   const mode      = p.mode;
 
-  /* 2026-05-27 Cover-1: edit mode에서 표지 텍스트 직접 입력 박음.
+  /* 2026-05-27 Cover-1: edit mode에서 표지 텍스트 직접 입력 지원.
      kicker / title / subtitle 모두 contenteditable + data-pb-editable.
      · field 이름이 scene 속성 키와 동일해야 _attachPbEditableInteractions가
-       scene[field]에 바로 박을 수 있음 — 'kicker' / 'title' / 'subtitle'
-     · 빈 값에도 element는 박혀야 클릭 가능 → 아래 subtitle 분기 박음
-     · 감상 모드(isEdit=false)는 옛 마크업 그대로 — contenteditable/data 박지 X */
+       scene[field]에 바로 저장할 수 있음 — 'kicker' / 'title' / 'subtitle'
+     · 빈 값에도 element는 렌더돼야 클릭 가능 → 아래 subtitle 분기 추가
+     · 감상 모드(isEdit=false)는 옛 마크업 그대로 — contenteditable/data 부여하지 X */
   const isEdit = !!(typeof ViewerState !== 'undefined' && ViewerState.editMode);
   const editKickerAttrs = isEdit
     ? ' contenteditable="true" data-pb-editable="kicker" data-placeholder="(상단 문구)"'
@@ -181,14 +181,14 @@ function renderCover() {
   const title     = (coverScene && coverScene.title)
     || p.coverTitle || '이야기 시작';
   const subtitle  = (coverScene && coverScene.subtitle) || '';
-  /* v129: 표지 상단 문구 — 사용자가 직접 박는 값. 옛엔 teamName(예: "0000") 자동 표시였음.
-     비우면 표지 상단에 아무것도 안 보임 (DOM은 박혀 있되 빈 텍스트). */
+  /* v129: 표지 상단 문구 — 사용자가 직접 입력하는 값. 옛엔 teamName(예: "0000") 자동 표시였음.
+     비우면 표지 상단에 아무것도 안 보임 (DOM은 유지되되 빈 텍스트). */
   const kicker    = (coverScene && typeof coverScene.kicker === 'string')
     ? coverScene.kicker : '';
   /* 2026-05-31 Text-2: 빈 kicker 처리 — 감상 모드와 edit 모드 분리.
      · 감상 모드(빈 값): cover-kicker--empty → visibility:hidden (표지에 안 보임, 옛 동작 유지).
      · edit 모드(빈 값): is-empty → placeholder("(상단 문구)") + 클릭 가능. hidden 안 먹음.
-       is-empty를 최초 렌더 template부터 박음 — JS _updatePlaceholder 타이밍/재렌더 경로와
+       is-empty를 최초 렌더 template부터 포함 — JS _updatePlaceholder 타이밍/재렌더 경로와
        무관하게 첫 paint부터 placeholder가 보이고 클릭 가능. (옛 버그: edit 모드에서도
        빈 kicker가 hidden이라 직접 클릭 불가 + 우측 재렌더 시 placeholder 사라짐) */
   let kickerEmptyCls = '';
@@ -265,10 +265,10 @@ function renderCover() {
          이 시점부터 이후 재시작에서는 cover 건너뜀 (_coverShown=true) */
       ViewerState._coverShown = true;
       ViewerState.historyStack = [];
-      /* v112: entry 결정 fallback 강화. 모바일에서 entrySceneId 명시 안 박은 작품 대응.
+      /* v112: entry 결정 fallback 강화. 모바일에서 entrySceneId 명시 안 한 작품 대응.
          · p.entrySceneId가 있고 cover scene 아니면 그것
-         · 없거나 cover를 가리키면 getEntryScene() 호출 (cover 제외 첫 normal 반환, v111 박힘)
-         · 그래도 없으면 currentSceneId 그대로 (renderCurrentScene 자체가 cover 무한 박힘 차단) */
+         · 없거나 cover를 가리키면 getEntryScene() 호출 (cover 제외 첫 normal 반환, v111에서 추가)
+         · 그래도 없으면 currentSceneId 그대로 (renderCurrentScene 자체가 cover 무한 반복 차단) */
       let nextId = ViewerState.project && ViewerState.project.entrySceneId;
       const isCoverId = (id) => {
         const s = ViewerState.scenes && ViewerState.scenes[id];
@@ -284,11 +284,11 @@ function renderCover() {
       renderCurrentScene();
     });
 
-  /* 2026-05-27 Cover-1 fix: 표지에서도 contenteditable 핸들러 박음.
+  /* 2026-05-27 Cover-1 fix: 표지에서도 contenteditable 핸들러 부착.
      일반 renderScene과 동일 패턴 — initEditInteractions가
      _attachPbEditableInteractions를 호출해 [data-pb-editable] element에
-     input/blur 핸들러 박음. 옛엔 표지에서 호출 누락 → 미리보기 → 우측 패널
-     양방향 동기 안 박혔던 버그 fix. */
+     input/blur 핸들러 부착. 옛엔 표지에서 호출 누락 → 미리보기 → 우측 패널
+     양방향 동기가 안 되던 버그 fix. */
   if (ViewerState.editMode && typeof initEditInteractions === 'function') {
     initEditInteractions();
   }
@@ -308,7 +308,7 @@ function renderScene(scene) {
 
   /* v78: 엔딩 분기 — 상위 renderViewer는 isEnding 체크해서 renderTerminal 호출하지만,
      다듬기 모드에서 본문 입력 시 _scheduleViewerFrameReRender가 renderScene을 직접 호출
-     해서 엔딩 layout 박히지 않고 일반 그림책 layout으로 박이던 버그 fix.
+     해서 엔딩 layout이 적용되지 않고 일반 그림책 layout으로 렌더되던 버그 fix.
      사용자 보고: 엔딩 본문 다듬는 동안 "이야기 끝" 스탬프/행동버튼 사라짐. */
   if (scene && (scene.isEnding || scene.type === 'ending')) {
     renderTerminal(scene);
@@ -498,10 +498,10 @@ function _textTitleHtml(scene, allowEdit) {
 /* 텍스트 카드 안 내용 — 제목 → 본문 → 버튼 */
 function _renderSceneCard(scene, choices) {
   const title = String(scene.title || '').trim();
-  const _orig = String(scene.body  || '');  /* v127: trim 박지 X — \n\n 등 의도된 빈 줄 유지 */
+  const _orig = String(scene.body  || '');  /* v127: trim 하지 X — \n\n 등 의도된 빈 줄 유지 */
   /* TEXT-S2 폐기(2026-07-02): getPublishedBodyDisplay는 항상 원본 반환(발행 선택 제도 제거) — 이 줄은 사실상 _orig 통과. 호출 형태는 유지(계약 안정). 원본/AI 비교는 아래 _getDisplayBody 토글만. */
   const _pubBody = (typeof ViewerState !== 'undefined' && ViewerState.editMode) ? _orig : ((window.getPublishedBodyDisplay) ? window.getPublishedBodyDisplay(scene, _orig) : _orig);
-  /* v140-step4: aiViewMode가 aiS1 박혀있고 final 박혀있을 때만 AI 본문 박음. 원본 scene.body는 절대 변경 X */
+  /* v140-step4: aiViewMode가 aiS1로 설정돼 있고 final이 있을 때만 AI 본문 표시. 원본 scene.body는 절대 변경 X */
   const body = (window.viewerAi && window.viewerAi._getDisplayBody) ? window.viewerAi._getDisplayBody(scene.id, _pubBody) : _pubBody;
   const isLong = scene.textLength === 'long';
 
@@ -510,7 +510,7 @@ function _renderSceneCard(scene, choices) {
      · 감상 모드: 옛대로 빈 본문이면 <p> 미렌더 (시각 변화 0).
      · edit 모드: 빈 본문도 <p> 렌더 → 클릭 가능 + placeholder("(본문을 적어보세요)").
        data-pb-editable="body"로 그림책 본문 핸들러(_attachPbEditableInteractions) 재사용 →
-       scene.body 저장 + 우측 .js-edit-body textarea 양방향 동기. is-empty는 최초 렌더부터 박음.
+       scene.body 저장 + 우측 .js-edit-body textarea 양방향 동기. is-empty는 최초 렌더부터 적용.
      · textEffect(entrance/typewriter)는 edit 모드 CSS에서 끔 — 입력 깨짐 차단.
      · 'pb' 접두사는 공통 핸들러 재사용 탓(이름만 그림책 유래) — 향후 공통화 여지 주석. */
   const _isEditMode = !!(typeof ViewerState !== 'undefined' && ViewerState.editMode);
@@ -554,7 +554,7 @@ function _renderSceneCard(scene, choices) {
    submode: 'spread' = LR(좌우), 'stage' = TB(상하). 기본은 'stage'(TB). */
 /* v138: 그림책형 분할형 본문 카드 톤 클래스 계산.
    ViewerState.project.textCardStyle / textCardColor가 둘 다 명시값일 때만
-   톤 클래스 박음. 하나라도 없으면 빈 문자열 — 옛 작품 시각 변화 없음
+   톤 클래스 부여. 하나라도 없으면 빈 문자열 — 옛 작품 시각 변화 없음
    (viewer.css 기존 규칙 그대로 작동).
 
    적용 대상: 그림책형 분할형(.pb--split) 일반 장면 + 분할형 엔딩.
@@ -627,7 +627,7 @@ function _renderScenePicturebook(stage, scene, submode) {
      W9 (v10): 사용자 보고 "점선이 사진 둘레여야 + 자르기 후도 정확".
      구조: .pb-illust > .pb-illust__photo (사진 자연 비율 wrapper, JS aspect-ratio set)
        > <img class="pb-illust__inner">
-     handle은 __photo에 박힘 = 사진 가장자리 정확. */
+     handle은 __photo에 부착됨 = 사진 가장자리 정확. */
   const tr = scene.imageTransform || {};
   const trX  = (tr.posX   != null ? tr.posX   : 50) - 50;
   const trY  = (tr.posY   != null ? tr.posY   : 50) - 50;
@@ -649,10 +649,10 @@ function _renderScenePicturebook(stage, scene, submode) {
 
   /* 텍스트 영역 — 제목 → 본문 → 버튼 */
   const title = String(scene.title || '').trim();
-  const _orig = String(scene.body  || '');  /* v127: trim 박지 X — \n\n 등 의도된 빈 줄 유지 */
+  const _orig = String(scene.body  || '');  /* v127: trim 하지 X — \n\n 등 의도된 빈 줄 유지 */
   /* TEXT-S2 폐기(2026-07-02): getPublishedBodyDisplay는 항상 원본 반환(발행 선택 제도 제거) — 이 줄은 사실상 _orig 통과. 호출 형태는 유지(계약 안정). 원본/AI 비교는 아래 _getDisplayBody 토글만. */
   const _pubBody = (typeof ViewerState !== 'undefined' && ViewerState.editMode) ? _orig : ((window.getPublishedBodyDisplay) ? window.getPublishedBodyDisplay(scene, _orig) : _orig);
-  /* v140-step4: aiViewMode가 aiS1 박혀있고 final 박혀있을 때만 AI 본문 박음. 원본 scene.body는 절대 변경 X */
+  /* v140-step4: aiViewMode가 aiS1로 설정돼 있고 final이 있을 때만 AI 본문 표시. 원본 scene.body는 절대 변경 X */
   const body = (window.viewerAi && window.viewerAi._getDisplayBody) ? window.viewerAi._getDisplayBody(scene.id, _pubBody) : _pubBody;
   /* W8: 다듬기 모드에선 contenteditable — viewer에서 직접 수정 가능 + 다듬기 패널 양방향 동기화 */
   const isEdit = (typeof ViewerState !== 'undefined' && ViewerState.editMode);
@@ -762,7 +762,7 @@ function _renderScenePicturebook(stage, scene, submode) {
 
     /* W4 디버그 정보 — 안정 확인 완료, 제거됨. */
 
-    /* v138-fix14 (v135-4 그림 중심형): 톤 클래스 박음. 외곽(.pb-frame) 강도는
+    /* v138-fix14 (v135-4 그림 중심형): 톤 클래스 부여. 외곽(.pb-frame) 강도는
        pb-tone.css의 imageCenter 오버라이드에서 분할형 대비 약화. */
     const _pbToneClsIC = _pbToneClasses(scene, 'scene');
     /* PB-MOOD-2: 일반(비엔딩) imageCenter 장면 "이야기 단계" — 저장값 scene.pbStoryStage 부착.
@@ -802,7 +802,7 @@ function _renderScenePicturebook(stage, scene, submode) {
   }
 
   /* 분할형 (기본) — 위 그림 60 / 아래 텍스트+선택지 40 */
-  /* v138: 본문 카드 톤 클래스 — 작품 단위 style/color 있을 때만 박힘 */
+  /* v138: 본문 카드 톤 클래스 — 작품 단위 style/color 있을 때만 부여됨 */
   const _pbToneCls = _pbToneClasses(scene, 'scene');
   _stageReplaceScene(stage, `
     <div class="scene-screen scene-screen--pb scene-surface ${layoutClass}"
@@ -827,12 +827,12 @@ function _renderScenePicturebook(stage, scene, submode) {
       </div>
     </div>`);
 
-  /* W9 (v10): img 자연 비율 + crop 반영해 photo wrapper aspect-ratio 박음.
+  /* W9 (v10): img 자연 비율 + crop 반영해 photo wrapper aspect-ratio 설정.
      handle/outline이 사진 둘레에 정확. */
   _setupPbPhotoWrappers(stage);
 }
 
-/* picturebook .pb-illust__photo wrapper들에 정확한 사이즈 박음.
+/* picturebook .pb-illust__photo wrapper들에 정확한 사이즈 설정.
    W9 (v13): wrapper = 사진 표시 영역과 정확히 동일. 점선이 사진 둘레 정확.
    1) img.onload로 자연 비율 받음
    2) 영역(.pb-illust) 사이즈와 비교
@@ -915,10 +915,10 @@ function _renderSceneMovie(stage, scene) {
      · null/undefined → fallback: body 존재 여부 (3단계까지의 임시 정책과 동일).
      영상 후 노출 흐름: 영상 재생 후 본문/선택지 노출 — 시각 분기는 CSS의
      data-movie-reveal 속성으로 처리, 여기선 데이터만 셋팅. */
-  const _orig = String(scene.body || '');  /* v127: trim 박지 X — 줄바꿈 유지 */
+  const _orig = String(scene.body || '');  /* v127: trim 하지 X — 줄바꿈 유지 */
   /* TEXT-S2 폐기(2026-07-02): getPublishedBodyDisplay는 항상 원본 반환(발행 선택 제도 제거) — 이 줄은 사실상 _orig 통과. 호출 형태는 유지(계약 안정). 원본/AI 비교는 아래 _getDisplayBody 토글만. */
   const _pubBody = (typeof ViewerState !== 'undefined' && ViewerState.editMode) ? _orig : ((window.getPublishedBodyDisplay) ? window.getPublishedBodyDisplay(scene, _orig) : _orig);
-  /* v140-step4: aiViewMode가 aiS1 박혀있고 final 박혀있을 때만 AI 본문 박음. 원본 scene.body는 절대 변경 X */
+  /* v140-step4: aiViewMode가 aiS1로 설정돼 있고 final이 있을 때만 AI 본문 표시. 원본 scene.body는 절대 변경 X */
   const body = (window.viewerAi && window.viewerAi._getDisplayBody) ? window.viewerAi._getDisplayBody(scene.id, _pubBody) : _pubBody;
   const bodyEnabled = (scene.bodyEnabled === true) ? true
                     : (scene.bodyEnabled === false) ? false
@@ -1016,10 +1016,10 @@ function _renderSceneExperience(stage, scene) {
   const isEdit = !!(ViewerState && ViewerState.editMode);
 
   const title = String(scene.title || '').trim();
-  const _orig = String(scene.body  || '');  /* v127: trim 박지 X — \n\n 등 의도된 빈 줄 유지 */
+  const _orig = String(scene.body  || '');  /* v127: trim 하지 X — \n\n 등 의도된 빈 줄 유지 */
   /* TEXT-S2 폐기(2026-07-02): getPublishedBodyDisplay는 항상 원본 반환(발행 선택 제도 제거) — 이 줄은 사실상 _orig 통과. 호출 형태는 유지(계약 안정). 원본/AI 비교는 아래 _getDisplayBody 토글만. */
   const _pubBody = (typeof ViewerState !== 'undefined' && ViewerState.editMode) ? _orig : ((window.getPublishedBodyDisplay) ? window.getPublishedBodyDisplay(scene, _orig) : _orig);
-  /* v140-step4: aiViewMode가 aiS1 박혀있고 final 박혀있을 때만 AI 본문 박음. 원본 scene.body는 절대 변경 X */
+  /* v140-step4: aiViewMode가 aiS1로 설정돼 있고 final이 있을 때만 AI 본문 표시. 원본 scene.body는 절대 변경 X */
   const body = (window.viewerAi && window.viewerAi._getDisplayBody) ? window.viewerAi._getDisplayBody(scene.id, _pubBody) : _pubBody;
 
   /* W6: 정식 connectObjects 모델 — buttons[] 임시 집계 폐기.
@@ -1312,7 +1312,7 @@ const TEXTBOX_DEFAULTS = {
   /* v37: 사용자 요청 — 텍스트 모드 기본 박스가 핸드폰/태블릿 세로에 꽉 차게.
      이전 width 60 → 88 (가로 거의 가득). height 명시 88 (세로도 거의 가득).
      글자 양에 따라 박스 크기 변하던 문제 해결 — 기본 박스 고정.
-     사용자가 textBox 박은 데이터 있으면 그게 우선. */
+     사용자가 저장한 textBox 데이터 있으면 그게 우선. */
   x: 50, y: 50,        // center%, percent
   width: 88,           // %
   height: 88,          // %
@@ -1353,17 +1353,17 @@ function _buildTextBoxStyleForText(scene) {
     `width:${t.width}%`,
   ];
   if (t.height !== null) parts.push(`height:${t.height}%`);
-  /* transform은 CSS 기본값에 두기 — 여기서 inline으로 안 박아 CSS가 통제 */
+  /* transform은 CSS 기본값에 두기 — 여기서 inline으로 지정하지 않아 CSS가 통제 */
   return parts.join(';');
 }
 
 function renderTextBox(scene) {
   const isLong   = scene.textLength === 'long';
   const title    = String(scene.title || '').trim();
-  const _orig    = String(scene.body  || '');  /* v127: trim 박지 X — 줄바꿈 유지 */
+  const _orig    = String(scene.body  || '');  /* v127: trim 하지 X — 줄바꿈 유지 */
   /* TEXT-S2 폐기(2026-07-02): getPublishedBodyDisplay는 항상 원본 반환(발행 선택 제도 제거) — 이 줄은 사실상 _orig 통과. 호출 형태는 유지(계약 안정). 원본/AI 비교는 아래 _getDisplayBody 토글만. */
   const _pubBody = (typeof ViewerState !== 'undefined' && ViewerState.editMode) ? _orig : ((window.getPublishedBodyDisplay) ? window.getPublishedBodyDisplay(scene, _orig) : _orig);
-  /* v140-step4: aiViewMode가 aiS1 박혀있고 final 박혀있을 때만 AI 본문 박음. 원본 scene.body는 절대 변경 X */
+  /* v140-step4: aiViewMode가 aiS1로 설정돼 있고 final이 있을 때만 AI 본문 표시. 원본 scene.body는 절대 변경 X */
   const body = (window.viewerAi && window.viewerAi._getDisplayBody) ? window.viewerAi._getDisplayBody(scene.id, _pubBody) : _pubBody;
   /* UX 마감 (1-2): 둘 다 비어있으면 text-box 자체를 렌더하지 않음 —
      빈 유리 박스가 장면 위에 떠있는 어색한 상태 방지 */
@@ -1433,9 +1433,9 @@ function _choiceButtonHtml(scene, choice, type = 'bottom') {
 function _bindSceneEvents(stage, scene) {
   stage.querySelectorAll('.js-choice').forEach(btn => {
     btn.addEventListener('click', (e) => {
-      /* 2026-05-25 Phase 4-A: edit mode에서는 버튼 클릭으로 장면 이동 박지 X.
+      /* 2026-05-25 Phase 4-A: edit mode에서는 버튼 클릭으로 장면 이동 하지 X.
          라벨 contenteditable 편집 중 실수 클릭으로 다음 장면 이동 막기 위함.
-         감상 모드(editMode=false)는 기존 동작 그대로 — chooseOption 박힘. */
+         감상 모드(editMode=false)는 기존 동작 그대로 — chooseOption 호출됨. */
       if (ViewerState && ViewerState.editMode) {
         e.preventDefault();
         return;
@@ -1557,10 +1557,10 @@ function _renderStoryEnding(stage, scene) {
      · 사용자 제목 → 위쪽 작은 라벨로 (장면 제목)
      · 진엔딩 배지 + path 요약 + 다른 결말 찾기 버튼은 그대로 */
   const userTitle = String(scene.title || '').trim();
-  const _orig     = String(scene.body  || '');  /* v127: trim 박지 X — 엔딩 줄바꿈 유지 */
+  const _orig     = String(scene.body  || '');  /* v127: trim 하지 X — 엔딩 줄바꿈 유지 */
   /* TEXT-S2 폐기(2026-07-02): getPublishedBodyDisplay는 항상 원본 반환(발행 선택 제도 제거) — 이 줄은 사실상 _orig 통과. 호출 형태는 유지(계약 안정). 원본/AI 비교는 아래 _getDisplayBody 토글만. */
   const _pubBody = (typeof ViewerState !== 'undefined' && ViewerState.editMode) ? _orig : ((window.getPublishedBodyDisplay) ? window.getPublishedBodyDisplay(scene, _orig) : _orig);
-  /* v140-step4: aiViewMode가 aiS1 박혀있고 final 박혀있을 때만 AI 본문 박음. 원본 scene.body는 절대 변경 X */
+  /* v140-step4: aiViewMode가 aiS1로 설정돼 있고 final이 있을 때만 AI 본문 표시. 원본 scene.body는 절대 변경 X */
   const userBody = (window.viewerAi && window.viewerAi._getDisplayBody) ? window.viewerAi._getDisplayBody(scene.id, _pubBody) : _pubBody;
   const hasUserBody = userBody.length > 0;
 
@@ -1604,7 +1604,7 @@ function _renderStoryEnding(stage, scene) {
          <div class="pb-empty-mark">${systemIcon}</div>
        </div>`;
 
-  /* v133: 엔딩 순차 등장 — terminal-step 박혀 CSS variable로 delay 제어.
+  /* v133: 엔딩 순차 등장 — terminal-step 클래스 부여, CSS variable로 delay 제어.
      사용자 명령서 delay 계산식 그대로:
      · bodyDelay   = clamp(250 + textSpeed * 3.5,  250, 600)
      · badgeDelay  = clamp(750 + textSpeed * 12.5, 750, 2000)
@@ -1641,7 +1641,7 @@ function _renderStoryEnding(stage, scene) {
     _actionsDelay = Math.min(Math.max(_actionsDelay, _bodyDelay + _bodyTypeMs + 700), 4500);
   }
 
-  /* terminal-step CSS variables — pb-text--ending에 inline style로 박음 */
+  /* terminal-step CSS variables — pb-text--ending에 inline style로 적용 */
   const _seqStyle =
     `--terminal-body-delay:${Math.round(_bodyDelay)}ms;` +
     `--terminal-badge-delay:${Math.round(_badgeDelay)}ms;` +
@@ -1649,13 +1649,13 @@ function _renderStoryEnding(stage, scene) {
     `--terminal-actions-delay:${Math.round(_actionsDelay)}ms;` +
     `--terminal-item-duration:${Math.round(_itemDur)}ms;`;
 
-  /* 다듬기 모드에서는 순차 등장 박지 X — 인스펙터로 박을 때 깜빡임 차단.
-     edit-mode-active body class 박힘 + viewer-test-active 박지 X면 정적 표시. */
+  /* 다듬기 모드에서는 순차 등장 적용하지 X — 인스펙터로 수정할 때 깜빡임 차단.
+     edit-mode-active body class 있음 + viewer-test-active 없음이면 정적 표시. */
   const _isEdit = !!(ViewerState && ViewerState.editMode);
 
   /* 2026-05-25 Phase 3: 엔딩 본문 직접 입력 — AI 토글 안전 분기.
      원본 보기 모드일 때만 contenteditable 적용. AI 1단계 보기 상태에서는
-     contenteditable 박지 X (AI 변환본 표시 중에 사용자 입력 충돌 방지). */
+     contenteditable 부여하지 X (AI 변환본 표시 중에 사용자 입력 충돌 방지). */
   const _aiViewMode = (typeof window !== 'undefined' && window.viewerAi
                        && typeof window.viewerAi._getAiViewMode === 'function')
     ? window.viewerAi._getAiViewMode() : 'original';
@@ -1682,8 +1682,8 @@ function _renderStoryEnding(stage, scene) {
     </div>`;
 
   /* v49: 엔딩 그림 없으면 has-no-image 클래스 → illust 영역 줄이고 text 비중 ↑
-     v77: textStyle 적용 — 엔딩 인스펙터에서 박은 글자 스타일을 --pb-* 변수로.
-     사용자 박은 게 없으면 getTextStyle이 ENDING default(주아/20/#2b1f10/굵게) 반환.
+     v77: textStyle 적용 — 엔딩 인스펙터에서 설정한 글자 스타일을 --pb-* 변수로.
+     사용자가 설정한 게 없으면 getTextStyle이 ENDING default(주아/20/#2b1f10/굵게) 반환.
      CSS .ending-user-body가 var() fallback으로 받음. */
   let endStyle = (typeof getTextStyle === 'function') ? getTextStyle(scene) : null;
   /* Phase 4-D-2A: aiS1/aiS2 보기면 variant textStyle(있으면) 적용, 없으면 원본 endStyle 그대로.
@@ -1703,10 +1703,10 @@ function _renderStoryEnding(stage, scene) {
   const endStyleAttr = endCssVars.length > 0 ? ` style="${endCssVars.join(';')}"` : '';
   const noImageClass = endingImage ? '' : ' ending-as-pb--no-image';
   /* v125: 엔딩 레이아웃 정책 — 항상 분할형 고정 (사용자 결정).
-     v124c에 picturebookSubmode 반영 박았지만 그림 중심형 엔딩은 칸 밀림 +
+     v124c에 picturebookSubmode 반영 시도했지만 그림 중심형 엔딩은 칸 밀림 +
      엔딩 표시 가려질 위험. 분할형이 안정적. 페이지 방향(projectMeta.pageOrientation)은
-     body[data-page-orientation]에 박혀 모든 장면 자동 박힘 — 손 안 댐. */
-  /* v138: 엔딩 마감톤 클래스 — 작품 단위 style/color 있을 때만 박힘 */
+     body[data-page-orientation]에 적용돼 모든 장면에 자동 반영 — 손 안 댐. */
+  /* v138: 엔딩 마감톤 클래스 — 작품 단위 style/color 있을 때만 부여됨 */
   const _pbEndToneCls = _pbToneClasses(scene, 'ending');
 
   /* D7-7: imageCenter 작품의 엔딩은 imageCenter 흐름을 따른다(그림 크게·말풍선·작은 라벨).
@@ -1803,8 +1803,8 @@ function _renderStoryEnding(stage, scene) {
   /* 2026-05-25 Phase 3 fix: 엔딩 본문 직접 입력 핸들러 부착.
      일반 장면 renderScene과 동일 패턴 — initEditInteractions()가
      _attachPbEditableInteractions(frame)을 호출해 contenteditable element에
-     input/blur 이벤트 + 우측 textarea 양방향 동기화 + _queueSave 박음.
-     edit mode에서만 실행 (감상 모드 박지 X). */
+     input/blur 이벤트 + 우측 textarea 양방향 동기화 + _queueSave 연결.
+     edit mode에서만 실행 (감상 모드에선 실행 X). */
   if (ViewerState.editMode && typeof initEditInteractions === 'function') {
     initEditInteractions();
   }
@@ -1829,7 +1829,7 @@ function _renderStoryEnding(stage, scene) {
     }
   };
   if (_isEdit) {
-    /* 다듬기 모드 — 즉시 활성 (인스펙터로 박을 때 클릭 박지 X 박는 게 어색) */
+    /* 다듬기 모드 — 즉시 활성 (인스펙터로 수정할 때 클릭이 안 되면 어색) */
     _enableButtons();
   } else {
     const _enableAt = Math.round(_actionsDelay + _itemDur);
@@ -2365,7 +2365,7 @@ function renderHUD() {
   });
 
   hud.querySelector('.js-go-edit')?.addEventListener('click', () => {
-    /* v106: 모바일 + 텍스트형 작품이면 viewer 다듬기 모드 박지 말고 maker.html로.
+    /* v106: 모바일 + 텍스트형 작품이면 viewer 다듬기 모드로 진입하지 말고 maker.html로.
        maker.html에서 mobileTextBranch.js가 자동 활성 → 모바일 텍스트 편집 UI.
        옛 흐름 (PC 다듬기 모드)는 다른 모드/데스크탑 그대로. */
     const isMobile = /Mobi|Android|iPhone|iPod/i.test(navigator.userAgent) || window.innerWidth < 768;
@@ -2396,7 +2396,7 @@ function renderHUD() {
     }
   });
 
-  /* W9 (v4): HUD maker-return-bar에 박힌 다듬기 액션 버튼들 핸들러 (감상 테스트/구조 보기/작업으로/저장) */
+  /* W9 (v4): HUD maker-return-bar에 있는 다듬기 액션 버튼들 핸들러 (감상 테스트/구조 보기/작업으로/저장) */
   if (isEdit && typeof _bindHudEditActions === 'function') {
     _bindHudEditActions();
   }
@@ -2417,7 +2417,7 @@ function renderHUD() {
    ─────────────────────────────────────────────────────────────*/
 async function _returnToMaker() {
   /* v70: 튕김 버그 추적 — 감상 테스트 → 브랜치로 돌아가기 시 가끔 꺼짐.
-     원인 추정: pending save + close 타이밍 race. 호출 진입에 안전 cleanup 박음. */
+     원인 추정: pending save + close 타이밍 race. 호출 진입에 안전 cleanup 추가. */
   try {
     if (typeof _flushPendingSave === 'function') {
       await _flushPendingSave();
@@ -2480,8 +2480,8 @@ async function _returnToMaker() {
 
 /* context.source에 따라 적절한 복귀 URL 결정 */
 function _resolveFallbackUrl(ctx) {
-  /* v106: ctx 박지 못해도 URL params (team/classId/from) 박혀있으면 그것 우선.
-     모바일 텍스트형 흐름에선 ctx 박지 않을 때가 있어 maker가 진입 화면 박음 → 로그인 튐. */
+  /* v106: ctx를 읽지 못해도 URL params (team/classId/from)가 있으면 그것 우선.
+     모바일 텍스트형 흐름에선 ctx가 저장되지 않을 때가 있어 maker가 진입 화면을 띄움 → 로그인 튐. */
   if (!ctx || !ctx.url) {
     const params = new URLSearchParams(location.search);
     const team    = params.get('team');
@@ -2496,7 +2496,7 @@ function _resolveFallbackUrl(ctx) {
       if (ptype)   p.set('ptype', ptype);
       return `maker.html?${p.toString()}`;
     }
-    return 'maker.html?resume=1'; /* v108: 최소한 resume 신호는 박음 */
+    return 'maker.html?resume=1'; /* v108: 최소한 resume 신호는 전달 */
   }
 
   if (ctx.source === 'admin') {
@@ -2588,10 +2588,10 @@ function modeBadgeLabel(mode) {
   return { story: '📖 이야기', explore: '🗺 탐색', hybrid: '🔀 혼합' }[mode] || '';
 }
 
-/* v66: 장면 전환 — 옛 .scene-screen에 .is-leaving 클래스 박고 새 콘텐츠 동시 박기.
+/* v66: 장면 전환 — 옛 .scene-screen에 .is-leaving 클래스 붙이고 새 콘텐츠 동시 삽입.
    stage.innerHTML 통째 교체 대신 helper 사용 → 두 layer overlap으로 진짜 페이지 넘김 효과.
-   v133: inline animation-duration 명시 박음 (안전망) — CSS 변수 적용이 어떤 이유로 안 들어가도
-         실제 duration이 정확히 적용되도록. 계측 결과 박을 때 inlineDuration으로 확인 가능. */
+   v133: inline animation-duration 명시 지정 (안전망) — CSS 변수 적용이 어떤 이유로 안 들어가도
+         실제 duration이 정확히 적용되도록. 계측 시 inlineDuration으로 확인 가능. */
 function _stageReplaceScene(stage, newHtml) {
   if (!stage) return;
   const oldScene = stage.querySelector('.scene-screen:not(.is-leaving)');
@@ -2634,7 +2634,7 @@ function _stageReplaceScene(stage, newHtml) {
   const sPct = parseInt(stage.dataset.sceneSpeedPct, 10);
   const duration = _sceneTransMs(isNaN(sPct) ? 50 : sPct);
 
-  /* v133: 새 scene과 leaving scene 둘 다 inline animation-duration 박음.
+  /* v133: 새 scene과 leaving scene 둘 다 inline animation-duration 지정.
      CSS 변수가 적용되더라도 inline이 우선 — 안전망. */
   newScene.style.animationDuration = duration + 'ms';
 
@@ -2644,11 +2644,11 @@ function _stageReplaceScene(stage, newHtml) {
     oldScene.style.animationDuration = duration + 'ms';
   }
 
-  /* 새 scene을 stage의 첫 자식 위치에 박기 (옛 scene이 뒤에 absolute로 떠 있음).
+  /* 새 scene을 stage의 첫 자식 위치에 삽입 (옛 scene이 뒤에 absolute로 떠 있음).
      이러면 stage.querySelector('.scene-screen:not(.is-leaving)')가 새 scene 매치. */
   stage.insertBefore(newScene, stage.firstChild);
 
-  /* newHtml에 .scene-screen 외 다른 element 있으면 같이 박기 (보통 없음) */
+  /* newHtml에 .scene-screen 외 다른 element 있으면 같이 추가 (보통 없음) */
   while (tmp.firstChild) {
     stage.appendChild(tmp.firstChild);
   }
@@ -2720,7 +2720,7 @@ if (typeof window !== 'undefined') {
          최대 2초 후 등장 → 빈 화면 5초 멍하니 X.
    텍스트 등장 CSS 효과:  200ms(0) ~ 3000ms(100), linear.
    텍스트 등장 타자기 step: 20ms(0) ~ 300ms(100), linear (글자당).
-   viewer-frame style.setProperty로 CSS 변수 박음 — 모든 룰이 변수 참조. */
+   viewer-frame style.setProperty로 CSS 변수 설정 — 모든 룰이 변수 참조. */
 function _sceneTransMs(pct) {
   const p = Math.max(0, Math.min(100, typeof pct === 'number' ? pct : 50));
   if (p < 50) return Math.round(300 + (p / 50) * 900);            /* 0~50 → 300~1200 */
@@ -2737,11 +2737,11 @@ function applyWorkEffectVars(vf, sceneSpeed, textSpeed, textEntrance) {
   vf.style.setProperty('--scene-trans-duration', sceneMs + 'ms');
   vf.style.setProperty('--text-ent-duration',    _textEntDurMs(tPct) + 'ms');
   vf.style.setProperty('--text-tw-step',         _textTwStepMs(tPct) + 'ms');
-  /* v127: 본문 시작 delay clamp — 사용자 박은 "전환 후 본문 2초 이내".
-     느림(3500ms) 박은 거 = 본문 5초+ 박힘. 사용자 박은 명: 2000ms 상한. */
+  /* v127: 본문 시작 delay clamp — 사용자 요구 "전환 후 본문 2초 이내".
+     느림(3500ms) 설정 시 = 본문 5초+ 지연 발생. 사용자 명령: 2000ms 상한. */
   vf.style.setProperty('--text-ent-start-delay', Math.min(sceneMs, 2000) + 'ms');
   /* --text-ent-total 기본값: 효과 'none'이면 0, CSS 효과면 duration, typewriter는 일단 duration
-     (실제 typewriter는 _applyTextEntranceTypewriter에서 글자수 보고 다시 박음) */
+     (실제 typewriter는 _applyTextEntranceTypewriter에서 글자수 보고 다시 설정) */
   if (textEntrance === 'none' || !textEntrance) {
     vf.style.setProperty('--text-ent-total', '0ms');
   } else {
@@ -2753,8 +2753,8 @@ function applyWorkEffectVars(vf, sceneSpeed, textSpeed, textEntrance) {
 }
 
 /* v72: 표지 인스펙터에서 효과 버튼/슬라이더 변경 시 옆 viewer-frame에 1회 미리보기 재생.
-   v73: slider value(0~100) 기반. body.preview-active 박아 다듬기 차단 룰 일시 해제.
-   미리보기 element는 .preview-text-once 박혀 animation-delay 0 강제(CSS 룰).
+   v73: slider value(0~100) 기반. body.preview-active를 붙여 다듬기 차단 룰 일시 해제.
+   미리보기 element는 .preview-text-once가 부여돼 animation-delay 0 강제(CSS 룰).
    field = 'sceneTransition' | 'sceneTransitionSpeed' → 표지 카드 1회
    field = 'textEntrance' | 'textEntranceSpeed'      → 표지 제목/소개 1회 (typewriter는 span) */
 let _previewTimers = { scene: null, text: null };
@@ -2764,7 +2764,7 @@ function previewWorkEffect(field) {
   const scene = stage.querySelector('.scene-screen:not(.is-leaving)');
   if (!scene) return;
 
-  /* body.preview-active 박아 .tw-char 차단 해제 (미리보기 끝나면 해제). */
+  /* body.preview-active를 붙여 .tw-char 차단 해제 (미리보기 끝나면 해제). */
   if (document.body) document.body.classList.add('preview-active');
 
   if (field === 'sceneTransition' || field === 'sceneTransitionSpeed') {
@@ -2815,14 +2815,14 @@ function previewWorkEffect(field) {
     }
 
     if (mode === 'typewriter') {
-      /* v121: 긴 본문(400자+) typewriter 박지 X — fade로 fallback. _applyTextEntranceTypewriter와 동일 정책. */
+      /* v121: 긴 본문(400자+) typewriter 적용하지 X — fade로 fallback. _applyTextEntranceTypewriter와 동일 정책. */
       let _totalChars = 0;
       targets.forEach(el => {
         if (el.getAttribute('contenteditable') === 'true') return;
         _totalChars += (el.textContent || '').length;
       });
       if (_totalChars > 400) {
-        /* CSS fade fallback 박음 */
+        /* CSS fade fallback 적용 */
         targets.forEach(el => {
           void el.offsetWidth;
           el.classList.add('preview-text-once');
@@ -2848,7 +2848,7 @@ function previewWorkEffect(field) {
           const sp = document.createElement('span');
           sp.className = 'tw-char';
           sp.textContent = ch;
-          /* !important 박아 CSS shorthand 충돌 회피 (다듬기 룰 풀린 후에도 안전) */
+          /* !important 지정해 CSS shorthand 충돌 회피 (다듬기 룰 풀린 후에도 안전) */
           sp.style.setProperty('animation-delay', (i * stepMs) + 'ms', 'important');
           frag.appendChild(sp);
         });
@@ -2890,14 +2890,14 @@ function _maybeDropPreviewActive() {
 }
 
 /* v71: typewriter 효과 — 본문·표지 제목/소개의 textContent를 글자 단위 span으로 변환.
-   각 span에 inline animation-delay 박아 stagger 등장.
-   v73: animation-delay에 장면 전환 duration 더해서 박음 (장면 끝난 후 시작).
+   각 span에 inline animation-delay 지정해 stagger 등장.
+   v73: animation-delay에 장면 전환 duration 더해서 지정 (장면 끝난 후 시작).
         animation-delay 정확도 위해 setProperty('important') 사용.
-        --text-ent-total CSS 변수에 실제 typewriter 총 시간 박음 (행동버튼 delay 위해).
+        --text-ent-total CSS 변수에 실제 typewriter 총 시간 기록 (행동버튼 delay 위해).
    다듬기 모드에선 skip (입력 충돌). CSS 효과(fade/slide-up/blur-in/pop)는 css만으로 동작. */
-/* v121: typewriter 긴 본문 fallback 한도 — 이 이상은 글자별 span 박지 X.
-   본문이 길수록 span DOM 박은 거가 박지 X 박는 부담 박힘. 사용자 설정(textEntrance=typewriter)은
-   박지 X — 렌더링 시에만 fallback. CSS 효과(fade 등)는 typewriter 박지 X 박혀있음. */
+/* v121: typewriter 긴 본문 fallback 한도 — 이 이상은 글자별 span 생성하지 X.
+   본문이 길수록 span DOM 생성이 성능 부담이 됨. 사용자 설정(textEntrance=typewriter)은
+   변경하지 X — 렌더링 시에만 fallback. CSS 효과(fade 등)는 typewriter와 별개로 CSS만으로 동작. */
 const TYPEWRITER_MAX_CHARS = 400;
 
 function _applyTextEntranceTypewriter(stage, newScene) {
@@ -2909,11 +2909,11 @@ function _applyTextEntranceTypewriter(stage, newScene) {
     stage.classList.contains('edit-mode-on') ||
     (document.body && document.body.classList.contains('edit-mode-active'));
 
-  /* 기본: --text-ent-total = duration (CSS 효과 시간) — applyWorkEffectVars에서 박은 값 유지 */
+  /* 기본: --text-ent-total = duration (CSS 효과 시간) — applyWorkEffectVars에서 설정한 값 유지 */
   if (mode !== 'typewriter' || isEdit) return;
 
-  /* v121: 긴 본문 fallback — 400자 초과면 typewriter 박지 X. dataset만 박은 거 박음
-     → CSS 효과 박지 X (none 효과로 박힘). 사용자 설정은 박지 X. */
+  /* v121: 긴 본문 fallback — 400자 초과면 typewriter 적용하지 X. dataset은 그대로 두고 span 처리만 생략
+     → CSS 효과도 적용되지 X (none 효과처럼 동작). 사용자 설정은 변경하지 X. */
   const targetsCheck = newScene.querySelectorAll(
     '.pb-text__body, .cover-title-pb, .cover-subtitle-pb'
   );
@@ -2923,7 +2923,7 @@ function _applyTextEntranceTypewriter(stage, newScene) {
     totalChars += (el.textContent || '').length;
   });
   if (totalChars > TYPEWRITER_MAX_CHARS) {
-    /* dataset 박지 X — DOM에 typewriter 박지 X (span 박지 X) */
+    /* dataset 변경하지 X — DOM에 typewriter 적용하지 X (span 생성하지 X) */
     return;
   }
 
@@ -2953,7 +2953,7 @@ function _applyTextEntranceTypewriter(stage, newScene) {
       const sp = document.createElement('span');
       sp.className = 'tw-char';
       sp.textContent = ch;
-      /* 장면 전환 끝난 후 stagger 시작 (v127: 2초 상한 박힘) */
+      /* 장면 전환 끝난 후 stagger 시작 (v127: 2초 상한 적용) */
       sp.style.setProperty('animation-delay', (sceneDur + i * stepMs) + 'ms', 'important');
       frag.appendChild(sp);
     });

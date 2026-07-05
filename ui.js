@@ -758,15 +758,15 @@ if (typeof window !== 'undefined') window._updateCompassResultButton = _updateCo
 
 /* ptype 결정 후 firebase에 저장 + maker 캔버스 노출 */
 async function _enterMakerAfterPtypeSelected(ptype) {
-  /* W7 projectType lock: viewer-meta/projectType 반드시 박힌 후 maker 진입.
+  /* W7 projectType lock: viewer-meta/projectType 반드시 기록된 후 maker 진입.
      ─────────────────────────────────────────────────────────────
      저장 케이스:
      1) 신규 작품 — _ptypeExistingType=null → 저장
-     2) 옛 작품 (projectType 필드 누락) — _ptypeExistingType=null → 저장 (여기서 lock 첫 박힘)
+     2) 옛 작품 (projectType 필드 누락) — _ptypeExistingType=null → 저장 (여기서 lock 첫 기록)
      3) 기존 작품 (projectType 있음) — _ptypeExistingType=valid → 저장 스킵
      ─────────────────────────────────────────────────────────────
      이 흐름이 옛 작품 lock 정상화의 핵심:
-     · 사용자 캡처에서 projectType이 undefined인 작품도 이 진입에서 박힘
+     · 사용자 캡처에서 projectType이 undefined인 작품도 이 진입에서 기록됨
      · 다음부턴 viewer-data가 valid한 'movie'를 읽음 → 그림책 fallback 안 함. */
   let savedNewProjectType = false;
   if (!_ptypeExistingType) {
@@ -893,7 +893,7 @@ function _openReceiveCopyModal() {
       submitBtn.textContent = '✓ 받았어요! 진입 중...';
 
       /* v41: reload 없이 직접 maker 진입.
-         scenes/viewer-meta 둘 다 .on('value') listener 박혀있어 자동으로 새 데이터 들어옴.
+         scenes/viewer-meta 둘 다 .on('value') listener 등록돼 있어 자동으로 새 데이터 들어옴.
          ptype-screen 닫고 maker 화면 노출 + projectType 메모리 동기. */
       const VALID = ['text', 'picturebook', 'movie', 'experience'];
       const newPtype = (result && VALID.includes(result.projectType))
@@ -919,7 +919,7 @@ function applyTemplate(tpl) {
   if (tpl === 'blank' || Object.keys(scenes).length > 0) return;
 
   /* 템플릿 헬퍼 (W2-A 이후): legacy 표기를 buttons[] 단일 구조로 자동 변환.
-     호환을 위해 choiceA/B/choiceCount/nextA/B도 함께 박음 (양방향 동기화 정책). */
+     호환을 위해 choiceA/B/choiceCount/nextA/B도 함께 기록 (양방향 동기화 정책). */
   const tplScene = (cfg) => {
     const buttons = [];
     if (cfg.choiceA || cfg.nextA) {
@@ -1134,7 +1134,7 @@ window.addEventListener('DOMContentLoaded', () => {
   /* 구조 검사 */
   document.getElementById('check-close')?.addEventListener('click', () => {
     document.getElementById('check-panel').style.display = 'none';
-    /* W7: 검사 결과로 박힌 카드 강조 원복. 사용자: "장면 3,5,6이 다시 원래 화면으로 안돌아감". */
+    /* W7: 검사 결과로 적용된 카드 강조 원복. 사용자: "장면 3,5,6이 다시 원래 화면으로 안돌아감". */
     document.querySelectorAll('.scene-card.error-card').forEach(c => c.classList.remove('error-card'));
     document.querySelectorAll('.scene-card.rt-highlight').forEach(c => c.classList.remove('rt-highlight'));
   });
@@ -1301,7 +1301,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
       if (user) {
         /* v93: Custom Claim 외에 teachers/{uid} 노드도 확인 — 신규 가입자
-           (v90~v92로 박힘) 통과시키기. teacher-auth.html과 같은 로직. */
+           (v90~v92로 기록됨) 통과시키기. teacher-auth.html과 같은 로직. */
         const tokenResult = await user.getIdTokenResult(/* forceRefresh */ true);
         const claim = tokenResult.claims.role ?? null;
 
@@ -1390,7 +1390,7 @@ window.addEventListener('DOMContentLoaded', () => {
               /* v109: 로딩 화면 즉시 숨김 — 입장 화면 노출 */
               if (typeof _maker_hideLoading === 'function') _maker_hideLoading();
             }
-            /* 성공 시 _enterTeam → viewer-meta 콜백에서 _maker_hideLoading 박음 */
+            /* 성공 시 _enterTeam → viewer-meta 콜백에서 _maker_hideLoading 호출 */
           });
         }
       }

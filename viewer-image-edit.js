@@ -27,7 +27,7 @@ const _imgEdit = {
   illustEl: null,
   photoEl: null,
   innerEl: null,
-  cropHostEl: null,  // crop이 있을 때 점선/handle 박힌 inner 박스 (모드 A)
+  cropHostEl: null,  // crop이 있을 때 점선/handle 붙은 inner 박스 (모드 A)
   controlsEl: null,
   cropOverlayEl: null,
   originalTransform: null,
@@ -78,10 +78,10 @@ function enterImageTransformEdit() {
   if (!ctx) return;
   const { stage, photo } = ctx;
 
-  /* W9 (v14): crop이 있으면 점선+handle을 잘린 영역 둘레에 박음.
+  /* W9 (v14): crop이 있으면 점선+handle을 잘린 영역 둘레에 부착.
      crop 없으면 wrapper 둘레. */
   const cr = _imgEdit.currentTransform.crop;
-  let host = photo;  // handle이 박힐 element
+  let host = photo;  // handle을 붙일 element
   if (cr && !(cr.x === 0 && cr.y === 0 && cr.w === 100 && cr.h === 100)) {
     /* crop 영역 표시용 박스 — wrapper 안 absolute로 정확한 위치 */
     const box = document.createElement('div');
@@ -99,7 +99,7 @@ function enterImageTransformEdit() {
     _imgEdit.cropHostEl = box;
   }
 
-  /* handle을 host에 박음 — crop 있으면 잘린 영역 둘레, 없으면 wrapper 둘레 */
+  /* handle을 host에 부착 — crop 있으면 잘린 영역 둘레, 없으면 wrapper 둘레 */
   ['nw', 'ne', 'sw', 'se', 'n', 's', 'w', 'e'].forEach(c => {
     const h = document.createElement('div');
     h.className = `pb-img-handle pb-img-handle--${c} js-pb-img-handle`;
@@ -238,7 +238,7 @@ function enterImageCropEdit() {
       `).join('')}
     </div>
   `;
-  /* crop overlay = photo wrapper에 박힘 (사진 둘레 위) */
+  /* crop overlay = photo wrapper에 부착 (사진 둘레 위) */
   photo.appendChild(overlay);
   _imgEdit.cropOverlayEl = overlay;
 
@@ -425,7 +425,7 @@ function _applyPreview() {
         `top:${c.y}%; left:${c.x + c.w}%; right:0; height:${c.h}%;`;
     }
   } else {
-    /* transform 모드 또는 기본 — crop 변수 박음 (있으면 적용) */
+    /* transform 모드 또는 기본 — crop 변수 설정 (있으면 적용) */
     if (t.crop) {
       _imgEdit.photoEl.style.setProperty('--pb-crop-x', t.crop.x);
       _imgEdit.photoEl.style.setProperty('--pb-crop-y', t.crop.y);

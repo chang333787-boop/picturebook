@@ -14,16 +14,16 @@
    - step1~4: 진입/모드/비교/검사 — _rtSaveBody로 원본 덮어쓰기  ✓ (v140으로 폐기)
 
    Phase 0.5 v140 진행 (새 흐름):
-   - v140-step1: 테스트 모드 + reset 함수 + localStorage 키 박음  ← (지금)
+   - v140-step1: 테스트 모드 + reset 함수 + localStorage 키 추가  ← (지금)
    - v140-step2: 후보 3회 흐름 + 후보 모달
    - v140-step3: 편집 중 / 마감 + aiVariants.textS1.final 저장
    - v140-step4: viewer 토글 (원본/AI 1단계) + 마감 후 본문 분기
 
    mock 저장 정책 (rules 9-6 "rules 변경 X" 정신):
-   - v139 박힌 거: ai-suggestions / ai-history localStorage. 적용 본문만 Firebase
-   - v140 박힌 거: aiDrafts / aiVariants 모두 localStorage (Firebase 박지 X)
-     - 원본 body는 절대 덮어쓰지 X (_rtSaveBody 호출 박지 X)
-     - Phase A 박힐 때 Firebase 노드로 박을 거
+   - v139 저장 방식: ai-suggestions / ai-history localStorage. 적용 본문만 Firebase
+   - v140 저장 방식: aiDrafts / aiVariants 모두 localStorage (Firebase 저장 안 함)
+     - 원본 body는 절대 덮어쓰지 X (_rtSaveBody 호출 안 함)
+     - Phase A 전환 시 Firebase 노드로 이전 예정
    ==================================================================== */
 
 (function () {
@@ -39,7 +39,7 @@
   const LS_MOCK_USAGE_KEY = 'pb_ai_mock_usage_v1';
 
   /* ────────────────────────────────────────────────────────────────
-     v140 mock 전용 localStorage 키 (Phase A 박힐 때 Firebase로)
+     v140 mock 전용 localStorage 키 (Phase A 전환 시 Firebase로)
      ⚠️ MOCK 전용 — Phase A 실 API에서는 Firebase 노드로 전환
      ──────────────────────────────────────────────────────────────── */
   const LS_AI_DRAFTS_KEY = 'pb_ai_drafts_v140';          /* aiDrafts.textS1 (mock) */
@@ -49,9 +49,9 @@
   const LS_AI_IMAGE_VIEW_MODE_KEY = 'pb_ai_image_view_mode_v140'; /* 'original' | 'aiS1' | 'aiS2' (이미지 전용) */
   const LS_TEST_MODE_BYPASS_KEY = 'pb_ai_test_bypass_v140'; /* TEST MODE 우회 토글 (mock) */
 
-  /* mock quota 초기값 (사용자 결정 박힌 AI_DECISIONS_FINAL.md #5 추천값) */
+  /* mock quota 초기값 (사용자 결정 기록 AI_DECISIONS_FINAL.md #5 추천값) */
   const MOCK_QUOTA = {
-    s1: 3,        /* 텍스트 1단계 — v140 박힌 후보 3회와 정확히 매치 */
+    s1: 3,        /* 텍스트 1단계 — v140 후보 3회 흐름과 정확히 매치 */
     s2: 1,        /* 텍스트 2단계 — Phase B */
     s3: 1,        /* 텍스트 3단계 — Phase C */
     check: 5,     /* 작품 검사 */
@@ -62,7 +62,7 @@
   const MOCK_DELAY_MIN = 2000;
   const MOCK_DELAY_MAX = 5000;
 
-  /* AbortController 대용 — 사용자가 호출 중 취소 박을 수 있게 */
+  /* AbortController 대용 — 사용자가 호출 중 취소할 수 있게 */
   let _currentAbort = null;
 
   /* ════════════════════════════════════════════════════════════════
@@ -75,7 +75,7 @@
        (localhost 자동 TEST MODE 제거 — 평소 화면에서 실 결과로 품질 판단)
 
      ⚠️ 실 API 호출에는 testMode 우회 절대 적용 X (Functions 단에서 차단)
-     이 모듈은 mock 전용이라 자유롭게 박음.
+     이 모듈은 mock 전용이라 자유롭게 사용함.
      ════════════════════════════════════════════════════════════════ */
   function _isTestMode() {
     try {
@@ -89,7 +89,7 @@
   }
 
   function _isFinalizationBypassEnabled() {
-    /* TEST MODE에서만 박힘. 운영 모드에선 false (그래서 이 함수 박혀도 안전) */
+    /* TEST MODE에서만 동작. 운영 모드에선 false (그래서 이 함수가 호출돼도 안전) */
     if (!_isTestMode()) return false;
     try {
       const v = localStorage.getItem(LS_TEST_MODE_BYPASS_KEY);
@@ -138,19 +138,19 @@
   }
 
   /* ════════════════════════════════════════════════════════════════
-     v140 fix: mock usage namespace 분리 (팀별 quota — 2026-05-21 박힘)
+     v140 fix: mock usage namespace 분리 (팀별 quota — 2026-05-21 적용)
      ──────────────────────────────────────────────────────────────
-     사용자 버그 보고 박힘 — 같은 브라우저에서 0000 팀 사용하면 은규 / 예지유은인우
-     quota도 함께 차감 박혔음 (LS_MOCK_USAGE_KEY 공통 박혀서).
+     사용자 버그 보고 반영 — 같은 브라우저에서 0000 팀 사용하면 은규 / 예지유은인우
+     quota도 함께 차감됐음 (LS_MOCK_USAGE_KEY가 공통이어서).
 
-     namespace key 박은 거:
+     namespace key 형식:
        pb_ai_mock_usage_v140__{classId}__{teamName}
 
      fallback:
-       classId 박지 X → '_'
-       teamName 박지 X → '_'
+       classId 없으면 → '_'
+       teamName 없으면 → '_'
 
-     ⚠️ usage만 namespace 박음 (사용자 명). aiDrafts / aiVariants 박은 거 박은 거 박은 — 별도 보고 박힐 거.
+     ⚠️ usage만 namespace 적용 (사용자 명령). aiDrafts / aiVariants는 공통 키 유지 — 별도 보고 예정.
      ════════════════════════════════════════════════════════════════ */
   function _getCurrentNamespace() {
     let classId = '_', teamName = '_';
@@ -159,7 +159,7 @@
         if (ViewerState.classId)  classId  = String(ViewerState.classId);
         if (ViewerState.teamName) teamName = String(ViewerState.teamName);
       }
-      /* URL 박은 거 박은 거 박은 fallback */
+      /* URL 파라미터에서 읽는 fallback */
       const p = new URLSearchParams(location.search);
       if (classId === '_' && p.get('classId')) classId = p.get('classId');
       if (teamName === '_' && p.get('team'))   teamName = p.get('team');
@@ -171,7 +171,7 @@
     return LS_MOCK_USAGE_KEY + '__' + _getCurrentNamespace();
   }
 
-  /* v140 fix 2026-05-21: drafts / variants / viewMode 박은 거 박은 거 박은 박은 — 팀별 분리 (사용자 명) */
+  /* v140 fix 2026-05-21: drafts / variants / viewMode 키도 namespace 적용 — 팀별 분리 (사용자 명령) */
   function _getMockDraftsKey() {
     return LS_AI_DRAFTS_KEY + '__' + _getCurrentNamespace();
   }
@@ -190,8 +190,8 @@
      v140-step1: reset 함수 (사용자 결정 #B + v140 namespace fix)
      ──────────────────────────────────────────────────────────────
      기본 reset = 현재 팀 quota만. drafts / variants는 별도 함수.
-     전체 reset 박을 거 박은 거 박은 박은 — `__resetAiMockUsageAll` 박음.
-     window 노출 — 콘솔에서 박음.
+     전체 reset이 필요하면 — `__resetAiMockUsageAll` 사용.
+     window 노출 — 콘솔에서 호출 가능.
      ⚠️ MOCK 전용 — 실 API에는 무효 (Phase A Functions 단에서 무시)
      ════════════════════════════════════════════════════════════════ */
   function _resetMockUsage(mode) {
@@ -211,7 +211,7 @@
   }
 
   function _resetMockUsageAll() {
-    /* 모든 namespace usage 박은 거 박은 거 박은 — pb_ai_mock_usage_v140 prefix 박은 거 박은 거 박은 */
+    /* 모든 namespace usage 키 삭제 — pb_ai_mock_usage_v140 prefix 기준으로 순회 */
     const removed = [];
     try {
       const keysToRemove = [];
@@ -226,11 +226,11 @@
     } catch (e) { console.warn('[ai-mock] usage reset all failed', e); }
   }
 
-  /* v140 fix 2026-05-21: drafts / variants reset 박은 거 박은 거 박은 박은 — 현재 팀만 (사용자 명) */
+  /* v140 fix 2026-05-21: drafts / variants reset도 namespace 적용 — 현재 팀만 (사용자 명령) */
   function _resetMockDrafts() {
     try {
       localStorage.removeItem(_getMockDraftsKey());
-      /* 옛 공통 키 박은 거 박은 거 박은 박은 — 박은 거 박은 거 박은 박은 박지 X 박은 거 박은 거 박은 박은 (마이그 없음). 단 한 번 정리 박음. */
+      /* 옛 공통 키도 함께 삭제 — 옛 데이터는 namespace 키로 옮기지 않음 (마이그 없음). 단 한 번 정리 목적. */
       localStorage.removeItem(LS_AI_DRAFTS_KEY);
       console.log('[ai-mock] drafts reset (' + _getCurrentNamespace() + ')');
     } catch (e) { console.warn('[ai-mock] drafts reset failed', e); }
@@ -242,7 +242,7 @@
       localStorage.removeItem(_getMockViewModeKey());
       /* P5-IMAGE-VARIANT-1: 이미지 보기 모드도 함께 초기화 */
       localStorage.removeItem(_getMockImageViewModeKey());
-      /* 옛 공통 키 박지 X */
+      /* 옛 공통 키도 남기지 않음 */
       localStorage.removeItem(LS_AI_VARIANTS_KEY);
       localStorage.removeItem(LS_AI_VIEW_MODE_KEY);
       localStorage.removeItem(LS_AI_IMAGE_VIEW_MODE_KEY);
@@ -250,7 +250,7 @@
     } catch (e) { console.warn('[ai-mock] variants reset failed', e); }
   }
 
-  /* 전체 박은 거 박은 거 박은 박은 — 모든 팀 namespace drafts/variants 박음 */
+  /* 전체 reset 버전 — 모든 팀 namespace drafts/variants 삭제 */
   function _resetMockDraftsAll() {
     const removed = [];
     try {
@@ -301,7 +301,7 @@
   /* ════════════════════════════════════════════════════════════════
      v140-step2: aiDrafts helper (1단계 후보 3회 저장)
      ──────────────────────────────────────────────────────────────
-     구조 (mock — Phase A 박힐 때 Firebase 노드로):
+     구조 (mock — Phase A 전환 시 Firebase 노드로):
      {
        textS1: {
          status: 'none' | 'generating' | 'candidate_ready' | 'drafting' | 'finalized',
@@ -314,10 +314,10 @@
          editedDraftByScene: { sceneId: editedBody }
        }
      }
-     ⚠️ MOCK 전용 — Phase A 박힐 때 Firebase로 전환
+     ⚠️ MOCK 전용 — Phase A 진입 시 Firebase로 전환
      ════════════════════════════════════════════════════════════════ */
   function _loadAiDrafts() {
-    /* v140 fix 2026-05-21: 팀별 namespace 박음. 옛 공통 키 박지 X. */
+    /* v140 fix 2026-05-21: 팀별 namespace 키 사용. 옛 공통 키는 읽지 않음. */
     return _safeParseJson(localStorage.getItem(_getMockDraftsKey())) || { textS1: null };
   }
 
@@ -372,10 +372,10 @@
   /* ════════════════════════════════════════════════════════════════
      Phase A — Firebase Functions 호출 (실 Anthropic API)
      ──────────────────────────────────────────────────────────────
-     ⚠️ TEST MODE 박혀있으면 mock 박음 (실 호출 X).
-        운영 박을 때 박은 거 박은 거 박은 박은 — _callPhaseAFunction 박음.
+     ⚠️ TEST MODE가 켜져 있으면 mock 사용 (실 호출 X).
+        운영 모드에서 실 호출할 때는 — _callPhaseAFunction 사용.
      ════════════════════════════════════════════════════════════════ */
-  /* viewer 박은 거 박은 거 박은 박은 named app 'viewer' 박음 (viewer-data.js 박힘). default app 박지 X. */
+  /* viewer 화면에서는 named app 'viewer' 사용 (viewer-data.js에서 초기화). default app 아님. */
   function _getViewerFirebaseApp() {
     if (typeof firebase === 'undefined') return null;
     /* POLISH-AUTH-FIX: 편집 세션은 default app(maker UID) — getViewerApp로 통일(Functions context.auth=maker UID). */
@@ -392,16 +392,16 @@
     }
     const app = _getViewerFirebaseApp();
     if (!app) throw new Error('Firebase app이 없어요 (viewer 초기화가 안 됐어요)');
-    /* auth 박지 X 박혀있으면 anonymous 박음 (Functions context.auth 박혀있어야) */
+    /* auth가 없으면 anonymous 로그인 (Functions context.auth가 있어야 함) */
     await _ensureAnonymousAuth(app);
-    /* 서울 region 박은 거 박은 거 박은 박은 — functions/index.js setGlobalOptions 박힘 */
+    /* 서울 region 고정 — functions/index.js setGlobalOptions와 일치 */
     const fns = app.functions('asia-northeast3');
     const callable = fns.httpsCallable(fnName);
     const result = await callable(payload);
     return result.data;
   }
 
-  /* Phase A 박은 거 박은 거 박은 박은 진입 — 운영 모드만. TEST MODE 박혀있으면 mock 박음. */
+  /* Phase A 실 API 진입 판단 — 운영 모드만. TEST MODE면 mock 사용. */
   function _shouldUseRealApi() {
     /* TEST MODE면 mock (단 ?realApi=1이면 _isTestMode가 false라 통과) */
     if (_isTestMode()) return false;
@@ -413,7 +413,7 @@
     return true;
   }
 
-  /* anonymous 박은 거 박은 거 박은 박은 박지 X 박혀있으면 박음 (named app 'viewer' 박음) */
+  /* anonymous 인증 보장 — 로그인이 안 돼 있으면 로그인 (named app 'viewer' 기준) */
   async function _ensureAnonymousAuth(app) {
     try {
       const authObj = app ? app.auth() : firebase.auth();
@@ -553,7 +553,7 @@
       rootBranchId: branchLineage.rootBranchId || null,
       copyDepth: branchLineage.copyDepth || 0,
       snapshot,
-      /* testMode 박지 X — 실 API라 박은 거 박은 거 박은 박은 Functions 박은 거 박은 거 박은 박은 거부 박음 */
+      /* testMode 전달 안 함 — 실 API라 불필요. testMode 요청은 Functions 단에서 거부함 */
     });
   }
 
@@ -852,19 +852,19 @@
   /* ════════════════════════════════════════════════════════════════
      v140-step2: mock 후보 생성 (1 후보 세트 = 작품 전체)
      ──────────────────────────────────────────────────────────────
-     v139의 _mockReviseS1 박은 거 박은 거 박은. 한 회차 = 1 후보.
+     v139의 _mockReviseS1을 재사용. 한 회차 = 1 후보.
      ════════════════════════════════════════════════════════════════ */
   async function _mockGenerateCandidate(snapshot, attemptN) {
-    /* mock 응답 지연 박음 (사용자에게 호출 중 UI lock 박힘) */
+    /* mock 응답 지연 적용 (사용자에게 호출 중 UI lock 보여주려고) */
     const delayMs = Math.floor(Math.random() * (MOCK_DELAY_MAX - MOCK_DELAY_MIN)) + MOCK_DELAY_MIN;
     await _delay(delayMs);
 
     const results = {};
-    /* fix 2026-05-21: _buildWorkSnapshot은 {sceneId: scene} 객체 박음 (배열 X). Object.values 박음. */
+    /* fix 2026-05-21: _buildWorkSnapshot은 {sceneId: scene} 객체 반환 (배열 X). Object.values 사용. */
     const sceneList = Object.values(snapshot || {});
     sceneList.forEach(s => {
       if (!s || !s.body || !s.body.trim()) return;
-      /* 30% skip (이미 자연스러움) — v139 박힌 거 그대로 */
+      /* 30% skip (이미 자연스러움) — v139 동작 그대로 */
       if (Math.random() < 0.3) {
         results[s.id] = { skip: true, reason: '이미 자연스러워요 (mock 후보 ' + attemptN + ')' };
       } else {
@@ -893,7 +893,7 @@
   /* ════════════════════════════════════════════════════════════════
      v140-step2: _startTextS1V140 — 1단계 진입 (drafting 차단 + 후보 누적)
      ──────────────────────────────────────────────────────────────
-     v139의 _startTextS1 박은 거 박지 X — 옛 흐름 비활성. 호출 박지 X.
+     v139의 _startTextS1은 사용하지 않음 — 옛 흐름 비활성. 호출되지 않음.
      사용자 결정 #F: drafting 중에는 다른 AI 호출 차단.
      ════════════════════════════════════════════════════════════════ */
   async function _startTextS1V140() {
@@ -906,7 +906,7 @@
 
     /* v140 fix 2026-05-21: 4가지 분기 (사용자 명) */
     const count = _getCandidateCount();
-    /* Phase A fix 2026-05-21: 실 API 박은 거 박은 거 박은 박은 — Functions 박은 거 박은 거 박은 박은 자체 quota 박음. client mock quota 박지 X. */
+    /* Phase A fix 2026-05-21: 실 API 모드에서는 — Functions가 자체 quota 관리. client mock quota 사용 안 함. */
     const useRealApiCheck = _shouldUseRealApi();
     const remaining = useRealApiCheck ? Infinity : _getRemaining('s1');
 
@@ -916,27 +916,27 @@
       return;
     }
 
-    /* (2) 후보 O / quota X → 후보 모달 (단 [더 생성하기] 비활성 — _showCandidatesModal 박은 거 박은 거 박은 박음) */
+    /* (2) 후보 O / quota X → 후보 모달 (단 [더 생성하기] 비활성 — _showCandidatesModal 내부에서 처리) */
     if (count > 0 && remaining <= 0) {
       _showCandidatesModal();
       return;
     }
 
-    /* (3) 후보 3회 누적 (모든 회차 박힘) → 후보 모달 박음 (실 API는 Functions에서 별도 quota 박음 — 일단 client 박지 X) */
+    /* (3) 후보 3회 누적 (모든 회차 생성됨) → 후보 모달 표시 (실 API는 Functions에서 별도 quota 관리 — 일단 client 제한 없음) */
     if (!useRealApiCheck && count >= MOCK_QUOTA.s1) {
       _showCandidatesModal();
       return;
     }
 
     /* quota 차감 + 호출 lock */
-    /* Phase A fix 2026-05-21: 실 API 박은 거 박은 거 박은 박은 — Functions 박음 quota 박음. client mockUsage 박지 X. */
+    /* Phase A fix 2026-05-21: 실 API 모드 — Functions가 quota 차감. client mockUsage 차감 안 함. */
     if (!useRealApiCheck) {
       _consumeQuota('s1');
     }
     _setAiTextS1Status('generating');
 
     const snapshot = _buildWorkSnapshot();
-    /* fix 2026-05-21: snapshot은 {sceneId: scene} 객체. 길이는 Object.keys 박음. */
+    /* fix 2026-05-21: snapshot은 {sceneId: scene} 객체. 길이는 Object.keys로 계산. */
     const sceneCount = Object.keys(snapshot || {}).length;
     if (sceneCount === 0) {
       if (!useRealApiCheck) _refundQuota('s1');
@@ -970,7 +970,7 @@
           _setAiTextS1Status(count > 0 ? 'candidate_ready' : 'none');
           return;
         }
-        /* Functions 응답 박음 → candidate 박음 */
+        /* Functions 응답 수신 → candidate로 변환 */
         candidate = {
           suggestionId: apiResult.suggestionId || ('api_a' + attemptN + '_' + Date.now()),
           attemptN,
@@ -983,7 +983,7 @@
           isMock: false,
         };
       } else {
-        /* TEST MODE 또는 fallback — mock 박음 */
+        /* TEST MODE 또는 fallback — mock 사용 */
         candidate = await _mockGenerateCandidate(snapshot, attemptN);
         if (_currentAbort && _currentAbort.cancelled) {
           _hideCallingModal();
@@ -994,8 +994,8 @@
       _saveAiDraftCandidate(attemptN, candidate);
     } catch (e) {
       /* mock 또는 실 API 실패 — 7가지 환불 정책 #3·#4·#5
-         - mock 박은 거: _refundQuota('s1') (localStorage)
-         - 실 API 박은 거: Functions 박은 거 박은 거 박은 박은 _refundQuota 자동 박음 (Firebase 트랜잭션). client _refundQuota는 박지 X — client mockUsage만 reset (실 API 박을 때 mockUsage 박지 X) */
+         - mock인 경우: _refundQuota('s1') (localStorage)
+         - 실 API인 경우: Functions에서 _refundQuota 자동 처리 (Firebase 트랜잭션). client _refundQuota는 호출 안 함 — client mockUsage만 reset하게 됨 (실 API에서는 mockUsage 차감 안 함) */
       console.error('[v140 / Phase A] 후보 생성 실패', e);
       if (!useRealApi) {
         _refundQuota('s1');
@@ -1013,8 +1013,8 @@
   /* ════════════════════════════════════════════════════════════════
      v140 fix 2026-05-21: quota 0 안내 모달 (사용자 명)
      ──────────────────────────────────────────────────────────────
-     후보 X / quota X 박은 거 박은 거 박은 박은 — 박은 거 박은 거 박은 박은 박지 X 박은 거 박은 거 박은 박은 박음.
-     TEST MODE에서는 reset 버튼 박음 — 즉시 다시 박음.
+     후보 X / quota X일 때 표시 — AI 호출 없이 안내만 보여줌.
+     TEST MODE에서는 reset 버튼 제공 — 즉시 다시 시도 가능.
      ════════════════════════════════════════════════════════════════ */
   function _showQuotaEmptyModal() {
     const ns = _getCurrentNamespace();
@@ -1103,7 +1103,7 @@
       +   '</div>'
       + '</div>';
 
-    /* v140 fix 2026-05-21: lock: true 박음 — overlay 클릭/ESC 박지 X (사용자 명) */
+    /* v140 fix 2026-05-21: lock: true 적용 — overlay 클릭/ESC로 닫히지 않음 (사용자 명령) */
     const root = _createModalRoot('ai-cand-modal-root', inner, { lock: true, size: 'large' });
 
     let activeAttempt = selected || attempts[attempts.length - 1];
@@ -1114,10 +1114,10 @@
       const c = cands['attempt' + activeAttempt];
       if (!c) { body.innerHTML = '<div class="ai-cand-empty">후보가 없어요</div>'; return; }
       const snapshot = _buildWorkSnapshot();
-      /* fix 2026-05-21: snapshot은 {sceneId: scene} 객체. Object.values 박음. */
+      /* fix 2026-05-21: snapshot은 {sceneId: scene} 객체. Object.values 사용. */
       const scenes = Object.values(snapshot || {});
       const rows = scenes.map(function (s) {
-        const r = c.results[s.id];   /* Functions가 sceneId 정규화 박음 — fallback 박지 X */
+        const r = c.results[s.id];   /* Functions가 sceneId 정규화 처리 — fallback 불필요 */
         if (!r) return '<div class="ai-cand-row ai-cand-row--none"><div class="ai-cand-scene-id">장면 ' + _escapeHtml(s.id) + '</div><div class="ai-cand-skip">(결과 없음)</div></div>';
         if (r.skip) return ''
           + '<div class="ai-cand-row ai-cand-row--skip">'
@@ -1127,7 +1127,7 @@
           +   '</div>'
           +   '<div style="margin-top:4px;color:#9aa0a6;font-size:12px;line-height:1.5;white-space:pre-wrap;">' + _escapeHtml(s.body || '') + '</div>'
           + '</div>';
-        /* 강한 경고 박혀있으면 — UI 표시. 적용 자체 박은 거 박은 거 박은 박은 박은 — _finalizeAiVariant 박을 때 차단 박음 */
+        /* 강한 경고가 있으면 — UI 표시. 적용 자체는 여기서 막지 않음 — _finalizeAiVariant 저장 시 차단함 */
         const strongWarn = (r.appliable === false || (Array.isArray(r.strongWarnings) && r.strongWarnings.length > 0));
         const strongLabel = strongWarn
           ? '<div class="ai-cand-strong-warn">⚠️ 강한 경고 — 적용할 수 없어요 (1단계 위반 가능: ' + _escapeHtml((r.strongWarnings || []).map(w => w.reason || w).join(', ')) + ')</div>'
@@ -1148,7 +1148,7 @@
 
     renderBody();
 
-    /* 탭 박은 거 박음 */
+    /* 탭 전환 처리 */
     root.querySelectorAll('.ai-cand-tab').forEach(function (tab) {
       tab.addEventListener('click', function () {
         activeAttempt = parseInt(tab.getAttribute('data-attempt'), 10);
@@ -1168,11 +1168,11 @@
     if (moreEl) {
       moreEl.addEventListener('click', function () {
         _removeModalRoot('ai-cand-modal-root');
-        _startTextS1V140();   /* 다시 호출 — 누적 박힘 */
+        _startTextS1V140();   /* 다시 호출 — 후보 누적됨 */
       });
     }
 
-    /* [이 후보 선택하기] — step3 박힌 편집 중 모달 박음 */
+    /* [이 후보 선택하기] — step3의 편집 중 모달로 진입 */
     root.querySelector('.js-ai-cand-select').addEventListener('click', function () {
       if (drafting) return;
       _setSelectedAttempt(activeAttempt);
@@ -1184,7 +1184,7 @@
   /* ════════════════════════════════════════════════════════════════
      v140-step3: aiVariants helper (마감된 1개만 저장)
      ──────────────────────────────────────────────────────────────
-     구조 (mock — Phase A 박힐 때 Firebase 노드로):
+     구조 (mock — Phase A 전환 시 Firebase 노드로):
      {
        textS1: {
          status: 'finalized',
@@ -1195,10 +1195,10 @@
          sourceSuggestionId: 'mock_v140_aN_...'
        }
      }
-     ⚠️ MOCK 전용 — Phase A 박힐 때 Firebase로 전환
+     ⚠️ MOCK 전용 — Phase A 진입 시 Firebase로 전환
      ════════════════════════════════════════════════════════════════ */
   function _loadAiVariants() {
-    /* v140 fix 2026-05-21: 팀별 namespace 박음 */
+    /* v140 fix 2026-05-21: 팀별 namespace 키 사용 */
     return _safeParseJson(localStorage.getItem(_getMockVariantsKey())) || { textS1: null };
   }
 
@@ -2174,7 +2174,7 @@
      사용자 결정 #C — 마감 후 aiDrafts.textS1 기본 정리. TEST MODE에서 보존/초기화 선택 가능.
      ════════════════════════════════════════════════════════════════ */
   function _enterDraftingMode(attemptN) {
-    /* status 박은 거 박은 거 박음 (selectedAttempt 박은 거 박은 거 박음) */
+    /* status를 drafting으로 변경 (selectedAttempt도 함께 저장) */
     const d = _loadAiDrafts();
     if (!d.textS1) return;
     d.textS1.selectedAttempt = attemptN;
@@ -2204,9 +2204,9 @@
     const snapshot = _buildWorkSnapshot();
     const edited = d.textS1.editedDraftByScene || {};
 
-    /* fix 2026-05-21: snapshot은 {sceneId: scene} 객체. Object.values 박음. */
+    /* fix 2026-05-21: snapshot은 {sceneId: scene} 객체. Object.values 사용. */
     const rows = Object.values(snapshot || {}).map(function (s) {
-      const r = cand.results[s.id];   /* Functions가 sceneId 정규화 박음 */
+      const r = cand.results[s.id];   /* Functions가 sceneId 정규화 처리 */
       if (!r) {
         return ''
           + '<div class="ai-draft-row ai-draft-row--none">'
@@ -2256,10 +2256,10 @@
       +   '</div>'
       + '</div>';
 
-    /* v140 fix 2026-05-21: lock: true 박음 — 편집 중 textarea 박은 거 박은 거 박은 박은 — overlay/ESC 박지 X (사용자 명) */
+    /* v140 fix 2026-05-21: lock: true 적용 — 편집 중 textarea 내용 보호 — overlay/ESC로 닫히지 않음 (사용자 명령) */
     const root = _createModalRoot('ai-draft-modal-root', inner, { lock: true, size: 'large' });
 
-    /* textarea 박힌 거 박은 거 박음 (debounce 박지 X — 단순 onblur·oninput 박음) */
+    /* textarea 입력을 그때그때 저장 (debounce 없음 — 단순 onblur·oninput 사용) */
     root.querySelectorAll('.js-ai-draft-textarea').forEach(function (ta) {
       ta.addEventListener('input', function () {
         const sid = ta.getAttribute('data-scene-id');
@@ -2306,7 +2306,7 @@
   function _cancelDrafting() {
     const d = _loadAiDrafts();
     if (!d.textS1) return;
-    /* selectedAttempt 박지 X 박음, edited 박지 X 박음, status candidate_ready로 */
+    /* selectedAttempt 비움, edited 버퍼 비움, status candidate_ready로 */
     d.textS1.selectedAttempt = null;
     d.textS1.editedDraftByScene = {};
     d.textS1.status = (_getCandidateCount() > 0) ? 'candidate_ready' : 'none';
@@ -2316,8 +2316,8 @@
   /* ════════════════════════════════════════════════════════════════
      v140-step4: AI 보기 토글 (사용자 결정 #D)
      ──────────────────────────────────────────────────────────────
-     별도 토글 바 박음. maker-return-bar 박지 X.
-     viewer-render.js 박은 6 곳 박은 거 박은 _getDisplayBody 박은 거 박을 거.
+     별도 토글 바 사용. maker-return-bar는 건드리지 않음.
+     viewer-render.js의 본문 렌더 6곳은 _getDisplayBody를 거치게 할 것.
      ════════════════════════════════════════════════════════════════ */
   /* WRITE-AFTER-UI-REBUILD-1: 텍스트 1단계(aiS1) 보기 폐기 — 신규 쓰기 후 흐름에서 숨김.
      저장된 view mode가 'aiS1'이어도 원본으로 정규화(보기만 차단·서버/데이터/구작품 s1은 보존).
@@ -2327,7 +2327,7 @@
   }
 
   function _getAiViewMode() {
-    /* v140 fix 2026-05-21: 팀별 namespace 박음. 2026-06: aiS2 추가. UI-REBUILD-1: aiS1 정규화. */
+    /* v140 fix 2026-05-21: 팀별 namespace 키 사용. 2026-06: aiS2 추가. UI-REBUILD-1: aiS1 정규화. */
     try {
       const v = localStorage.getItem(_getMockViewModeKey());
       return _normalizeTextAiViewMode(v);
@@ -2535,7 +2535,7 @@
     } catch (e) { /* noop */ }
   }
 
-  /* viewer-render.js 박은 거 박은 거 박은 본문 박은 거 박은 거 박은 거 박은 — 토글 mode에 따라 박은 거 박음 */
+  /* viewer-render.js가 호출하는 표시 본문 결정 함수 — 토글 mode에 따라 원본/AI 변형을 반환 */
   function _getDisplayBody(sceneId, originalBody) {
     const mode = _getAiViewMode();
     if (mode !== 'aiS1' && mode !== 'aiS2') return originalBody;
@@ -2803,7 +2803,7 @@
     if (bar && bar.parentNode) bar.parentNode.removeChild(bar);
   }
 
-  /* DOMContentLoaded 박은 거 박은 거 박은 — finalized 박혀있고 edit 박혀있을 때만 박음 */
+  /* DOMContentLoaded 시 토글 바 부트스트랩 — finalized 상태이고 edit 세션일 때만 표시 */
   function _bootstrapAiToggleBar() {
     const run = function () {
       _showAiToggleBar();
@@ -2811,8 +2811,8 @@
       if (typeof _showImageAiEntryButton === 'function') {
         try { _showImageAiEntryButton(); } catch (e) { /* noop */ }
       }
-      /* ViewerState 박은 거 박은 거 박은 거 박은 거 박은 — editMode 박은 거 박은 거 박은 거 박은 거 박은 거 박은 거.
-         박은 거 박은 거 박은 거 박은 — viewer entry 박은 거 박은 거 박은 거 박은 거 박은 거. 박은 거 박은 거 — 박은 거 박은 거 박은 거 박은 거 박은 거 박은 거 박은 거 박은 거 박은 거 박은 거 박은 거 박은 거 박은 거 박은 거 박은 거 박은 거 박은 거 박은 거. */
+      /* ViewerState 초기화가 이 시점보다 늦을 수 있음 — editMode 판정이 아직 안 끝났을 수 있다.
+         그 경우 여기서는 노출되지 않고 — viewer entry 이후 _showAiToggleBar 재호출 시점에 조건을 다시 평가해 표시된다. */
     };
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', run);
@@ -2831,12 +2831,12 @@
     const snapshot = _buildWorkSnapshot();
 
     const final = {};
-    /* fix 2026-05-21: snapshot은 {sceneId: scene} 객체. Object.values 박음. */
+    /* fix 2026-05-21: snapshot은 {sceneId: scene} 객체. Object.values 사용. */
     Object.values(snapshot || {}).forEach(function (s) {
       if (!s) return;
-      const r = cand.results[s.id];   /* Functions가 sceneId 정규화 박음 */
-      if (!r || r.skip) return;  /* skip 박은 거 박은 거 박지 X — 원본 박힘 */
-      /* GPT 피드백 #3: 강한 경고 박힌 결과는 적용 박지 X (원본 박힘) */
+      const r = cand.results[s.id];   /* Functions가 sceneId 정규화 처리 */
+      if (!r || r.skip) return;  /* skip 결과는 저장하지 않음 — 원본 유지 */
+      /* GPT 피드백 #3: 강한 경고가 있는 결과는 적용하지 않음 (원본 유지) */
       if (r.appliable === false || (Array.isArray(r.strongWarnings) && r.strongWarnings.length > 0)) {
         console.warn('[Phase A] 장면', s.id, '— 강한 경고 박혀 적용 X', r.strongWarnings);
         return;
@@ -2875,7 +2875,7 @@
         /* AI-STAB-2: namespaced 키로 정리(bare 키는 다른 팀 draft를 안 지움). */
         try { localStorage.removeItem(_getMockDraftsKey()); } catch (e) { /* noop */ }
       } else {
-        /* status는 finalized로 박음 (selectedAttempt 박은 거 박은 거 박힘) */
+        /* status는 finalized로 저장 (selectedAttempt는 그대로 남음) */
         d.textS1.status = 'finalized';
         _saveAiDrafts(d);
       }
@@ -2884,7 +2884,7 @@
       try { localStorage.removeItem(_getMockDraftsKey()); } catch (e) { /* noop */ }
     }
 
-    /* step4: 마감 박은 후 토글 바 박음 + viewer 박은 거 박은 거 박은 거 박은 다시 렌더 */
+    /* step4: 마감 후 토글 바 표시 + viewer 현재 장면 다시 렌더 */
     _showAiToggleBar();
     if (typeof window._scheduleViewerFrameReRender === 'function') {
       window._scheduleViewerFrameReRender();
@@ -3446,7 +3446,7 @@
       _showLatestWorkCheck();
     });
 
-    /* v140 fix 2026-05-21: TEST MODE reset 박은 거 박은 거 박은 박은 — 4 버튼. reset 후 모달 다시 렌더 박음 (남은 횟수 갱신) */
+    /* v140 fix 2026-05-21: TEST MODE reset 버튼 연결 — 4 버튼. reset 후 모달 다시 렌더 (남은 횟수 갱신) */
     function _afterReset(label) {
       _removeModalRoot('ai-mode-modal');
       _showModeModal();
@@ -3459,7 +3459,7 @@
     const v = root.querySelector('.js-ai-tm-reset-variants');
     if (v) v.addEventListener('click', function () {
       _resetMockVariants();
-      /* 토글 바도 박은 거 박은 거 박은 박은 — finalized 박지 X 박혀있으면 박지 X */
+      /* 토글 바도 다시 평가 — finalized가 아니면 표시되지 않음 */
       _showAiToggleBar();
       _afterReset('variants');
     });
@@ -3478,7 +3478,7 @@
      step3 — mock 호출 흐름
      ════════════════════════════════════════════════════════════════ */
 
-  /* 작품 snapshot 박음 — AI에 박을 입력. 표지/본문빈장면 제외. */
+  /* 작품 snapshot 생성 — AI에 보낼 입력. 표지/본문빈장면 제외. */
   function _buildWorkSnapshot() {
     const scenes = {};
     if (typeof ViewerState === 'undefined' || !ViewerState.scenes) return scenes;
@@ -3501,7 +3501,7 @@
     return scenes;
   }
 
-  /* mock revise — 간단 변형. 실 AI X. 사용자가 mock인 거 인지하려고 살짝 표 박음. */
+  /* mock revise — 간단 변형. 실 AI X. 사용자가 mock인 거 인지하도록 표시를 살짝 넣음. */
   function _mockReviseS1(body) {
     /* 1단계 mock — 다중 공백·문장 부호 정리. 의미 변경 X. */
     let r = String(body)
@@ -3510,7 +3510,7 @@
       .replace(/([가-힣])\.([가-힣])/g, '$1. $2')            /* 마침표 뒤 공백 */
       .replace(/\.\s*\n/g, '.\n')                           /* 마침표 + 줄바꿈 정돈 */
       .trim();
-    /* 사용자가 mock인 거 인지하게 라벨 박음 — 실 단계엔 박지 X */
+    /* 사용자가 mock인 거 인지하게 라벨 추가 — 실 단계엔 없음 */
     return r + '  ※mock';
   }
 
@@ -3532,10 +3532,10 @@
     });
   }
 
-  /* mock 호출 — 실 API 박지 X. 가짜 응답 박음. */
+  /* mock 호출 — 실 API 사용 안 함. 가짜 응답 생성. */
   async function _mockCallTextAiBatch(snapshot, strength) {
     const delayMs = MOCK_DELAY_MIN + Math.random() * (MOCK_DELAY_MAX - MOCK_DELAY_MIN);
-    await _delay(delayMs);  /* 박는 도중 cancel 가능 */
+    await _delay(delayMs);  /* 지연 도중 cancel 가능 */
 
     const results = {};
     Object.values(snapshot).forEach(s => {
@@ -3584,7 +3584,7 @@
     };
   }
 
-  /* mock store — localStorage (rules에 ai-suggestions 박지 X 박혀있어 Firebase 안 박음) */
+  /* mock store — localStorage (rules에 ai-suggestions 경로가 없어 Firebase에 저장 안 함) */
   function _saveMockSuggestion(suggestion) {
     try {
       const store = _loadMockStore();
@@ -3632,12 +3632,12 @@
   /* ════════════════════════════════════════════════════════════════
      mock quota — localStorage (rules 변경 X 정책)
      ════════════════════════════════════════════════════════════════ */
-  /* v140 fix: 팀별 namespace key (classId__teamName) 박음 — 같은 브라우저 박은 거 박은 거 박은 팀 간 quota 격리 */
+  /* v140 fix: 팀별 namespace key (classId__teamName) 사용 — 같은 브라우저를 쓰는 팀 간 quota 격리 */
   function _loadMockUsage() {
     try {
       const key = _getMockUsageKey();
       let raw = localStorage.getItem(key);
-      /* 마이그 박은 거 박은 거 박은 — 옛 공통 키 박힌 거 박은 거 박은 박혀있고 박은 namespace 박지 X 박혀있으면 박지 X 박음 (각 팀 0부터 시작). */
+      /* 마이그레이션 없음 — 옛 공통 키에 데이터가 남아 있어도 namespace 키로 옮기지 않음 (각 팀 0부터 시작). */
       if (raw) return JSON.parse(raw);
     } catch (e) {}
     return { s1Used: 0, s2Used: 0, s3Used: 0, checkUsed: 0, lastUsedAt: 0 };
@@ -3749,7 +3749,7 @@
     /* quota 차감 — 호출 시작 시점 (7가지 환불 정책 따라 실패 시 환불) */
     _consumeQuota('s1');
 
-    /* AbortController 박음 */
+    /* AbortController 준비 */
     _currentAbort = { aborted: false };
     _showCallingModal(sceneCount);
 
@@ -3787,13 +3787,13 @@
       return { ok: true, type: 'check', isMock: true, categories: { spelling: [], coherence: [], characterConsistency: [], branchFlow: [] } };
     }
 
-    /* mock 진단 — sceneId 기반 가짜 박음. 실 AI 박지 X. */
+    /* mock 진단 — sceneId 기반 가짜 결과 생성. 실 AI 아님. */
     const spelling = [];
     const coherence = [];
     const characterConsistency = [];
     const branchFlow = [];
 
-    /* 첫 1~2개 장면에 mock 맞춤법 박음 */
+    /* 첫 1~2개 장면에 mock 맞춤법 항목 추가 */
     sceneIds.slice(0, Math.min(2, sceneIds.length)).forEach((id, idx) => {
       spelling.push({
         sceneId: id,
@@ -3803,7 +3803,7 @@
       });
     });
 
-    /* 장면 2개 이상이면 mock 유기성 박음 */
+    /* 장면 2개 이상이면 mock 유기성 항목 추가 */
     if (sceneIds.length >= 2) {
       coherence.push({
         sceneIdFrom: sceneIds[0],
@@ -3812,7 +3812,7 @@
       });
     }
 
-    /* storyAnalyzer로 도달 불가능 장면 박음 (실제 분석) */
+    /* storyAnalyzer로 도달 불가능 장면 표시 (실제 분석) */
     if (typeof analyzeStructure === 'function') {
       try {
         const analysis = analyzeStructure();
@@ -4105,7 +4105,7 @@
       showAiNotice('이 작품에서 사용할 수 있는 ‘작품 검사’ 횟수를 모두 사용했어요.\n최근 검사 결과가 있다면 먼저 확인해 보세요.');
       return;
     }
-    /* 잠금 검사 (검사도 박힌 데이터 기반이라 잠금 확인) */
+    /* 잠금 검사 (검사도 저장된 데이터 기반이라 잠금 확인) */
     if (typeof _editText !== 'undefined' && _editText.editable === false) {
       showAiNotice('다른 사용자가 편집 중이라 지금은 AI를 사용할 수 없어요.\n잠시 후 다시 시도해 주세요.', { title: '지금은 AI를 사용할 수 없어요' });
       return;
@@ -4223,7 +4223,7 @@
     return true;
   }
 
-  /* 검사 결과 모달 — 수정 X. 진단만. "이 장면 고치기" 버튼(직접 편집 진입) 박음. */
+  /* 검사 결과 모달 — 수정 X. 진단만. "이 장면 고치기" 버튼(직접 편집 진입) 제공. */
   function _showCheckResultModal(check) {
     const cats = check.categories || {};
     /* CHECK-UI-1: real 응답 카테고리 키는 character, 구버전 mock은 characterConsistency.
@@ -4566,7 +4566,7 @@
       <div class="ai-modal__body">
         <div class="ai-result-summary">${_escapeHtml(suggestion.globalSummary || '')}</div>
         <div class="ai-result-hint">
-          체크된 장면만 적용돼요. ✅ 모두 / ☐ 체크 풀기로 일괄 박을 수 있어요.
+          체크된 장면만 적용돼요. ✅ 모두 / ☐ 체크 풀기로 일괄 선택할 수 있어요.
         </div>
         <div class="ai-result-actions-top">
           <button class="ai-btn ai-btn--ghost js-ai-check-all">✅ 모두 선택</button>
@@ -4633,7 +4633,7 @@
         ? ViewerState.scenes[sceneId].body : null;
 
       if (originalBody != null && currentBody != null && originalBody !== currentBody) {
-        /* 사용자가 그 사이 본문 박은 경우 — 안내 + 건너뛰기 */
+        /* 사용자가 그 사이 본문을 고친 경우 — 안내 + 건너뛰기 */
         raceCount++;
         continue;
       }
@@ -4643,13 +4643,13 @@
       /* mock history 저장 (localStorage) */
       _saveMockHistory(sceneId, originalBody || '', newBody, suggestion.suggestionId);
 
-      /* v138 _rtSaveBody 재사용 — 메모리 + Firebase + 화면 + 롤백 모두 박힘 */
+      /* v138 _rtSaveBody 재사용 — 메모리 + Firebase + 화면 + 롤백 모두 처리됨 */
       try {
         if (typeof _rtSaveBody === 'function') {
           await _rtSaveBody(sceneId, newBody);
           appliedCount++;
         } else {
-          /* storyAnalyzer.js 박지 X 박힌 환경 — fallback (mock 단계) */
+          /* storyAnalyzer.js가 로드되지 않은 환경 — fallback (mock 단계) */
           console.warn('[AI mock] _rtSaveBody 박지 X — fallback');
           failedIds.push(sceneId);
         }
@@ -4729,7 +4729,7 @@
   /* ════════════════════════════════════════════════════════════════
      v140-step1: TEST MODE 배지 자동 표시
      ──────────────────────────────────────────────────────────────
-     DOMContentLoaded 박힌 후 TEST MODE 박혀있으면 화면 상단에 배지 박음.
+     DOMContentLoaded 후 TEST MODE가 켜져 있으면 화면 상단에 배지 표시.
      ════════════════════════════════════════════════════════════════ */
   function _bootstrapTestMode() {
     if (!_isTestMode()) return;
@@ -4829,12 +4829,12 @@
       _getMockStore: _loadMockStore,
       _getMockUsage: _loadMockUsage,
 
-      /* v140-step1 박은 거 — TEST MODE 박힌 정보 박음 */
+      /* v140-step1 추가분 — TEST MODE 관련 정보 노출 */
       _isTestMode: _isTestMode,
       _isFinalizationBypassEnabled: _isFinalizationBypassEnabled,
       _setFinalizationBypass: _setFinalizationBypass,
 
-      /* v140-step4 박은 거 — viewer-render.js에서 박을 거 (한 줄씩) */
+      /* v140-step4 추가분 — viewer-render.js에서 사용할 것 (한 줄씩) */
       _getDisplayBody:    _getDisplayBody,
       _getAiViewMode:     _getAiViewMode,
       _setAiViewMode:     _setAiViewMode,
@@ -4906,7 +4906,7 @@
     };
 
     /* ────────────────────────────────────────────────────────────
-       reset 4가지 — 콘솔 박는 거 박은 함수 (사용자 결정 #B)
+       reset 4가지 — 콘솔에서 호출하는 함수 (사용자 결정 #B)
        window.__resetAiMockUsage()      — 현재 팀 quota만 (기본)
        window.__resetAiMockUsageAll()   — v140 fix: 모든 팀 quota (전체 namespace)
        window.__resetAiMockDrafts()     — drafts만

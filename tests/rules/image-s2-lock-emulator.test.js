@@ -86,7 +86,7 @@ test('reset: 그 사이 racing lock으로 정책 변경 → clear 안 함(RESET_
   await env.withSecurityRulesDisabled(async (ctx) => {
     const db = ctx.database();
     const prev = { sourceMode: 'upload', lockedAt: 1, lockedBy: 'x' };
-    /* prev 캡처 후, reset 직전에 다른 lock이 새 정책을 박은 상태로 시뮬 */
+    /* prev 캡처 후, reset 직전에 다른 lock이 새 정책을 기록한 상태로 시뮬 */
     await set(ref(db, POLICY), { sourceMode: 'draw', lockedAt: 2, lockedBy: 'y' });
     const r = await resetClear(db, prev);   /* prev는 stale upload */
     assert.equal(r.cleared, false);          /* 비우지 않음 — 교사 재시도 */

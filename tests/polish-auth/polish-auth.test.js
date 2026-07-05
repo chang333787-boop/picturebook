@@ -4,7 +4,7 @@
 
    ── 버그 재현 맥락 ───────────────────────────────────────────────
    maker는 firebase.js의 default app([DEFAULT])에서 익명 로그인 → 그 UID에
-   members/{uid}/status='active'가 박힌다. 반면 편집 뷰어는 named 'viewer' app에서
+   members/{uid}/status='active'가 기록된다. 반면 편집 뷰어는 named 'viewer' app에서
    별도 익명 로그인 → 다른 UID → 비공개(v2) scenes Rules(멤버/교사 필요)에서 거부.
    (Rules 레벨 재현·회귀는 tests/rules/database.rules.test.js:
       '비member 학생이 비공개 scenes read 거부' / 'active member가 자기 팀 비공개 scenes read 허용'

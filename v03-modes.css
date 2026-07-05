@@ -150,7 +150,7 @@
 }
 .scene-screen--text .text-card {
   position: absolute;
-  /* JS가 inline style로 left/top/width/(height) 박음. transform으로 center 기준 */
+  /* JS가 inline style로 left/top/width/(height) 설정. transform으로 center 기준 */
   transform: translate(-50%, -50%);
   background: var(--v03-card-bg);
   color: var(--v03-fg);
@@ -420,7 +420,7 @@ body[data-page-orientation="portrait"] .scene-screen--pb.pb--split .pb-frame {
   top: 25%;
   left: 15%;
   width: 55%;
-  /* height: 명시값 있으면 inline style이 박힘, 없으면 콘텐츠 자동 (auto) */
+  /* height: 명시값 있으면 inline style이 적용됨, 없으면 콘텐츠 자동 (auto) */
   padding: 10px 14px;
   background: rgba(255,255,255,0.85);
   border-radius: 8px;
@@ -602,7 +602,7 @@ body[data-page-orientation="portrait"] .scene-screen--pb.pb--split .pb-frame {
   min-height: 0;
 }
 .scene-screen--pb .pb-illust__photo {
-  /* W9 (v13): wrapper 사이즈 = 사진 contained 영역. JS가 width/height %로 정확히 박음.
+  /* W9 (v13): wrapper 사이즈 = 사진 contained 영역. JS가 width/height %로 정확히 설정.
      fallback: load 전 또는 ResizeObserver 미작동 환경 — height 100% + aspect-ratio 1로 작게라도 보이게. */
   position: relative;
   height: 100%;
@@ -726,7 +726,7 @@ body[data-page-orientation="portrait"] .scene-screen--pb.pb--split .pb-frame {
   line-height: 1.85;  /* 시안의 여백 있는 따뜻한 행간 */
   color: var(--pb-color-override, var(--v03-fg));
   margin: 0 0 12px;
-  white-space: pre-wrap; /* v127: 사용자가 박은 \n\n 등 줄바꿈/빈 줄 시각 박힘 */
+  white-space: pre-wrap; /* v127: 사용자가 입력한 \n\n 등 줄바꿈/빈 줄 시각 반영 */
   flex: 1;
   /* 줄바꿈 정책: 한국어 단어 단위 + 영문/숫자 강제 줄바꿈 */
   white-space: pre-wrap;
@@ -769,7 +769,7 @@ body[data-page-orientation="portrait"] .scene-screen--pb.pb--split .pb-frame {
   /* W8 분할형 본문 빔 fix: 1 1 auto → 0 1 auto.
      본문 짧을 때 본문 영역이 4fr 영역을 안 채우고 본문 양만큼만 차지 →
      선택지가 본문 바로 아래 자연스럽게. 본문 길어지면 shrink + overflow-y: auto로 스크롤.
-     W9 글자 크기 fix: 슬라이더가 --pb-fs-body 변수 박는데 여기서 직접 clamp 박혀 있어 무시됨 → var fallback. */
+     W9 글자 크기 fix: 슬라이더가 --pb-fs-body 변수 설정하는데 여기서 직접 clamp 지정돼 있어 무시됨 → var fallback. */
   flex: 0 1 auto;
   min-height: 0;
   overflow-y: auto;
@@ -873,7 +873,7 @@ body[data-page-orientation="portrait"] .scene-screen--pb.pb--split .pb-frame {
   }
 
   /* === 5. pb-illust — height 명시 (자식 photo가 height:100%라 부모 명시 필수) ===
-     v59에서 max-height만 박았는데 base의 pb-illust__photo가 height:100%라
+     v59에서 max-height만 지정했는데 base의 pb-illust__photo가 height:100%라
      부모 의존 → circular → 둘 다 0 → 그림 사라짐. height 명시로 해결. */
   .scene-screen--pb.pb--split .pb-illust {
     height: 40vh;
@@ -1131,7 +1131,7 @@ body[data-page-orientation="portrait"] .scene-screen--pb.pb--split .pb-text__act
 }
 /* W8: disabled 시각 — 감상 모드에서만 옅게. 다듬기 모드는 작품 만드는 중이라
    미연결 선택지도 정상 시각 (사용자가 라벨·번호 진하게 보여야 작업 가능).
-   다듬기 진입점: stage에 .edit-mode-on 클래스 박힘 (viewer-render.js). */
+   다듬기 진입점: stage에 .edit-mode-on 클래스 추가됨 (viewer-render.js). */
 .choice-v03--picturebook:disabled {
   opacity: 0.65;  /* 50% → 65% — 너무 옅지 않게 */
   cursor: not-allowed;
@@ -1587,7 +1587,7 @@ body[data-page-orientation="portrait"] .scene-screen--movie[data-movie-deco="car
 /* ── 영상 후 노출 흐름 (4단계 보강) ──
    재생 전/중: data-played="false" → 결정 패널(.movie-decision) 통째 숨김.
    재생 후/영상 없음: data-played="true" → 정상 노출.
-   영상 없는 케이스는 viewer-render에서 즉시 "true"로 박혀 영향 없음.
+   영상 없는 케이스는 viewer-render에서 즉시 "true"로 설정돼 영향 없음.
 
    본문 ON/OFF 시각 분기 (data-body-enabled):
    · "on" : .movie-decision__desc 표시 (이미 _renderSceneMovie에서 body 있을 때만 HTML 생성)
@@ -2321,7 +2321,7 @@ body.edit-mode-active:not(.viewer-test-active) .scene-screen--movie[data-played=
   --font-stylish:    'Stylish', 'Gowun Batang', serif;
 }
 
-/* 사용자 스타일 적용 (CSS 변수로 inline 박힘) */
+/* 사용자 스타일 적용 (CSS 변수로 inline 적용) */
 .scene-screen--text .text-card {
   font-family: var(--text-ff, var(--font-gothic));
   font-weight: var(--text-weight, normal);
@@ -2995,7 +2995,7 @@ body.edit-mode-active:not(.viewer-test-active) .scene-screen--text .text-ending-
   border-width: 3px;
   box-shadow: 0 0 0 2px rgba(198,111,74,0.3);
 }
-/* v36: grid 안 (살색 옆) 박힘 — 다른 색 버튼과 동일 32×32 동그라미 + 점선(자유 색 표시). */
+/* v36: grid 안 (살색 옆) 배치 — 다른 색 버튼과 동일 32×32 동그라미 + 점선(자유 색 표시). */
 .edit-color-picker {
   width: 32px;
   height: 32px;
@@ -3279,7 +3279,7 @@ body[data-pb-theme="night-tale"] .scene-screen--pb {
   background-attachment: fixed;
   position: relative;
 }
-/* 별빛 layer (작은~큰 별 다양) — ::before로 박아 본 배경과 분리 */
+/* 별빛 layer (작은~큰 별 다양) — ::before로 얹어 본 배경과 분리 */
 body[data-pb-theme="night-tale"] .scene-screen--pb::before {
   content: '';
   position: absolute;
@@ -3337,7 +3337,7 @@ body[data-pb-theme="night-tale"] .scene-screen--pb .pb-page {
    DESIGN-SYSTEM-V1 D3 (2026-06-19): 그림책 신규 5스킨 1차
    ─────────────────────────────────────────────────────
    · 신규키(cozy/paper/gallery/forest/night-story)는 아직 어떤 작품에도 저장되지 않음
-     (JS는 기존 6키만 body[data-pb-theme]에 박음) → 이 CSS는 기존 작품에 회귀 0.
+     (JS는 기존 6키만 body[data-pb-theme]에 기록) → 이 CSS는 기존 작품에 회귀 0.
      legacy(classic-book 등) 매핑/새 UI 노출은 후속 단계.
    · "한 장의 동화책 페이지": picturebook-page=종이 표면 / scene-media-frame=그림 매트 /
      scene-narrative-panel=무배경 캡션 / choice=종이 라벨(번호·화살표 숨김).
@@ -3540,7 +3540,7 @@ body[data-pb-theme="night-story"] .choice-v03--picturebook:hover:not(:disabled) 
      제외(레이아웃 비율 무변경). 레거시 작품도 빈 슬롯이 생기지만 장식 CSS가 신규 5키 한정이라
      보이지 않음(회귀 0).
    · 장식은 page 모서리·가장자리 중심, pointer-events:none, 그림 본체 비침범(옅게).
-   · 엔딩: data-true-end(viewer-render.js가 scene.isTrueEnd로 박음) 기반 진엔딩 강조.
+   · 엔딩: data-true-end(viewer-render.js가 scene.isTrueEnd로 기록) 기반 진엔딩 강조.
    ════════════════════════════════════════════════════ */
 .scene-screen--pb .scene-ornaments {
   position: absolute; inset: 0; pointer-events: none; z-index: 2;
@@ -5321,7 +5321,7 @@ body.pb-image-editing .pb-illust {
   box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55);
 }
 /* W9 (v18): 사용자 결정 — 사진/handle이 인스펙터/HUD 위로도 나갈 수 있게.
-   chain 전체 overflow visible + stage-wrap z-index 박음. */
+   chain 전체 overflow visible + stage-wrap z-index 지정. */
 body.pb-image-editing #stage-wrap,
 body.pb-image-editing #viewer-frame,
 body.pb-image-editing .scene-screen,
@@ -5333,7 +5333,7 @@ body.pb-image-editing .pb-frame {
 body.pb-image-editing #stage-wrap {
   z-index: 999;
 }
-/* W9 (v10): 모드 A — 점선 박스를 사진 wrapper에 박음 (사진 자체 둘레) */
+/* W9 (v10): 모드 A — 점선 박스를 사진 wrapper에 부착 (사진 자체 둘레) */
 body.pb-image-editing--transform .pb-illust__photo {
   outline: 2px dashed rgba(255, 200, 100, 0.95);
   outline-offset: -1px;

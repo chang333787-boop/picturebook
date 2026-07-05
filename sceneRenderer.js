@@ -347,8 +347,8 @@ function _buildCardContentByType(s, ptype) {
 /* v37: 표지 카드 — 제목 + 한 줄 소개 + 표지 테마. 그림·선택지 없음.
    다른 장면 카드와 시각 구분: 보라 톤 + 책 표지 아이콘 + 다른 라벨 */
 function _buildCoverCardContent(s) {
-  /* v69: 브랜치(maker) 표지 카드 — 제목 + 한 줄 소개만 박기.
-     v67에서 박은 "색은 감상 화면 다듬기에서 박아요" hint 폐기 (사용자 요청). */
+  /* v69: 브랜치(maker) 표지 카드 — 제목 + 한 줄 소개만 표시.
+     v67에서 추가한 "색은 감상 화면 다듬기에서 정해요" hint 폐기 (사용자 요청). */
   return `
     <div class="card-body card-body--cover">
       <div class="cover-card-label">📖 책 표지</div>
@@ -979,7 +979,7 @@ function bindCardEvents(el, s) {
       el.style.left = sc.x + 'px';
       el.style.top  = sc.y + 'px';
     }
-    /* v119: 매 RAF마다 drawArrows 박지 X — 100ms throttle 박음 (병목 1순위 fix) */
+    /* v119: 매 RAF마다 drawArrows 호출 X — 100ms throttle 적용 (병목 1순위 fix) */
     _scheduleArrowDrawDuringDrag();
   });
 
@@ -996,7 +996,7 @@ function bindCardEvents(el, s) {
     dragState = null;
     /* ★ 그룹 이동 시 모든 장면 저장 (기존엔 시작 장면만 저장해서 좌표 반영 안 됨) */
     groupNums.forEach(n => pushToFirebase(n));
-    /* v119: 드래그 종료 시 최종 arrow 박음 (throttle 박힌 pending 박지 X 박음) */
+    /* v119: 드래그 종료 시 최종 arrow 그리기 (throttle에 걸린 pending을 기다리지 않고 즉시 실행) */
     _finalizeArrowDraw();
   });
 
@@ -1008,7 +1008,7 @@ function bindCardEvents(el, s) {
         dragState.nums.forEach(n => document.getElementById('card-'+n)?.classList.remove('group-selected'));
       el.classList.remove('dragging');
       dragState = null;
-      /* v119: cancel 시도 박은 후 최종 박음 — 박힌 위치 박은 거에 맞춰 선 박힘 */
+      /* v119: cancel 처리 후 최종 그리기 — 현재 카드 위치에 맞춰 선이 갱신됨 */
       _finalizeArrowDraw();
     }
   });
@@ -1205,10 +1205,10 @@ function getCardAt(clientX, clientY) {
   return null;
 }
 
-/* v119: 카드 드래그 중 drawArrows 박은 거 throttle (사용자 박은 A안).
-   옛엔 매 RAF(60fps)마다 전체 drawArrows 박힘 → 태블릿 프레임 박힘 (병목 1순위).
-   leading + trailing throttle 100ms. 드래그 종료 시 _finalizeArrowDraw로 최종 박음.
-   사용자 박은 의도: "카드가 손가락을 부드럽게 따라오는 게 우선, 선이 0.1초 늦어도 OK". */
+/* v119: 카드 드래그 중 drawArrows 호출 throttle (사용자가 선택한 A안).
+   옛엔 매 RAF(60fps)마다 전체 drawArrows 실행됨 → 태블릿 프레임 저하 (병목 1순위).
+   leading + trailing throttle 100ms. 드래그 종료 시 _finalizeArrowDraw로 최종 그리기.
+   사용자가 밝힌 의도: "카드가 손가락을 부드럽게 따라오는 게 우선, 선이 0.1초 늦어도 OK". */
 let _arrowDrawTimer = null;
 let _arrowDrawLastTime = 0;
 const ARROW_DRAW_THROTTLE_MS = 100;
@@ -1217,14 +1217,14 @@ function _scheduleArrowDrawDuringDrag() {
   const now = performance.now();
   const elapsed = now - _arrowDrawLastTime;
   if (elapsed >= ARROW_DRAW_THROTTLE_MS) {
-    /* leading edge — 즉시 박음 (drag 시작 직후 첫 박는 거 부드러움) */
+    /* leading edge — 즉시 실행 (drag 시작 직후 첫 갱신이 부드러움) */
     _arrowDrawLastTime = now;
     if (_arrowDrawTimer) { clearTimeout(_arrowDrawTimer); _arrowDrawTimer = null; }
     if (rafId) cancelAnimationFrame(rafId);
     rafId = requestAnimationFrame(() => { drawArrows(); rafId = null; });
     return;
   }
-  /* trailing edge — 박힌 throttle 안 박은 추가 호출은 묶음 */
+  /* trailing edge — throttle 구간 안에 들어온 추가 호출은 묶음 */
   if (_arrowDrawTimer) return;
   _arrowDrawTimer = setTimeout(() => {
     _arrowDrawTimer = null;
@@ -1234,7 +1234,7 @@ function _scheduleArrowDrawDuringDrag() {
   }, ARROW_DRAW_THROTTLE_MS - elapsed);
 }
 
-/* 드래그 종료 시 강제 박음 — pending throttle 박지 X */
+/* 드래그 종료 시 강제 실행 — pending throttle 기다리지 않음 */
 function _finalizeArrowDraw() {
   if (_arrowDrawTimer) { clearTimeout(_arrowDrawTimer); _arrowDrawTimer = null; }
   _arrowDrawLastTime = performance.now();

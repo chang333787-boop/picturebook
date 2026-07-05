@@ -180,18 +180,18 @@ function viewerTakeoverLock(num) {
   });
 }
 
-/* ── v116~v117: 강제 인수 — "내가 수정하기" 박힐 때만 호출 ──
-   policy: viewerTakeoverLock은 same-device만 박음 (정상). v116엔 'other'
-   분류(진짜 다른 사용자)도 사용자가 명시 confirm 박은 후 박을 수 있게 박음.
-   호출자(viewer-edit)가 박기 전 사용자에게 "다른 친구가 박는 중일 수 있어요"
-   안내 박은 후 호출.
+/* ── v116~v117: 강제 인수 — "내가 수정하기" 누를 때만 호출 ──
+   policy: viewerTakeoverLock은 same-device만 허용 (정상). v116엔 'other'
+   분류(진짜 다른 사용자)도 사용자가 명시 confirm 한 후 인수할 수 있게 허용.
+   호출자(viewer-edit)가 호출 전 사용자에게 "다른 친구가 수정하는 중일 수 있어요"
+   안내 표시 후 호출.
 
-   v117 강화 (학생들 "잠금 가져오기 실패" 박힘 사건 fix):
-   1. transaction 박기 전 anonymous auth 보장 — auth 없으면 Storage/RTDB write 거부
-   2. transaction 박지 X 박힌 경우 .set으로 직접 덮어쓰기 (한 번만) — 사용자가
-      confirm 박은 후라 race condition 위험 감수. transaction 박지 X 박는 흔한
+   v117 강화 (학생들 "잠금 가져오기 실패" 발생 사건 fix):
+   1. transaction 실행 전 anonymous auth 보장 — auth 없으면 Storage/RTDB write 거부
+   2. transaction 실패한 경우 .set으로 직접 덮어쓰기 (한 번만) — 사용자가
+      confirm 한 후라 race condition 위험 감수. transaction이 실패하는 흔한
       원인 = concurrent write/retry 한도/네트워크 timeout
-   3. 모든 단계 console.warn 상세 로그 — 다음 진단에 박을 수 있게 */
+   3. 모든 단계 console.warn 상세 로그 — 다음 진단에 활용할 수 있게 */
 async function viewerForceTakeoverLock(num) {
   const ctx = {
     num,
@@ -221,7 +221,7 @@ async function viewerForceTakeoverLock(num) {
     }
   } catch (e) {
     console.warn('[viewerForceTakeoverLock] auth 박지 못함', ctx, e);
-    /* auth 박지 못해도 일단 박음 — Firebase rules가 막으면 transaction에서 reject */
+    /* auth 확보하지 못해도 일단 진행 — Firebase rules가 막으면 transaction에서 reject */
   }
 
   const lockValue = {
@@ -230,7 +230,7 @@ async function viewerForceTakeoverLock(num) {
     lockedAt:   Date.now(),
   };
 
-  /* 2단계: transaction 박음 */
+  /* 2단계: transaction 실행 */
   const txOk = await new Promise(resolve => {
     let committed = false;
     let txError = null;
@@ -251,7 +251,7 @@ async function viewerForceTakeoverLock(num) {
     return true;
   }
 
-  /* 3단계: transaction 박지 X → .set으로 직접 덮어쓰기 (한 번만, fallback) */
+  /* 3단계: transaction 실패 → .set으로 직접 덮어쓰기 (한 번만, fallback) */
   console.warn('[viewerForceTakeoverLock] transaction 박지 X → .set fallback 시도', ctx);
   try {
     await viewerLockRef.child(num).set(lockValue);

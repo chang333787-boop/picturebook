@@ -873,11 +873,11 @@ body.edit-mode-active #stage-wrap {
   background: var(--surface, #fffaee);
 }
 
-/* v85: v82 박은 body[data-pb-theme] #stage-wrap 룰 폐기.
+/* v85: v82에서 넣은 body[data-pb-theme] #stage-wrap 룰 폐기.
    사용자 의도 재정정: letterbox(stage-wrap)는 warm paper(default), scene-screen만
    테마 색. 즉 페이지 카드 둘레 좁은 영역만 테마, 그 바깥 letterbox는 베이지.
    사용자 캡처 비교: 1번(원함) = letterbox warm paper, 2번(원치 X) = letterbox 테마.
-   v82~v84 박은 거 정정. */
+   v82~v84에서 넣은 것 정정. */
 
 /* ── viewer-frame: 16:9 작품 무대 ── */
 #viewer-frame {
@@ -918,10 +918,10 @@ body:not(.edit-mode-active) #viewer-frame {
 .scene-screen {
   /* v133: easing을 더 균등하게.
      옛 cubic-bezier(0.16, 1, 0.3, 1)은 강한 ease-out — 시간의 16~30% 구간에서
-     진행률 100%에 도달. 사용자가 "느림 박아도 처음에 휙 지나간다"고 느낀 정확한 원인.
+     진행률 100%에 도달. 사용자가 "느림으로 설정해도 처음에 휙 지나간다"고 느낀 정확한 원인.
      cubic-bezier(0.4, 0.0, 0.2, 1)은 Material Design standard easing — 시작·중간·끝
-     진행률이 균등하게 분포. 3500ms 박을 때 후반까지 천천히 진행되는 느낌 살아남.
-     fill-mode: both 박은 거 = 시작 전 from-state 박힘 + 끝난 후 to-state 머무름 (안전망). */
+     진행률이 균등하게 분포. 3500ms로 설정할 때 후반까지 천천히 진행되는 느낌 살아남.
+     fill-mode: both 지정 = 시작 전 from-state 유지 + 끝난 후 to-state 머무름 (안전망). */
   animation: sceneFadeIn var(--scene-trans-duration, 1400ms) cubic-bezier(0.4, 0.0, 0.2, 1) both;
   transform-origin: center center;
 }
@@ -934,7 +934,7 @@ body:not(.edit-mode-active) #viewer-frame {
 #viewer-frame[data-transition="flip3d"]   .scene-screen { animation-name: sceneFlip3d; }
 
 /* 1) fade — 기본 부드럽게.
-   v124: 빠름/느림 차이 체감 향상 — translateY 12px→24px + opacity 시작 더 늦게 박힘.
+   v124: 빠름/느림 차이 체감 향상 — translateY 12px→24px + opacity 시작 더 늦게 잡음.
    변화량 키워서 같은 duration에서도 속도 체감 ↑ (사용자 사건: 빠름/느림 차이 적음). */
 @keyframes sceneFadeIn {
   from { opacity: 0; transform: translateY(24px); }
@@ -956,7 +956,7 @@ body:not(.edit-mode-active) #viewer-frame {
 }
 
 /* 3) scale — 가운데에서 확대.
-   v124: 변화량 키움 0.88→0.78. duration 차이가 시각적으로 더 명확히 박힘. */
+   v124: 변화량 키움 0.88→0.78. duration 차이가 시각적으로 더 명확히 드러남. */
 @keyframes sceneScaleIn {
   from { opacity: 0; transform: scale(0.78); }
   to   { opacity: 1; transform: scale(1); }
@@ -969,8 +969,8 @@ body:not(.edit-mode-active) #viewer-frame {
 }
 
 /* 5) flip3d — 책 펴기 3D. v68: perspective를 parent로 분리 (안정적 3D).
-   keyframe transform에 perspective() 박으면 element 자체에 적용이라 효과 미묘.
-   parent #viewer-frame에 박아 자식 변환 3D 적용. */
+   keyframe transform에 perspective()를 넣으면 element 자체에 적용이라 효과 미묘.
+   parent #viewer-frame에 지정해 자식 변환 3D 적용. */
 #viewer-frame[data-transition="flip3d"] {
   perspective: 1500px;
   perspective-origin: 50% 50%;
@@ -985,7 +985,7 @@ body:not(.edit-mode-active) #viewer-frame {
 }
 
 /* v66: 옛 페이지 leaving — 두 layer overlap 효과.
-   .scene-screen.is-leaving 클래스 박힌 옛 페이지가 absolute로 떠 있고
+   .scene-screen.is-leaving 클래스가 붙은 옛 페이지가 absolute로 떠 있고
    새 페이지가 normal flow로 등장. 효과별 다른 keyframe 적용. */
 .scene-screen.is-leaving {
   position: absolute;
@@ -1052,9 +1052,9 @@ body:not(.edit-mode-active) #viewer-frame {
 
 /* v73: 속도는 CSS 변수 --text-ent-duration / --text-tw-step (JS가 slider 0~100 → ms 매핑).
    delay = var(--text-ent-start-delay) — 장면 전환 끝난 후 텍스트 등장 시작.
-   v127: 옛엔 delay = var(--scene-trans-duration). 느림(3500ms) 박은 거 = 본문 5초+ 박힘.
-   새 변수 --text-ent-start-delay 박음 (JS가 min(sceneTransMs, 2000ms) 박음).
-   미리보기에선 .preview-text-once 박은 element에 delay 0 강제 (별도 룰). */
+   v127: 옛엔 delay = var(--scene-trans-duration). 느림(3500ms) 설정 시 = 본문 5초+ 지연.
+   새 변수 --text-ent-start-delay 도입 (JS가 min(sceneTransMs, 2000ms)로 설정).
+   미리보기에선 .preview-text-once 붙은 element에 delay 0 강제 (별도 룰). */
 #viewer-frame[data-text-entrance]:not([data-text-entrance="none"]) .scene-screen--pb .pb-text__body,
 #viewer-frame[data-text-entrance]:not([data-text-entrance="none"]) .scene-screen--pb .cover-title-pb,
 #viewer-frame[data-text-entrance]:not([data-text-entrance="none"]) .scene-screen--pb .cover-subtitle-pb {
@@ -1109,8 +1109,8 @@ body:not(.edit-mode-active) #viewer-frame {
   100% { opacity: 1; transform: scale(1); }
 }
 
-/* 5) typewriter — JS가 .pb-text-typing 클래스 박고 글자 단위 <span class="tw-char"> 생성.
-   각 span은 inline opacity 0 → 1 stagger. animation-delay는 JS가 inline style로 박음.
+/* 5) typewriter — JS가 .pb-text-typing 클래스 붙이고 글자 단위 <span class="tw-char"> 생성.
+   각 span은 inline opacity 0 → 1 stagger. animation-delay는 JS가 inline style로 지정.
    본문 한 줄 전체에 효과 적용 (한 글자씩 등장). */
 #viewer-frame[data-text-entrance="typewriter"] .scene-screen--pb .pb-text__body,
 #viewer-frame[data-text-entrance="typewriter"] .scene-screen--pb .cover-title-pb,
@@ -1120,16 +1120,16 @@ body:not(.edit-mode-active) #viewer-frame {
 .tw-char {
   opacity: 0;
   animation: textTwChar 1ms linear forwards;
-  animation-delay: inherit; /* JS가 inline style로 박음 (per-span) */
+  animation-delay: inherit; /* JS가 inline style로 지정 (per-span) */
 }
 @keyframes textTwChar {
   to { opacity: 1; }
 }
 
 /* 다듬기 모드에선 텍스트 등장 효과 끔 — 입력 깜빡임 차단 (v07 동일 정책)
-   v72: .preview-text-once 박힌 element만 예외 — 표지 인스펙터에서 효과 미리보기.
-   v73: body.preview-active 박혔을 때만 .tw-char 차단 해제 (미리보기 1회 재생).
-   v128: viewer-test-active(감상 테스트) 박혔을 때도 예외 — 실제 감상과 동일 조건. */
+   v72: .preview-text-once 붙은 element만 예외 — 표지 인스펙터에서 효과 미리보기.
+   v73: body.preview-active 붙었을 때만 .tw-char 차단 해제 (미리보기 1회 재생).
+   v128: viewer-test-active(감상 테스트) 붙었을 때도 예외 — 실제 감상과 동일 조건. */
 #viewer-frame.edit-mode-on:not(.viewer-test-active) .scene-screen--pb .pb-text__body:not(.preview-text-once),
 #viewer-frame.edit-mode-on:not(.viewer-test-active) .scene-screen--pb .cover-title-pb:not(.preview-text-once),
 #viewer-frame.edit-mode-on:not(.viewer-test-active) .scene-screen--pb .cover-subtitle-pb:not(.preview-text-once),
@@ -1152,17 +1152,17 @@ body.edit-mode-active:not(.preview-active):not(.viewer-test-active) .tw-char {
   animation-duration: 1ms;
   animation-timing-function: linear;
   animation-fill-mode: forwards;
-  /* animation-delay는 inline style로 박힘 (JS가 글자별 stagger) */
+  /* animation-delay는 inline style로 지정됨 (JS가 글자별 stagger) */
 }
 
 /* v73: 미리보기 element는 장면 전환 delay 무시 — 즉시 효과 재생.
-   .preview-text-once 박은 .pb-text__body, .cover-title-pb, .cover-subtitle-pb는 delay 0. */
+   .preview-text-once 붙은 .pb-text__body, .cover-title-pb, .cover-subtitle-pb는 delay 0. */
 .preview-text-once {
   animation-delay: 0ms !important;
 }
 
 /* v72: 표지 인스펙터 미리보기 — 다듬기 차단 룰 일시 해제.
-   장면 전환 효과 미리보기: .scene-screen에 .preview-once 박으면 animation 1회 재생.
+   장면 전환 효과 미리보기: .scene-screen에 .preview-once 붙이면 animation 1회 재생.
    v73: 속도는 var(--scene-trans-duration) 상속. */
 #viewer-frame.edit-mode-on .scene-screen.preview-once,
 body.edit-mode-active .scene-screen.preview-once {
@@ -1181,7 +1181,7 @@ body.edit-mode-active .scene-screen.preview-once {
    ──────────────────────────────────────────────────────────────────
    사용자 결정: 행동 버튼 등장 효과는 설정 없음. 항상 텍스트 등장 끝난 후
    1500ms 부드러운 페이드인. 다듬기/감상 모두 적용 (다만 다듬기 모드에선 차단).
-   v127: delay = var(--text-ent-start-delay)(min 2초 clamp 박힌 거) + text-ent-total */
+   v127: delay = var(--text-ent-start-delay)(min 2초 clamp 적용값) + text-ent-total */
 .scene-screen--pb .pb-text__actions {
   animation: actionsFadeIn 1500ms cubic-bezier(0.16, 1, 0.3, 1) both;
   animation-delay: calc(var(--text-ent-start-delay, 1400ms) + var(--text-ent-total, 0ms));
@@ -1227,14 +1227,14 @@ body.edit-mode-active .scene-screen.preview-once {
   pointer-events: auto;
 }
 body.edit-mode-active .scene-screen--pb .pb-text__actions {
-  pointer-events: auto; /* 다듬기 모드 박혀있으면 항상 박음 */
+  pointer-events: auto; /* 다듬기 모드에선 항상 클릭 허용 */
 }
 @keyframes actionsFadeIn {
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 /* 다듬기 모드에선 행동 버튼 페이드 끔 (입력 깜빡임 차단). 미리보기 예외 X — 행동 버튼은 설정 없음.
-   v128: 감상 테스트(viewer-test-active) 박혔을 때는 페이드 재생 — 실제 감상과 동일 조건. */
+   v128: 감상 테스트(viewer-test-active) 붙었을 때는 페이드 재생 — 실제 감상과 동일 조건. */
 body.edit-mode-active:not(.viewer-test-active) .scene-screen--pb .pb-text__actions {
   animation: none !important;
   opacity: 1 !important;
@@ -1257,9 +1257,9 @@ body.edit-mode-active:not(.viewer-test-active) .scene-screen--pb .pb-text__actio
 /* W7 깜빡임 차단: 다듬기 모드에선 페이드인 끔.
    부분 패치로 대부분 처리되지만, 통째 재렌더 fallback 시에도 페이드인 안 보이게.
    다듬기는 입력이 잦은 상황이라 매번 fade-in이 깜빡임으로 체감됨.
-   v72: .preview-once 박힌 scene은 예외 — 표지 인스펙터 미리보기 1회 재생.
-   v128: viewer-test-active(감상 테스트) 박혔을 때 예외 — 실제 감상과 동일 조건으로
-         장면 전환 효과 재생. 사용자 사건: "느림으로 박아도 빠르게 넘어가는 인상" 원인. */
+   v72: .preview-once 붙은 scene은 예외 — 표지 인스펙터 미리보기 1회 재생.
+   v128: viewer-test-active(감상 테스트) 붙었을 때 예외 — 실제 감상과 동일 조건으로
+         장면 전환 효과 재생. 사용자 사건: "느림으로 설정해도 빠르게 넘어가는 인상" 원인. */
 #viewer-frame.edit-mode-on:not(.viewer-test-active) .scene-screen:not(.preview-once),
 body.edit-mode-active:not(.viewer-test-active) .scene-screen:not(.preview-once) {
   animation: none;
@@ -1691,7 +1691,7 @@ body[data-page-orientation="portrait"] #stage-wrap.letterbox-v #viewer-frame {
 }
 /* v88: 엔딩 행동 버튼이 세로로 길쭉하게 stretch되던 문제 fix.
    원인: v03-modes.css line 744 `.scene-screen--pb.pb--split .pb-text__actions`가
-   flex: 0 0 60% + align-items: stretch 박아서 일반 그림책 행동 버튼처럼 영역
+   flex: 0 0 60% + align-items: stretch를 지정해서 일반 그림책 행동 버튼처럼 영역
    60% 차지 + 버튼 cross-axis stretch. 엔딩은 행동 버튼이 자체 크기만 차지해야. */
 .scene-screen--pb.pb--split.ending-as-pb .pb-text__actions,
 .scene-screen--pb.pb--split.ending-as-pb .ending-actions {
@@ -1732,7 +1732,7 @@ body[data-page-orientation="portrait"] #stage-wrap.letterbox-v #viewer-frame {
 /* ─────────────────────────────────────────────────────────────
    v133: 엔딩 순차 등장 — terminal-step CSS variable 기반
    ─────────────────────────────────────────────────────────────
-   pb-text--ending에 inline style로 박힌 delay/duration 변수:
+   pb-text--ending에 inline style로 지정된 delay/duration 변수:
    --terminal-body-delay / --terminal-badge-delay / --terminal-stats-delay
    --terminal-actions-delay / --terminal-item-duration
 
@@ -1769,16 +1769,16 @@ body[data-page-orientation="portrait"] #stage-wrap.letterbox-v #viewer-frame {
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* 다듬기 모드 — 순차 등장 박지 X (인스펙터 박을 때 깜빡임 차단).
-   v128 viewer-test-active 박힌 경우(감상 테스트)는 정상 재생. */
+/* 다듬기 모드 — 순차 등장 재생 X (인스펙터 조작 시 깜빡임 차단).
+   v128 viewer-test-active 붙은 경우(감상 테스트)는 정상 재생. */
 body.edit-mode-active:not(.viewer-test-active) .pb-text--ending.is-edit-static .terminal-step {
   animation: none !important;
   opacity: 1 !important;
   transform: none !important;
 }
 
-/* 버튼 등장 전 클릭 차단 — is-locked 박힌 동안 pointer-events:none.
-   다듬기 모드 박힌 거(viewer-edit-readonly 박힌 거 박지 X)에선 즉시 클릭 가능. */
+/* 버튼 등장 전 클릭 차단 — is-locked 붙은 동안 pointer-events:none.
+   다듬기 모드(viewer-edit-readonly 붙은 경우 제외)에선 즉시 클릭 가능. */
 .pb-text--ending .ending-actions.is-locked {
   pointer-events: none;
 }
@@ -1953,7 +1953,7 @@ body[data-page-orientation="portrait"] .cover-page {
   inset: 0;
   background: var(--bg);
 }
-/* v37: 어두운 그라데이션 폐기 — warm paper 톤. 엔딩 페이지 카드 안에 박힘. */
+/* v37: 어두운 그라데이션 폐기 — warm paper 톤. 엔딩 페이지 카드 안에 담김. */
 .scene-bg-solid--ending  { background: var(--v03-card-bg, #fffaee); }
 .scene-bg-solid--explore { background: linear-gradient(135deg, #040d1a, #081428); }
 
@@ -3745,7 +3745,7 @@ body[data-page-orientation="portrait"] .terminal-screen--story .ending-page {
            .edit-submode-block--pb-tone (본문 카드 톤)
    특징:
    · wrapper가 이미 카드(background + border + padding)이므로,
-     헤더는 그 안에 평면적으로 박혀야 자연스러움.
+     헤더는 그 안에 평면적으로 놓여야 자연스러움.
    · 양옆 마감 테마의 .edit-pb-theme-toggle (흰 박스형)과 분리된 시스템.
    · 펼친 상태에서 헤더와 body가 같은 카드 안에서 점선으로 연결.
    · 접힌 상태에서는 헤더만 보이고 점선·여백 없음.
@@ -3800,7 +3800,7 @@ body[data-page-orientation="portrait"] .terminal-screen--story .ending-page {
 
 /* 2026-05-27 Phase 4-D-1: 우측 2단 (📝 내용) 접이식 wrapper.
    글자 스타일 카드(.edit-pb-inline-style) 톤 참고하되 더 컴팩트.
-   잠금 배너 아래 자연스러운 카드로 박혀, 그림책 일반/엔딩에서 접힘 default.
+   잠금 배너 아래 자연스러운 카드로 놓여, 그림책 일반/엔딩에서 접힘 default.
    표지 / 그림책 외 모드는 강제 펼침. */
 .edit-text-advanced-wrap {
   margin-top: 8px;
@@ -4599,7 +4599,7 @@ body[data-page-orientation="portrait"] .terminal-screen--story .ending-page {
   background: rgba(88,166,255,0.28);
   border-color: rgba(88,166,255,0.6);
 }
-/* v116: 강한 경고(other) 상태에도 두 버튼 박음 — 다시 확인 + 내가 수정하기 */
+/* v116: 강한 경고(other) 상태에도 두 버튼 표시 — 다시 확인 + 내가 수정하기 */
 .edit-lock-banner-actions {
   display: flex;
   gap: 8px;
@@ -6685,7 +6685,7 @@ body[data-page-orientation="portrait"] .terminal-screen--story .ending-page {
 @container textpage (aspect-ratio <= 210/297) {
   .scene-screen--text-paged .text-page { width: 100%; height: auto; }
 }
-/* v37: text-card 페이지 가득 박음 — inline style 무시 (사용자 textBox 비활성).
+/* v37: text-card 페이지 가득 채움 — inline style 무시 (사용자 textBox 비활성).
    다듬기·감상·태블릿·맥북 모두 동일 박스. */
 .scene-screen--text-paged .text-page .text-card {
   position: relative;
@@ -6759,7 +6759,7 @@ body[data-page-orientation="portrait"] .terminal-screen--story .ending-page {
 }
 .scene-screen--text .text-card {
   position: absolute;
-  /* JS가 inline style로 left/top/width/(height) 박음. transform으로 center 기준 */
+  /* JS가 inline style로 left/top/width/(height) 지정. transform으로 center 기준 */
   transform: translate(-50%, -50%);
   background: var(--v03-card-bg);
   color: var(--v03-fg);
@@ -7831,8 +7831,8 @@ body.viewer-edit-readonly .movie-tool-modal button:not(.movie-tool-close) {
   .pb-draw-footer-hint { text-align: center; }
 }
 
-/* v124c: 다듬기 화면 루트보기 CSS — maker.html에 박혀있던 거 viewer로 이전.
-   storyAnalyzer가 박는 HTML 클래스(.rt-*)에 스타일 박혀있어야 카드 박은 모양 정상. */
+/* v124c: 다듬기 화면 루트보기 CSS — maker.html에 있던 것을 viewer로 이전.
+   storyAnalyzer가 생성하는 HTML 클래스(.rt-*)에 스타일이 있어야 카드 모양 정상. */
 .rt-path { border-left:3px solid #e8d5f5; padding:4px 0 10px 12px; margin:8px 0; }
 .rt-path-label { font-family:'Jua',sans-serif;font-size:11px;color:#9b4dca;margin-bottom:4px; }
 .rt-path-steps { display:flex;flex-direction:column;gap:2px; }
@@ -7859,8 +7859,8 @@ body.viewer-edit-readonly .movie-tool-modal button:not(.movie-tool-close) {
 .rt-choice-line .rt-choice-text { display:inline; }
 
 /* ── v130: 루트보기 인라인 수정 — 본문/선택지 라벨 ──
-   ✎ 버튼: 평소엔 흐리게, hover/touch 박은 줄 박은 거에선 진하게.
-   _rtIsViewerEditable()=false면 ✎ 자체 박지 X (storyAnalyzer JS에서 박음). */
+   ✎ 버튼: 평소엔 흐리게, hover/touch 중인 줄에선 진하게.
+   _rtIsViewerEditable()=false면 ✎ 자체를 만들지 않음 (storyAnalyzer JS에서 생성). */
 .rt-inline-edit-btn {
   margin-left:auto; padding:2px 8px; font-size:12px; line-height:1;
   border:1px solid transparent; border-radius:6px;
@@ -7926,7 +7926,7 @@ body.viewer-edit-readonly .movie-tool-modal button:not(.movie-tool-close) {
 .rt-group[open] > summary { border-radius:10px 10px 0 0; }
 
 /* v119: 태블릿 다듬기 화면 작은 보강 (coarse pointer + 768~ ).
-   사용자 박은 명: "대규모 개편 X, 작은 보강만". 박은 거:
+   사용자 명령: "대규모 개편 X, 작은 보강만". 적용 내용:
    1. input/textarea/select 16px 보장 — iPad Safari/Android Chrome 자동 확대 차단
    2. 잠금 배너 버튼 터치 영역 min-height 40px
    3. 도구 패널 주요 버튼 최소 터치 영역

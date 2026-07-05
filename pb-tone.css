@@ -7,7 +7,7 @@
    원칙:
    1) 학생 그림(.pb-illust__photo img)에는 어떤 변형도 가지 X — filter/blend/opacity 금지.
    2) 행동버튼(.pb-text__actions, .pb-choice-*)에는 톤 영향 가지 X.
-   3) 옛 작품 보호: 톤 클래스가 박혀있지 않은 .pb-frame은 기존 viewer.css 그대로.
+   3) 옛 작품 보호: 톤 클래스가 붙어있지 않은 .pb-frame은 기존 viewer.css 그대로.
       → 모든 새 규칙은 [class*="pb-tone-color--"] selector로 한정.
    4) 본문 글자 크기·행간·폰트는 viewer.css 기존 .pb-text__body 규칙을 그대로 사용.
       여기서는 배경·테두리·그림자·구분선·외곽 공기·색만 조절.
@@ -143,8 +143,8 @@
 }
 
 /* v138-fix13 (v135-6): 노랑 + 3단계(tense) 재조정.
-   fix11에서 l-delta -0.035 박았는데, 4단계 crisis가 -0.025라 3단계가 더
-   어두움 — 단조 증가 깨짐. tense를 crisis보다 명도 밝게 + 채도 약하게 박음.
+   fix11에서 l-delta -0.035로 넣었는데, 4단계 crisis가 -0.025라 3단계가 더
+   어두움 — 단조 증가 깨짐. tense를 crisis보다 명도 밝게 + 채도 약하게 조정.
    외곽 변수도 함께 약화 (frame/vignette). */
 .pb-tone-color--yellow.pb-tone--tense {
   --pbt-t-l-delta: -0.015;         /* fix11 -0.035 → -0.015 (crisis -0.025보다 밝게) */
@@ -184,7 +184,7 @@
 
 /* v138-fix13 (v135-6): 흰색 + 3단계(tense) 신규 오버라이드.
    기본 tense는 l-delta -0.055·c-mul 1.15 → 흰색 crisis(l -0.030)보다
-   3단계가 더 어두움 — 단조 증가 깨짐. crisis보다 명도 밝게 박음. */
+   3단계가 더 어두움 — 단조 증가 깨짐. crisis보다 명도 밝게 조정. */
 .pb-tone-color--white.pb-tone--tense {
   --pbt-t-l-delta: -0.018;         /* 기본 -0.055 → -0.018 (crisis -0.030보다 밝게) */
   --pbt-t-c-mul: 1.00;             /* 기본 1.15 → 1.00 (베이지화 차단) */
@@ -195,7 +195,7 @@
 
 /* ════════════════════════════════════════════════════════════
    3) 본문 카드 톤 (일반 장면) — 기본/밝게/은은하게/차분하게/진하게
-      release/해소는 CSS에 남기지 않음 (UI 제외). 향후 추가 시 별도 박음.
+      release/해소는 CSS에 남기지 않음 (UI 제외). 향후 추가 시 별도 처리.
    ════════════════════════════════════════════════════════════ */
 .pb-tone--default {
   --pbt-t-l-delta: 0;       --pbt-t-c-mul: 1.00; --pbt-t-border-mul: 1.00; --pbt-t-border-l-delta: 0;
@@ -251,7 +251,7 @@
 }
 
 /* ════════════════════════════════════════════════════════════
-   5) 합성 — .pb-frame에 색계열·톤 클래스가 박혀있을 때만 변수 합성.
+   5) 합성 — .pb-frame에 색계열·톤 클래스가 붙어있을 때만 변수 합성.
       옛 작품(.pb-frame에 톤 클래스 없음)은 viewer.css 그대로.
    ════════════════════════════════════════════════════════════ */
 .scene-screen--pb .pb-frame[class*="pb-tone-color--"] {
@@ -330,7 +330,7 @@
 /* ════════════════════════════════════════════════════════════
    7) 본문 카드 렌더 — 배경/테두리/그림자만 조절.
       v138-fix4: .pb-text__inner 마크업 변경은 회귀(빈 공간 문제) 일으켜 revert.
-      마크업 변경 없이 CSS만으로 박는 옛 정책으로 복귀. 행동버튼 wrapper
+      마크업 변경 없이 CSS만으로 처리하는 옛 정책으로 복귀. 행동버튼 wrapper
       침범 차단은 아래 8) 가드레일에서 처리.
    ════════════════════════════════════════════════════════════ */
 .scene-screen--pb .pb-frame[class*="pb-tone-color--"] > .pb-text {
@@ -347,7 +347,7 @@
     box-shadow 0.45s ease;
 }
 /* 본문↔선택지 구분선 — 기존 .pb-text__actions-label 위쪽 1px 흐릿한 선처럼 보이게.
-   기존 viewer.css에 이 분리선이 별도로 박혀있으면 거기서 처리. 여기서는 안 박음. */
+   기존 viewer.css에 이 분리선이 별도로 정의돼 있으면 거기서 처리. 여기서는 안 넣음. */
 
 /* ════════════════════════════════════════════════════════════
    8) 가드레일 — 학생 그림 절대 보호. 행동버튼 톤 영향 차단.
@@ -368,21 +368,21 @@
   --pbt-card-shadow: initial;
 }
 
-/* v138-fix5 (v135-1-fix2): 행동버튼 wrapper(.pb-text__actions)에는 배경 박지 X.
-   fix4에서 박은 wrapper background가 카드 안 큰 흰 박스로 보여 디자인 망가짐.
+/* v138-fix5 (v135-1-fix2): 행동버튼 wrapper(.pb-text__actions)에는 배경 넣지 X.
+   fix4에서 넣은 wrapper background가 카드 안 큰 흰 박스로 보여 디자인 망가짐.
    사용자 명세 — wrapper는 투명, 카드 흐름 자연스럽게 이어지게. */
-/* (.pb-text__actions wrapper에는 background 박지 X — 카드 톤 색 비침. 자연스러움) */
+/* (.pb-text__actions wrapper에는 background 넣지 X — 카드 톤 색 비침. 자연스러움) */
 
 /* v138-fix15 (v135-5): 실제 행동버튼 자체 배경 공통 보정.
    원인: viewer.css의 .choice-v03--picturebook[data-pb-color="N"] 배경이
    rgba(...,0.06) — alpha 0.06이라 사실상 투명. 카드 톤 색 비침.
 
-   fix7 옛 정책: 색계열별로 옅은 색(#f4f8f1·#f1f4f9·#faf3ee) 박았는데
+   fix7 옛 정책: 색계열별로 옅은 색(#f4f8f1·#f1f4f9·#faf3ee)을 넣었는데
    사용자 보니 카드 톤에 묻혀 보임. 공통 거의 흰색(#fffdf8)으로 통합 —
    카드 톤 어떤 색이든 버튼이 또렷한 독립 UI로 보임.
 
    유지: border-color (1=초록/2=파랑/3=코랄), 번호 원 색, 화살표, 그림자,
-   크기, 위치 — viewer.css 박힌 값 그대로 (덮어쓰기 X). 버튼 정체성 유지.
+   크기, 위치 — viewer.css에 정의된 값 그대로 (덮어쓰기 X). 버튼 정체성 유지.
 
    selector specificity (0,0,4,0) > viewer.css (0,0,2,0) — 모든 색계열·
    data-pb-color에 우선 적용. data-pb-color 분기 selector 없앰 — 공통 1개.
@@ -400,15 +400,15 @@
 /* ════════════════════════════════════════════════════════════
    8-A) 그림 중심형(imageCenter) 톤 적용 — v138-fix14 (v135-4)
    ────────────────────────────────────────────────────────────
-   분할형(.pb--split)에는 7) 섹션에서 .pb-text에 카드 효과 박음. 그림 중심형
-   (.pb--imagecenter)은 본문이 .pb-stage__body-overlay 글상자에 박혀있어
+   분할형(.pb--split)에는 7) 섹션에서 .pb-text에 카드 효과 적용. 그림 중심형
+   (.pb--imagecenter)은 본문이 .pb-stage__body-overlay 글상자에 담겨있어
    다른 처리. 사용자 명세 — 그림이 주인공이라 외곽 강도 약화 (분할형 대비 30%).
 
    적용 정책:
    1) .pb-frame 외곽 공기감 강도 약화 — background mix 30% / 비네팅 opacity 0.3
    2) 본문 글상자(.pb-stage__body-overlay)는 사용자 backdropOpacity 보존 —
-      background 자체는 안 건드림. 테두리·그림자만 톤 색 박음 (선택)
-   3) 행동버튼 보호 — 분할형과 동일 (.choice-v03--picturebook 자체에 박힌
+      background 자체는 안 건드림. 테두리·그림자만 톤 색 적용 (선택)
+   3) 행동버튼 보호 — 분할형과 동일 (.choice-v03--picturebook 자체에 정의된
       배경/테두리/번호 원이 톤 영향 안 받음)
    4) 학생 그림(.pb-illust__photo) — 가드레일 그대로 (filter:none !important)
    ════════════════════════════════════════════════════════════ */
@@ -424,7 +424,7 @@
   opacity: 0.3;
 }
 
-/* v138-fix16 (v135-6 마지막 보정): fix14에서 .pb-stage__body-overlay에 박은
+/* v138-fix16 (v135-6 마지막 보정): fix14에서 .pb-stage__body-overlay에 넣은
    1px solid var(--pbt-card-border) 규칙 제거. 그림 중심형에서 본문 글상자
    테두리가 어색하게 보임(차분한 파랑인데 다른 색으로 보임 — sketch-note
    테마/다듬기 outline 등 다른 요소와 시각 충돌).
@@ -433,7 +433,7 @@
    color-mix + 비네팅 약화). 본문 글상자는 사용자가 backdropOpacity로
    직접 조절 — 톤 영향 X. 사용자 명세 "그림 중심형은 분할형보다 약하게"
    부합. 분할형 본문 카드(.pb-text) 톤 적용은 그대로 유지. */
-/* (.pb-stage__body-overlay에는 톤 박지 X — viewer.css 그대로) */
+/* (.pb-stage__body-overlay에는 톤 적용 X — viewer.css 그대로) */
 
 /* 학생 그림 보호 — 분할형 가드레일 강화. imageCenter에서 그림이 핵심. */
 .scene-screen--pb.pb--imagecenter .pb-frame[class*="pb-tone-color--"]
@@ -462,7 +462,7 @@
 /* 2026-05-27: 본문 카드 톤 펼침 body 내부 묶음 간격.
    옛엔 부모 flex가 아니라 row들이 거의 붙어 보였음.
    .edit-tone-row 세 묶음(스타일/색계열/톤 또는 엔딩 마감톤) 사이를
-   12px로 박음 — 촘촘함 해소 + 태블릿 세로 부담 최소. */
+   12px로 지정 — 촘촘함 해소 + 태블릿 세로 부담 최소. */
 .edit-pb-tone-body {
   display: flex;
   flex-direction: column;

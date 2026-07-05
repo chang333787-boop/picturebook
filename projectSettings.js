@@ -120,8 +120,8 @@ async function handleCoverImageUpload(input) {
       throw new Error('업로드 유틸을 사용할 수 없어요');
     }
     const dataUrl = await compressFileForUpload(file);
-    /* v114: 표지도 Storage 업로드 후 URL 박음. base64로 viewer-meta에 박으면 폭탄.
-       sceneNum 대신 '_cover'로 박음 — _imageStoragePath가 그대로 박힘. */
+    /* v114: 표지도 Storage 업로드 후 URL 저장. base64로 viewer-meta에 넣으면 폭탄.
+       sceneNum 대신 '_cover'로 전달 — _imageStoragePath가 그대로 쓰임. */
     let coverUrl;
     try {
       const r = await uploadImageToStorage(dataUrl, '_cover');

@@ -140,9 +140,9 @@ function findAllRoutes(startNum = null) {
     }
 
     branches.forEach((br, brIdx) => {
-      /* v130: 인라인 수정 박은 거 위해 choiceIndex + fromSceneNum 박음.
-         legacy nextA/B 분기는 buttonsList 박지 X 박힌 경우 — choiceIndex는
-         portChar('A'=0,'B'=1)로 매핑. 박은 거 분기는 buttonsList 박은 idx 그대로. */
+      /* v130: 인라인 수정을 위해 choiceIndex + fromSceneNum 기록.
+         legacy nextA/B 분기는 buttonsList가 없는 경우 — choiceIndex는
+         portChar('A'=0,'B'=1)로 매핑. buttons[] 분기는 buttonsList의 idx 그대로. */
       const choiceIdx = (buttonsList.length > 0)
         ? brIdx
         : (br.portChar === 'A' ? 0 : br.portChar === 'B' ? 1 : 0);
@@ -341,11 +341,11 @@ function _rtEsc(s) {
 }
 
 /* ── 장면 한 줄 미리보기 텍스트 (v118: 본문 우선, title은 fallback) ──
-   사용자 박은 명: 루트보기에 보이는 거 = 본문(body) 요약이어야. 옛엔 title만 박음
-   → 학생들이 body 박은 후에도 '(내용 없음)' 박혀있었음.
+   사용자 명령: 루트보기에 보이는 것 = 본문(body) 요약이어야. 옛엔 title만 표시
+   → 학생들이 body를 적은 후에도 '(내용 없음)'으로 남아 있었음.
    분기:
-   · 표지(cover): title 또는 subtitle 박음 (cover엔 body 없음)
-   · 일반/엔딩: body 우선, body 박지 X면 title (legacy 호환 — 옛 작품 title에 본문 박힌 경우) */
+   · 표지(cover): title 또는 subtitle 사용 (cover엔 body 없음)
+   · 일반/엔딩: body 우선, body 없으면 title (legacy 호환 — 옛 작품은 title에 본문을 적은 경우) */
 function _rtPreviewText(scene) {
   if (!scene) return '(내용 없음)';
   const isCover = (scene.type === 'cover' || scene.isCover);
@@ -379,17 +379,17 @@ function _rtCurrentStart() {
 }
 
 /* ── v130: 인라인 수정 가능 여부 판단 ──
-   viewer-edit 환경(ViewerState + _queueSave + _editText)에서만 박힘.
-   _editText.editable=true 박힌 경우만 ✎ 박음. 잠금/내가 수정하기 전엔 박지 X.
-   maker 환경에선 _editText 박지 X — false 박힘 (v130 = viewer-edit 한정).
-   v134: body.viewer-edit-readonly 박힌 경우 추가 차단 (v129 정책 정합).
-         두 검사 모두 통과해야 ✎ 박음 — 안전망 강화. */
+   viewer-edit 환경(ViewerState + _queueSave + _editText)에서만 동작.
+   _editText.editable=true인 경우만 ✎ 표시. 잠금/내가 수정하기 전엔 표시 안 함.
+   maker 환경에선 _editText가 없음 — false 반환 (v130 = viewer-edit 한정).
+   v134: body.viewer-edit-readonly가 있는 경우 추가 차단 (v129 정책 정합).
+         두 검사 모두 통과해야 ✎ 표시 — 안전망 강화. */
 function _rtIsViewerEditable() {
   if (typeof window === 'undefined') return false;
   if (typeof window.ViewerState === 'undefined') return false;
   if (typeof window._editText === 'undefined') return false;
   if (typeof window._queueSave !== 'function' && typeof window.saveSceneText !== 'function') return false;
-  /* v134: body class 박힌 경우 차단 (v129 readonly 정책 일관) */
+  /* v134: body class가 있는 경우 차단 (v129 readonly 정책 일관) */
   if (typeof document !== 'undefined' && document.body &&
       document.body.classList.contains('viewer-edit-readonly')) {
     return false;
@@ -398,9 +398,9 @@ function _rtIsViewerEditable() {
 }
 
 /* ── v130: 본문/행동버튼 저장 라우터 ──
-   현재 다듬기 중인 장면이면 _queueSave (debounce + 잠금 heartbeat 박힘).
-   다른 장면이면 saveSceneText 직접 호출 (debounce 박지 X — blur 후 1회만 박음).
-   v134: 저장 실패 시 onFailure 콜백 호출 — 호출자가 메모리 롤백 + 화면 안내 박을 수 있게. */
+   현재 다듬기 중인 장면이면 _queueSave (debounce + 잠금 heartbeat 포함).
+   다른 장면이면 saveSceneText 직접 호출 (debounce 없음 — blur 후 1회만 저장).
+   v134: 저장 실패 시 onFailure 콜백 호출 — 호출자가 메모리 롤백 + 화면 안내를 할 수 있게. */
 function _rtPersistSave(sceneNum, fields, onFailure) {
   const num = Number(sceneNum);
   const editingNum = (window._editText && window._editText.num != null)
@@ -422,8 +422,8 @@ function _rtPersistSave(sceneNum, fields, onFailure) {
   }
 }
 
-/* ── v130: 메모리 상태 동기화 (window.scenes + ViewerState.scenes 둘 다 박음) ──
-   viewer-edit의 adapter는 ViewerState.scenes → window.scenes로 박는데 spread라
+/* ── v130: 메모리 상태 동기화 (window.scenes + ViewerState.scenes 둘 다 갱신) ──
+   viewer-edit의 adapter는 ViewerState.scenes → window.scenes로 복사하는데 spread라
    객체가 다름. 따라서 두 곳 모두 갱신해야 다음 렌더가 정합. */
 function _rtSyncSceneField(sceneNum, fieldName, value) {
   if (typeof scenes !== 'undefined' && scenes[sceneNum]) {
@@ -440,8 +440,8 @@ function _rtSyncSceneField(sceneNum, fieldName, value) {
 /* ── v130: 본문 저장 — 인라인 textarea blur/Enter 후 호출 ──
    v134: 저장 실패 시 메모리/패널/viewer-frame 모두 옛 값으로 롤백 — 화면-DB 불일치 차단. */
 function _rtSaveBody(sceneNum, value) {
-  /* v127 정책 유지: trim 박지 X — \n\n 등 줄바꿈 그대로 보존 */
-  /* v134: 옛 값 박은 거 박은 후 롤백용으로 보관 */
+  /* v127 정책 유지: trim 하지 않음 — \n\n 등 줄바꿈 그대로 보존 */
+  /* v134: 옛 값을 저장 전에 롤백용으로 보관 */
   const prevBody = (typeof scenes !== 'undefined' && scenes[sceneNum])
     ? String(scenes[sceneNum].body || '') : '';
 
@@ -461,7 +461,7 @@ function _rtSaveBody(sceneNum, value) {
         bodyInput2.value = prevBody;
       }
     }
-    /* 루트보기 통째 재렌더 — 같은 sceneId 박힌 곳 다 옛 값으로 */
+    /* 루트보기 통째 재렌더 — 같은 sceneId가 쓰인 곳 모두 옛 값으로 */
     if (typeof renderRoutePanel === 'function') renderRoutePanel();
   });
 
@@ -471,7 +471,7 @@ function _rtSaveBody(sceneNum, value) {
   if (editingNum === Number(sceneNum) && typeof window._patchSceneBody === 'function') {
     window._patchSceneBody(value);
   }
-  /* 다듬기 패널 본문 textarea 갱신 (사용자가 박은 거 X 박은 동안만) */
+  /* 다듬기 패널 본문 textarea 갱신 (사용자가 입력 중이 아닐 때만) */
   const panel = document.getElementById('edit-panel');
   if (panel && editingNum === Number(sceneNum)) {
     const bodyInput = panel.querySelector('.js-edit-body');
@@ -511,12 +511,12 @@ function _rtSaveChoiceLabel(sceneNum, choiceIdx, value) {
     if (!Array.isArray(s.buttons)) s.buttons = [];
     while (s.buttons.length <= idx) s.buttons.push({ label: '', nextId: null });
     s.buttons[idx] = { ...(s.buttons[idx] || {}), label: value };
-    /* choiceA/B 호환 동기화 (maker UI가 박은 거) */
+    /* choiceA/B 호환 동기화 (maker UI가 사용하는 필드) */
     if (idx === 0) s.choiceA = value;
     if (idx === 1) s.choiceB = value;
   }
 
-  /* ViewerState.scenes 동기화 — adapter가 choices 박은 거 사용 */
+  /* ViewerState.scenes 동기화 — adapter가 choices 배열을 사용 */
   if (typeof window !== 'undefined' && window.ViewerState && window.ViewerState.scenes) {
     const vs = window.ViewerState.scenes[String(num)];
     if (vs && Array.isArray(vs.choices) && vs.choices[idx]) {
@@ -524,7 +524,7 @@ function _rtSaveChoiceLabel(sceneNum, choiceIdx, value) {
     }
   }
 
-  /* Firebase 저장 — buttons 전체 + choiceA/B 동기화 (viewer-data.js ALLOWED 박힘) */
+  /* Firebase 저장 — buttons 전체 + choiceA/B 동기화 (viewer-data.js ALLOWED에 포함됨) */
   const buttons = (typeof scenes !== 'undefined' && scenes[num] && Array.isArray(scenes[num].buttons))
     ? scenes[num].buttons : [];
   const patch = { buttons };
@@ -561,7 +561,7 @@ function _rtSaveChoiceLabel(sceneNum, choiceIdx, value) {
   });
 
   /* viewer-frame 현재 장면이면 통째 재렌더 — 행동버튼 라벨 patch 없음.
-     _patchSceneBody 같은 부분 patch 박지 X — 통째 재렌더 박음. */
+     _patchSceneBody 같은 부분 patch가 없어 통째 재렌더로 처리. */
   const editingNum = (window._editText && window._editText.num != null)
     ? Number(window._editText.num) : null;
   if (editingNum === num && typeof window._scheduleViewerFrameReRender === 'function') {
@@ -583,13 +583,13 @@ function _rtEnterEditBody(sceneLine) {
   if (!_rtIsViewerEditable()) return;
   const num = Number(sceneLine.dataset.num);
   if (!Number.isFinite(num) || !scenes[num]) return;
-  /* 이미 편집 중인 textarea 있으면 중복 박지 X */
+  /* 이미 편집 중인 textarea 있으면 중복 진입 안 함 */
   if (sceneLine.querySelector('.rt-inline-body-editor')) return;
 
   const scene = scenes[num];
   const original = String(scene.body || '');
 
-  /* 기존 prefix/text/✎ 숨기고 textarea + 저장/취소 박음 */
+  /* 기존 prefix/text/✎ 숨기고 textarea + 저장/취소 버튼 표시 */
   const prefixEl = sceneLine.querySelector('.rt-scene-prefix');
   const textEl   = sceneLine.querySelector('.rt-scene-text');
   const editBtn  = sceneLine.querySelector('.js-rt-edit-body');
@@ -610,7 +610,7 @@ function _rtEnterEditBody(sceneLine) {
 
   const ta = wrap.querySelector('.rt-inline-body-editor');
   ta.focus();
-  /* 커서 끝으로 박음 */
+  /* 커서를 끝으로 이동 */
   try { ta.setSelectionRange(ta.value.length, ta.value.length); } catch (e) { /* noop */ }
 }
 
@@ -653,10 +653,10 @@ function _rtFinishEditBody(sceneLine, save) {
   if (!ta) return;
   const num = Number(ta.dataset.sceneNum);
   if (save && Number.isFinite(num)) {
-    /* v127 정책 — textarea.value 그대로 (trim 박지 X) */
+    /* v127 정책 — textarea.value 그대로 (trim 하지 않음) */
     _rtSaveBody(num, ta.value);
   }
-  /* 통째 재렌더 — 같은 sceneId 박힌 모든 곳 자동 갱신 */
+  /* 통째 재렌더 — 같은 sceneId가 쓰인 모든 곳 자동 갱신 */
   renderRoutePanel();
 }
 
@@ -672,7 +672,7 @@ function _rtFinishEditChoice(choiceLine, save) {
 }
 
 /* ── 경로 단락 HTML 생성 ──
-   v130: 본문/행동버튼 라벨 인라인 수정 박음. viewer-edit 환경 + editable일 때만 ✎ 버튼 표시. */
+   v130: 본문/행동버튼 라벨 인라인 수정 추가. viewer-edit 환경 + editable일 때만 ✎ 버튼 표시. */
 function _rtPathHtml(path, pathIndex) {
   const canEdit = _rtIsViewerEditable();
   let body = '';
@@ -687,7 +687,7 @@ function _rtPathHtml(path, pathIndex) {
     }
     if (step.choice !== undefined) {
       const lbl = step.choiceLabel || (step.choice === '→' ? '다음으로' : `선택지 ${step.choice}`);
-      /* v130: 선택지 라벨 인라인 수정 박음. fromSceneNum + choiceIndex 박힘 */
+      /* v130: 선택지 라벨 인라인 수정. fromSceneNum + choiceIndex가 담겨 있음 */
       const editBtn = (canEdit && step.fromSceneNum != null && step.choiceIndex != null)
         ? `<button class="rt-inline-edit-btn js-rt-edit-choice"
              data-scene-num="${step.fromSceneNum}" data-choice-index="${step.choiceIndex}"
@@ -706,7 +706,7 @@ function _rtPathHtml(path, pathIndex) {
     const prefix  = _rtScenePrefix(s);
     const preview = _rtPreviewText(s);
     const cls     = isEnd ? 'rt-scene-line rt-scene-line--ending' : 'rt-scene-line';
-    /* v130: 본문 수정 ✎ 박음. 표지·엔딩도 본문 박을 수 있게 박음 (단 표지는 body 없으면 빈 textarea) */
+    /* v130: 본문 수정 ✎ 표시. 엔딩도 본문 수정 가능 — 표지는 제외 (body가 없어 빈 textarea가 되므로) */
     const isCover = (s.type === 'cover' || s.isCover);
     const editBodyBtn = (canEdit && !isCover)
       ? `<button class="rt-inline-edit-btn js-rt-edit-body"
@@ -757,8 +757,8 @@ function _rtGroupByEnding(routes) {
     return 0;
   });
 
-  /* v134: 일반 엔딩 박은 거 박힌 순서대로 1, 2, 3 번호 부여. 진엔딩은 별도 ⭐ 라벨.
-     사용자 의도: "엔딩 1 · 장면 5" 박은 형식 — 옛 "장면 5 · 장면 5" 중복 박은 거 해소. */
+  /* v134: 일반 엔딩은 정렬된 순서대로 1, 2, 3 번호 부여. 진엔딩은 별도 ⭐ 라벨.
+     사용자 의도: "엔딩 1 · 장면 5" 형식 — 옛 "장면 5 · 장면 5" 중복 표기 해소. */
   let ordinaryEndingCount = 0;
   keys.forEach(k => {
     const rs = groups.get(k);
@@ -768,7 +768,7 @@ function _rtGroupByEnding(routes) {
       const isTrue = !!sc?.trueEnding;
       /* 일반 엔딩만 번호 부여 (진엔딩은 ⭐) */
       if (!isTrue) ordinaryEndingCount += 1;
-      /* icon은 헤더 렌더에서 별도 ⭐/🏁 박음 — title에는 박지 X (중복 방지) */
+      /* icon은 헤더 렌더에서 별도 ⭐/🏁 표시 — title에는 넣지 않음 (중복 방지) */
       const title = isTrue ? '진엔딩' : `엔딩 ${ordinaryEndingCount}`;
       result.push({
         key: k,
@@ -903,9 +903,9 @@ function renderRoutePanel() {
 }
 
 /* ── 장면 카드로 점프 ──
-   v134: 환경 분기 — viewer-edit(다듬기)에서 박힌 경우 editNavigateTo로 다듬기 패널 진입.
-   v136: 진단 로그 박음 — 어디서 막히는지 콘솔에서 확인 가능.
-         + viewer-edit 박혀있어 보이는데 editNavigateTo 박지 X 박혔으면 fallback으로
+   v134: 환경 분기 — viewer-edit(다듬기)에서 열린 경우 editNavigateTo로 다듬기 패널 진입.
+   v136: 진단 로그 추가 — 어디서 막히는지 콘솔에서 확인 가능.
+         + viewer-edit 환경으로 보이는데 editNavigateTo가 없으면 fallback으로
          ViewerState.currentSceneId + renderCurrentScene 직접 호출. */
 function _rtJumpToCard(num) {
   const _hasViewer = typeof window !== 'undefined' && typeof window.ViewerState !== 'undefined';
@@ -914,7 +914,7 @@ function _rtJumpToCard(num) {
   const _sceneOK = _hasViewer && window.ViewerState && window.ViewerState.scenes &&
                    window.ViewerState.scenes[String(num)];
 
-  /* v136 진단 로그 — 사용자가 콘솔에서 확인 박을 수 있게 */
+  /* v136 진단 로그 — 사용자가 콘솔에서 확인할 수 있게 */
   try {
     console.log('[rt jump v136]', {
       num,
@@ -928,7 +928,7 @@ function _rtJumpToCard(num) {
     });
   } catch (e) { /* noop */ }
 
-  /* viewer-edit 환경 — editNavigateTo 박혀있고 sceneId 박혀있으면 그대로 호출 */
+  /* viewer-edit 환경 — editNavigateTo가 있고 sceneId가 유효하면 그대로 호출 */
   if (_hasEditNav && _sceneOK) {
     closeRoutePanel();
     requestAnimationFrame(() => {
@@ -942,7 +942,7 @@ function _rtJumpToCard(num) {
     return;
   }
 
-  /* v136 fallback: viewer 환경 박혀있는데 editNavigateTo 박지 X 박힌 경우
+  /* v136 fallback: viewer 환경인데 editNavigateTo가 없는 경우
      — ViewerState.currentSceneId + renderCurrentScene 직접 호출 */
   if (_hasViewer && _sceneOK && _hasRender) {
     closeRoutePanel();
@@ -1000,7 +1000,7 @@ function _rtBindRouteEvents() {
   /* 장면 줄 → 카드 점프 + v130 인라인 편집 */
   if (content) {
     content.addEventListener('click', e => {
-      /* v130: ✎ 본문 수정 — scene 카드 점프보다 우선 박음 */
+      /* v130: ✎ 본문 수정 — scene 카드 점프보다 우선 처리 */
       const editBodyBtn = e.target.closest('.js-rt-edit-body');
       if (editBodyBtn) {
         e.stopPropagation();
@@ -1044,10 +1044,10 @@ function _rtBindRouteEvents() {
       }
       /* 인라인 editor 안 클릭은 무시 (textarea/input 자체) */
       if (e.target.closest('.rt-inline-editor-wrap')) return;
-      /* v135-fix: scene 카드 전체 클릭 영역으로 확장 — 옛엔 .rt-scene-text만 박혀
-         사용자가 prefix/여백 박은 영역 클릭하면 동작 X 박혔음.
-         이제 .js-rt-scene 박힌 카드 전체 영역 어디 클릭해도 점프.
-         (✎ 박은 거 위쪽 핸들러에서 stopPropagation 박혀 충돌 X) */
+      /* v135-fix: scene 카드 전체 클릭 영역으로 확장 — 옛엔 .rt-scene-text만 반응해
+         사용자가 prefix/여백 영역을 클릭하면 동작하지 않았음.
+         이제 .js-rt-scene 카드 전체 영역 어디를 클릭해도 점프.
+         (✎ 버튼은 위쪽 핸들러에서 stopPropagation 처리돼 충돌 X) */
       const line = e.target.closest('.js-rt-scene');
       if (line) {
         const n = Number(line.dataset.num);

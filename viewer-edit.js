@@ -24,8 +24,8 @@ const _editText = {
   lockHandlerInstalled: false,
   saveStatusTimer: null,
 };
-/* v134: 다른 스크립트(특히 storyAnalyzer.js의 _rtIsViewerEditable) 박은 거 박을 수 있게
-   window에 명시적으로 노출. const 선언은 script-level scope라 자동으로 window에 박지 X 박은 거 —
+/* v134: 다른 스크립트(특히 storyAnalyzer.js의 _rtIsViewerEditable)가 참조할 수 있게
+   window에 명시적으로 노출. const 선언은 script-level scope라 자동으로 window에 잡히지 않음 —
    v130 루트보기 인라인 수정 ✎ 버튼이 안 보이던 진짜 원인. */
 if (typeof window !== 'undefined') {
   window._editText = _editText;
@@ -268,8 +268,8 @@ async function viewerUploadVideoToStorage(file, sceneNum, opts) {
 /* ================================================================
    v114: 이미지 업로드 (viewer 쪽 자체 정의)
    ─────────────────────────────────────────────────────────────
-   배경: 다듬기 모드에서 박는 이미지 업로드 흐름 (그림책 그림 / 무비 포스터 /
-   그림 그리기 캔버스 저장)이 옛엔 base64 → RTDB 박음. v114부터 Storage 박음.
+   배경: 다듬기 모드에서 일어나는 이미지 업로드 흐름 (그림책 그림 / 무비 포스터 /
+   그림 그리기 캔버스 저장)이 옛엔 base64 → RTDB 저장. v114부터 Storage 사용.
    firebase.js의 uploadImageToStorage와 같은 패턴 — viewer named app 사용.
    값 일치 유지 책임: firebase.js _imageStoragePath / uploadImageToStorage와 동기.
    ──────────────────────────────────────────────────────────────── */
@@ -366,9 +366,9 @@ async function viewerUploadImageToStorage(input, sceneNum, opts) {
     cacheControl: 'public, max-age=31536000',
   });
 
-  /* 2026-05-22 fix: GCS direct URL은 신규 업로드 시 public ACL이 박지 X
-     박혀서 HTTP 403 박힘 (옛 마이그 작품만 ACL 박혀있음).
-     ref.getDownloadURL()로 토큰 박힌 Firebase Storage URL을 받아 어디서든 접근 가능. */
+  /* 2026-05-22 fix: GCS direct URL은 신규 업로드 시 public ACL이 없어서
+     HTTP 403이 남 (옛 마이그 작품만 ACL이 걸려 있음).
+     ref.getDownloadURL()로 토큰이 포함된 Firebase Storage URL을 받아 어디서든 접근 가능. */
   let downloadURL;
   try {
     downloadURL = await ref.getDownloadURL();
@@ -553,7 +553,7 @@ function _patchTextStyle() {
   if (!scene) return false;
   const style = (typeof getTextStyle === 'function') ? getTextStyle(scene) : (scene.textStyle || {});
   /* 2026-05-31 Text-3A: 라이브 패치 CSS 변수 이름을 렌더(_renderSceneText)/CSS와 일치시킴.
-     옛 패치는 CSS가 안 읽는 이름(--text-font-family / --text-fw-body)에 박아서 폰트·굵기
+     옛 패치는 CSS가 안 읽는 이름(--text-font-family / --text-fw-body)에 값을 써서 폰트·굵기
      즉시 반영이 안 됐음(재렌더 때만 적용). 색(--text-color-override)·크기(--text-fs-body)는
      원래 이름이 맞아 즉시 반영됐음.
      · 폰트 : --text-ff      (CSS .text-card font-family + 테마별 폰트 룰이 읽음)
@@ -664,7 +664,7 @@ function _displayFontSize(scene, originalStyle) {
 
 /* P4-D-2B-FIX2: variant 보기에서 '글자 크기'만 즉시 화면 반영.
    _patchTextStyle/_patchPbStyle은 원본 getTextStyle(scene)을 읽으므로 variant 값엔 쓸 수 없다.
-   여기선 변형 fontSize를 현재 .scene-screen의 CSS 변수에 직접 박아 슬라이더 조작 즉시 보이게 한다.
+   여기선 변형 fontSize를 현재 .scene-screen의 CSS 변수에 직접 설정해 슬라이더 조작이 즉시 보이게 한다.
    원본 scene.textStyle은 읽지도 쓰지도 않는다(원본 오염 0). 화면 타입은 클래스로 판별. */
 function _patchVariantFontSize(fontSize) {
   if (typeof fontSize !== 'number' || isNaN(fontSize)) return false;
@@ -685,7 +685,7 @@ function _patchVariantFontSize(fontSize) {
    _setAiViewMode는 본문(viewer-frame)만 재렌더하고 편집 패널은 재렌더하지 않으므로,
    글자 크기 슬라이더 DOM 값/라벨이 직전 모드 값에 머물러 본문↔슬라이더가 어긋난다(FIX4 핵심 증상).
    현재 모드의 표시 fontSize로 (1) 슬라이더 value + (NNpx) 라벨을 다시 맞추고,
-   (2) 본문 CSS 변수도 재렌더 직후 한 번 더 박아 본문도 같은 값으로 보장한다.
+   (2) 본문 CSS 변수도 재렌더 직후 한 번 더 설정해 본문도 같은 값으로 보장한다.
    원본 scene.textStyle은 읽기만 하고 절대 수정하지 않는다. 패널/슬라이더 없으면 조용히 패스. */
 function _resyncFontSizeUiToViewMode() {
   if (typeof ViewerState === 'undefined' || !ViewerState.scenes) return;
@@ -708,7 +708,7 @@ function _resyncFontSizeUiToViewMode() {
     if (note) note.textContent = '(' + fs + 'px)';
   });
   /* (2) 본문 CSS 변수 보강 — _scheduleViewerFrameReRender(rAF)가 새 .scene-screen을 만든 '뒤'에
-     박혀야 하므로 rAF로 한 틱 미룬다(FIFO: 재렌더 rAF가 먼저, 이 patch가 뒤). 원본 모드면
+     적용돼야 하므로 rAF로 한 틱 미룬다(FIFO: 재렌더 rAF가 먼저, 이 patch가 뒤). 원본 모드면
      fs=원본값이라 동일값 재설정(무해), variant 모드면 표시 variant값으로 본문 강제 동기화. */
   if (typeof requestAnimationFrame === 'function') {
     requestAnimationFrame(function () { _patchVariantFontSize(fs); });
@@ -771,13 +771,13 @@ function _applyVariantStyleOrBlock(scene, patch, onApply) {
       ai._queueVariantStyleSave(vk, sid, next);
     }
     if (typeof onApply === 'function') { try { onApply(); } catch (e) { /* noop */ } }
-    /* P4-D-2B-FIX3: 즉시 화면 반영 — variant fontSize를 현재 .scene-screen CSS 변수에 직접 박음.
+    /* P4-D-2B-FIX3: 즉시 화면 반영 — variant fontSize를 현재 .scene-screen CSS 변수에 직접 설정.
        원본 경로(_patchTextStyle)와 100% 동일하게 "CSS 변수 패치 성공 시 통째 재렌더 안 함".
        ── FIX2의 버그: 패치 후 _scheduleViewerFrameReRender를 '무조건' 호출했는데, 이 함수는
        renderScene→_stageReplaceScene으로 **1.2초(_sceneTransMs(50)=1200ms) 장면 전환 애니메이션**을
        일으킨다. 슬라이더를 움직일 때마다 화면이 통째로 전환돼(잠깐 바뀐 뒤 전환되며 원래대로 보이고
        PB는 무거운 레이아웃 전환에 변경이 묻혀 "적용 안 됨"처럼 보였다).
-       ── 수정: _patchVariantFontSize가 성공(true)하면 재렌더하지 않는다. CSS 변수는 즉시 박히고,
+       ── 수정: _patchVariantFontSize가 성공(true)하면 재렌더하지 않는다. CSS 변수는 즉시 적용되고,
        버퍼(_fbTextVariantStyles/localStorage final.style)가 이후 실제 재렌더(장면 이동/F5)에서
        _getDisplayStyle로 동일 값을 복원하므로 통째 재렌더는 불필요. 패치 실패(노드 없음/타입 불일치/NaN)일
        때만 재렌더 fallback. (_patchTextStyle/_patchPbStyle은 원본 style을 읽어 variant 값엔 못 쓰므로 전용 패치 사용.) */
@@ -1057,8 +1057,8 @@ function _applyEditLockUI() {
       const kind = (typeof classifyLockOwner === 'function' && num != null)
         ? classifyLockOwner(num) : 'other';
       if (kind === 'same-device') {
-        /* v125: 같은 기기/같은 사용자의 이전 탭이 박은 잠금 — 부드러운 문구.
-           "다른 창에서 편집 중" 박은 거가 사용자 박은 거 같은 사람이라 박지 X. */
+        /* v125: 같은 기기/같은 사용자의 이전 탭이 남긴 잠금 — 부드러운 문구.
+           "다른 창에서 편집 중" 경고는 같은 사람 상황이라 쓰지 않음. */
         banner.classList.add('edit-lock-banner--mild');
         banner.innerHTML = `
           <div class="edit-lock-banner-msg">🪟 이전에 열어둔 편집 창이 남아 있어요. 여기에서 이어서 수정할 수 있어요.</div>
@@ -1076,11 +1076,11 @@ function _applyEditLockUI() {
                다음 snapshot 콜백에서 상태 재평가 */
           });
       } else {
-        /* v116: 'other' 분류에도 "다시 확인" + "내가 수정하기" 박음.
-           옛엔 인수 버튼 없어 사용자가 정말 막혔는데, stale lock(다른 사용자 폰
-           꺼지면 TTL 20초 동안 박힘) 또는 옛 잠금 박은 경우 풀 길 없었음.
-           정책: 다시 확인 = 잠금 다시 읽음. 박지 못한 stale 박은 경우 자동 박음.
-           내가 수정하기 = confirm 박은 후 무조건 인수 (transaction 덮어쓰기). */
+        /* v116: 'other' 분류에도 "다시 확인" + "내가 수정하기" 버튼 추가.
+           옛엔 인수 버튼이 없어 사용자가 정말 막혔는데, stale lock(다른 사용자 폰이
+           꺼지면 TTL 20초 동안 잠금 유지) 또는 옛 잠금이 남은 경우 풀 길이 없었음.
+           정책: 다시 확인 = 잠금 다시 읽음. stale 잠금이 풀린 경우 자동으로 편집 가능.
+           내가 수정하기 = confirm 후 무조건 인수 (transaction 덮어쓰기). */
         banner.classList.remove('edit-lock-banner--mild');
         banner.innerHTML = `
           <div class="edit-lock-banner-msg">🔒 다른 친구가 이 장면을 수정 중일 수 있어요. 지금은 읽기만 할 수 있어요.</div>
@@ -1088,7 +1088,7 @@ function _applyEditLockUI() {
             <button class="edit-lock-recheck-btn js-edit-lock-recheck" type="button">다시 확인</button>
             <button class="edit-lock-takeover-btn js-edit-lock-force-takeover" type="button">내가 수정하기</button>
           </div>`;
-        /* 다시 확인 — viewerEnsureEditable 다시 박음. stale 박혀있던 잠금이 풀린 경우 자동 박힘. */
+        /* 다시 확인 — viewerEnsureEditable 재호출. stale로 남아 있던 잠금이 풀린 경우 자동으로 편집 가능. */
         banner.querySelector('.js-edit-lock-recheck')
           ?.addEventListener('click', async () => {
             if (_editText.num == null) return;
@@ -1098,11 +1098,11 @@ function _applyEditLockUI() {
               _editText.editable = true;
               _applyEditLockUI();
             } else {
-              /* 박지 못한 경우 분류 다시 박음 — 'other' 그대로 또는 박힌 거 변경 박힘 */
+              /* 획득하지 못한 경우 분류 재평가 — 'other' 유지 또는 분류가 바뀔 수 있음 */
               _applyEditLockUI();
             }
           });
-        /* 내가 수정하기 — 사용자가 confirm 박은 후 무조건 인수 */
+        /* 내가 수정하기 — 사용자가 confirm 한 후 무조건 인수 */
         banner.querySelector('.js-edit-lock-force-takeover')
           ?.addEventListener('click', async () => {
             if (_editText.num == null) return;
@@ -1121,7 +1121,7 @@ function _applyEditLockUI() {
               _applyEditLockUI();
             } else {
               /* v125: 실패 원인별 다른 안내.
-                 1) auth 박지 X → "로그인/권한 확인이 늦어지고 있어요"
+                 1) auth 미준비 → "로그인/권한 확인이 늦어지고 있어요"
                  2) 네트워크 추정 → "인터넷 연결 확인"
                  3) 그 외 → 일반 안내 */
               let authReady = false;
@@ -1139,7 +1139,7 @@ function _applyEditLockUI() {
               } else if (!authReady) {
                 msg = '로그인/권한 확인이 늦어지고 있어요.\n페이지를 새로고침하면 해결될 수 있어요.';
               } else {
-                msg = '편집 권한을 가져오지 못했어요.\n• 잠시 후 [다시 확인]을 눌러주세요\n• 계속 박지 못하면 페이지를 새로고침해주세요';
+                msg = '편집 권한을 가져오지 못했어요.\n• 잠시 후 [다시 확인]을 눌러주세요\n• 계속 안 되면 페이지를 새로고침해주세요';
               }
               alert(msg);
             }
@@ -1494,7 +1494,7 @@ function renderEditPanel() {
 
 /* ── 저장 공통 ── */
 async function _doSave(panel) {
-  /* v129: 읽기전용(잠금) 상태에선 저장 박지 X — 안전망 (CSS pointer-events:none과 별개로
+  /* v129: 읽기전용(잠금) 상태에선 저장하지 않음 — 안전망 (CSS pointer-events:none과 별개로
      키보드/스크립트 우회 차단). */
   if (!_editText.editable) return;
   const btn = panel.querySelector('.js-edit-save');
@@ -1623,7 +1623,7 @@ function _attachVariantBodyEditable(frame) {
 
 /* v45: contenteditable의 줄바꿈 보존 추출.
    브라우저는 Enter를 <br>/<div>로 정규화하는데 textContent로 추출하면 줄바꿈 손실.
-   다듬기에서 박은 본문 \n이 감상 후 사라지던 root 버그 fix. */
+   다듬기에서 입력한 본문 \n이 감상 후 사라지던 root 버그 fix. */
 function _extractEditableText(el) {
   const html = (el.innerHTML || '')
     .replace(/<br\s*\/?>/gi, '\n')
@@ -1631,10 +1631,10 @@ function _extractEditableText(el) {
     .replace(/<(div|p)[^>]*>/gi, '\n');
   const tmp = document.createElement('div');
   tmp.innerHTML = html;
-  /* v127: 옛 .replace(/^\n/, '') 박지 X — 사용자가 본문 앞에 \n\n 박은 거가
-     의도된 빈 줄. 첫 \n 박지 X 박은 게 사용자 박은 표현 박지 X 박힘.
-     browser가 첫 <div> 박을 때 박은 \n 박는 거 = 사용자 박은 거와 구분 안 박힘.
-     사용자 박은 거 우선 — 첫 \n도 유지. */
+  /* v127: 옛 .replace(/^\n/, '') 제거 — 사용자가 본문 앞에 넣은 \n\n은
+     의도된 빈 줄. 첫 \n을 지우면 사용자 표현이 사라질 수 있음.
+     browser가 첫 <div>를 만들 때 생기는 \n = 사용자가 넣은 것과 구분이 안 됨.
+     사용자 입력 우선 — 첫 \n도 유지. */
   return tmp.textContent || '';
 }
 
@@ -1662,7 +1662,7 @@ function _attachPbEditableInteractions(frame) {
     if (!field) return;
 
     /* 2026-05-25 Phase 4-A: 행동 버튼 라벨 직접 편집 분기.
-       scene.choices[idx].label 박은 거 박은 박은 — _queueSaveButtons로 저장.
+       scene.choices[idx].label을 수정하는 경로 — _queueSaveButtons로 저장.
        title/body와 저장 경로가 달라 별도 helper로 분리. */
     if (field === 'choice-label') {
       _attachChoiceLabelEditable(el, scene);
@@ -1679,15 +1679,15 @@ function _attachPbEditableInteractions(frame) {
     /* 입력 — scene 메모리 즉시 업데이트 + 다듬기 패널 input 동기화 */
     el.addEventListener('input', () => {
       /* 2026-05-28 Codex review fix (High-Risk 2): 잠금/readonly 상태에서
-         scene 메모리 박지 X + 저장 큐 박지 X. choice-label과 동일 패턴. */
+         scene 메모리 수정 안 함 + 저장 큐에 넣지 않음. choice-label과 동일 패턴. */
       if (!_editText.editable) return;
       /* v45: 본문은 줄바꿈 보존(_extractEditableText), 제목은 단일 줄(textContent) */
       const text = (field === 'body') ? _extractEditableText(el) : el.textContent;
       scene[field] = text;
       _updatePlaceholder();
       /* v122: 다듬기 패널의 해당 input/textarea 즉시 갱신 (있으면).
-         옛 오타 fix: '#edit-pane' → '#edit-panel' (실제 id). 옛엔 셀렉터가 박지 X
-         → 왼쪽 화면 수정해도 오른쪽 패널 input 박지 X (사용자 박은 양방향 동기 버그).
+         옛 오타 fix: '#edit-pane' → '#edit-panel' (실제 id). 옛엔 셀렉터가 매칭되지 않아
+         → 왼쪽 화면 수정해도 오른쪽 패널 input이 갱신되지 않음 (사용자가 보고한 양방향 동기 버그).
          focus 보호: 오른쪽 input이 현재 focus 중이면 덮어쓰지 않음 (커서 보호).
          2026-05-27 Cover-1: kicker/subtitle 매핑 확장 — 표지 직접 입력 양방향 동기. */
       const _PANEL_INPUT_MAP = {
@@ -1712,7 +1712,7 @@ function _attachPbEditableInteractions(frame) {
       el.classList.remove('is-focused');
       _updatePlaceholder();
       /* 2026-05-28 Codex review fix (High-Risk 2): 잠금/readonly 상태에서
-         blur로 박은 마지막 입력도 저장 큐 박지 X. */
+         blur로 들어온 마지막 입력도 저장 큐에 넣지 않음. */
       if (!_editText.editable) return;
       /* blur 시 즉시 저장 (debounce 무시) */
       if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
@@ -1750,7 +1750,7 @@ function _attachPbEditableInteractions(frame) {
    · scene.choices[idx].label 갱신
    · 우측 2단 input.js-edit-button-label[data-idx] 양방향 동기화
    · _queueSaveButtons(scene) 재사용 — buttons/choiceA/B/nextA/B/choiceCount 일괄 저장
-   · 한 줄 입력 (Enter 박으면 blur)
+   · 한 줄 입력 (Enter 누르면 blur)
    · maxLen 안전망 (입력 초과 시 자동 절단) */
 function _attachChoiceLabelEditable(el, scene) {
   const idx = Number(el.dataset.choiceIdx);
@@ -1763,7 +1763,7 @@ function _attachChoiceLabelEditable(el, scene) {
   }
   _updateChoicePlaceholder();
 
-  /* maxLen — ptype별 (_getChoiceLabelMaxViewer 박은 거 박은 박은 거 박은 박은) */
+  /* maxLen — ptype별 (_getChoiceLabelMaxViewer가 있으면 그 값, 없으면 기본 60) */
   const _ptype = (typeof ViewerState !== 'undefined' && ViewerState.project &&
                   ViewerState.project.projectType) || null;
   const maxLen = (typeof _getChoiceLabelMaxViewer === 'function')
@@ -1805,7 +1805,7 @@ function _attachChoiceLabelEditable(el, scene) {
       }
     }
 
-    /* debounce 저장 — _queueSaveButtons 박음 */
+    /* debounce 저장 — _queueSaveButtons 사용 */
     if (choiceSaveTimer) clearTimeout(choiceSaveTimer);
     choiceSaveTimer = setTimeout(() => {
       if (typeof _queueSaveButtons === 'function') _queueSaveButtons(scene);
@@ -1879,7 +1879,7 @@ function _attachPbBodyBoxInteractions(overlay, frame) {
     /* Phase 4-A: s1/s2 보기 중엔 원본 layout(picturebookBodyBox) in-memory/저장 모두 금지.
        (variant 경로는 위에서 이미 분기되었으므로, 여기 도달=원본 보기이거나 후보 없음.) */
     if (_isVariantViewLocked()) return;
-    /* 메모리 박기 + DB 저장 큐 — _editText.num 매칭 안 되면 _queueSave 가드에 걸리므로
+    /* 메모리 반영 + DB 저장 큐 — _editText.num 매칭 안 되면 _queueSave 가드에 걸리므로
        saveSceneText 직접 호출 fallback. 둘 다 시도. */
     s.picturebookBodyBox = { ...box };
     if (typeof _queueSave === 'function') {
@@ -1986,7 +1986,7 @@ function _attachPbBodyBoxInteractions(overlay, frame) {
       startY = e.clientY;
       startBox = getBox();
       corner = handle.dataset.corner;  // 'nw' / 'ne' / 'sw' / 'se'
-      /* height 명시값으로 박기 — null이면 현재 보이는 높이를 % 추정해서 시작값으로 */
+      /* height를 명시값으로 채움 — null이면 현재 보이는 높이를 % 추정해서 시작값으로 */
       if (typeof startBox.height !== 'number') {
         const stageRect = stage.getBoundingClientRect();
         const overlayRect = overlay.getBoundingClientRect();
@@ -2354,12 +2354,12 @@ function _buttonRowHtml(choice, idx, total) {
   if (len > maxLen) counterClass += ' edit-btn-counter--over';
   else if (len > warnAt) counterClass += ' edit-btn-counter--warn';
 
-  /* 2026-05-28 Codex review fix (High-Risk 3): 1단과 동일 안전 정책 박음.
+  /* 2026-05-28 Codex review fix (High-Risk 3): 1단과 동일 안전 정책 적용.
      · 표지 제외 / 자기 자신 disabled + [현재 장면] 라벨 / 엔딩 [엔딩] 라벨
      · 옛 정책("자기 자신도 옵션에 포함") 폐기 — 무한 루프 / 표지 회귀 위험 차단
      · 정책 단일 출처 — `_buildLinkSelectOptionsHtml` 재사용 (Phase 4-C)
-     · ViewerState.currentSceneId 박은 거 박음 — 다듬기 패널 박힌 시점에 항상 박혀있음
-     · currentScene fallback 박지 X 박으면 빈 옵션 — 안전 우선 (옛 무필터 옵션 박지 X) */
+     · ViewerState.currentSceneId 사용 — 다듬기 패널이 열린 시점엔 항상 존재
+     · currentScene을 못 찾으면 fallback 없이 빈 옵션 — 안전 우선 (옛 무필터 옵션으로 회귀하지 않음) */
   const currentNext = choice && choice.nextId ? String(choice.nextId) : '';
   const _curSceneId = (typeof ViewerState !== 'undefined' && ViewerState.currentSceneId)
     ? String(ViewerState.currentSceneId) : '';
@@ -2585,7 +2585,7 @@ function _queueSaveButtons(scene) {
    · experience: 배경 이미지 + 연결 오브젝트 진입점 (정식 모델 향후)
    ================================================================ */
 
-/* v64: 작품 단위 설정 위치 판단 — 표지 없는 작품에선 entry/첫 normal scene에 박음 */
+/* v64: 작품 단위 설정 위치 판단 — 표지 없는 작품에선 entry/첫 normal scene에 표시 */
 function _isWorkSettingScene(scene) {
   const list = (typeof _editSceneList === 'function') ? _editSceneList() : [];
   const hasCover = list.some(s => s && (s.type === 'cover' || s.isCover));
@@ -2606,9 +2606,9 @@ function _isFirstNormalScene(scene) {
   return normals.length > 0 && String(normals[0].id) === String(scene.id);
 }
 
-/* v75: "이 글자 스타일을 모든 장면에 적용" 버튼 HTML — 첫 일반 장면 인스펙터에만 박힘.
+/* v75: "이 글자 스타일을 모든 장면에 적용" 버튼 HTML — 첫 일반 장면 인스펙터에만 표시.
    누르면 현재 scene의 textStyle을 다른 모든 normal scene에 복사 (Firebase update).
-   표지/엔딩 제외. 한 번 누르면 한 번 push — 그 후 장면별 따로 박는 건 독립. */
+   표지/엔딩 제외. 한 번 누르면 한 번 push — 그 후 장면별로 따로 바꾸는 건 독립. */
 function _applyStyleAllButtonHtml(scene) {
   if (!_isFirstNormalScene(scene)) return '';
   return `
@@ -2629,7 +2629,7 @@ function _applyStyleAllButtonHtml(scene) {
 function _workSettingsSectionHtml() {
   const curT  = (ViewerState.project && ViewerState.project.sceneTransition) || 'fade';
   const curTE = (ViewerState.project && ViewerState.project.textEntrance) || 'none';
-  /* v73: 속도 number(0~100). 옛 데이터 로드 시점에서 마이그레이션 박힘. */
+  /* v73: 속도 number(0~100). 옛 데이터는 로드 시점에 마이그레이션됨. */
   const curS  = typeof ViewerState.project?.sceneTransitionSpeed === 'number'
     ? ViewerState.project.sceneTransitionSpeed : 50;
   const curTES = typeof ViewerState.project?.textEntranceSpeed === 'number'
@@ -2713,10 +2713,10 @@ function _bindWorkSettingsHandlers(panel) {
 }
 
 /* v73: 속도 슬라이더 헬퍼 — input 즉시 반영(미리보기), change(드래그 끝)에 Firebase 저장. */
-/* v121: previewWorkEffect throttle — 슬라이더 input 박을 때마다 박지 X.
-   previewWorkEffect는 scene.offsetWidth 강제 reflow + typewriter span 재생성 박힘.
-   슬라이더 박을 때 매 input마다 박으면 태블릿/저성능 PC 박지 X. 150ms throttle 박음.
-   저장은 change에 박힌 거 옛 그대로. */
+/* v121: previewWorkEffect throttle — 슬라이더 input마다 매번 실행하지 않음.
+   previewWorkEffect는 scene.offsetWidth 강제 reflow + typewriter span 재생성을 일으킴.
+   슬라이더 조작 중 매 input마다 실행하면 태블릿/저성능 PC가 버거움. 150ms throttle 적용.
+   저장은 change에서 하는 옛 방식 그대로. */
 let _previewWorkTimer = null;
 let _previewWorkLastField = null;
 function _schedulePreviewWorkEffect(field) {
@@ -2751,14 +2751,14 @@ function _bindSpeedSlider(panel, selector, field) {
     if (label) {
       label.textContent = `(빠름 ◀ ${pct}% ▶ 느림)`;
     }
-    /* v121: 미리보기 throttle (옛엔 매 input마다 박음 → 태블릿 부담) */
+    /* v121: 미리보기 throttle (옛엔 매 input마다 실행 → 태블릿 부담) */
     _schedulePreviewWorkEffect(field);
   });
   slider.addEventListener('change', async () => {
     const pct = Math.max(0, Math.min(100, parseInt(slider.value, 10) || 0));
     /* v122: change 시 마지막 값으로 CSS 변수 재적용 + preview 한 번 더.
-       v121 throttle 박은 거 때문에 마지막 input 박은 값이 pending 상태로 박힐 수 있음.
-       change 박힐 때 최종 값으로 다시 박아 정합 보장. */
+       v121 throttle 때문에 마지막 input 값이 pending 상태로 남을 수 있음.
+       change 시점에 최종 값으로 다시 적용해 정합 보장. */
     if (ViewerState.project) {
       ViewerState.project[field] = pct;
       const vf = document.getElementById('viewer-frame');
@@ -2775,7 +2775,7 @@ function _bindSpeedSlider(panel, selector, field) {
 }
 
 /* v75: "이 글자 스타일을 모든 장면에 적용" 버튼 핸들러.
-   첫 일반 장면 인스펙터에만 박힌 버튼. 클릭 시 현재 scene의 textStyle을 다른
+   첫 일반 장면 인스펙터에만 있는 버튼. 클릭 시 현재 scene의 textStyle을 다른
    모든 normal scene에 push (Firebase update). 표지/엔딩 제외. */
 function _bindApplyStyleAllHandlers(panel, scene) {
   if (!panel || !scene) return;
@@ -2792,7 +2792,7 @@ function _bindApplyStyleAllHandlers(panel, scene) {
     const theme = (typeof getTextTheme === 'function') ? getTextTheme(scene) : (scene.textTheme || 'classic');
 
     const list = (typeof _editSceneList === 'function') ? _editSceneList() : [];
-    /* v75 fix: ViewerState.scenes는 num 필드 없고 id만 박힘 (adaptScenes에서 id = String(raw.num)).
+    /* v75 fix: ViewerState.scenes는 num 필드 없고 id만 있음 (adaptScenes에서 id = String(raw.num)).
        Firebase 노드 키도 num 값과 동일하니 s.id 그대로 saveSceneText(id) 호출 OK.
        2026-05-31 Text-4: 텍스트 모드는 엔딩도 textTheme/textStyle을 쓰므로(Text-4로 일반 장면과
        동일 판형) 전체 적용 대상에 엔딩 포함. 표지(coverTheme 별개)는 계속 제외.
@@ -2835,7 +2835,7 @@ function _bindApplyStyleAllHandlers(panel, scene) {
     for (const s of targets) {
       try {
         await saveSceneText(s.id, { textStyle: { ...style }, textStyleOverride: { ...styleMark }, textTheme: theme, textThemeOverride: true });
-        /* in-memory scene 데이터도 즉시 갱신 — 다음 인스펙터 박힐 때 반영 */
+        /* in-memory scene 데이터도 즉시 갱신 — 다음 인스펙터가 열릴 때 반영 */
         s.textStyle = { ...style };
         s.textStyleOverride = { ...styleMark };
         s.textTheme = theme;
@@ -2890,6 +2890,10 @@ async function _saveProjectMetaField(field, value) {
     await db.ref(`${basePath}/viewer-meta`).update(patch);
   } catch (e) {
     console.warn('[sceneTransition] save failed', field, e);
+    /* FINAL-REVIEW-C3: 효과/전환 저장 실패가 조용히 묻히던 silent fail 해소 —
+       본문 저장과 동일한 상태 문구 재사용(메모리 값은 이미 반영돼 화면은 동작,
+       새로고침 시 되돌아갈 수 있음을 사용자가 인지하도록). */
+    if (typeof _showSaveStatus === 'function') _showSaveStatus('❌ 저장 실패', 2000);
   }
 }
 
@@ -3080,7 +3084,7 @@ function _textEffectSectionHtml(scene) {
 
 /* ────────────────────────────────────────────────────────────
    2026-05-25 Phase 2: 양옆 마감 테마 helper (재사용 가능).
-   이전엔 _typeSectionPicturebookHtml 안 IIFE로 inline 박혀 있었음.
+   이전엔 _typeSectionPicturebookHtml 안 IIFE로 inline으로 들어 있었음.
    · 표지 분기 _typeSectionCoverHtml + picturebook 첫 일반 장면 두 곳에서 호출.
    · 기존 상태 변수 _pbThemeCollapsed / _getPbThemeCollapsed() 그대로 사용.
    · 기존 이벤트 핸들러 .js-pb-theme-toggle / .js-pb-theme 그대로 (panel.querySelectorAll 매칭).
@@ -3213,7 +3217,7 @@ function _pbRemoveChoiceAtForScene(scene, idx) {
    · 자기 자신: disabled + 라벨에 "[현재 장면]" 표시
    · 엔딩: 선택 가능 + 라벨에 "[엔딩]" 표시
    · 일반 장면: 평소대로
-   호출 측에서 (미연결) 옵션은 별도로 박음. 2단(_buttonRowHtml)은 기존
+   호출 측에서 (미연결) 옵션은 별도로 추가. 2단(_buttonRowHtml)은 기존
    정책 그대로 — 사용자 명시 "1단에만 안전 옵션 적용". */
 function _buildLinkSelectOptionsHtml(scene, currentNextId) {
   const allScenes = (typeof ViewerState !== 'undefined' && ViewerState.scenes)
@@ -3335,7 +3339,7 @@ function _pbSubmodeSectionHtml(scene) {
   return '';
   const sub = (scene.picturebookSubmode === 'imageCenter') ? 'imageCenter' : 'split';
   /* v37: 페이지 방향·하위 모드는 첫 장면(entrySceneId)에서만 변경 가능.
-     장면 2부터는 토글 비활성 + 안내. "작품 전체 설정"이 한 곳에서만 박힘. */
+     장면 2부터는 토글 비활성 + 안내. "작품 전체 설정"은 한 곳에서만 바꾸게 함. */
   const entryId = ViewerState.project && ViewerState.project.entrySceneId;
   const isFirstScene = entryId
     ? String(scene.id) === String(entryId)
@@ -3408,7 +3412,7 @@ function _pbGlyphStyleSectionHtml(scene) {
     : { fontFamily: 'gothic', fontSize: 16, color: '', weight: 'normal' };
   /* P4-D-2B-FIX4: 글자 크기 슬라이더 값/라벨은 현재 보기 모드 표시 fontSize(원본/variant)를 따른다. */
   const _fsDisp = (function () { const v = _displayFontSize(scene, style); return (typeof v === 'number' && !isNaN(v)) ? v : style.fontSize; })();
-  /* W9: 폰트 18종. 각 option의 font-family도 inline으로 박아 dropdown 미리보기. */
+  /* W9: 폰트 18종. 각 option의 font-family도 inline으로 지정해 dropdown 미리보기. */
   const FONTS = [
     { id: 'gothic',     label: '나눔고딕' },
     { id: 'notosans',   label: 'Noto Sans (본문)' },
@@ -3737,8 +3741,8 @@ const _CO_TYPE_ICON_MAP = {
    나머지는 진입점만 — 클릭 시 안내 (3단계 범위에서 정식 연결 안 함). */
 /* 2026-05-25 Phase 2 fix: 양옆 마감 테마 핸들러 helper.
    표지 분기(_typeSectionCoverHtml)와 picturebook 첫 일반 장면 양쪽에서
-   _pbThemeSectionHtml() 마크업이 박히는데, 옛엔 핸들러가 picturebook 분기
-   안에만 박혀 있어서 표지에서 토글이 동작하지 않았음. 두 분기 모두에서 호출. */
+   _pbThemeSectionHtml() 마크업이 들어가는데, 옛엔 핸들러가 picturebook 분기
+   안에만 있어서 표지에서 토글이 동작하지 않았음. 두 분기 모두에서 호출. */
 function _bindPbThemeHandlers(panel) {
   /* 토글 collapsible */
   panel.querySelectorAll('.js-pb-theme-toggle').forEach(btn => {
@@ -3972,10 +3976,10 @@ function _modePickerHtml(scene) {
   let submodeUi = '';
   if (current === 'picturebook') {
     submodeUi = _picturebookSubmodeHtml(scene);
-    /* v138: 톤 UI 호출은 _typeSectionPicturebookHtml(2770줄)에 박음 —
+    /* v138: 톤 UI 호출은 _typeSectionPicturebookHtml(2770줄)에 둠 —
        사용자 작품(picturebook 명시)은 _typeSectionsHtml → _typeSectionPicturebookHtml
        경로로 흐름. 여기(_modePickerHtml)는 모드 미지정 작품용 dead path라
-       톤 호출 박지 X. 박으면 중복 표시 위험. */
+       톤 호출을 넣지 않음. 넣으면 중복 표시 위험. */
   } else if (current === 'document') {
     submodeUi = _documentSubmodeHtml(scene);
   } else if (current === 'movie') {
@@ -4135,7 +4139,7 @@ function _pbSceneToneSectionHtml(scene) {
 }
 
 function _pbToneRowHtml(axis, label, hint, options, current) {
-  /* v138-fix6: HTML disabled 박지 X. 잠금 시각은 body.viewer-edit-readonly로
+  /* v138-fix6: HTML disabled 속성은 쓰지 않음. 잠금 시각은 body.viewer-edit-readonly로
      CSS 처리. 클릭 차단은 _bindPbToneEvents에서 _editText.editable 검사. */
   const gridModifier = options.length === 5 ? ' edit-tone-btn-grid--5'
                      : options.length === 3 ? ' edit-tone-btn-grid--3'
@@ -4201,7 +4205,7 @@ function _bindPbToneEvents(panel, scene) {
         });
       }
       /* 미리보기 즉시 갱신 — viewer-render의 _renderScenePicturebook이 다시 호출되며
-         .pb-frame에 새 톤 클래스가 박힘.
+         .pb-frame에 새 톤 클래스가 적용됨.
          ⚠️ 이 핸들러는 ⚙ 작품 설정·🎨 장면 스타일 팝오버 안에서만 호출된다.
          renderCurrentScene()은 HUD/네비까지 통째 재렌더해 팝오버 DOM이 닫혀버린다
          (다른 팝오버 옵션은 _scheduleViewerFrameReRender만 써서 안 닫힘 → 일관성 깨짐).
@@ -4478,7 +4482,7 @@ function _bindTextAnchorEvents(panel, scene) {
    W9 (v4): 액션 버튼들이 HUD maker-return-bar로 이전 → 인스펙터는 빈 반환.
    ================================================================ */
 function _editActionsHtml() {
-  return '';  /* HUD로 이동. _bindHudEditActions에서 박힘 */
+  return '';  /* HUD로 이동. _bindHudEditActions에서 바인딩됨 */
 }
 
 
@@ -4642,7 +4646,7 @@ async function _openCompassResultViewer() {
 }
 
 /* W9 (v4): HUD maker-return-bar 액션 버튼 핸들러.
-   renderHud (viewer-render.js)에서 hud.innerHTML 박은 직후 호출.
+   renderHud (viewer-render.js)에서 hud.innerHTML을 채운 직후 호출.
    document scope로 검색 — HUD 버튼은 #hud 안에 있음. */
 function _bindHudEditActions() {
   /* REFINE-IA-3: ⋯ 더보기 메뉴 토글. 메뉴 항목(AI·설정·루트·구조·처음으로)의 기능 핸들러는
@@ -4777,7 +4781,7 @@ function _bindHudEditActions() {
 
   /* v123/v124b: 루트보기 — storyAnalyzer.js의 openRoutePanel 재사용.
      storyAnalyzer는 maker의 전역 scenes/projectMeta를 참조하고, scene 객체에서
-     num/buttons/nextA/B 박음. viewer adaptScenes는 {id, choices} 박는 다른 구조라
+     num/buttons/nextA/B를 읽음. viewer adaptScenes는 {id, choices}를 쓰는 다른 구조라
      변환 어댑터 필수. */
   /* PICTUREBOOK-PRINT-1: 그림책 분기 인쇄 — read만·번호 즉석 계산·발행 선택본 기준. */
   document.querySelector('.js-edit-print-pb')?.addEventListener('click', () => {
@@ -4798,7 +4802,7 @@ function _bindHudEditActions() {
     /* ViewerState.scenes → maker 형식으로 변환:
        · id 필드를 num으로
        · choices → buttons 변환 ({label, nextId})
-       · nextA/B/choiceA/B 박음 (storyAnalyzer fallback 호환) */
+       · nextA/B/choiceA/B도 채움 (storyAnalyzer fallback 호환) */
     const sceneMap = {};
     if (typeof ViewerState !== 'undefined' && ViewerState.scenes) {
       Object.values(ViewerState.scenes).forEach(s => {
@@ -4812,7 +4816,7 @@ function _bindHudEditActions() {
         }));
         sceneMap[num] = Object.assign({}, s, {
           num: Number(num),                      /* "장면 N" 표시용 */
-          buttons,                                /* findAllRoutes가 박는 거 */
+          buttons,                                /* findAllRoutes가 읽는 필드 */
           choiceA: buttons[0] ? buttons[0].label  : '',
           choiceB: buttons[1] ? buttons[1].label  : '',
           nextA:   buttons[0] ? buttons[0].nextId : null,
@@ -4826,7 +4830,7 @@ function _bindHudEditActions() {
     window.projectMeta = (typeof ViewerState !== 'undefined' && ViewerState.project) ? ViewerState.project : {};
     openRoutePanel();
 
-    /* v124b: ✕ 버튼 + 배경 클릭 핸들러도 박음 (ui.js가 박는 거 — viewer.html엔 없음). */
+    /* v124b: ✕ 버튼 + 배경 클릭 핸들러도 바인딩 (원래 ui.js가 하는 일 — viewer.html엔 없음). */
     const closeBtn = document.getElementById('btn-route-close');
     const panel = document.getElementById('route-panel');
     if (closeBtn && !closeBtn.dataset.bound) {
@@ -6774,7 +6778,7 @@ function _computeSceneDepths() {
   depths[rootId] = 0;
   const queue = [rootId];
 
-  /* cover가 root면 cover → entry 가상 엣지로 entry를 depth 1에 박음 */
+  /* cover가 root면 cover → entry 가상 엣지로 entry를 depth 1에 배정 */
   if (coverScene && entryId && scenes[entryId] && entryId !== rootId && depths[entryId] == null) {
     depths[entryId] = 1;
     queue.push(entryId);
@@ -7487,7 +7491,7 @@ function _openPbDrawModal(scene) {
     ctx.restore();
   }
 
-  /* v36: 스포이드 — 클릭 픽셀 색 추출 → state.color 박음 */
+  /* v36: 스포이드 — 클릭 픽셀 색 추출 → state.color에 반영 */
   function _eyedrop(x, y) {
     try {
       const px = ctx.getImageData(Math.round(x), Math.round(y), 1, 1).data;
@@ -7506,9 +7510,9 @@ function _openPbDrawModal(scene) {
     } catch (e) { /* getImageData 실패 (CORS 등) — 무시 */ }
   }
 
-  /* v36: 글자 박기 — 캔버스 클릭 위치에 prompt로 받은 텍스트 박음 */
+  /* v36: 글자 도구 — 캔버스 클릭 위치에 prompt로 받은 텍스트를 그림 */
   function _drawText(x, y) {
-    const text = window.prompt('박을 글자를 입력하세요', '');
+    const text = window.prompt('넣을 글자를 입력하세요', '');
     if (!text) return;
     ctx.save();
     ctx.globalAlpha = state.opacity;
@@ -7577,7 +7581,7 @@ function _openPbDrawModal(scene) {
     state.prevMidX = p.x;
     state.prevMidY = p.y;
 
-    /* v37: 이동 도구 — pointerdown 시작 위치 박고 drawing false (그리기 안 함) */
+    /* v37: 이동 도구 — pointerdown 시작 위치 기록하고 drawing false (그리기 안 함) */
     if (state.tool === 'pan') {
       state.drawing = false;
       state.panning = true;
@@ -7601,7 +7605,7 @@ function _openPbDrawModal(scene) {
       return;
     }
 
-    /* v36: 글자 도구 — prompt로 입력 받아 그 위치에 박음 */
+    /* v36: 글자 도구 — prompt로 입력 받아 그 위치에 그림 */
     if (state.tool === 'text') {
       _drawText(p.x, p.y);
       state.drawing = false;
@@ -7664,7 +7668,7 @@ function _openPbDrawModal(scene) {
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.stroke();
-    /* 연필·크레용 거친 질감 — endpoint(newMid)에서만 박음 */
+    /* 연필·크레용 거친 질감 — endpoint(newMid)에서만 찍음 */
     if (state.tool !== 'eraser' && (state.penType === 'pencil' || state.penType === 'crayon')) {
       const isCrayon = state.penType === 'crayon';
       const dots = isCrayon ? 7 : 3;
@@ -7964,8 +7968,8 @@ function _openPbDrawModal(scene) {
     } catch (e) { /* noop */ }
   }
 
-  /* 저장 — 캔버스 → data URL → Storage 업로드 → URL을 scene.imageData에 박음.
-     v114: base64 RTDB 폭탄 차단. 그림 그리기도 Storage 박음.
+  /* 저장 — 캔버스 → data URL → Storage 업로드 → URL을 scene.imageData에 기록.
+     v114: base64 RTDB 폭탄 차단. 그림 그리기도 Storage 사용.
      DRAWING-STUDIO-2-SIMPLE: busy 가드(중복 업로드 방지)+빈 캔버스 confirm+성공 토스트. */
   const _saveBtn = modal.querySelector('.js-pb-draw-save');
   _saveBtn?.addEventListener('click', async () => {

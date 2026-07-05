@@ -2,7 +2,7 @@
    mobileTextBranch.js — 모바일 텍스트형 브랜치 전용 UI
    ─────────────────────────────────────────────────────────────────
    목적: 모바일 환경 + 텍스트형 작품에서 데스크탑 canvas 대신 노드 중심
-   브랜치 화면 박음. 사용자 설계 (v95~):
+   브랜치 화면 제공. 사용자 설계 (v95~):
    · 동그라미 숫자 노드 = 장면
    · BFS 자동 배치 (Step 2)
    · 노드 탭 → 장면 편집 화면 (Step 3+)
@@ -14,22 +14,22 @@
 const MTB = {
   active: false,         /* 현재 모바일 UI 활성인지 */
   pcOverride: false,     /* 사용자가 "🖥 PC" 토글했는지 */
-  enabled: true,         /* 초기화 박혔는지 */
-  placeMode: false,      /* v104: 노드 배치 이동 모드 박힌 상태 */
+  enabled: true,         /* 초기화됐는지 */
+  placeMode: false,      /* v104: 노드 배치 이동 모드 켜진 상태 */
   placeDescendants: false, /* v106: 자손까지 묶음 이동 토글 */
   _autoOpenedOnce: false,
 };
 
 /* ── 모바일 감지 (v109 강화) ──
-   사용자 박은 원칙: "폰만 모바일 텍스트형 UI. 태블릿(iPad, Android tablet, 학교 태블릿
+   사용자가 정한 원칙: "폰만 모바일 텍스트형 UI. 태블릿(iPad, Android tablet, 학교 태블릿
    가로)은 PC와 같은 maker canvas".
 
-   v108까지: /Mobi|Android|iPhone|iPod/i — Android 태블릿(UA에 Mobi 없음, Android만 박힘)이
+   v108까지: /Mobi|Android|iPhone|iPod/i — Android 태블릿(UA에 Mobi 없음, Android만 포함)이
    잘못 모바일로 잡힘. viewport < 768도 너무 넓어 일부 작은 데스크탑 창까지 잡힘.
 
-   v109 박은 기준:
+   v109 적용 기준:
    1. iPhone/iPod = 무조건 폰
-   2. Android = "Mobile"이 같이 박혀있어야 폰 (태블릿은 Mobile 안 박힘)
+   2. Android = "Mobile"이 같이 포함돼야 폰 (태블릿은 Mobile 미포함)
    3. viewport <= 767px + pointer:coarse = 폰 (작은 데스크탑 창 차단)
    4. iPad는 무조건 PC UI — iPad는 768px 이상 (mini도 768) + UA에 iPhone/Mobi 없음 */
 function _mtbIsMobile() {
@@ -37,7 +37,7 @@ function _mtbIsMobile() {
   const ua = navigator.userAgent || '';
   /* 1. 명백한 폰 — iPhone/iPod */
   if (/iPhone|iPod/i.test(ua)) return true;
-  /* 2. Android 폰만 — Android + Mobile 동시 박힘. 태블릿은 Android만 박힘. */
+  /* 2. Android 폰만 — Android + Mobile 동시 포함. 태블릿은 Android만 포함. */
   if (/Android/i.test(ua) && /Mobile/i.test(ua)) return true;
   /* 3. 작은 viewport + 터치 입력 = 폰 환경. 데스크탑 작은 창(마우스)은 제외. */
   if (window.innerWidth <= 767
@@ -47,7 +47,7 @@ function _mtbIsMobile() {
 }
 
 /* ── 텍스트형 작품인지 ──
-   projectMeta.projectType === 'text' (firebase.js에서 박음).
+   projectMeta.projectType === 'text' (firebase.js에서 설정).
    작품 로드 전엔 null — 그 경우 false. */
 function _mtbIsTextProject() {
   if (typeof projectMeta === 'undefined' || !projectMeta) return false;
@@ -79,8 +79,8 @@ function _mtbActivate() {
   MTB.active = true;
   /* v96: 진입 시 노드 렌더 */
   _mtbRender('enter');
-  /* v103: 작품 진입 시 첫 장면 편집 화면 자동 열림 — 사용자 박은 의도:
-     "기본은 장면 편집 중심, 브랜치는 구조 정리할 때만". 한 번만 박음 (재진입 시 X). */
+  /* v103: 작품 진입 시 첫 장면 편집 화면 자동 열림 — 사용자가 밝힌 의도:
+     "기본은 장면 편집 중심, 브랜치는 구조 정리할 때만". 한 번만 실행 (재진입 시 X). */
   if (!MTB._autoOpenedOnce) {
     MTB._autoOpenedOnce = true;
     setTimeout(() => {
@@ -99,7 +99,7 @@ function _mtbActivate() {
    설계:
    · entrySceneId 또는 첫 scene을 root로 BFS
    · depth = y, 같은 depth 가로 균등 = x
-   · 고립 노드 (BFS 못 닿음)은 별도 박음
+   · 고립 노드 (BFS 못 닿음)은 별도 배치
    · 노드 = div, 연결선 = SVG path (베지어 곡선) */
 
 const MTB_NODE_W   = 48;
@@ -148,7 +148,7 @@ function _mtbBuildLayout() {
     });
   }
 
-  /* 고립 노드 — BFS 못 닿음. 가장 깊은 depth + 1 박음 */
+  /* 고립 노드 — BFS 못 닿음. 가장 깊은 depth + 1 배정 */
   let maxDepth = 0;
   depths.forEach(d => { if (d > maxDepth) maxDepth = d; });
   sceneIds.forEach(id => {
@@ -161,12 +161,12 @@ function _mtbBuildLayout() {
     if (!byDepth.has(d)) byDepth.set(d, []);
     byDepth.get(d).push(id);
   });
-  /* 각 depth 안에서 num 순 정렬 (안정적 박치기) */
+  /* 각 depth 안에서 num 순 정렬 (안정적 순서 유지) */
   byDepth.forEach(arr => arr.sort((a, b) => Number(a) - Number(b)));
 
-  /* 좌표 계산 — x는 0 중심 기준 (캔버스 50%에 박힘).
-     v104: scenes[id].mtbX/mtbY 박혀있으면 그것 우선 (사용자 박은 위치).
-     박지 않은 노드는 BFS 자동. */
+  /* 좌표 계산 — x는 0 중심 기준 (캔버스 50%에 정렬).
+     v104: scenes[id].mtbX/mtbY 저장돼 있으면 그것 우선 (사용자가 지정한 위치).
+     지정하지 않은 노드는 BFS 자동. */
   const layout = {};
   byDepth.forEach((ids, d) => {
     const n = ids.length;
@@ -174,7 +174,7 @@ function _mtbBuildLayout() {
     ids.forEach((id, i) => {
       const sc = scenes[id];
       if (sc && typeof sc.mtbX === 'number' && typeof sc.mtbY === 'number') {
-        /* 사용자 박은 위치 우선 */
+        /* 사용자가 지정한 위치 우선 */
         layout[id] = { x: sc.mtbX, y: sc.mtbY, depth: d };
       } else {
         layout[id] = {
@@ -190,8 +190,8 @@ function _mtbBuildLayout() {
 
   /* v107: 노드별 상태 + 전체 통계 — 구조 화면 = 정리용 대시보드.
      · branchCount: 행동버튼 슬롯 수 (0~6)
-     · incomplete : 본문 빔 OR 라벨 빔 OR 연결 안 박힘 (엔딩은 본문만)
-     · 미연결 노드는 incomplete 카운트엔 들어가지만 노드 ⚠ 배지 박지 X (점선과 시각 중복 회피) */
+     · incomplete : 본문 빔 OR 라벨 빔 OR 연결 안 됨 (엔딩은 본문만)
+     · 미연결 노드는 incomplete 카운트엔 들어가지만 노드 ⚠ 배지 표시 X (점선과 시각 중복 회피) */
   const isolatedSet = new Set(isolated);
   const nodeStats = {};
   let endingCount = 0;
@@ -205,9 +205,9 @@ function _mtbBuildLayout() {
     const buttons = Array.isArray(sc.buttons) ? sc.buttons : [];
     const stat = { branchCount: buttons.length, incomplete: false, reasons: [] };
 
-    /* v111: cover scene 완성 기준은 별도 — 제목 또는 한 줄 소개 중 하나라도 박혀있으면 완성.
-       cover의 buttons[0]은 "▶ 시작하기" 자동 박힘 (nextId는 entrySceneId가 흡수). body/buttons
-       검사 안 함. branchCount도 0으로 박아 노드에 분기수 배지 안 박힘 (cover는 분기 X). */
+    /* v111: cover scene 완성 기준은 별도 — 제목 또는 한 줄 소개 중 하나라도 채워져 있으면 완성.
+       cover의 buttons[0]은 "▶ 시작하기" 자동 생성 (nextId는 entrySceneId가 흡수). body/buttons
+       검사 안 함. branchCount도 0으로 두어 노드에 분기수 배지 미표시 (cover는 분기 X). */
     if (isCover) {
       stat.branchCount = 0;
       const title = (sc.title || '').trim();
@@ -315,8 +315,8 @@ function _mtbRenderImpl(reason) {
 
   const { layout, isolated, isolatedSet, nodeStats } = built;
 
-  /* 캔버스 크기 — 컨테이너 width 박힘. 노드는 캔버스 가로 중앙(50%) 기준 박음 */
-  /* SVG viewBox — 노드 좌표 그대로 박음 (translate(-50%) 처리는 노드 div가 함) */
+  /* 캔버스 크기 — 컨테이너 width 사용. 노드는 캔버스 가로 중앙(50%) 기준 배치 */
+  /* SVG viewBox — 노드 좌표 그대로 사용 (translate(-50%) 처리는 노드 div가 함) */
   const canvasW = nodesEl.clientWidth || 360;
   const halfW   = canvasW / 2;
 
@@ -340,7 +340,7 @@ function _mtbRenderImpl(reason) {
 
   if (BRANCH_PERF) _mtbPerf.mLayout = performance.now();
 
-  /* 연결선 박기 */
+  /* 연결선 그리기 */
   Object.entries(layout).forEach(([fromId, fromPos]) => {
     const sc = scenes[fromId];
     if (!sc) return;
@@ -383,7 +383,7 @@ function _mtbRenderImpl(reason) {
 
   if (BRANCH_PERF) _mtbPerf.mEdges = performance.now();
 
-  /* 노드 박기 */
+  /* 노드 그리기 */
   const firstRender = !nodesEl.querySelector('.mtb-node');
   nodesEl.innerHTML = '';
   nodesEl.style.height = canvasH + 'px';
@@ -407,7 +407,7 @@ function _mtbRenderImpl(reason) {
     if (isolatedSet.has(id)) node.classList.add('mtb-node--isolated');
     /* 숫자 (num 또는 id) — BASE10-1F: 기본 틀이면 표시명 보정(표지/1..8/결말) */
     node.textContent = _mtbSceneDisplayLabel(sc, id, { short: true });
-    /* v107: 노드 배지 — 분기수 (2~6) + 미완성 ⚠ (단 미연결 노드는 점선과 시각 중복 피해 ⚠ 박지 X) */
+    /* v107: 노드 배지 — 분기수 (2~6) + 미완성 ⚠ (단 미연결 노드는 점선과 시각 중복 피해 ⚠ 표시 X) */
     const stat = nodeStats && nodeStats[id];
     if (stat) {
       if (stat.branchCount >= 2 && stat.branchCount <= 6) {
@@ -422,14 +422,14 @@ function _mtbRenderImpl(reason) {
         w.textContent = '⚠';
         const reasons = (stat.reasons || []).map(r => ({
           'body':'본문 비었음','no-buttons':'엔딩이 아닌데 행동버튼이 없음',
-          'label':'행동버튼 라벨이 비었음','next':'다음 장면이 연결 안 박힘',
+          'label':'행동버튼 라벨이 비었음','next':'다음 장면이 연결되지 않음',
           'cover-empty':'표지 제목과 한 줄 소개가 모두 비었음',
         }[r] || r)).join(' · ');
         w.title = '미완성: ' + reasons;
         node.appendChild(w);
       }
     }
-    /* v97: 노드 탭 → 편집 화면 / v98: 연결 모드면 연결 박음 / v104: placeMode면 둘 다 차단 */
+    /* v97: 노드 탭 → 편집 화면 / v98: 연결 모드면 연결 수행 / v104: placeMode면 둘 다 차단 */
     node.addEventListener('click', e => {
       if (MTB.placeMode) { e.stopPropagation(); return; }
       if (MTB_CONNECT.active) {
@@ -439,9 +439,9 @@ function _mtbRenderImpl(reason) {
       }
       _mtbOpenEditScene(id);
     });
-    /* v98: 길게 누르기 (placeMode면 안 박음) */
+    /* v98: 길게 누르기 (placeMode면 비활성) */
     if (!MTB.placeMode) _mtbAttachLongPress(node, id);
-    /* v104: placeMode 박힌 상태면 드래그 박음 */
+    /* v104: placeMode 켜진 상태면 드래그 활성 */
     if (MTB.placeMode) _mtbAttachPlaceDrag(node, id);
     /* v98: 연결 모드 시 source 노드 강조 */
     if (MTB_CONNECT.active && String(MTB_CONNECT.fromId) === String(id)) {
@@ -477,7 +477,7 @@ function _mtbRenderSummary(built) {
   /* 작품이 비어있으면 바도 숨김 */
   if (!totals.total) { bar.style.display = 'none'; return; }
   bar.style.display = 'flex';
-  /* 숫자 박기 */
+  /* 숫자 채우기 */
   bar.querySelectorAll('.mtb-summary-num').forEach(el => {
     const k = el.dataset.num;
     el.textContent = totals[k] != null ? totals[k] : 0;
@@ -491,12 +491,12 @@ function _mtbRenderSummary(built) {
   });
 }
 
-/* 노드 포커스 — _mtbFitAll 패턴 차용. transform을 그 노드 중심으로 박음. */
+/* 노드 포커스 — _mtbFitAll 패턴 차용. transform을 그 노드 중심으로 설정. */
 function _mtbFocusNode(sceneId, flash) {
   const node = document.querySelector('#mtb-nodes .mtb-node[data-scene-id="' + sceneId + '"]');
   const canvas = document.getElementById('mtb-canvas');
   if (!node || !canvas) return;
-  /* stage 좌표 (transform 박지 않은 자연 위치) */
+  /* stage 좌표 (transform 적용 전 자연 위치) */
   const cx = node.offsetLeft;
   const cy = node.offsetTop;
   const canvasW = canvas.clientWidth;
@@ -537,7 +537,7 @@ function _mtbJumpToProblem(kind) {
   _mtbFocusNode(pool[idx], true);
 }
 
-/* 요약 바 칩에 점프 동작 박음 — 한 번만 (DOMContentLoaded 후 _mtbInitAll에서 호출) */
+/* 요약 바 칩에 점프 동작 연결 — 한 번만 (DOMContentLoaded 후 _mtbInitAll에서 호출) */
 function _mtbInitSummary() {
   const bar = document.getElementById('mtb-summary');
   if (!bar || bar.dataset.bound === '1') return;
@@ -561,7 +561,7 @@ window.mtbRender = function (reason) { return _mtbRender(reason || 'external'); 
    · 노드 탭 → 슬라이드 인
    · 감상 카드 톤 + inline edit
    · 상단 이전/다음 빠른 이동 + 저장 상태
-   · 저장 = scenes[num] 박은 후 pushToFirebase (사용자 박은 흐름)
+   · 저장 = scenes[num] 갱신 후 pushToFirebase (사용자가 정한 흐름)
    ──────────────────────────────────────────────────────────────── */
 
 const MTB_EDIT = {
@@ -586,8 +586,8 @@ function _mtbOpenEditScene(sceneId) {
   _mtbEditPopulate(sc);
   _mtbEditUpdateNav();
 
-  /* v105: 본문 비어있으면 자동 focus — "이야기를 앞으로 박는" 흐름.
-     animation 박힌 후 (300ms) focus. */
+  /* v105: 본문 비어있으면 자동 focus — "이야기를 앞으로 이어가는" 흐름.
+     animation 끝난 후 (300ms) focus. */
   const bodyIn = document.getElementById('mtb-edit-scene-body');
   if (bodyIn && !sc.body && !sc.title) {
     setTimeout(() => {
@@ -596,9 +596,9 @@ function _mtbOpenEditScene(sceneId) {
   }
 }
 
-/* v103: 새 장면 박음 + 행동버튼 연결 + 새 장면 편집 자동 진입.
-   사용자 박은 연속 제작 흐름 (행동버튼 추가 → 새 장면 → 이어서 작성) 핵심.
-   v105: setTimeout 200 → 50ms 박음 (부드러운 이동). */
+/* v103: 새 장면 생성 + 행동버튼 연결 + 새 장면 편집 자동 진입.
+   사용자가 정한 연속 제작 흐름 (행동버튼 추가 → 새 장면 → 이어서 작성) 핵심.
+   v105: setTimeout 200 → 50ms로 조정 (부드러운 이동). */
 function _mtbNewSceneAndConnect(fromSceneId, btnIdx) {
   const sc = scenes[fromSceneId];
   if (!sc) return;
@@ -611,7 +611,7 @@ function _mtbNewSceneAndConnect(fromSceneId, btnIdx) {
   setTimeout(() => {
     const newId = Object.keys(scenes).find(id => !beforeIds.has(id));
     if (!newId) return;
-    /* 이 행동버튼 nextId 박음 */
+    /* 이 행동버튼 nextId 설정 */
     if (!Array.isArray(sc.buttons)) sc.buttons = [];
     if (btnIdx >= 0 && btnIdx < sc.buttons.length) {
       sc.buttons[btnIdx].nextId = String(newId);
@@ -681,8 +681,8 @@ function _mtbEditPopulate(sc) {
 
   _mtbEditRenderActions(sc);
 
-  /* v100/v101: textStyle 반영 — _mtbReflectStyleToUI/Card는 아래(v100)에서 박힘.
-     아직 박지 않았으면 skip (Step 5 박힌 후엔 정상). */
+  /* v100/v101: textStyle 반영 — _mtbReflectStyleToUI/Card는 아래(v100)에서 정의됨.
+     아직 정의 전이면 skip (Step 5 로드 후엔 정상). */
   if (typeof _mtbReflectStyleToUI === 'function') {
     /* REFINE-IA-2: raw가 아닌 resolved(장면 override → 작품 기본값 → floor) 표시 →
        작품 기본값을 따르는 장면도 올바른 값/미리보기 노출. */
@@ -702,7 +702,7 @@ function _mtbEditRenderActions(sc) {
   if (!list) return;
   list.innerHTML = '';
 
-  /* v99 fix: sc.buttons가 undefined면 sc 자체에 박음. closure만 변경되면 저장 시 손실. */
+  /* v99 fix: sc.buttons가 undefined면 sc 자체에 할당. closure만 변경되면 저장 시 손실. */
   if (!Array.isArray(sc.buttons)) sc.buttons = [];
   const buttons = sc.buttons;
   const isEnding = (sc.type === 'ending' || sc.isEnding);
@@ -718,7 +718,7 @@ function _mtbEditRenderActions(sc) {
   buttons.forEach((btn, idx) => {
     const row = document.createElement('div');
     row.className = 'mtb-edit-action';
-    /* v103: 연결 없으면 "+ 새 장면" 박음, 연결 있으면 "→ 장면 N" 박음 (탭 시 그 장면 편집 진입) */
+    /* v103: 연결 없으면 "+ 새 장면" 표시, 연결 있으면 "→ 장면 N" 표시 (탭 시 그 장면 편집 진입) */
     /* BASE10-1F: 연결 대상 표시명 보정 (nextId 키는 그대로, 화면 라벨만) */
     const nextLabel = btn.nextId
       ? _mtbSceneDisplayLabel(scenes && scenes[btn.nextId], btn.nextId)
@@ -743,11 +743,11 @@ function _mtbEditRenderActions(sc) {
       _mtbSyncChoiceLabels(sc); /* v106: choiceA/B 동기화 — 감상 라벨 손실 fix */
       _mtbQueueSave();
     });
-    /* 박힌 연결 탭 → 그 장면 편집으로 이동 (앞뒤 이동 단축) */
+    /* 연결된 대상 탭 → 그 장면 편집으로 이동 (앞뒤 이동 단축) */
     row.querySelector('.mtb-edit-action-next')?.addEventListener('click', () => {
       if (btn.nextId && scenes[btn.nextId]) _mtbOpenEditScene(btn.nextId);
     });
-    /* v103: "+ 새 장면" — 새 scene 박음 + 이 행동버튼 nextId 박음 + 새 장면 편집 자동 진입.
+    /* v103: "+ 새 장면" — 새 scene 생성 + 이 행동버튼 nextId 설정 + 새 장면 편집 자동 진입.
        연속 제작 흐름의 핵심. */
     row.querySelector('.mtb-edit-action-new')?.addEventListener('click', () => {
       _mtbNewSceneAndConnect(MTB_EDIT.currentId, idx);
@@ -784,9 +784,9 @@ function _mtbEditUpdateNav() {
 }
 
 function _mtbQueueSave() {
-  /* v99 fix: status 직접 박지 말고 pushToFirebase만 호출.
-     setSaveStatus가 실제 저장 완료 시점에 모바일 status도 박음 (firebase.js 수정).
-     기존: setTimeout 안 박은 "✓ 저장됨"은 isRemote 박혀있을 때 거짓 = 손실. */
+  /* v99 fix: status 직접 갱신하지 말고 pushToFirebase만 호출.
+     setSaveStatus가 실제 저장 완료 시점에 모바일 status도 갱신 (firebase.js 수정).
+     기존: setTimeout 안에 넣은 "✓ 저장됨"은 isRemote 켜져 있을 때 거짓 = 손실. */
   const id = MTB_EDIT.currentId;
   if (id === null) return;
   if (MTB_EDIT.saveTimers.has(id)) clearTimeout(MTB_EDIT.saveTimers.get(id));
@@ -825,8 +825,8 @@ function _mtbSceneDisplayLabel(scene, id, opts) {
 }
 
 /* v106: buttons[] ↔ choiceA/B/nextA/B 동기화.
-   viewer-data.js의 adaptChoices가 choiceA/B를 우선하므로, buttons[].label만 박으면
-   감상 화면에서 라벨 손실. 사용자 박은 모든 흐름에서 호출해서 동기화. */
+   viewer-data.js의 adaptChoices가 choiceA/B를 우선하므로, buttons[].label만 저장하면
+   감상 화면에서 라벨 손실. 사용자가 수정하는 모든 흐름에서 호출해서 동기화. */
 function _mtbSyncChoiceLabels(sc) {
   if (!sc) return;
   const buttons = Array.isArray(sc.buttons) ? sc.buttons : [];
@@ -837,7 +837,7 @@ function _mtbSyncChoiceLabels(sc) {
   sc.choiceCount = buttons.length === 1 ? 1 : (buttons.length === 0 ? 0 : 2);
 }
 
-/* 편집 화면 핸들러 박기 */
+/* 편집 화면 핸들러 연결 */
 function _mtbInitEditView() {
   document.getElementById('mtb-edit-close')?.addEventListener('click', _mtbCloseEditScene);
 
@@ -879,15 +879,15 @@ function _mtbInitEditView() {
     _mtbSyncChoiceLabels(sc); /* v106 */
     _mtbQueueSave();
     _mtbEditRenderActions(sc);
-    /* v105: 새로 박힌 라벨 input 자동 focus — 사용자가 바로 박을 수 있게 */
+    /* v105: 새로 추가된 라벨 input 자동 focus — 사용자가 바로 입력할 수 있게 */
     setTimeout(() => {
       const inputs = document.querySelectorAll('.mtb-edit-action-label-input');
       if (inputs.length) inputs[inputs.length - 1].focus();
     }, 50);
   });
 
-  /* v105: "+ 분기 추가" — 행동버튼 박음 + 새 장면 박음 + 자동 연결 + 새 장면 진입.
-     사용자 박은 핵심 흐름 한 번에. */
+  /* v105: "+ 분기 추가" — 행동버튼 추가 + 새 장면 생성 + 자동 연결 + 새 장면 진입.
+     사용자가 정한 핵심 흐름 한 번에. */
   document.getElementById('mtb-edit-add-branch')?.addEventListener('click', () => {
     if (MTB_EDIT.currentId === null) return;
     const sc = scenes[MTB_EDIT.currentId];
@@ -901,7 +901,7 @@ function _mtbInitEditView() {
   });
 }
 
-/* 기존 _mtbInit 직후에 박음 — DOM 박혔으면 즉시 */
+/* 기존 _mtbInit 직후에 실행 — DOM 준비됐으면 즉시 */
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', _mtbInitEditView);
 } else {
@@ -913,9 +913,9 @@ if (document.readyState === 'loading') {
    ─────────────────────────────────────────────────────────────────
    사용자 설계:
    1. 노드 길게 누름 (0.5초)
-   2. 메뉴 박힘 — 행동버튼 ① 연결, ②, ..., 편집, 새장면+연결, 삭제
-   3. "행동버튼 N 연결" 클릭 → 연결 모드 박힘 + 다른 노드 탭 안내
-   4. 대상 노드 탭 → 연결 박힘 → 모드 해제
+   2. 메뉴 표시 — 행동버튼 ① 연결, ②, ..., 편집, 새장면+연결, 삭제
+   3. "행동버튼 N 연결" 클릭 → 연결 모드 진입 + 다른 노드 탭 안내
+   4. 대상 노드 탭 → 연결 완료 → 모드 해제
    ──────────────────────────────────────────────────────────────── */
 
 const MTB_LP = { timer: null, startX: 0, startY: 0, fired: false };
@@ -973,7 +973,7 @@ function _mtbShowContextMenu(sceneId, x, y) {
   menu.className = 'mtb-context-menu';
   menu.id = 'mtb-context-menu';
 
-  /* 메뉴 항목 박기 */
+  /* 메뉴 항목 구성 */
   let html = '';
   if (!isEnding) {
     if (buttons.length === 0) {
@@ -1066,13 +1066,13 @@ async function _mtbHandleMenuAction(sceneId, action, idx) {
       alert('장면을 추가할 수 없어요. 새로고침 후 다시 시도해 주세요.');
       return;
     }
-    /* 새 scene 박음 — 박힌 후 num 추정 */
+    /* 새 scene 생성 — 생성 후 num 추정 */
     const beforeIds = new Set(Object.keys(scenes));
     addScene();
     setTimeout(() => {
       const newId = Object.keys(scenes).find(id => !beforeIds.has(id));
       if (!newId) { _mtbRender('scene-add'); return; }
-      /* 현재 scene의 빈 행동 버튼 자리에 박음 (없으면 새로 추가) */
+      /* 현재 scene의 빈 행동 버튼 자리에 연결 (없으면 새로 추가) */
       if (!Array.isArray(sc.buttons)) sc.buttons = [];
       let slot = sc.buttons.findIndex(b => !b.nextId);
       if (slot < 0 && sc.buttons.length < 6) {
@@ -1107,7 +1107,7 @@ async function _mtbHandleMenuAction(sceneId, action, idx) {
     } else if (typeof deleteScene === 'function') {
       deleteScene(sceneId);
     } else {
-      /* fallback — 직접 박음 */
+      /* fallback — 직접 삭제 */
       delete scenes[sceneId];
       /* 다른 scene의 nextId가 이 scene 가리키면 null로 */
       Object.values(scenes).forEach(other => {
@@ -1204,14 +1204,14 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 /* ================================================================
-   v104: 배치 모드 — 노드 드래그로 위치 박음
+   v104: 배치 모드 — 노드 드래그로 위치 지정
    ─────────────────────────────────────────────────────────────────
-   토글 박힌 상태에서:
-   · 노드 = 드래그 박음 (메뉴/편집 진입 안 박힘)
-   · 박은 위치 = scenes[id].mtbX / mtbY 박힘
-   · 박힌 위치 있으면 _mtbBuildLayout BFS보다 우선
-   · 박지 않은 노드는 BFS 자동
-   · 캔버스 pan/zoom은 박지 않음 (모드 전용)
+   토글 켜진 상태에서:
+   · 노드 = 드래그 이동 (메뉴/편집 진입 안 됨)
+   · 지정한 위치 = scenes[id].mtbX / mtbY에 저장됨
+   · 저장된 위치 있으면 _mtbBuildLayout BFS보다 우선
+   · 지정하지 않은 노드는 BFS 자동
+   · 캔버스 pan/zoom은 건드리지 않음 (모드 전용)
    ──────────────────────────────────────────────────────────────── */
 
 function _mtbTogglePlaceMode() {
@@ -1232,7 +1232,7 @@ function _mtbShowPlaceBanner() {
   banner.id = 'mtb-place-banner';
   banner.className = 'mtb-place-banner';
   banner.innerHTML = `
-    <span>📍 노드 드래그로 위치 박음</span>
+    <span>📍 노드 드래그로 위치 이동</span>
     <div class="mtb-place-banner-options">
       <button class="mtb-place-banner-descendants ${MTB.placeDescendants ? 'is-active' : ''}"
         id="mtb-place-descendants" title="이 장면에서 이어지는 장면들도 함께 옮겨요">📦 이어진 장면도 같이</button>
@@ -1250,12 +1250,12 @@ function _mtbHidePlaceBanner() {
   document.getElementById('mtb-place-banner')?.remove();
 }
 
-/* v104: 노드 드래그 핸들러 — placeMode 시만 활성. 박은 위치 즉시 scenes에 박음 + push.
-   v106: placeDescendants 박힌 상태면 BFS 자손도 같이 박힘 (묶음 이동). */
+/* v104: 노드 드래그 핸들러 — placeMode 시만 활성. 이동한 위치 즉시 scenes에 저장 + push.
+   v106: placeDescendants 켜진 상태면 BFS 자손도 같이 이동 (묶음 이동). */
 function _mtbAttachPlaceDrag(node, sceneId) {
   let dragging = false;
   let startX = 0, startY = 0;
-  let groupStart = null; /* { id → {x, y} } 박는 노드들 시작 위치 */
+  let groupStart = null; /* { id → {x, y} } 이동하는 노드들 시작 위치 */
   let groupNodes = null; /* { id → DOM } */
   let moved = false;
 
@@ -1267,7 +1267,7 @@ function _mtbAttachPlaceDrag(node, sceneId) {
     startX = e.clientX;
     startY = e.clientY;
 
-    /* v106: 자손까지 박힘 모드면 BFS 자손 다 묶음 */
+    /* v106: 자손까지 이동 모드면 BFS 자손 다 묶음 */
     const ids = MTB.placeDescendants
       ? _mtbCollectDescendants(sceneId)
       : [sceneId];
@@ -1320,7 +1320,7 @@ function _mtbAttachPlaceDrag(node, sceneId) {
   node.addEventListener('pointercancel', endDrag);
 }
 
-/* v106: BFS로 자손 노드 모두 박음 (자기 + 박힌 모든 후손). 무한 루프 차단. */
+/* v106: BFS로 자손 노드 모두 수집 (자기 + 연결된 모든 후손). 무한 루프 차단. */
 function _mtbCollectDescendants(rootId) {
   const result = [String(rootId)];
   const visited = new Set([String(rootId)]);
@@ -1343,7 +1343,7 @@ function _mtbCollectDescendants(rootId) {
 }
 
 function _mtbReadNodeX(node) {
-  /* "calc(50% + Xpx)" 또는 "calc(50% + -Xpx)" 식 박힌 거에서 X 추출. 박지 못하면 0. */
+  /* "calc(50% + Xpx)" 또는 "calc(50% + -Xpx)" 식에서 X 추출. 매칭 실패 시 0. */
   const m = node.style.left.match(/calc\(50%\s*\+\s*(-?\d+(?:\.\d+)?)px\)/);
   return m ? parseFloat(m[1]) : 0;
 }
@@ -1358,7 +1358,7 @@ function _mtbRedrawEdges() {
   const { layout } = built;
   const canvasW = nodesEl.clientWidth || 360;
   const halfW = canvasW / 2;
-  /* svg defs 유지 + path만 다시 박음 */
+  /* svg defs 유지 + path만 다시 그림 */
   const defs = svg.querySelector('defs');
   svg.innerHTML = '';
   if (defs) svg.appendChild(defs);
@@ -1429,7 +1429,7 @@ function _mtbZoom(delta, anchorX, anchorY) {
   const oldScale = MTB_VIEW.scale;
   const newScale = Math.max(MTB_VIEW.minScale, Math.min(MTB_VIEW.maxScale, oldScale + delta));
   if (newScale === oldScale) return;
-  /* anchor 박은 위치 기준 줌 — 그 위치가 동일하게 보이게 x/y 조정 */
+  /* anchor 지정 위치 기준 줌 — 그 위치가 동일하게 보이게 x/y 조정 */
   if (typeof anchorX === 'number' && typeof anchorY === 'number') {
     const canvas = document.getElementById('mtb-canvas');
     const rect = canvas.getBoundingClientRect();
@@ -1443,11 +1443,11 @@ function _mtbZoom(delta, anchorX, anchorY) {
 }
 
 function _mtbResetView() {
-  /* v102: ⊙ 클릭 시 자동 fit — 모든 노드가 캔버스 안에 박히게 scale + 가운데. */
+  /* v102: ⊙ 클릭 시 자동 fit — 모든 노드가 캔버스 안에 들어오게 scale + 가운데. */
   _mtbFitAll();
 }
 
-/* v102: 모든 노드 박힌 범위 보고 scale + center 박음 — 줌 아웃해도 안 접힘 */
+/* v102: 모든 노드가 차지한 범위 보고 scale + center 계산 — 줌 아웃해도 안 접힘 */
 function _mtbFitAll() {
   const stage = document.getElementById('mtb-stage');
   const canvas = document.getElementById('mtb-canvas');
@@ -1457,29 +1457,29 @@ function _mtbFitAll() {
     _mtbApplyTransform();
     return;
   }
-  /* 노드 박힌 범위 계산 — stage 좌표 기준 (transform 박지 않은 자연 위치) */
+  /* 노드 분포 범위 계산 — stage 좌표 기준 (transform 적용 전 자연 위치) */
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
   nodes.forEach(n => {
-    /* offsetLeft/Top은 transform 박지 않은 박힌 자리. 단 left:calc(50%+Xpx) 박힘 → offsetLeft = 캔버스 절반 + X */
+    /* offsetLeft/Top은 transform 적용 전 원래 자리. 단 left:calc(50%+Xpx) 형태 → offsetLeft = 캔버스 절반 + X */
     const cx = n.offsetLeft;
     const cy = n.offsetTop;
     minX = Math.min(minX, cx); maxX = Math.max(maxX, cx);
     minY = Math.min(minY, cy); maxY = Math.max(maxY, cy);
   });
-  /* 노드 크기 박힘 — 박힌 좌우/상하 여유 */
+  /* 노드 크기 감안 — 좌우/상하 여유 */
   const PAD = 60;
   const contentW = (maxX - minX) + PAD * 2;
   const contentH = (maxY - minY) + PAD * 2;
   const canvasW = canvas.clientWidth;
   const canvasH = canvas.clientHeight;
-  /* scale — 캔버스 안에 박히게 + 1보다 크지 않게 */
+  /* scale — 캔버스 안에 들어오게 + 1보다 크지 않게 */
   const scaleX = canvasW / contentW;
   const scaleY = canvasH / contentH;
   const fitScale = Math.min(1, scaleX, scaleY);
-  /* 노드 박힌 가운데 (stage 좌표) */
+  /* 노드 분포 가운데 (stage 좌표) */
   const centerX = (minX + maxX) / 2;
   const centerY = (minY + maxY) / 2;
-  /* transform 박힌 후 노드 가운데가 캔버스 가운데에 박히게 */
+  /* transform 적용 후 노드 가운데가 캔버스 가운데에 오게 */
   MTB_VIEW.scale = Math.max(MTB_VIEW.minScale, fitScale);
   MTB_VIEW.x = canvasW / 2 - centerX * MTB_VIEW.scale;
   MTB_VIEW.y = canvasH / 2 - centerY * MTB_VIEW.scale;
@@ -1503,7 +1503,7 @@ function _mtbInitZoomPan() {
   const canvas = document.getElementById('mtb-canvas');
   if (!canvas) return;
 
-  /* wheel 줌 (데스크탑 narrow viewport 박을 때) */
+  /* wheel 줌 (데스크탑 narrow viewport일 때) */
   canvas.addEventListener('wheel', e => {
     if (!e.ctrlKey && !e.metaKey) return; /* cmd/ctrl + wheel만 — 일반 스크롤 X */
     e.preventDefault();
@@ -1516,7 +1516,7 @@ function _mtbInitZoomPan() {
   let panMoved = false;
 
   canvas.addEventListener('pointerdown', e => {
-    /* 노드 위면 pan/zoom 박지 않음 — 노드 자체 핸들러로 */
+    /* 노드 위면 pan/zoom 시작하지 않음 — 노드 자체 핸들러로 */
     if (e.target.closest('.mtb-node')) return;
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     panMoved = false;
@@ -1569,7 +1569,7 @@ if (document.readyState === 'loading') {
 /* ================================================================
    v100: 장면 편집 화면 — 글자 설정 토글 (폰트/크기/색/굵기)
    ─────────────────────────────────────────────────────────────────
-   사용자 박은 textStyle 데이터 모델 (scenes[id].textStyle) 그대로.
+   사용자가 정한 textStyle 데이터 모델 (scenes[id].textStyle) 그대로.
    변경 시 _mtbQueueSave 호출 → pushToFirebase.
    ──────────────────────────────────────────────────────────────── */
 /* T-THEME-1: 빈 값('')='테마 기본 글씨체'(fontFamily null). 지원 글씨체만 노출(dohyeon 등 미로드 제거). */
@@ -1638,7 +1638,7 @@ function _mtbInitSettings() {
     });
   }
 
-  /* v115: "모든 이야기 장면에 적용" 버튼 — cover/ending 제외하고 textStyle 일괄 박음 */
+  /* v115: "모든 이야기 장면에 적용" 버튼 — cover/ending 제외하고 textStyle 일괄 적용 */
   const applyAllBtn = document.getElementById('mtb-edit-apply-all');
   if (applyAllBtn) {
     applyAllBtn.addEventListener('click', _mtbApplyTextStyleToAll);
@@ -1655,16 +1655,16 @@ function _mtbInitSettings() {
 }
 
 /* ================================================================
-   v115: 표현 설정 패널 — 모바일 텍스트형에서 작품 단위 표현 박음
+   v115: 표현 설정 패널 — 모바일 텍스트형에서 작품 단위 표현 설정
    ─────────────────────────────────────────────────────────────────
-   기존 PC 텍스트형이 박는 필드 그대로 재사용 (사용자 박은 명):
-   · textTheme (scene 단위) — 모바일에선 모든 scene에 같이 박음 (작품 단위 효과)
+   기존 PC 텍스트형이 쓰는 필드 그대로 재사용 (사용자 명령):
+   · textTheme (scene 단위) — 모바일에선 모든 scene에 같이 적용 (작품 단위 효과)
    · projectMeta.textEntrance / textEntranceSpeed
    · projectMeta.sceneTransition / sceneTransitionSpeed
-   viewer-render는 이미 이 필드들 박음 → 코드 변경 X
+   viewer-render는 이미 이 필드들 사용 → 코드 변경 X
    ──────────────────────────────────────────────────────────────── */
 
-/* PC 텍스트형이 박는 거 그대로 (viewer-data.js의 VALID_TEXT_THEMES 등과 일치) */
+/* PC 텍스트형이 쓰는 것 그대로 (viewer-data.js의 VALID_TEXT_THEMES 등과 일치) */
 /* T-THEME-1: 정본 6종(viewer-data.js VALID_TEXT_THEMES와 일치). novel/magazine 제외. */
 const MTB_THEMES = [
   { id: 'classic',     label: '담백한 글' },
@@ -1748,12 +1748,12 @@ function _mtbInitVisPanel() {
     });
   }
 
-  /* 초기 값 박힘 — projectMeta 박은 후 박음 */
+  /* 초기 값 반영 — projectMeta 로드 후 적용 */
   _mtbReflectVisPanel();
   window.addEventListener('mtb-project-ready', _mtbReflectVisPanel);
 }
 
-/* projectMeta 박힌 값을 패널에 반영 — 진입 시 + 다른 사람 저장 후 */
+/* projectMeta에 저장된 값을 패널에 반영 — 진입 시 + 다른 사람 저장 후 */
 function _mtbReflectVisPanel() {
   if (typeof projectMeta !== 'object' || !projectMeta) return;
   const teSel = document.getElementById('mtb-edit-text-entrance');
@@ -1781,11 +1781,11 @@ function _mtbReflectVisPanel() {
   });
 }
 
-/* projectMeta 박은 필드 저장 — viewer-meta에 박음 */
+/* projectMeta 필드 저장 — viewer-meta에 기록 */
 function _mtbSaveProjectMeta(field, value) {
   if (typeof projectMeta !== 'object' || !projectMeta) return;
   projectMeta[field] = value;
-  /* pushProjectMetaToFirebase는 firebase.js가 박은 wrapper */
+  /* pushProjectMetaToFirebase는 firebase.js가 제공하는 wrapper */
   if (typeof pushProjectMetaToFirebase === 'function') {
     const patch = {}; patch[field] = value;
     pushProjectMetaToFirebase(patch);
@@ -1794,7 +1794,7 @@ function _mtbSaveProjectMeta(field, value) {
 
 /* REFINE-IA-2: 테마 = 작품 전체 기본값(projectMeta.textDefaults.textTheme). 데스크탑 "이야기 전체" 탭과 동일 의미.
    ⚠️ 더 이상 모든 scene.textTheme 을 일괄로 덮어쓰지 않음(§3: 기존 장면값 강제 통일 금지).
-   장면별 테마를 따로 박은 장면은 그 값이 우선(override)되고, 안 박은 장면·새 장면은 이 기본값을 따름.
+   장면별 테마를 따로 지정한 장면은 그 값이 우선(override)되고, 지정 안 한 장면·새 장면은 이 기본값을 따름.
    작품 단위 1회 write(viewer-meta/textDefaults) — 장면 일괄 write 없음. */
 function _mtbApplyThemeToAll(themeId) {
   const cur = (typeof projectMeta === 'object' && projectMeta && projectMeta.textDefaults && typeof projectMeta.textDefaults === 'object')
@@ -1802,7 +1802,7 @@ function _mtbApplyThemeToAll(themeId) {
   const merged = { ...cur, textTheme: themeId };
   if (typeof _mtbSaveProjectMeta === 'function') _mtbSaveProjectMeta('textDefaults', merged);
   /* UI 즉시 반영 — active는 클릭값이 아니라 현재 장면 resolved 테마 기준(Codex Step3 #3).
-     장면에 테마 override가 박혀 있으면 작품 기본값을 바꿔도 그 장면은 안 바뀌므로 active도 그대로. */
+     장면에 테마 override가 지정돼 있으면 작품 기본값을 바꿔도 그 장면은 안 바뀌므로 active도 그대로. */
   const _curSc = (MTB_EDIT && MTB_EDIT.currentId !== null && scenes) ? scenes[MTB_EDIT.currentId] : null;
   const active = (typeof _mtbResolveTheme === 'function') ? _mtbResolveTheme(_curSc) : themeId;
   document.querySelectorAll('.mtb-edit-theme-btn').forEach(btn => {
@@ -1932,7 +1932,7 @@ if (typeof window !== 'undefined') {
   window.showMakerConfirm = showMakerConfirm;
 }
 
-/* "모든 이야기 장면에 적용" — 현재 장면의 textStyle을 cover/ending 제외하고 박음 */
+/* "모든 이야기 장면에 적용" — 현재 장면의 textStyle을 cover/ending 제외하고 적용 */
 async function _mtbApplyTextStyleToAll() {
   if (typeof scenes !== 'object' || !scenes) return;
   const curId = MTB_EDIT.currentId;
@@ -1948,7 +1948,7 @@ async function _mtbApplyTextStyleToAll() {
   if (style.color) styleMark.color = true;
   if (style.weight) styleMark.weight = true;
 
-  /* cover/ending 제외하고 일반 장면만 박음 (사용자 박은 명) */
+  /* cover/ending 제외하고 일반 장면만 적용 (사용자 명령) */
   const targets = Object.keys(scenes).filter(id => {
     const s = scenes[id];
     if (!s) return false;
@@ -2180,7 +2180,7 @@ function _mtbReflectStyleToCard(style) {
 }
 
 /* v101: _mtbEditPopulate reassignment 패턴 폐기. _mtbEditPopulate 내부에서
-   직접 _mtbReflectStyleToUI/Card 호출하는 식으로 박힘 (위 함수 정의 참고). */
+   직접 _mtbReflectStyleToUI/Card 호출하는 식으로 변경됨 (위 함수 정의 참고). */
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', _mtbInitSettings);
@@ -2188,7 +2188,7 @@ if (document.readyState === 'loading') {
   _mtbInitSettings();
 }
 
-/* v107: 요약 바 칩 동작 박음 — DOM 박힐 때 한 번 */
+/* v107: 요약 바 칩 동작 연결 — DOM 준비될 때 한 번 */
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', _mtbInitSummary);
 } else {
@@ -2217,9 +2217,9 @@ function mtbRefresh() {
 }
 
 /* ── v110: 표지 cover scene 열기 / 만들기 ──
-   사용자 박은 "옵션 2": 모바일 텍스트형 제작에선 표지(cover scene) 박는 길만 박음.
+   사용자가 고른 "옵션 2": 모바일 텍스트형 제작에선 표지(cover scene) 만드는 길만 제공.
    이미 표지 있으면 그 편집 화면으로, 없으면 addScene('cover') 호출 후 편집.
-   sceneRenderer.js의 addScene('cover')는 중복 차단 박혀있음. */
+   sceneRenderer.js의 addScene('cover')는 중복 차단이 들어 있음. */
 function _mtbOpenCoverScene() {
   if (typeof scenes !== 'object' || !scenes) return;
   const findCover = () => {
@@ -2239,14 +2239,14 @@ function _mtbOpenCoverScene() {
     return;
   }
   addScene('cover');
-  /* addScene이 비동기일 수 있어 잠깐 박은 후 새 cover scene 찾음 */
+  /* addScene이 비동기일 수 있어 잠깐 기다린 후 새 cover scene 찾음 */
   setTimeout(() => {
     const newId = findCover();
     if (newId) {
-      /* v111: PC에서 만든 옛 작품이 p.coverTitle만 박혀있고 cover scene은 없는 경우,
+      /* v111: PC에서 만든 옛 작품이 p.coverTitle만 있고 cover scene은 없는 경우,
          모바일에서 새 cover scene 만들면 sc.title이 빈 채라 옛 제목이 시각적으로 사라짐.
          일회 마이그: 새 cover scene의 title/subtitle이 비어있을 때만 p.coverTitle을 sc.title로
-         박음. p.coverTitle 자체는 안 박음 (PC 흐름 손대지 X). 사용자가 박은 "PC 설정 안 깨기" 충족. */
+         복사. p.coverTitle 자체는 안 건드림 (PC 흐름 손대지 X). 사용자가 정한 "PC 설정 안 깨기" 충족. */
       try {
         const sc = scenes[newId];
         const p = (typeof projectMeta === 'object' && projectMeta) ? projectMeta : null;
@@ -2587,7 +2587,7 @@ function _mtbInit() {
       window.location.href = 'index.html';
     });
   }
-  /* v104: 배치 모드 토글 — 박힌 상태에서 노드 드래그로 위치 박음 */
+  /* v104: 배치 모드 토글 — 켜진 상태에서 노드 드래그로 위치 지정 */
   const placeBtn = document.getElementById('mtb-place-toggle');
   if (placeBtn) {
     placeBtn.addEventListener('click', () => _mtbTogglePlaceMode());
@@ -2605,7 +2605,7 @@ function _mtbInit() {
         return;
       }
       /* v111: 표지만 있고 일반 장면이 하나도 없으면 감상 진입 차단.
-         시작하기 누를 거리가 없어 감상이 멎음. 사용자가 박은 안 = 안내만, 자동 장면 생성 X. */
+         시작하기 누를 거리가 없어 감상이 멎음. 사용자가 고른 안 = 안내만, 자동 장면 생성 X. */
       try {
         const ids = (typeof scenes === 'object' && scenes) ? Object.keys(scenes) : [];
         if (ids.length) {
@@ -2619,7 +2619,7 @@ function _mtbInit() {
           }
         }
       } catch (e) { /* 검사 실패해도 진입은 계속 */ }
-      /* 박힌 변경 강제 push (debounce 흐름 우회) */
+      /* 쌓인 변경 강제 push (debounce 흐름 우회) */
       if (typeof _flushPushToFirebaseNow === 'function') _flushPushToFirebaseNow();
       const params = new URLSearchParams();
       params.set('team', tn);
@@ -2627,9 +2627,9 @@ function _mtbInit() {
       if (cid) params.set('classId', cid);
       params.set('ptype', 'text');
       /* v108: 감상에서 돌아올 때 입장 화면 떨어지는 문제 fix.
-         viewer-render의 _resolveFallbackUrl(ctx)이 ctx 없으면 resume=1 안 박힌 URL 반환했음.
-         여기서 모바일 텍스트형 복귀 URL을 ctx에 명시 박음 (team/classId/ptype/resume=1 다 포함).
-         ui.js _saveReturnContext는 location.href 그대로 박아서 모바일 정보 손실 가능 — 직접 박음. */
+         viewer-render의 _resolveFallbackUrl(ctx)이 ctx 없으면 resume=1 안 붙은 URL 반환했음.
+         여기서 모바일 텍스트형 복귀 URL을 ctx에 명시 지정 (team/classId/ptype/resume=1 다 포함).
+         ui.js _saveReturnContext는 location.href 그대로 저장해서 모바일 정보 손실 가능 — 직접 지정. */
       try {
         const backParams = new URLSearchParams();
         backParams.set('team', tn);
@@ -2646,8 +2646,8 @@ function _mtbInit() {
       window.location.href = `viewer.html?${params.toString()}`;
     });
   }
-  /* + 추가 — 사용자 박은 신규 scene 추가 함수 (sceneRenderer.js) 호출.
-     Step 3에서 정식 흐름 박을 거. */
+  /* + 추가 — 사용자가 정한 신규 scene 추가 함수 (sceneRenderer.js) 호출.
+     Step 3에서 정식 흐름 갖출 예정. */
   const addBtn = document.getElementById('mtb-add-scene');
   if (addBtn) {
     addBtn.addEventListener('click', () => {
@@ -2666,7 +2666,7 @@ function _mtbInit() {
     tplBtn.addEventListener('click', _mtbCreateBase10Template);
   }
 
-  /* 작품 로드 완료 이벤트 listen — state.projectType 박힌 후 mtbRefresh */
+  /* 작품 로드 완료 이벤트 listen — state.projectType 설정된 후 mtbRefresh */
   window.addEventListener('mtb-project-ready', mtbRefresh);
 
   /* viewport resize 시 재평가 (회전 등) */
@@ -2674,7 +2674,7 @@ function _mtbInit() {
     if (!MTB.pcOverride) mtbRefresh();
   });
 
-  /* DOM 로드 직후 한 번 시도 (state 박혀있으면 활성) */
+  /* DOM 로드 직후 한 번 시도 (state 준비돼 있으면 활성) */
   setTimeout(mtbRefresh, 100);
 }
 

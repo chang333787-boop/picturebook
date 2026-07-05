@@ -8,7 +8,7 @@
    v140-step4:  AI 보기 토글 바
 
    v138 기존 디자인 (warm paper #fffaee, 코랄 #c66f4a) 따름.
-   기존 viewer.css / pb-tone.css 클래스 안 건드림. 신규 클래스만 박음.
+   기존 viewer.css / pb-tone.css 클래스 안 건드림. 신규 클래스만 추가.
 ==================================================================== */
 
 /* ════════════════════════════════════════════════════════════════
@@ -26,7 +26,7 @@
   align-items: center;
   gap: 8px;
   padding: 6px 10px;
-  background: #c92a2a;                  /* 빨강 — 운영과 구분 박힘 */
+  background: #c92a2a;                  /* 빨강 — 운영과 구분되게 */
   color: #fffaee;
   border-radius: 8px;
   box-shadow: 0 2px 6px rgba(0,0,0,0.25);
@@ -630,13 +630,13 @@
 /* ════════════════════════════════════════════════════════════════
    v140-step2: 후보 모달 (회차 탭 — 사용자 결정 #E)
    ──────────────────────────────────────────────────────────────
-   모달 박은 위치는 기존 .ai-modal-overlay 박은 거 박음.
-   장면 많으면 내부 스크롤 박힘.
+   모달 표시 위치는 기존 .ai-modal-overlay를 재사용.
+   장면 많으면 내부 스크롤 생김.
    ════════════════════════════════════════════════════════════════ */
 .ai-cand-modal {
   background: #fffaee;
   border-radius: 12px;
-  /* v140 fix 2026-05-21: width 95vw / max-height 90vh — 수정본 박은 거 박은 거 박은 박은 끝까지 박힘 (사용자 명) */
+  /* v140 fix 2026-05-21: width 95vw / max-height 90vh — 수정본 텍스트가 끝까지 보이도록 확대 (사용자 명령) */
   width: 95vw;
   max-width: 1280px;
   max-height: 90vh;
@@ -749,7 +749,7 @@
 
 .ai-cand-split {
   display: grid;
-  /* v140 fix 2026-05-21: 세로 배치 박음 (사용자 명) — 수정본 박은 거 박은 거 박은 박은 좁아 박지 X */
+  /* v140 fix 2026-05-21: 세로 배치로 변경 (사용자 명령) — 좌우 2단이면 수정본 칸이 좁아져서 */
   grid-template-columns: 1fr;
   gap: 10px;
 }
@@ -814,7 +814,7 @@
   color: #8a7a5e;
 }
 
-/* v140 fix 2026-05-21: 모바일 — 같음 (이미 세로 박음) */
+/* v140 fix 2026-05-21: 모바일 — 같음 (이미 세로 배치) */
 @media (max-width: 600px) {
   .ai-cand-modal { width: 98vw; max-height: 92vh; }
 }
@@ -912,12 +912,12 @@
 /* ════════════════════════════════════════════════════════════════
    v140-step3: 편집 중 패널 (drafting)
    ──────────────────────────────────────────────────────────────
-   장면별 textarea 박힘. 미세 수정만 — 새 사건/인물 추가는 안내로.
+   장면별 textarea 표시. 미세 수정만 — 새 사건/인물 추가는 안내로.
    ════════════════════════════════════════════════════════════════ */
 .ai-draft-modal {
   background: #fffaee;
   border-radius: 12px;
-  /* v140 fix 2026-05-21: 95vw / 90vh (사용자 명) */
+  /* v140 fix 2026-05-21: 95vw / 90vh (사용자 명령) */
   width: 95vw;
   max-width: 1100px;
   max-height: 90vh;
@@ -1047,7 +1047,7 @@
 /* ════════════════════════════════════════════════════════════════
    v140-step4: AI 보기 토글 바 (사용자 결정 #D)
    ──────────────────────────────────────────────────────────────
-   별도 토글 바 박음. maker-return-bar 박지 X.
+   별도 토글 바 신설. maker-return-bar는 건드리지 않음.
    그림/본문/행동버튼 영역 침범 X — fixed top center.
    ════════════════════════════════════════════════════════════════ */
 .ai-view-toggle-bar {
@@ -1099,15 +1099,15 @@
   color: #fffaee;
 }
 
-/* TEST MODE 배지 박은 우상단 박은 거 박은 거 박은 — 박은 거 박은 거 박은 거 박은 거 박은 박은 거 */
-.ai-testmode-badge ~ .ai-view-toggle-bar { /* 시각 박은 거 박은 거 박은 거 박은 거 박은 거 박은 거 박은 거 박은 거 */ }
+/* TEST MODE 배지와 함께 표시될 때 — 배지는 좌상단 fixed, 토글 바는 상단 중앙이라 겹치지 않음 */
+.ai-testmode-badge ~ .ai-view-toggle-bar { /* 시각 충돌 없음 — 별도 조정 불필요 (빈 규칙 유지) */ }
 
 @media (max-width: 600px) {
   .ai-view-toggle-bar { font-size: 11px; padding: 4px 8px; }
   .ai-view-toggle-btn { padding: 4px 9px; font-size: 11px; }
 }
 
-/* GPT 피드백 #3: 강한 경고 박힌 후보 행 */
+/* GPT 피드백 #3: 강한 경고가 붙은 후보 행 */
 .ai-cand-row--warn {
   background: #fef3c7;
   border: 2px solid #f59e0b;

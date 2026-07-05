@@ -23,7 +23,7 @@ const firebaseConfig = {
    POLISH-AUTH-FIX: 편집 뷰어(maker→다듬기)는 maker가 쓰는 default app을 사용한다.
    ────────────────────────────────────────────────────────────────
    배경: maker는 firebase.js의 default app([DEFAULT])에서 익명 로그인 → 그 UID에
-   members/{uid}/status='active'가 박힌다. 반면 viewer는 named 'viewer' app에서
+   members/{uid}/status='active'가 기록된다. 반면 viewer는 named 'viewer' app에서
    별도 익명 로그인 → 다른 UID → 비공개(v2) scenes Rules(멤버/교사 필요)에서 거부.
    같은 origin·같은 [DEFAULT] app·같은 apiKey면 Firebase Auth가 persisted UID를
    복원하므로, 편집 세션에서는 default app을 쓰면 maker UID가 그대로 복원된다.
@@ -97,7 +97,7 @@ function getViewerDb() {
     }
   } else if (!_viewerAuthPromise && app && typeof app.auth === 'function') {
     /* 공개/일반 감상 — 기존 named 'viewer' app 익명 로그인 사전 보장(원본 동작 유지).
-       이미지 업로드 / lock transaction 호출 시점에 인증이 박혀 있도록 미리 시도. */
+       이미지 업로드 / lock transaction 호출 시점에 인증이 확보돼 있도록 미리 시도. */
     try {
       const auth = app.auth();
       if (!auth.currentUser) {
@@ -131,7 +131,7 @@ async function lookupClassIdForViewer(code) {
 
 /* DESIGN-SYSTEM-V1 D5: legacy pbTheme(기존 6키) → 신규 5스킨 fallback(렌더 표시용).
    ⚠️ DB 저장값(ViewerState.project.pbTheme / viewer-meta.pbTheme)은 절대 바꾸지 않는다 —
-   body[data-pb-theme]에 박는 "표시값"만 normalize. 신규 5키는 그대로 통과.
+   body[data-pb-theme]에 적용하는 "표시값"만 normalize. 신규 5키는 그대로 통과.
    사용자가 다듬기 UI에서 새 스킨을 다시 선택하면 그때 신규 키가 저장된다(아래 핸들러). */
 function normalizePicturebookTheme(theme) {
   const map = {
@@ -233,7 +233,7 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
         ※ hint는 maker가 메모리에 가진 사용자 결정. lock 정책의 연장이지 위배 아님.
      3. 그 외 → 'picturebook' fallback (legacy 작품 보호용 최후 수단)
         · DB 보정 저장 안 함 — fallback이 실제 작품 모드와 다를 수 있음
-        · 사용자가 maker에서 ptype 화면 거치면 그때 정상 박힘 */
+        · 사용자가 maker에서 ptype 화면 거치면 그때 정상 저장됨 */
   const VALID_PTYPES = ['text', 'picturebook', 'movie', 'experience'];
   if (meta && typeof meta.projectType === 'string' && VALID_PTYPES.includes(meta.projectType)) {
     ViewerState.project.projectType = meta.projectType;
@@ -276,8 +276,8 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
     }
 
     /* v37 ★ 핵심 fix — 페이지 방향·테마가 meta에 저장되지만 여기서 안 읽어와서
-       maker 진입·감상 테스트 시 ViewerState에 박히지 않고 초기화되던 문제.
-       사용자 보고: "다듬기에서 박은 모드가 브랜치 화면 돌아오면 리셋됨". */
+       maker 진입·감상 테스트 시 ViewerState에 반영되지 않고 초기화되던 문제.
+       사용자 보고: "다듬기에서 설정한 모드가 브랜치 화면 돌아오면 리셋됨". */
     if (typeof meta.pageOrientation === 'string') {
       ViewerState.project.pageOrientation = meta.pageOrientation;
     }
@@ -291,7 +291,7 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
     }
 
     /* v138: 그림책형 본문 카드 톤 시스템 (작품 단위)
-       장면 1에서 박은 값이 작품 전체 일반 분할형·엔딩 분할형에 적용됨.
+       장면 1에서 설정한 값이 작품 전체 일반 분할형·엔딩 분할형에 적용됨.
        valid 값만 인정 — 그 외엔 null로 두어 옛 viewer.css 규칙 그대로 사용. */
     const VALID_CARD_STYLES = ['default', 'paper', 'border', 'pastel'];
     const VALID_CARD_COLORS = ['white', 'green', 'yellow', 'blue'];
@@ -309,7 +309,7 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
 
     /* v64: 장면 전환 효과 (작품 단위 메타)
        v73: 속도는 string('fast'/'normal'/'slow')에서 number(0~100)로 마이그레이션.
-       옛 string 그대로 박혀있으면 자동 변환 (fast=0, normal=50, slow=100). */
+       옛 string 그대로 저장돼 있으면 자동 변환 (fast=0, normal=50, slow=100). */
     const VALID_TRANS = ['none', 'fade', 'book', 'scale', 'slide-up', 'flip3d'];
     const LEGACY_SPEED_MAP = { fast: 0, normal: 50, slow: 100 };
     ViewerState.project.sceneTransition = VALID_TRANS.includes(meta.sceneTransition)
@@ -338,15 +338,15 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
      사용자 결정: "텍스트는 스마트폰 화면 최적화 — PC에서도 같은 비율". */
   const ptype = ViewerState.project.projectType;
   if (ptype === 'text') {
-    /* 텍스트는 강제 portrait — 이전 박은 데이터 무시 */
+    /* 텍스트는 강제 portrait — 이전에 저장된 데이터 무시 */
     ViewerState.project.pageOrientation = 'portrait';
   } else if (!ViewerState.project.pageOrientation) {
     ViewerState.project.pageOrientation = 'landscape';
   }
 
-  /* v37 ★★ 진짜 root fix — body data attribute 박음.
+  /* v37 ★★ 진짜 root fix — body data attribute 설정.
      CSS 컨테이너 쿼리·페이지 비율·테마 룰 모두 body[data-page-orientation],
-     body[data-pb-theme]에 의존. ViewerState에만 박고 body data 안 박으면
+     body[data-pb-theme]에 의존. ViewerState에만 저장하고 body data를 설정하지 않으면
      모든 후속 렌더가 기본 landscape로 동작 = "감상 테스트가 그냥 가로".
      loadTeamData 끝나는 시점에 body data 동기화. */
   if (document.body) {
@@ -354,7 +354,7 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
     if (orient === 'portrait' || orient === 'landscape') {
       document.body.dataset.pageOrientation = orient;
     }
-    /* T-THEME-1: pbTheme(양옆 마감 테마)는 그림책 작품에서만 body data에 박음.
+    /* T-THEME-1: pbTheme(양옆 마감 테마)는 그림책 작품에서만 body data에 적용.
        텍스트 등 비-그림책 작품은 DB에 pbTheme 값이 남아 있어도 표시에서 무시 +
        이전 화면(그림책 팀)에서 남은 dataset까지 명시 제거(팀 전환 잔존 차단).
        DB 원본값은 삭제하지 않음(렌더/메뉴에서만 무시). */
@@ -369,14 +369,14 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
     } else {
       delete document.body.dataset.pbTheme;
     }
-    /* v82: v79 박은 body.dataset.coverTheme 폐기 — 사용자 의도는 표지 색이 아닌
+    /* v82: v79에서 도입한 body.dataset.coverTheme 폐기 — 사용자 의도는 표지 색이 아닌
        pb-theme(양옆 마감 테마)이 letterbox 전체 둘러쌈. body.dataset.pbTheme이 이미
-       박혀있으니 CSS body[data-pb-theme] #stage-wrap 룰만 박으면 됨. */
+       설정돼 있으니 CSS body[data-pb-theme] #stage-wrap 룰만 적용하면 됨. */
   }
 
   /* v64: 장면 전환 효과 (작품 단위) — #viewer-frame data 속성으로.
      v73: 속도는 CSS 변수 --scene-trans-duration, --text-ent-duration, --text-tw-step (ms).
-     applyWorkEffectVars 헬퍼가 슬라이더 0~100 → ms로 매핑 + viewer-frame style에 박음. */
+     applyWorkEffectVars 헬퍼가 슬라이더 0~100 → ms로 매핑 + viewer-frame style에 적용. */
   const vf = document.getElementById('viewer-frame');
   if (vf) {
     vf.dataset.transition   = ViewerState.project.sceneTransition || 'fade';
@@ -465,7 +465,7 @@ async function saveSceneText(num, fields) {
     'textTheme',          /* W5: 텍스트형 테마 (8종 중 1) */
     'textEffect',         /* W5: 텍스트형 효과 {entrance, body} */
     'imageData',          /* W7: 무비형 포스터 이미지 (그림책형/체험전시형도 사용 — 다듬기 패널 업로드 저장) */
-    /* v67: 표지 scene 필드 — 다듬기에서 박은 정보 저장 (이전엔 ALLOWED 누락으로 손실) */
+    /* v67: 표지 scene 필드 — 다듬기에서 설정한 정보 저장 (이전엔 ALLOWED 누락으로 손실) */
     'subtitle',           /* 표지 한 줄 소개 */
     'coverTheme',         /* 표지 색 테마 */
     'titleVerticalPosition', /* 표지 제목 높낮이 */
@@ -557,10 +557,10 @@ async function saveViewerMeta() {
   });
 
   /* W7 projectType 보존 핵심 fix:
-     이전엔 viewer-meta 통째 set 시 projectType 안 박아 옛 값까지 사라짐.
+     이전엔 viewer-meta 통째 set 시 projectType을 포함하지 않아 옛 값까지 사라짐.
      사용자 캡처 시나리오: ptype 화면에서 'movie' 저장 → 다듬기 저장 시 viewer-meta
      통째 덮어쓰기 → projectType 필드 사라짐 → viewer 진입 시 undefined → 그림책 fallback.
-     이제: ViewerState.project.projectType이 valid 값이면 매 저장 시 함께 박음. */
+     이제: ViewerState.project.projectType이 valid 값이면 매 저장 시 함께 기록함. */
   const VALID_PTYPES = ['text', 'picturebook', 'movie', 'experience'];
   const ptype = ViewerState.project.projectType;
   const ptypePatch = (typeof ptype === 'string' && VALID_PTYPES.includes(ptype))
@@ -570,8 +570,8 @@ async function saveViewerMeta() {
   /* W7: set → update. set은 노드 통째 덮어쓰기라 명시 안 한 필드(projectType 등) 사라짐.
      update는 명시한 키만 갱신, 나머지 보존. */
   /* v138: 그림책형 본문 카드 스타일 / 색계열 — 작품 단위.
-     장면 1에서 박은 값을 작품 전체 기준으로 고정. null이면 저장 안 함
-     (옛 작품 보호 — 아직 사용자가 한 번도 박지 않은 상태). */
+     장면 1에서 설정한 값을 작품 전체 기준으로 고정. null이면 저장 안 함
+     (옛 작품 보호 — 아직 사용자가 한 번도 설정하지 않은 상태). */
   const _toneStylePatch = ViewerState.project.textCardStyle
     ? { textCardStyle: ViewerState.project.textCardStyle }
     : {};
@@ -715,8 +715,8 @@ function adaptScenes(rawScenes) {
          · develop  — 은은하게
          · tense    — 차분하게
          · crisis   — 진하게 (가장 무게감 큼)
-         값이 명시되지 않은 옛 장면은 null — viewer-render에서 톤 클래스 박지 X
-         (옛 작품 시각 변화 없음). 사용자가 다듬기에서 한 번이라도 박으면 값 저장. */
+         값이 명시되지 않은 옛 장면은 null — viewer-render에서 톤 클래스 적용 X
+         (옛 작품 시각 변화 없음). 사용자가 다듬기에서 한 번이라도 설정하면 값 저장. */
       pbCardTone: (
         raw.pbCardTone === 'default' ||
         raw.pbCardTone === 'bright'  ||
@@ -730,7 +730,7 @@ function adaptScenes(rawScenes) {
          · default   — 기본 마감 (담백한 종결)
          · bright    — 밝은 마감 (진엔딩·골드 glow)
          · afterglow — 여운 마감 (조용·아쉬움)
-         null이면 톤 클래스 박지 X — 옛 엔딩 그대로. */
+         null이면 톤 클래스 적용 X — 옛 엔딩 그대로. */
       pbEndingTone: (
         raw.pbEndingTone === 'default' ||
         raw.pbEndingTone === 'bright'  ||
@@ -937,13 +937,13 @@ function getEntryScene() {
   const scenes = ViewerState.scenes;
   const eid    = ViewerState.project.entrySceneId;
   /* v111: entrySceneId가 cover scene을 가리키면 무시 — "시작하기 → 표지 → 시작하기" 무한 루프 차단.
-     사용자가 명시 박은 잘못된 entry라도 cover는 entry가 될 수 없음. */
+     사용자가 명시 설정한 잘못된 entry라도 cover는 entry가 될 수 없음. */
   if (eid && scenes[eid] && scenes[eid].type !== 'cover' && !scenes[eid].isCover) return scenes[eid];
   const start = getStartScene();
   if (start) return start;
   /* 마지막 fallback: cover 제외하고 첫 번째 scene (id 오름차순).
-     모바일 텍스트형에서 표지 만들고 entrySceneId 명시 박지 않은 경우, cover scene이
-     첫 번호일 가능성. 그것을 entry로 잡으면 무한 루프 → cover 제외 박음. */
+     모바일 텍스트형에서 표지 만들고 entrySceneId 명시 설정하지 않은 경우, cover scene이
+     첫 번호일 가능성. 그것을 entry로 잡으면 무한 루프 → cover 제외 적용. */
   const first = Object.values(scenes)
     .filter(s => s && s.type !== 'cover' && !s.isCover)
     .sort((a, b) => Number(a.id) - Number(b.id))[0];
@@ -1252,8 +1252,8 @@ const TEXT_STYLE_DEFAULTS = {
   color:      '',        /* 빈 문자열이면 테마 기본 색 사용 */
   weight:     'normal',  /* normal | bold */
 };
-/* v77: 엔딩 scene 전용 default — 지금 CSS에 박힌 룰을 그대로 모델로 옮김.
-   엔딩 인스펙터에서 사용자가 박으면 scene.textStyle 박히고 override.
+/* v77: 엔딩 scene 전용 default — 지금 CSS에 하드코딩된 룰을 그대로 모델로 옮김.
+   엔딩 인스펙터에서 사용자가 설정하면 scene.textStyle이 저장되고 override.
    장면 1 "모든 장면 적용" 버튼은 엔딩 제외 정책 유지(v75) — 엔딩 독립. */
 const ENDING_TEXT_STYLE_DEFAULTS = {
   fontFamily: 'jua',
@@ -1374,7 +1374,7 @@ function getTextStyle(scene) {
   if (!_isTextProject()) {
     const v = scene && scene.textStyle;
     if (v && typeof v === 'object') return v;
-    /* v77: 엔딩 default 분기 — textStyle 박혀있지 않은 엔딩은 별도 default (jua/20/...) */
+    /* v77: 엔딩 default 분기 — textStyle이 설정돼 있지 않은 엔딩은 별도 default (jua/20/...) */
     if (isEnding) return { ...ENDING_TEXT_STYLE_DEFAULTS };
     return { ...TEXT_STYLE_DEFAULTS };
   }

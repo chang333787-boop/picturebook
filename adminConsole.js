@@ -26,8 +26,8 @@ const adminState = {
   allTeams:    [],      // 로드된 팀 데이터 배열
   filter:      'all',   // 'all'|'not-started'|'in-progress'|'ready'|'needs-attention'
   sort:        'name',  // 'name'|'scenes'|'status'
-  /* 2026-05-29 admin 2차: 모드별 필터 — 상태 필터와 함께 박힘.
-     'all' = 전체 모드 / 'unset' = projectType 박지 X 박은 팀 / 그 외 = 4 화이트리스트 */
+  /* 2026-05-29 admin 2차: 모드별 필터 — 상태 필터와 함께 적용됨.
+     'all' = 전체 모드 / 'unset' = projectType 미설정 팀 / 그 외 = 4 화이트리스트 */
   modeFilter:  'all',   // 'all'|'unset'|'picturebook'|'text'|'movie'|'experience'
   adminClassId: null,   // v2에서 교사가 현재 보는 classId (v1에서는 null)
   /* 2026-06 admin 1차 최적화: 팀 목록 60초 단기 인메모리 캐시.
@@ -228,7 +228,7 @@ async function _loadAdminDataV2() {
     return;
   }
 
-  /* v94: 클래스 메타 조회 후 헤더 바 박음 (반 이름 + 코드 + 복사 버튼) */
+  /* v94: 클래스 메타 조회 후 헤더 바 표시 (반 이름 + 코드 + 복사 버튼) */
   _renderClassBar(resolvedClassId);
   /* Phase 1: 학급 AI 설정 패널 */
   _renderAiSettingsPanel(resolvedClassId);
@@ -784,18 +784,18 @@ function _analyzeTeam(encodedName, scenes, isPublic = false, meta = {}, account 
   /* 2026-05-29 admin 3차: 한 장면의 미연결 버튼 수 계산.
      · 표지/엔딩 제외 — 행동 버튼 자체 X
      · buttons[] 우선 — nextId 없는 항목 카운트 (Phase 4-C 정책과 정합)
-     · legacy fallback — choiceCount 박은 시점 박은 거 박을 때만 박음
-     · 저장 구조 박지 X — 읽기 전용
-     2026-05-29 admin 3차 fix: choiceCount default 2 박은 거 폐기 —
-     buttons 박지 X 박고 choiceCount 박지 X 박은 빈/옛 장면 박은 거 미연결 2개로
-     과표시 박은 위험 차단. choiceCount 명시 박은 시점만 fallback 박음. */
+     · legacy fallback — choiceCount가 명시된 경우에만 사용
+     · 저장 구조 변경 없음 — 읽기 전용
+     2026-05-29 admin 3차 fix: choiceCount default 2 가정 폐기 —
+     buttons도 없고 choiceCount도 없는 빈/옛 장면이 미연결 2개로
+     과표시되는 위험 차단. choiceCount가 명시된 경우에만 fallback 적용. */
   function _unconnectedButtonsCount(s) {
     if (!s) return 0;
     if (s.type === 'ending' || s.type === 'cover' || s.isCover) return 0;
     if (Array.isArray(s.buttons) && s.buttons.length > 0) {
       return s.buttons.filter(b => !b || !b.nextId).length;
     }
-    /* legacy fallback — choiceCount 명시 박은 시점만 박음. 박지 X 박으면 0. */
+    /* legacy fallback — choiceCount가 명시된 경우에만 적용. 없으면 0. */
     if (typeof s.choiceCount !== 'number' || s.choiceCount < 1) return 0;
     const cnt = s.choiceCount;
     let unset = 0;
@@ -811,7 +811,7 @@ function _analyzeTeam(encodedName, scenes, isPublic = false, meta = {}, account 
     ? Math.round(connected / nonEndingScenes.length * 100) : 0;
 
   /* 2026-05-29 admin 3차: 작품 전체 미연결 버튼 수 집계.
-     · 일반 장면 박은 거 박은 후 _unconnectedButtonsCount 박은 거 박은 합 */
+     · 장면별 _unconnectedButtonsCount 결과를 합산 (표지/엔딩은 함수 내부에서 0 처리) */
   const unconnectedButtons = scenes.reduce((acc, s) => acc + _unconnectedButtonsCount(s), 0);
 
   const noTitle = scenes.filter(s => !s.title?.trim()).length;
@@ -825,16 +825,16 @@ function _analyzeTeam(encodedName, scenes, isPublic = false, meta = {}, account 
   const ctx = {
     total, endings, entryValid, replayValid, entryBroken, replayBroken,
     connectivity, isolated, noTitle,
-    /* 2026-05-29 admin 3차: 미연결 버튼 수 박은 ctx — _listProblems 박은 거 박음 */
+    /* 2026-05-29 admin 3차: 미연결 버튼 수를 ctx에 포함 — _listProblems에서 사용 */
     unconnectedButtons,
   };
   const status         = _classifyStatus(ctx);
   const interpretation = _makeInterpretation(status, ctx);
   const problems       = _listProblems(ctx);
 
-  /* 2026-05-29 admin 1차: 작품 모드(projectType) 박음.
-     · viewer-meta/projectType 박힌 거 박음 — 4종 화이트리스트 외 값은 미선택/알 수 없음
-     · 읽기 전용 — Firebase 쓰기 박지 X */
+  /* 2026-05-29 admin 1차: 작품 모드(projectType) 판별.
+     · viewer-meta/projectType 값을 읽음 — 4종 화이트리스트 외 값은 미선택/알 수 없음
+     · 읽기 전용 — Firebase 쓰기 없음 */
   const MODE_LABEL = {
     picturebook: '그림책',
     text:        '텍스트',
@@ -854,7 +854,7 @@ function _analyzeTeam(encodedName, scenes, isPublic = false, meta = {}, account 
     hasImage, connectivity, noTitle, isolated, status, interpretation, problems,
     isPublic,
     projectType, modeLabel,
-    /* 2026-05-29 admin 3차: 미연결 버튼 수 박은 거 — 카드 배지 + problems 박힘 */
+    /* 2026-05-29 admin 3차: 미연결 버튼 수 — 카드 배지 + problems 표시에 사용 */
     unconnectedButtons,
     /* ADMIN-1B: 교사 사전 등록(account) 여부/상태 — 카드 배지 표시용 */
     registered:    !!account,
@@ -906,7 +906,7 @@ function _listProblems({ total, endings, entryValid, entryBroken, replayBroken, 
   if (endings === 0)    problems.push({ icon: '⚠️', text: '엔딩 장면이 없어요' });
   if (connectivity < 70 && total > 1) problems.push({ icon: '🔗', text: `연결 완성도 ${connectivity}%` });
   /* 2026-05-29 admin 3차: 미연결 버튼 개별 카운트 — connectivity %(scene 단위)와 보완.
-     1 이상일 때만 박음 — 0이면 박지 X (불필요 경고 차단). */
+     1 이상일 때만 표시 — 0이면 생략 (불필요 경고 차단). */
   if (unconnectedButtons > 0) problems.push({ icon: '🔗', text: `미연결 버튼 ${unconnectedButtons}개` });
   if (isolated > 0)     problems.push({ icon: '🔴', text: `고립 장면 ${isolated}개` });
   if (noTitle > 0)      problems.push({ icon: '📝', text: `내용 없는 장면 ${noTitle}개` });
@@ -957,7 +957,7 @@ function _renderFilterBar(teams) {
     { key: 'ready',           label: '감상 가능' },
     { key: 'not-started',     label: '미시작' },
   ];
-  /* 2026-05-29 admin 2차: 모드 필터 — 상태 필터와 AND 결합. 박지 X 박힌 채면 모든 모드. */
+  /* 2026-05-29 admin 2차: 모드 필터 — 상태 필터와 AND 결합. 미선택 상태면 모든 모드. */
   const modeFilters = [
     { key: 'all',         label: '전체 모드' },
     { key: 'picturebook', label: '그림책' },
@@ -1028,9 +1028,9 @@ function _renderTeamList() {
     : adminState.allTeams.filter(t => t.status === adminState.filter);
 
   /* 2026-05-29 admin 2차: 모드 필터 — 상태 필터 다음에 AND 적용.
-     · 'all'    → 모든 모드 박힘 (필터 박지 X)
-     · 'unset'  → projectType 박지 X 박은 팀만 (빈 문자열 박은 거)
-     · 그 외   → 정확히 박힌 projectType 박은 팀만 */
+     · 'all'    → 모든 모드 통과 (필터 미적용)
+     · 'unset'  → projectType이 없는 팀만 (빈 문자열 포함)
+     · 그 외   → projectType이 정확히 일치하는 팀만 */
   if (adminState.modeFilter && adminState.modeFilter !== 'all') {
     teams = (adminState.modeFilter === 'unset')
       ? teams.filter(t => !t.projectType)
@@ -1043,11 +1043,11 @@ function _renderTeamList() {
   else if (adminState.sort === 'scenes')
     teams.sort((a, b) => b.total - a.total);
   else if (adminState.sort === 'status') {
-    /* 2026-05-29 admin 4차: 문제 우선 정렬 — status 박은 거 박은 후 추가 우선순위 박음.
-       · 같은 status 박은 거 박힐 때 박은 문제 박은 거 박은 거 박은 팀 박은 거 박은 거 박음
+    /* 2026-05-29 admin 4차: 문제 우선 정렬 — status 비교 후 추가 우선순위 적용.
+       · 같은 status끼리는 문제가 많은 팀이 먼저 오도록 정렬
        · 우선순위: status → 미연결 버튼 수 → problems.length → isolated → connectivity(낮은 게 먼저) → 이름순
-       · undefined 박은 거 박은 거 박은 거 박지 X 박은 안전망 박음 (`|| 0`)
-       · name/scenes 정렬 박은 거 박지 X 박은 채 — 박은 영역 한정 */
+       · undefined 값이 비교를 깨지 않게 안전망 유지 (`|| 0`)
+       · name/scenes 정렬은 기존 그대로 — status 정렬에만 한정 */
     teams.sort((a, b) => {
       const statusDiff = (ORDER[a.status] ?? 9) - (ORDER[b.status] ?? 9);
       if (statusDiff) return statusDiff;
@@ -1088,8 +1088,8 @@ function _teamCardHtml(t) {
   const canView = t.status === 'ready';
 
   const badges = [];
-  /* 2026-05-29 admin 1차: 작품 모드 배지 — 카드 첫 자리에 박음 (가장 자주 박는 정보).
-     모드 박혀있을 때만 박음 — 미선택은 박지 X (시각 잡음 차단). */
+  /* 2026-05-29 admin 1차: 작품 모드 배지 — 카드 첫 자리에 표시 (가장 자주 확인하는 정보).
+     모드가 설정돼 있을 때만 표시 — 미선택은 생략 (시각 잡음 차단). */
   if (t.projectType) badges.push(`<span class="admin-badge admin-badge--mode">📚 ${_escHtml(t.modeLabel)}</span>`);
   /* ADMIN-1B: 교사 사전 등록 팀 배지 (account 존재 시). 상태 locked면 잠김 표시. */
   if (t.registered) badges.push(t.accountStatus === 'locked'
@@ -1099,8 +1099,8 @@ function _teamCardHtml(t) {
   if (t.hasImage)     badges.push('<span class="admin-badge admin-badge--img">🖼 이미지</span>');
   if (t.status === 'in-progress' && t.total > 0)
     badges.push(`<span class="admin-badge admin-badge--conn">연결 ${t.connectivity}%</span>`);
-  /* 2026-05-29 admin 3차: 미연결 버튼 배지 — 1 이상일 때만 박음.
-     status 무관 박음 — ready 박은 거 박을 때도 미연결 박힌 거 박을 수 있음. */
+  /* 2026-05-29 admin 3차: 미연결 버튼 배지 — 1 이상일 때만 표시.
+     status와 무관하게 표시 — ready 상태여도 미연결 버튼이 남아 있을 수 있음. */
   if (t.unconnectedButtons > 0)
     badges.push(`<span class="admin-badge admin-badge--warn">🔗 미연결 버튼 ${t.unconnectedButtons}개</span>`);
 
@@ -1523,14 +1523,14 @@ function _deleteTeam(encodedName, displayName) {
   if (!adminState.verified) return;
   if (!confirm(`"${displayName}" 팀의 모든 데이터를 삭제할까요?\n이 작업은 되돌릴 수 없어요!`)) return;
 
-  /* 2026-05-29 admin 1차: 강한 확인 — 팀 이름 정확히 다시 입력 박혀야 remove() 박음.
-     · 옛엔 confirm() 한 번만 박힘 — 실수 클릭 시 학생 작품 복구 X
-     · prompt 박은 입력값이 teamName과 정확히 일치 박혀야 박힘
-     · 취소 / 빈 값 / 불일치 → remove() 호출 경로 박지 X (안전 우선) */
+  /* 2026-05-29 admin 1차: 강한 확인 — 팀 이름을 정확히 다시 입력해야 remove() 실행.
+     · 옛엔 confirm() 한 번뿐 — 실수 클릭 시 학생 작품 복구 X
+     · prompt 입력값이 teamName과 정확히 일치해야 진행
+     · 취소 / 빈 값 / 불일치 → remove() 호출 경로 진입 안 함 (안전 우선) */
   const typed = prompt(
     `⚠️ 마지막 확인 — 이 작업은 복구할 수 없어요.\n\n` +
     `삭제하려면 팀 이름을 정확히 입력해주세요:\n"${displayName}"\n\n` +
-    `(취소하거나 다르게 박으면 삭제 박지 X)`
+    `(취소하거나 다르게 입력하면 삭제되지 않아요)`
   );
   if (typed === null) return;                           /* 취소 */
   if (typed.trim() === '') {                            /* 빈 값 */
@@ -1556,10 +1556,10 @@ function _deleteTeam(encodedName, displayName) {
       _renderTeamList();
     })
     .catch(err => {
-      /* 2026-05-29 admin 2차: PERMISSION_DENIED 박은 별도 안내.
-         · Firebase RTDB 규칙상 admin 화면에서 직접 박지 X 박을 수 있음
-         · 원문 에러 박지 X — 교사 친화 문구 박음
-         · 권한 박는 거 박지 X (database.rules.json 박지 X) */
+      /* 2026-05-29 admin 2차: PERMISSION_DENIED는 별도 안내.
+         · Firebase RTDB 규칙상 admin 화면에서 직접 삭제가 막혀 있을 수 있음
+         · 원문 에러는 그대로 노출하지 않음 — 교사 친화 문구로 안내
+         · 권한 정책은 변경하지 않음 (database.rules.json 무수정) */
       console.error('[admin] 팀 삭제 실패:', err);
       const errMsg  = (err && (err.code || err.message)) ? String(err.code || err.message) : '';
       const isPermDenied = /PERMISSION_DENIED|permission[_ ]?denied/i.test(errMsg);

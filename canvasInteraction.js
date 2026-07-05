@@ -8,9 +8,9 @@
 function getCanvas() { return document.getElementById('canvas'); }
 function getWrap()   { return document.getElementById('canvas-wrap'); }
 
-/* v118: RAF로 묶음 + translate3d 박음 — iPad/Android tablet 부드러움.
-   옛엔 매 touchmove마다 style.transform 직접 박음 → 60+ frame/초 부담.
-   RAF 박으면 한 frame에 한 번만 박음. translate3d 박으면 GPU layer 강제 박힘. */
+/* v118: RAF로 묶음 + translate3d 적용 — iPad/Android tablet 부드러움.
+   옛엔 매 touchmove마다 style.transform 직접 갱신 → 60+ frame/초 부담.
+   RAF로 묶으면 한 frame에 한 번만 갱신. translate3d를 쓰면 GPU layer가 강제됨. */
 let _xfPending = false;
 function applyTransform() {
   if (_xfPending) return;
@@ -18,7 +18,7 @@ function applyTransform() {
   requestAnimationFrame(() => {
     _xfPending = false;
     const canvas = getCanvas();
-    /* translate3d 박음 (translateZ(0) 효과로 GPU 박힘). transform-origin: 0 0 박혀있음. */
+    /* translate3d 적용 (translateZ(0) 효과로 GPU 가속). transform-origin: 0 0 은 CSS에 지정돼 있음. */
     canvas.style.transform = `translate3d(${canvasOffX}px, ${canvasOffY}px, 0) scale(${zoom})`;
     const label = document.getElementById('zoom-label');
     if (label) label.textContent = Math.round(zoom * 100) + '%';
@@ -217,7 +217,7 @@ window.addEventListener('DOMContentLoaded', () => {
         dist: getTouchDist(e.touches), zoom,
         offX: canvasOffX, offY: canvasOffY,
         midX: startMidX, midY: startMidY,
-        /* v117: 매 frame mid 변화량으로 pan 같이 박음 (두 손가락 같이 움직이면 자연 pan) */
+        /* v117: 매 frame mid 변화량으로 pan도 같이 적용 (두 손가락 같이 움직이면 자연 pan) */
         lastMidX: startMidX, lastMidY: startMidY
       };
     } else if (e.touches.length === 1) {
@@ -234,36 +234,36 @@ window.addEventListener('DOMContentLoaded', () => {
     e.preventDefault();
     if (e.touches.length === 2 && pinchState) {
       const newDist = getTouchDist(e.touches);
-      /* v120-lite: 빠른 pinch에서 한 frame 박힌 zoom 변화 너무 큼 → 튐. 두 가지 박음:
-         1. pinchState.zoom/dist 박은 거 = 시작 시점 박지 X, 매 frame 박은 거로 갱신 →
-            ratio 박은 거 = 직전 frame 기준 (옛엔 시작 frame 기준 → 빠른 박은 거에서 누적).
-         2. ratio clamp 0.92~1.08 — frame당 zoom 변화 최대 8%. 빠른 박은 거에서도
-            점진적으로 박힘 (사용자 박은 A안). */
+      /* v120-lite: 빠른 pinch에서 한 frame의 zoom 변화가 너무 큼 → 튐. 두 가지 보완:
+         1. pinchState.zoom/dist = 시작 시점 고정이 아니라 매 frame 값으로 갱신 →
+            ratio = 직전 frame 기준 (옛엔 시작 frame 기준 → 빠른 pinch에서 누적).
+         2. ratio clamp 0.92~1.08 — frame당 zoom 변화 최대 8%. 빠른 pinch에서도
+            점진적으로 변함 (사용자가 고른 A안). */
       const rawRatio = newDist / pinchState.dist;
       const ratio = Math.max(0.92, Math.min(1.08, rawRatio));
       const newZoom = Math.round(
         Math.min(2.0, Math.max(0.3, pinchState.zoom * ratio)) * 100) / 100;
-      /* v117: 매 frame 핀치 중심 다시 박음 — 옛엔 시작 시점 mid만 박혀 손가락 움직이면
-         박은 mid 옛 위치라 zoom-to-point 박지 X. 매번 두 손가락 중간을 박아 그
-         지점 기준으로 zoom + pan 박음 (두 손가락 같이 움직이면 자연스럽게 pan). */
+      /* v117: 매 frame 핀치 중심을 다시 계산 — 옛엔 시작 시점 mid만 사용해 손가락이 움직이면
+         mid가 옛 위치라 zoom-to-point가 어긋남. 매번 두 손가락 중간을 다시 구해 그
+         지점 기준으로 zoom + pan 적용 (두 손가락 같이 움직이면 자연스럽게 pan). */
       const rect = wrap.getBoundingClientRect();
       const curMidX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
       const curMidY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
       const mx = curMidX - rect.left;
       const my = curMidY - rect.top;
-      /* zoom-to-point: 현재 mid가 박은 world 좌표 박은 후 새 zoom 박은 후 같은
-         screen point에 박히게 pan 조정 */
+      /* zoom-to-point: 현재 mid가 가리키는 world 좌표를 구한 후, 새 zoom에서도
+         같은 screen point에 오도록 pan 조정 */
       const worldX = (mx - canvasOffX) / zoom;
       const worldY = (my - canvasOffY) / zoom;
       zoom = newZoom;
       canvasOffX = mx - worldX * zoom;
       canvasOffY = my - worldY * zoom;
-      /* pan: 박은 mid가 옛 mid에서 박은 거 박은 만큼 pan (두 손가락 같이 박은 거) */
+      /* pan: 현재 mid가 직전 mid에서 이동한 만큼 pan (두 손가락이 같이 움직인 몫) */
       canvasOffX += (curMidX - pinchState.lastMidX);
       canvasOffY += (curMidY - pinchState.lastMidY);
       pinchState.lastMidX = curMidX;
       pinchState.lastMidY = curMidY;
-      /* v120-lite: pinchState 박은 거 갱신 — 다음 frame ratio 박은 거 = 직전 박은 거 기준 */
+      /* v120-lite: pinchState 기준값 갱신 — 다음 frame의 ratio는 직전 frame 기준 */
       pinchState.dist = newDist;
       pinchState.zoom = newZoom;
       applyTransform();
@@ -287,7 +287,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
 /* v69: 사이드 리스트 클릭 시 캔버스를 카드 위치로 이동.
    사용자: "장면들 누르면 그 장면 브랜치로 화면 이동". sceneRenderer의
-   _focusSceneInCanvas가 호출하는 함수 — 박혀있지 않아 화면 이동 안 됐음. */
+   _focusSceneInCanvas가 호출하는 함수 — 정의돼 있지 않아 화면 이동이 안 됐음. */
 function panToCard(num) {
   const wrap   = getWrap();
   const canvas = getCanvas();
@@ -306,7 +306,7 @@ function panToCard(num) {
   canvasOffX += (wrapCenterX - cardCenterX);
   canvasOffY += (wrapCenterY - cardCenterY);
 
-  /* 부드러운 이동 — transition 일시 박고 0.4s 후 해제 */
+  /* 부드러운 이동 — transition 일시 적용 후 0.4s 뒤 해제 */
   canvas.style.transition = 'transform 0.4s ease-out';
   applyTransform();
   setTimeout(() => { canvas.style.transition = ''; }, 450);

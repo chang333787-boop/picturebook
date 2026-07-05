@@ -6147,6 +6147,19 @@ function _bindSceneStylePopover(pop) {
     range.addEventListener('change', () => {
       if (!_editText.editable) return;
       const bb = _ensureBb();
+      /* AI-VAR-FIX-1(2026-07-05): FIELD-FIX-C가 이 바인딩의 variant 가드만 풀어서
+         AI(s1/s2) 보기 중 화면 반영은 되는데, _queueSave/_flushPendingSave 내부의
+         variant 전면 차단(949·969행)에 걸려 저장이 조용히 버려지던 버그.
+         진하기는 '항상 원본 설정'(REFINE-STAB-B)이므로 variant 보기 중엔 원본 저장을
+         직접 호출한다. x/y/w/h는 variant 드래그가 원본 메모리를 안 건드려(1870행 분기)
+         scene.picturebookBodyBox = 원본 좌표 + 바뀐 진하기 → 통째 저장 안전. */
+      if (typeof _isVariantViewLocked === 'function' && _isVariantViewLocked()) {
+        _showSaveStatus('저장 중…');
+        Promise.resolve(saveSceneText(scene.num || scene.id, { picturebookBodyBox: { ...bb } }))
+          .then(() => _showSaveStatus('✅ 저장됨', 1200))
+          .catch(() => _showSaveStatus('❌ 저장 실패', 2000));
+        return;
+      }
       _queueSave(scene.num || scene.id, { picturebookBodyBox: { ...bb } });
       _flushPendingSave();
     });

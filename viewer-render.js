@@ -1728,13 +1728,21 @@ function _renderStoryEnding(stage, scene) {
     const _endBox = (typeof window !== 'undefined' && window.viewerAi && typeof window.viewerAi._getDisplayLayout === 'function')
       ? (window.viewerAi._getDisplayLayout(scene.id, _endBox0).picturebookBodyBox || _endBox0)
       : _endBox0;
+    /* AI-VAR-FIX-2(2026-07-05): 엔딩 imageCenter도 일반 장면(754행 _showPbBoxHandles)과 동일하게
+       variant(s1/s2) 보기에서 글상자 이동/리사이즈 허용. 기존엔 _allowInlineEdit(원본 보기 전용)만
+       봐서 AI 장면발전 보기 중 엔딩 글상자를 움직일 수 없었다. data-ai-variant-layout 마커를 달면
+       _attachPbBodyBoxInteractions(1848행)가 aiVariants layout 저장 경로로 자연 분기(원본 미변경). */
+    const _endVariantLayoutKey = (typeof window !== 'undefined' && window.viewerAi
+                                  && typeof window.viewerAi._aiVariantLayoutEditAllowed === 'function')
+      ? window.viewerAi._aiVariantLayoutEditAllowed(scene.id) : null;
     const _endBoxH = (typeof _endBox.height === 'number') ? ` height: ${_endBox.height}%;` : '';
     const _endBoxStyle = `left: ${_endBox.x}%; top: ${_endBox.y}%; width: ${_endBox.width}%;${_endBoxH}`
       /* D8-CLEAN-1B: 엔딩도 일반 imageCenter와 동일 — 글상자 진하기 = --pb-box-opacity. */
       + ` --pb-box-opacity: ${_endBox.backdropOpacity};`
       + ` background: rgba(255, 255, 255, ${_endBox.backdropOpacity});`
       + ` box-shadow: 0 2px 6px rgba(0,0,0,${0.08 * _endBox.backdropOpacity});`;
-    const _endHandlesHtml = _allowInlineEdit ? `
+    const _endShowHandles = _allowInlineEdit || !!_endVariantLayoutKey;
+    const _endHandlesHtml = _endShowHandles ? `
       <div class="pb-body-handle pb-body-handle--move js-pb-body-move" title="드래그하여 위치 이동">✥</div>
       <div class="pb-body-handle pb-body-handle--resize-nw js-pb-body-resize" data-corner="nw" title="크기 조절"></div>
       <div class="pb-body-handle pb-body-handle--resize-ne js-pb-body-resize" data-corner="ne" title="크기 조절"></div>
@@ -1742,7 +1750,7 @@ function _renderStoryEnding(stage, scene) {
       <div class="pb-body-handle pb-body-handle--resize-se js-pb-body-resize" data-corner="se" title="크기 조절"></div>
     ` : '';
     const _endIcBody = (userBody || _allowInlineEdit)
-      ? `<div class="pb-stage__body-overlay scene-narrative-panel js-pb-body-overlay ending-ic-body" style="${_endBoxStyle}">
+      ? `<div class="pb-stage__body-overlay scene-narrative-panel js-pb-body-overlay ending-ic-body"${_endVariantLayoutKey ? ` data-ai-variant-layout="${_endVariantLayoutKey}"` : ''} style="${_endBoxStyle}">
            <p class="pb-text__body js-pb-editable-body" ${_allowInlineEdit ? 'contenteditable="true" data-pb-editable="body"' : ''} data-placeholder="(본문을 적어보세요)">${escHtml(userBody)}</p>
            ${_endHandlesHtml}
          </div>`

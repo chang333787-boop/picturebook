@@ -119,6 +119,47 @@ function renderCurrentScene() {
     /* fallback — animation이 실행되지 않거나 prefers-reduced-motion이 설정된 경우 */
     setTimeout(() => el.classList.add('is-ready'), 6000);
   });
+
+  /* IMG-PREFETCH-1: 현재 장면 표시가 자리 잡은 뒤 한가할 때 다음 장면 그림 예열. */
+  try {
+    const _pf = () => { try { _prefetchNextSceneImages(); } catch (e) { /* noop */ } };
+    if (typeof requestIdleCallback === 'function') requestIdleCallback(_pf, { timeout: 1500 });
+    else setTimeout(_pf, 250);
+  } catch (e) { /* noop */ }
+}
+
+/* ================================================================
+   IMG-PREFETCH-1 (2026-07-05) — 다음 장면 이미지 사전로드
+   ────────────────────────────────────────────────────────────
+   실측(docs/perf_optimization_survey_20260705.md): Storage 이미지가 장당 ~478KB인데
+   fetch가 선택지 클릭 후에야 시작돼 그림이 ~3초 늦게 표시되던 체감 지연의 주범.
+   렌더 완료 후 idle에 현재 장면에서 갈 수 있는 장면(표지=진입 장면, 일반=선택지 target)의
+   이미지를 new Image()로 예열해 브라우저 HTTP 캐시에 적재 → 클릭 시 즉시 표시.
+   · DB write 0 · 렌더 경로 무변경 · 실패해도 기존과 동일(클릭 시 로드) · 상한 4장/장면.
+   · 원본 src만 예열(변형 s1/s2 보기는 기존 로드 경로 유지 — 토글 사용자만이라 소수). */
+const _prefetchedSceneImgs = new Set();
+function _prefetchSceneImage(scene) {
+  if (!scene) return;
+  const src = (typeof scene.imageData === 'string' && scene.imageData) ? scene.imageData
+            : (typeof scene.imageUrl === 'string' ? scene.imageUrl : '');
+  if (!src || src.indexOf('http') !== 0) return;   /* data:URL·이미지 없음 → 스킵 */
+  if (_prefetchedSceneImgs.has(src)) return;       /* 중복 예열 방지(세션 내 1회) */
+  _prefetchedSceneImgs.add(src);
+  try { const im = new Image(); im.decoding = 'async'; im.src = src; } catch (e) { /* noop */ }
+}
+function _prefetchNextSceneImages() {
+  const cur = ViewerState.scenes[ViewerState.currentSceneId];
+  if (!cur) return;
+  const targets = [];
+  if (typeof _shouldShowCover === 'function' && _shouldShowCover()) {
+    targets.push(cur);                             /* 표지 → ▶시작하기가 여는 진입 장면 */
+  } else if (Array.isArray(cur.choices)) {
+    cur.choices.forEach(c => {
+      const t = (c && c.nextId != null) ? ViewerState.scenes[c.nextId] : null;
+      if (t) targets.push(t);
+    });
+  }
+  targets.slice(0, 4).forEach(_prefetchSceneImage);
 }
 
 /* ================================================================

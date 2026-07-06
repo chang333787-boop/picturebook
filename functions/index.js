@@ -133,8 +133,8 @@ const ALLOWED_ORIGINS = [
 
 function isOriginAllowed(origin) {
   if (!origin) return false;
-  /* ALLOWED_ORIGINS가 비어 있으면 — origin 제한 없이 모두 허용 */
-  if (ALLOWED_ORIGINS.length === 0) return true;
+  /* FINAL-REVIEW-C2(2026-07-06): "목록이 비면 전체 허용" fail-open 제거 — 방어 기본값은 거부.
+     실수로 ALLOWED_ORIGINS를 비워도 외부 origin이 통과하지 않는다(fail-safe). */
   return ALLOWED_ORIGINS.includes(origin);
 }
 

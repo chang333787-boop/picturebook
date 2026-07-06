@@ -18,6 +18,11 @@ const PROMPT_VERSION = 'imgS2-openai-gpt-image-2-P4-v1';
 const ENDPOINT = 'https://api.openai.com/v1/images/edits';
 const SIZE = '1536x1024';            /* 가로 3:2 */
 const QUALITY = 'medium';
+/* IMAGE-S2-DIET-1(2026-07-06): output_format 미지정 시 무압축급 PNG(실측 3.4MB/장 — 학생 원본
+   478KB의 7배)가 와서 감상 데이터가 과중했다. webp+압축 80 → 수백 KB급, 재인코딩 의존성 0.
+   설계: docs/image_s2_diet_design_20260706.md A안. output_compression은 webp/jpeg에서만 유효. */
+const OUTPUT_FORMAT = 'webp';
+const OUTPUT_COMPRESSION = '80';
 const DEFAULT_TIMEOUT_MS = 180000;   /* 실 그림은 60s 자주 초과 → 3분 */
 const MAX_OUTPUT_BYTES = 16 * 1024 * 1024;
 const MAX_SOURCE_BYTES = 25 * 1024 * 1024;
@@ -151,6 +156,9 @@ function createOpenAiImageS2Adapter(opts) {
       form.append('prompt', OPENAI_S2_PROMPT);
       form.append('size', SIZE);
       form.append('quality', QUALITY);
+      /* IMAGE-S2-DIET-1 — 생성 시점 압축(무압축 PNG 3.4MB → webp ~수백 KB) */
+      form.append('output_format', OUTPUT_FORMAT);
+      form.append('output_compression', OUTPUT_COMPRESSION);
       form.append('n', '1');
       form.append('image', new BlobImpl([input.bytes], { type: inMime }), 'input.' + ext);
 

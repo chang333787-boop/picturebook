@@ -271,6 +271,9 @@ test('decideDedup — reuse/generate', () => {
 
 test('buildS2StoragePath + 가드', () => {
   assert.equal(G.buildS2StoragePath('c1', 'team', '3', 'uuid'), 'ai-images/c1/team/scene_3_s2_uuid.png');
+  /* IMAGE-S2-DIET-1: mimeType 따라 확장자(webp/jpg), 생략 시 png 하위호환 */
+  assert.equal(G.buildS2StoragePath('c1', 'team', '3', 'uuid', 'image/webp'), 'ai-images/c1/team/scene_3_s2_uuid.webp');
+  assert.equal(G.buildS2StoragePath('c1', 'team', '3', 'uuid', 'image/jpeg'), 'ai-images/c1/team/scene_3_s2_uuid.jpg');
   assert.equal(G.buildS2StoragePath('c1', 'team', 'a/b', 'uuid'), null);
   assert.equal(G.isAllowedS2StoragePath('ai-images/c1/team/x.png'), true);
   assert.equal(G.isAllowedS2StoragePath('images/c1/team/x.png'), false);
@@ -299,6 +302,7 @@ test('decideStale — hash/sourceMode 불일치', () => {
 test('validateModelOutput — MIME/크기', () => {
   assert.equal(G.validateModelOutput({ bytes: 10, mimeType: 'image/png' }).ok, true);
   assert.equal(G.validateModelOutput({ bytes: 0, mimeType: 'image/png' }).code, 'IMAGE_AI_INVALID_OUTPUT');
+  assert.equal(G.validateModelOutput({ bytes: 10, mimeType: 'image/webp' }).ok, true);   /* IMAGE-S2-DIET-1 */
   assert.equal(G.validateModelOutput({ bytes: 10, mimeType: 'image/gif' }).code, 'IMAGE_AI_INVALID_OUTPUT');
   assert.equal(G.validateModelOutput({ bytes: G.MAX_OUTPUT_BYTES + 1, mimeType: 'image/png' }).code, 'IMAGE_AI_INVALID_OUTPUT');
   assert.equal(G.validateModelOutput(null).code, 'IMAGE_AI_INVALID_OUTPUT');

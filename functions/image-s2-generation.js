@@ -16,7 +16,9 @@ const FIT_POLICY = 'fit-imagecenter-landscape';
 const TARGET_FRAME = { w: 1536, h: 1024, aspect: '3:2' };
 const AI_IMAGE_PREFIX = 'ai-images/';         /* AI 결과 전용 — 원본 images/ 와 완전 분리 */
 const ORIGINAL_IMAGE_PREFIX = 'images/';      /* 원본 — AI 코드가 절대 write/delete 하지 않음 */
-const ALLOWED_OUTPUT_MIME = ['image/png'];    /* 출력 표준 png(PRD §11 저장 .png) */
+/* IMAGE-S2-DIET-1(2026-07-06): 어댑터가 output_format=webp를 요청하므로 webp 허용 추가.
+   png도 잔존 허용 — 모델/파라미터 fallback으로 png가 와도 기존 흐름 그대로 저장. */
+const ALLOWED_OUTPUT_MIME = ['image/png', 'image/webp'];
 const MAX_OUTPUT_BYTES = 12 * 1024 * 1024;    /* 결과 크기 상한(안전) */
 const CLEANUP_GRACE_MS = 7 * 24 * 60 * 60 * 1000;  /* 재변환 교체 시 이전 객체 7일 유예(PRD §11) */
 
@@ -139,15 +141,18 @@ function decideDedup(existingVariant, fingerprint, forceRegenerate, currentPromp
   return { action: 'generate' };
 }
 
-/* ── Storage 경로(PRD §11) — ai-images/{cid}/{enc}/scene_{sid}_s2_{uniqueId}.png ──
-   uniqueId(crypto.randomUUID 등) 주입 → 재변환이 이전 결과를 덮어쓰지 않음(overwrite 0). */
-function buildS2StoragePath(classId, enc, sceneId, uniqueId) {
+/* ── Storage 경로(PRD §11) — ai-images/{cid}/{enc}/scene_{sid}_s2_{uniqueId}.{ext} ──
+   uniqueId(crypto.randomUUID 등) 주입 → 재변환이 이전 결과를 덮어쓰지 않음(overwrite 0).
+   IMAGE-S2-DIET-1: 확장자는 결과 mimeType 따라(webp/jpg/png). mimeType 생략 시 기존 .png 유지
+   (기존 호출·테스트 하위호환 — DB는 완성 URL을 저장하므로 클라 영향 0). */
+function buildS2StoragePath(classId, enc, sceneId, uniqueId, mimeType) {
   const cid = sanitizeSeg(classId);
   const e = sanitizeSeg(enc);
   const sid = sanitizeSeg(sceneId);
   const uid = sanitizeSeg(uniqueId);
   if (!cid || !e || !sid || !uid) return null;
-  return `${AI_IMAGE_PREFIX}${cid}/${e}/scene_${sid}_s2_${uid}.png`;
+  const ext = (mimeType === 'image/webp') ? 'webp' : (mimeType === 'image/jpeg') ? 'jpg' : 'png';
+  return `${AI_IMAGE_PREFIX}${cid}/${e}/scene_${sid}_s2_${uid}.${ext}`;
 }
 
 /* AI 결과 경로 가드 — ai-images/ 하위 + '..' 없음. 원본 삭제 가드(images/ 한정)와 상호 배타. */
@@ -311,7 +316,7 @@ async function runImageS2Generation(input, deps) {
   if (!outv.ok) return refundAnd({ ok: false, status: 'failed', code: outv.code, sceneId });
 
   /* 9) 고유 결과 경로(덮어쓰기 0) + 가드 */
-  const storagePath = buildS2StoragePath(i.classId, i.enc, sceneId, d.uniqueId());
+  const storagePath = buildS2StoragePath(i.classId, i.enc, sceneId, d.uniqueId(), gen.mimeType);
   if (!storagePath || !isAllowedS2StoragePath(storagePath) || isOriginalImageStoragePath(storagePath)) {
     return refundAnd({ ok: false, status: 'failed', code: GEN_CODES.INTERNAL_PATH, sceneId });
   }

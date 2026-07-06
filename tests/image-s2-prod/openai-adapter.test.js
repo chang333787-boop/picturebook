@@ -58,6 +58,23 @@ test('generate — 성공(data: 원본 + fake OpenAI)', async () => {
   assert.equal(r.model, 'gpt-image-2');
 });
 
+test('generate — IMAGE-S2-DIET-1: output_format/compression 폼 필드 전송', async () => {
+  let captured = null;
+  const base = okFetch();
+  const fetchImpl = async (url, opts) => { captured = opts && opts.body; return base(url, opts); };
+  const ad = A.createOpenAiImageS2Adapter({ apiKey: 'k', fetchImpl, FormDataImpl: fakeForm, BlobImpl: FakeBlob });
+  const r = await ad.generate({ originalSrc: 'data:image/png;base64,' + PNG_B64, sourceMode: 'upload' });
+  assert.equal(r.ok, true);
+  assert.ok(Array.isArray(captured), 'fakeForm 배열 캡처');
+  const get = (k) => { const e = captured.find((p) => p[0] === k); return e ? e[1] : undefined; };
+  assert.equal(get('output_format'), 'webp');
+  assert.equal(get('output_compression'), '80');
+  /* 기존 필드 회귀 가드 */
+  assert.equal(get('size'), '1536x1024');
+  assert.equal(get('quality'), 'medium');
+  assert.equal(get('n'), '1');
+});
+
 test('generate — 허용 호스트 + downloadImpl 주입 성공', async () => {
   const ad = A.createOpenAiImageS2Adapter({ apiKey: 'k', fetchImpl: okFetch(), FormDataImpl: fakeForm, BlobImpl: FakeBlob, downloadImpl: async () => ({ bytes: PNG, mime: 'image/png' }) });
   const r = await ad.generate({ originalSrc: 'https://firebasestorage.googleapis.com/v0/b/x/o/img?alt=media&token=t' });

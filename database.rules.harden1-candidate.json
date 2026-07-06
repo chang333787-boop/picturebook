@@ -1,0 +1,165 @@
+{
+  "rules": {
+    "admin": {
+      ".read": false,
+      ".write": false
+    },
+    "classCodes": {
+      ".read": true,
+      "$code": {
+        ".write": "auth != null && !data.exists() && newData.isString() && $code.matches(/^[A-Z0-9]{4,6}$/) && root.child('classes/' + newData.val() + '/meta/teacher_uid').val() === auth.uid"
+      }
+    },
+    "teacherClasses": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid && !data.exists() && newData.isString() && root.child('classes/' + newData.val() + '/meta/teacher_uid').val() === auth.uid"
+      }
+    },
+    "teachers": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid && (!data.exists() || data.child('createdAt').val() === newData.child('createdAt').val())"
+      }
+    },
+    "classes": {
+      "$classId": {
+        "meta": {
+          ".read": "auth != null && (auth.token.role === 'super_admin' || auth.token.role === 'teacher' || data.child('teacher_uid').val() === auth.uid)",
+          ".write": "auth != null && ((!data.exists() && newData.child('teacher_uid').val() === auth.uid) || data.child('teacher_uid').val() === auth.uid || auth.token.role === 'super_admin')"
+        },
+        "aiSettings": {
+          ".read": true,
+          ".write": "auth != null && (root.child('classes/' + $classId + '/meta/teacher_uid').val() === auth.uid || auth.token.role === 'super_admin')"
+        },
+        "settings": {
+          ".read": true,
+          ".write": "auth != null && (root.child('classes/' + $classId + '/meta/teacher_uid').val() === auth.uid || auth.token.role === 'super_admin')",
+          "teamCreationMode": {
+            ".validate": "newData.isString() && (newData.val() === 'legacy_open' || newData.val() === 'teacher_managed' || newData.val() === 'locked')"
+          }
+        },
+        "teams": {
+          ".read": "auth != null && (root.child('classes/' + $classId + '/meta/teacher_uid').val() === auth.uid || auth.token.role === 'super_admin')",
+          "$team": {
+            ".write": "auth != null && !newData.exists() && (root.child('classes/' + $classId + '/meta/teacher_uid').val() === auth.uid || auth.token.role === 'super_admin')",
+            "account": {
+              ".read": "auth != null && (root.child('classes/' + $classId + '/meta/teacher_uid').val() === auth.uid || auth.token.role === 'super_admin')",
+              ".write": "auth != null && (root.child('classes/' + $classId + '/meta/teacher_uid').val() === auth.uid || auth.token.role === 'super_admin')",
+              "displayName": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 30" },
+              "pin":         { ".validate": "newData.isString() && newData.val().length >= 4 && newData.val().length <= 12" },
+              "status":      { ".validate": "newData.isString() && (newData.val() === 'active' || newData.val() === 'locked')" },
+              "createdBy":   { ".validate": "newData.isString()" },
+              "createdAt":   { ".validate": "newData.isNumber()" },
+              "updatedAt":   { ".validate": "newData.isNumber()" }
+            },
+            "pin": {
+              ".read": "auth != null && (root.child('classes/' + $classId + '/meta/teacher_uid').val() === auth.uid || auth.token.role === 'super_admin')",
+              ".write": "auth != null && (root.child('classes/' + $classId + '/meta/teacher_uid').val() === auth.uid || auth.token.role === 'super_admin')"
+            },
+            "scenes": {
+              ".read": "root.child('classes/' + $classId + '/teams/' + $team + '/viewer-meta/isPublic').val() === true || (auth != null && (root.child('classes/' + $classId + '/teams/' + $team + '/members/' + auth.uid + '/status').val() === 'active' || root.child('classes/' + $classId + '/meta/teacher_uid').val() === auth.uid || auth.token.role === 'super_admin'))",
+              ".write": "auth != null && (root.child('classes/' + $classId + '/teams/' + $team + '/members/' + auth.uid + '/status').val() === 'active' || root.child('classes/' + $classId + '/meta/teacher_uid').val() === auth.uid || auth.token.role === 'super_admin')"
+            },
+            "viewer-meta": {
+              ".read": "root.child('classes/' + $classId + '/teams/' + $team + '/viewer-meta/isPublic').val() === true || (auth != null && (root.child('classes/' + $classId + '/teams/' + $team + '/members/' + auth.uid + '/status').val() === 'active' || root.child('classes/' + $classId + '/meta/teacher_uid').val() === auth.uid || auth.token.role === 'super_admin'))",
+              ".write": "auth != null && (root.child('classes/' + $classId + '/teams/' + $team + '/members/' + auth.uid + '/status').val() === 'active' || root.child('classes/' + $classId + '/meta/teacher_uid').val() === auth.uid || auth.token.role === 'super_admin')"
+            },
+            "locks": {
+              ".read": "auth != null",
+              ".write": "auth != null"
+            },
+            "members": {
+              "$uid": {
+                ".read": "auth != null && (auth.uid === $uid || root.child('classes/' + $classId + '/meta/teacher_uid').val() === auth.uid || auth.token.role === 'super_admin')",
+                ".write": false
+              }
+            },
+            "editSession": {
+              ".read": "auth != null && (root.child('classes/' + $classId + '/teams/' + $team + '/members/' + auth.uid + '/status').val() === 'active' || root.child('classes/' + $classId + '/meta/teacher_uid').val() === auth.uid || auth.token.role === 'super_admin')",
+              ".write": "auth != null && (root.child('classes/' + $classId + '/teams/' + $team + '/members/' + auth.uid + '/status').val() === 'active' || root.child('classes/' + $classId + '/meta/teacher_uid').val() === auth.uid || auth.token.role === 'super_admin')"
+            },
+            "writingGuide": {
+              ".read": "auth != null && (root.child('classes/' + $classId + '/teams/' + $team + '/members/' + auth.uid + '/status').val() === 'active' || root.child('classes/' + $classId + '/meta/teacher_uid').val() === auth.uid || auth.token.role === 'super_admin')",
+              ".write": "auth != null && (root.child('classes/' + $classId + '/teams/' + $team + '/members/' + auth.uid + '/status').val() === 'active' || root.child('classes/' + $classId + '/meta/teacher_uid').val() === auth.uid || auth.token.role === 'super_admin')"
+            },
+            "onboarding": {
+              ".read": "auth != null && (root.child('classes/' + $classId + '/teams/' + $team + '/members/' + auth.uid + '/status').val() === 'active' || root.child('classes/' + $classId + '/meta/teacher_uid').val() === auth.uid || auth.token.role === 'super_admin')",
+              ".write": "auth != null && (root.child('classes/' + $classId + '/teams/' + $team + '/members/' + auth.uid + '/status').val() === 'active' || root.child('classes/' + $classId + '/meta/teacher_uid').val() === auth.uid || auth.token.role === 'super_admin')"
+            },
+
+            "aiPermission": {
+              ".read": true,
+              ".write": "auth != null"
+            },
+            "branchLineage": {
+              ".read": true,
+              ".write": "auth != null"
+            },
+            "aiDrafts": {
+              ".read": true,
+              ".write": false
+            },
+            "aiVariants": {
+              ".read": true,
+              ".write": false
+            },
+            "aiChecks": {
+              ".read": "auth != null && (root.child('classes/' + $classId + '/teams/' + $team + '/members/' + auth.uid + '/status').val() === 'active' || root.child('classes/' + $classId + '/meta/teacher_uid').val() === auth.uid || auth.token.role === 'super_admin')",
+              ".write": false
+            }
+          }
+        }
+      }
+    },
+
+    "ai-usage": {
+      ".read": false,
+      ".write": false
+    },
+    "ai-usage-by-root": {
+      ".read": false,
+      ".write": false
+    },
+    "ai-usage-global": {
+      ".read": false,
+      ".write": false
+    },
+    "ai-kill-switch": {
+      ".read": true,
+      ".write": false
+    },
+    "ai-stats": {
+      ".read": false,
+      ".write": false
+    },
+    "membership-attempts": {
+      ".read": false,
+      ".write": false
+    },
+    "teams": {
+      "$team": {
+        "pin": {
+          ".read": false,
+          ".write": "auth != null && !data.exists()"
+        },
+        "scenes": {
+          ".read": true,
+          ".write": "auth != null"
+        },
+        "locks": {
+          ".read": "auth != null",
+          ".write": "auth != null"
+        },
+        "viewer-meta": {
+          ".read": true,
+          ".write": "auth != null"
+        }
+      }
+    },
+    "copyCodes": {
+      ".read": true,
+      ".write": "auth != null"
+    }
+  }
+}

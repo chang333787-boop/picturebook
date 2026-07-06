@@ -215,9 +215,13 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
     const _hasAnyS2 = (_pubTextS2BySid && Object.keys(_pubTextS2BySid).length > 0)
       || (_pubImageS2BySid && Object.keys(_pubImageS2BySid).length > 0);
     /* SCENE-PUBLISH-PRINT-1: ?print=pb(교사 인쇄 진입)면 s2 유무와 무관하게 viewer-ai 로드
-       (인쇄 옵션 모달이 viewer-ai에 있음). */
+       (인쇄 옵션 모달이 viewer-ai에 있음).
+       TEACHER-PRINT-ROUTE-1: ?print=wa(고쳐쓰기 자료 교사 인쇄)도 동일 — 실행 코드가 viewer-ai에 있음. */
     let _printEntry = false;
-    try { _printEntry = new URLSearchParams(location.search).get('print') === 'pb'; } catch (e) { /* noop */ }
+    try {
+      const _pv = new URLSearchParams(location.search).get('print');
+      _printEntry = (_pv === 'pb' || _pv === 'wa');
+    } catch (e) { /* noop */ }
     if ((_hasAnyS2 || _printEntry) && typeof window !== 'undefined' && !window.viewerAi
         && typeof window.ensureAiViewBundle === 'function' && !isEditViewerSession()) {
       window.ensureAiViewBundle().catch(() => { /* 감상은 원본만으로 완전 동작 */ });

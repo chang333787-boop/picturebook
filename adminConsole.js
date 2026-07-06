@@ -65,6 +65,8 @@ window.addEventListener('DOMContentLoaded', () => {
     const publicBtn   = e.target.closest('.js-admin-toggle-public');
     const issueBtn    = e.target.closest('.js-admin-issue-code');
     const printBtn    = e.target.closest('.js-admin-print');    /* SCENE-PUBLISH-PRINT-1 */
+    const printWaBtn  = e.target.closest('.js-admin-print-wa'); /* TEACHER-PRINT-ROUTE-1: 고쳐쓰기 자료 */
+    const printTcBtn  = e.target.closest('.js-admin-print-tc'); /* TEACHER-PRINT-ROUTE-1: 생각 나침반 */
     const pinBtn      = e.target.closest('.js-admin-pin');     // ADMIN-1D: 등록 팀 PIN 변경
     const lockBtn     = e.target.closest('.js-admin-lock');    // ADMIN-1D: 등록 팀 잠금/해제
     const regBtn      = e.target.closest('.js-admin-register'); // ADMIN-1E: 기존 팀 관리팀 등록
@@ -72,6 +74,11 @@ window.addEventListener('DOMContentLoaded', () => {
     if (makerBtn)  _openMaker(makerBtn.dataset.name);
     if (viewerBtn) _openViewer(viewerBtn.dataset.name);
     if (printBtn)  _openViewer(printBtn.dataset.name, '&print=pb');   /* viewer에서 인쇄 옵션 모달 자동 오픈 */
+    /* TEACHER-PRINT-ROUTE-1: 학생 태블릿엔 프린터가 없어 교사가 대신 인쇄하는 진입.
+       wa=viewer를 &print=wa로 열어 고쳐쓰기 자료 인쇄 자동 실행(그림책 &print=pb 패턴).
+       tc=같은 maker 안에서 해당 팀 나침반 결과보기(fromAdmin — 인쇄 버튼 직행)를 바로 연다. */
+    if (printWaBtn) _openViewer(printWaBtn.dataset.name, '&print=wa');
+    if (printTcBtn) _openCompassReviewForTeam(printTcBtn.dataset.name);
     if (detailBtn) _toggleDetail(detailBtn.dataset.encoded);
     if (deleteBtn) _deleteTeam(deleteBtn.dataset.encoded, deleteBtn.dataset.name);
     if (moreBtn)   _toggleMoreMenu(moreBtn);
@@ -1134,6 +1141,8 @@ function _teamCardHtml(t) {
     <div class="admin-more-menu" style="display:none;">
       ${accountMenuItems}
       <button class="admin-more-item js-admin-print" data-name="${t.name}" title="장면 무대 그대로 그림책처럼 인쇄해요 (그림책 작품용)">🖨 그림책 인쇄</button>
+      <button class="admin-more-item js-admin-print-wa" data-name="${t.name}" title="이 모둠의 생각 점검 질문·작품 검사 결과를 인쇄해요 (학생 태블릿엔 프린터가 없어 교사가 대신 인쇄)">🖨 고쳐쓰기 자료 인쇄</button>
+      <button class="admin-more-item js-admin-print-tc" data-name="${t.name}" title="이 모둠의 생각 나침반 설계도를 열어 인쇄해요 (카드형/나침반형)">🖨 생각 나침반 인쇄</button>
       <button class="admin-more-item js-admin-issue-code" data-encoded="${t.encodedName}" data-name="${t.name}">📤 복사 코드 발급</button>
       <button class="admin-more-item js-admin-delete" data-encoded="${t.encodedName}" data-name="${t.name}">🗑 팀 삭제</button>
     </div>`;
@@ -1202,6 +1211,19 @@ function _openViewer(teamName, extraQuery) {
   /* 항상 같은 창 이동 (opener 없어도 source='admin' ctx로 정확 복귀). */
   if (typeof _openInternalUrl === 'function') _openInternalUrl(_vurl);
   else window.location.href = _vurl;
+}
+
+/* TEACHER-PRINT-ROUTE-1: 해당 팀의 생각 나침반 결과보기를 관리모드에서 바로 연다.
+   maker.html 안이라 thought-compass 모듈이 이미 로드돼 있고, writingGuide read는 담당 교사에게
+   rules로 허용됨. fromAdmin=true → review/rose 인쇄 버튼이 안내 모달 없이 바로 인쇄 실행. */
+function _openCompassReviewForTeam(teamName) {
+  const classId = adminState.adminClassId;
+  if (!classId || !teamName) return;
+  if (!(window.ThoughtCompassReview && typeof window.ThoughtCompassReview.openReadOnly === 'function')) {
+    alert('생각 나침반 모듈을 불러오지 못했어요. 페이지를 새로고침해 주세요.');
+    return;
+  }
+  window.ThoughtCompassReview.openReadOnly({ classId: classId, teamName: teamName, fromAdmin: true });
 }
 
 /* ================================================================

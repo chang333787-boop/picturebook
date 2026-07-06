@@ -3327,7 +3327,7 @@
           ${(_writeAfterLatest.waq || _writeAfterLatest.wc) ? `
           <div style="margin-top:8px;text-align:right;">
             <button type="button" class="ai-btn ai-btn--ghost js-ai-print-writeafter"
-              title="생각 점검 질문과 작품 검사 결과를 종이로 인쇄해요 (선생님 컴퓨터 인쇄 권장)">🖨 고쳐쓰기 자료 인쇄</button>
+              title="이 자료는 선생님 컴퓨터에서 종이로 뽑아요">🖨 선생님께 인쇄 부탁하기</button>
           </div>` : ''}
           ${rewriteBox}
         </div>`;
@@ -3431,9 +3431,14 @@
       else alert('인쇄 기능을 불러오지 못했어요. 페이지를 새로고침해 주세요.');
     });
 
-    /* WRITE-AFTER-PRINT-1: 고쳐쓰기 자료 인쇄 — latest read만(AI 0·DB write 0·단계 게이트 무변경). */
+    /* WRITE-AFTER-PRINT-1: 고쳐쓰기 자료 인쇄 — latest read만(AI 0·DB write 0·단계 게이트 무변경).
+       TEACHER-PRINT-ROUTE-1: 학생 태블릿엔 프린터가 없어 기본 동작을 "선생님께 부탁" 안내로 전환.
+       교사 인쇄는 관리모드 ⋯메뉴(&print=wa 자동 실행)가 정식 경로. 안내 모달의 보조 버튼으로
+       기기 인쇄(AirPrint 등)는 계속 가능(기능 삭제 0). */
     const waPrintBtn = root.querySelector('.js-ai-print-writeafter');
-    if (waPrintBtn) waPrintBtn.addEventListener('click', function () { _openWriteAfterPrint(); });
+    if (waPrintBtn) waPrintBtn.addEventListener('click', function () {
+      _showTeacherPrintNotice('고쳐쓰기 자료', function () { _openWriteAfterPrint(); });
+    });
 
     /* Phase 5C: '모두 고쳤어요' / '다시 고칠래요' — rewriteDone 토글(localStorage·DB 0·AI 0) 후 모달 재렌더. */
     const rwDoneBtn = root.querySelector('.js-waq-rewrite-done');
@@ -3888,6 +3893,36 @@
       model: latest.model || null,
     });
     _showCheckResultModal(modalResult);
+  }
+
+  /* TEACHER-PRINT-ROUTE-1: "선생님께 인쇄 부탁하기" 안내 모달 — 학생 태블릿엔 프린터가 없어
+     인쇄물은 교사 컴퓨터(관리모드 ⋯메뉴)에서 뽑는 게 정식 경로임을 안내한다.
+     보조 버튼으로 이 기기 인쇄(AirPrint 교실)도 유지. DOM만·저장 0. */
+  function _showTeacherPrintNotice(label, onDevicePrint) {
+    _removeModalRoot('teacher-print-notice');
+    const root = document.createElement('div');
+    root.id = 'teacher-print-notice';
+    root.style.cssText = 'position:fixed;inset:0;z-index:10050;display:flex;align-items:center;justify-content:center;background:rgba(20,14,8,0.45);';
+    const card = document.createElement('div');
+    card.style.cssText = 'background:#fffdf7;border-radius:14px;max-width:340px;width:calc(100% - 48px);padding:22px 20px 16px;box-shadow:0 12px 36px rgba(0,0,0,0.25);text-align:center;font-family:inherit;';
+    card.innerHTML = ''
+      + '<div style="font-size:30px;line-height:1;">🖨</div>'
+      + '<div style="font-weight:700;font-size:16px;margin-top:8px;">선생님께 인쇄를 부탁해요</div>'
+      + '<div style="font-size:13.5px;color:#5b4a33;margin-top:8px;line-height:1.55;">'
+      +   (label || '이 자료') + '는 선생님 컴퓨터에서 종이로 뽑아요.<br>'
+      +   '선생님께 <b>“인쇄해 주세요”</b>라고 말씀드려요!'
+      + '</div>'
+      + '<button type="button" class="ai-btn js-tpn-ok" style="margin-top:14px;width:100%;">알겠어요</button>'
+      + '<button type="button" class="ai-btn ai-btn--ghost js-tpn-device" style="margin-top:8px;width:100%;font-size:12px;opacity:0.75;">그래도 이 기기에서 인쇄해 보기</button>';
+    root.appendChild(card);
+    document.body.appendChild(root);
+    const close = function () { _removeModalRoot('teacher-print-notice'); };
+    card.querySelector('.js-tpn-ok').addEventListener('click', close);
+    card.querySelector('.js-tpn-device').addEventListener('click', function () {
+      close();
+      if (typeof onDevicePrint === 'function') { try { onDevicePrint(); } catch (e) { /* noop */ } }
+    });
+    root.addEventListener('click', function (e) { if (e.target === root) close(); });
   }
 
   /* ══ WRITE-AFTER-PRINT-1: 고쳐쓰기 자료 인쇄 (교사 PC A4 기준·태블릿은 보조) ══
@@ -4810,6 +4845,27 @@
         && (typeof ViewerState !== 'undefined') && ViewerState && ViewerState.scenes
         && Object.keys(ViewerState.scenes).length > 0;
       if (ready) { try { _showPbPrintOptionsModal(); } catch (e) { /* noop */ } return; }
+      if (tries < MAX) setTimeout(tick, 400);
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', tick);
+    else tick();
+  })();
+
+  /* TEACHER-PRINT-ROUTE-1: ?print=wa — admin 카드 [🖨 고쳐쓰기 자료 인쇄] 진입.
+     학생 태블릿엔 프린터가 없어 교사가 대신 인쇄하는 경로. 팀 컨텍스트가 준비되면
+     _openWriteAfterPrint()를 1회 자동 실행(_bootstrapPrintEntry의 pb 패턴과 동일·최대 ~20초 폴링).
+     aiChecks read는 담당 교사에게 rules로 허용됨(AICHECKS-RULES-READ-1). 자료 없으면 '없음' 카드. */
+  (function _bootstrapWaPrintEntry() {
+    let p = null;
+    try { p = new URLSearchParams(location.search); } catch (e) { return; }
+    if (!p || p.get('print') !== 'wa') return;
+    let tries = 0;
+    const MAX = 50;
+    const tick = function () {
+      tries++;
+      const ready = (typeof ViewerState !== 'undefined') && ViewerState
+        && ViewerState.project && ViewerState.project.teamName;
+      if (ready) { try { _openWriteAfterPrint(); } catch (e) { /* noop */ } return; }
       if (tries < MAX) setTimeout(tick, 400);
     };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', tick);

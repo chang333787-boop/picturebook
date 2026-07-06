@@ -44,7 +44,7 @@
     return s;
   }
 
-  /* opts: { map(storyMapV2 필수), memo?(자유메모 텍스트) } */
+  /* opts: { map(storyMapV2 필수), memo?(자유메모 텍스트), fromAdmin?(관리모드 진입 — 인쇄 직행) } */
   function open(opts) {
     opts = opts || {};
     const map = opts.map;
@@ -57,11 +57,18 @@
     overlay.setAttribute('aria-modal', 'true');
     overlay.setAttribute('aria-label', '나침반형 이야기 설계도');
 
-    /* 화면 전용 툴바(인쇄 제외) */
+    /* 화면 전용 툴바(인쇄 제외)
+       TEACHER-PRINT-ROUTE-1: 학생 태블릿엔 프린터가 없어 기본은 "선생님께 부탁" 안내
+       (review의 안내 모달 재사용 불가한 독립 모듈 — 동일 문구 헬퍼). 관리모드는 직행. */
+    const _fromAdmin = !!opts.fromAdmin;
     const bar = _el('div', 'tc-rose-toolbar');
-    const printBtn = _el('button', 'tc-rose-print', '🖨 A4로 인쇄하기');
+    const printBtn = _el('button', 'tc-rose-print',
+      _fromAdmin ? '🖨 A4로 인쇄하기' : '🖨 선생님께 인쇄 부탁하기');
     printBtn.type = 'button';
-    printBtn.addEventListener('click', _print);
+    printBtn.addEventListener('click', function () {
+      if (_fromAdmin) { _print(); return; }
+      _showTeacherPrintNotice(_print);
+    });
     const closeBtn = _el('button', 'tc-rose-close', '✕ 닫기');
     closeBtn.type = 'button';
     closeBtn.addEventListener('click', close);
@@ -154,6 +161,35 @@
   }
 
   /* 인쇄 — 기존 SHEET-1 gate 패턴 재사용(별도 클래스 tc-print-rose·인쇄 동안만). */
+  /* TEACHER-PRINT-ROUTE-1: "선생님께 인쇄 부탁하기" 안내(review와 동일 문구·독립 DOM·저장 0). */
+  function _showTeacherPrintNotice(onDevicePrint) {
+    const prev = document.getElementById('tc-rose-teacher-print-notice');
+    if (prev) prev.remove();
+    const root = _el('div', '');
+    root.id = 'tc-rose-teacher-print-notice';
+    root.style.cssText = 'position:fixed;inset:0;z-index:10070;display:flex;align-items:center;justify-content:center;background:rgba(20,14,8,0.45);';
+    const card = _el('div', '');
+    card.style.cssText = 'background:#fffdf7;border-radius:14px;max-width:340px;width:calc(100% - 48px);padding:22px 20px 16px;box-shadow:0 12px 36px rgba(0,0,0,0.25);text-align:center;';
+    card.innerHTML = ''
+      + '<div style="font-size:30px;line-height:1;">🖨</div>'
+      + '<div style="font-weight:700;font-size:16px;margin-top:8px;">선생님께 인쇄를 부탁해요</div>'
+      + '<div style="font-size:13.5px;color:#5b4a33;margin-top:8px;line-height:1.55;">'
+      +   '설계도는 선생님 컴퓨터에서 종이로 뽑아요.<br>'
+      +   '선생님께 <b>“인쇄해 주세요”</b>라고 말씀드려요!'
+      + '</div>'
+      + '<button type="button" class="tc-rose-print js-tpn-ok" style="margin-top:14px;width:100%;">알겠어요</button>'
+      + '<button type="button" class="tc-rose-close js-tpn-device" style="margin-top:8px;width:100%;font-size:12px;opacity:0.75;">그래도 이 기기에서 인쇄해 보기</button>';
+    root.appendChild(card);
+    document.body.appendChild(root);
+    const close = function () { root.remove(); };
+    card.querySelector('.js-tpn-ok').addEventListener('click', close);
+    card.querySelector('.js-tpn-device').addEventListener('click', function () {
+      close();
+      if (typeof onDevicePrint === 'function') { try { onDevicePrint(); } catch (e) { /* noop */ } }
+    });
+    root.addEventListener('click', function (e) { if (e.target === root) close(); });
+  }
+
   function _print() {
     try {
       document.body.classList.add('tc-print-rose');

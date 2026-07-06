@@ -181,14 +181,21 @@
       roseBtn.type = 'button';
       roseBtn.title = '나침반 모양 설계도로 보고 인쇄해요 (태블릿 가로·인쇄용)';
       roseBtn.addEventListener('click', function () {
-        window.ThoughtCompassRose.open({ map: map, memo: R.userNotes || '' });
+        /* TEACHER-PRINT-ROUTE-1: fromAdmin(관리모드 진입)을 rose에 전달 — 인쇄 버튼 직행 여부. */
+        window.ThoughtCompassRose.open({ map: map, memo: R.userNotes || '', fromAdmin: _isFromAdmin() });
       });
       headBtns.appendChild(roseBtn);
     }
-    const printBtn = _el('button', 'tc-sheet-print-btn', '🖨 인쇄하기');
+    /* TEACHER-PRINT-ROUTE-1: 학생 태블릿엔 프린터가 없어 기본은 "선생님께 부탁" 안내.
+       관리모드(fromAdmin) 진입 시엔 기존 그대로 바로 인쇄. 보조 버튼으로 기기 인쇄 유지. */
+    const printBtn = _el('button', 'tc-sheet-print-btn',
+      _isFromAdmin() ? '🖨 인쇄하기' : '🖨 선생님께 인쇄 부탁하기');
     printBtn.type = 'button';
-    printBtn.title = '설계도를 1장으로 인쇄해요';
-    printBtn.addEventListener('click', _printSheet);
+    printBtn.title = _isFromAdmin() ? '설계도를 1장으로 인쇄해요' : '이 설계도는 선생님 컴퓨터에서 종이로 뽑아요';
+    printBtn.addEventListener('click', function () {
+      if (_isFromAdmin()) { _printSheet(); return; }
+      _showTeacherPrintNotice('설계도', _printSheet);
+    });
     headBtns.appendChild(printBtn);
     head.appendChild(headBtns);
     sec.appendChild(head);
@@ -210,6 +217,39 @@
     }
     card.appendChild(sec);
   }
+  /* TEACHER-PRINT-ROUTE-1: 관리모드 진입 여부 — openReadOnly ctx.fromAdmin. */
+  function _isFromAdmin() { return !!(R && R.ctx && R.ctx.fromAdmin); }
+
+  /* TEACHER-PRINT-ROUTE-1: "선생님께 인쇄 부탁하기" 안내 모달(viewer-ai와 동일 문구·독립 DOM).
+     보조 버튼으로 이 기기 인쇄(AirPrint 교실) 유지. 저장 0. */
+  function _showTeacherPrintNotice(label, onDevicePrint) {
+    const prev = document.getElementById('tc-teacher-print-notice');
+    if (prev) prev.remove();
+    const root = _el('div', '');
+    root.id = 'tc-teacher-print-notice';
+    root.style.cssText = 'position:fixed;inset:0;z-index:10060;display:flex;align-items:center;justify-content:center;background:rgba(20,14,8,0.45);';
+    const card = _el('div', '');
+    card.style.cssText = 'background:#fffdf7;border-radius:14px;max-width:340px;width:calc(100% - 48px);padding:22px 20px 16px;box-shadow:0 12px 36px rgba(0,0,0,0.25);text-align:center;';
+    card.innerHTML = ''
+      + '<div style="font-size:30px;line-height:1;">🖨</div>'
+      + '<div style="font-weight:700;font-size:16px;margin-top:8px;">선생님께 인쇄를 부탁해요</div>'
+      + '<div style="font-size:13.5px;color:#5b4a33;margin-top:8px;line-height:1.55;">'
+      +   (label || '이 자료') + '는 선생님 컴퓨터에서 종이로 뽑아요.<br>'
+      +   '선생님께 <b>“인쇄해 주세요”</b>라고 말씀드려요!'
+      + '</div>'
+      + '<button type="button" class="tc-btn js-tpn-ok" style="margin-top:14px;width:100%;">알겠어요</button>'
+      + '<button type="button" class="tc-btn js-tpn-device" style="margin-top:8px;width:100%;font-size:12px;opacity:0.75;">그래도 이 기기에서 인쇄해 보기</button>';
+    root.appendChild(card);
+    document.body.appendChild(root);
+    const close = function () { root.remove(); };
+    card.querySelector('.js-tpn-ok').addEventListener('click', close);
+    card.querySelector('.js-tpn-device').addEventListener('click', function () {
+      close();
+      if (typeof onDevicePrint === 'function') { try { onDevicePrint(); } catch (e) { /* noop */ } }
+    });
+    root.addEventListener('click', function (e) { if (e.target === root) close(); });
+  }
+
   /* 설계도만 1장 인쇄 — 인쇄 동안만 body 클래스 부여(일반 화면 영향 0). */
   function _printSheet() {
     try {

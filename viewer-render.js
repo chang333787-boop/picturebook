@@ -140,8 +140,15 @@ function renderCurrentScene() {
 const _prefetchedSceneImgs = new Set();
 function _prefetchSceneImage(scene) {
   if (!scene) return;
-  const src = (typeof scene.imageData === 'string' && scene.imageData) ? scene.imageData
-            : (typeof scene.imageUrl === 'string' ? scene.imageUrl : '');
+  let src = (typeof scene.imageData === 'string' && scene.imageData) ? scene.imageData
+          : (typeof scene.imageUrl === 'string' ? scene.imageUrl : '');
+  /* IMG-PREFETCH-2(2026-07-06): 렌더와 동일한 "표시 src"를 예열 — 발행 선택(s2)이 걸린
+     장면은 실제로는 s2 URL이 표시되는데(renderScene 453·631·1631행과 동일 helper) 원본만
+     예열해서 그 장면들만 여전히 "글씨 먼저·그림 나중"이 남던 원인. 효과 없음/매우빠름
+     설정에선 fade가 로딩을 가려주지 않아 이 미스가 그대로 보였다. */
+  if (typeof window !== 'undefined' && typeof window.getPublishedImageDisplaySrc === 'function') {
+    try { src = window.getPublishedImageDisplaySrc(scene, src) || src; } catch (e) { /* 원본 유지 */ }
+  }
   if (!src || src.indexOf('http') !== 0) return;   /* data:URL·이미지 없음 → 스킵 */
   if (_prefetchedSceneImgs.has(src)) return;       /* 중복 예열 방지(세션 내 1회) */
   _prefetchedSceneImgs.add(src);

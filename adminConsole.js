@@ -618,16 +618,27 @@ function _renderTeamCreatePanel(classId) {
       <input id="admin-tc-pin" class="admin-tc-input admin-tc-input--pin" type="text"
         inputmode="numeric" pattern="[0-9]{4,6}" maxlength="6"
         placeholder="PIN (숫자 4~6자리)" autocomplete="off"/>
+      <button id="admin-tc-pin-auto" class="admin-tc-btn admin-tc-btn--ghost" type="button" title="숫자 4자리 PIN을 자동으로 만들어요">🎲 자동</button>
       <button id="admin-tc-create" class="admin-tc-btn">팀 만들기</button>
+    </div>
+    <div class="admin-tc-cardrow">
+      <button id="admin-tc-print-cards" class="admin-tc-btn admin-tc-btn--ghost" type="button" title="등록된 모둠의 클래스 코드·이름·PIN을 카드로 인쇄해요 (학생 배부용)">🖨 입장 카드 인쇄</button>
     </div>
     <div id="admin-tc-status" class="admin-tc-status"></div>
   `;
   const nameEl   = document.getElementById('admin-tc-name');
   const pinEl    = document.getElementById('admin-tc-pin');
   const btn      = document.getElementById('admin-tc-create');
+  const autoBtn  = document.getElementById('admin-tc-pin-auto');
+  const printBtn = document.getElementById('admin-tc-print-cards');
   const statusEl = document.getElementById('admin-tc-status');
   if (!btn) return;
   btn.addEventListener('click', () => _createTeamAccount(classId, nameEl, pinEl, btn, statusEl));
+  /* TEAM-ACCOUNT-CARD-1: PIN 자동 채우기 — 입력란에 값만 넣음(저장은 '팀 만들기'에서). */
+  if (autoBtn) autoBtn.addEventListener('click', () => {
+    if (pinEl) { pinEl.value = _genPin(_knownAccountPins()); pinEl.focus(); }
+  });
+  if (printBtn) printBtn.addEventListener('click', () => _printEntryCards(classId));
   [nameEl, pinEl].forEach(el => el && el.addEventListener('keydown', e => {
     if (e.key === 'Enter') { e.preventDefault(); btn.click(); }
   }));
@@ -866,7 +877,123 @@ function _analyzeTeam(encodedName, scenes, isPublic = false, meta = {}, account 
     /* ADMIN-1B: 교사 사전 등록(account) 여부/상태 — 카드 배지 표시용 */
     registered:    !!account,
     accountStatus: (account && account.status) ? account.status : null,
+    /* TEAM-ACCOUNT-CARD-1: 입장 카드 인쇄·PIN 자동생성 중복회피용. 담당 교사만 read되는 값
+       (rules)이라 admin 세션 메모리에만 보관 — 카드/배지 등 일반 렌더엔 노출 안 함. */
+    accountName:   (account && account.displayName) ? account.displayName : null,
+    accountPin:    (account && account.pin != null) ? String(account.pin) : null,
   };
+}
+
+/* TEAM-ACCOUNT-CARD-1: PIN 자동 생성 — 4자리 숫자(앞자리 0 허용, 문자열). 같은 학급에 이미
+   쓰이는 PIN은 best-effort 회피(팀별 PIN이라 중복이 치명적이진 않지만 교사 혼동 방지).
+   PIN은 팀명과 함께여야 입장하므로 유일성은 필수 아님. */
+function _genPin(existingPins) {
+  const used = new Set(Array.isArray(existingPins) ? existingPins.filter(Boolean).map(String) : []);
+  for (let i = 0; i < 40; i++) {
+    let p = '';
+    for (let d = 0; d < 4; d++) p += String(Math.floor(Math.random() * 10));
+    if (!used.has(p)) return p;
+  }
+  /* 40회 내 미충돌 실패(사실상 없음) — 그냥 마지막 값 반환 */
+  let p = '';
+  for (let d = 0; d < 4; d++) p += String(Math.floor(Math.random() * 10));
+  return p;
+}
+
+/* 현재 학급의 이미 등록된 PIN 목록(있으면) — 자동생성 중복회피·카드 인쇄에 재사용. */
+function _knownAccountPins() {
+  return (adminState.allTeams || []).map(t => t && t.accountPin).filter(Boolean);
+}
+
+/* TEAM-ACCOUNT-CARD-1: 입장 카드 인쇄 — 등록 팀(account 있는 팀)의 클래스 코드·모둠 이름·PIN을
+   카드로 인쇄한다. DB write 0(admin 메모리 값만 사용)·기존 인쇄 게이트 패턴 재사용(body 클래스 +
+   전용 root + @media print 주입 스타일, afterprint 정리). PIN은 담당 교사만 read되는 값이라
+   화면 카드엔 안 나오고 이 인쇄물에만 나온다. */
+function _printEntryCards(classId) {
+  const code = adminState.adminClassCode || '';
+  const className = adminState.adminClassName || '';
+  const teams = (adminState.allTeams || []).filter(t => t && t.registered && t.accountPin);
+  if (!teams.length) {
+    alert('인쇄할 등록 팀이 없어요. 먼저 "학생/팀 계정 미리 만들기"로 모둠을 등록해 주세요.');
+    return;
+  }
+  /* 정렬 — 화면 목록과 무관하게 이름 오름차순(교사 배부 편의). */
+  teams.sort((a, b) => String(a.accountName || a.name || '').localeCompare(String(b.accountName || b.name || ''), 'ko'));
+
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  const cardsHtml = teams.map(t => `
+    <div class="aec-card">
+      <div class="aec-brand">🌿 가지 — 작품 보기</div>
+      <div class="aec-team">${esc(t.accountName || t.name)}</div>
+      <div class="aec-row"><span class="aec-k">클래스 코드</span><span class="aec-v">${esc(code)}</span></div>
+      <div class="aec-row"><span class="aec-k">모둠 이름</span><span class="aec-v">${esc(t.accountName || t.name)}</span></div>
+      <div class="aec-row"><span class="aec-k">비밀번호(PIN)</span><span class="aec-v aec-pin">${esc(t.accountPin)}</span></div>
+      <div class="aec-hint">작품 보기 화면에서 클래스 코드와 모둠 이름·비밀번호를 입력해요.</div>
+    </div>`).join('');
+
+  /* 명단(한눈에 확인용) — 카드 뒤 페이지에 표 */
+  const rosterRows = teams.map(t =>
+    `<tr><td>${esc(t.accountName || t.name)}</td><td>${esc(code)}</td><td class="aec-pin">${esc(t.accountPin)}</td></tr>`).join('');
+
+  const prev = document.getElementById('admin-entry-cards-root');
+  if (prev) prev.remove();
+  const root = document.createElement('div');
+  root.id = 'admin-entry-cards-root';
+  root.className = 'admin-entry-cards-root';
+  root.innerHTML = `
+    <div class="aec-page">
+      <div class="aec-doc-title">입장 카드 — ${esc(className || code)}</div>
+      <div class="aec-grid">${cardsHtml}</div>
+    </div>
+    <div class="aec-page aec-roster-page">
+      <div class="aec-doc-title">모둠 명단 (${teams.length})</div>
+      <table class="aec-roster"><thead><tr><th>모둠 이름</th><th>클래스 코드</th><th>PIN</th></tr></thead><tbody>${rosterRows}</tbody></table>
+    </div>`;
+  document.body.appendChild(root);
+
+  /* 인쇄 게이트 스타일 — 주입식(다른 화면 무영향), afterprint에 root와 함께 제거. */
+  const style = document.createElement('style');
+  style.id = 'admin-entry-cards-style';
+  style.textContent = `
+    #admin-entry-cards-root { display: none; }
+    @media print {
+      body.admin-print-cards > *:not(#admin-entry-cards-root) { display: none !important; }
+      body.admin-print-cards #admin-entry-cards-root { display: block; }
+      #admin-entry-cards-root { color: #1a1208; font-family: 'Jua', sans-serif; }
+      .aec-page { page-break-after: always; padding: 6mm; }
+      .aec-page:last-child { page-break-after: auto; }
+      .aec-doc-title { font-size: 15pt; font-weight: 700; margin-bottom: 6mm; }
+      .aec-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6mm; }
+      .aec-card { border: 1.5px dashed #b08d57; border-radius: 8px; padding: 6mm 5mm; break-inside: avoid; }
+      .aec-brand { font-size: 10pt; color: #6b5638; }
+      .aec-team { font-size: 17pt; font-weight: 700; margin: 2mm 0 4mm; }
+      .aec-row { display: flex; justify-content: space-between; font-size: 12pt; padding: 1.5mm 0; border-bottom: 1px solid #eadfce; }
+      .aec-k { color: #6b5638; }
+      .aec-v { font-weight: 700; }
+      .aec-pin { letter-spacing: 2px; font-size: 15pt; }
+      .aec-hint { font-size: 9.5pt; color: #7a6a50; margin-top: 4mm; line-height: 1.5; }
+      .aec-roster { width: 100%; border-collapse: collapse; font-size: 12pt; }
+      .aec-roster th, .aec-roster td { border: 1px solid #cbb994; padding: 2.5mm 3mm; text-align: left; }
+      .aec-roster th { background: #f6efe0; }
+    }`;
+  document.head.appendChild(style);
+
+  const cleanup = () => {
+    document.body.classList.remove('admin-print-cards');
+    const r = document.getElementById('admin-entry-cards-root');
+    const s = document.getElementById('admin-entry-cards-style');
+    if (r) r.remove();
+    if (s) s.remove();
+    window.removeEventListener('afterprint', cleanup);
+  };
+  try {
+    document.body.classList.add('admin-print-cards');
+    window.addEventListener('afterprint', cleanup);
+    window.print();
+    setTimeout(cleanup, 2000);   /* afterprint 미발화 브라우저 방어 */
+  } catch (e) { cleanup(); }
 }
 
 function _classifyStatus({ total, endings, entryValid, entryBroken, replayBroken, connectivity, isolated }) {
@@ -1285,9 +1412,11 @@ async function _changeTeamPin(encodedName, displayName) {
   const ref = _accountRef(encodedName);
   if (!ref) { alert('이 팀의 계정 정보를 찾을 수 없어요.'); return; }
 
-  const input = prompt(`"${displayName}" 팀의 새 PIN을 숫자 4~6자리로 입력해 주세요.`);
+  /* TEAM-ACCOUNT-CARD-1: 비우고 확인하면 4자리 자동 생성(모달 없이 최소 변경). */
+  const input = prompt(`"${displayName}" 팀의 새 PIN을 숫자 4~6자리로 입력해 주세요.\n(비우고 확인하면 자동으로 만들어요)`);
   if (input === null) return;                 /* 취소 → 아무것도 안 함 */
-  const newPin = input.trim();
+  let newPin = input.trim();
+  if (newPin === '') newPin = _genPin(_knownAccountPins());   /* 자동 생성 */
   if (!/^[0-9]{4,6}$/.test(newPin)) {
     alert('PIN은 숫자 4~6자리로 입력해 주세요. 변경을 취소했어요.');
     return;

@@ -120,11 +120,26 @@ function renderCurrentScene() {
     setTimeout(() => el.classList.add('is-ready'), 6000);
   });
 
-  /* IMG-PREFETCH-1: 현재 장면 표시가 자리 잡은 뒤 한가할 때 다음 장면 그림 예열. */
+  /* IMG-PREFETCH-1: 현재 장면 표시가 자리 잡은 뒤 한가할 때 다음 장면 그림 예열.
+     Q2(2026-07-06): 현재 장면 그림이 아직 다운로드 중이면(느린 회선) 예열 4장이 대역폭을
+     나눠 먹어 정작 지금 그림이 늦어질 수 있다 → 현재 그림 load/error 후에 예열 시작.
+     4초 fallback으로 어떤 경우에도 예열은 보장(그림 없는 장면은 즉시). */
   try {
     const _pf = () => { try { _prefetchNextSceneImages(); } catch (e) { /* noop */ } };
-    if (typeof requestIdleCallback === 'function') requestIdleCallback(_pf, { timeout: 1500 });
-    else setTimeout(_pf, 250);
+    const _idle = () => {
+      if (typeof requestIdleCallback === 'function') requestIdleCallback(_pf, { timeout: 1500 });
+      else setTimeout(_pf, 250);
+    };
+    const _curImg = stage.querySelector('.scene-screen:not(.is-leaving) img');
+    if (_curImg && !_curImg.complete) {
+      let _pfStarted = false;
+      const _go = () => { if (_pfStarted) return; _pfStarted = true; _idle(); };
+      _curImg.addEventListener('load', _go, { once: true });
+      _curImg.addEventListener('error', _go, { once: true });
+      setTimeout(_go, 4000);
+    } else {
+      _idle();
+    }
   } catch (e) { /* noop */ }
 }
 

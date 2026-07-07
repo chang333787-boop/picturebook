@@ -449,7 +449,18 @@ async function _joinTeamV2() {
         pin: pin,
         callMembership: callJoinTeamMembership,
       });
-      if (!out.ok) { errEl.textContent = out.message; return; }   /* 진입 0회·세션 저장 0회 */
+      if (!out.ok) {
+        /* TEAM-ACCOUNT-UX-1: teacher_managed 학급의 "다시 확인" 류 실패엔 교실 맥락 안내를 덧붙인다.
+           팀 존재 여부는 여전히 비노출(모드는 학급 단위). PIN 형식·잠금 등 다른 문구는 그대로. */
+        let _msg = out.message;
+        /* 실제 입장 대상 학급(foundClassId)의 모드를 직접 읽는다 — 폼 문구용 캐시(코드 기준)는
+           직전 코드값이라 stale일 수 있어 신뢰하지 않는다. 실패 시에만 도는 1회 read. */
+        const _mode = await _readTeamCreationMode(foundClassId).catch(() => null);
+        if (_mode === 'teacher_managed' && out.code !== 'invalid-input' && /확인/.test(_msg)) {
+          _msg += ' 안 되면 선생님께 물어보세요.';
+        }
+        errEl.textContent = _msg; return;   /* 진입 0회·세션 저장 0회 */
+      }
 
       /* ★ 전역 classId 저장 — 이후 viewer 링크/저장에 사용 */
       classId = foundClassId;
@@ -478,6 +489,43 @@ async function _readTeamCreationMode(classId) {
   } catch (e) {
     return 'legacy_open';
   }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   TEAM-ACCOUNT-UX-1 — 입장 폼 문구를 클래스 코드의 팀 생성 모드에 맞춤 (client-only·저장 0)
+   · teacher_managed = "선생님이 만들어 둔 모둠으로 들어가는" 느낌(새로 만든다는 인상 제거)
+   · legacy_open     = 자동 생성이 실제로 가능하므로 "새로 시작/이어서" 안내를 숨기지 않음
+   · 모드는 클래스 코드가 유효할 때만 읽어 조정. 못 읽으면 기본 문구 유지(회귀 0).
+   · 팀 존재 여부는 노출하지 않음(모드는 학급 단위 설정일 뿐).
+   ════════════════════════════════════════════════════════════════ */
+let _joinModeCache = { code: null, mode: null };
+async function _resolveJoinMode(code) {
+  if (!code || code.length < 4) return null;
+  if (_joinModeCache.code === code && _joinModeCache.mode) return _joinModeCache.mode;
+  try {
+    const cid = await _lookupClassId(code);
+    if (!cid) return null;
+    const mode = await _readTeamCreationMode(cid);
+    _joinModeCache = { code, mode };
+    return mode;
+  } catch (e) { return null; }
+}
+function _applyJoinModeCopy(mode) {
+  const sub  = document.querySelector('#join-screen .join-sub');
+  const hint = document.querySelector('#join-screen .join-hint');
+  if (mode === 'teacher_managed') {
+    if (sub)  sub.textContent = '선생님이 알려준 클래스 코드와 모둠 이름, 비밀번호(PIN)를 입력해요';
+    if (hint) hint.innerHTML  = '선생님이 만들어 둔 모둠으로 들어가요<br>같은 모둠은 같은 정보로 다시 이어서 작업해요';
+  } else if (mode === 'legacy_open') {
+    if (sub)  sub.textContent = '클래스 코드, 팀 이름, PIN을 입력해요';
+    if (hint) hint.innerHTML  = '팀 이름과 PIN을 정해 들어가요<br>새 이름이면 새로 시작, 같은 이름이면 이어서 작업해요';
+  }
+}
+/* #join-code blur/변경 시 호출 — ui.js에서 배선 */
+async function _onJoinCodeResolveMode() {
+  const code = (document.getElementById('join-code')?.value || '').trim().toUpperCase();
+  const mode = await _resolveJoinMode(code);
+  if (mode) _applyJoinModeCopy(mode);
 }
 
 /* ── resume: sessionStorage 컨텍스트로 입장 화면 건너뛰기 ──

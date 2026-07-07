@@ -1285,6 +1285,10 @@ window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('join-code')?.addEventListener('keydown', e => {
       if (e.key === 'Enter') document.getElementById('join-input')?.focus();
     });
+    /* TEAM-ACCOUNT-UX-1: 클래스 코드 확정(blur) 시 팀 생성 모드에 맞춰 입장 폼 문구 조정. */
+    document.getElementById('join-code')?.addEventListener('blur', () => {
+      if (typeof _onJoinCodeResolveMode === 'function') _onJoinCodeResolveMode();
+    });
   }
 
   /* ?admin=1 query param — 교사 관리 진입

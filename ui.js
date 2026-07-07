@@ -790,6 +790,12 @@ async function _enterMakerAfterPtypeSelected(ptype) {
   }
   hidePtypeScreen();
 
+  /* TUTORIAL-PRD Phase B(S2): 기기 최초 1회 환영 모달 — 나침반 게이트보다 먼저(D-02).
+     이미 봤거나 콘텐츠/localStorage 없으면 즉시 통과(에디터 절대 막지 않음). 닫힘까지 await. */
+  if (typeof window !== 'undefined' && window.TutorialWelcome && typeof window.TutorialWelcome.maybeShow === 'function') {
+    try { await window.TutorialWelcome.maybeShow(); } catch (e) { /* noop */ }
+  }
+
   /* BASE10-3A: 신규 작품 projectType 저장이 "성공"했고(savedNewProjectType),
      명시 유형이 text/picturebook일 때만 기본 10장면 자동 생성(모달 없음).
      · 기존 작품 재진입(savedNewProjectType=false) → 실행 안 됨

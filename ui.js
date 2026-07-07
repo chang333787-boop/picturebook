@@ -991,6 +991,11 @@ function toggleMode() {
      항상 모든 정보 노출. body.beginner-mode 클래스도 추가 안 함. */
 }
 function showHelp() {
+  /* TUTORIAL-PRD Phase A: 주제별 도움말 모달(S1)로 업그레이드. 모듈 미로드 시 기존 alert 폴백. */
+  if (typeof window !== 'undefined' && window.TutorialHelp && typeof window.TutorialHelp.open === 'function') {
+    window.TutorialHelp.open();
+    return;
+  }
   alert(`📌 가지 branch 사용법\n\n➕ [+ 장면 추가] 버튼으로 카드 생성\n🔗 포트(●) 드래그로 카드 연결\n🔢 번호 배지 클릭으로 번호 변경\n🟢 같은 클래스 코드 + 팀 이름 + PIN이면 실시간 공유\n🔍 Ctrl+휠 또는 ±버튼으로 줌`);
 }
 

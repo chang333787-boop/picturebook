@@ -62,7 +62,10 @@
       ]);
       return { ok: true, raw: pw.val(), onboardingVersion: ov.val(), copiedFrom: cf.val() };
     } catch (e) {
-      return { ok: false, raw: null, onboardingVersion: null, copiedFrom: null };
+      /* LEGACY-MEMBERSHIP-UX-1: 에러 코드를 표면화 — 호출부가 "권한 거부(멤버십 오래됨)"와
+         "그냥 데이터 없음"을 구분해 안내를 다르게 낼 수 있도록. (기존 필드는 그대로) */
+      return { ok: false, raw: null, onboardingVersion: null, copiedFrom: null,
+        errorCode: (e && e.code) ? String(e.code) : null };
     }
   }
 

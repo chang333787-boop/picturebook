@@ -1251,6 +1251,10 @@ function _teamCardHtml(t) {
   if (t.registered) badges.push(t.accountStatus === 'locked'
     ? '<span class="admin-badge admin-badge--locked">🔒 잠김</span>'
     : '<span class="admin-badge admin-badge--registered">✅ 등록됨</span>');
+  /* LEGACY-MEMBERSHIP-UX-1: 작업 흔적(장면)은 있는데 입장 기록(members)이 없는 팀 = 오래된 팀.
+     학생이 결과 보기/저장에서 막힐 수 있음 → 모둠 비밀번호로 다시 입장하면 최신화(자연 백필). */
+  if (t.total > 0 && t.memberCount === 0)
+    badges.push('<span class="admin-badge admin-badge--legacy" title="이 모둠은 입장 기록이 오래됐어요. 학생이 모둠 이름·비밀번호(PIN)로 다시 들어오면 최신 상태가 되고, 결과 보기·저장도 정상 동작해요.">⏳ 입장 기록 오래됨</span>');
   if (t.trueEnds > 0) badges.push('<span class="admin-badge admin-badge--true">⭐ 진엔딩</span>');
   if (t.hasImage)     badges.push('<span class="admin-badge admin-badge--img">🖼 이미지</span>');
   if (t.status === 'in-progress' && t.total > 0)

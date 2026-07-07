@@ -63,15 +63,25 @@
      메모(다듬기 전용 300자, UX-15) + 브랜치/다듬기 서랍(WIRE-13/14)은 후속 단계로 보류. */
   async function openReadOnly(ctx) {
     const Store = _Store(), Q = _Q(), TC = _TC();
-    let state = null;
+    let state = null, loadErr = null;
     if (Store && typeof Store.loadThoughtCompassStateResult === 'function') {
-      try { const r = await Store.loadThoughtCompassStateResult(ctx); state = r && r.raw; } catch (e) { state = null; }
+      try {
+        const r = await Store.loadThoughtCompassStateResult(ctx);
+        state = r && r.raw;
+        if (r && r.ok === false) loadErr = r.errorCode || null;
+      } catch (e) { state = null; loadErr = (e && e.code) ? String(e.code) : null; }
     }
     state = state || {};
     /* V2: 저장 데이터 기준 질문 세트 선택(v1 완료본은 v1 그대로 표시 — 하위호환). */
     const qVersion = (TC && typeof TC.resolveQuestionSetVersion === 'function') ? TC.resolveQuestionSetVersion(state) : 1;
     const vm = { questions: Q ? Q.getCoreQuestions(qVersion) : [], answers: (state.answers && typeof state.answers === 'object') ? state.answers : {} };
     R = { ctx: ctx, vm: vm, followUps: Array.isArray(state.followUps) ? state.followUps : [], busy: false, error: null, readOnly: true, userNotes: _userNotesText(state) };
+    /* LEGACY-MEMBERSHIP-UX-1: 권한 거부(멤버십 오래됨)면 빈 화면 대신 재입장 안내.
+       교사(fromAdmin)는 teacher_uid로 read 가능해 이 분기에 오지 않음(=학생 stale uid 전용).
+       그냥 데이터 없음(ok:true·raw null)이면 loadErr 없음 → 기존 빈 결과 화면 유지. */
+    if (!ctx.fromAdmin && /PERMISSION_DENIED/i.test(String(loadErr || ''))) {
+      R.error = '이 모둠은 입장 정보가 오래됐어요. 🌿 작품 만들기에서 모둠 이름과 비밀번호(PIN)로 다시 들어오면 결과를 볼 수 있어요.';
+    }
     _render();
   }
 

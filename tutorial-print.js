@@ -36,7 +36,9 @@
       </div>`).join('');
   }
 
-  function _print(kind, docTitle, subtitle, steps, footNote) {
+  function _art(id) { return (typeof window !== 'undefined' && window.TutorialArt) ? window.TutorialArt.get(id) : ''; }
+
+  function _print(kind, docTitle, subtitle, steps, footNote, artId) {
     if (!Array.isArray(steps) || !steps.length) {
       try { alert('인쇄할 사용설명서 내용을 불러오지 못했어요. 새로고침 후 다시 시도해 주세요.'); } catch (e) {}
       return;
@@ -44,6 +46,7 @@
     const prev = document.getElementById(ROOT_ID);
     if (prev) prev.remove();
 
+    const hero = _art(artId);
     const root = document.createElement('div');
     root.id = ROOT_ID;
     root.innerHTML = `
@@ -52,6 +55,7 @@
           <div class="tp-brand">🌿 가지 — 함께 만드는 이야기</div>
           <div class="tp-doctitle">${_esc(docTitle)}</div>
           <div class="tp-subtitle">${_esc(subtitle)}</div>
+          ${hero ? `<div class="tp-hero">${hero}</div>` : ''}
         </div>
         <div class="tp-steps">${_stepsHtml(steps)}</div>
         ${footNote ? `<div class="tp-foot">${_esc(footNote)}</div>` : ''}
@@ -71,6 +75,8 @@
         .tp-brand { font-size: 11pt; color: #6b5638; }
         .tp-doctitle { font-size: 22pt; font-weight: 800; margin: 3mm 0 1mm; }
         .tp-subtitle { font-size: 12pt; color: #7a6a50; }
+        .tp-hero { max-width: 88mm; margin: 4mm auto 0; }
+        .tp-hero svg { width: 100%; height: auto; }
         .tp-steps { display: grid; grid-template-columns: 1fr; gap: 5mm; }
         .tp-step { display: flex; align-items: flex-start; gap: 5mm; break-inside: avoid;
                    border: 1.5px solid #e6d6ba; border-radius: 10px; padding: 5mm 6mm; }
@@ -96,12 +102,12 @@
   function printStudent() {
     const C = _content();
     _print('student', '작품 만들기 사용법', '이 순서대로 하면 나만의 이야기를 만들 수 있어요',
-      C && C.studentPrintSteps, '궁금하면 화면 위쪽 ❓ 버튼을 눌러 사용법을 다시 볼 수 있어요.');
+      C && C.studentPrintSteps, '궁금하면 화면 위쪽 ❓ 버튼을 눌러 사용법을 다시 볼 수 있어요.', 'branch');
   }
   function printTeacher() {
     const C = _content();
     _print('teacher', '교사 준비 가이드', '수업 전 이 순서로 준비하면 돼요',
-      C && C.teacherSteps, '학생 배부용 사용법은 [사용설명서(학생) 인쇄]로 뽑아 나눠 주세요.');
+      C && C.teacherSteps, '학생 배부용 사용법은 [사용설명서(학생) 인쇄]로 뽑아 나눠 주세요.', 'compass');
   }
 
   if (typeof window !== 'undefined') {

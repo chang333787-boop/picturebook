@@ -59,16 +59,26 @@
 
       const finish = () => { _markSeen(version); _remove(); resolve(true); };
 
+      const _art = (id) => (typeof window !== 'undefined' && window.TutorialArt) ? window.TutorialArt.get(id) : '';
       const render = () => {
         const s = slides[idx];
         const last = idx === slides.length - 1;
         const dots = slides.map((_, i) =>
           `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;margin:0 3px;background:${i === idx ? '#c66f4a' : '#e3d4bd'};"></span>`).join('');
+        /* 시각: art 삽화 > demo(인터랙티브) > 이모지 폴백 */
+        let visual;
+        if (s.demo) visual = '<div id="tw-demo-slot" style="margin-bottom:12px;"></div>';
+        else if (s.art && _art(s.art)) visual = `<div style="background:#fbf6ea;border-radius:12px;padding:6px;margin-bottom:12px;">${_art(s.art)}</div>`;
+        else visual = `<div style="font-size:44px;line-height:1;margin-bottom:10px;">${_esc(s.icon || '🌿')}</div>`;
         card.innerHTML = `
-          <div style="font-size:44px;line-height:1;margin-bottom:10px;">${_esc(s.icon)}</div>
+          ${visual}
           <div style="font-size:19px;font-weight:800;color:#3a2c14;margin-bottom:8px;">${_esc(s.title)}</div>
-          <div style="font-size:14px;color:#6b5638;line-height:1.6;min-height:44px;">${_esc(s.line)}</div>
-          <div style="margin:16px 0 14px;">${dots}</div>`;
+          <div style="font-size:14px;color:#6b5638;line-height:1.6;min-height:40px;">${_esc(s.line)}</div>
+          <div style="margin:14px 0 12px;">${dots}</div>`;
+        /* demo 슬라이드면 인터랙티브 미니 데모 마운트 */
+        if (s.demo && typeof window !== 'undefined' && window.TutorialDemo && typeof window.TutorialDemo.mount === 'function') {
+          try { window.TutorialDemo.mount(card.querySelector('#tw-demo-slot')); } catch (e) { /* noop */ }
+        }
         const btnRow = document.createElement('div');
         btnRow.style.cssText = 'display:flex;gap:8px;';
         if (idx > 0) {

@@ -1,0 +1,120 @@
+/* tutorial-art.js — 튜토리얼 삽화(SVG) 모음 (TUTORIAL-PRD 품질 업그레이드 2026-07-07).
+   window.TutorialArt.get(id) → 인라인 SVG 문자열. 이모지 대신 앱 개념을 직접 그림.
+   팔레트: 코랄 #c66f4a · 크림 #fbf6ea/#fffdf7 · 갈색 #6b5638 · 초록 #7bae6e · 하늘 #cфe4f2 대체 #cfe4f2.
+   viewBox 220x140 통일. 저학년 친화 — 둥근 모양·부드러운 색. DOM/의존 0(순수 데이터). */
+;(function () {
+  'use strict';
+  const C = { coral: '#c66f4a', coralL: '#e69277', cream: '#fbf6ea', card: '#fffdf7',
+    brown: '#6b5638', ink: '#3a2c14', green: '#7bae6e', greenL: '#cfe6c2',
+    sky: '#bcdcef', sun: '#f2c94c', line: '#e6d6ba', mut: '#a8946e' };
+
+  function _wrap(inner, label) {
+    return `<svg viewBox="0 0 220 140" role="img" aria-label="${label || ''}" xmlns="http://www.w3.org/2000/svg"
+      style="width:100%;height:auto;display:block;">${inner}</svg>`;
+  }
+  const bg = `<rect x="0" y="0" width="220" height="140" rx="14" fill="${C.cream}"/>`;
+
+  /* 재사용: 작은 장면 카드(그림+글줄) */
+  function sceneCard(x, y, w, h, opt) {
+    opt = opt || {};
+    const imgH = Math.round(h * 0.52);
+    return `
+      <g>
+        <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="8" fill="${C.card}" stroke="${C.line}" stroke-width="1.5"/>
+        <rect x="${x + 5}" y="${y + 5}" width="${w - 10}" height="${imgH}" rx="5" fill="${opt.imgFill || C.greenL}"/>
+        ${opt.sun ? `<circle cx="${x + w - 14}" cy="${y + 13}" r="5" fill="${C.sun}"/>` : ''}
+        ${opt.tree ? `<path d="M${x + 12} ${y + imgH} l6 -14 l6 14 z" fill="${C.green}"/><rect x="${x + 14}" y="${y + imgH - 4}" width="4" height="4" fill="${C.brown}"/>` : ''}
+        ${opt.face ? `<circle cx="${x + w / 2}" cy="${y + imgH / 2 + 2}" r="9" fill="#ffd9a0"/><circle cx="${x + w / 2 - 3}" cy="${y + imgH / 2}" r="1.3" fill="${C.ink}"/><circle cx="${x + w / 2 + 3}" cy="${y + imgH / 2}" r="1.3" fill="${C.ink}"/><path d="M${x + w / 2 - 3} ${y + imgH / 2 + 4} q3 3 6 0" stroke="${C.ink}" stroke-width="1" fill="none"/>` : ''}
+        <rect x="${x + 6}" y="${y + imgH + 9}" width="${w - 20}" height="3.5" rx="1.8" fill="${C.line}"/>
+        <rect x="${x + 6}" y="${y + imgH + 16}" width="${w - 30}" height="3.5" rx="1.8" fill="${C.line}"/>
+      </g>`;
+  }
+
+  const ART = {
+    /* 들어가기 — 입장 카드 + 3칸(코드/모둠/PIN) + 열쇠 */
+    enter: _wrap(`${bg}
+      <rect x="46" y="20" width="128" height="100" rx="12" fill="${C.card}" stroke="${C.line}" stroke-width="2"/>
+      <text x="110" y="40" text-anchor="middle" font-family="sans-serif" font-size="12" font-weight="700" fill="${C.ink}">들어가기</text>
+      <g font-family="sans-serif" font-size="9" fill="${C.mut}">
+        <rect x="60" y="48" width="100" height="16" rx="8" fill="${C.cream}" stroke="${C.line}"/><text x="66" y="59">클래스 코드  JL26A</text>
+        <rect x="60" y="70" width="100" height="16" rx="8" fill="${C.cream}" stroke="${C.line}"/><text x="66" y="81">모둠 이름  2모둠</text>
+        <rect x="60" y="92" width="100" height="16" rx="8" fill="${C.cream}" stroke="${C.line}"/><text x="66" y="103">비밀번호  ● ● ● ●</text>
+      </g>
+      <g transform="translate(28,64) rotate(-20)"><circle cx="0" cy="0" r="7" fill="none" stroke="${C.coral}" stroke-width="3"/><rect x="5" y="-2" width="16" height="4" fill="${C.coral}"/><rect x="17" y="2" width="4" height="6" fill="${C.coral}"/></g>`, '입장 화면'),
+
+    /* 작품 고르기 — 2x2 카드 */
+    ptype: _wrap(`${bg}
+      ${[[C.greenL, '📖'], [C.coralL, '🎬'], [C.sky, '🖼'], [C.sun, '✋']].map((m, i) => {
+        const x = 40 + (i % 2) * 78, y = 24 + Math.floor(i / 2) * 50;
+        return `<rect x="${x}" y="${y}" width="66" height="40" rx="9" fill="${C.card}" stroke="${C.line}" stroke-width="1.5"/><rect x="${x}" y="${y}" width="66" height="12" rx="9" fill="${m[0]}"/><rect x="${x}" y="${y + 6}" width="66" height="6" fill="${m[0]}"/><text x="${x + 33}" y="${y + 30}" text-anchor="middle" font-size="15">${m[1]}</text>`;
+      }).join('')}
+      <text x="110" y="16" text-anchor="middle" font-family="sans-serif" font-size="10" fill="${C.brown}">골라요</text>`, '작품 유형 고르기'),
+
+    /* 생각 나침반 — 나침반 + 생각 물방울 */
+    compass: _wrap(`${bg}
+      <circle cx="92" cy="78" r="34" fill="${C.card}" stroke="${C.coral}" stroke-width="3"/>
+      <circle cx="92" cy="78" r="4" fill="${C.coral}"/>
+      <path d="M92 50 L100 78 L92 106 L84 78 Z" fill="${C.coral}"/>
+      <path d="M92 50 L100 78 L92 78 Z" fill="${C.coralL}"/>
+      <text x="92" y="44" text-anchor="middle" font-size="9" fill="${C.brown}">N</text>
+      <g><ellipse cx="158" cy="44" rx="30" ry="20" fill="${C.card}" stroke="${C.line}" stroke-width="1.5"/><circle cx="134" cy="62" r="4" fill="${C.card}" stroke="${C.line}"/><circle cx="128" cy="70" r="2.5" fill="${C.card}" stroke="${C.line}"/><text x="158" y="48" text-anchor="middle" font-size="15">💭</text></g>`, '생각 나침반'),
+
+    /* 장면 만들기 — 큰 장면 카드(해·나무·글줄) + 연필 */
+    scene: _wrap(`${bg}
+      ${sceneCard(58, 22, 104, 96, { sun: true, tree: true })}
+      <g transform="translate(150,96) rotate(35)"><rect x="0" y="0" width="6" height="26" fill="${C.sun}"/><path d="M0 26 l3 6 l3 -6 z" fill="${C.ink}"/><rect x="0" y="0" width="6" height="5" fill="${C.coral}"/></g>`, '장면 만들기'),
+
+    /* ★ 갈래 잇기 — 위 1장 → 아래 2장, 선택지 버튼+화살표 (핵심 시각) */
+    branch: _wrap(`${bg}
+      ${sceneCard(84, 12, 52, 44, { tree: true })}
+      <g font-family="sans-serif" font-size="7.5">
+        <rect x="40" y="62" width="60" height="13" rx="6.5" fill="${C.coral}"/><text x="70" y="71" text-anchor="middle" fill="#fff">🌲 숲으로</text>
+        <rect x="120" y="62" width="60" height="13" rx="6.5" fill="${C.green}"/><text x="150" y="71" text-anchor="middle" fill="#fff">🏠 집으로</text>
+      </g>
+      <path d="M104 56 C90 60 74 66 66 80" stroke="${C.coral}" stroke-width="2" fill="none" marker-end="url(#ah1)"/>
+      <path d="M116 56 C130 60 146 66 154 80" stroke="${C.green}" stroke-width="2" fill="none" marker-end="url(#ah2)"/>
+      <defs>
+        <marker id="ah1" markerWidth="7" markerHeight="7" refX="4" refY="3.5" orient="auto"><path d="M0 0 L7 3.5 L0 7 z" fill="${C.coral}"/></marker>
+        <marker id="ah2" markerWidth="7" markerHeight="7" refX="4" refY="3.5" orient="auto"><path d="M0 0 L7 3.5 L0 7 z" fill="${C.green}"/></marker>
+      </defs>
+      ${sceneCard(36, 86, 56, 46, { imgFill: '#e7d3c4', face: true })}
+      ${sceneCard(128, 86, 56, 46, { imgFill: C.sky })}`, '이야기 갈래 잇기'),
+
+    /* 저장 — 구름 체크 */
+    save: _wrap(`${bg}
+      <g transform="translate(66,44)">
+        <path d="M20 44 a20 20 0 0 1 4 -39 a24 24 0 0 1 46 6 a18 18 0 0 1 -4 33 z" fill="${C.card}" stroke="${C.line}" stroke-width="2"/>
+        <path d="M30 26 l9 10 l18 -20" stroke="${C.green}" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      </g>
+      <text x="110" y="126" text-anchor="middle" font-family="sans-serif" font-size="10" fill="${C.brown}">자동으로 저장돼요</text>`, '자동 저장'),
+
+    /* 감상 — 태블릿 안 장면+선택지, 손가락 탭 */
+    play: _wrap(`${bg}
+      <rect x="52" y="20" width="116" height="100" rx="12" fill="${C.ink}"/>
+      <rect x="58" y="26" width="104" height="88" rx="6" fill="${C.card}"/>
+      <rect x="64" y="32" width="92" height="40" rx="4" fill="${C.greenL}"/><circle cx="146" cy="42" r="5" fill="${C.sun}"/>
+      <rect x="64" y="80" width="44" height="13" rx="6.5" fill="${C.coral}"/><rect x="112" y="80" width="44" height="13" rx="6.5" fill="${C.green}"/>
+      <g transform="translate(120,92)"><ellipse cx="6" cy="16" rx="8" ry="5" fill="#00000022"/><path d="M0 0 q0 -10 6 -10 q6 0 6 10 l0 6 q-6 4 -12 0 z" fill="#ffd9a0" stroke="${C.brown}" stroke-width="1"/></g>`, '감상하기'),
+
+    /* AI 도움받기 — 낙서 → 반짝임 완성 */
+    ai: _wrap(`${bg}
+      ${sceneCard(40, 30, 60, 80, { imgFill: '#efe6da' })}
+      <path d="M120 70 h24" stroke="${C.mut}" stroke-width="2" marker-end="url(#aiar)"/>
+      <defs><marker id="aiar" markerWidth="7" markerHeight="7" refX="4" refY="3.5" orient="auto"><path d="M0 0 L7 3.5 L0 7 z" fill="${C.mut}"/></marker></defs>
+      ${sceneCard(150, 30, 60, 80, { sun: true, tree: true, imgFill: C.greenL })}
+      <g fill="${C.sun}"><path d="M132 40 l2 5 l5 2 l-5 2 l-2 5 l-2 -5 l-5 -2 l5 -2 z"/><path d="M186 24 l1.5 4 l4 1.5 l-4 1.5 l-1.5 4 l-1.5 -4 l-4 -1.5 l4 -1.5 z"/></g>`, 'AI 도움받기'),
+
+    /* 환영 히어로 — 가지가 갈라지는 나무(브랜딩) */
+    welcomeHero: _wrap(`${bg}
+      <rect x="104" y="80" width="12" height="44" rx="4" fill="${C.brown}"/>
+      <path d="M110 84 C110 60 78 58 66 40" stroke="${C.brown}" stroke-width="7" fill="none" stroke-linecap="round"/>
+      <path d="M110 84 C110 60 142 58 154 40" stroke="${C.brown}" stroke-width="7" fill="none" stroke-linecap="round"/>
+      <path d="M110 96 C110 78 92 74 84 62" stroke="${C.brown}" stroke-width="5" fill="none" stroke-linecap="round"/>
+      <circle cx="62" cy="36" r="15" fill="${C.green}"/><circle cx="158" cy="36" r="15" fill="${C.coral}"/><circle cx="80" cy="58" r="11" fill="${C.greenL}"/>
+      <circle cx="62" cy="36" r="5" fill="${C.card}"/><circle cx="158" cy="36" r="5" fill="${C.card}"/>`, '가지 — 갈라지는 이야기'),
+  };
+
+  function get(id) { return ART[id] || ''; }
+  if (typeof window !== 'undefined') window.TutorialArt = { get: get, _ids: Object.keys(ART) };
+  if (typeof module !== 'undefined' && module.exports) module.exports = { get: get };
+})();

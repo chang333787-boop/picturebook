@@ -2261,6 +2261,16 @@ function _renderExploreCompletion(stage, scene) {
 }
 
 /* ================================================================
+   전체 화면 토글 — 실제 동작/상태 동기화는 공유 모듈(fullscreen-persist.js·
+   window.BranchFullscreen)이 [data-fs-toggle] 위임으로 처리한다. 여기선 미지원
+   브라우저에서 버튼을 아예 안 그리기 위한 지원 여부만 판별.
+   ================================================================ */
+function _fsSupported() {
+  const d = document.documentElement;
+  return !!(d.requestFullscreen || d.webkitRequestFullscreen);
+}
+
+/* ================================================================
    HUD 렌더
    ================================================================ */
 function renderHUD() {
@@ -2377,11 +2387,16 @@ function renderHUD() {
       </div>
       <div class="hud-right">
         ${mode === 'explore' ? `<span class="hud-explore-count">${ViewerState.visitedSceneIds.size}곳 방문</span>` : ''}
+        ${_fsSupported() ? `<button class="hud-btn hud-btn--fullscreen js-hud-fullscreen" data-fs-toggle title="전체 화면" aria-label="전체 화면">⛶</button>` : ''}
         <button class="hud-btn hud-btn--exit js-hud-exit" title="나가기">✕</button>
       </div>
     </div>`;
 
   hud.querySelector('.js-hud-back')?.addEventListener('click', navigateBack);
+
+  /* 전체 화면 토글 — 클릭/상태는 공유 모듈이 [data-fs-toggle] 위임으로 처리.
+     동적 생성된 이 버튼의 초기 상태만 동기화해 준다. */
+  window.BranchFullscreen?.sync?.();
 
   /* ✕ 버튼 동작:
      - editMode / _testingEdit 중: entry 화면 대신 edit로 복귀

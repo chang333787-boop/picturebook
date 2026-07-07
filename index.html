@@ -54,16 +54,25 @@
       <!-- 설치 CTA — 로고·소개 아래 / 메인 카드 위.
            미설치(=비-standalone)면 항상 표시. 설치 실행 중이면 JS가 wrap을 숨김(빈 공간 없음).
            기본 display:none(인라인) → JS·standalone 미지원 시 깔끔히 숨김. 자동 prompt 없음. -->
-      <div class="wh__install" id="pwa-install-wrap" style="display:none;">
-        <button type="button" id="pwa-install-cta" class="wh__install-cta"
-                aria-expanded="false" aria-label="홈 화면에 설치하기">
-          <span class="wh__install-cta-icon" aria-hidden="true">🌿</span>
-          <span class="wh__install-cta-title">홈 화면에 설치하기</span>
-          <span class="wh__install-cta-sub">앱처럼 빠르게 열 수 있어요.</span>
-          <span class="wh__install-cta-arrow" aria-hidden="true">→</span>
+      <!-- 상단 액션: 설치 CTA + 전체 화면 토글을 나란히. 설치 CTA가 숨겨져도(standalone)
+           전체 화면 버튼은 항상 노출 → 첫 화면에서 바로 전체 화면 진입 가능. -->
+      <div class="wh__actions">
+        <div class="wh__install" id="pwa-install-wrap" style="display:none;">
+          <button type="button" id="pwa-install-cta" class="wh__install-cta"
+                  aria-expanded="false" aria-label="홈 화면에 설치하기">
+            <span class="wh__install-cta-icon" aria-hidden="true">🌿</span>
+            <span class="wh__install-cta-title">홈 화면에 설치하기</span>
+            <span class="wh__install-cta-sub">앱처럼 빠르게 열 수 있어요.</span>
+            <span class="wh__install-cta-arrow" aria-hidden="true">→</span>
+          </button>
+          <!-- 이벤트 없는 환경(iOS/미지원)에서 클릭 시 펼쳐지는 수동 안내. 큰 모달 대신 작은 펼침 상자. -->
+          <div id="pwa-install-guide" class="wh__install-guide" role="note" style="display:none;"></div>
+        </div>
+        <!-- 전체 화면 토글 — fullscreen-persist.js가 자동 배선(data-fs-toggle). 미지원이면 숨김. -->
+        <button type="button" id="fs-toggle-home" class="wh__fs-btn" data-fs-toggle aria-label="전체 화면" title="전체 화면">
+          <span class="wh__fs-icon" aria-hidden="true">⛶</span>
+          <span class="wh__fs-label" data-fs-label>전체 화면</span>
         </button>
-        <!-- 이벤트 없는 환경(iOS/미지원)에서 클릭 시 펼쳐지는 수동 안내. 큰 모달 대신 작은 펼침 상자. -->
-        <div id="pwa-install-guide" class="wh__install-guide" role="note" style="display:none;"></div>
       </div>
 
       <!-- 메인 카드: 작품 만들기 / 감상하기 / 수업 관리 -->
@@ -136,6 +145,23 @@
   body { min-height: 100vh; min-height: 100dvh; }
   .v { min-height: 100vh; min-height: 100dvh; }
   /* 설치 CTA wrap — CTA + 펼침 안내를 세로로 묶음. 미설치면 JS가 display:'' 로 표시. */
+  /* 설치 CTA + 전체 화면 버튼을 나란히 중앙 정렬. 좁은 화면은 줄바꿈. */
+  .wh__actions { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; margin: 14px auto 2px; }
+  .wh__actions .wh__install { margin: 0; }
+  /* 전체 화면 토글 — 설치 CTA와 같은 크림 pill, 활성 시 하늘색 강조. */
+  .wh__fs-btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    height: 46px; padding: 0 18px;
+    background: rgba(255,250,238,0.9); color: #2b1f10;
+    border: 1.5px solid rgba(120,150,175,0.55); border-radius: 999px;
+    font-family: 'Jua', 'Nanum Gothic', sans-serif; cursor: pointer;
+    box-shadow: 0 2px 8px rgba(80,50,20,0.1); white-space: nowrap;
+    transition: background .15s, border-color .15s, color .15s;
+  }
+  .wh__fs-btn:hover { background: rgba(255,250,238,1); border-color: rgba(90,130,165,0.85); }
+  .wh__fs-btn.is-on { color: #1f5f86; background: rgba(225,240,250,0.95); border-color: rgba(90,150,190,0.9); }
+  .wh__fs-icon { font-size: 16px; flex-shrink: 0; }
+  .wh__fs-label { font-size: 13.5px; font-weight: 700; }
   .wh__install { display: flex; flex-direction: column; align-items: center; margin: 14px auto 2px; }
   /* 설치 보조 CTA — 한 줄 compact pill. 메인 카드보다 위계 낮게, 종이·크림 톤 유지. */
   .wh__install-cta {
@@ -166,6 +192,7 @@
   @media (max-width: 480px) {
     .wh__install-cta { padding: 0 14px; height: 44px; gap: 6px; }
     .wh__install-cta-sub { display: none; } /* 모바일: 보조문구 숨겨 한 줄 유지 */
+    .wh__fs-btn { height: 44px; padding: 0 14px; }
   }
 </style>
 <script>
@@ -256,6 +283,8 @@
     });
   })();
 </script>
+
+<script src="fullscreen-persist.js?v=fspersist1"></script>
 
 </body>
 </html>

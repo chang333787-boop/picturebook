@@ -304,6 +304,14 @@ body.has-ai-view-toggle #hud {
   transform: scale(1.04);
 }
 
+/* 전체 화면 토글 — 켜져 있으면 시안 링으로 강조(참고: dwad 상단 버튼) */
+.hud-btn--fullscreen.is-on {
+  color: #8fd8ff;
+  opacity: 1;
+  background: rgba(120,190,255,0.14);
+  box-shadow: inset 0 0 0 1.5px rgba(120,190,255,0.55);
+}
+
 /* ── 메인 레이아웃 ── */
 .player-body {
   flex: 1;

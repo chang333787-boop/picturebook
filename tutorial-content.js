@@ -97,6 +97,23 @@
     { icon: '📄', title: '인쇄물',           text: '그림책·고쳐쓰기 자료·생각 나침반을 교사 화면에서 인쇄해요.' },
   ];
 
+  /* 다듬기 코치마크 — 실제 버튼을 콕 집어주는 스텝(sel=CSS 선택자). 막히기 쉬운 순서로 짧게.
+     types 있으면 해당 유형에서만. 대상 없으면 자동 스킵(코치 엔진). */
+  const refineCoach = [
+    { sel: '.js-scene-nav-next',
+      text: '다음 장면으로 갈 때는 이 <b>→</b> 화살표를 눌러요.' },
+    { sel: '.js-scene-nav-jump',
+      text: '여기서 장면 목록을 열어 원하는 장면으로 바로 갈 수도 있어요.' },
+    { sel: '.js-edit-image-popover',
+      text: '그림을 넣거나 직접 그리려면 여기를 눌러요.', types: ['picturebook'] },
+    { sel: '.js-edit-scene-style-popover',
+      text: '글자·색·분위기로 장면을 꾸미려면 여기예요.', types: ['text', 'picturebook'] },
+    { sel: '.js-edit-preview-test',
+      text: '다 되면 여기서 실제로 어떻게 보이는지 미리 감상해 봐요.' },
+    { sel: '.js-edit-return-maker',
+      text: '끝나면 여기로 나가요. 바꾼 건 자동으로 저장돼요!' },
+  ];
+
   return {
     /* version 올리면 환영 모달 seen-플래그 키가 바뀌어 모두에게 1회 다시 표시.
        v2: 삽화·인터랙티브 데모 추가 + 트리거를 "나침반 질문 뒤"로 이동(2026-07-07). */
@@ -104,6 +121,7 @@
     topics: topics,
     welcome: welcome,
     refineWelcome: refineWelcome,
+    refineCoach: refineCoach,
     studentPrintSteps: studentPrintSteps,
     teacherSteps: teacherSteps,
   };

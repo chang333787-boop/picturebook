@@ -153,7 +153,15 @@ async function _enterViewer(teamName, editMode = false, fromMaker = false, class
         /* 작품 유형에 맞는 슬라이드만(그림/글상자=그림책, 무비도구=무비 등). */
         var _ptype = (ViewerState && ViewerState.project && ViewerState.project.projectType)
           || ptypeHint || null;
-        try { window.TutorialWelcome.maybeShow({ deck: 'refineWelcome', keyPrefix: 'tutorial_refine', filterType: _ptype }); } catch (e) { /* noop */ }
+        try {
+          window.TutorialWelcome.maybeShow({ deck: 'refineWelcome', keyPrefix: 'tutorial_refine', filterType: _ptype })
+            .then(function () {
+              /* 모달(개요) 뒤 → 실제 버튼을 콕 집어주는 코치마크(막히기 쉬운 다음장면 등). 기기당 1회. */
+              if (window.TutorialCoach && typeof window.TutorialCoach.run === 'function') {
+                try { window.TutorialCoach.run({ stepsKey: 'refineCoach', keyPrefix: 'tutorial_refine_coach', filterType: _ptype }); } catch (e) { /* noop */ }
+              }
+            });
+        } catch (e) { /* noop */ }
       }
     } else {
       startViewer();

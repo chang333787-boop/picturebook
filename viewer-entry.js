@@ -146,6 +146,12 @@ async function _enterViewer(teamName, editMode = false, fromMaker = false, class
       /* C-2: sceneNum이 있으면 그 장면부터 시작 (maker 카드의 다듬기 진입점에서 옴).
          없으면 첫 장면부터. ViewerState.scenes의 키가 string num이라 그대로 전달. */
       startViewerEdit(sceneNum);
+      /* TUTORIAL: 감상 화면 다듬기 첫 진입 1회 튜토리얼(기기당 1회). maker에서 온 편집 진입에만.
+         편집을 막지 않도록 await 없이 fire-and-forget. */
+      if (fromMaker && typeof window !== 'undefined' && window.TutorialWelcome
+          && typeof window.TutorialWelcome.maybeShow === 'function') {
+        try { window.TutorialWelcome.maybeShow({ deck: 'refineWelcome', keyPrefix: 'tutorial_refine' }); } catch (e) { /* noop */ }
+      }
     } else {
       startViewer();
     }

@@ -38,13 +38,21 @@
               '선생님이 켜 준 반에서만 쓰이고, <b>원래 내 작품은 그대로</b> 남아요.'] },
   ];
 
-  /* S2 환영 모달 — 짧은 5장. art=삽화, demo=true면 인터랙티브 미니 데모 삽입. */
+  /* S2 환영 모달 — art=삽화, demo=true면 인터랙티브 미니 데모 삽입.
+     이미 로그인/입장한 뒤(나침반 완료 후) 뜨므로 '들어가기' 슬라이드는 뺌. */
   const welcome = [
     { title: '가지에 온 걸 환영해요', line: '고르는 대로 이야기가 갈라지는 나만의 작품을 만드는 곳이에요.', art: 'welcomeHero' },
     { title: '한 번 해볼까요?',       line: '버튼을 누르면 이야기가 어떻게 달라지는지 직접 보여줄게요.', demo: true },
-    { title: '먼저 들어가요',         line: '클래스 코드·모둠 이름·비밀번호(PIN)를 넣으면 시작해요.', art: 'enter' },
     { title: '장면을 만들고 이어요',   line: '글과 그림으로 장면을 만들고, 행동 버튼으로 다음 장면을 이어 줘요.', art: 'branch' },
-    { title: '언제든 다시 볼 수 있어요', line: '헷갈리면 위쪽 ❓ 버튼을 눌러 사용법을 다시 봐요.', art: 'play' },
+    { title: '다 만들면 꾸며 봐요',    line: '오른쪽 위 “🎨 감상 화면 다듬기”를 누르면 글상자와 그림을 예쁘게 마감할 수 있어요. 헷갈리면 ❓를 눌러요.', art: 'play' },
+  ];
+
+  /* 다듬기(감상 화면 다듬기) 첫 진입 1회 튜토리얼 — viewer 편집모드에서 표시. */
+  const refineWelcome = [
+    { title: '감상 화면 다듬기', line: '만든 이야기를 감상 화면 그대로 보면서 예쁘게 마감하는 곳이에요.', art: 'play' },
+    { title: '글상자 옮기고 꾸미기', line: '글상자를 손가락으로 끌어 옮기고, 크기와 진하기(투명도)를 조절할 수 있어요.', art: 'scene' },
+    { title: '그림·선택지 손보기', line: '그림을 그리거나 바꾸고, 선택지 버튼의 모양도 정리할 수 있어요.', art: 'branch' },
+    { title: '저장은 자동이에요', line: '바꾼 내용은 자동으로 저장돼요. 다 되면 뒤로 나가면 끝이에요!', art: 'save' },
   ];
 
   /* P1 학생 인쇄(A4 1장) — 번호 스텝. 저학년 책상용 빠른 시작. topics 압축. */
@@ -73,6 +81,7 @@
     version: 2,
     topics: topics,
     welcome: welcome,
+    refineWelcome: refineWelcome,
     studentPrintSteps: studentPrintSteps,
     teacherSteps: teacherSteps,
   };

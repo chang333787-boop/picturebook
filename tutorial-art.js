@@ -64,21 +64,24 @@
       ${sceneCard(58, 22, 104, 96, { sun: true, tree: true })}
       <g transform="translate(150,96) rotate(35)"><rect x="0" y="0" width="6" height="26" fill="${C.sun}"/><path d="M0 26 l3 6 l3 -6 z" fill="${C.ink}"/><rect x="0" y="0" width="6" height="5" fill="${C.coral}"/></g>`, '장면 만들기'),
 
-    /* ★ 갈래 잇기 — 위 1장 → 아래 2장, 선택지 버튼+화살표 (핵심 시각) */
+    /* ★ 갈래 잇기 — 위 1장 → 선택지 2개 → (아래 화살표) → 다음 장면 2개.
+       화살표는 버튼 '아래'에서 다음 카드로만 내려가 글씨를 가리지 않음. */
     branch: _wrap(`${bg}
-      ${sceneCard(84, 12, 52, 44, { tree: true })}
-      <g font-family="sans-serif" font-size="7.5">
-        <rect x="40" y="62" width="60" height="13" rx="6.5" fill="${C.coral}"/><text x="70" y="71" text-anchor="middle" fill="#fff">🌲 숲으로</text>
-        <rect x="120" y="62" width="60" height="13" rx="6.5" fill="${C.green}"/><text x="150" y="71" text-anchor="middle" fill="#fff">🏠 집으로</text>
+      ${sceneCard(82, 6, 56, 36, { tree: true })}
+      <path d="M110 42 C96 46 78 46 61 50" stroke="${C.line}" stroke-width="1.5" fill="none"/>
+      <path d="M110 42 C124 46 142 46 159 50" stroke="${C.line}" stroke-width="1.5" fill="none"/>
+      <g font-family="sans-serif" font-size="8" font-weight="700">
+        <rect x="30" y="50" width="62" height="16" rx="8" fill="${C.coral}"/><text x="61" y="61" text-anchor="middle" fill="#fff">🌲 숲으로</text>
+        <rect x="128" y="50" width="62" height="16" rx="8" fill="${C.green}"/><text x="159" y="61" text-anchor="middle" fill="#fff">🏠 집으로</text>
       </g>
-      <path d="M104 56 C90 60 74 66 66 80" stroke="${C.coral}" stroke-width="2" fill="none" marker-end="url(#ah1)"/>
-      <path d="M116 56 C130 60 146 66 154 80" stroke="${C.green}" stroke-width="2" fill="none" marker-end="url(#ah2)"/>
+      <path d="M61 68 L61 80" stroke="${C.coral}" stroke-width="2.5" fill="none" marker-end="url(#ah1)"/>
+      <path d="M159 68 L159 80" stroke="${C.green}" stroke-width="2.5" fill="none" marker-end="url(#ah2)"/>
       <defs>
-        <marker id="ah1" markerWidth="7" markerHeight="7" refX="4" refY="3.5" orient="auto"><path d="M0 0 L7 3.5 L0 7 z" fill="${C.coral}"/></marker>
-        <marker id="ah2" markerWidth="7" markerHeight="7" refX="4" refY="3.5" orient="auto"><path d="M0 0 L7 3.5 L0 7 z" fill="${C.green}"/></marker>
+        <marker id="ah1" markerWidth="7" markerHeight="7" refX="3.5" refY="3.5" orient="auto"><path d="M0 0 L7 3.5 L0 7 z" fill="${C.coral}"/></marker>
+        <marker id="ah2" markerWidth="7" markerHeight="7" refX="3.5" refY="3.5" orient="auto"><path d="M0 0 L7 3.5 L0 7 z" fill="${C.green}"/></marker>
       </defs>
-      ${sceneCard(36, 86, 56, 46, { imgFill: '#e7d3c4', face: true })}
-      ${sceneCard(128, 86, 56, 46, { imgFill: C.sky })}`, '이야기 갈래 잇기'),
+      ${sceneCard(33, 84, 56, 48, { imgFill: '#e7d3c4', face: true })}
+      ${sceneCard(131, 84, 56, 48, { imgFill: C.sky })}`, '이야기 갈래 잇기'),
 
     /* 저장 — 구름 체크 */
     save: _wrap(`${bg}

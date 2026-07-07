@@ -18,16 +18,16 @@
   function _deviceId() {
     try { return localStorage.getItem('branch_device_id') || 'nodevice'; } catch (e) { return null; }
   }
-  function _seenKey(version) { return 'tutorial_welcome_v' + version + '_seen'; }
+  function _seenKey(prefix, version) { return (prefix || 'tutorial_welcome') + '_v' + version + '_seen'; }
 
-  function _isSeen(version) {
+  function _isSeen(prefix, version) {
     const dev = _deviceId();
     if (dev === null) return true;   /* localStorage 불가 → 안 띄움(에디터 안 막음) */
-    try { return localStorage.getItem(_seenKey(version)) === dev || localStorage.getItem(_seenKey(version)) === '1'; }
+    try { const v = localStorage.getItem(_seenKey(prefix, version)); return v === dev || v === '1'; }
     catch (e) { return true; }
   }
-  function _markSeen(version) {
-    try { localStorage.setItem(_seenKey(version), _deviceId() || '1'); } catch (e) { /* noop */ }
+  function _markSeen(prefix, version) {
+    try { localStorage.setItem(_seenKey(prefix, version), _deviceId() || '1'); } catch (e) { /* noop */ }
   }
 
   function _remove() {
@@ -35,13 +35,18 @@
     if (el) el.remove();
   }
 
-  /* Promise<boolean> — true=표시함, false=조건 미충족으로 통과 */
-  function maybeShow() {
+  /* Promise<boolean> — true=표시함, false=조건 미충족으로 통과.
+     opts = { deck: 'welcome'|'refineWelcome'(콘텐츠 배열 키), keyPrefix: seen 네임스페이스 }.
+     기본 = 환영 모달(welcome). 다듬기 튜토리얼은 {deck:'refineWelcome', keyPrefix:'tutorial_refine'}. */
+  function maybeShow(opts) {
+    opts = opts || {};
+    const deck = opts.deck || 'welcome';
+    const prefix = opts.keyPrefix || 'tutorial_welcome';
     return new Promise((resolve) => {
       const C = _content();
-      const slides = (C && Array.isArray(C.welcome)) ? C.welcome : [];
+      const slides = (C && Array.isArray(C[deck])) ? C[deck] : [];
       const version = (C && C.version) ? C.version : 1;
-      if (!slides.length || _isSeen(version)) { resolve(false); return; }
+      if (!slides.length || _isSeen(prefix, version)) { resolve(false); return; }
       if (typeof document === 'undefined' || !document.body) { resolve(false); return; }
       _remove();
 
@@ -57,7 +62,7 @@
       card.style.cssText = 'background:#fffdf7;border-radius:18px;max-width:380px;width:100%;padding:26px 22px 18px;box-shadow:0 16px 48px rgba(0,0,0,.28);text-align:center;font-family:inherit;';
       overlay.appendChild(card);
 
-      const finish = () => { _markSeen(version); _remove(); resolve(true); };
+      const finish = () => { _markSeen(prefix, version); _remove(); resolve(true); };
 
       const _art = (id) => (typeof window !== 'undefined' && window.TutorialArt) ? window.TutorialArt.get(id) : '';
       const render = () => {
@@ -107,11 +112,11 @@
     });
   }
 
-  /* 교사 리셋/디버그용(선택) — 콘솔에서 호출 시 다음 진입에 다시 표시. */
-  function reset() {
+  /* 교사 리셋/디버그용(선택) — 콘솔에서 호출 시 다음 진입에 다시 표시. prefix 미지정=환영. */
+  function reset(prefix) {
     const C = _content();
     const version = (C && C.version) ? C.version : 1;
-    try { localStorage.removeItem(_seenKey(version)); } catch (e) { /* noop */ }
+    try { localStorage.removeItem(_seenKey(prefix || 'tutorial_welcome', version)); } catch (e) { /* noop */ }
   }
 
   if (typeof window !== 'undefined') {

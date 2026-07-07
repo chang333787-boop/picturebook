@@ -68,7 +68,9 @@
   ];
 
   return {
-    version: 1,
+    /* version 올리면 환영 모달 seen-플래그 키가 바뀌어 모두에게 1회 다시 표시.
+       v2: 삽화·인터랙티브 데모 추가 + 트리거를 "나침반 질문 뒤"로 이동(2026-07-07). */
+    version: 2,
     topics: topics,
     welcome: welcome,
     studentPrintSteps: studentPrintSteps,

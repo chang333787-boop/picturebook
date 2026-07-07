@@ -790,12 +790,6 @@ async function _enterMakerAfterPtypeSelected(ptype) {
   }
   hidePtypeScreen();
 
-  /* TUTORIAL-PRD Phase B(S2): 기기 최초 1회 환영 모달 — 나침반 게이트보다 먼저(D-02).
-     이미 봤거나 콘텐츠/localStorage 없으면 즉시 통과(에디터 절대 막지 않음). 닫힘까지 await. */
-  if (typeof window !== 'undefined' && window.TutorialWelcome && typeof window.TutorialWelcome.maybeShow === 'function') {
-    try { await window.TutorialWelcome.maybeShow(); } catch (e) { /* noop */ }
-  }
-
   /* BASE10-3A: 신규 작품 projectType 저장이 "성공"했고(savedNewProjectType),
      명시 유형이 text/picturebook일 때만 기본 10장면 자동 생성(모달 없음).
      · 기존 작품 재진입(savedNewProjectType=false) → 실행 안 됨
@@ -832,6 +826,13 @@ async function _enterMakerAfterPtypeSelected(ptype) {
     /* 기존 작품(ptype 화면 경유, projectType 이미 있음) — 진행 중이면 이어서 게이트, 미시작이면 진입 버튼 */
     try { await window.ThoughtCompassController.activateForExistingEntry({ classId: classId, teamName: teamName, projectType: ptype }); }
     catch (_) { /* noop */ }
+  }
+
+  /* TUTORIAL-PRD(S2): 환영 모달 — 나침반을 타는 신규 text/pb는 위에서 _compassGated로 return되어
+     여기 도달 안 함(그 경로는 나침반 완료 후 review.js가 띄움 = 사용자 결정 "나침반 뒤").
+     여기 도달 = 무비/체험/v1(classId 없음)/기존 재진입 → 에디터 진입 시 1회. 기기당 1회·에디터 안 막음. */
+  if (typeof window !== 'undefined' && window.TutorialWelcome && typeof window.TutorialWelcome.maybeShow === 'function') {
+    try { await window.TutorialWelcome.maybeShow(); } catch (e) { /* noop */ }
   }
 }
 

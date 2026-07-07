@@ -385,6 +385,12 @@
     if (window.ThoughtCompassGate && typeof window.ThoughtCompassGate.closeGate === 'function') window.ThoughtCompassGate.closeGate();
     if (_UI() && typeof _UI().close === 'function') _UI().close();
     R = null;
+
+    /* TUTORIAL-PRD(S2): 생각 나침반 질문을 끝내고 에디터로 들어오는 이 순간에 환영 튜토리얼을 띄운다
+       (사용자 결정 "나침반 뒤"). 기기당 1회·닫힘 대기·실패해도 에디터 진입 무영향. */
+    if (typeof window !== 'undefined' && window.TutorialWelcome && typeof window.TutorialWelcome.maybeShow === 'function') {
+      try { await window.TutorialWelcome.maybeShow(); } catch (e) { /* noop */ }
+    }
   }
 
   function close() { _remove(); R = null; }

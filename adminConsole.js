@@ -626,6 +626,8 @@ function _renderTeamCreatePanel(classId) {
     </div>
     <div class="admin-tc-cardrow">
       <button id="admin-tc-print-cards" class="admin-tc-btn admin-tc-btn--ghost" type="button" title="등록된 모둠의 클래스 코드·이름·PIN을 카드로 인쇄해요 (학생 배부용)">🖨 입장 카드 인쇄</button>
+      <button id="admin-tc-print-manual-student" class="admin-tc-btn admin-tc-btn--ghost" type="button" title="학생이 책상에 두고 보는 작품 만들기 사용법 1장 (배부용)">🖨 사용설명서(학생)</button>
+      <button id="admin-tc-print-manual-teacher" class="admin-tc-btn admin-tc-btn--ghost" type="button" title="교사 수업 준비 가이드 1장 (로그인·계정·인쇄·점검)">🖨 준비 가이드(교사)</button>
     </div>
     <div id="admin-tc-status" class="admin-tc-status"></div>
   `;
@@ -642,6 +644,15 @@ function _renderTeamCreatePanel(classId) {
     if (pinEl) { pinEl.value = _genPin(_knownAccountPins()); pinEl.focus(); }
   });
   if (printBtn) printBtn.addEventListener('click', () => _printEntryCards(classId));
+  /* TUTORIAL-PRD Phase C/D: 정적 사용설명서 인쇄(학생 1장·교사 1장). 모듈 미로드 시 안내. */
+  const manualS = document.getElementById('admin-tc-print-manual-student');
+  const manualT = document.getElementById('admin-tc-print-manual-teacher');
+  const _tp = (fn) => {
+    if (window.TutorialPrint && typeof window.TutorialPrint[fn] === 'function') window.TutorialPrint[fn]();
+    else alert('사용설명서 인쇄 기능을 불러오지 못했어요. 새로고침 후 다시 시도해 주세요.');
+  };
+  if (manualS) manualS.addEventListener('click', () => _tp('printStudent'));
+  if (manualT) manualT.addEventListener('click', () => _tp('printTeacher'));
   [nameEl, pinEl].forEach(el => el && el.addEventListener('keydown', e => {
     if (e.key === 'Enter') { e.preventDefault(); btn.click(); }
   }));

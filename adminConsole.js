@@ -260,7 +260,8 @@ async function _loadAdminDataV2() {
       const isPublic = teamData['viewer-meta']?.isPublic === true;
       const meta     = teamData['viewer-meta'] || {};
       const account  = teamData.account || null;   // ADMIN-1B: 교사 사전 등록 메타
-      return _analyzeTeam(encodedName, scenes, isPublic, meta, account);
+      const members  = teamData.members || null;    // ACCOUNT-MEMBER-LIST-1: 입장 기기(멤버) 목록
+      return _analyzeTeam(encodedName, scenes, isPublic, meta, account, members);
     });
     /* 2026-06 캐시 기록 — 성공 로드 시각/대상 classId. 다음 60초간 재진입 시 재읽기 생략. */
     adminState.allTeamsLoadedAt = Date.now();
@@ -752,7 +753,7 @@ function _escHtml(s) {
    · entry/replay는 명시 설정(meta) 우선 → 없으면 start scene fallback
    · entryValid/replayValid = 실제 scenes에 존재하는 장면을 가리키는지
    ================================================================ */
-function _analyzeTeam(encodedName, scenes, isPublic = false, meta = {}, account = null) {
+function _analyzeTeam(encodedName, scenes, isPublic = false, meta = {}, account = null, members = null) {
   const name     = decodeURIComponent(encodedName);
   const total    = scenes.length;
   const endings  = scenes.filter(s => s.type === 'ending').length;
@@ -881,7 +882,28 @@ function _analyzeTeam(encodedName, scenes, isPublic = false, meta = {}, account 
        (rules)이라 admin 세션 메모리에만 보관 — 카드/배지 등 일반 렌더엔 노출 안 함. */
     accountName:   (account && account.displayName) ? account.displayName : null,
     accountPin:    (account && account.pin != null) ? String(account.pin) : null,
+    /* ACCOUNT-MEMBER-LIST-1: 입장한 기기(멤버) 목록. members/{uid}={joinedAt,lastVerifiedAt,
+       authType,status,...}·개인정보(이름/PIN/기기ID) 없음. teams .read(교사)로 이미 로드됨(rules 무변경).
+       count=active 기기 수, list=상세 표시용(최근 입장순·uid는 노출 안 하고 순번만). */
+    ..._summarizeMembers(members),
   };
+}
+
+/* ACCOUNT-MEMBER-LIST-1: members 노드 → { memberCount, memberList } 요약(pure). */
+function _summarizeMembers(members) {
+  if (!members || typeof members !== 'object') return { memberCount: 0, memberList: [] };
+  const list = Object.keys(members).map(uid => {
+    const m = members[uid] || {};
+    return {
+      status: m.status || null,
+      authType: m.authType || null,
+      joinedAt: (typeof m.joinedAt === 'number') ? m.joinedAt : null,
+      lastVerifiedAt: (typeof m.lastVerifiedAt === 'number') ? m.lastVerifiedAt : null,
+    };
+  });
+  const active = list.filter(m => m.status === 'active');
+  active.sort((a, b) => (b.lastVerifiedAt || 0) - (a.lastVerifiedAt || 0));
+  return { memberCount: active.length, memberList: active };
 }
 
 /* TEAM-ACCOUNT-CARD-1: PIN 자동 생성 — 4자리 숫자(앞자리 0 허용, 문자열). 같은 학급에 이미
@@ -1661,10 +1683,45 @@ function _toggleDetail(encodedName) {
          </div>`
       : `<div class="admin-detail-section"><span style="color:#6b5638;font-size:12px;">장면 없음</span></div>`;
 
-    detail.innerHTML = `<div class="admin-detail-inner">${problemsHtml}${sceneChips}</div>`;
+    /* ACCOUNT-MEMBER-LIST-1: 입장한 기기(멤버) 목록 — team 객체에 이미 있음(추가 read 0).
+       개인정보 없음(순번·마지막 입장 날짜·익명여부만). 등록/멤버 없으면 안내. */
+    const memberHtml = _memberSectionHtml(team);
+
+    detail.innerHTML = `<div class="admin-detail-inner">${problemsHtml}${sceneChips}${memberHtml}</div>`;
   }).catch(err => {
     detail.innerHTML = `<div class="admin-error" style="padding:8px 0;">오류: ${err.message}</div>`;
   });
+}
+
+/* ACCOUNT-MEMBER-LIST-1: 입장 기기(멤버) 목록 HTML — 상세 패널용. 순번·마지막 입장 날짜·
+   익명여부만(개인정보 0). team.memberList는 _summarizeMembers가 active만 최근순 정렬해 채움. */
+function _memberDate(ms) {
+  if (!ms) return '기록 없음';
+  try { const d = new Date(ms); return `${d.getMonth() + 1}월 ${d.getDate()}일`; } catch (e) { return '기록 없음'; }
+}
+function _memberSectionHtml(team) {
+  const list = (team && Array.isArray(team.memberList)) ? team.memberList : [];
+  const count = (team && typeof team.memberCount === 'number') ? team.memberCount : list.length;
+  if (!count) {
+    /* 등록 팀인데 아직 입장 없음 / 미등록 팀 — 구분 안내 */
+    const msg = (team && team.registered)
+      ? '아직 이 모둠으로 입장한 기기가 없어요. 학생이 클래스 코드·모둠 이름·PIN으로 들어오면 표시돼요.'
+      : '입장 기록이 없어요. (오래된 팀은 학생이 다시 입장하면 기록이 생겨요.)';
+    return `<div class="admin-detail-section">
+      <div class="admin-detail-label">👥 입장한 기기</div>
+      <div style="font-size:12px;color:#8a7350;">${msg}</div>
+    </div>`;
+  }
+  const rows = list.map((m, i) => {
+    const anon = (m.authType === 'anonymous') ? '' : ' · 로그인';
+    return `<span class="admin-member-chip" style="display:inline-flex;gap:6px;align-items:center;border:1px solid #d9c39a;border-radius:8px;padding:2px 8px;margin:2px;font-size:11px;color:#6b5638;">
+      <b>기기 ${i + 1}</b><span>마지막 입장 ${_memberDate(m.lastVerifiedAt || m.joinedAt)}${anon}</span></span>`;
+  }).join('');
+  return `<div class="admin-detail-section">
+    <div class="admin-detail-label">👥 입장한 기기 (${count}개)</div>
+    <div class="admin-member-chips">${rows}</div>
+    <div style="font-size:11px;color:#a8946e;margin-top:4px;">기기 수는 학생이 입장한 브라우저/기기 수예요. 이름·비밀번호 같은 개인정보는 저장하지 않아요.</div>
+  </div>`;
 }
 
 /* ================================================================

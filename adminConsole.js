@@ -70,6 +70,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const pinBtn      = e.target.closest('.js-admin-pin');     // ADMIN-1D: 등록 팀 PIN 변경
     const lockBtn     = e.target.closest('.js-admin-lock');    // ADMIN-1D: 등록 팀 잠금/해제
     const regBtn      = e.target.closest('.js-admin-register'); // ADMIN-1E: 기존 팀 관리팀 등록
+    const acctDelBtn  = e.target.closest('.js-admin-account-del'); // DELETE-SAFETY-2: 계정만 삭제
 
     if (makerBtn)  _openMaker(makerBtn.dataset.name);
     if (viewerBtn) _openViewer(viewerBtn.dataset.name);
@@ -87,6 +88,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (pinBtn)    _changeTeamPin(pinBtn.dataset.encoded, pinBtn.dataset.name);
     if (lockBtn)   _toggleTeamLock(lockBtn.dataset.encoded, lockBtn.dataset.name, lockBtn.dataset.status);
     if (regBtn)    _registerExistingTeam(regBtn.dataset.encoded, regBtn.dataset.name);
+    if (acctDelBtn) _deleteAccountOnly(acctDelBtn.dataset.encoded, acctDelBtn.dataset.name);
   });
 
   /* 2026-06: 수동 새로고침 — 캐시 무효화 후 강제 재읽기. summary bar는 정적 요소라
@@ -1283,11 +1285,14 @@ function _teamCardHtml(t) {
      ADMIN-1E: account 없는 기존 팀에는 '관리팀으로 등록'만 노출.
      (교사 등록 팀만 입장 모드에서는 account 있는 팀만 입장 가능하므로,
       기존 자율 생성 팀을 삭제 없이 관리팀으로 편입할 수 있게 함.) */
+  /* DELETE-SAFETY-2: 삭제 위험도 3단 — ①🔒잠금(일상·되돌리기 쉬움) ②🧹계정만 삭제(작품 보존·
+     입장만 차단·되돌리기 = 같은 이름 재등록) ③🗑모둠 전체 삭제(작품까지 소멸·위험 톤·재입력 강확인). */
   const accountMenuItems = t.registered
     ? `<button class="admin-more-item js-admin-pin" data-encoded="${t.encodedName}" data-name="${t.name}">🔑 PIN 변경</button>
       ${t.accountStatus === 'locked'
         ? `<button class="admin-more-item js-admin-lock" data-encoded="${t.encodedName}" data-name="${t.name}" data-status="locked">🔓 잠금 해제</button>`
-        : `<button class="admin-more-item js-admin-lock" data-encoded="${t.encodedName}" data-name="${t.name}" data-status="active">🔒 잠금</button>`}`
+        : `<button class="admin-more-item js-admin-lock" data-encoded="${t.encodedName}" data-name="${t.name}" data-status="active">🔒 잠금</button>`}
+      <button class="admin-more-item js-admin-account-del" data-encoded="${t.encodedName}" data-name="${t.name}" title="입장 계정(이름·PIN)만 지워요. 작품(장면·그림)은 그대로 남아요.">🧹 계정만 삭제 (작품 보존)</button>`
     : `<button class="admin-more-item js-admin-register" data-encoded="${t.encodedName}" data-name="${t.name}">🧩 관리팀으로 등록</button>`;
 
   const moreBtn   = `<button class="admin-action-btn admin-action-btn--more js-admin-more" title="더 보기">⋯</button>
@@ -1297,7 +1302,7 @@ function _teamCardHtml(t) {
       <button class="admin-more-item js-admin-print-wa" data-name="${t.name}" title="이 모둠의 생각 점검 질문·작품 검사 결과를 인쇄해요 (학생 태블릿엔 프린터가 없어 교사가 대신 인쇄)">🖨 고쳐쓰기 자료 인쇄</button>
       <button class="admin-more-item js-admin-print-tc" data-name="${t.name}" title="이 모둠의 생각 나침반 설계도를 열어 인쇄해요 (카드형/나침반형)">🖨 생각 나침반 인쇄</button>
       <button class="admin-more-item js-admin-issue-code" data-encoded="${t.encodedName}" data-name="${t.name}">📤 복사 코드 발급</button>
-      <button class="admin-more-item js-admin-delete" data-encoded="${t.encodedName}" data-name="${t.name}">🗑 팀 삭제</button>
+      <button class="admin-more-item admin-more-item--danger js-admin-delete" data-encoded="${t.encodedName}" data-name="${t.name}" title="작품(장면·그림)까지 영구 삭제해요. 되돌릴 수 없어요.">🗑 모둠 전체 삭제 (작품까지)</button>
     </div>`;
 
   return `
@@ -1482,6 +1487,36 @@ async function _toggleTeamLock(encodedName, displayName, currentStatus) {
       : `🔓 "${displayName}" 팀의 잠금을 풀었어요.`);
   } catch (err) {
     _adminAccountErr(err, (newStatus === 'locked') ? '잠금' : '잠금 해제');
+  }
+}
+
+/* DELETE-SAFETY-2: ② 계정만 삭제 — account 노드만 remove. 작품(scenes/viewer-meta) 보존.
+   위험도 중간(입장 차단)이지만 되돌리기 가능(같은 이름 재등록) → 재입력 강확인 없이 confirm 1회.
+   ⚠️ 이미 입장한 기기(members) 무효화는 members write:false라 client 불가 = 서버(Functions) 필요·후속.
+      여기선 "새 입장 차단"만. Storage 이미지 고아 정리도 별개(전체 삭제에도 동일 한계). */
+async function _deleteAccountOnly(encodedName, displayName) {
+  if (!adminState.verified) return;
+  const ref = _accountRef(encodedName);
+  if (!ref) { alert('이 팀의 계정 정보를 찾을 수 없어요.'); return; }
+  const ok = confirm(
+    `"${displayName}" 모둠의 입장 계정만 지울까요?\n\n` +
+    `• 작품(장면·그림)은 그대로 남아요.\n` +
+    `• 학생은 더 이상 이 이름·비밀번호(PIN)로 새로 입장할 수 없어요.\n` +
+    `• 다시 열려면 "학생/팀 계정 미리 만들기"에서 같은 이름을 등록하면 돼요.\n\n` +
+    `작품까지 지우려면 '모둠 전체 삭제'를 쓰세요.`
+  );
+  if (!ok) return;
+  try {
+    /* ⚠️ account 노드만 remove — scenes/viewer-meta/members 미접근 */
+    await ref.remove();
+    alert(`🧹 "${displayName}" 모둠의 입장 계정을 지웠어요. 작품은 그대로 남아 있어요.`);
+    /* allTeams 상태 반영: 미등록으로 전환 */
+    const team = adminState.allTeams.find(t => t.encodedName === encodedName);
+    if (team) { team.registered = false; team.accountStatus = null; team.accountName = null; team.accountPin = null; }
+    _invalidateAdminCache('delete-account-only');
+    _renderTeamList();
+  } catch (err) {
+    _adminAccountErr(err, '계정만 삭제');
   }
 }
 

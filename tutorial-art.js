@@ -107,6 +107,55 @@
       ${sceneCard(150, 30, 60, 80, { sun: true, tree: true, imgFill: C.greenL })}
       <g fill="${C.sun}"><path d="M132 40 l2 5 l5 2 l-5 2 l-2 5 l-2 -5 l-5 -2 l5 -2 z"/><path d="M186 24 l1.5 4 l4 1.5 l-4 1.5 l-1.5 4 l-1.5 -4 l-4 -1.5 l4 -1.5 z"/></g>`, 'AI 도움받기'),
 
+    /* 글 바로 고치기 — 글줄 + 연필/커서 */
+    editText: _wrap(`${bg}
+      <rect x="46" y="26" width="128" height="88" rx="10" fill="${C.card}" stroke="${C.line}" stroke-width="2"/>
+      <rect x="60" y="42" width="70" height="6" rx="3" fill="${C.ink}"/>
+      <rect x="60" y="58" width="96" height="5" rx="2.5" fill="${C.line}"/>
+      <rect x="60" y="72" width="72" height="5" rx="2.5" fill="${C.line}"/>
+      <rect x="60" y="86" width="86" height="5" rx="2.5" fill="${C.line}"/>
+      <rect x="134" y="55" width="2" height="12" fill="${C.coral}"/>
+      <g transform="translate(150,74) rotate(35)"><rect x="0" y="0" width="7" height="30" fill="${C.sun}"/><path d="M0 30 l3.5 7 l3.5 -7 z" fill="${C.ink}"/><rect x="0" y="0" width="7" height="6" fill="${C.coral}"/></g>`, '글 바로 고치기'),
+
+    /* 그림 도구 — 사진 프레임 + 연필 + 자르기 모서리 */
+    imageTools: _wrap(`${bg}
+      <rect x="56" y="24" width="108" height="80" rx="8" fill="${C.greenL}" stroke="${C.line}" stroke-width="2"/>
+      <circle cx="146" cy="40" r="7" fill="${C.sun}"/>
+      <path d="M64 96 l16 -30 l14 22 l10 -14 l16 22 z" fill="${C.green}"/>
+      <g stroke="${C.coral}" stroke-width="3" fill="none">
+        <path d="M52 30 v-8 h8"/><path d="M168 30 v-8 h-8"/><path d="M52 98 v8 h8"/><path d="M168 98 v8 h-8"/>
+      </g>
+      <g transform="translate(150,84) rotate(35)"><rect x="0" y="0" width="6" height="24" fill="${C.card}" stroke="${C.brown}"/><path d="M0 24 l3 6 l3 -6 z" fill="${C.ink}"/></g>`, '그림 도구'),
+
+    /* 글상자 다루기 — 무대 위 반투명 글상자 + ✥ 이동/모서리 핸들 */
+    bodybox: _wrap(`${bg}
+      <rect x="40" y="20" width="140" height="100" rx="10" fill="${C.greenL}"/>
+      <circle cx="158" cy="36" r="7" fill="${C.sun}"/><path d="M44 118 l18 -30 l14 20 z" fill="${C.green}"/>
+      <rect x="66" y="60" width="90" height="42" rx="7" fill="#ffffffcc" stroke="${C.coral}" stroke-width="2" stroke-dasharray="5 4"/>
+      <rect x="74" y="70" width="60" height="4" rx="2" fill="${C.line}"/><rect x="74" y="80" width="44" height="4" rx="2" fill="${C.line}"/>
+      <circle cx="111" cy="81" r="9" fill="${C.coral}"/><text x="111" y="85" text-anchor="middle" font-size="10" fill="#fff">✥</text>
+      <g fill="${C.coral}"><rect x="62" y="56" width="7" height="7" rx="1.5"/><rect x="153" y="56" width="7" height="7" rx="1.5"/><rect x="62" y="98" width="7" height="7" rx="1.5"/><rect x="153" y="98" width="7" height="7" rx="1.5"/></g>`, '글상자 다루기'),
+
+    /* 꾸미기 — 큰 Aa + 색 스와치 + 슬라이더 */
+    style: _wrap(`${bg}
+      <text x="70" y="82" font-family="serif" font-size="52" font-weight="800" fill="${C.coral}">Aa</text>
+      <g><circle cx="128" cy="40" r="9" fill="${C.coral}"/><circle cx="150" cy="40" r="9" fill="${C.green}"/><circle cx="172" cy="40" r="9" fill="${C.sky}"/><circle cx="128" cy="62" r="9" fill="${C.sun}"/><circle cx="150" cy="62" r="9" fill="${C.brown}"/><circle cx="172" cy="62" r="9" fill="${C.ink}"/></g>
+      <rect x="124" y="88" width="56" height="6" rx="3" fill="${C.line}"/><circle cx="150" cy="91" r="7" fill="${C.coral}"/>`, '글자·색 꾸미기'),
+
+    /* 무비 — 태블릿 속 재생 삼각형 + 타임라인 */
+    movie: _wrap(`${bg}
+      <rect x="48" y="26" width="124" height="76" rx="10" fill="${C.ink}"/>
+      <rect x="54" y="32" width="112" height="52" rx="5" fill="${C.sky}"/>
+      <circle cx="110" cy="58" r="16" fill="#ffffffdd"/><path d="M104 50 l14 8 l-14 8 z" fill="${C.coral}"/>
+      <rect x="54" y="90" width="112" height="6" rx="3" fill="#ffffff55"/><rect x="54" y="90" width="44" height="6" rx="3" fill="${C.coral}"/>
+      <g fill="${C.sun}"><rect x="42" y="30" width="6" height="68" rx="2"/><rect x="172" y="30" width="6" height="68" rx="2"/></g>`, '무비 편집'),
+
+    /* 작품 설정 — 톱니 + 슬라이더 두 줄 */
+    settings: _wrap(`${bg}
+      <g transform="translate(74,70)"><circle r="24" fill="none" stroke="${C.coral}" stroke-width="7"/><circle r="9" fill="${C.coral}"/>${[0,45,90,135,180,225,270,315].map(a=>`<rect x="-4" y="-34" width="8" height="12" rx="2" fill="${C.coral}" transform="rotate(${a})"/>`).join('')}</g>
+      <g><rect x="118" y="52" width="66" height="7" rx="3.5" fill="${C.line}"/><circle cx="150" cy="55.5" r="8" fill="${C.green}"/>
+         <rect x="118" y="82" width="66" height="7" rx="3.5" fill="${C.line}"/><circle cx="170" cy="85.5" r="8" fill="${C.coral}"/></g>`, '작품 설정'),
+
     /* 환영 히어로 — 가지가 갈라지는 나무(브랜딩) */
     welcomeHero: _wrap(`${bg}
       <rect x="104" y="80" width="12" height="44" rx="4" fill="${C.brown}"/>

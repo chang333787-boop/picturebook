@@ -42,9 +42,12 @@
     opts = opts || {};
     const deck = opts.deck || 'welcome';
     const prefix = opts.keyPrefix || 'tutorial_welcome';
+    const filterType = opts.filterType || null;   /* 작품 유형(text/picturebook/movie/experience) */
     return new Promise((resolve) => {
       const C = _content();
-      const slides = (C && Array.isArray(C[deck])) ? C[deck] : [];
+      let slides = (C && Array.isArray(C[deck])) ? C[deck] : [];
+      /* 유형 맞춤: slide.types가 있으면 현재 유형이 포함될 때만. types 없으면 전체 노출. */
+      if (filterType) slides = slides.filter(s => !s.types || s.types.indexOf(filterType) !== -1);
       const version = (C && C.version) ? C.version : 1;
       if (!slides.length || _isSeen(prefix, version)) { resolve(false); return; }
       if (typeof document === 'undefined' || !document.body) { resolve(false); return; }

@@ -150,7 +150,10 @@ async function _enterViewer(teamName, editMode = false, fromMaker = false, class
          편집을 막지 않도록 await 없이 fire-and-forget. */
       if (fromMaker && typeof window !== 'undefined' && window.TutorialWelcome
           && typeof window.TutorialWelcome.maybeShow === 'function') {
-        try { window.TutorialWelcome.maybeShow({ deck: 'refineWelcome', keyPrefix: 'tutorial_refine' }); } catch (e) { /* noop */ }
+        /* 작품 유형에 맞는 슬라이드만(그림/글상자=그림책, 무비도구=무비 등). */
+        var _ptype = (ViewerState && ViewerState.project && ViewerState.project.projectType)
+          || ptypeHint || null;
+        try { window.TutorialWelcome.maybeShow({ deck: 'refineWelcome', keyPrefix: 'tutorial_refine', filterType: _ptype }); } catch (e) { /* noop */ }
       }
     } else {
       startViewer();

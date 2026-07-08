@@ -162,7 +162,7 @@ async function _enterViewer(teamName, editMode = false, fromMaker = false, class
             .then(function () {
               /* 모달(개요) 뒤 → 실제 버튼을 콕 집어주는 코치마크(막히기 쉬운 다음장면 등). 기기당 1회. */
               if (window.TutorialCoach && typeof window.TutorialCoach.run === 'function') {
-                try { window.TutorialCoach.run({ stepsKey: 'refineCoach', keyPrefix: 'tutorial_refine_coach', filterType: _ptype }); } catch (e) { /* noop */ }
+                try { window.TutorialCoach.run({ stepsKey: 'refineCoach', keyPrefix: 'tutorial_refine_coach', dismissKeyPrefix: 'tutorial_refine', filterType: _ptype }); } catch (e) { /* noop */ }
               }
             });
         } catch (e) { /* noop */ }

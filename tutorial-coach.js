@@ -15,12 +15,14 @@
   /* 저자 콘텐츠 한정 <b>만 허용(사용자 입력 아님). */
   function _rich(s) { return _esc(s).replace(/&lt;b&gt;/g, '<b>').replace(/&lt;\/b&gt;/g, '</b>'); }
   function _deviceId() { try { return localStorage.getItem('branch_device_id') || 'nodevice'; } catch (e) { return null; } }
-  function _seenKey(prefix, version) { return (prefix || 'tutorial_coach') + '_v' + version + '_seen'; }
-  function _isSeen(prefix, version) {
+  /* TUTORIAL-SHOW-POLICY-1(2026-07-08): 코치도 기기1회(seen) → '매 진입 표시'로. 억제 여부는
+     환영 모달의 '다시 열지 않기'(dismiss)에 종속 — 코치 자체 dismiss는 안 만들고 환영 dismiss 키를 읽는다.
+     그래서 옛 '_seen' 대신 '_dismissed' 키를 확인(옛 seen 무시 → 모두 다시 보게 됨). */
+  function _dismissKey(prefix, version) { return (prefix || 'tutorial_welcome') + '_v' + version + '_dismissed'; }
+  function _isDismissed(prefix, version) {
     const dev = _deviceId(); if (dev === null) return true;
-    try { const v = localStorage.getItem(_seenKey(prefix, version)); return v === dev || v === '1'; } catch (e) { return true; }
+    try { const v = localStorage.getItem(_dismissKey(prefix, version)); return v === dev || v === '1'; } catch (e) { return true; }
   }
-  function _markSeen(prefix, version) { try { localStorage.setItem(_seenKey(prefix, version), _deviceId() || '1'); } catch (e) { /* noop */ } }
 
   let _steps = [], _i = 0, _root = null, _reposition = null, _onResolve = null, _prefix = '', _version = 1;
 
@@ -28,7 +30,7 @@
     if (_reposition) { window.removeEventListener('resize', _reposition); window.removeEventListener('scroll', _reposition, true); _reposition = null; }
     const el = document.getElementById(ROOT_ID); if (el) el.remove();
     _root = null; _steps = [];
-    if (shown) _markSeen(_prefix, _version);
+    /* TUTORIAL-SHOW-POLICY-1: 코치는 자체 dismiss를 남기지 않음(매 진입 표시·환영 dismiss에만 종속). */
     if (typeof _onResolve === 'function') { const r = _onResolve; _onResolve = null; r(!!shown); }
   }
 
@@ -95,7 +97,10 @@
       if (opts.filterType) steps = steps.filter(s => !s.types || s.types.indexOf(opts.filterType) !== -1);
       _prefix = opts.keyPrefix || 'tutorial_coach';
       _version = (C && C.version) ? C.version : 1;
-      if (!steps.length || _isSeen(_prefix, _version) || typeof document === 'undefined' || !document.body) { resolve(false); return; }
+      /* 매 진입 표시. 단 환영 모달을 '다시 열지 않기'로 끈 경우 코치도 억제(단일 제어).
+         dismissKeyPrefix = 짝 환영 덱의 prefix(예 refine 코치 → 'tutorial_refine'). */
+      const _dismissPrefix = opts.dismissKeyPrefix || _prefix;
+      if (!steps.length || _isDismissed(_dismissPrefix, _version) || typeof document === 'undefined' || !document.body) { resolve(false); return; }
       /* 대상이 하나라도 실재해야 시작(편집 UI 준비 안 됐으면 스킵) */
       if (!steps.some(s => _findEl(s.sel))) { resolve(false); return; }
 
@@ -132,7 +137,7 @@
 
   function reset(prefix) {
     const C = _content(); const version = (C && C.version) ? C.version : 1;
-    try { localStorage.removeItem(_seenKey(prefix || 'tutorial_coach', version)); } catch (e) { /* noop */ }
+    try { localStorage.removeItem(_dismissKey(prefix || 'tutorial_welcome', version)); } catch (e) { /* noop */ }
   }
 
   if (typeof window !== 'undefined') window.TutorialCoach = { run: run, reset: reset };

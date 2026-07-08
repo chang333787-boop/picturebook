@@ -31,7 +31,11 @@ function _applyLetterbox() {
   const wrap = document.getElementById('stage-wrap');
   if (!wrap) return;
   const ww = wrap.clientWidth, wh = wrap.clientHeight;
-  const targetRatio = 16 / 9;
+  /* VIEWER-PLAY-STAGE-FILL-1: 감상 가로 그림책이면 무대 목표비율을 페이지와 같은 3:2로 쓴다.
+     CSS #viewer-frame aspect도 같은 신호(body[data-stage-aspect="pb-landscape"])로 3:2가 되므로
+     JS 판정(h/v)과 CSS 비율이 항상 일치 → 넘침 없이 무대가 페이지에 딱 맞아 일러스트가 가득 참.
+     그 외(편집·세로작품·텍스트/무비)는 기존 16:9 유지. 신호는 viewer-render가 렌더 시 세팅. */
+  const targetRatio = (document.body && document.body.dataset.stageAspect === 'pb-landscape') ? (3 / 2) : (16 / 9);
   const currentRatio = ww / wh;
   wrap.classList.toggle('letterbox-h', currentRatio > targetRatio);
   wrap.classList.toggle('letterbox-v', currentRatio <= targetRatio);

@@ -232,14 +232,46 @@ html, body {
   border-bottom: none;
   flex-shrink: 0;
 }
-/* TOP-HUD-AI-LAYOUT-1B: AI 보기모드 바(#ai-view-toggle-bar)는 position:fixed; top:8px;
-   left:50%로 뷰포트 최상단 중앙에 떠 있다(z-index 10005). 버튼이 늘며 wrap되는
-   maker-return-bar와 겹치는 문제를, 바가 있을 때(body.has-ai-view-toggle)만 #hud
-   상단에 바 높이(≈32px)+여백만큼 공간을 예약해 해결. magic top값 대신 공간 예약이라
-   버튼이 더 늘어도 안정. 바가 사라지면 class 해제로 여백 회수(레이아웃만, 기능 무관). */
-body.has-ai-view-toggle #hud {
-  /* VIEWER-AI-MODE-BAR-1A: pill compact(높이↓·top 4) → 예약 공간 44→40 축소(겹침 방지 유지). */
-  padding-top: 40px;
+/* AI-TOGGLE-FLOW-1: (구)TOP-HUD-AI-LAYOUT-1B의 has-ai-view-toggle 40px 예약 폐기.
+   AI 보기 토글을 position:fixed 부유에서 문서 흐름(#ai-view-toggle-slot)으로 옮겨
+   더는 #hud 위에 뜨지 않으므로 예약이 불필요 → 그 40px를 감상/편집 세로로 회수(그림책 확대).
+   (has-ai-view-toggle class는 이제 부여되지 않음. viewer-ai.js의 remove 호출은 무해하게 유지.) */
+/* CHROME-CLEANUP-1: 편집(다듬기) 모드의 '진한 회색' 제거. 정체=#hud의 어두운 그라디언트가
+   반투명 maker-return-bar 뒤로 비치는 것. 편집 모드에선 배경을 걷어 회색을 없애고
+   maker-return-bar가 곧 시각적 최상단 밴드가 되게 한다. 감상 모드의 #hud 그라디언트는
+   검은 stage 위 버튼 가독성용이라 전역 유지 — 반드시 edit-mode-active로만 스코프. */
+body.edit-mode-active #hud {
+  background: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+/* VIEWER-FILL-MAX-1: 감상(순수 play·maker-return-bar 없음) 상단 HUD를 무대 위 오버레이로 전환 →
+   이 줄이 먹던 세로(~52px)를 그림책(.player-body flex:1)으로 회수해 그림책을 키운다.
+   어두운 그라디언트는 제거(그림 위 깨끗하게)하고 ✕/⛶/‹ 버튼만 각자 반투명 배경으로 밝은 그림
+   위에서도 보이게. 오버레이 자체는 클릭 통과(pointer-events:none), 버튼만 클릭 가능.
+   편집·감상테스트(maker-return-bar 있음)는 :has()로 제외 → 그쪽 레이아웃 불변. */
+body:not(.edit-mode-active) #hud:not(:has(.maker-return-bar)) {
+  position: absolute;
+  left: 0; right: 0; top: 0;
+  z-index: 60;
+  background: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  pointer-events: none;
+}
+body:not(.edit-mode-active) #hud:not(:has(.maker-return-bar)) .hud-inner {
+  padding: 6px 10px;
+  pointer-events: none;
+}
+body:not(.edit-mode-active) #hud:not(:has(.maker-return-bar)) .hud-btn {
+  pointer-events: auto;
+  background: rgba(40,32,20,0.32);
+  color: #fff;
+  min-width: 40px; min-height: 40px;       /* 태블릿 터치 확보 */
+}
+body:not(.edit-mode-active) #hud:not(:has(.maker-return-bar)) .hud-btn--exit {
+  background: rgba(200,70,55,0.55);
+  color: #fff;
 }
 .hud-inner {
   display: flex;
@@ -887,6 +919,19 @@ body.edit-mode-active #stage-wrap {
    사용자 캡처 비교: 1번(원함) = letterbox warm paper, 2번(원치 X) = letterbox 테마.
    v82~v84에서 넣은 것 정정. */
 
+/* VIEWER-STAGE-THEME-EXTEND-1 (2026-07-08): ↑ v85 결정을 사용자 명시 요구로 재반전.
+   감상 그림책에서 레터박스(#stage-wrap) 베이지를 각 테마 '바깥색'으로 연장해 편집 화면처럼
+   테마가 뷰포트 끝까지 이어지게(통일감). 무대 안(scene-screen)=정본 스킨(그라디언트+글로우+장식)
+   그대로 두고, 무대 밖 여백만 그 테마 그라디언트의 '바깥(하단) 톤' 단색으로 채운다
+   (박스 크기 차이로 그라디언트 복제는 이음매가 생겨 단색 근사 채택 — 카드 box-shadow가 경계를 잡아줌).
+   :not(.edit-mode-active)로 편집 베이지(위 규칙) 보존. data-pb-theme는 그림책에만 붙어 텍스트/무비 자동 제외.
+   ⚠️night-story(다크)는 과거 v38 '검정 letterbox=구조 깨짐' 재발 우려로 사용자 승인 후 별도 추가.
+   ⚠️PB-MOOD(엔딩/단계 분위기) 장면은 무대색이 테마 정본과 달라 여백과 미세 색차 가능(1차 수용). */
+body[data-pb-theme="cozy-storybook"]:not(.edit-mode-active)     #stage-wrap { background: #e6d8ba; }
+body[data-pb-theme="paper-storybook"]:not(.edit-mode-active)    #stage-wrap { background: #dcd3ba; }
+body[data-pb-theme="gallery-picturebook"]:not(.edit-mode-active) #stage-wrap { background: #cccbc5; }
+body[data-pb-theme="forest-storybook"]:not(.edit-mode-active)   #stage-wrap { background: #e2edd3; }
+
 /* ── viewer-frame: 16:9 작품 무대 ── */
 #viewer-frame {
   position: relative;
@@ -1309,6 +1354,23 @@ body.edit-mode-active #stage-wrap.letterbox-v #viewer-frame {
 body[data-page-orientation="portrait"] #stage-wrap.letterbox-h #viewer-frame,
 body[data-page-orientation="portrait"] #stage-wrap.letterbox-v #viewer-frame {
   aspect-ratio: 210 / 297;
+}
+
+/* ── VIEWER-PLAY-STAGE-FILL-2: 감상 가로 그림책 무대 = 스테이지 꽉 채움(편집과 동일) ──
+   (구 STAGE-FILL-1은 무대를 3:2로 letterbox → 바깥에 베이지가 드러났음)
+   사용자 요구: 편집 화면(4·5)처럼 우리가 공들인 테마 배경(그라디언트+글로우+텍스처)과
+   '장면 분위기(PB-MOOD)'가 뷰포트 끝까지 쭉 이어지게. 해법 = 편집과 똑같이 #viewer-frame을
+   스테이지 가득 채우면(aspect auto) scene-screen(테마+분위기 '실제' 배경)이 뷰포트 전체를 칠하고,
+   페이지(.pb-page)는 container query로 3:2 비율 유지하며 가운데 contain → 일러스트 크기 동일,
+   배경만 끝까지 연장. 분위기는 scene-screen 자체가 그리므로 자동으로 따라감(body 단색 불필요).
+   신호=body[data-stage-aspect="pb-landscape"](감상·가로·그림책만). 편집/세로/텍스트/무비 미영향. */
+body[data-stage-aspect="pb-landscape"] #stage-wrap.letterbox-h #viewer-frame,
+body[data-stage-aspect="pb-landscape"] #stage-wrap.letterbox-v #viewer-frame {
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  aspect-ratio: auto;
 }
 
 /* ── safe-area (edit 모드) — 드래그 가능 영역 안내
@@ -3865,11 +3927,17 @@ body[data-page-orientation="portrait"] .terminal-screen--story .ending-page {
   justify-content: space-between;
   gap: 8px;
   padding: 4px 14px;
-  background: rgba(199, 149, 80, 0.12);
-  border-bottom: 1px solid rgba(199, 149, 80, 0.16);
-  backdrop-filter: blur(8px);
+  /* CHROME-CLEANUP-1: 반투명(12%)→불투명 크림. #hud 어두운 배경이 뒤로 비쳐 '회색'으로
+     읽히던 것을 차단. 불투명이라 backdrop-filter 불필요(제거). */
+  background: #fbf4e4;
+  border-bottom: 1px solid rgba(199, 149, 80, 0.22);
   flex-wrap: wrap;
   position: relative; /* REFINE-IA-3: ⋯ 더보기 메뉴 앵커 */
+}
+/* CHROME-CLEANUP-1: 편집(마감) 중에는 살짝 더 amber 톤으로 '편집 중' 신호 유지(사용자 결정 b). */
+.maker-return-bar--editing {
+  background: #f6e9cd;
+  border-bottom-color: rgba(199, 149, 80, 0.32);
 }
 .maker-return-label {
   font-family: var(--font-ui);

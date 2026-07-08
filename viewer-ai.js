@@ -2590,12 +2590,11 @@
     /* TEXT-S2-PUBLISH-CHOICE-REMOVAL-1: '감상 글 정하기'(발행 선택) 진입 버튼 제거 —
        AI 장면발전은 확정본이 아니라 비교 후보. 감상/다듬기 모두 이 토글로만 원본/AI를 오가며 본다. */
     bar.innerHTML = html;
-    document.body.appendChild(bar);
-    /* TOP-HUD-AI-LAYOUT-1B: AI 보기모드 바가 떠 있을 때만 body에 상태 class.
-       CSS가 이 class로 #hud 상단에 바 높이만큼 공간을 예약 → maker-return-bar 버튼이
-       늘어/wrap돼도 상단 중앙 고정 AI바와 겹치지 않음. 레이아웃 상태 표시 전용
-       (AI 호출/프롬프트/저장/보기모드 데이터와 무관). 제거는 _hideAiToggleBar에서. */
-    document.body.classList.add('has-ai-view-toggle');
+    /* AI-TOGGLE-FLOW-1: 과거 position:fixed 부유(top center)라 해상도에 따라 maker-return-bar
+       버튼/✕ 위로 겹쳤음 → 문서 흐름의 #ai-view-toggle-slot에 넣어 오버랩 원천 차단 +
+       그림 토글과 한 줄로 병합. 슬롯 없으면 body 폴백(방어). has-ai-view-toggle 예약(40px)은
+       흐름 배치라 더 이상 불필요 → 미부여. */
+    (document.getElementById('ai-view-toggle-slot') || document.body).appendChild(bar);
     bar.querySelectorAll('.ai-view-toggle-btn[data-mode]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         _setAiViewMode(btn.getAttribute('data-mode'));
@@ -2672,12 +2671,12 @@
     bar.id = 'ai-image-view-toggle-bar';
     /* 텍스트 토글 바와 동일 스타일 재사용 + 아래로 stack(inline top — CSS 미수정). */
     bar.className = 'ai-view-toggle-bar ai-view-toggle-bar--image';
-    bar.style.top = '48px';
     let html = '<span class="ai-view-toggle-bar__label">그림 보기:</span>'
       + '<button type="button" class="ai-view-toggle-btn js-ai-image-view-original" data-mode="original">원본</button>'
       + '<button type="button" class="ai-view-toggle-btn js-ai-image-view-ais2" data-mode="aiS2">AI 그림책 마감</button>';
     bar.innerHTML = html;
-    document.body.appendChild(bar);
+    /* AI-TOGGLE-FLOW-1: 텍스트 토글과 같은 흐름 슬롯에 배치(CSS order로 우측). inline top:48px 부유 제거. */
+    (document.getElementById('ai-view-toggle-slot') || document.body).appendChild(bar);
     bar.querySelectorAll('.ai-view-toggle-btn').forEach(function (btn) {
       if (btn.disabled) return;
       btn.addEventListener('click', function () {

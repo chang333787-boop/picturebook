@@ -372,6 +372,18 @@ body[data-page-orientation="portrait"] .scene-screen--pb.pb--split .pb-frame {
   grid-template-columns: 1fr;
 }
 
+/* VIEWER-FILL-MAX-1: 감상(play) 전용 — 그림(일러스트)을 무대에 더 가득 채운다.
+   그림을 가장자리에서 밀어내던 '고정 px 여백 띠'만 회수(6→3, 8→4, gap 10→6).
+   ⚠️불변: 무대·페이지 3:2 비율 / 그림 background-size:contain(안 잘림) / 말풍선 %좌표 /
+   grid 8fr:2fr 비율은 그대로. 편집(edit-mode-active)은 기존 6/8/10px 유지=다듬기 레이아웃 불변. */
+body:not(.edit-mode-active) .scene-screen--pb {
+  padding: 3px;   /* 카드 둘레 여백 6 → 3 */
+}
+body:not(.edit-mode-active) .scene-screen--pb.pb--imagecenter .pb-frame {
+  padding: 4px;   /* 그림 그릇 사방 8 → 4 */
+  gap: 6px;       /* 그림 ↔ 하단 선택지 간격 10 → 6 */
+}
+
 /* 그림 중심형 stage — 그림 + 그 위 제목 / 본문 글상자 (overlay) */
 .scene-screen--pb.pb--imagecenter .pb-stage {
   position: relative;

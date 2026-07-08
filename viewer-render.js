@@ -63,8 +63,27 @@ function renderCurrentScene() {
   stage.classList.toggle('viewer-test-active', !!ViewerState._testingEdit);
   document.body.classList.toggle('viewer-test-active', !!ViewerState._testingEdit);
 
+  /* VIEWER-PLAY-STAGE-FILL-1: 작품 단위 신호 — 감상 가로 그림책이면 무대(#viewer-frame)를 페이지(3:2)에
+     맞추라고 표시. 아래 _applyLetterbox(JS 목표비율)와 viewer.css(#viewer-frame aspect)가 함께 참조 →
+     16:9 무대에 3:2 페이지가 들어가 생기던 초록 양옆 여백 제거·일러스트 확대(스테이지 내부·비율 불변).
+     표지/엔딩/장면 모두 아래 _applyLetterbox 전 여기서 세팅(cover는 early-return이라 반드시 이 앞).
+     조건: 그림책 작품 + 감상(편집 아님·감상테스트 포함) + 세로작품 아님. projectType/pageOrientation은
+     데이터 로드 시 확정이라 렌더 전 안정적. projectType 미기록 구작품은 scene 단위
+     resolvePresentationMode로 fallback 판별(구버전 그림책도 확대되게). */
+  const _proj = (ViewerState && ViewerState.project) || {};
+  let _pMode = _proj.projectType;
+  if (_pMode !== 'picturebook' && _pMode !== 'text' && _pMode !== 'movie' && _pMode !== 'experience'
+      && typeof resolvePresentationMode === 'function' && scene) {
+    try { _pMode = resolvePresentationMode(scene); } catch (e) { /* noop */ }
+  }
+  const _isLandscapePbPlay = (_pMode === 'picturebook')
+    && !ViewerState.editMode
+    && _proj.pageOrientation !== 'portrait';
+  if (_isLandscapePbPlay) document.body.dataset.stageAspect = 'pb-landscape';
+  else if (document.body.dataset.stageAspect) delete document.body.dataset.stageAspect;
+
   /* W9: 다듬기 모드 ↔ 감상 모드 전환 시 viewer-frame 비율 재계산 필요 (portrait 작품용).
-     · 다듬기: 16:9 / 감상 portrait 작품: 210:297. 그 외: 16:9. */
+     · 다듬기: 16:9 / 감상 portrait 작품: 210:297 / 감상 가로 그림책: 3:2(위 신호) / 그 외: 16:9. */
   if (typeof window._applyLetterbox === 'function') window._applyLetterbox();
 
   if (scene.isEnding) {
@@ -2382,9 +2401,9 @@ function renderHUD() {
     ${makerBarHtml}
     <div class="hud-inner">
       <button class="hud-btn js-hud-back ${canBack ? '' : 'hud-btn--hidden'}" title="뒤로">‹</button>
-      <div class="hud-center">
-        <span class="hud-team">${escHtml(ViewerState.project.teamName)}</span>
-      </div>
+      <!-- VIEWER-FILL-MAX-1: 감상 팀명(예 '0000') 제거 — 저가치·화면 위 공간 절약(사용자 요청).
+           hud-center는 ‹(왼쪽)과 ⛶/✕(오른쪽)를 벌려주는 빈 스페이서로만 유지. -->
+      <div class="hud-center"></div>
       <div class="hud-right">
         ${mode === 'explore' ? `<span class="hud-explore-count">${ViewerState.visitedSceneIds.size}곳 방문</span>` : ''}
         ${_fsSupported() ? `<button class="hud-btn hud-btn--fullscreen js-hud-fullscreen" data-fs-toggle title="전체 화면" aria-label="전체 화면">⛶</button>` : ''}

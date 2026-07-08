@@ -7122,9 +7122,9 @@ function _openPbDrawModal(scene) {
      빠르게. 디테일 충분 + 메모리·성능 균형. */
   const submode = scene.picturebookSubmode === 'imageCenter' ? 'imageCenter' : 'split';
   let canvasW = 1200;
-  /* fallback(측정 실패 시): imageCenter는 가로 감상 stage(3:2 page) 비율 ≈1.914 → 627,
+  /* fallback(측정 실패 시): imageCenter 가로 감상 '그림박스' 비율 ≈1.90 → 632,
      split은 기존 landscape 근사 ≈2.376 → 505. */
-  let canvasH = submode === 'imageCenter' ? 627 : 505;
+  let canvasH = submode === 'imageCenter' ? 632 : 505;
   const illustEl = document.querySelector(
     submode === 'imageCenter'
       ? '.scene-screen--pb.pb--imagecenter .pb-illust'
@@ -7134,20 +7134,26 @@ function _openPbDrawModal(scene) {
     const rect = illustEl.getBoundingClientRect();
     if (rect.width > 0 && rect.height > 0) {
       let ratio = rect.width / rect.height;
-      /* DRAWING-CANVAS-RATIO: imageCenter 감상 화면은 contain(크롭 없음)이라, 편집 컨텍스트
-         (A4 297:210)에서 측정한 그림 박스(≈1.80)와 주 감상 컨텍스트(가로 3:2)의 박스(≈1.91)가
-         달라 감상 시 좌우 여백이 남는다. illust 박스 비율은 page 비율에 선형 비례하므로,
-         측정값을 "가로 감상 표준" page 비율(3:2)로 재보정해 신규 캔버스를 주 감상에 맞춘다.
-         · 세로 작품(data-page-orientation=portrait)은 감상도 세로 → 재보정 no-op(회귀 없음).
-         · split은 감상이 cover(꽉 채움)라 재보정 시 크롭 증가 위험 → 현 측정 유지.
-         좌표는 _pos()가 getBoundingClientRect 스케일링이라 내부 해상도 변경에 안전. */
+      /* VIEWER-DRAW-FIT-1(2026-07-08): 캔버스를 '감상(play)에서 그림이 실제 놓일 박스' 종횡비에 맞춘다.
+         (구 DRAWING-CANVAS-RATIO는 감상 '페이지' 3:2(1.5)를 겨냥했으나, 실제 표시 대상은 페이지가 아니라
+          grid 8fr:2fr 상단 80% 행에서 pb-frame padding·gap을 뺀 '.pb-illust 박스'라 페이지보다 wide(≈1.90).
+          그 미세 차이만큼 흰 배경 캔버스에 흰 letterbox 여백이 남아 그림이 '커져/넘쳐 보이는' 착시가 생겼다.
+          표시는 contain(크롭 0)이라 이 박스 비율에 정확히 맞추면 흰 여백이 사라진다.)
+         편집(A4)에서 그리기 진입하므로 감상 박스를 결정적으로 계산: 페이지 폭을 대표값으로 3:2 감상 페이지를
+          가정하고 play padding(pb-frame 4·gap 6)·grid 상단 80%로 그림박스 종횡비를 낸다.
+         · 좌표는 _pos()가 rect 스케일이라 내부 해상도 변경에 안전.
+         · 세로 작품(portrait)은 감상도 세로 → 측정값 그대로 유지. split은 감상 cover라 유지(건드리면 crop).
+         ⚠️ play padding(4/6)·grid(0.8)은 v03-modes.css와 동기화 값. CSS 변경 시 함께 조정. */
       if (submode === 'imageCenter'
           && document.body.getAttribute('data-page-orientation') !== 'portrait') {
         const pageEl = illustEl.closest('.pb-page');
         const pr = pageEl && pageEl.getBoundingClientRect();
-        if (pr && pr.width > 0 && pr.height > 0) {
-          const VIEW_PAGE_RATIO = 3 / 2;   /* VIEWER-PLAY-ASPECT-1A: 가로 감상 페이지 3:2 */
-          ratio = ratio * (VIEW_PAGE_RATIO / (pr.width / pr.height));
+        if (pr && pr.width > 0) {
+          const playPageW = pr.width;                       /* 감상 페이지 폭 대표값(비율만 필요) */
+          const playPageH = playPageW / 1.5;                /* 감상 페이지 3:2 */
+          const boxW = playPageW - 2 * 4;                   /* pb-frame padding(play 4) 좌우 */
+          const boxH = 0.8 * (playPageH - 2 * 4 - 6);       /* grid 상단 8fr(80%) - frame padding - gap(play 6) */
+          if (boxW > 0 && boxH > 0) ratio = boxW / boxH;    /* ≈1.90 */
         }
       }
       canvasH = Math.max(1, Math.round(canvasW / ratio));

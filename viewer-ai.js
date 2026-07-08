@@ -2570,7 +2570,9 @@
     /* UI-REBUILD-1: 글 보기 = 원본 | AI 장면발전(s2)만. 텍스트 1단계(s1) 토글 폐기.
        s2 후보 없으면 바 미표시(s1만 있는 구작품도 바 숨김 → 본문은 원본 표시). */
     const hasS2 = _isS2Finalized();
-    if (!hasS2) { _hideAiToggleBar(); return; }
+    /* AI-TOGGLE-ALWAYS-1(2026-07-08): variant 유무와 무관하게 토글을 항상 배치(레이아웃 일관·
+       '생겼다 없어졌다' 방지, 사용자 요구). s2 없으면 아래 'AI 장면발전' 버튼을 disabled로 →
+       원본만 활성, AI를 돌린 뒤 켜짐. */
     /* Phase 4-A: 감상자/편집자 공통 표시. 감상자는 editMode=false라 보기 전용으로 안전. */
 
     /* 현재 보기 mode가 더 이상 유효하지 않으면 원본으로 정리 (setMode가 재렌더+업데이트).
@@ -2585,8 +2587,10 @@
     bar.id = 'ai-view-toggle-bar';
     bar.className = 'ai-view-toggle-bar';
     let html = '<span class="ai-view-toggle-bar__label">글 보기:</span>'
-      + '<button type="button" class="ai-view-toggle-btn js-ai-view-original" data-mode="original">원본</button>';
-    if (hasS2) html += '<button type="button" class="ai-view-toggle-btn js-ai-view-ais2" data-mode="aiS2">AI 장면발전</button>';
+      + '<button type="button" class="ai-view-toggle-btn js-ai-view-original" data-mode="original">원본</button>'
+      + '<button type="button" class="ai-view-toggle-btn js-ai-view-ais2" data-mode="aiS2"'
+      + (hasS2 ? '' : ' disabled aria-disabled="true" title="‘AI 장면발전’을 먼저 만들면 켜져요"')
+      + '>AI 장면발전</button>';
     /* TEXT-S2-PUBLISH-CHOICE-REMOVAL-1: '감상 글 정하기'(발행 선택) 진입 버튼 제거 —
        AI 장면발전은 확정본이 아니라 비교 후보. 감상/다듬기 모두 이 토글로만 원본/AI를 오가며 본다. */
     bar.innerHTML = html;
@@ -2596,6 +2600,7 @@
        흐름 배치라 더 이상 불필요 → 미부여. */
     (document.getElementById('ai-view-toggle-slot') || document.body).appendChild(bar);
     bar.querySelectorAll('.ai-view-toggle-btn[data-mode]').forEach(function (btn) {
+      if (btn.disabled) return;   /* AI-TOGGLE-ALWAYS-1: s2 없는 AI 버튼은 클릭 무시 */
       btn.addEventListener('click', function () {
         _setAiViewMode(btn.getAttribute('data-mode'));
       });
@@ -2656,9 +2661,13 @@
 
   function _showAiImageToggleBar() {
     if (!_aiToggleProjectTypeAllowed()) { _hideAiImageToggleBar(); return; }
-    /* imageS1(AI 그림 정돈)은 폐기 — 'AI 그림책 마감'(s2)만. s2 후보 없으면 바 미표시. */
+    /* imageS1(AI 그림 정돈)은 폐기 — 'AI 그림책 마감'(s2)만. */
     const hasS2 = _hasImageVariantS2();
-    if (!hasS2) { _hideAiImageToggleBar(); return; }
+    /* AI-TOGGLE-ALWAYS-1(2026-07-08): 그림책 작품이면 그림 토글 항상 배치(레이아웃 일관) — s2 없으면
+       아래 'AI 그림책 마감' 버튼 disabled. 그림 없는 작품(텍스트 등)엔 그림 토글 미표시.
+       단 레거시라도 이미지 s2 후보가 있으면(=사실상 그림책) 표시. */
+    const isPb = !!(ViewerState && ViewerState.project && ViewerState.project.projectType === 'picturebook');
+    if (!isPb && !hasS2) { _hideAiImageToggleBar(); return; }
 
     /* 현재 이미지 보기 모드가 더 이상 유효하지 않으면(aiS1 폐기/ s2 없음) 원본으로 정리 */
     const cur = _getAiImageViewMode();
@@ -2673,7 +2682,9 @@
     bar.className = 'ai-view-toggle-bar ai-view-toggle-bar--image';
     let html = '<span class="ai-view-toggle-bar__label">그림 보기:</span>'
       + '<button type="button" class="ai-view-toggle-btn js-ai-image-view-original" data-mode="original">원본</button>'
-      + '<button type="button" class="ai-view-toggle-btn js-ai-image-view-ais2" data-mode="aiS2">AI 그림책 마감</button>';
+      + '<button type="button" class="ai-view-toggle-btn js-ai-image-view-ais2" data-mode="aiS2"'
+      + (hasS2 ? '' : ' disabled aria-disabled="true" title="‘AI 그림책 마감’을 먼저 만들면 켜져요"')
+      + '>AI 그림책 마감</button>';
     bar.innerHTML = html;
     /* AI-TOGGLE-FLOW-1: 텍스트 토글과 같은 흐름 슬롯에 배치(CSS order로 우측). inline top:48px 부유 제거. */
     (document.getElementById('ai-view-toggle-slot') || document.body).appendChild(bar);

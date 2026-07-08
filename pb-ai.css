@@ -1098,6 +1098,17 @@
   border-color: #b85a3a;
   color: #fffaee;
 }
+/* AI-TOGGLE-ALWAYS-1: AI 결과가 아직 없을 때 AI 버튼 비활성(항상 배치·원본만 활성). */
+.ai-view-toggle-btn:disabled,
+.ai-view-toggle-btn[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: default;
+  background: #efe6d2;
+  border-color: #e2d6bd;
+  color: #a89a80;
+}
+.ai-view-toggle-btn:disabled:hover,
+.ai-view-toggle-btn[aria-disabled="true"]:hover { background: #efe6d2; }
 
 /* TEST MODE 배지와 함께 표시될 때 — 배지는 좌상단 fixed, 토글 바는 상단 중앙이라 겹치지 않음 */
 .ai-testmode-badge ~ .ai-view-toggle-bar { /* 시각 충돌 없음 — 별도 조정 불필요 (빈 규칙 유지) */ }

@@ -18,16 +18,20 @@
   function _deviceId() {
     try { return localStorage.getItem('branch_device_id') || 'nodevice'; } catch (e) { return null; }
   }
-  function _seenKey(prefix, version) { return (prefix || 'tutorial_welcome') + '_v' + version + '_seen'; }
+  /* TUTORIAL-SHOW-POLICY-1(2026-07-08): 기기 1회(seen) → '매 진입 표시 + 다시 열지 않기' 정책.
+     원인: 옛 seen 플래그가 기기 단위라 같은 태블릿에서 계정을 새로 만들어도 안 떴음(사용자 보고).
+     이제 기본은 매 진입 표시하고, 모달의 '다시 열지 않기' 체크 시에만 dismissed 플래그를 남겨 영구 억제.
+     키를 '_seen'→'_dismissed'로 바꿔 기존 seen 플래그(전 기기에 이미 있음)를 무시 → 모두 다시 보게 됨. */
+  function _dismissKey(prefix, version) { return (prefix || 'tutorial_welcome') + '_v' + version + '_dismissed'; }
 
-  function _isSeen(prefix, version) {
+  function _isDismissed(prefix, version) {
     const dev = _deviceId();
     if (dev === null) return true;   /* localStorage 불가 → 안 띄움(에디터 안 막음) */
-    try { const v = localStorage.getItem(_seenKey(prefix, version)); return v === dev || v === '1'; }
+    try { const v = localStorage.getItem(_dismissKey(prefix, version)); return v === dev || v === '1'; }
     catch (e) { return true; }
   }
-  function _markSeen(prefix, version) {
-    try { localStorage.setItem(_seenKey(prefix, version), _deviceId() || '1'); } catch (e) { /* noop */ }
+  function _markDismissed(prefix, version) {
+    try { localStorage.setItem(_dismissKey(prefix, version), _deviceId() || '1'); } catch (e) { /* noop */ }
   }
 
   function _remove() {
@@ -49,7 +53,7 @@
       /* 유형 맞춤: slide.types가 있으면 현재 유형이 포함될 때만. types 없으면 전체 노출. */
       if (filterType) slides = slides.filter(s => !s.types || s.types.indexOf(filterType) !== -1);
       const version = (C && C.version) ? C.version : 1;
-      if (!slides.length || _isSeen(prefix, version)) { resolve(false); return; }
+      if (!slides.length || _isDismissed(prefix, version)) { resolve(false); return; }
       if (typeof document === 'undefined' || !document.body) { resolve(false); return; }
       _remove();
 
@@ -65,7 +69,9 @@
       card.style.cssText = 'background:#fffdf7;border-radius:18px;max-width:380px;width:100%;padding:26px 22px 18px;box-shadow:0 16px 48px rgba(0,0,0,.28);text-align:center;font-family:inherit;';
       overlay.appendChild(card);
 
-      const finish = () => { _markSeen(prefix, version); _remove(); resolve(true); };
+      /* TUTORIAL-SHOW-POLICY-1: 기본은 매 진입 표시. finish 시 '다시 열지 않기'가 체크됐을 때만 억제. */
+      let dontShow = false;
+      const finish = () => { if (dontShow) _markDismissed(prefix, version); _remove(); resolve(true); };
 
       const _art = (id) => (typeof window !== 'undefined' && window.TutorialArt) ? window.TutorialArt.get(id) : '';
       const render = () => {
@@ -103,9 +109,20 @@
         btnRow.appendChild(primary);
         card.appendChild(btnRow);
 
+        /* TUTORIAL-SHOW-POLICY-1: '다시 열지 않기' 체크(선택). 체크 후 시작하기/건너뛰기 시 영구 억제. */
+        const dontRow = document.createElement('label');
+        dontRow.style.cssText = 'display:flex;align-items:center;justify-content:center;gap:6px;margin-top:12px;font-size:12px;color:#8a7458;cursor:pointer;';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox'; cb.checked = dontShow;
+        cb.style.cssText = 'width:15px;height:15px;accent-color:#c66f4a;cursor:pointer;';
+        cb.addEventListener('change', () => { dontShow = cb.checked; });
+        dontRow.appendChild(cb);
+        dontRow.appendChild(document.createTextNode('다시 열지 않기'));
+        card.appendChild(dontRow);
+
         const skip = document.createElement('button');
         skip.type = 'button'; skip.textContent = '건너뛰기';
-        skip.style.cssText = 'margin-top:10px;border:none;background:none;color:#a8946e;font-size:12px;cursor:pointer;';
+        skip.style.cssText = 'margin-top:8px;border:none;background:none;color:#a8946e;font-size:12px;cursor:pointer;';
         skip.addEventListener('click', finish);
         card.appendChild(skip);
       };
@@ -115,14 +132,14 @@
     });
   }
 
-  /* 교사 리셋/디버그용(선택) — 콘솔에서 호출 시 다음 진입에 다시 표시. prefix 미지정=환영. */
+  /* 교사 리셋/디버그용(선택) — '다시 열지 않기'로 억제한 걸 해제해 다시 표시. prefix 미지정=환영. */
   function reset(prefix) {
     const C = _content();
     const version = (C && C.version) ? C.version : 1;
-    try { localStorage.removeItem(_seenKey(prefix || 'tutorial_welcome', version)); } catch (e) { /* noop */ }
+    try { localStorage.removeItem(_dismissKey(prefix || 'tutorial_welcome', version)); } catch (e) { /* noop */ }
   }
 
   if (typeof window !== 'undefined') {
-    window.TutorialWelcome = { maybeShow: maybeShow, reset: reset, _isSeen: _isSeen };
+    window.TutorialWelcome = { maybeShow: maybeShow, reset: reset, _isDismissed: _isDismissed };
   }
 })();

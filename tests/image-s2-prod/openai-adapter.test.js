@@ -12,7 +12,7 @@ function fakeForm() { const f = []; f.append = (k, v) => f.push([k, v]); return 
 function FakeBlob() {}
 function okFetch() { return async () => ({ status: 200, headers: { get: () => 'application/json' }, json: async () => ({ data: [{ b64_json: PNG_B64 }], usage: { output_tokens: 10 } }) }); }
 
-test('정본 프롬프트(P4) — 보존 가드 + 완성형 마감', () => {
+test('정본 프롬프트(P5) — 보존 가드 + 완성형 마감 + 선 녹임/조화', () => {
   const p = A.OPENAI_S2_PROMPT.toLowerCase();
   /* 보존 가드 */
   assert.ok(p.indexOf('korean text') !== -1, '한글 보존');
@@ -25,7 +25,12 @@ test('정본 프롬프트(P4) — 보존 가드 + 완성형 마감', () => {
   assert.ok(p.indexOf('fully finished picture-book') !== -1, '완성형 그림책 마감');
   assert.ok(p.indexOf('leave no unfinished white paper') !== -1, '빈 흰 종이 없이 배경 채움');
   assert.ok(p.indexOf('watercolor') !== -1 && p.indexOf('colored pencil') !== -1, '수채+색연필 손그림');
-  assert.equal(A.PROMPT_VERSION, 'imgS2-openai-gpt-image-2-P4-v1');
+  /* P5(2026-07-08) 강한 펜선 녹임 + 어설픔 조화 — 모양/비율/위치 보존 가드 유지 */
+  assert.ok(p.indexOf('gently soften and blend those lines') !== -1, 'P5 강한 펜선 녹임');
+  assert.ok(p.indexOf('harmonize their color, shading, and texture') !== -1, 'P5 어설픈 부분 조화');
+  assert.ok(p.indexOf('keep every line in its original place and shape') !== -1, 'P5 선 위치/모양 보존');
+  assert.ok(p.indexOf('do not tidy, correct, beautify, or redesign') !== -1, 'P5 재설계/미화 금지');
+  assert.equal(A.PROMPT_VERSION, 'imgS2-openai-gpt-image-2-P5-v1');
 });
 
 test('configured — apiKey 없으면 false + NOT_CONFIGURED', async () => {

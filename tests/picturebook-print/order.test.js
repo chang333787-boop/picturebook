@@ -51,19 +51,19 @@ test('PRINT: 순환 — 무한루프 없이 1회 방문·이동 안내는 기존
   const r = P.buildPrintOrder(o);
   assert.strictEqual(r.order.length, 3);
   const back = P.describeChoice(o['3'].choices[0], r.numberByKey);
-  assert.strictEqual(back.note, '→ 1번 장면으로 가세요');   /* 다시 2(=1번)로 */
+  assert.strictEqual(back.note, '- 장면 1로');   /* 다시 2(=1번)로 */
 });
 
-test('PRINT: 누락 next → "(연결되지 않음)"', () => {
+test('PRINT: 누락 next → "(연결 안 됨)"', () => {
   const o = {
     '1': sc({ id: '1', num: 1, type: 'cover', choices: [ch('시작', '2')] }),
     '2': sc({ id: '2', num: 2, choices: [ch('사라진 길', '99'), ch('', null)] }),
   };
   const r = P.buildPrintOrder(o);
-  assert.strictEqual(P.describeChoice(o['2'].choices[0], r.numberByKey).note, '(연결되지 않음)');
+  assert.strictEqual(P.describeChoice(o['2'].choices[0], r.numberByKey).note, '(연결 안 됨)');
   const d = P.describeChoice(o['2'].choices[1], r.numberByKey);
   assert.strictEqual(d.label, '(선택)');
-  assert.strictEqual(d.note, '(연결되지 않음)');
+  assert.strictEqual(d.note, '(연결 안 됨)');
 });
 
 test('PRINT: 도달 불가 장면 — 번호 이어서 후미 수록(reachableCount 이후)', () => {
@@ -96,7 +96,7 @@ test('PRINT: 표지가 다시 표지를 가리켜도 표지는 번호 미부여'
   };
   const r = P.buildPrintOrder(o);
   assert.strictEqual(r.numberByKey['1'], undefined);
-  assert.strictEqual(P.describeChoice(o['2'].choices[0], r.numberByKey).note, '(연결되지 않음)');   /* 표지 회귀는 인쇄상 미연결 처리 */
+  assert.strictEqual(P.describeChoice(o['2'].choices[0], r.numberByKey).note, '(연결 안 됨)');   /* 표지 회귀는 인쇄상 미연결 처리 */
   assert.strictEqual(r.order.length, 2);
 });
 

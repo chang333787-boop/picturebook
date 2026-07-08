@@ -14,7 +14,7 @@
    ════════════════════════════════════════════════════════════════ */
 
 const DEFAULT_MODEL = 'gpt-image-2';
-const PROMPT_VERSION = 'imgS2-openai-gpt-image-2-P4-v1';
+const PROMPT_VERSION = 'imgS2-openai-gpt-image-2-P5-v1';
 const ENDPOINT = 'https://api.openai.com/v1/images/edits';
 const SIZE = '1536x1024';            /* 가로 3:2 */
 const QUALITY = 'medium';
@@ -30,8 +30,10 @@ const ALLOWED_OUTPUT_MIME = ['image/png', 'image/jpeg', 'image/webp'];
 /* 원본 다운로드 허용 호스트(SSRF) — Firebase Storage 만 */
 const ALLOWED_SOURCE_HOSTS = ['firebasestorage.googleapis.com', 'storage.googleapis.com'];
 
-/* P4(완성형 그림책 마감) 정본 프롬프트 — 보존 가드(수·위치·구도·말풍선·손글씨·재설계금지)는 유지하되
-   배경·빛·색·질감·공간 밀도를 꽉 채워 "정돈"이 아니라 "완성된 그림책 한 장"으로 마감. (P3=보존 강해 약했음) */
+/* P5(완성형 그림책 마감) 정본 프롬프트 — 보존 가드(수·위치·구도·말풍선·손글씨·재설계금지)는 유지하되
+   배경·빛·색·질감·공간 밀도를 꽉 채워 "정돈"이 아니라 "완성된 그림책 한 장"으로 마감. (P3=보존 강해 약했음)
+   P5(2026-07-08): 바로그리기 강한 펜선을 화풍에 녹이고(위치·모양 불변), 어설픈 부분은 색·질감만 조화
+   (모양·비율·위치 정확 보존·재설계 금지). 손글씨·말풍선은 예외(불변). 사용자 요청. */
 const OPENAI_S2_PROMPT = [
   'Turn the provided child-drawn picture into a warm, fully finished picture-book illustration of the SAME scene — clearly the same drawing, but completed and richly painted like a published storybook page.',
   'Keep exactly the same characters, animals, and objects that are already in the picture: the same count, the same positions, the same poses, and the same relationships and overall composition. Do not add, remove, merge, split, or move any of them.',
@@ -39,6 +41,8 @@ const OPENAI_S2_PROMPT = [
   'If any handwritten Korean text or speech bubble is present, preserve it exactly as a drawn mark in the same place; do not blur, rewrite, translate, clean up, or regenerate it.',
   'Finish the scene fully: fill every empty or blank-white area and the whole background with a complete, fitting environment (sky, ground, grass, trees, path, sunlight). Leave no unfinished white paper. Add rich but natural color, soft storybook lighting, gentle depth and distance, atmosphere, and hand-painted texture so it reads as a complete, polished picture-book page rather than a tidied sketch.',
   'Render it with a warm hand-made look that blends watercolor and colored pencil, with cozy, harmonious colors; keep the child-made imagination and hand-feel.',
+  'Where the child used hard, solid pen or marker outlines for drawn shapes, gently soften and blend those lines into the painting so they read as hand-painted watercolor-and-colored-pencil edges that belong to this style, rather than sharp black ink; but keep every line in its original place and shape, and do not remove, straighten, or re-proportion any of them. (This does not apply to handwritten text or speech bubbles, which must stay exactly as drawn.)',
+  'If parts of the drawing look rough, uneven, or awkward, harmonize their color, shading, and texture with the overall painterly style so the whole page feels like one cohesive storybook illustration; but preserve the child\'s original shapes, sizes, proportions, and placement exactly, and do not tidy, correct, beautify, or redesign them into something the child did not draw.',
   'Do not make it photorealistic, 3D, or a glossy commercial / anime style, and do not imitate any specific artist or studio. Keep the same events, subjects, meaning, time of day, and weather.',
   'Produce a horizontal landscape image with a 3:2 ratio (about 1536x1024), with the original drawing fitted and centered, never cropped or shifted.',
 ].join('\n');

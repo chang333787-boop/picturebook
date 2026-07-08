@@ -63,8 +63,8 @@
   function describeChoice(choice, numberByKey) {
     const label = (choice && typeof choice.label === 'string' && choice.label.trim()) ? choice.label.trim() : '(선택)';
     const nid = choice && choice.nextId != null ? String(choice.nextId) : '';
-    if (!nid || numberByKey[nid] == null) return { label, note: '(연결되지 않음)' };
-    return { label, note: '→ ' + numberByKey[nid] + '번 장면으로 가세요' };
+    if (!nid || numberByKey[nid] == null) return { label, note: '(연결 안 됨)' };
+    return { label, note: '- 장면 ' + numberByKey[nid] + '로' };
   }
 
   /* ── 브라우저부: 인쇄 오버레이 생성 + gate + print ── */
@@ -207,7 +207,7 @@
     rootEl.appendChild(coverPage);
 
     /* POLISH-2: '이야기 길 지도' 페이지 제거 — 구조 점검 성격이라 학생 그림책 출판물과 안 맞음
-       (사용자 결정 2026-07-03). 선택지의 '→ N번 장면으로 가세요'만으로 읽기 가능. BFS 번호 계산은
+       (사용자 결정 2026-07-03). 선택지의 '- 장면 N로'만으로 읽기 가능. BFS 번호 계산은
        buildPrintOrder가 담당하므로 무영향. 지도가 다시 필요하면 별도 버튼/기능으로 분리. */
 
     /* ── 본문: 장면당 1페이지 (SCENE-PUBLISH-PRINT-1 — '장면 그대로' 출판형) ──

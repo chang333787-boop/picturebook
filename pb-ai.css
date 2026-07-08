@@ -1570,23 +1570,23 @@
     white-space: pre-wrap; word-break: keep-all;
   }
 
-  /* ── FOLLOWUP-1: 인쇄용 행동버튼 칸 — 최대 3개 상시 예약 ──
-     선택지 1~3개 모두 같은 칸 안(카드형 행)·긴 라벨은 어절 줄바꿈·페이지 넘김 없음.
-     stage(3:2 ≈479px)+칸(≈170px)+여유 → A4 콘텐츠(≈1027px) 안에 항상 수납. */
+  /* ── SCENEPUB-CHOICE-ROW-1: 인쇄용 행동버튼 = 뷰어처럼 한 줄 compact chip ──
+     선택지는 거의 2개·짧음 → 세로 3행 카드(옛 146px 예약) 대신 가로 flex 한 줄.
+     남는 세로 공간은 무대(3:2)가 자동으로 차지 = 그림 최대화. 3개↑/긴 라벨은 wrap. */
   body.print-picturebook .pbp-scenepub .pbp-choices {
     margin-top: 10px; border-top: none; padding: 0;
-    display: grid; grid-template-rows: repeat(3, minmax(44px, auto)); gap: 7px;
-    min-height: 146px; break-inside: avoid;
+    display: flex; flex-wrap: wrap; justify-content: center; align-items: stretch; gap: 10px;
+    min-height: 0; break-inside: avoid;
   }
   body.print-picturebook .pbp-scenepub .pbp-choice {
-    border: 1.5px solid #777; border-radius: 10px; padding: 7px 14px;
-    display: flex; justify-content: space-between; align-items: center; gap: 12px;
-    font-size: 15px;
+    border: 1.5px solid #777; border-radius: 10px; padding: 7px 16px;
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 15px; flex: 0 1 auto;
   }
-  body.print-picturebook .pbp-scenepub .pbp-choice-label { flex: 1 1 auto; word-break: keep-all; }
-  body.print-picturebook .pbp-scenepub .pbp-choice-goto { flex: none; white-space: nowrap; font-weight: 800; }
+  body.print-picturebook .pbp-scenepub .pbp-choice-label { flex: none; word-break: keep-all; font-weight: 700; }
+  body.print-picturebook .pbp-scenepub .pbp-choice-goto { flex: none; white-space: nowrap; font-weight: 600; color: #555; }
   body.print-picturebook .pbp-scenepub .pbp-end-mark {
-    margin-top: 10px; min-height: 146px; display: flex; align-items: center; justify-content: center;
+    margin-top: 10px; min-height: 0; padding: 8px 0; display: flex; align-items: center; justify-content: center;
     font-size: 17px; letter-spacing: .25em;
   }
 }

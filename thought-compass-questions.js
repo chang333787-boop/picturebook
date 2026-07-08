@@ -111,7 +111,7 @@
       id: 'protagonist', order: 2, g: 'G3',
       title: '누구의 이야기인가요?',
       help: '사람이 아니어도 괜찮아요. 동물이나 상상 속 존재도 주인공이 될 수 있어요.',
-      choices: [_choice('protagonist_person', '사람'), _choice('protagonist_animal', '동물이나 생물'), _choice('protagonist_thing', '사물·로봇·상상 속 존재')],
+      choices: [_choice('protagonist_person', '사람'), _choice('protagonist_animal', '동물이나 생물'), _choice('protagonist_thing', '사물·로봇·상상 속 존재'), _choice('protagonist_group', '여럿이 함께하는 이야기예요 (친구·형제)')],
       allowCustom: true, customLabel: '직접 적을래요', allowUnsure: true, maxLength: MAX_CORE_LEN,
       sufficientWhen: '대상 분명 + 특징 1가지',
       followUpTrigger: '이름만(특징 없음)',
@@ -120,7 +120,7 @@
       id: 'goal', order: 3, g: 'G4',
       title: '주인공이 가장 원하는 것은 무엇인가요?',
       help: '주인공이 가장 바라는 것을 떠올려 보세요.',
-      choices: [_choice('goal_find', '중요한 사람이나 물건을 찾고 싶어요'), _choice('goal_help', '누군가를 돕거나 지키고 싶어요'), _choice('goal_challenge', '새로운 곳에 가거나 도전하고 싶어요')],
+      choices: [_choice('goal_find', '중요한 사람이나 물건을 찾고 싶어요'), _choice('goal_help', '누군가를 돕거나 지키고 싶어요'), _choice('goal_challenge', '새로운 곳에 가거나 도전하고 싶어요'), _choice('goal_solve', '어떤 문제나 수수께끼를 풀고 싶어요')],
       allowCustom: true, customLabel: '직접 적을래요', allowUnsure: true, maxLength: MAX_CORE_LEN,
       sufficientWhen: '원하는 행동·결과 대상이 분명',
       followUpTrigger: '보기만 고르고 대상 빔',
@@ -138,7 +138,7 @@
       id: 'incitingEvent', order: 5, g: 'V2-5',
       title: '주인공에게 어떤 일이 생기나요?',
       help: '이야기가 움직이기 시작하는 사건을 떠올려 보세요.',
-      choices: [_choice('event_meet', '누군가를 만나며 일이 시작돼요'), _choice('event_find', '중요한 물건이나 단서를 발견해요'), _choice('event_problem', '갑자기 문제가 생겨요')],
+      choices: [_choice('event_meet', '누군가를 만나며 일이 시작돼요'), _choice('event_find', '중요한 물건이나 단서를 발견해요'), _choice('event_problem', '갑자기 문제가 생겨요'), _choice('event_news', '뜻밖의 소식이나 비밀을 알게 돼요')],
       allowCustom: true, customLabel: '직접 적을래요', allowUnsure: true, maxLength: MAX_CORE_LEN,
       sufficientWhen: '사건 1개 분명',
       followUpTrigger: '너무 넓을 때',
@@ -147,7 +147,7 @@
       id: 'risingTrouble', order: 6, g: 'V2-6',
       title: '일이 어떻게 점점 어려워지나요?',
       help: '주인공을 힘들게 만드는 것이 커지는 과정을 생각해 보세요.',
-      choices: [_choice('trouble_someone', '누군가가 방해해요'), _choice('trouble_time', '시간이 부족해져요'), _choice('trouble_inner', '마음이 흔들리거나 겁이 나요')],
+      choices: [_choice('trouble_someone', '누군가가 방해해요'), _choice('trouble_time', '시간이 부족해져요'), _choice('trouble_inner', '마음이 흔들리거나 겁이 나요'), _choice('trouble_mistake', '오해나 실수로 일이 꼬여요')],
       allowCustom: true, customLabel: '직접 적을래요', allowUnsure: true, maxLength: MAX_CORE_LEN,
       sufficientWhen: '커지는 어려움 1개 분명',
       followUpTrigger: '너무 넓을 때',
@@ -156,7 +156,7 @@
       id: 'keyChoice', order: 7, g: 'G6',
       title: '주인공은 어떤 중요한 선택을 하나요?',
       help: '이야기에서 고민하게 되는 중요한 순간 하나를 떠올려 보세요.',
-      choices: [_choice('choice_approach', '먼저 다가갈지 기다릴지 선택해요'), _choice('choice_truth', '솔직하게 말할지 숨길지 선택해요'), _choice('choice_risk', '위험을 감수할지 안전한 길을 갈지 선택해요')],
+      choices: [_choice('choice_approach', '먼저 다가갈지 기다릴지 선택해요'), _choice('choice_truth', '솔직하게 말할지 숨길지 선택해요'), _choice('choice_risk', '위험을 감수할지 안전한 길을 갈지 선택해요'), _choice('choice_alone', '혼자 해낼지 도움을 청할지 선택해요')],
       allowCustom: true, customLabel: '직접 적을래요', allowUnsure: true, maxLength: MAX_CORE_LEN,
       sufficientWhen: '고민하는 선택 순간 1개 분명',
       followUpTrigger: '너무 넓을 때',
@@ -165,7 +165,7 @@
       id: 'trueEnding', order: 8, g: 'V2-8',
       title: '진엔딩에서는 어떻게 끝나나요?',
       help: '기본 이야기의 마지막 장면을 떠올려 보세요.',
-      choices: [_choice('ending_achieve', '주인공이 원하는 것을 이루어요'), _choice('ending_realize', '주인공이 중요한 것을 깨달아요'), _choice('ending_changed', '모두가 달라진 모습으로 끝나요')],
+      choices: [_choice('ending_achieve', '주인공이 원하는 것을 이루며 끝나요'), _choice('ending_realize', '주인공이 중요한 것을 깨달으며 끝나요'), _choice('ending_reconcile', '서로 화해하거나 가까워지며 끝나요'), _choice('ending_newstart', '새로운 시작을 여는 모습으로 끝나요')],
       allowCustom: true, customLabel: '직접 적을래요', allowUnsure: true, maxLength: MAX_CORE_LEN,
       sufficientWhen: '마지막 장면 방향 분명',
       followUpTrigger: '너무 넓을 때',
@@ -174,7 +174,7 @@
       id: 'alternatePath', order: 9, g: 'V2-9',
       title: '다른 선택을 하면 어떤 일이 생기나요?',
       help: '다른 길도 흥미로운 이야기가 될 수 있어요. 실패가 아니어도 괜찮아요.',
-      choices: [_choice('alt_ending', '다른 엔딩으로 이어져요'), _choice('alt_return', '돌아가는 길이 생겨요'), _choice('alt_event', '새로운 사건이 생겨요')],
+      choices: [_choice('alt_ending', '전혀 다른 결말에 도착해요'), _choice('alt_return', '원래 길로 되돌아오게 돼요'), _choice('alt_event', '뜻밖의 새로운 사건이 벌어져요'), _choice('alt_harder', '더 위험하거나 어려운 길이 돼요')],
       allowCustom: true, customLabel: '직접 적을래요', allowUnsure: true, maxLength: MAX_CORE_LEN,
       sufficientWhen: '다른 길 방향 1개 분명',
       followUpTrigger: '너무 넓을 때',
@@ -183,7 +183,7 @@
       id: 'coreMessage', order: 10, g: 'G7',
       title: '끝까지 지키고 싶은 이야기의 중심은 무엇인가요?',
       help: '이야기를 고치더라도 끝까지 지키고 싶은 것을 골라 보세요.',
-      choices: [_choice('anchor_character', '주인공의 성격이나 마음'), _choice('anchor_scene', '꼭 넣고 싶은 장면이나 대사'), _choice('anchor_ending', '결말의 의미나 이야기 분위기')],
+      choices: [_choice('anchor_character', '주인공의 성격이나 마음'), _choice('anchor_scene', '꼭 넣고 싶은 장면이나 대사'), _choice('anchor_ending', '결말의 의미나 이야기 분위기'), _choice('anchor_relationship', '인물들 사이의 관계 (우정·가족)')],
       allowCustom: true, customLabel: '직접 적을래요', allowUnsure: true, maxLength: MAX_CORE_LEN,
       sufficientWhen: '지키고 싶은 중심 1개 분명',
       followUpTrigger: '너무 넓을 때',
@@ -212,7 +212,8 @@
     return null;
   }
 
-  /* 단일 질문 정의 검증 — 구조·동등 보기 3개·직접 적기·모르겠어요 원칙.
+  /* 단일 질문 정의 검증 — 구조·동등 보기 3~4개·직접 적기·모르겠어요 원칙.
+     (V2에서 보기 4개 허용 — 사고 지원이 목적이라 방향 예시를 더 넓게 열어도 부담 아님, 사용자 결정 2026-07-08.)
      opts.allowNoCustom=true면 allowCustom:false 허용(V2 targetLength: 보기 전용). */
   function validateQuestionDefinition(q, opts) {
     opts = opts || {};
@@ -222,7 +223,7 @@
     if (!Number.isInteger(q.order)) errors.push('order 정수 아님');
     if (typeof q.title !== 'string' || q.title.trim().length === 0) errors.push('title 누락');
     if (typeof q.help !== 'string') errors.push('help 누락');
-    if (!Array.isArray(q.choices) || q.choices.length !== 3) errors.push('대표 선택지 정확히 3개여야 함');
+    if (!Array.isArray(q.choices) || q.choices.length < 3 || q.choices.length > 4) errors.push('대표 선택지 3~4개여야 함');
     else {
       const seen = {};
       q.choices.forEach((c, i) => {

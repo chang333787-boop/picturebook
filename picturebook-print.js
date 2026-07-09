@@ -179,6 +179,16 @@
       }
       return orig;
     };
+    /* PRINT-FONT(2026-07-09): 인쇄 본문 글씨체를 화면(다듬기/감상)과 동일하게 — viewer-render.js와 같은 로직으로
+       scene.textStyle.fontFamily(키) → TEXT_FONT_FAMILIES(CSS 스택) → --pb-font-family. 둘 다 typeof 가드(편집번들
+       미로드/구작 안전 폴백=CSS 기본 Gowun Batang). AI변환본은 폰트 변경 불가(크기만)라 원본 fontFamily가 정확. */
+    const _fontOf = (s) => {
+      try {
+        const st = (typeof getTextStyle === 'function') ? getTextStyle(s) : null;
+        const fm = (typeof TEXT_FONT_FAMILIES === 'object') ? TEXT_FONT_FAMILIES : {};
+        return (st && st.fontFamily && fm[st.fontFamily]) ? fm[st.fontFamily] : '';
+      } catch (e) { return ''; }
+    };
 
     const old = document.getElementById('pb-print-root');
     if (old) old.remove();
@@ -236,10 +246,12 @@
       if (res.numberByKey[k] > res.reachableCount) flags.push('추가 장면');
       if (s.type === 'ending') flags.push('엔딩');
       const numText = res.numberByKey[k] + '번' + (flags.length ? ' · ' + flags.join(' · ') : '');
+      const _ff = _fontOf(s);   /* PRINT-FONT: 이 장면 본문 글씨체(화면과 동일) */
 
       if (img) {
         /* 장면 그대로: 고정 3:2 무대 — 인쇄 페이지 폭은 A4에서 일정하므로 % 좌표+px 폰트 = 기기 무관 결정적 */
         const page = _el('div', 'pbp-page pbp-scenepub');
+        if (_ff) page.style.setProperty('--pb-font-family', _ff);   /* PRINT-FONT */
         const wrap = _el('div', 'pbp-stagewrap');
         const st = _el('div', 'pbp-stage2');
         const im = document.createElement('img'); im.className = 'pbp-stage2-img'; im.src = img;
@@ -275,6 +287,7 @@
       } else {
         /* 무그림 — text-only 출판 페이지(LAYOUT-4 유지) */
         const page = _el('div', 'pbp-page pbp-publish');
+        if (_ff) page.style.setProperty('--pb-font-family', _ff);   /* PRINT-FONT */
         const card = _el('div', 'pbp-scene pbp-scene--full pbp-scene--noimg');
         if ((s.title || '').trim()) card.appendChild(_el('div', 'pbp-scene-caption', s.title.trim()));
         card.appendChild(_el('div', 'pbp-scene-body' + (body ? '' : ' pbp-scene-body--empty'), body || '(글 없음)'));

@@ -1525,6 +1525,7 @@
   body.print-picturebook .pbp-publish .pbp-scene--noimg .pbp-scene-body {
     margin: auto auto 0; font-size: 15pt; line-height: 1.9; text-align: center;
     padding: 26px 32px; border: 1px solid #999; border-radius: 12px; width: 84%; box-sizing: border-box;
+    font-family: var(--pb-font-family, 'Gowun Batang', 'Nanum Gothic', serif);   /* PRINT-FONT */
   }
   body.print-picturebook .pbp-publish .pbp-scene--noimg .pbp-choices {
     margin-top: 22px; margin-bottom: auto; border-top: none; padding: 0 30px;
@@ -1622,6 +1623,8 @@
   body.print-picturebook .pbp-stage2-bubble-p {
     margin: 0; font-size: 19px; line-height: 1.55;
     white-space: pre-wrap; word-break: keep-all; overflow-wrap: anywhere; color: #222;
+    /* PRINT-FONT(2026-07-09): 화면과 동일 본문 글씨체(--pb-font-family, print.js가 심음). 미설정=화면 기본 Gowun Batang. */
+    font-family: var(--pb-font-family, 'Gowun Batang', 'Nanum Gothic', serif);
   }
   body.print-picturebook .pbp-scenepub .pbp-num-overlay {
     top: 10px; left: 12px;
@@ -1631,6 +1634,7 @@
     margin-top: 10px; padding: 8px 12px; font-size: 15px; line-height: 1.65;
     border: 1px solid #bbb; border-radius: 10px;
     white-space: pre-wrap; word-break: keep-all;
+    font-family: var(--pb-font-family, 'Gowun Batang', 'Nanum Gothic', serif);   /* PRINT-FONT */
   }
 
   /* ── SCENEPUB-CHOICE-ROW-1: 인쇄용 행동버튼 = 뷰어처럼 한 줄 compact chip ──

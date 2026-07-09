@@ -3432,6 +3432,22 @@ body[data-pb-theme="paper-storybook"]    .cover-as-pb .cover-book { background: 
 body[data-pb-theme="gallery-picturebook"] .cover-as-pb .cover-book { background: #fbfbfa; border: 1px solid rgba(120,120,115,.28); }
 body[data-pb-theme="forest-storybook"]   .cover-as-pb .cover-book { background: linear-gradient(#e8f0de, #d3e0c6); border: 1px solid rgba(94,125,74,.3); }
 
+/* TEXT-COVER-THEME(2026-07-09): 텍스트 작품 표지도 자기 텍스트 테마(classic/paperbook/note/handwriting/retro/dark)
+   톤을 따라가게 — 그림책 표지와 대칭. body[data-text-theme]는 텍스트 작품에서만 붙음(pbTheme와 별개 속성=안 섞임).
+   본문(.scene-screen--text[data-text-theme])은 이미 테마 적용됨 — 여기선 표지(.cover-as-pb)만 톤 이식. */
+body[data-text-theme] .cover-as-pb .pb-page { background: transparent; }
+body[data-text-theme="classic"]     .cover-as-pb { background: #f3f3f1; }  body[data-text-theme="classic"]     .cover-as-pb .cover-book { background: #fbfbfa; border: 1px solid #dcdcd8; }
+body[data-text-theme="paperbook"]   .cover-as-pb { background: #e9ddc3; }  body[data-text-theme="paperbook"]   .cover-as-pb .cover-book { background: #efe3c9; border: 1px solid #c2ab82; }
+body[data-text-theme="note"]        .cover-as-pb { background: #eef5fb; }  body[data-text-theme="note"]        .cover-as-pb .cover-book { background: #ffffff; border: 1px solid #c4d6e6; }
+body[data-text-theme="handwriting"] .cover-as-pb { background: #f6edda; }  body[data-text-theme="handwriting"] .cover-as-pb .cover-book { background: #fffaf0; border: 1px solid #e0c890; }
+body[data-text-theme="retro"]       .cover-as-pb { background: #0e0e0e; }  body[data-text-theme="retro"]       .cover-as-pb .cover-book { background: #141414; border: 1px solid #4af09a; }
+body[data-text-theme="dark"]        .cover-as-pb { background: #0e1320; }  body[data-text-theme="dark"]        .cover-as-pb .cover-book { background: #161d2e; border: 1px solid rgba(255,255,255,.16); }
+/* 어두운 테마(retro/dark) 표지 글자 밝게 — 대비 확보 */
+body[data-text-theme="retro"] .cover-as-pb .cover-title-pb, body[data-text-theme="dark"] .cover-as-pb .cover-title-pb,
+body[data-text-theme="retro"] .cover-as-pb .cover-subtitle-pb, body[data-text-theme="dark"] .cover-as-pb .cover-subtitle-pb,
+body[data-text-theme="retro"] .cover-as-pb .cover-kicker, body[data-text-theme="dark"] .cover-as-pb .cover-kicker { color: #e8edf5 !important; }
+body[data-text-theme="retro"] .cover-as-pb .cover-title-pb { color: #4af09a !important; }
+
 body[data-pb-theme="cozy-storybook"] .scene-screen--pb { background: #ecdfc6; }
 body[data-pb-theme="cozy-storybook"] .picturebook-page {
   background:

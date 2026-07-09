@@ -370,8 +370,19 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
          · 신규 그림책·스킨 없는 기존 작품 모두 cozy 렌더(migration·자동저장 0).
          · 명시적 스킨(paper/gallery/forest/night/cozy)은 그대로 통과(보존). */
       document.body.dataset.pbTheme = normalizePicturebookTheme(ViewerState.project.pbTheme);
+      delete document.body.dataset.textTheme;
+    } else if (ptype === 'text') {
+      /* TEXT-COVER-THEME(2026-07-09): 텍스트 표지도 자기 텍스트 테마 톤을 따라가게 — body에 textTheme 표시값 적용
+         (그림책 pbTheme와 대칭·별개 속성이라 안 섞임). 본문 테마는 .scene-screen--text[data-text-theme]로 이미 적용됨.
+         DB 원본값 무변경(표시용 body data만). 무효/부재는 classic 기본. */
+      var _tt = (typeof _canonicalTextTheme === 'function')
+        ? (_canonicalTextTheme(ViewerState.project.textTheme) || 'classic')
+        : (ViewerState.project.textTheme || 'classic');
+      document.body.dataset.textTheme = _tt;
+      delete document.body.dataset.pbTheme;
     } else {
       delete document.body.dataset.pbTheme;
+      delete document.body.dataset.textTheme;
     }
     /* v82: v79에서 도입한 body.dataset.coverTheme 폐기 — 사용자 의도는 표지 색이 아닌
        pb-theme(양옆 마감 테마)이 letterbox 전체 둘러쌈. body.dataset.pbTheme이 이미

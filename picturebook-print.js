@@ -241,7 +241,7 @@
       const chs = _choices(sc);
       if (!chs.length) {
         /* 엔딩: 진엔딩=결말 표시 / 그 외=전 장면으로 돌아가 다른 길 읽기 안내(부모 없으면 기존 '이야기 끝'). */
-        if (sc && sc.trueEnding) return _el('div', 'pbp-end-mark', '⭐ 진짜 결말 —');
+        if (sc && (sc.trueEnding || sc.isTrueEnd)) return _el('div', 'pbp-end-mark', '⭐ 진짜 결말 —');
         const pn = (key != null) ? _parentNumByKey[String(key)] : null;
         if (pn != null) return _el('div', 'pbp-end-mark', '장면 ' + pn + '로 돌아가 다른 길도 읽어보세요');
         return _el('div', 'pbp-end-mark', '— 이야기 끝 —');
@@ -262,7 +262,7 @@
       const body = (bodyOf(s) || '').trim();
       const flags = [];
       if (res.numberByKey[k] > res.reachableCount) flags.push('추가 장면');
-      if (s.type === 'ending') flags.push(s.trueEnding ? '진엔딩' : '엔딩');
+      if (s.type === 'ending') flags.push((s.trueEnding || s.isTrueEnd) ? '진엔딩' : '엔딩');
       /* PRINT-SCENE-LABEL(2026-07-09): 'N번' → '장면 N'(사용자 선호). */
       const numText = '장면 ' + res.numberByKey[k] + (flags.length ? ' · ' + flags.join(' · ') : '');
       const _ff = _fontOf(s);   /* PRINT-FONT: 이 장면 본문 글씨체(화면과 동일) */

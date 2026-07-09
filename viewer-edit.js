@@ -2039,7 +2039,8 @@ function _attachPbBodyBoxInteractions(overlay, frame) {
 
         /* clamp — 최소/최대 + stage 안 보장 */
         box.width  = Math.max(20, Math.min(95, box.width));
-        box.height = Math.max(12, Math.min(90, box.height));
+        /* BUBBLE-MINH-1LINE(2026-07-09): 말풍선 최소 높이 12%→8% — 기존 12%는 ~2줄이 최소였음. 한 줄까지 줄일 수 있게(사용자 요청). */
+        box.height = Math.max(8, Math.min(90, box.height));
         box.x      = Math.max(0,  Math.min(100 - box.width,  box.x));
         box.y      = Math.max(0,  Math.min(100 - box.height, box.y));
         box.x      = Math.round(box.x * 10) / 10;

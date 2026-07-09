@@ -7128,9 +7128,10 @@ function _openPbDrawModal(scene) {
      빠르게. 디테일 충분 + 메모리·성능 균형. */
   const submode = scene.picturebookSubmode === 'imageCenter' ? 'imageCenter' : 'split';
   let canvasW = 1200;
-  /* fallback(측정 실패 시): imageCenter 가로 감상 '그림박스' 비율 ≈1.90 → 632,
-     split은 기존 landscape 근사 ≈2.376 → 505. */
-  let canvasH = submode === 'imageCenter' ? 632 : 505;
+  /* DRAW-CANVAS-3-2(2026-07-09): imageCenter 가로 감상 스테이지가 뷰어 개편(stagefill)으로 3:2로 꽉 채워짐
+     → 그리기 캔버스도 3:2(1200×800)로 정합(AI 그림 3:2와 동일). 옛 ≈1.90(632)은 스테이지가 좁던 시절 값.
+     split은 기존 landscape 근사 ≈2.376 → 505 유지(감상 cover). */
+  let canvasH = submode === 'imageCenter' ? 800 : 505;
   const illustEl = document.querySelector(
     submode === 'imageCenter'
       ? '.scene-screen--pb.pb--imagecenter .pb-illust'
@@ -7150,17 +7151,12 @@ function _openPbDrawModal(scene) {
          · 좌표는 _pos()가 rect 스케일이라 내부 해상도 변경에 안전.
          · 세로 작품(portrait)은 감상도 세로 → 측정값 그대로 유지. split은 감상 cover라 유지(건드리면 crop).
          ⚠️ play padding(4/6)·grid(0.8)은 v03-modes.css와 동기화 값. CSS 변경 시 함께 조정. */
+      /* DRAW-CANVAS-3-2(2026-07-09): imageCenter 가로는 감상 스테이지(.pb-illust inset:0)가 3:2로 꽉 채워지므로
+         측정값·옛 box 계산(≈1.90·스테이지 좁던 시절 stale) 대신 3:2 확정 → 그리기와 표시가 정확히 일치.
+         (portrait·split은 측정값 유지 — 감상 비율이 다름.) */
       if (submode === 'imageCenter'
           && document.body.getAttribute('data-page-orientation') !== 'portrait') {
-        const pageEl = illustEl.closest('.pb-page');
-        const pr = pageEl && pageEl.getBoundingClientRect();
-        if (pr && pr.width > 0) {
-          const playPageW = pr.width;                       /* 감상 페이지 폭 대표값(비율만 필요) */
-          const playPageH = playPageW / 1.5;                /* 감상 페이지 3:2 */
-          const boxW = playPageW - 2 * 4;                   /* pb-frame padding(play 4) 좌우 */
-          const boxH = 0.8 * (playPageH - 2 * 4 - 6);       /* grid 상단 8fr(80%) - frame padding - gap(play 6) */
-          if (boxW > 0 && boxH > 0) ratio = boxW / boxH;    /* ≈1.90 */
-        }
+        ratio = 1.5;
       }
       canvasH = Math.max(1, Math.round(canvasW / ratio));
     }

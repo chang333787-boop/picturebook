@@ -225,9 +225,27 @@
        무대(.pbp-stage2·3:2·px 폰트)에 DOM으로 재현(캡처/래스터화 0·화질 손실 0). 선택지는
        화면 버튼 대신 하단 인쇄용 안내로 정리. split형 장면(말풍선 없음)은 본문을 무대 아래 배치.
        무그림 장면 = 기존 text-only 출판 페이지(LAYOUT-4) 유지. 번호(BFS)·선택지 안내·gate 재사용. */
-    const _choicesBoxOf = (sc) => {
+    /* ENDING-RETURN(2026-07-09): 각 장면의 '전 장면'(부모) 번호 맵 — 비-진엔딩 엔딩에 "장면 N로 돌아가세요"
+       안내용(인쇄본은 클릭 불가라 다른 결말을 찾으려면 분기 장면으로 돌아가야 함). 부모 여럿이면 가장 작은 번호. */
+    const _parentNumByKey = {};
+    res.order.forEach((pk) => {
+      _choices(scenes[pk]).forEach((c) => {
+        if (c && c.nextId != null) {
+          const nk = String(c.nextId);
+          const pn = res.numberByKey[pk];
+          if (scenes[nk] && pn != null && (_parentNumByKey[nk] == null || pn < _parentNumByKey[nk])) _parentNumByKey[nk] = pn;
+        }
+      });
+    });
+    const _choicesBoxOf = (sc, key) => {
       const chs = _choices(sc);
-      if (!chs.length) return _el('div', 'pbp-end-mark', '— 이야기 끝 —');
+      if (!chs.length) {
+        /* 엔딩: 진엔딩=결말 표시 / 그 외=전 장면으로 돌아가 다른 길 읽기 안내(부모 없으면 기존 '이야기 끝'). */
+        if (sc && sc.trueEnding) return _el('div', 'pbp-end-mark', '⭐ 진짜 결말 —');
+        const pn = (key != null) ? _parentNumByKey[String(key)] : null;
+        if (pn != null) return _el('div', 'pbp-end-mark', '장면 ' + pn + '로 돌아가 다른 길도 읽어보세요');
+        return _el('div', 'pbp-end-mark', '— 이야기 끝 —');
+      }
       const box = _el('div', 'pbp-choices');
       chs.forEach(c => {
         const d = describeChoice(c, res.numberByKey);
@@ -244,8 +262,9 @@
       const body = (bodyOf(s) || '').trim();
       const flags = [];
       if (res.numberByKey[k] > res.reachableCount) flags.push('추가 장면');
-      if (s.type === 'ending') flags.push('엔딩');
-      const numText = res.numberByKey[k] + '번' + (flags.length ? ' · ' + flags.join(' · ') : '');
+      if (s.type === 'ending') flags.push(s.trueEnding ? '진엔딩' : '엔딩');
+      /* PRINT-SCENE-LABEL(2026-07-09): 'N번' → '장면 N'(사용자 선호). */
+      const numText = '장면 ' + res.numberByKey[k] + (flags.length ? ' · ' + flags.join(' · ') : '');
       const _ff = _fontOf(s);   /* PRINT-FONT: 이 장면 본문 글씨체(화면과 동일) */
 
       if (img) {
@@ -281,7 +300,7 @@
           /* 분할형: 말풍선 좌표가 없으므로 본문을 무대 아래 인쇄용 박스로 */
           page.appendChild(_el('div', 'pbp-scenepub-body', body));
         }
-        page.appendChild(_choicesBoxOf(s));
+        page.appendChild(_choicesBoxOf(s, k));
         page.appendChild(_el('div', 'pbp-num-foot', numText));
         rootEl.appendChild(page);
       } else {
@@ -291,7 +310,7 @@
         const card = _el('div', 'pbp-scene pbp-scene--full pbp-scene--noimg');
         if ((s.title || '').trim()) card.appendChild(_el('div', 'pbp-scene-caption', s.title.trim()));
         card.appendChild(_el('div', 'pbp-scene-body' + (body ? '' : ' pbp-scene-body--empty'), body || '(글 없음)'));
-        card.appendChild(_choicesBoxOf(s));
+        card.appendChild(_choicesBoxOf(s, k));
         /* PB-NUM-FOOT(2026-07-09): 번호를 카드 상단 배지 대신 선택지 아래로 이동. */
         card.appendChild(_el('div', 'pbp-num-foot', numText));
         page.appendChild(card);

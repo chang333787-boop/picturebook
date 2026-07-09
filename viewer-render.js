@@ -1742,6 +1742,17 @@ function _renderStoryEnding(stage, scene) {
                        && typeof window.viewerAi._getAiViewMode === 'function')
     ? window.viewerAi._getAiViewMode() : 'original';
   const _allowInlineEdit = _isEdit && _aiViewMode === 'original';
+  /* ENDING-AI-BODY-EDIT(2026-07-09): 엔딩 본문을 다른 장면처럼 AI 보기에서도 편집 가능하게(사용자: "입력 자체가 안 됨").
+     variant 후보 있으면 variant 편집(원본 불변·data-ai-variant-edit 핸들러) / 없으면(화면에 원본 표시) 원본 편집.
+     제목·글상자 핸들은 _allowInlineEdit(원본 보기 전용) 유지 = AI본은 크기만 정책 보존. */
+  const _variantBodyKeyEnd = (typeof window !== 'undefined' && window.viewerAi && typeof window.viewerAi._aiVariantBodyEditAllowed === 'function')
+    ? window.viewerAi._aiVariantBodyEditAllowed(scene.id) : null;
+  const _endBodyEditable = _isEdit;
+  const _endBodyEditAttr = _isEdit
+    ? (_variantBodyKeyEnd
+        ? `contenteditable="true" data-ai-variant-edit="${_variantBodyKeyEnd}"`
+        : 'contenteditable="true" data-pb-editable="body"')
+    : '';
 
   /* 텍스트 영역 — 작품 제목(작게) + 엔딩 본문(메인) + 이야기 끝 스탬프 + 경로 요약 + 버튼
      v133: 각 요소에 terminal-step + 종류별 modifier. CSS animation-delay 변수로 순차. */
@@ -1749,7 +1760,7 @@ function _renderStoryEnding(stage, scene) {
     <div class="pb-text pb-text--ending scene-narrative-panel ${_isEdit ? 'is-edit-static' : ''}"
          style="${_seqStyle}">
       ${userTitle ? `<div class="ending-user-title terminal-step terminal-step--title">${escHtml(userTitle)}</div>` : ''}
-      ${(userBody || _allowInlineEdit) ? `<p class="ending-user-body terminal-step terminal-step--body${_allowInlineEdit ? ' js-pb-editable-body' : ''}" ${_allowInlineEdit ? 'contenteditable="true" data-pb-editable="body"' : ''} data-placeholder="(본문을 적어보세요)">${escHtml(userBody)}</p>` : ''}
+      ${(userBody || _endBodyEditable) ? `<p class="ending-user-body terminal-step terminal-step--body${_endBodyEditable ? ' js-pb-editable-body' : ''}" ${_endBodyEditAttr} data-placeholder="(본문을 적어보세요)">${escHtml(userBody)}</p>` : ''}
       <div class="pb-ending-meta-inline scene-ending-mark terminal-step terminal-step--badge" data-true-end="${isTrueEnd ? '1' : '0'}">
         ${trueEndBadge}
         <div class="ending-end-stamp">${systemIcon} ${systemLabel}</div>
@@ -1831,9 +1842,9 @@ function _renderStoryEnding(stage, scene) {
       <div class="pb-body-handle pb-body-handle--resize-sw js-pb-body-resize" data-corner="sw" title="크기 조절"></div>
       <div class="pb-body-handle pb-body-handle--resize-se js-pb-body-resize" data-corner="se" title="크기 조절"></div>
     ` : '';
-    const _endIcBody = (userBody || _allowInlineEdit)
+    const _endIcBody = (userBody || _endBodyEditable)
       ? `<div class="pb-stage__body-overlay scene-narrative-panel js-pb-body-overlay ending-ic-body"${_endVariantLayoutKey ? ` data-ai-variant-layout="${_endVariantLayoutKey}"` : ''} style="${_endBoxStyle}">
-           <p class="pb-text__body js-pb-editable-body" ${_allowInlineEdit ? 'contenteditable="true" data-pb-editable="body"' : ''} data-placeholder="(본문을 적어보세요)">${escHtml(userBody)}</p>
+           <p class="pb-text__body js-pb-editable-body" ${_endBodyEditAttr} data-placeholder="(본문을 적어보세요)">${escHtml(userBody)}</p>
            ${_endHandlesHtml}
          </div>`
       : '';
@@ -1999,14 +2010,25 @@ function _renderTextEnding(stage, scene) {
                        && typeof window.viewerAi._getAiViewMode === 'function')
     ? window.viewerAi._getAiViewMode() : 'original';
   const _allowInlineEdit = _isEdit && _aiViewMode === 'original';
+  /* ENDING-AI-BODY-EDIT(2026-07-09): 엔딩 본문을 다른 장면처럼 AI 보기에서도 편집 가능하게(사용자: "입력 자체가 안 됨").
+     variant 후보 있으면 variant 편집(원본 불변·data-ai-variant-edit 핸들러) / 없으면(화면에 원본 표시) 원본 편집.
+     제목·글상자 핸들은 _allowInlineEdit(원본 보기 전용) 유지 = AI본은 크기만 정책 보존. */
+  const _variantBodyKeyEnd = (typeof window !== 'undefined' && window.viewerAi && typeof window.viewerAi._aiVariantBodyEditAllowed === 'function')
+    ? window.viewerAi._aiVariantBodyEditAllowed(scene.id) : null;
+  const _endBodyEditable = _isEdit;
+  const _endBodyEditAttr = _isEdit
+    ? (_variantBodyKeyEnd
+        ? `contenteditable="true" data-ai-variant-edit="${_variantBodyKeyEnd}"`
+        : 'contenteditable="true" data-pb-editable="body"')
+    : '';
   const hasBack = ViewerState.historyStack.length > 0;
 
   /* 제목·본문은 일반 장면(_renderSceneCard)과 동일 class — 별도 엔딩 스타일 X.
      ADV-EDIT-ABSORB-TITLE-1: 제목도 일반 장면과 동일하게 직접편집 흡수(_textTitleHtml). */
   const titleHtml = _textTitleHtml(scene, _allowInlineEdit);
-  const bodyHtml = (userBody || _allowInlineEdit)
-    ? `<p class="text-card__body${_allowInlineEdit ? ' js-pb-editable-body' : ''}"`
-      + `${_allowInlineEdit ? ' contenteditable="true" data-pb-editable="body"' : ''}`
+  const bodyHtml = (userBody || _endBodyEditable)
+    ? `<p class="text-card__body${_endBodyEditable ? ' js-pb-editable-body' : ''}"`
+      + `${_endBodyEditAttr ? ' ' + _endBodyEditAttr : ''}`
       + ` data-placeholder="(본문을 적어보세요)">${escHtml(userBody)}</p>`
     : '';
 

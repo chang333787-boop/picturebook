@@ -177,13 +177,25 @@
     }
     /* 0개 성공이면 결과 화면 대신 명확한 실패 요약(사유 포함). 성공이 있으면 결과 비교로. */
     var summary = L.summarizeBatchResult({ total: targets.length, succeeded: succeeded, failed: failed, failCodes: failCodes });
-    if (summary.anySuccess) { _renderResults(body); return; }
+    if (summary.anySuccess) { _refreshImageToggleBar(); _renderResults(body); return; }   /* IMAGE-TOGGLE-REFRESH: 생성 성공분 s2로 토글 재노출 */
     var extra = summary.allFailedPolicy
       ? '<p style="font-size:12px;color:#777;margin-top:8px;line-height:1.6;">이 작품의 그림은 예전에 만들어져 입력 방식(업로드·그림판) 정보가 없어요. 관리자에게 문의해 주세요. 원본 그림은 그대로 보존됐어요.</p>'
       : '<p style="font-size:12px;color:#777;margin-top:8px;">원본 그림은 그대로 보존됐어요.</p>';
     body.innerHTML = '<div style="font-size:14px;color:#c0392b;font-weight:600;">' + _esc(summary.headline) + '</div>'
       + (summary.reasons.length ? '<ul style="margin:8px 0 0;padding-left:18px;font-size:12px;color:#a0522d;line-height:1.7;">' + summary.reasons.map(function (r) { return '<li>' + _esc(r) + '</li>'; }).join('') + '</ul>' : '')
       + extra;
+  }
+
+  /* IMAGE-TOGGLE-REFRESH(2026-07-09): 배치 생성/적용으로 s2 variant가 생긴 직후 viewer-ai의 이미지 variant
+     캐시를 강제 재로딩하고 그림 토글 바를 재노출 — 그림 토글은 부팅 시점 캐시(비어있음)에서만 판정돼 세션 중
+     새로 만든 s2가 F5 전까지 반영 안 되던 문제(글 토글은 무조건 부트스트랩이나 그림 토글은 부팅 게이트에 막힘).
+     읽기 재로딩 + 토글 재노출뿐(원본/DB write 0). 실패해도 조용히 무시. */
+  async function _refreshImageToggleBar() {
+    try {
+      var va = window.viewerAi;
+      if (va && typeof va._loadFirebaseImageVariants === 'function') { await va._loadFirebaseImageVariants(true); }
+      if (va && typeof va._showAiImageToggleBar === 'function') { va._showAiImageToggleBar(); }
+    } catch (e) { /* noop */ }
   }
 
   /* 결과 비교/선택 — 원본↔s2(resolveCompareImages) + 적용 콜러블. */
@@ -232,6 +244,7 @@
       try { window.setPublishedImageSelectionForScene(sceneId, selected, selected === 's2' ? s2v : null); } catch (e) {}
     }
     if (r && r.ok && window.viewerAi && typeof window.viewerAi._scheduleViewerFrameReRender === 'function') { try { window.viewerAi._scheduleViewerFrameReRender(); } catch (e) {} }
+    if (r && r.ok) { _refreshImageToggleBar(); }   /* IMAGE-TOGGLE-REFRESH: 적용 후에도 그림 토글 재노출 */
   }
 
   /* ── 교사 전용 진입 버튼(자가 주입) ── */

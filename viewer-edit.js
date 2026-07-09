@@ -3081,7 +3081,8 @@ function _pbThemeSectionHtml() {
     { id: 'paper-storybook',     label: '종이 동화책',   desc: '낡은 종이결' },
     { id: 'gallery-picturebook', label: '전시 그림책',   desc: '흰 액자 여백' },
     { id: 'forest-storybook',    label: '숲속 그림책',   desc: '잎·덩굴 가장자리' },
-    { id: 'night-story',         label: '밤 이야기',     desc: '별·달 밤하늘' },
+    /* NIGHT-THEME-RETIRE(2026-07-09): '밤 이야기'는 피커에서 폐기(사용자 결정). CSS·검증배열(PB_THEMES)·
+       기존 작품 저장값은 보존 — 이미 밤테마인 작품은 계속 정상 렌더, 신규 선택만 불가. */
   ];
   /* legacy 키 작품을 열면 normalize한 신규 키가 active로 표시(DB 값은 불변). */
   const current  = (typeof normalizePicturebookTheme === 'function')

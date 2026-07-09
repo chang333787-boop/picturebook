@@ -17,6 +17,11 @@
      firebase.js → updateCardLockUI → syncCardState 순으로 경유.
    ================================================================ */
 
+/* CARD-EXPAND-PERSIST(2026-07-09): 브랜치 카드 '⋯' 펼침 상태를 재렌더(Firebase 에코 renderAll·connect 등)
+   후에도 유지 — is-expanded는 DOM 전용이라 renderCard가 카드를 재생성할 때마다 접혀 '무작위 축소'로 보이던 문제.
+   한 번에 하나만 펼침 정책이라 단일 번호로 충분(null=없음). 다시 '⋯' 눌러야만 접힘(순수 토글). */
+let _pbExpandedNum = null;
+
 /* ── 카드 추가 ── */
 /* v37: type 인자 받아 표지/장면/엔딩 분기 생성.
    · 표지(cover): 작품당 1개만. 제목 + 한 줄 소개 + 표지 테마. 그림·선택지 없음.
@@ -766,10 +771,12 @@ function bindCardEvents(el, s) {
           other.classList.remove('is-expanded');
         });
         el.classList.add('is-expanded');
+        _pbExpandedNum = num;   /* CARD-EXPAND-PERSIST: 재렌더 후 복원용 */
       } else {
         _pbSyncPreviewFromTextarea(el);
         if (typeof flushBodySaves === 'function') flushBodySaves(num);
         el.classList.remove('is-expanded');
+        _pbExpandedNum = null;
       }
     });
 
@@ -1131,6 +1138,12 @@ function renderCard(s) {
   el.style.cssText = `position:absolute;left:${s.x}px;top:${s.y}px;`;
 
   el.innerHTML = buildCardHTML(s);
+  /* CARD-EXPAND-PERSIST(2026-07-09): 펼침 상태 복원 — 재렌더(Firebase 에코 renderAll·connect·잠금변경 등)로
+     is-expanded가 사라져 카드가 무작위로 접히던 문제. pb-mapcard(그림책 비표지)이고 번호가 일치할 때만.
+     이 카드가 삭제/번호변경되면 복원 대상이 없어 자연 무효(다음 펼침에서 _pbExpandedNum 갱신). */
+  if (_pt4 === 'picturebook' && s.type !== 'cover' && _pbExpandedNum != null && String(_pbExpandedNum) === String(s.num)) {
+    el.classList.add('is-expanded');
+  }
   bindCardEvents(el, s);
 
   document.getElementById('canvas').appendChild(el);

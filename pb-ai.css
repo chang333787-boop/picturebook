@@ -1590,7 +1590,10 @@
   body.print-picturebook .pbp-stage2 {
     position: relative; width: 100%; aspect-ratio: 3 / 2; max-height: 100%;
     border: 1.5px solid rgba(120,90,50,0.45); border-radius: 12px; overflow: hidden;
-    background: #fff; box-sizing: border-box;
+    /* PRINT-STAGE-NOWHITE(2026-07-09): 흰 배경 제거 — 3:2 아닌 그림의 contain 레터박스 여백에 흰색이 드러나던 문제.
+       투명으로 두어 종이 배경(paper 그라디언트)이 비치게 = 흰 박스 사라짐. 무대는 3:2 유지(말풍선 % 좌표 정합).
+       ⚠️3:2 AI 그림 자체에 흰 여백이 구워진 경우는 CSS로 불가(이미지 트리밍=별도). */
+    background: transparent; box-sizing: border-box;
     box-shadow: 0 2px 8px rgba(110,95,55,0.16);
     -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }

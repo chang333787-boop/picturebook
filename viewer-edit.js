@@ -397,7 +397,13 @@ function _notifySourceModeBlock(res) {
   } else {
     msg = '지금은 그림을 저장할 수 없어요. 잠시 후 다시 시도해 주세요.';
   }
-  try { alert(msg); } catch (e) {}
+  /* DRAW-BLOCK-ASYNC(2026-07-09): 동기 alert()는 메인 스레드를 정지시켜(대형 캔버스 위) '굳음'을 유발 →
+     비동기 토스트(showAiToast, viewer-ai의 동일 차단 안내 패턴)로. 미로드 시 confirm 카드, 그것도 없으면 alert 폴백. */
+  try {
+    if (typeof showAiToast === 'function') showAiToast(msg);
+    else if (typeof showViewerConfirm === 'function') showViewerConfirm({ title: '알림', message: msg, confirmText: '확인' });
+    else alert(msg);
+  } catch (e) { try { alert(msg); } catch (e2) {} }
 }
 
 /* ════════════════════════════════════════════════════════════════
@@ -7453,7 +7459,7 @@ function _openPbDrawModal(scene) {
   function _snapshot() {
     try {
       state.history.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
-      if (state.history.length > 30) state.history.shift();
+      if (state.history.length > 10) state.history.shift();   /* DRAW-MEM(2026-07-09): 30→10, 전체 ImageData 스냅샷 메모리 완화 */
       state.future = [];   /* 새 stroke 시 redo 스택 리셋 */
     } catch (e) { /* 일부 환경 실패 가능 */ }
   }
@@ -7899,7 +7905,7 @@ function _openPbDrawModal(scene) {
     if (state.history.length <= 1) return;
     const cur = state.history.pop();
     state.future.push(cur);
-    if (state.future.length > 30) state.future.shift();
+    if (state.future.length > 10) state.future.shift();   /* DRAW-MEM: 30→10 */
     const prev = state.history[state.history.length - 1];
     if (prev) ctx.putImageData(prev, 0, 0);
   }
@@ -7907,13 +7913,14 @@ function _openPbDrawModal(scene) {
     if (!state.future.length) return;
     const next = state.future.pop();
     state.history.push(next);
-    if (state.history.length > 30) state.history.shift();
+    if (state.history.length > 10) state.history.shift();   /* DRAW-MEM(2026-07-09): 30→10, 전체 ImageData 스냅샷 메모리 완화 */
     ctx.putImageData(next, 0, 0);
   }
 
   /* 키보드 단축키 — Ctrl+Z / Ctrl+Shift+Z */
   function _onKey(e) {
     if (!document.getElementById('pb-draw-modal')) return;   /* 모달 닫힘 */
+    if (e.key === 'Escape') { e.preventDefault(); _requestClose(); return; }   /* DRAW-ESC(2026-07-09): ESC로 닫기(확인 경유) */
     if (e.ctrlKey || e.metaKey) {
       if (e.key === 'z' && !e.shiftKey) { e.preventDefault(); _undo(); }
       else if (e.key === 'z' && e.shiftKey) { e.preventDefault(); _redo(); }
@@ -7926,23 +7933,13 @@ function _openPbDrawModal(scene) {
   function _close() {
     document.removeEventListener('keydown', _onKey);
     window.removeEventListener('resize', _resizeCanvasDisplay);
+    /* DRAW-MEM(2026-07-09): 대형 ImageData 히스토리를 즉시 해제(참조 끊기) → 태블릿 GC 스톨/'안 돌아감' 완화.
+       modal.remove()만으론 클로저가 잡은 배열이 늦게 해제될 수 있음. */
+    try { if (state) { state.history = []; state.future = []; if (state.shapeBaseImage) state.shapeBaseImage = null; } } catch (e) {}
     modal.remove();
   }
-  modal.querySelectorAll('.js-pb-draw-cancel').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      if (state.history.length > 1) {
-        const ok = await showViewerConfirm({
-          title: '저장하지 않고 닫을까요?',
-          message: '저장하지 않은 그림은 사라져요.',
-          confirmText: '닫기',
-          danger: true,
-        });
-        if (!ok) return;
-      }
-      _close();
-    });
-  });
-  modal.querySelector('.pb-draw-backdrop')?.addEventListener('click', async () => {
+  /* DRAW-CLOSE(2026-07-09): 닫기 확인(변경분 있으면) 공통화 — 취소/배경/ESC가 재사용. */
+  async function _requestClose() {
     if (state.history.length > 1) {
       const ok = await showViewerConfirm({
         title: '저장하지 않고 닫을까요?',
@@ -7953,7 +7950,11 @@ function _openPbDrawModal(scene) {
       if (!ok) return;
     }
     _close();
+  }
+  modal.querySelectorAll('.js-pb-draw-cancel').forEach(btn => {
+    btn.addEventListener('click', () => { _requestClose(); });
   });
+  modal.querySelector('.pb-draw-backdrop')?.addEventListener('click', () => { _requestClose(); });
 
   /* DRAWING-STUDIO-2-SIMPLE 빈 캔버스 판정 — 축소 샘플(60×40)에서 흰색이 아닌 픽셀 비율.
      기존 그림 이어 그리기(배경으로 그려짐)·모든 스트로크가 픽셀 기준이라 오판 없음.

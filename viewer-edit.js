@@ -525,31 +525,8 @@ function _getSceneScreen() {
   return document.querySelector('#viewer-frame .scene-screen');
 }
 
-/* W8: textStyle.fontFamily ID → CSS font-family 값 매핑.
-     기존엔 TEXT_FONT_FAMILIES 미정의 변수 참조라 fontMap 비어 폰트 적용 실패.
-     사용자 보고: "굵게는 되는데 폰트·크기 안 됨" → 이 매핑 fix.
-     ID는 maker/viewer에서 일관 사용 — gothic/batang/jua/gaegu/pen/galmuri/cormorant. */
-const TEXT_FONT_FAMILIES = {
-  gothic:     "'Nanum Gothic', sans-serif",
-  batang:     "'Gowun Batang', 'Nanum Myeongjo', serif",
-  jua:        "'Jua', sans-serif",
-  gaegu:      "'Gaegu', cursive",
-  pen:        "'Nanum Pen Script', cursive",
-  galmuri:    "'Galmuri', monospace",
-  cormorant:  "'Cormorant Garamond', serif",
-  hanna:      "'Black Han Sans', sans-serif",
-  /* W9 확장 10종 */
-  notosans:   "'Noto Sans KR', sans-serif",
-  notoserif:  "'Noto Serif KR', serif",
-  dohyeon:    "'Do Hyeon', sans-serif",
-  dodum:      "'Gowun Dodum', sans-serif",
-  himelody:   "'Hi Melody', cursive",
-  yeonsung:   "'Yeon Sung', cursive",
-  dokdo:      "'East Sea Dokdo', cursive",
-  diphylleia: "'Diphylleia', serif",
-  hahmlet:    "'Hahmlet', serif",
-  stylish:    "'Stylish', serif",
-};
+/* TEXT-FONT-MAP-VIEWER(2026-07-09): TEXT_FONT_FAMILIES 정의는 viewer-data.js(감상에 항상 로드)로 이동함.
+   여기서는 bare 이름으로 참조만(감상/편집/인쇄 모두 동일 맵). 편집 번들 미로드 감상에서 폰트가 안 따라오던 문제 해소. */
 
 /* 텍스트형 — CSS 변수/속성만 갱신 */
 function _patchTextStyle() {

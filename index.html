@@ -125,6 +125,14 @@
 
       </section>
 
+      <!-- 자세한 설명서 (교사·학생 사용법) — 첫 화면에서 바로 열기 -->
+      <div style="text-align:center;margin:18px 0 0;">
+        <button type="button" id="wh-manual-btn"
+          style="display:inline-flex;align-items:center;gap:7px;padding:10px 20px;border-radius:22px;border:1px solid rgba(255,255,255,0.35);background:rgba(255,255,255,0.08);color:#fff;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;">
+          📖 자세한 설명서 (사용법)
+        </button>
+      </div>
+
       <!-- 조용한 하단 링크 -->
       <p style="text-align:center;margin:22px 0 0;font-size:12px;">
         <a href="./privacy.html" target="_blank" rel="noopener"
@@ -285,6 +293,15 @@
 </script>
 
 <script src="fullscreen-persist.js?v=fspersist1"></script>
+
+<!-- ADMIN-REDESIGN Phase 3: 첫 화면에서 여는 교사·학생 상세 설명서 -->
+<script src="admin-manual.js?v=adminmanual2"></script>
+<script>
+  document.getElementById('wh-manual-btn')?.addEventListener('click', function () {
+    if (window.AdminManual && typeof window.AdminManual.open === 'function') window.AdminManual.open('teacher');
+    else alert('설명서를 불러오지 못했어요. 새로고침 후 다시 시도해 주세요.');
+  });
+</script>
 
 </body>
 </html>

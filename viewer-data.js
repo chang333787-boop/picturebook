@@ -1372,6 +1372,30 @@ function _normalizeTextEffect(raw) {
   return { entrance, body };
 }
 
+/* TEXT-FONT-MAP-VIEWER(2026-07-09): textStyle.fontFamily ID → CSS font-family 매핑을 편집 번들(viewer-edit.js)에서
+   여기(감상에 항상 로드되는 viewer-data.js)로 이동 — 순수 감상(첫화면 진입)·인쇄에서도 폰트가 적용되도록.
+   이전엔 편집 번들 미로드 감상 모드에서 미정의라 fontMap이 비어 기본 폰트로 떨어졌음. ID는 maker/viewer 일관. */
+const TEXT_FONT_FAMILIES = {
+  gothic:     "'Nanum Gothic', sans-serif",
+  batang:     "'Gowun Batang', 'Nanum Myeongjo', serif",
+  jua:        "'Jua', sans-serif",
+  gaegu:      "'Gaegu', cursive",
+  pen:        "'Nanum Pen Script', cursive",
+  galmuri:    "'Galmuri', monospace",
+  cormorant:  "'Cormorant Garamond', serif",
+  hanna:      "'Black Han Sans', sans-serif",
+  notosans:   "'Noto Sans KR', sans-serif",
+  notoserif:  "'Noto Serif KR', serif",
+  dohyeon:    "'Do Hyeon', sans-serif",
+  dodum:      "'Gowun Dodum', sans-serif",
+  himelody:   "'Hi Melody', cursive",
+  yeonsung:   "'Yeon Sung', cursive",
+  dokdo:      "'East Sea Dokdo', cursive",
+  diphylleia: "'Diphylleia', serif",
+  hahmlet:    "'Hahmlet', serif",
+  stylish:    "'Stylish', serif",
+};
+
 function getTextStyle(scene) {
   const isEnding = !!(scene && (scene.type === 'ending' || scene.isEnding));
   /* 비-텍스트(그림책/무비 등): 현행 그대로 — scene.textStyle full 객체 또는 시스템 default. */

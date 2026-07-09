@@ -18,10 +18,11 @@
   /* TUTORIAL-SHOW-POLICY-1(2026-07-08): 코치도 기기1회(seen) → '매 진입 표시'로. 억제 여부는
      환영 모달의 '다시 열지 않기'(dismiss)에 종속 — 코치 자체 dismiss는 안 만들고 환영 dismiss 키를 읽는다.
      그래서 옛 '_seen' 대신 '_dismissed' 키를 확인(옛 seen 무시 → 모두 다시 보게 됨). */
-  function _dismissKey(prefix, version) { return (prefix || 'tutorial_welcome') + '_v' + version + '_dismissed'; }
-  function _isDismissed(prefix, version) {
-    const dev = _deviceId(); if (dev === null) return true;
-    try { const v = localStorage.getItem(_dismissKey(prefix, version)); return v === dev || v === '1'; } catch (e) { return true; }
+  /* TUTORIAL-SCOPE-1(2026-07-09): 코치 dismiss도 환영과 동일 '모둠 계정' 스코프 키(scope=classId+teamName).
+     scope 없으면 기기 단위(하위호환·기존 값도 truthy=dismissed). */
+  function _dismissKey(prefix, version, scope) { return (prefix || 'tutorial_welcome') + '_v' + version + (scope ? '_' + scope : '') + '_dismissed'; }
+  function _isDismissed(prefix, version, scope) {
+    try { return !!localStorage.getItem(_dismissKey(prefix, version, scope)); } catch (e) { return true; }
   }
 
   let _steps = [], _i = 0, _root = null, _reposition = null, _onResolve = null, _prefix = '', _version = 1;
@@ -100,7 +101,9 @@
       /* 매 진입 표시. 단 환영 모달을 '다시 열지 않기'로 끈 경우 코치도 억제(단일 제어).
          dismissKeyPrefix = 짝 환영 덱의 prefix(예 refine 코치 → 'tutorial_refine'). */
       const _dismissPrefix = opts.dismissKeyPrefix || _prefix;
-      if (!steps.length || _isDismissed(_dismissPrefix, _version) || typeof document === 'undefined' || !document.body) { resolve(false); return; }
+      const _scope = opts.scope || null;   /* TUTORIAL-SCOPE-1: 모둠 계정 스코프 */
+      const _force = !!opts.force;          /* ? 재열람 — dismiss 무시 */
+      if (!steps.length || (!_force && _isDismissed(_dismissPrefix, _version, _scope)) || typeof document === 'undefined' || !document.body) { resolve(false); return; }
       /* 대상이 하나라도 실재해야 시작(편집 UI 준비 안 됐으면 스킵) */
       if (!steps.some(s => _findEl(s.sel))) { resolve(false); return; }
 
@@ -135,9 +138,9 @@
     });
   }
 
-  function reset(prefix) {
+  function reset(prefix, scope) {
     const C = _content(); const version = (C && C.version) ? C.version : 1;
-    try { localStorage.removeItem(_dismissKey(prefix || 'tutorial_welcome', version)); } catch (e) { /* noop */ }
+    try { localStorage.removeItem(_dismissKey(prefix || 'tutorial_welcome', version, scope)); } catch (e) { /* noop */ }
   }
 
   if (typeof window !== 'undefined') window.TutorialCoach = { run: run, reset: reset };

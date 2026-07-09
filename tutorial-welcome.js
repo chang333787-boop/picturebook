@@ -22,16 +22,16 @@
      원인: 옛 seen 플래그가 기기 단위라 같은 태블릿에서 계정을 새로 만들어도 안 떴음(사용자 보고).
      이제 기본은 매 진입 표시하고, 모달의 '다시 열지 않기' 체크 시에만 dismissed 플래그를 남겨 영구 억제.
      키를 '_seen'→'_dismissed'로 바꿔 기존 seen 플래그(전 기기에 이미 있음)를 무시 → 모두 다시 보게 됨. */
-  function _dismissKey(prefix, version) { return (prefix || 'tutorial_welcome') + '_v' + version + '_dismissed'; }
-
-  function _isDismissed(prefix, version) {
-    const dev = _deviceId();
-    if (dev === null) return true;   /* localStorage 불가 → 안 띄움(에디터 안 막음) */
-    try { const v = localStorage.getItem(_dismissKey(prefix, version)); return v === dev || v === '1'; }
-    catch (e) { return true; }
+  /* TUTORIAL-SCOPE-1(2026-07-09): dismiss 범위를 기기 → '모둠 계정' 단위로. scope(classId+teamName)를 키에 넣어
+     같은 태블릿의 다른 모둠/계정에 '다시 열지 않기'가 새지 않게(사용자 보고: 계정 간 누수). scope 없으면 기존
+     기기 단위 키(하위호환·값이 기기ID여도 truthy=dismissed). 값 '1'. localStorage 불가 시 dismissed로 간주(에디터 안 막음). */
+  function _scopeSuffix(scope) { return scope ? ('_' + scope) : ''; }
+  function _dismissKey(prefix, version, scope) { return (prefix || 'tutorial_welcome') + '_v' + version + _scopeSuffix(scope) + '_dismissed'; }
+  function _isDismissed(prefix, version, scope) {
+    try { return !!localStorage.getItem(_dismissKey(prefix, version, scope)); } catch (e) { return true; }
   }
-  function _markDismissed(prefix, version) {
-    try { localStorage.setItem(_dismissKey(prefix, version), _deviceId() || '1'); } catch (e) { /* noop */ }
+  function _markDismissed(prefix, version, scope) {
+    try { localStorage.setItem(_dismissKey(prefix, version, scope), '1'); } catch (e) { /* noop */ }
   }
 
   function _remove() {
@@ -47,13 +47,18 @@
     const deck = opts.deck || 'welcome';
     const prefix = opts.keyPrefix || 'tutorial_welcome';
     const filterType = opts.filterType || null;   /* 작품 유형(text/picturebook/movie/experience) */
+    const scope = opts.scope || null;             /* TUTORIAL-SCOPE-1: 모둠 계정 스코프(없으면 기기) */
+    const force = !!opts.force;                    /* ? 재열람 — dismiss 무시하고 강제 표시 */
+    const deferDismiss = !!opts.deferDismiss;      /* 시퀀스(환영+코치): 여기선 dismiss 확정 안 함, 호출부가 코치 후 처리 */
     return new Promise((resolve) => {
       const C = _content();
       let slides = (C && Array.isArray(C[deck])) ? C[deck] : [];
       /* 유형 맞춤: slide.types가 있으면 현재 유형이 포함될 때만. types 없으면 전체 노출. */
       if (filterType) slides = slides.filter(s => !s.types || s.types.indexOf(filterType) !== -1);
       const version = (C && C.version) ? C.version : 1;
-      if (!slides.length || _isDismissed(prefix, version)) { resolve(false); return; }
+      if (!slides.length || (!force && _isDismissed(prefix, version, scope))) {
+        resolve(deferDismiss ? { shown: false, dontShow: false } : false); return;
+      }
       if (typeof document === 'undefined' || !document.body) { resolve(false); return; }
       _remove();
 
@@ -71,7 +76,12 @@
 
       /* TUTORIAL-SHOW-POLICY-1: 기본은 매 진입 표시. finish 시 '다시 열지 않기'가 체크됐을 때만 억제. */
       let dontShow = false;
-      const finish = () => { if (dontShow) _markDismissed(prefix, version); _remove(); resolve(true); };
+      const finish = () => {
+        /* deferDismiss(시퀀스)면 여기서 확정하지 않음 → 코치까지 뜬 뒤 호출부가 markDismissed(코치가 억제되기 전에 표시되도록). */
+        if (dontShow && !deferDismiss) _markDismissed(prefix, version, scope);
+        _remove();
+        resolve(deferDismiss ? { shown: true, dontShow: dontShow } : true);
+      };
 
       const _art = (id) => (typeof window !== 'undefined' && window.TutorialArt) ? window.TutorialArt.get(id) : '';
       const render = () => {
@@ -133,13 +143,20 @@
   }
 
   /* 교사 리셋/디버그용(선택) — '다시 열지 않기'로 억제한 걸 해제해 다시 표시. prefix 미지정=환영. */
-  function reset(prefix) {
+  function reset(prefix, scope) {
     const C = _content();
     const version = (C && C.version) ? C.version : 1;
-    try { localStorage.removeItem(_dismissKey(prefix || 'tutorial_welcome', version)); } catch (e) { /* noop */ }
+    try { localStorage.removeItem(_dismissKey(prefix || 'tutorial_welcome', version, scope)); } catch (e) { /* noop */ }
   }
 
   if (typeof window !== 'undefined') {
-    window.TutorialWelcome = { maybeShow: maybeShow, reset: reset, _isDismissed: _isDismissed };
+    window.TutorialWelcome = {
+      maybeShow: maybeShow, reset: reset, _isDismissed: _isDismissed,
+      /* TUTORIAL-SCOPE-1: 시퀀스(환영+코치) 완료 후 호출부가 dismiss를 확정할 때 사용. */
+      markDismissed: function (prefix, scope) {
+        const C = _content(); const version = (C && C.version) ? C.version : 1;
+        _markDismissed(prefix, version, scope);
+      },
+    };
   }
 })();

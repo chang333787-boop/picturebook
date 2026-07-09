@@ -115,14 +115,39 @@ async function handleEntrySubmit() {
    전체화면 진입(_enterViewer)과 인앱 '감상 화면 다듬기'(viewer-render _goEdit) 양쪽에서 호출 →
    코치마크가 두 경로 모두에서 뜬다(기존엔 전체화면 진입만 호출해 인앱 진입 시 안 떴음).
    maker 세션 게이트는 호출부에서, 기기 dismiss 플래그 존중은 TutorialWelcome/Coach 내부. */
-window.__maybeRunRefineTutorial = function (ptype) {
+/* TUTORIAL-SCOPE-1(2026-07-09): dismiss 스코프를 '모둠 계정'(classId+teamName)으로 — 같은 태블릿의 다른 모둠에
+   '다시 열지 않기'가 새지 않게. 없으면 null → 기기 단위(폴백). */
+function _refineTutorialScope() {
   try {
+    var p = (typeof ViewerState !== 'undefined' && ViewerState) ? (ViewerState.project || null) : null;
+    var cid = (p && p.classId) || (typeof ViewerState !== 'undefined' && ViewerState && ViewerState.classId) || null;
+    var tn  = (p && p.teamName) || (typeof ViewerState !== 'undefined' && ViewerState && ViewerState.teamName) || null;
+    if (cid && tn) return encodeURIComponent(String(cid) + '__' + String(tn));
+  } catch (e) { /* noop */ }
+  return null;
+}
+window.__maybeRunRefineTutorial = function (ptype, opts) {
+  try {
+    opts = opts || {};
+    var force = !!opts.force;               /* ? 재열람: dismiss 무시하고 강제 */
+    var scope = _refineTutorialScope();
     if (typeof window === 'undefined' || !window.TutorialWelcome || typeof window.TutorialWelcome.maybeShow !== 'function') return;
-    window.TutorialWelcome.maybeShow({ deck: 'refineWelcome', keyPrefix: 'tutorial_refine', filterType: ptype || null })
-      .then(function () {
-        if (window.TutorialCoach && typeof window.TutorialCoach.run === 'function') {
-          try { window.TutorialCoach.run({ stepsKey: 'refineCoach', keyPrefix: 'tutorial_refine_coach', dismissKeyPrefix: 'tutorial_refine', filterType: ptype || null }); } catch (e) { /* noop */ }
-        }
+    /* deferDismiss: 환영에서 '다시 열지 않기'를 즉시 확정하지 않고(코치가 먼저 뜨도록) 시퀀스 끝에서 확정. */
+    window.TutorialWelcome.maybeShow({ deck: 'refineWelcome', keyPrefix: 'tutorial_refine', filterType: ptype || null, scope: scope, force: force, deferDismiss: true })
+      .then(function (res) {
+        var dontShow = !!(res && res.dontShow);
+        var coachDone = Promise.resolve(false);
+        try {
+          if (window.TutorialCoach && typeof window.TutorialCoach.run === 'function') {
+            coachDone = window.TutorialCoach.run({ stepsKey: 'refineCoach', keyPrefix: 'tutorial_refine_coach', dismissKeyPrefix: 'tutorial_refine', filterType: ptype || null, scope: scope, force: force });
+          }
+        } catch (e) { coachDone = Promise.resolve(false); }
+        Promise.resolve(coachDone).then(function () {
+          /* 환영+코치 시퀀스가 끝난 뒤에만 dismiss 확정 → 코치가 화면에 뜨기 전에 억제되던 문제 해소. */
+          if (dontShow && typeof window.TutorialWelcome.markDismissed === 'function') {
+            try { window.TutorialWelcome.markDismissed('tutorial_refine', scope); } catch (e) { /* noop */ }
+          }
+        }).catch(function () { /* noop */ });
       })
       .catch(function () { /* noop */ });
   } catch (e) { /* noop */ }

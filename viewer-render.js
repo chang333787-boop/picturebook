@@ -2367,6 +2367,7 @@ function renderHUD() {
       <span class="maker-return-label">${isEdit ? '🎨 마감 편집 중' : '✏️ 제작자 테스트 중'}</span>
       <div class="maker-return-actions">
         ${isEdit ? `
+          <button class="maker-return-btn maker-return-btn--tool js-refine-help" title="다듬기 사용법을 다시 봐요" aria-label="다듬기 사용법 다시 보기">❓ 사용법</button>
           ${_isNormalHudScene ? '<button class="maker-return-btn maker-return-btn--tool js-edit-choice-popover" title="행동 버튼과 연결 장면을 편집합니다" aria-label="행동 버튼과 연결 장면을 편집합니다">🔗 버튼</button>' : ''}
           ${_isCoverHudScene ? '<button class="maker-return-btn maker-return-btn--tool js-edit-cover-popover" title="표지 색과 표지 느낌을 편집합니다" aria-label="표지 색과 표지 느낌을 편집합니다">🎨 표지</button>' : ''}
           ${_isPbImageHudScene ? '<button class="maker-return-btn maker-return-btn--tool js-edit-image-popover" title="장면 그림을 편집합니다 — 업로드·그리기·자르기" aria-label="장면 그림을 편집합니다">🖼 그림</button>' : ''}
@@ -2505,6 +2506,14 @@ function renderHUD() {
         .catch(() => { window.__goEditLoading = false; alert('편집 도구를 불러오지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요.'); });
     } else {
       _goEdit();
+    }
+  });
+
+  /* TUTORIAL-SCOPE-1(2026-07-09): ❓ 사용법 — 다듬기 튜토리얼(환영+코치) 강제 재열람(dismiss 무시).
+     편집 HUD에만 존재(코치 대상 버튼이 이 모드에 있어야 코치가 뜸). force로 이미 끈 모둠도 다시 볼 수 있음. */
+  hud.querySelector('.js-refine-help')?.addEventListener('click', () => {
+    if (typeof window.__maybeRunRefineTutorial === 'function') {
+      window.__maybeRunRefineTutorial(ViewerState.project && ViewerState.project.projectType, { force: true });
     }
   });
 

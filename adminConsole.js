@@ -120,15 +120,21 @@ window.addEventListener('DOMContentLoaded', () => {
    ⚠️ adminState.verified는 UI 게이트. 실질 보안은 Firebase Rules에 의존. */
 function _enterAdminDirect() {
   adminState.verified = true;
+  /* ADMIN-REDESIGN-1(2026-07-09): 학생 입장폼(#join-screen)을 숨겨 관리 진입 시 뒤 노출/플래시 방지.
+     학생 입장 흐름(firebase.js가 성공 시 hidden 토글)엔 무영향 — admin 진입 세션에서만 숨김. */
+  document.getElementById('join-screen')?.classList.add('hidden');
   document.getElementById('admin-panel').style.display = 'flex';
   loadAdminData();
 }
 
 function closeAdmin() {
+  /* ADMIN-REDESIGN-1(2026-07-09): 닫기 = 교사 홈(index)으로 이동. 기존엔 admin-panel만 display:none 해서
+     밑에 깔려 있던 학생 입장폼(#join-screen)이 드러나 사용자가 혼란 → index로 명시 이동해 근본 해소.
+     상태/캐시 리셋은 유지(호출 안전). 페이지 이동이라 재진입은 fresh reload. */
   adminState.verified     = false;
   adminState.adminClassId = null;
-  _invalidateAdminCache('close-admin');   // classId 변경/로그아웃 대비 — 다음 진입 시 새로 읽음
-  document.getElementById('admin-panel').style.display = 'none';
+  _invalidateAdminCache('close-admin');
+  window.location.replace('index.html');
 }
 
 /* ================================================================

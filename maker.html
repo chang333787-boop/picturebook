@@ -1591,17 +1591,32 @@
     /* ================================================================
        Admin 운영 대시보드 CSS (Warm Paper — 골드 톤, teacher-auth와 통일)
        ================================================================ */
-    .admin-sheet {
-      background:#fffaee;border-radius:20px;width:100%;max-width:720px;
-      box-shadow:0 16px 48px rgba(120,90,50,.18);overflow:hidden;
-      border:1px solid rgba(80,50,20,0.10);
+    /* ADMIN-REDESIGN-1(2026-07-09): 전체화면 좌측메뉴+우측내용 셸(가운데 팝업 폐기) */
+    .admin-shell { display:flex; width:100%; height:100%; background:#fbf6ea; }
+    .admin-side {
+      width:230px; flex:0 0 230px; background:#f0e7d3; border-right:1px solid rgba(80,50,20,0.12);
+      display:flex; flex-direction:column; padding:16px 12px; box-sizing:border-box;
     }
-    .admin-header {
-      background:#c79550;padding:16px 22px;
-      display:flex;align-items:center;justify-content:space-between;
+    .admin-side-head { padding:2px 8px 12px; }
+    .admin-header-title { font-family:var(--font-h);font-size:17px;color:#3a2c18; }
+    .admin-header-sub   { font-size:11px;color:#8a6f45;margin-top:2px; }
+    .admin-menu { display:flex; flex-direction:column; gap:4px; flex:1; }
+    .admin-mi {
+      display:flex; align-items:center; gap:9px; padding:11px 13px; border:none; background:none;
+      border-radius:10px; font-size:14.5px; font-weight:600; color:#5a4a30; cursor:pointer; text-align:left; font-family:inherit; width:100%;
     }
-    .admin-header-title { font-family:var(--font-h);font-size:19px;color:#fffaee; }
-    .admin-header-sub   { font-size:11px;color:rgba(255,250,238,.80);margin-top:2px; }
+    .admin-mi:hover { background:rgba(199,149,80,.14); }
+    .admin-mi.is-active { background:#c79550; color:#fffaee; box-shadow:0 2px 8px rgba(150,110,40,.28); }
+    .admin-content { flex:1; overflow-y:auto; padding:0 0 40px; box-sizing:border-box; }
+    .admin-tab { display:none; }
+    .admin-tab.is-active { display:block; }
+    /* 좁은 화면(태블릿 세로 등): 좌측메뉴 가로 상단바로 */
+    @media (max-width:720px) {
+      .admin-shell { flex-direction:column; }
+      .admin-side { width:100%; flex:0 0 auto; border-right:none; border-bottom:1px solid rgba(80,50,20,0.12); padding:10px; }
+      .admin-menu { flex-direction:row; flex-wrap:wrap; }
+      .admin-side-head { padding:2px 6px 8px; }
+    }
     /* v94: 헤더에 클래스 이름 + 코드 + 복사 버튼 */
     .admin-class-bar {
       background:#fffaee;border-bottom:1px solid rgba(80,50,20,0.10);
@@ -1743,11 +1758,18 @@
       background:#fffaee;border:1px solid rgba(80,50,20,0.15);
       padding:6px 12px;border-radius:6px;word-break:break-all;
     }
-    .admin-refresh-btn,.admin-close-btn {
-      background:rgba(255,250,238,.20);border:none;color:#fffaee;
-      width:30px;height:30px;border-radius:50%;font-size:15px;cursor:pointer;
+    /* ADMIN-REDESIGN-1: 사이드바 하단 버튼(새로고침·나가기·닫기) */
+    .admin-refresh-btn {
+      flex:1;background:#fffaee;border:1px solid rgba(80,50,20,0.14);color:#5a4a30;
+      border-radius:8px;padding:8px 5px;font-size:12px;cursor:pointer;font-family:inherit;
+      display:inline-flex;align-items:center;justify-content:center;gap:4px;
     }
-    .admin-close-btn { font-size:17px; }
+    .admin-refresh-btn:hover { background:#fff; }
+    .admin-close-btn {
+      flex:0 0 auto;background:#fffaee;border:1px solid rgba(80,50,20,0.14);color:#8a6f45;
+      width:34px;height:34px;border-radius:8px;font-size:15px;cursor:pointer;
+    }
+    .admin-close-btn:hover { background:#fff; }
     .admin-summary-bar {
       display:flex;align-items:center;gap:16px;flex-wrap:wrap;
       background:#f4ecd8;border-bottom:1px solid rgba(80,50,20,0.10);padding:12px 22px;
@@ -3160,44 +3182,54 @@
 <!-- PATH-CHECK-REMOVE(2026-07-09): 구조 검사(이야기 길 점검) 패널 제거 — 기능 삭제(사용자 요청). -->
 
 
-<!-- 관리자 패널 -->
-<div id="admin-panel" style="display:none;position:fixed;inset:0;background:rgba(60,40,20,.55);z-index:1100;align-items:flex-start;justify-content:center;overflow-y:auto;padding:20px 0;">
-  <div class="admin-sheet">
+<!-- 관리자 패널 — ADMIN-REDESIGN-1(2026-07-09): 가운데 팝업 → 전체화면 좌측메뉴+우측내용.
+     ⚠️ 7개 컨테이너 id(admin-class-bar/ai-settings/team-mode/team-create/summary-bar/filter-bar/team-list)와
+     3개 버튼 id(btn-admin-home/refresh/close)는 절대 유지 — adminConsole.js/ui.js가 getElementById로 하드코딩·이벤트위임 앵커. -->
+<div id="admin-panel" style="display:none;position:fixed;inset:0;background:#e7ddc7;z-index:1100;">
+  <div class="admin-shell">
 
-    <!-- 헤더 -->
-    <div class="admin-header">
-      <div>
+    <!-- 좌측 메뉴 -->
+    <aside class="admin-side">
+      <div class="admin-side-head">
         <div class="admin-header-title">🛠 교사 관리</div>
         <div class="admin-header-sub">수업 운영 대시보드</div>
       </div>
-      <div style="display:flex;align-items:center;gap:8px;">
-        <!-- 처음으로 — index 이동만(교사 인증 세션 삭제 안 함). 보조 위계. -->
-        <button id="btn-admin-home" class="admin-refresh-btn" title="처음으로" style="width:auto;padding:0 12px;gap:5px;display:inline-flex;align-items:center;font-size:13px;">🌿 처음으로</button>
-        <button id="btn-admin-refresh" class="admin-refresh-btn">🔄</button>
-        <button id="btn-admin-close" class="admin-close-btn">✕</button>
+      <nav class="admin-menu">
+        <button type="button" class="admin-mi is-active" data-admin-tab="teams">👥 <span>팀·작품</span></button>
+        <button type="button" class="admin-mi" data-admin-tab="settings">⚙️ <span>학급 설정</span></button>
+      </nav>
+      <div class="admin-side-foot">
+        <button id="btn-admin-refresh" class="admin-refresh-btn" title="새로고침">🔄 <span>새로고침</span></button>
+        <button id="btn-admin-home" class="admin-refresh-btn" title="교사 홈으로 나가기">🌿 <span>나가기</span></button>
+        <button id="btn-admin-close" class="admin-close-btn" title="닫기(교사 홈)">✕</button>
       </div>
-    </div>
+    </aside>
 
-    <!-- v94: 클래스 정보 바 (반 이름 + 코드 + 복사) -->
-    <div id="admin-class-bar" class="admin-class-bar" style="display:none;"></div>
+    <!-- 우측 내용 -->
+    <main class="admin-content">
+      <!-- v94: 클래스 정보 바 (반 이름 + 코드 + 복사) — 항상 상단 노출 -->
+      <div id="admin-class-bar" class="admin-class-bar" style="display:none;"></div>
 
-    <!-- Phase 1: 학급 AI 설정 패널 -->
-    <div id="admin-ai-settings" class="admin-ai-settings" style="display:none;"></div>
+      <!-- 탭: 팀·작품 (기본) -->
+      <section class="admin-tab is-active" data-admin-tab="teams">
+        <!-- 운영 요약 바 -->
+        <div id="admin-summary-bar" class="admin-summary-bar"></div>
+        <!-- 필터 + 정렬 바 -->
+        <div id="admin-filter-bar" class="admin-filter-bar"></div>
+        <!-- 팀 카드 리스트 (이벤트위임 앵커 — id 유지 필수) -->
+        <div id="admin-team-list" class="admin-team-list"></div>
+      </section>
 
-    <!-- ADMIN-1C: 학생 팀 생성 방식 설정 패널 -->
-    <div id="admin-team-mode" class="admin-tc admin-tm" style="display:none;"></div>
-
-    <!-- ADMIN-1B: 교사 팀/학생 계정 사전 생성 패널 -->
-    <div id="admin-team-create" class="admin-tc" style="display:none;"></div>
-
-    <!-- 운영 요약 바 -->
-    <div id="admin-summary-bar" class="admin-summary-bar"></div>
-
-    <!-- 필터 + 정렬 바 -->
-    <div id="admin-filter-bar" class="admin-filter-bar"></div>
-
-    <!-- 팀 카드 리스트 -->
-    <div id="admin-team-list" class="admin-team-list"></div>
+      <!-- 탭: 학급 설정 (AI 설정 + 팀 생성 방식 + 계정 만들기 = 한 묶음) -->
+      <section class="admin-tab" data-admin-tab="settings">
+        <!-- 학급 AI 설정 패널 -->
+        <div id="admin-ai-settings" class="admin-ai-settings" style="display:none;"></div>
+        <!-- 학생 팀 생성 방식 설정 패널 -->
+        <div id="admin-team-mode" class="admin-tc admin-tm" style="display:none;"></div>
+        <!-- 교사 팀/학생 계정 사전 생성 패널 -->
+        <div id="admin-team-create" class="admin-tc" style="display:none;"></div>
+      </section>
+    </main>
 
   </div>
 </div>
@@ -3231,7 +3263,7 @@
 <script src="thought-compass-gate.js?v=tcphase1dqa1"></script>
 <script src="thought-compass-ai.js?v=tcphase1h"></script>
 <script src="thought-compass-editsession.js?v=tcphase1kqa2"></script>
-<script src="thought-compass-ui.js?v=compassfollowup1pathcheckremove1"></script>
+<script src="thought-compass-ui.js?v=compassfollowup1pathcheckremove1adminredesign1"></script>
 <script src="thought-compass-sheet.js?v=tcsheet1"></script>
 <script src="thought-compass-rose.js?v=compassrose1teacherprint1"></script>
 <script src="thought-compass-review.js?v=compassrose1teacherprint1legacyux1tutorialtrig1"></script>
@@ -3241,7 +3273,7 @@
 <script src="sceneRenderer.js?v=119base10bbase10auto1coverstart1scenetitle1ascenetitle2apwanav2vpreturn1perfqa1branchcard1branchcard2branchcard3branchcard4cover1cover2cover3compassbtn1pbflowcopy1cardquickedit1"></script>
 <script src="storyAnalyzer.js?v=136checkbuttons1heuristic3"></script>
 <script src="mediaManager.js?v=114copyfix1uitextfix1"></script>
-<script src="adminConsole.js?v=103copyfix1pwanav2imgs2settings1writeafterui1waq1finishgroup1scenepubprint1accountmode1uitextfix1teacherprint1teamcard1memberlist1legacyux1delsafety2tutorialcd1"></script>
+<script src="adminConsole.js?v=103copyfix1pwanav2imgs2settings1writeafterui1waq1finishgroup1scenepubprint1accountmode1uitextfix1teacherprint1teamcard1memberlist1legacyux1delsafety2tutorialcd1adminredesign1"></script>
 <script src="preview.js?v=96"></script>
 <script src="projectSettings.js?v=114copyfix1coverstart2"></script>
 <script src="ui.js?v=109copyfix2c2base10bfixendingguard1addscene1base10auto1branchtopbar1cscenetitle1asessionrefresh1apwanav2homenav1vpreturn1sec5tcphase1dcompassbtn1cardquickedit1accountux1tutorialtrig1"></script>

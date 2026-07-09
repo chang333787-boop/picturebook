@@ -1157,6 +1157,16 @@ window.addEventListener('DOMContentLoaded', () => {
     _clearBranchViewportReturn();
     window.location.replace('index.html');
   });
+  /* ADMIN-REDESIGN-1(2026-07-09): 좌측 메뉴 탭 전환(팀·작품 ↔ 학급 설정). display 토글만 —
+     섹션 렌더러·팀카드 이벤트위임(#admin-team-list)·저장경로 전부 무영향. 정적 DOM이라 1회 바인딩. */
+  document.querySelectorAll('.admin-menu .admin-mi').forEach((mi) => {
+    mi.addEventListener('click', () => {
+      const tab = mi.getAttribute('data-admin-tab');
+      document.querySelectorAll('.admin-menu .admin-mi').forEach((b) => b.classList.toggle('is-active', b === mi));
+      document.querySelectorAll('.admin-content .admin-tab').forEach((s) => s.classList.toggle('is-active', s.getAttribute('data-admin-tab') === tab));
+      const c = document.querySelector('.admin-content'); if (c) c.scrollTop = 0;
+    });
+  });
 
   /* 처음으로(브랜치 화면 상단) — 이동 직전 저장 큐 명시 flush 후 index로 replace 이동.
      <a href> 기본 이동은 막고(preventDefault) replace 사용 → 뒤로가기로 maker 재튕김 방지.

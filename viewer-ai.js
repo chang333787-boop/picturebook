@@ -3377,10 +3377,6 @@
         </div>`;
           return sec1 + sec2 + secRoute + sec3;
         })()}
-        <div class="ai-mode-history" style="margin-top:14px;padding-top:14px;border-top:1px solid #ecdfc4;text-align:center;">
-          <button type="button" class="ai-btn ai-btn--ghost js-ai-show-latest-check">🔍 최근 검사 결과 보기</button>
-          <div style="margin-top:6px;color:#8a7a5e;font-size:12px;">AI를 다시 부르지 않고 마지막 작품 검사 결과를 보여줘요.</div>
-        </div>
         ${_isTestMode() ? `
         <div class="ai-mode-testmode-panel">
           <div class="ai-mode-testmode-panel__head">
@@ -3468,12 +3464,8 @@
       _showModeModal();
     });
 
-    /* WORKCHECK-HISTORY-1: 저장된 마지막 작품검사 결과를 다시 보기 — AI 재호출/quota 없음, DB read만 */
-    const latestBtn = root.querySelector('.js-ai-show-latest-check');
-    if (latestBtn) latestBtn.addEventListener('click', function () {
-      _removeModalRoot('ai-mode-modal');
-      _showLatestWorkCheck();
-    });
+    /* WORKCHECK-HISTORY-BOTTOM 제거(2026-07-09): 하단 '최근 검사 결과 보기'는 위 2구역 '🔍 작품 검사 결과 보기'와
+       중복이라 삭제(사용자 요청). _showLatestWorkCheck 자체는 그 카드·복귀 흐름에서 계속 사용. */
 
     /* v140 fix 2026-05-21: TEST MODE reset 버튼 연결 — 4 버튼. reset 후 모달 다시 렌더 (남은 횟수 갱신) */
     function _afterReset(label) {

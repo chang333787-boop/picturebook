@@ -640,6 +640,7 @@ function _renderTeamCreatePanel(classId) {
       <button id="admin-tc-create" class="admin-tc-btn">팀 만들기</button>
     </div>
     <div class="admin-tc-cardrow">
+      <button id="admin-tc-manual" class="admin-tc-btn" type="button" title="교사·학생 사용법을 화면에서 자세히 봐요 — 계정 만들기·권한부여부터(처음 하는 분용)">📖 자세한 설명서</button>
       <button id="admin-tc-print-cards" class="admin-tc-btn admin-tc-btn--ghost" type="button" title="등록된 모둠의 클래스 코드·이름·PIN을 카드로 인쇄해요 (학생 배부용)">🖨 입장 카드 인쇄</button>
       <button id="admin-tc-print-manual-student" class="admin-tc-btn admin-tc-btn--ghost" type="button" title="학생이 책상에 두고 보는 작품 만들기 사용법 1장 (배부용)">🖨 사용설명서(학생)</button>
       <button id="admin-tc-print-manual-teacher" class="admin-tc-btn admin-tc-btn--ghost" type="button" title="교사 수업 준비 가이드 1장 (로그인·계정·인쇄·점검)">🖨 준비 가이드(교사)</button>
@@ -668,6 +669,12 @@ function _renderTeamCreatePanel(classId) {
   };
   if (manualS) manualS.addEventListener('click', () => _tp('printStudent'));
   if (manualT) manualT.addEventListener('click', () => _tp('printTeacher'));
+  /* ADMIN-REDESIGN Phase 3: 화면형 상세 설명서(교사 계정 만들기·권한부여부터). */
+  const manualDetail = document.getElementById('admin-tc-manual');
+  if (manualDetail) manualDetail.addEventListener('click', () => {
+    if (window.AdminManual && typeof window.AdminManual.open === 'function') window.AdminManual.open('teacher');
+    else alert('설명서를 불러오지 못했어요. 새로고침 후 다시 시도해 주세요.');
+  });
   [nameEl, pinEl].forEach(el => el && el.addEventListener('keydown', e => {
     if (e.key === 'Enter') { e.preventDefault(); btn.click(); }
   }));

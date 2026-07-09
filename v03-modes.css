@@ -3419,6 +3419,19 @@ body[data-pb-theme="night-story"]        .choice-v03--picturebook:hover:not(:dis
 }
 
 /* ── 1. 포근한 동화책 cozy-storybook ── */
+/* COVER-THEME-1(2026-07-09): 표지가 그림책 스킨 테마(cozy/paper/gallery/forest)를 따라가게 — 표지가 흰색이라
+   밋밋하던 문제(다듬기·감상 표지 둘 다 예뻐짐이 목적). 표지 페이지(.pb-page)=투명 → 테마 배경(.scene-screen--pb)이
+   비치고, 표지 카드(.cover-book)=테마 종이색. body[data-pb-theme=X] .cover-as-pb(0,3,0) > data-cover-theme 규칙(0,2,0)
+   이라 !important 없이 우선. 표지 구조/제목/데이터·기존 밤테마 작품 무변경(추가 CSS만). */
+body[data-pb-theme="cozy-storybook"]     .cover-as-pb .pb-page,
+body[data-pb-theme="paper-storybook"]    .cover-as-pb .pb-page,
+body[data-pb-theme="gallery-picturebook"] .cover-as-pb .pb-page,
+body[data-pb-theme="forest-storybook"]   .cover-as-pb .pb-page { background: transparent; }
+body[data-pb-theme="cozy-storybook"]     .cover-as-pb .cover-book { background: linear-gradient(#f7efd6, #ecdfc6); border: 1px solid rgba(150,120,70,.28); }
+body[data-pb-theme="paper-storybook"]    .cover-as-pb .cover-book { background: linear-gradient(#f7eece, #ece0bf); border: 1px solid rgba(150,135,100,.4); }
+body[data-pb-theme="gallery-picturebook"] .cover-as-pb .cover-book { background: #fbfbfa; border: 1px solid rgba(120,120,115,.28); }
+body[data-pb-theme="forest-storybook"]   .cover-as-pb .cover-book { background: linear-gradient(#e8f0de, #d3e0c6); border: 1px solid rgba(94,125,74,.3); }
+
 body[data-pb-theme="cozy-storybook"] .scene-screen--pb { background: #ecdfc6; }
 body[data-pb-theme="cozy-storybook"] .picturebook-page {
   background:

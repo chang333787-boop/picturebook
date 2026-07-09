@@ -1179,6 +1179,17 @@ window.addEventListener('DOMContentLoaded', () => {
     window.location.replace('index.html');
   });
 
+  /* ADMIN-REDESIGN Phase 2: 교사 관리로 돌아가기(브랜치 화면 상단·기본 숨김, tauth 자동입장 성공 시 노출).
+     처음으로와 동일하게 이동 직전 저장 flush 후 maker.html?admin=1로 replace 이동 →
+     ui.js ?admin=1 핸들러 → onAuthStateChanged → _enterAdminDirect(교사 이미 인증, 즉시 복원). */
+  document.getElementById('btn-back-to-admin')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    try { if (typeof flushTitleSaves === 'function') flushTitleSaves(); } catch (_) {}
+    try { if (typeof flushBodySaves  === 'function') flushBodySaves();  } catch (_) {}
+    _clearBranchViewportReturn();
+    window.location.replace('maker.html?admin=1');
+  });
+
   /* 템플릿 — HTML에서 제거됨 (사용자 결정: 시작 템플릿 폐기). querySelectorAll은 빈 NodeList → noop. */
   document.querySelectorAll('[data-tpl]').forEach(btn =>
     btn.addEventListener('click', () => selectTemplate(btn.dataset.tpl))
@@ -1372,6 +1383,12 @@ window.addEventListener('DOMContentLoaded', () => {
       let ok = false;
       if (isTeacher && typeof _teacherJoinTeam === 'function') {
         try { ok = await _teacherJoinTeam(_classIdParam, _teamParam); } catch (e) { ok = false; }
+      }
+      if (ok) {
+        /* ADMIN-REDESIGN Phase 2: 관리 화면 🛠수정으로 편집 진입 성공 → 상단바 '관리로 돌아가기' 노출.
+           클릭 핸들러는 위에서 이미 바인딩됨(숨김 상태에도 안전). */
+        const _backBtn = document.getElementById('btn-back-to-admin');
+        if (_backBtn) _backBtn.style.display = '';
       }
       if (!ok) {
         /* 폴백: 일반 입장 폼(팀명 채우고 PIN 직접) */

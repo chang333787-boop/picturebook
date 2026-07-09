@@ -2928,6 +2928,8 @@
   <div class="tb-section tb-section--left">
     <div class="tb-identity">
       <a href="index.html" class="tb-home-link" title="처음으로" id="btn-home-link"><span class="tb-home-leaf" aria-hidden="true">🌿</span><span class="tb-home-text">처음으로</span></a>
+      <!-- ADMIN-REDESIGN Phase 2: 교사가 관리 화면 🛠수정으로 편집 진입한 세션에서만 노출(ui.js tauth 성공 시). 관리(?admin=1)로 복귀. -->
+      <a href="maker.html?admin=1" class="tb-home-link tb-back-admin" title="교사 관리로 돌아가기" id="btn-back-to-admin" style="display:none"><span class="tb-home-leaf" aria-hidden="true">←</span><span class="tb-home-text">관리로</span></a>
       <div class="tb-workspace-info">
         <span class="tb-workspace-label">작품 만들기</span>
         <div class="tb-team-row">
@@ -3276,7 +3278,7 @@
 <script src="adminConsole.js?v=103copyfix1pwanav2imgs2settings1writeafterui1waq1finishgroup1scenepubprint1accountmode1uitextfix1teacherprint1teamcard1memberlist1legacyux1delsafety2tutorialcd1adminredesign1teacherjoin1"></script>
 <script src="preview.js?v=96"></script>
 <script src="projectSettings.js?v=114copyfix1coverstart2"></script>
-<script src="ui.js?v=109copyfix2c2base10bfixendingguard1addscene1base10auto1branchtopbar1cscenetitle1asessionrefresh1apwanav2homenav1vpreturn1sec5tcphase1dcompassbtn1cardquickedit1accountux1tutorialtrig1teacherjoin1"></script>
+<script src="ui.js?v=109copyfix2c2base10bfixendingguard1addscene1base10auto1branchtopbar1cscenetitle1asessionrefresh1apwanav2homenav1vpreturn1sec5tcphase1dcompassbtn1cardquickedit1accountux1tutorialtrig1teacherjoin1adminback1"></script>
 <!-- v95: 모바일 텍스트형 브랜치 전용 (텍스트 작품 + 모바일에서만 활성) -->
 <script src="mobileTextBranch.js?v=compassbundle1uitextfix1"></script>
 <!-- TUTORIAL-PRD: 콘텐츠·삽화·데모(먼저) → 도움말/환영/인쇄 -->

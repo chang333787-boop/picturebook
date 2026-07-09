@@ -244,7 +244,7 @@
         const st = _el('div', 'pbp-stage2');
         const im = document.createElement('img'); im.className = 'pbp-stage2-img'; im.src = img;
         st.appendChild(im);
-        st.appendChild(_el('span', 'pbp-num-overlay', numText));
+        /* PB-NUM-FOOT(2026-07-09): 장면 번호는 그림 좌상단 배지 대신 선택지 아래(하단)로 이동(직관성·사용자 요청). */
         if ((s.title || '').trim()) st.appendChild(_el('div', 'pbp-stage2-title', s.title.trim()));
         const isImageCenter = (s.picturebookSubmode === 'imageCenter');
         if (body && isImageCenter) {
@@ -253,9 +253,11 @@
           const bb = layoutOf(s);
           const op = (typeof bb.backdropOpacity === 'number') ? bb.backdropOpacity : 0.85;
           const bub = _el('div', 'pbp-stage2-bubble');
+          /* PAPER-BUBBLE(2026-07-09): 흰색 인라인 대신 진하기만 변수로 넘기고 배경색은 인쇄 CSS(paper 베이지)가 적용.
+             화면 paper-storybook 말풍선(v03-modes.css)과 톤 일치. */
           bub.style.cssText = 'left:' + bb.x + '%;top:' + bb.y + '%;width:' + bb.width + '%;'
             + (typeof bb.height === 'number' ? 'min-height:' + bb.height + '%;' : '')
-            + 'background:rgba(255,255,255,' + op + ');'
+            + '--pb-box-opacity:' + op + ';'
             + 'box-shadow:0 2px 6px rgba(0,0,0,' + (0.08 * op).toFixed(3) + ');';
           const p = _el('p', 'pbp-stage2-bubble-p', body);
           bub.appendChild(p);
@@ -268,15 +270,17 @@
           page.appendChild(_el('div', 'pbp-scenepub-body', body));
         }
         page.appendChild(_choicesBoxOf(s));
+        page.appendChild(_el('div', 'pbp-num-foot', numText));
         rootEl.appendChild(page);
       } else {
         /* 무그림 — text-only 출판 페이지(LAYOUT-4 유지) */
         const page = _el('div', 'pbp-page pbp-publish');
         const card = _el('div', 'pbp-scene pbp-scene--full pbp-scene--noimg');
-        card.appendChild(_el('span', 'pbp-num-overlay', numText));
         if ((s.title || '').trim()) card.appendChild(_el('div', 'pbp-scene-caption', s.title.trim()));
         card.appendChild(_el('div', 'pbp-scene-body' + (body ? '' : ' pbp-scene-body--empty'), body || '(글 없음)'));
         card.appendChild(_choicesBoxOf(s));
+        /* PB-NUM-FOOT(2026-07-09): 번호를 카드 상단 배지 대신 선택지 아래로 이동. */
+        card.appendChild(_el('div', 'pbp-num-foot', numText));
         page.appendChild(card);
         rootEl.appendChild(page);
       }

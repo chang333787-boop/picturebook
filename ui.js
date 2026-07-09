@@ -398,7 +398,8 @@ function showBodyQuickEditModal(num) {
   overlay.querySelector('.body-quickedit-cancel').addEventListener('click', () => close(false));
   overlay.querySelector('.body-quickedit-close').addEventListener('click', () => close(false));
   overlay.addEventListener('pointerdown', e => e.stopPropagation());   /* 캔버스 팬/줌으로 전파 차단 */
-  overlay.addEventListener('click', e => { if (e.target === overlay) close(false); });
+  /* CARD-QUICKEDIT-NOBACKDROP(2026-07-09): 바깥(백드롭) 클릭으로 닫지 않음 — 글 입력 중 여백 오탭으로
+     입력이 유실되던 문제. 닫기는 취소/✕/저장/ESC로만. (pointerdown stopPropagation은 유지) */
   document.addEventListener('keydown', onKey);
   ta.focus();
   try { ta.setSelectionRange(ta.value.length, ta.value.length); } catch (e) { /* noop */ }

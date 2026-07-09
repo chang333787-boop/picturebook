@@ -44,6 +44,10 @@
       case 'TEACHER_ONLY':          return '담당 선생님만 변환할 수 있어요';
       case 'IMAGE_AI_NOT_CONFIGURED': return 'AI 이미지 서비스 설정이 필요해요';
       case 'SCENE_NOT_FOUND':       return '장면을 찾을 수 없어요';
+      /* IMAGE-S2-PEOPLE(2026-07-09): 사람(얼굴) 사진은 AI가 변환하기 어려워 거부됨. 사물·배경 사진이나 그림은 됨. */
+      case 'IMAGE_AI_UNSAFE_OUTPUT': return '사람(얼굴)이 담긴 사진은 변환이 어려워요. 사물·배경 사진이나 직접 그린 그림은 괜찮아요';
+      case 'IMAGE_AI_PROVIDER_ERROR': return 'AI 서버가 잠시 응답하지 않았어요. 잠시 후 다시 시도해 주세요';
+      case 'IMAGE_AI_TIMEOUT':       return '변환 시간이 초과됐어요. 다시 시도해 주세요';
       default: return '변환 실패(' + String(code || 'ERROR') + ')';
     }
   }

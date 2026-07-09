@@ -1399,13 +1399,18 @@
 /* ══ PICTUREBOOK-PRINT-1: 그림책 분기 인쇄 (gate: body.print-picturebook) ══
    root 화면 상시 숨김 — 버튼 경유 인쇄에만 print 매체 표시. 교사 PC A4 기준·흑백 가독. */
 .pb-print-root { display: none; }
+/* PRINT-MAXFIT(2026-07-09): 그림책 인쇄 사방 흰여백 최소화 — 브라우저 기본 페이지 여백(~1cm) 대신 6mm.
+   named @page라 그림책 페이지(.pbp-page)에만 적용 → 고쳐쓰기/나침반 등 다른 인쇄물 여백엔 영향 없음.
+   vh는 페이지 박스 기준이라 여백 축소 시 콘텐츠(96vh)가 자동으로 커짐. ⚠️너무 줄이면 프린터 하드웨어
+   여백에서 가장자리 잘림 → 6mm는 안전선(실프린터 1회 확인). */
+@page pbprint { margin: 6mm; }
 @media print {
   body.print-picturebook > *:not(.pb-print-root) { display: none !important; }
   body.print-picturebook .pb-print-root {
     display: block; width: auto; max-width: 100%; margin: 0; color: #111;
     font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; line-height: 1.5;
   }
-  body.print-picturebook .pbp-page { break-after: page; }
+  body.print-picturebook .pbp-page { break-after: page; page: pbprint; }
   body.print-picturebook .pbp-page:last-child { break-after: auto; }
   /* 표지 — DESIGN-3: 전면 프레임 카드(이중 테두리)·제목 묶음·큰 표지 그림·하단 모둠/날짜 */
   /* FOLLOWUP-2: vh 예산 폐기 → 고정 950px — 브라우저 여백/vh 해석 변동에도 A4 콘텐츠(~1027px)
@@ -1439,7 +1444,9 @@
     padding: 30px 28px 24px; margin: 6px;
   }
   body.print-picturebook .pbp-cover-brand { font-size: 10.5pt; color: #555; letter-spacing: .22em; }
-  body.print-picturebook .pbp-cover-titlewrap { margin-top: 30px; }
+  /* COVER-BALANCE(2026-07-09): margin-top:auto — 브랜드=상단·제목+그림=세로중앙·모둠/날짜(foot margin-top:auto)=하단
+     3분할 균형(요소가 상단에 몰리던 문제 해소). foot도 auto라 두 auto가 여백을 균등 분배. */
+  body.print-picturebook .pbp-cover-titlewrap { margin-top: auto; }
   body.print-picturebook .pbp-cover-title { font-size: 30pt; line-height: 1.25; margin: 0 0 8px; word-break: keep-all; }
   body.print-picturebook .pbp-cover-sub { font-size: 13pt; color: #333; word-break: keep-all; }
   body.print-picturebook .pbp-cover-img {
@@ -1554,7 +1561,7 @@
      내부 수납·선택지 공간 우선 보장). 무대는 남은 높이 안에서 3:2 유지 fit. */
   body.print-picturebook .pbp-scenepub {
     height: 96vh; min-height: 0; box-sizing: border-box;
-    display: grid; grid-template-rows: minmax(0, 1fr) auto auto;   /* 무대 | (split 본문) | 선택지 */
+    display: grid; grid-template-rows: minmax(0, 1fr) auto auto auto;   /* 무대 | (split 본문) | 선택지 | 번호 */
     break-inside: avoid; page-break-inside: avoid; overflow: hidden;
     /* PAPER-PRINT-THEME(2026-07-09): 인쇄 = paper-storybook 테마 고정 반영(작품별 추종 X·사용자 결정).
        v03-modes.css paper-storybook .pb-page 값 그대로 이식. 내용은 안쪽으로(좌측=제본 공간). */
@@ -1599,6 +1606,10 @@
   body.print-picturebook .pbp-stage2-bubble {
     position: absolute; box-sizing: border-box; padding: 10px 14px;
     border-radius: 9px 9px 11px 3px; z-index: 1; overflow: visible;   /* paper 메모지 비대칭 radius */
+    /* PAPER-BUBBLE(2026-07-09): 화면 paper-storybook 말풍선(v03-modes.css) 베이지 톤 이식.
+       흰색 인라인 대신 print.js가 넘긴 --pb-box-opacity(진하기)로 베이지 배경 적용. */
+    background: rgba(245,238,222, var(--pb-box-opacity, .88));
+    border: 1px solid rgba(194,171,130,.5);
     -webkit-print-color-adjust: exact; print-color-adjust: exact;   /* '배경 그래픽' OFF여도 말풍선 배경 인쇄 */
   }
   /* paper 메모지 우상단 접힌 모서리(dog-ear) */
@@ -1650,5 +1661,12 @@
   body.print-picturebook .pbp-scenepub .pbp-end-mark {
     margin-top: 10px; min-height: 0; padding: 8px 0; display: flex; align-items: center; justify-content: center;
     font-size: 17px; letter-spacing: .25em;
+  }
+  /* PB-NUM-FOOT(2026-07-09): 장면 번호를 그림 좌상단 배지 대신 선택지 아래 중앙에(직관성·사용자 요청).
+     그림/무그림 페이지 공통. scenepub는 grid 4번째 auto 행, publish는 flex 흐름 마지막. */
+  body.print-picturebook .pbp-num-foot {
+    text-align: center; margin-top: 9px; font-size: 12pt; font-weight: 800;
+    color: #4a3a22; letter-spacing: .06em;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
 }

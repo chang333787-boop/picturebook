@@ -1363,8 +1363,11 @@ function _teamCardHtml(t) {
 function _openMaker(teamName) {
   const cid = adminState.adminClassId
     ? `&classId=${encodeURIComponent(adminState.adminClassId)}` : '';
+  /* ADMIN-TEACHER-JOIN(2026-07-09): tauth=1 — 로그인 교사는 maker에서 PIN 없이 자동 입장(편집).
+     classId가 있어야 서버 교사 판별(meta/teacher_uid)이 가능 → classId 있을 때만 마커. 없으면 기존 PIN 폼. */
+  const _tauth = adminState.adminClassId ? '&tauth=1' : '';
   /* maker 열기 — return context 저장 불필요 (maker가 viewer 열 때 자기가 저장) */
-  const _murl = `maker.html?team=${encodeURIComponent(teamName)}${cid}`;
+  const _murl = `maker.html?team=${encodeURIComponent(teamName)}${cid}${_tauth}`;
   /* 항상 같은 창 이동 (ui.js _openInternalUrl). */
   if (typeof _openInternalUrl === 'function') _openInternalUrl(_murl);
   else window.location.href = _murl;

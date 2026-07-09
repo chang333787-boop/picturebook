@@ -1345,11 +1345,44 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  /* ?team=팀이름 query param — 교사 관리 화면의 🛠 수정 버튼 경유 진입
-     팀 이름만 자동 채우고, PIN은 사용자가 직접 입력하게 함
-     joinTeam() 자동 호출 금지 */
-  const _teamParam = new URLSearchParams(location.search).get('team');
-  if (_teamParam) {
+  /* ?team=팀이름 query param — 교사 관리 화면의 🛠 수정 버튼 경유 진입 */
+  const _spTeam = new URLSearchParams(location.search);
+  const _teamParam = _spTeam.get('team');
+  const _tauthParam = _spTeam.get('tauth') === '1';
+  const _classIdParam = _spTeam.get('classId');
+  if (_tauthParam && _teamParam && _classIdParam) {
+    /* ADMIN-TEACHER-JOIN(2026-07-09): 로그인 교사는 PIN 없이 자동 입장(편집). auth 복원 후 서버(joinTeamMembership)가
+       최종 판별(super_admin ∥ meta/teacher_uid==uid). 시도 중 입장 폼 감춤 → 실패 시 폼으로 폴백(팀명 채우고 PIN 요구). */
+    const _joinScreen = document.getElementById('join-screen');
+    if (_joinScreen) _joinScreen.classList.add('hidden');
+    const _unsubT = auth.onAuthStateChanged(async (user) => {
+      _unsubT();   /* 1회만 */
+      let isTeacher = false;
+      if (user) {
+        try {
+          const tr = await user.getIdTokenResult(true);
+          const claim = tr.claims.role ?? null;
+          if (claim === 'teacher' || claim === 'super_admin') isTeacher = true;
+          else {
+            const snap = await firebase.database().ref('teachers/' + user.uid).once('value');
+            isTeacher = snap.exists();
+          }
+        } catch (e) { isTeacher = false; }
+      }
+      let ok = false;
+      if (isTeacher && typeof _teacherJoinTeam === 'function') {
+        try { ok = await _teacherJoinTeam(_classIdParam, _teamParam); } catch (e) { ok = false; }
+      }
+      if (!ok) {
+        /* 폴백: 일반 입장 폼(팀명 채우고 PIN 직접) */
+        if (_joinScreen) _joinScreen.classList.remove('hidden');
+        const ji = document.getElementById('join-input');
+        if (ji) ji.value = _teamParam;
+        document.getElementById('join-pin')?.focus();
+      }
+    });
+  } else if (_teamParam) {
+    /* tauth 없는 ?team= — 팀 이름만 채우고 PIN은 직접 입력(기존 동작·joinTeam 자동 호출 금지) */
     const joinInput = document.getElementById('join-input');
     const joinPin   = document.getElementById('join-pin');
     if (joinInput) {

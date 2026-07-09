@@ -2796,26 +2796,40 @@ exports.joinTeamMembership = onCall(
     if (typeof teamName !== 'string' || teamName.length < 1 || teamName.length > 60) {
       throw new HttpsError('invalid-argument', '모둠 정보가 올바르지 않아요.');
     }
-    if (!_isPlainPin(pin)) {
-      throw new HttpsError('invalid-argument', '비밀번호 형식이 올바르지 않아요.');
+    /* ADMIN-TEACHER-JOIN(2026-07-09): 로그인된 교사(super_admin ∥ 이 학급 meta/teacher_uid == uid)는
+       PIN 없이 자기 반 팀에 입장(편집)할 수 있다. 아래 PIN·rate limit·모드검증은 '교사가 아닐 때만' 수행.
+       교사 판별은 서버 read(Admin SDK·위조 불가) → 학생/익명은 절대 우회 불가. 학생 흐름은 100% 그대로. */
+    const tokenRole = (req.auth.token && req.auth.token.role) || null;
+    let isTeacher = (tokenRole === 'super_admin');
+    if (!isTeacher) {
+      try {
+        const tuid = (await admin.database().ref(`classes/${classId}/meta/teacher_uid`).once('value')).val();
+        isTeacher = !!tuid && tuid === uid;
+      } catch (e) { isTeacher = false; }
     }
 
-    /* 5. rate limit — auth.uid 기준 1분 5회. 단순 창 카운터(영구 차단 없음). */
-    const rlRef = admin.database().ref(`membership-attempts/${uid}`);
-    const nowMs = Date.now();   /* CF 서버 프로세스 시각 */
-    let overLimit = false;
-    /* transaction으로 원자 증가 — 경쟁 호출에서 카운터 유실 방지.
-       성공/실패 모두 카운트(성공이라고 즉시 리셋하지 않음). 창(1분) 만료 시에만 0으로. */
-    await rlRef.transaction((cur) => {
-      cur = cur || {};
-      let count = (typeof cur.count === 'number') ? cur.count : 0;
-      let windowStart = (typeof cur.windowStart === 'number') ? cur.windowStart : 0;
-      if (nowMs - windowStart > MEMBERSHIP_RL_WINDOW_MS) { count = 0; windowStart = nowMs; }
-      if (count >= MEMBERSHIP_RL_MAX) { overLimit = true; return; /* abort — write 없음 */ }
-      return { count: count + 1, windowStart, lastAt: nowMs };
-    });
-    if (overLimit) {
-      throw new HttpsError('resource-exhausted', '잠시 후 다시 시도해 주세요.');
+    if (!isTeacher) {
+      if (!_isPlainPin(pin)) {
+        throw new HttpsError('invalid-argument', '비밀번호 형식이 올바르지 않아요.');
+      }
+
+      /* 5. rate limit — auth.uid 기준 1분 5회. 단순 창 카운터(영구 차단 없음). */
+      const rlRef = admin.database().ref(`membership-attempts/${uid}`);
+      const nowMs = Date.now();   /* CF 서버 프로세스 시각 */
+      let overLimit = false;
+      /* transaction으로 원자 증가 — 경쟁 호출에서 카운터 유실 방지.
+         성공/실패 모두 카운트(성공이라고 즉시 리셋하지 않음). 창(1분) 만료 시에만 0으로. */
+      await rlRef.transaction((cur) => {
+        cur = cur || {};
+        let count = (typeof cur.count === 'number') ? cur.count : 0;
+        let windowStart = (typeof cur.windowStart === 'number') ? cur.windowStart : 0;
+        if (nowMs - windowStart > MEMBERSHIP_RL_WINDOW_MS) { count = 0; windowStart = nowMs; }
+        if (count >= MEMBERSHIP_RL_MAX) { overLimit = true; return; /* abort — write 없음 */ }
+        return { count: count + 1, windowStart, lastAt: nowMs };
+      });
+      if (overLimit) {
+        throw new HttpsError('resource-exhausted', '잠시 후 다시 시도해 주세요.');
+      }
     }
 
     /* 6~7. 서버가 정본 규칙으로 encode 후 팀 생성 모드별 PIN을 Admin SDK로 검증(Rules 우회).
@@ -2826,6 +2840,8 @@ exports.joinTeamMembership = onCall(
     const adb = admin.database();
     const GENERIC_DENY = '학급 코드, 모둠 정보 또는 비밀번호를 다시 확인해 주세요.';
 
+    /* ADMIN-TEACHER-JOIN: 아래 모드별 PIN 검증은 학생만 — 교사(isTeacher)는 전부 스킵하고 바로 membership 발급. */
+    if (!isTeacher) {
     /* teamCreationMode — 없음/오류/알 수 없는 값 → legacy_open 폴백(client와 동일). */
     let mode = 'legacy_open';
     try {
@@ -2868,6 +2884,7 @@ exports.joinTeamMembership = onCall(
         throw new HttpsError('permission-denied', GENERIC_DENY);
       }
     }
+    }  /* end if (!isTeacher) — 교사는 모드/PIN 검증 전부 스킵 */
 
     /* 8. members write — joinedAt 보존, lastVerifiedAt 갱신. 개인정보(이름/PIN/기기) 미저장. */
     const memRef = admin.database().ref(`${teamBase}/members/${uid}`);

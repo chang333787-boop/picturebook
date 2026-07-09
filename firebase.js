@@ -492,6 +492,27 @@ async function _readTeamCreationMode(classId) {
 }
 
 /* ════════════════════════════════════════════════════════════════
+   ADMIN-TEACHER-JOIN(2026-07-09) — 교사 관리 🛠수정(?tauth=1) 경유 진입
+   로그인된 교사는 PIN 없이 자기 반 팀에 입장(편집). 서버 joinTeamMembership이
+   교사(super_admin ∥ meta/teacher_uid==uid)면 PIN 검증을 스킵하고 membership 발급.
+   여기선 pin 없이 callable 호출만 — 실제 교사 판별/보안은 서버가 담당(위조 불가).
+   성공 시 _enterTeam으로 기존 편집 진입(학생 join 성공과 동일 경로). 실패 시 false(호출부가 PIN 폼 폴백).
+   ════════════════════════════════════════════════════════════════ */
+async function _teacherJoinTeam(classIdArg, teamName) {
+  if (!classIdArg || !teamName) return false;
+  try {
+    const out = await callJoinTeamMembership({ classId: classIdArg, teamName: teamName });  /* pin 없이 */
+    if (out && out.ok) {
+      classId = classIdArg;   /* 전역 classId — 이후 저장/viewer 링크에 사용 */
+      const teamRef = db.ref(getTeamPath(encodeURIComponent(teamName), classIdArg));
+      _enterTeam(teamName, teamRef);
+      return true;
+    }
+  } catch (e) { /* permission-denied(교사 아님)/네트워크 → 폼 폴백 */ }
+  return false;
+}
+
+/* ════════════════════════════════════════════════════════════════
    TEAM-ACCOUNT-UX-1 — 입장 폼 문구를 클래스 코드의 팀 생성 모드에 맞춤 (client-only·저장 0)
    · teacher_managed = "선생님이 만들어 둔 모둠으로 들어가는" 느낌(새로 만든다는 인상 제거)
    · legacy_open     = 자동 생성이 실제로 가능하므로 "새로 시작/이어서" 안내를 숨기지 않음

@@ -1319,6 +1319,23 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  /* ADMIN-OPEN-LOADING(2026-07-09): 관리 진입 시 auth 복원(비동기) 동안 학생 입장('작품 만들기') 폼이 잠깐
+     보이던 깜빡임 제거 — 폼 즉시 숨김 + '교사 관리 여는 중…' 로딩 오버레이. 진입 성공/실패 시 제거. */
+  function _showAdminOpeningOverlay() {
+    if (document.getElementById('admin-opening-overlay')) return;
+    const el = document.createElement('div');
+    el.id = 'admin-opening-overlay';
+    el.setAttribute('role', 'status');
+    el.style.cssText = 'position:fixed;inset:0;z-index:100050;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#fbf6ea;font-family:inherit;color:#6b5638;';
+    el.innerHTML = '<div style="width:34px;height:34px;border:3px solid #e3d4bd;border-top-color:#c66f4a;border-radius:50%;animation:adminSpin .8s linear infinite;"></div>'
+      + '<div style="font-size:15px;font-weight:700;letter-spacing:.02em;">교사 관리 여는 중…</div>'
+      + '<style>@keyframes adminSpin{to{transform:rotate(360deg)}}</style>';
+    document.body.appendChild(el);
+  }
+  function _hideAdminOpeningOverlay() {
+    document.getElementById('admin-opening-overlay')?.remove();
+  }
+
   /* ?admin=1 query param — 교사 관리 진입
      ─────────────────────────────────────────────────────────────
      Firebase Auth 단일 진입 경로:
@@ -1328,6 +1345,8 @@ window.addEventListener('DOMContentLoaded', () => {
      구형 admin/pw fallback 제거됨.
      ─────────────────────────────────────────────────────────────*/
   if (new URLSearchParams(location.search).get('admin') === '1') {
+    /* 입장 폼 즉시 숨김 + 로딩 오버레이 — auth 복원 전 깜빡임 제거 */
+    try { document.getElementById('join-screen')?.classList.add('hidden'); _showAdminOpeningOverlay(); } catch (e) { /* noop */ }
     const unsubscribe = auth.onAuthStateChanged(async user => {
       unsubscribe();  // 1회만 실행
 
@@ -1348,11 +1367,12 @@ window.addEventListener('DOMContentLoaded', () => {
         const role = claim || (teacherViaNode ? 'teacher' : null);
         if (role === 'teacher' || role === 'super_admin') {
           _enterAdminDirect();
+          _hideAdminOpeningOverlay();   /* 관리 화면 렌더 후 로딩 제거 */
           return;
         }
       }
 
-      /* 비로그인 또는 role 없음 → teacher-auth.html로 이동 */
+      /* 비로그인 또는 role 없음 → teacher-auth.html로 이동(페이지 이동이라 오버레이는 자연 소멸) */
       window.location.href = 'teacher-auth.html';
     });
   }

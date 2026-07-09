@@ -48,6 +48,12 @@
       case 'IMAGE_AI_UNSAFE_OUTPUT': return '사람(얼굴)이 담긴 사진은 변환이 어려워요. 사물·배경 사진이나 직접 그린 그림은 괜찮아요';
       case 'IMAGE_AI_PROVIDER_ERROR': return 'AI 서버가 잠시 응답하지 않았어요. 잠시 후 다시 시도해 주세요';
       case 'IMAGE_AI_TIMEOUT':       return '변환 시간이 초과됐어요. 다시 시도해 주세요';
+      /* AI-PERM-MSG(2026-07-09): 권한없음(functions/permission-denied)을 원문 코드 대신 한글로 — 무엇을 켜야 하는지 안내.
+         서버는 aiSettings.enabled AND modes[imageS2] 둘 다 요구 → '전체'와 '그림책 마감'을 모두 켜야 함. */
+      case 'functions/permission-denied':
+      case 'permission-denied':     return 'AI 그림책 마감 권한이 아직 없어요. 관리 화면 🤖 학급 AI 설정에서 ‘AI 전체’와 ‘AI 그림책 마감’을 모두 켜고 저장했는지 확인해 주세요';
+      case 'functions/unauthenticated':
+      case 'unauthenticated':       return '로그인이 풀렸어요. 새로고침 후 다시 시도해 주세요';
       default: return '변환 실패(' + String(code || 'ERROR') + ')';
     }
   }

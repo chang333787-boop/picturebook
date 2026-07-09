@@ -472,6 +472,15 @@ async function _saveAiSettings(classId, state, panel, saveBtn, statusEl) {
     updatedBy: uid,
   };
 
+  /* AI-PERM-WARN(2026-07-09): '설정이 풀린다'의 실제 원인 방지 — 서버는 enabled AND modes[기능] 둘 다 요구.
+     마스터('AI 전체')만 켜고 개별 기능(예: AI 그림책 마감)을 하나도 안 켜면 학생·교사가 권한없음이 됨.
+     이 상태로 저장하려 하면 경고(막지는 않음). aiSettings는 이 저장 외엔 어떤 코드도 안 건드림(리셋 없음). */
+  const _anyMode = payload.modes && Object.keys(payload.modes).some(k => payload.modes[k] === true);
+  if (payload.enabled && !_anyMode) {
+    const _go = confirm('‘AI 전체’는 켜졌지만 사용할 기능(예: AI 그림책 마감)이 하나도 안 켜졌어요.\n이대로 저장하면 AI를 쓸 수 없어요(권한 없음으로 표시돼요).\n그래도 저장할까요?');
+    if (!_go) return;
+  }
+
   saveBtn.disabled = true;
   saveBtn.textContent = '저장 중...';
   try {

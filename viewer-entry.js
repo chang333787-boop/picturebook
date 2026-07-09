@@ -111,6 +111,23 @@ async function handleEntrySubmit() {
 }
 
 /* ── 실제 진입 처리 ── */
+/* COACH-FIX(2026-07-09): 다듬기 진입 튜토리얼(환영 모달 → 코치마크) 공유 헬퍼.
+   전체화면 진입(_enterViewer)과 인앱 '감상 화면 다듬기'(viewer-render _goEdit) 양쪽에서 호출 →
+   코치마크가 두 경로 모두에서 뜬다(기존엔 전체화면 진입만 호출해 인앱 진입 시 안 떴음).
+   maker 세션 게이트는 호출부에서, 기기 dismiss 플래그 존중은 TutorialWelcome/Coach 내부. */
+window.__maybeRunRefineTutorial = function (ptype) {
+  try {
+    if (typeof window === 'undefined' || !window.TutorialWelcome || typeof window.TutorialWelcome.maybeShow !== 'function') return;
+    window.TutorialWelcome.maybeShow({ deck: 'refineWelcome', keyPrefix: 'tutorial_refine', filterType: ptype || null })
+      .then(function () {
+        if (window.TutorialCoach && typeof window.TutorialCoach.run === 'function') {
+          try { window.TutorialCoach.run({ stepsKey: 'refineCoach', keyPrefix: 'tutorial_refine_coach', dismissKeyPrefix: 'tutorial_refine', filterType: ptype || null }); } catch (e) { /* noop */ }
+        }
+      })
+      .catch(function () { /* noop */ });
+  } catch (e) { /* noop */ }
+};
+
 async function _enterViewer(teamName, editMode = false, fromMaker = false, classId = null, sceneNum = null, ptypeHint = null) {
   try {
     _setEntryLoading(true);
@@ -152,20 +169,12 @@ async function _enterViewer(teamName, editMode = false, fromMaker = false, class
       startViewerEdit(sceneNum);
       /* TUTORIAL: 감상 화면 다듬기 첫 진입 1회 튜토리얼(기기당 1회). maker에서 온 편집 진입에만.
          편집을 막지 않도록 await 없이 fire-and-forget. */
-      if (fromMaker && typeof window !== 'undefined' && window.TutorialWelcome
-          && typeof window.TutorialWelcome.maybeShow === 'function') {
-        /* 작품 유형에 맞는 슬라이드만(그림/글상자=그림책, 무비도구=무비 등). */
+      /* COACH-FIX(2026-07-09): 튜토리얼(환영+코치) 호출을 공유 헬퍼 window.__maybeRunRefineTutorial로 통일 —
+         인앱 '감상 화면 다듬기'(_goEdit)도 같은 헬퍼를 써서 두 진입 경로 모두 코치마크가 뜬다. maker 세션만. */
+      if (fromMaker && typeof window.__maybeRunRefineTutorial === 'function') {
         var _ptype = (ViewerState && ViewerState.project && ViewerState.project.projectType)
           || ptypeHint || null;
-        try {
-          window.TutorialWelcome.maybeShow({ deck: 'refineWelcome', keyPrefix: 'tutorial_refine', filterType: _ptype })
-            .then(function () {
-              /* 모달(개요) 뒤 → 실제 버튼을 콕 집어주는 코치마크(막히기 쉬운 다음장면 등). 기기당 1회. */
-              if (window.TutorialCoach && typeof window.TutorialCoach.run === 'function') {
-                try { window.TutorialCoach.run({ stepsKey: 'refineCoach', keyPrefix: 'tutorial_refine_coach', dismissKeyPrefix: 'tutorial_refine', filterType: _ptype }); } catch (e) { /* noop */ }
-              }
-            });
-        } catch (e) { /* noop */ }
+        window.__maybeRunRefineTutorial(_ptype);
       }
     } else {
       startViewer();

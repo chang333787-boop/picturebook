@@ -2490,7 +2490,14 @@ function renderHUD() {
     /* PERF-2: 편집 코드 지연 로드 — 편집 진입 전 viewer-edit.js+viewer-ai.js 1회 로드.
        로드 중복/연타 방지(_goEditLoading), 실패 시 안내 후 감상 유지. */
     if (window.__goEditLoading) return;
-    const _goEdit = () => { ViewerState.editMode = true; ViewerState.selectedChoiceId = null; renderCurrentScene(); };
+    const _goEdit = () => {
+      ViewerState.editMode = true; ViewerState.selectedChoiceId = null; renderCurrentScene();
+      /* COACH-FIX(2026-07-09): 인앱 '감상 화면 다듬기' 진입에도 튜토리얼(환영+코치) 호출 —
+         기존엔 전체화면 진입(_enterViewer)만 호출해 이 경로로 들어오면 코치마크가 안 떴다. maker 세션만. */
+      if (ViewerState.fromMaker && typeof window.__maybeRunRefineTutorial === 'function') {
+        window.__maybeRunRefineTutorial(ViewerState.project && ViewerState.project.projectType);
+      }
+    };
     if (typeof window.ensureEditBundle === 'function') {
       window.__goEditLoading = true;
       window.ensureEditBundle()

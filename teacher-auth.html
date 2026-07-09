@@ -723,6 +723,8 @@ function _authErrMsg(code) {
     'auth/popup-closed-by-user': 'Google 로그인 창이 닫혔어요.',
     'auth/popup-blocked':        'Google 로그인 팝업이 차단됐어요. 팝업 허용 후 다시 시도해주세요.',
     'auth/operation-not-allowed':'이 로그인 방식은 현재 지원되지 않아요. 관리자에게 문의해주세요.',
+    'auth/unauthorized-domain': '이 주소에서는 아직 로그인이 허용되지 않았어요. 관리자에게 문의해주세요. (승인 도메인 설정 필요)',
+    'auth/network-request-failed': '인터넷 연결이 불안정해요. 연결을 확인하고 다시 시도해주세요.',
   };
   return map[code] ?? `오류: ${code}`;
 }

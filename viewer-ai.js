@@ -4008,10 +4008,13 @@
     head.appendChild(el('h1', 'wa-print-title', '✍ 고쳐쓰기 자료'));
     const today = new Date();
     head.appendChild(el('div', 'wa-print-meta', '모둠: ' + teamName + '   ·   ' + today.getFullYear() + '년 ' + (today.getMonth() + 1) + '월 ' + today.getDate() + '일'));
-    head.appendChild(el('div', 'wa-print-guide', '아래 내용을 보며 장면을 고친 뒤, 고친 항목에 체크해요.'));
+    head.appendChild(el('div', 'wa-print-guide', 'AI가 도와준 참고 자료예요. 꼭 정답은 아니니, 읽고 스스로 생각해 본 뒤 필요하면 고쳐요. 고친 항목엔 체크해요.'));
     root.appendChild(head);
-    sections.forEach(sec => {
+    sections.forEach((sec, idx) => {
       const s = el('div', 'wa-print-section');
+      /* WA-PRINT-PAGEBREAK: 작품 검사(2번째 섹션)는 생각 점검 질문과 안 겹치게 다음 페이지에서 시작(사용자 요청).
+         단독 섹션이면(생각 점검 질문 없음) idx=0이라 미적용 → 빈 첫 페이지 방지. */
+      if (idx > 0) s.classList.add('wa-print-section--newpage');
       s.appendChild(el('h2', 'wa-print-section-title', sec.title));
       sec.items.forEach(it => {
         const item = el('div', 'wa-print-item');

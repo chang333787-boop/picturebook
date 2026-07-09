@@ -1050,7 +1050,7 @@ window.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('mtb-project-ready', () => {
     if (typeof renderSideList === 'function') renderSideList();
   });
-  document.getElementById('btn-check')      ?.addEventListener('click', checkStructure);
+  /* PATH-CHECK-REMOVE(2026-07-09): btn-check(이야기 길 점검) 제거 — 기능 삭제(사용자 요청). checkStructure는 미참조 dormant. */
   document.getElementById('btn-export')     ?.addEventListener('click', exportJSON);
   document.getElementById('btn-import')     ?.addEventListener('click', () =>
     document.getElementById('file-input')?.click());
@@ -1143,13 +1143,7 @@ window.addEventListener('DOMContentLoaded', () => {
   /* 루트 */
   document.getElementById('btn-route-close')?.addEventListener('click', closeRoutePanel);
 
-  /* 구조 검사 */
-  document.getElementById('check-close')?.addEventListener('click', () => {
-    document.getElementById('check-panel').style.display = 'none';
-    /* W7: 검사 결과로 적용된 카드 강조 원복. 사용자: "장면 3,5,6이 다시 원래 화면으로 안돌아감". */
-    document.querySelectorAll('.scene-card.error-card').forEach(c => c.classList.remove('error-card'));
-    document.querySelectorAll('.scene-card.rt-highlight').forEach(c => c.classList.remove('rt-highlight'));
-  });
+  /* PATH-CHECK-REMOVE(2026-07-09): check-close 핸들러 제거 — 이야기 길 점검 패널 삭제로 불필요. */
 
   /* 이미지 모달 — 바깥 클릭 닫기는 mediaManager.js에서 등록 (source of truth) */
   document.getElementById('btn-img-close')?.addEventListener('click', closeImageModal);

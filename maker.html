@@ -2968,10 +2968,9 @@
         <input type="file" id="file-input" accept=".json" style="display:none"/>
         <div class="tb-more-wrap">
           <button id="btn-file-more" class="tb-btn tb-btn--ghost" type="button"
-            aria-haspopup="menu" aria-expanded="false" title="점검 도구·불러오기·전체 초기화">⋯ 더보기</button>
+            aria-haspopup="menu" aria-expanded="false" title="이야기 길 보기·불러오기·전체 초기화">⋯ 더보기</button>
           <div id="file-more-menu" class="tb-more-menu" role="menu" hidden>
-            <!-- FIELD-FIX-A: 상단 점검 그룹에서 이동(id/handler 불변) — 교사/고급용 접근 유지. -->
-            <button id="btn-check" type="button" role="menuitem" title="장면 연결 구조를 점검해요">🔍 이야기 길 점검</button>
+            <!-- PATH-CHECK-REMOVE(2026-07-09): '이야기 길 점검' 삭제(실용성 부족·사용자 요청). '이야기 길 보기'는 유지. -->
             <button id="btn-route" type="button" role="menuitem" title="장면 흐름(루트)을 살펴봐요">🛤 이야기 길 보기</button>
             <button id="btn-import" type="button" role="menuitem" title="JSON 파일 불러오기">📂 불러오기</button>
             <button id="btn-clear" class="danger" type="button" role="menuitem" title="모든 장면을 삭제하고 빈 작품으로 초기화합니다" aria-label="전체 초기화">🗑 전체 초기화</button>
@@ -3158,12 +3157,8 @@
   </div>
 </div>
 
-<!-- 구조 검사 패널 -->
-<div id="check-panel">
-  <h3>🔍 이야기 길 점검 결과</h3>
-  <div id="check-result"></div>
-  <button id="check-close">닫기</button>
-</div>
+<!-- PATH-CHECK-REMOVE(2026-07-09): 구조 검사(이야기 길 점검) 패널 제거 — 기능 삭제(사용자 요청). -->
+
 
 <!-- 관리자 패널 -->
 <div id="admin-panel" style="display:none;position:fixed;inset:0;background:rgba(60,40,20,.55);z-index:1100;align-items:flex-start;justify-content:center;overflow-y:auto;padding:20px 0;">
@@ -3236,7 +3231,7 @@
 <script src="thought-compass-gate.js?v=tcphase1dqa1"></script>
 <script src="thought-compass-ai.js?v=tcphase1h"></script>
 <script src="thought-compass-editsession.js?v=tcphase1kqa2"></script>
-<script src="thought-compass-ui.js?v=compassfollowup1"></script>
+<script src="thought-compass-ui.js?v=compassfollowup1pathcheckremove1"></script>
 <script src="thought-compass-sheet.js?v=tcsheet1"></script>
 <script src="thought-compass-rose.js?v=compassrose1teacherprint1"></script>
 <script src="thought-compass-review.js?v=compassrose1teacherprint1legacyux1tutorialtrig1"></script>

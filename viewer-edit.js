@@ -2637,7 +2637,8 @@ function _applyStyleAllButtonHtml(scene) {
         📋 지금 있는 모든 장면에 복사
       </button>
       <div class="edit-section-hint" style="margin-top:6px;">
-        현재 장면의 테마·글꼴·크기·색을 다른 장면에도 똑같이 복사해요. (앞으로 새로 만드는 장면에는 자동 적용되지 않아요.)
+        이 버튼은 <b>장면 1에만</b> 있어요. 장면 1에서 정한 테마·글꼴·크기·색이 기준이 되어 다른 장면에 똑같이
+        복사돼요. (앞으로 새로 만드는 장면에는 자동 적용되지 않아요.)
       </div>
     </div>`;
 }

@@ -5871,7 +5871,7 @@ let _sceneStyleTab = 'scene';
 let _tcSelSegs = new Set();
 let _tcMarksBodyEl = null;
 
-function _tcFindBodyEl() { return document.querySelector('#viewer-frame .text-card__body, #viewer-frame .pb-text__body'); }
+function _tcFindBodyEl() { return document.querySelector('#viewer-frame .text-card__body'); }
 
 function _tcRenderPickBody(scene) {
   const el = _tcMarksBodyEl || _tcFindBodyEl();
@@ -5925,7 +5925,6 @@ function _tcExitMarksMode() {
 async function _tcApplyToSelection(scene, patchObj) {
   if (!_editText.editable) return;
   if (_variantBlocked()) return;
-  if (!_tcMarksBodyEl) { alert('먼저 [🖍 문장 고르기]를 켜고 본문에서 문장을 골라주세요.'); return; }
   if (!_tcSelSegs.size) { alert('먼저 본문에서 꾸밀 문장을 톡 눌러 골라주세요.'); return; }
   const body = String(scene.body || '');
   const segs = tcSegmentBody(body);
@@ -6070,22 +6069,6 @@ function _renderSceneStylePopoverBody() {
       <div class="edit-scene-style-divider"></div>
       <div class="edit-scene-style-subtitle">🅰 글자 스타일</div>
       ${scene ? _pbGlyphStyleSectionHtml(scene) : ''}
-      <div class="edit-scene-style-divider"></div>
-      <div class="edit-scene-style-subtitle">🖍 문장 꾸미기</div>
-      <div class="edit-section-hint">[문장 고르기]를 켠 뒤 본문에서 꾸밀 문장을 <b>톡 눌러</b> 고르고, 크기·색을 고르세요.</div>
-      <div class="tc-chip-row">
-        <button type="button" class="js-tc-toggle tc-chip">🖍 문장 고르기</button>
-        <button type="button" class="js-tc-clear-all tc-chip">🧽 모두 지우기</button>
-      </div>
-      <div class="tc-chip-row"><span class="tc-chip-label">크기</span>
-        <button type="button" class="js-tc-size tc-chip" data-s="lg">크게</button>
-        <button type="button" class="js-tc-size tc-chip" data-s="sm">작게</button>
-        <button type="button" class="js-tc-size tc-chip" data-s="">보통으로</button>
-      </div>
-      <div class="tc-chip-row"><span class="tc-chip-label">색</span>
-        ${['c1','c2','c3','c4','c5','c6'].map(c => `<button type="button" class="js-tc-color tc-chip tc-chip--swatch tc-chip--${c}" data-c="${c}" aria-label="글자색 ${c}"></button>`).join('')}
-        <button type="button" class="js-tc-color tc-chip" data-c="">원래 색</button>
-      </div>
       <div class="edit-scene-style-apply-all">
         ${scene ? _applyStyleAllButtonHtml(scene) : ''}
       </div>`;
@@ -6290,33 +6273,6 @@ function _bindSceneStylePopover(pop) {
   /* GLYPH-APPLYALL: "모든 장면 적용" 바인딩 — 우측 _bindApplyStyleAllHandlers를 root(pop)에
      그대로 재사용(panel 인자 받는 구조). textStyle+textTheme 전 장면 적용 경로 무수정. */
   if (typeof _bindApplyStyleAllHandlers === 'function') _bindApplyStyleAllHandlers(pop, scene);
-
-  /* TEXT-MARKS-2(그림책): 문장 고르기 토글 + 크기/색 칩 — 텍스트 탭과 동일 상태 모델 재사용. */
-  const _tcToggle = pop.querySelector('.js-tc-toggle');
-  if (_tcToggle) {
-    const _tcSetLbl = () => {
-      _tcToggle.textContent = _tcMarksBodyEl ? '✅ 고르기 끝내기' : '🖍 문장 고르기';
-      _tcToggle.classList.toggle('tc-chip--on', !!_tcMarksBodyEl);
-    };
-    _tcSetLbl();
-    _tcToggle.addEventListener('click', () => {
-      if (_variantBlocked && _variantBlocked()) { alert('원본 보기에서만 문장을 꾸밀 수 있어요.'); return; }
-      if (_tcMarksBodyEl) _tcExitMarksMode(); else _tcEnterMarksMode(scene);
-      _tcSetLbl();
-    });
-    pop.querySelectorAll('.js-tc-size').forEach(b =>
-      b.addEventListener('click', () => _tcApplyToSelection(scene, { s: b.dataset.s || null })));
-    pop.querySelectorAll('.js-tc-color').forEach(b =>
-      b.addEventListener('click', () => _tcApplyToSelection(scene, { c: b.dataset.c || null })));
-    pop.querySelector('.js-tc-clear-all')?.addEventListener('click', async () => {
-      if (!confirm('이 장면의 문장 꾸미기를 모두 지울까요? (글 내용은 그대로예요)')) return;
-      try {
-        await saveSceneTextMarks(scene.id, null, 0);
-        _tcSelSegs = new Set();
-        if (_tcMarksBodyEl) _tcRenderPickBody(scene);
-      } catch (e) { alert('지우지 못했어요. 잠시 후 다시 시도해 주세요.'); }
-    });
-  }
 
   /* PB-BODYBOX-1B: 글상자 진하기(backdropOpacity) — 우측 _pbBbBindRange의 op 슬라이더와 동일 저장 경로
      (scene.picturebookBodyBox + _queueSave + _flushPendingSave). 우측 _pbBbBindRange는 panel 클로저라

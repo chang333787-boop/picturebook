@@ -590,9 +590,7 @@ function getSceneTextMarks(sceneId, body) {
 }
 
 async function saveSceneTextMarks(sceneId, marksList, segCount) {
-  /* TEXT-MARKS-2: 그림책 확장 — 텍스트·그림책 본문 공용(무비/체험 제외) */
-  const _pt = (typeof ViewerState !== 'undefined' && ViewerState.project) ? ViewerState.project.projectType : null;
-  if (_pt !== 'text' && _pt !== 'picturebook') return;
+  if (!_isTextProject()) return;
   const db          = getViewerDb();
   const teamName    = ViewerState.project.teamName;
   const classId     = ViewerState.project.classId;

@@ -618,8 +618,21 @@ function _renderSceneCard(scene, choices) {
       : (_variantBodyKeyTc
         ? ` contenteditable="true" data-ai-variant-edit="${_variantBodyKeyTc}" data-placeholder="(본문을 적어보세요)"`
         : '');
-    /* TEXT-MARKS-2: 공용 헬퍼로 적용(텍스트·그림책 동일 규칙) */
-    bodyHtml = `<p class="text-card__body${scrollCls}${editCls}${emptyCls}"${editAttrs}>${_tcBodyInnerHtml(scene, body)}</p>`;
+    /* TEXT-MARKS-1: 감상(원본 보기)에서만 문장 꾸미기 적용 — 편집 contenteditable은 평문 유지
+       (추출 안전·'문장 꾸미기' 탭이 열릴 때만 viewer-edit이 선택용 분할 렌더로 교체).
+       AI 보기(variant 본문)엔 미적용(graft: variant 중 marks OFF). */
+    const _tcMarks = (!_isEditMode && _aiViewModeTc === 'original' && body
+                      && typeof getSceneTextMarks === 'function')
+      ? getSceneTextMarks(scene.id, body) : null;
+    const _bodyInner = _tcMarks
+      ? tcSegmentBody(body).map((seg, i) => {
+          const mk = _tcMarks[i];
+          if (!mk) return escHtml(seg);
+          const cls = (mk.s ? ' tc-seg--' + mk.s : '') + (mk.c ? ' tc-seg--' + mk.c : '');
+          return `<span class="tc-seg${cls}">${escHtml(seg)}</span>`;
+        }).join('')
+      : escHtml(body);
+    bodyHtml = `<p class="text-card__body${scrollCls}${editCls}${emptyCls}"${editAttrs}>${_bodyInner}</p>`;
   }
 
   /* 버튼 영역 — 카드 안 맨 아래. v0.3 텍스트형은 좌측정렬 세로.
@@ -803,7 +816,7 @@ function _renderScenePicturebook(stage, scene, submode) {
     ? ''
     : `<h3 class="pb-text__title js-pb-editable-title" ${editAttrs}>${escHtml(title)}</h3>`;
   const bodyHtml  = body || isEdit
-    ? `<p class="pb-text__body js-pb-editable-body" ${editAttrsBody} data-placeholder="(본문을 적어보세요)">${_tcBodyInnerHtml(scene, body)}</p>` : '';
+    ? `<p class="pb-text__body js-pb-editable-body" ${editAttrsBody} data-placeholder="(본문을 적어보세요)">${escHtml(body)}</p>` : '';
   const filteredChoices = _v03FilterChoicesIndexed(choices);
   const pbChoiceCount = filteredChoices.length;
   const btns = filteredChoices.map((x, i) => _v03ChoiceBtnHtml(scene, x.c, 'picturebook', x.origIdx, i)).join('');
@@ -879,7 +892,7 @@ function _renderScenePicturebook(stage, scene, submode) {
               ${illustHtml}
               ${title ? `<div class="pb-stage__title-overlay js-pb-editable-title" ${_allowPbEdit ? 'contenteditable="true" data-pb-editable="title"' : ''}>${escHtml(title)}</div>` : ''}
               ${body || isEdit ? `<div class="pb-stage__body-overlay scene-narrative-panel js-pb-body-overlay"${_variantLayoutKeyPb ? ` data-ai-variant-layout="${_variantLayoutKeyPb}"` : ''} style="${bodyOverlayStyle || 'left:15%; top:25%; width:55%; background:rgba(255,255,255,0.85);'}">
-                <p class="pb-text__body js-pb-editable-body" ${editAttrsBody} data-placeholder="(본문을 적어보세요)">${_tcBodyInnerHtml(scene, body)}</p>
+                <p class="pb-text__body js-pb-editable-body" ${editAttrsBody} data-placeholder="(본문을 적어보세요)">${escHtml(body)}</p>
                 ${editHandlesHtml}
               </div>` : ''}
             </div>
@@ -1907,7 +1920,7 @@ function _renderStoryEnding(stage, scene) {
     ` : '';
     const _endIcBody = (userBody || _endBodyEditable)
       ? `<div class="pb-stage__body-overlay scene-narrative-panel js-pb-body-overlay ending-ic-body"${_endVariantLayoutKey ? ` data-ai-variant-layout="${_endVariantLayoutKey}"` : ''} style="${_endBoxStyle}">
-           <p class="pb-text__body js-pb-editable-body" ${_endBodyEditAttr} data-placeholder="(본문을 적어보세요)">${_tcBodyInnerHtml(scene, userBody)}</p>
+           <p class="pb-text__body js-pb-editable-body" ${_endBodyEditAttr} data-placeholder="(본문을 적어보세요)">${escHtml(userBody)}</p>
            ${_endHandlesHtml}
          </div>`
       : '';
@@ -3150,9 +3163,6 @@ function _applyTextEntranceTypewriter(stage, newScene) {
   targets.forEach(el => {
     if (el.getAttribute('contenteditable') === 'true') return;
     if (el.dataset.twProcessed === '1') return;
-    /* TEXT-MARKS-2: 문장 꾸미기가 적용된 본문은 타자기 스킵(즉시 표시) —
-       타자기가 innerHTML을 글자 span으로 재조립해 꾸밈 span이 소실되는 충돌 방지. */
-    if (el.querySelector('.tc-seg')) return;
 
     const text = el.textContent || '';
     if (!text.trim()) return;
@@ -3177,28 +3187,4 @@ function _applyTextEntranceTypewriter(stage, newScene) {
   if (maxTotal > 0) {
     stage.style.setProperty('--text-ent-total', maxTotal + 'ms');
   }
-}
-
-
-/* ════════════════════════════════════════════════════════════════
-   TEXT-MARKS-2(2026-07-10): 본문 innerHTML 공용 헬퍼 — 텍스트·그림책(분할/그림중심/엔딩).
-   적용 규칙(안전 단일화): 편집 모드 아님 + 표시 본문 == scene.body 원본일 때만 세그 span.
-   AI 장면발전/발행본 표시 중이면 문자열이 달라 자동 미적용(원본 전용 장식). */
-function _tcBodyInnerHtml(scene, bodyShown) {
-  const text = String(bodyShown == null ? '' : bodyShown);
-  const esc = escHtml(text);
-  try {
-    if (!text || !scene) return esc;
-    if (typeof ViewerState !== 'undefined' && ViewerState && ViewerState.editMode) return esc;
-    if (String(scene.body || '') !== text) return esc;
-    if (typeof getSceneTextMarks !== 'function' || typeof tcSegmentBody !== 'function') return esc;
-    const marks = getSceneTextMarks(scene.id, text);
-    if (!marks) return esc;
-    return tcSegmentBody(text).map((seg, i) => {
-      const mk = marks[i];
-      if (!mk) return escHtml(seg);
-      const cls = (mk.s ? ' tc-seg--' + mk.s : '') + (mk.c ? ' tc-seg--' + mk.c : '');
-      return `<span class="tc-seg${cls}">${escHtml(seg)}</span>`;
-    }).join('');
-  } catch (e) { return esc; }
 }

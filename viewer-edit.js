@@ -5960,10 +5960,8 @@ function _renderSceneStylePopoverBody() {
       ${scene ? _pbStoryStageSectionHtml(scene) : ''}
       <div class="edit-scene-style-divider"></div>
       <div class="edit-scene-style-subtitle">🅰 글자 스타일</div>
-      ${scene ? _pbGlyphStyleSectionHtml(scene) : ''}
-      <div class="edit-scene-style-apply-all">
-        ${scene ? _applyStyleAllButtonHtml(scene) : ''}
-      </div>`;
+      ${scene ? _applyStyleAllButtonHtml(scene) : ''}
+      ${scene ? _pbGlyphStyleSectionHtml(scene) : ''}`;
   }
   return `
     <div class="edit-scene-style-popover__head">

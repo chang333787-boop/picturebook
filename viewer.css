@@ -8010,6 +8010,9 @@ body.viewer-edit-readonly .movie-tool-modal button:not(.movie-tool-close) {
    3. 도구 패널 주요 버튼 최소 터치 영역
    PC 마우스(coarse 아님)·모바일 폰(768 미만)은 영향 없음. */
 @media (any-pointer: coarse) and (min-width: 768px) { /* CROSS-A: 클램셸 크롬북(primary=fine)도 포함 */
+  /* CROSS-B: 다듬기 크롬 터치 타깃 40px 보장(감상 모드에만 있던 보정을 편집 크롬에도) */
+  .maker-return-btn, .edit-toggle, .ai-view-toggle-btn { min-height: 40px; }
+  .rt-inline-edit-btn { min-height: 32px; padding: 6px 10px; }
   .edit-text-input,
   .js-edit-text-input {
     font-size: 16px;
@@ -8129,3 +8132,6 @@ body.pb-is-scene-switching .choice-preset--ghost {
 *::-webkit-scrollbar { width: 8px; height: 8px; }
 *::-webkit-scrollbar-thumb { background: rgba(120,90,50,.35); border-radius: 4px; }
 *::-webkit-scrollbar-track { background: transparent; }
+
+/* CROSS-B: iPad long-press 시 이미지 저장/공유 시트 억제(감상 무대 그림·영상) — iOS 전용 속성 */
+#viewer-frame img, .movie-video { -webkit-touch-callout: none; }

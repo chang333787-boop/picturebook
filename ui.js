@@ -1493,3 +1493,22 @@ window.addEventListener('DOMContentLoaded', () => {
     } catch (e) { /* 실패해도 일반 입장 화면 유지 */ }
   }
 });
+
+/* CROSS-B(2026-07-10): 가상 키보드 대응 최소판 — 키보드가 올라와 visualViewport가 25%+
+   줄면 포커스된 입력을 화면 중앙으로 스크롤(안드로이드=layout 리사이즈·iOS=visual만).
+   데스크톱은 vv가 줄지 않아 완전 무동작. 팝오버 재배치 등 큰 개편은 실기기 확인 후. */
+if (typeof window !== 'undefined' && window.visualViewport) {
+  (function () {
+    let base = window.visualViewport.height;
+    window.visualViewport.addEventListener('resize', () => {
+      const vv = window.visualViewport;
+      if (vv.height > base) base = vv.height;   /* 회전/키보드 내림 시 기준 갱신 */
+      if (vv.height < base * 0.75) {
+        const ae = document.activeElement;
+        if (ae && (ae.isContentEditable || /^(INPUT|TEXTAREA)$/.test(ae.tagName))) {
+          try { ae.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) {}
+        }
+      }
+    });
+  })();
+}

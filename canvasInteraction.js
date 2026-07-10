@@ -198,6 +198,13 @@ window.addEventListener('DOMContentLoaded', () => {
 
   document.addEventListener('mouseup', () => { panState = null; });
 
+  /* CROSS-B: 터치 기기에서 카드/캔버스 long-press 시 브라우저 컨텍스트 메뉴(이미지 저장 등)가
+     드래그와 겹치던 문제 — 터치 기기(any-pointer:coarse)에서만, 캔버스 영역 한정 차단.
+     마우스 전용 PC의 우클릭 메뉴는 그대로. */
+  if (window.matchMedia && matchMedia('(any-pointer: coarse)').matches) {
+    wrap.addEventListener('contextmenu', e => e.preventDefault());
+  }
+
   /* ── 휠: Ctrl/Meta+휠 = 줌(delta 비례), 일반 휠 = 캔버스 팬 ──
      CROSS-A(2026-07-10):
      · 기존엔 Ctrl 없는 휠을 통째로 무시 → 윈도우 마우스/트랙패드로 캔버스 이동 불가
@@ -245,6 +252,15 @@ window.addEventListener('DOMContentLoaded', () => {
       const el = document.elementFromPoint(t.clientX, t.clientY);
       if (!el || !el.closest('.scene-card')) {
         e.preventDefault();
+        /* CROSS-B: preventDefault로 click이 안 생겨 배경 탭이 입력 포커스 해제·열린 메뉴
+           닫기를 못 하던 것 보완(터치 기기에서 메뉴가 안 닫히던 문제). */
+        const ae = document.activeElement;
+        if (ae && ae !== document.body && typeof ae.blur === 'function') ae.blur();
+        const _fm = document.getElementById('file-more-menu');
+        if (_fm && !_fm.hidden) {
+          _fm.hidden = true;
+          document.getElementById('btn-file-more')?.setAttribute('aria-expanded', 'false');
+        }
         panState = { lastX: t.clientX, lastY: t.clientY };
       }
     }

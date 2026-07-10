@@ -7154,11 +7154,17 @@ function _openPbDrawModal(scene) {
      해상도 1800 → 1200 (v36 태블릿): 태블릿 CPU에서 putImageData/getImageData/flood fill
      빠르게. 디테일 충분 + 메모리·성능 균형. */
   const submode = scene.picturebookSubmode === 'imageCenter' ? 'imageCenter' : 'split';
-  let canvasW = 1200;
+  /* CROSS-B(2026-07-10): 고배율 데스크톱(윈도우 125~150%·맥 레티나)에서 선이 흐릿 —
+     백킹스토어를 DPR에 비례해 상향(상한 1.5배=1800px, v36이 태블릿 성능 때문에 내리기 전 값).
+     터치 기기(any-pointer:coarse)는 v36 성능 판단(putImageData/flood fill) 존중해 1200 유지.
+     좌표는 _pos()가 rect 비율 기반이라 해상도 변경에 안전. */
+  const _drawDpr = (window.matchMedia && matchMedia('(any-pointer: coarse)').matches)
+    ? 1 : Math.max(1, Math.min(1.5, window.devicePixelRatio || 1));
+  let canvasW = Math.round(1200 * _drawDpr);
   /* DRAW-CANVAS-3-2(2026-07-09): imageCenter 가로 감상 스테이지가 뷰어 개편(stagefill)으로 3:2로 꽉 채워짐
      → 그리기 캔버스도 3:2(1200×800)로 정합(AI 그림 3:2와 동일). 옛 ≈1.90(632)은 스테이지가 좁던 시절 값.
      split은 기존 landscape 근사 ≈2.376 → 505 유지(감상 cover). */
-  let canvasH = submode === 'imageCenter' ? 800 : 505;
+  let canvasH = Math.round(canvasW / (submode === 'imageCenter' ? 1.5 : 2.376)); /* CROSS-B: W 비례(1200일 때 800/505와 동일) */
   const illustEl = document.querySelector(
     submode === 'imageCenter'
       ? '.scene-screen--pb.pb--imagecenter .pb-illust'

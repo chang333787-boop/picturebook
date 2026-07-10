@@ -974,6 +974,11 @@
     /* v119: 태블릿(coarse pointer + 768px 이상) CSS 가벼움 — box-shadow/transition 박은 거 줄임.
        PC(마우스)나 모바일 폰(768 미만)은 영향 없음. 태블릿 페인트 비용 박지 X. */
     @media (any-pointer: coarse) and (min-width: 768px) { /* CROSS-A: 클램셸 크롬북(primary=fine)도 포함 */
+      /* CROSS-B: 터치 히트 타깃 확대 — ✕/✎/⋯ 22~24→30px, 연결점은 시각 크기 유지+투명 히트 -8px 확장 */
+      .card-delete, .card-edit-jump { width: 30px; height: 30px; line-height: 30px; font-size: 14px; }
+      .pb-mapcard .card-more { width: 30px; height: 30px; }
+      .port-dot { position: relative; }
+      .port-dot::after { content: ''; position: absolute; inset: -8px; border-radius: 50%; }
       .scene-card {
         box-shadow: 0 2px 6px rgba(120,90,50,.15);
         transition: none;
@@ -3281,7 +3286,7 @@
 <script src="thought-compass-review.js?v=compassrose1teacherprint1legacyux1tutorialtrig1"></script>
 <script src="thought-compass-scenes.js?v=compassbundle1"></script>
 <script src="firebase.js?v=141admin1cbase10amemberlogin1sec5tcphase1drefinestab1accountux1teacherjoin1dragperf1errko1renderdiff1"></script>
-<script src="canvasInteraction.js?v=120renderdiff1crossa1"></script>
+<script src="canvasInteraction.js?v=120renderdiff1crossa1crossb1"></script>
 <script src="sceneRenderer.js?v=119base10bbase10auto1coverstart1scenetitle1ascenetitle2apwanav2vpreturn1perfqa1branchcard1branchcard2branchcard3branchcard4cover1cover2cover3compassbtn1pbflowcopy1cardquickedit1cardexpandpersist1dragperf1crossa1"></script>
 <script src="storyAnalyzer.js?v=136checkbuttons1heuristic3crossa1"></script>
 <script src="mediaManager.js?v=114copyfix1uitextfix1"></script>
@@ -3290,7 +3295,7 @@
 <script src="admin-manual.js?v=adminmanual3print"></script>
 <script src="preview.js?v=96"></script>
 <script src="projectSettings.js?v=114copyfix1coverstart2errko1"></script>
-<script src="ui.js?v=109copyfix2c2base10bfixendingguard1addscene1base10auto1branchtopbar1cscenetitle1asessionrefresh1apwanav2homenav1vpreturn1sec5tcphase1dcompassbtn1cardquickedit1accountux1tutorialtrig1teacherjoin1adminback1cardnobackdrop1adminloading1errko1crossa1"></script>
+<script src="ui.js?v=109copyfix2c2base10bfixendingguard1addscene1base10auto1branchtopbar1cscenetitle1asessionrefresh1apwanav2homenav1vpreturn1sec5tcphase1dcompassbtn1cardquickedit1accountux1tutorialtrig1teacherjoin1adminback1cardnobackdrop1adminloading1errko1crossa1crossb1"></script>
 <!-- v95: 모바일 텍스트형 브랜치 전용 (텍스트 작품 + 모바일에서만 활성) -->
 <script src="mobileTextBranch.js?v=compassbundle1uitextfix1"></script>
 <!-- TUTORIAL-PRD: 콘텐츠·삽화·데모(먼저) → 도움말/환영/인쇄 -->

@@ -796,20 +796,6 @@ body.viewer-edit-readonly .edit-image-popover button:not(.edit-image-popover__cl
 }
 .edit-style-reset-chip:hover { background: #f2e6cf; }
 /* 전체 되돌리기 버튼 */
-/* TEXT-MARKS-1: 문장 꾸미기 칩 */
-.tc-chip-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
-.tc-chip-label { font-size: 11px; color: #8a6a30; font-family: 'Jua', sans-serif; flex: 0 0 34px; }
-.tc-chip {
-  padding: 6px 12px; border-radius: 50px; border: 1.5px solid rgba(198,111,74,0.4);
-  background: #fffdf7; color: #4a3a22; font-family: 'Jua', sans-serif; font-size: 12.5px;
-  cursor: pointer; transition: background .12s, border-color .12s;
-}
-.tc-chip:hover { background: rgba(198,111,74,0.10); border-color: #c66f4a; }
-.tc-chip--swatch { width: 26px; height: 26px; padding: 0; border-radius: 50%; border-width: 2px; }
-.tc-chip--c1 { background: #c8503c; } .tc-chip--c2 { background: #c66f4a; }
-.tc-chip--c3 { background: #8a6a30; } .tc-chip--c4 { background: #5a8a4a; }
-.tc-chip--c5 { background: #4a7ab8; } .tc-chip--c6 { background: #7a5aa8; }
-
 .edit-style-promote-btn {
   width: 100%;
   padding: 9px 12px;

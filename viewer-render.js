@@ -618,21 +618,7 @@ function _renderSceneCard(scene, choices) {
       : (_variantBodyKeyTc
         ? ` contenteditable="true" data-ai-variant-edit="${_variantBodyKeyTc}" data-placeholder="(본문을 적어보세요)"`
         : '');
-    /* TEXT-MARKS-1: 감상(원본 보기)에서만 문장 꾸미기 적용 — 편집 contenteditable은 평문 유지
-       (추출 안전·'문장 꾸미기' 탭이 열릴 때만 viewer-edit이 선택용 분할 렌더로 교체).
-       AI 보기(variant 본문)엔 미적용(graft: variant 중 marks OFF). */
-    const _tcMarks = (!_isEditMode && _aiViewModeTc === 'original' && body
-                      && typeof getSceneTextMarks === 'function')
-      ? getSceneTextMarks(scene.id, body) : null;
-    const _bodyInner = _tcMarks
-      ? tcSegmentBody(body).map((seg, i) => {
-          const mk = _tcMarks[i];
-          if (!mk) return escHtml(seg);
-          const cls = (mk.s ? ' tc-seg--' + mk.s : '') + (mk.c ? ' tc-seg--' + mk.c : '');
-          return `<span class="tc-seg${cls}">${escHtml(seg)}</span>`;
-        }).join('')
-      : escHtml(body);
-    bodyHtml = `<p class="text-card__body${scrollCls}${editCls}${emptyCls}"${editAttrs}>${_bodyInner}</p>`;
+    bodyHtml = `<p class="text-card__body${scrollCls}${editCls}${emptyCls}"${editAttrs}>${escHtml(body)}</p>`;
   }
 
   /* 버튼 영역 — 카드 안 맨 아래. v0.3 텍스트형은 좌측정렬 세로.

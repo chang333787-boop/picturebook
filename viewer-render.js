@@ -976,6 +976,20 @@ function _bindMovieDecisionFailsafe(video) {
   setTimeout(() => { if (!started) reveal(); }, 10000);
 }
 
+/* 무비형 영상 자동재생 (2026-07-10):
+   행동버튼을 눌러 다음 장면으로 오면 영상이 곧바로 재생되게 한다(수동 클릭 불필요).
+   사용자가 이미 커버 시작/행동버튼을 눌러 페이지에 상호작용했으므로 sticky user activation이 남아
+   소리까지 포함한 재생이 브라우저 정책상 허용된다. 편집 모드에선 방해되므로 자동재생하지 않는다.
+   play()가 거부되면(활성화 없음 등) 조용히 무시 — 사용자가 controls로 직접 재생하면 된다. */
+function _autoplayMovieVideo(video) {
+  if (!video) return;
+  if (typeof ViewerState !== 'undefined' && ViewerState && ViewerState.editMode) return;
+  try {
+    const p = video.play();
+    if (p && typeof p.catch === 'function') p.catch(() => {});
+  } catch (e) { /* noop */ }
+}
+
 /* ── 모드 3: 무비형 (movie) ──
    구조: 위 미디어(어두운 프레임) + 아래 결정 패널(light)
    결정 패널: 자연 높이 + 최대 40%, 넘치면 내부 스크롤
@@ -998,7 +1012,7 @@ function _renderSceneMovie(stage, scene) {
   if (hasVideo) {
     /* poster가 있으면 video의 poster 속성으로, 없으면 검은 배경 */
     const posterAttr = poster ? ` poster="${poster}"` : '';
-    mediaInner = `<video class="movie-video js-movie-video" controls
+    mediaInner = `<video class="movie-video js-movie-video" controls playsinline
       preload="metadata"${posterAttr}
       src="${md.videoUrl}"></video>`;
   } else if (poster) {
@@ -1570,6 +1584,7 @@ function _bindSceneEvents(stage, scene) {
       } catch (e) { /* noop */ }
     });
     _bindMovieDecisionFailsafe(video);
+    _autoplayMovieVideo(video);
   });
 
   /* 체험전시형 표준 네비 (4단계 신규) — 뒤로가기 / 처음으로.
@@ -2160,7 +2175,7 @@ function _renderMovieEnding(stage, scene) {
   let mediaInner;
   if (hasVideo) {
     const posterAttr = poster ? ` poster="${poster}"` : '';
-    mediaInner = `<video class="movie-video js-movie-video" controls
+    mediaInner = `<video class="movie-video js-movie-video" controls playsinline
       preload="metadata"${posterAttr}
       src="${md.videoUrl}"></video>`;
   } else if (poster) {
@@ -2254,6 +2269,7 @@ function _renderMovieEnding(stage, scene) {
       if (sc) sc.setAttribute('data-played', 'true');
     });
     _bindMovieDecisionFailsafe(video);
+    _autoplayMovieVideo(video);
   });
 
   /* 다시 시작 / 직전 장면 — _renderStoryEnding과 동일 동작. */

@@ -973,6 +973,9 @@ function _bindMovieDecisionFailsafe(video) {
   video.addEventListener('error', reveal);
   let started = false;
   video.addEventListener('playing', () => { started = true; }, { once: true });
+  /* loadeddata = 첫 프레임 디코딩 성공(코덱 정상) — 느린 회선에서 버퍼링 중인 정상 영상을
+     10초 타임아웃이 실패로 오판해 선택지를 조기 노출하지 않게 함. */
+  video.addEventListener('loadeddata', () => { started = true; }, { once: true });
   setTimeout(() => { if (!started) reveal(); }, 10000);
 }
 
@@ -1565,8 +1568,10 @@ function _bindSceneEvents(stage, scene) {
 
   /* 무비형 영상 종료 이벤트 (4단계 보강) — 재생 끝나면 data-played="true"로 토글.
      CSS에서 .movie-decision 노출 룰이 이 속성에 묶여있음.
-     영상 없는 케이스는 _renderSceneMovie가 이미 "true"로 시작 → 여기서 안 잡힘. */
-  stage.querySelectorAll('.js-movie-video').forEach(video => {
+     영상 없는 케이스는 _renderSceneMovie가 이미 "true"로 시작 → 여기서 안 잡힘.
+     :not(.is-leaving) — 전환 중 페이드아웃되는 이전 화면의 영상은 제외.
+     (안 그러면 자동재생이 방금 본 영상을 처음부터 다시 틀어 ~1초간 소리가 겹침) */
+  stage.querySelectorAll('.scene-screen:not(.is-leaving) .js-movie-video').forEach(video => {
     video.addEventListener('ended', () => {
       const movieScreen = video.closest('.scene-screen--movie');
       if (movieScreen) movieScreen.setAttribute('data-played', 'true');
@@ -2262,8 +2267,9 @@ function _renderMovieEnding(stage, scene) {
   }
 
   /* 영상 종료 → data-played="true" → 엔딩 decision 노출 (일반 무비 장면과 동일 게이트).
-     감상=영상 종료 후 / 영상 없음=즉시 / 편집=Movie-1 override로 미리 보임. */
-  stage.querySelectorAll('.js-movie-video').forEach(video => {
+     감상=영상 종료 후 / 영상 없음=즉시 / 편집=Movie-1 override로 미리 보임.
+     :not(.is-leaving) — 전환 중 이전 화면 영상 제외(자동재생 소리 겹침 방지). */
+  stage.querySelectorAll('.scene-screen:not(.is-leaving) .js-movie-video').forEach(video => {
     video.addEventListener('ended', () => {
       const sc = video.closest('.scene-screen--movie');
       if (sc) sc.setAttribute('data-played', 'true');

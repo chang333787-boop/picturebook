@@ -1647,11 +1647,13 @@ body.edit-mode-active:not(.viewer-test-active) .scene-screen--movie[data-played=
   align-items: center;
   text-align: center;
 }
+/* MOVIE-ENDING-DARKTEXT(2026-07-10): 엔딩 decision은 이제 종이 톤 패널(.movie-decision 토큰 공유)이라
+   흰 글씨는 밝은 배경 위에서 안 보인다. 본문 정본 글색(#3a2c14 진갈색)으로 통일. */
 .scene-screen--movie .movie-ending-mark {
   font-family: var(--font-ui, 'Jua', sans-serif);
   font-size: clamp(13px, 1.6vw, 16px);
   letter-spacing: 0.04em;
-  color: #fff;
+  color: #3a2c14;
   opacity: 0.82;
 }
 .scene-screen--movie .movie-ending-mark--true {
@@ -1659,12 +1661,12 @@ body.edit-mode-active:not(.viewer-test-active) .scene-screen--movie[data-played=
   font-weight: 700;
 }
 .scene-screen--movie .movie-ending-title {
-  color: #fff;
+  color: #3a2c14;
   font-weight: 700;
   font-size: clamp(14px, 1.8vw, 18px);
 }
 .scene-screen--movie .movie-ending-body {
-  color: #fff;
+  color: #3a2c14;
   font-size: 14px;
   line-height: 1.55;
   margin: 0;
@@ -1673,7 +1675,7 @@ body.edit-mode-active:not(.viewer-test-active) .scene-screen--movie[data-played=
   overflow-wrap: anywhere;
 }
 .scene-screen--movie .movie-ending-route {
-  color: #fff;
+  color: #3a2c14;
   opacity: 0.6;
   font-size: 12px;
 }

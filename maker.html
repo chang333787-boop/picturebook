@@ -1877,11 +1877,11 @@
     /* ── 루트보기 (엔딩별 흐름 점검) ── */
     .rt-group summary::-webkit-details-marker { display:none; }
     .rt-group[open] > summary { border-radius:10px 10px 0 0; }
-    .rt-path { border-left:3px solid #e8d5f5; padding:4px 0 10px 12px; margin:8px 0; }
-    .rt-path-label { font-family:var(--font-h);font-size:11px;color:#9b4dca;margin-bottom:4px; }
+    .rt-path { border-left:3px solid rgba(198,111,74,0.25); padding:4px 0 10px 12px; margin:8px 0; }
+    .rt-path-label { font-family:var(--font-h);font-size:11px;color:#c66f4a;margin-bottom:4px; }
     .rt-path-steps { display:flex;flex-direction:column;gap:2px; }
     .rt-scene-line {
-      background:#f8fbff; border:1px solid #d8e5f8; border-radius:8px;
+      background:#fffdf7; border:1px solid #e6d8bb; border-radius:8px;
       padding:7px 10px; cursor:pointer; transition:background .12s,border-color .12s;
       display:flex; gap:8px; align-items:baseline; line-height:1.5;
     }
@@ -1895,13 +1895,13 @@
     .rt-scene-line--ending .rt-scene-prefix { color:#c8503c; }
     .rt-scene-text { font-size:13px; color:#2b1f10; word-break:break-word; }
     .rt-choice-line {
-      font-size:12px; color:#7030b0; background:#f3eeff;
+      font-size:12px; color:#b3603e; background:rgba(198,111,74,0.10);
       border-radius:50px; padding:3px 12px; margin:2px 0 2px 20px;
       align-self:flex-start; font-weight:500;
     }
     .rt-issue-line {
-      font-size:12px; color:#8a5000; background:#fff8e8;
-      border:1px dashed #f0c080; border-radius:8px; padding:5px 10px;
+      font-size:12px; color:#c8503c; background:rgba(200,80,60,0.08);
+      border:1px dashed rgba(200,80,60,0.35); border-radius:8px; padding:5px 10px;
       margin:2px 0 2px 20px; align-self:flex-start;
     }
     /* 카드 점프 하이라이트 */
@@ -3003,15 +3003,16 @@
     <div class="tb-group tb-file-group adv-only">
       <span class="tb-group-label">파일</span>
       <div class="tb-group-btns tb-file-actions">
-        <button class="tb-btn tb-btn-save" id="btn-export" title="JSON 파일로 저장">💾 저장</button>
+        <!-- BTN-CLEANUP-1(2026-07-10): 저장(실체=JSON 내보내기)·불러오기 버튼을 학생 화면에서 제거 —
+             진짜 저장은 자동(Firebase)이라 "저장" 문구가 오해를 낳고, 불러오기는 확인 없이 팀 작품을
+             통째로 덮어쓰는 위험 버튼. exportJSON/importJSON 함수·file-input은 유지(추후 교사 화면 노출용). -->
         <input type="file" id="file-input" accept=".json" style="display:none"/>
         <div class="tb-more-wrap">
           <button id="btn-file-more" class="tb-btn tb-btn--ghost" type="button"
-            aria-haspopup="menu" aria-expanded="false" title="이야기 길 보기·불러오기·전체 초기화">⋯ 더보기</button>
+            aria-haspopup="menu" aria-expanded="false" title="이야기 길 보기·전체 초기화">⋯ 더보기</button>
           <div id="file-more-menu" class="tb-more-menu" role="menu" hidden>
             <!-- PATH-CHECK-REMOVE(2026-07-09): '이야기 길 점검' 삭제(실용성 부족·사용자 요청). '이야기 길 보기'는 유지. -->
             <button id="btn-route" type="button" role="menuitem" title="장면 흐름(루트)을 살펴봐요">🛤 이야기 길 보기</button>
-            <button id="btn-import" type="button" role="menuitem" title="JSON 파일 불러오기">📂 불러오기</button>
             <button id="btn-clear" class="danger" type="button" role="menuitem" title="모든 장면을 삭제하고 빈 작품으로 초기화합니다" aria-label="전체 초기화">🗑 전체 초기화</button>
           </div>
         </div>
@@ -3140,14 +3141,14 @@
 <!-- 루트 보기 패널 -->
 <div id="route-panel" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:400;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto;">
   <div style="background:#fff;border-radius:20px;width:100%;max-width:600px;box-shadow:0 16px 48px rgba(0,0,0,.25);overflow:hidden;">
-    <div style="background:linear-gradient(135deg,#9b4dca,#c084fc);padding:16px 24px;display:flex;align-items:center;justify-content:space-between;">
+    <div style="background:linear-gradient(135deg,#c66f4a,#d98e63);padding:16px 24px;display:flex;align-items:center;justify-content:space-between;">
       <div>
-        <div style="font-family:var(--font-h);font-size:20px;color:#fff;">🛤 이야기 길 보기</div>
+        <div style="font-family:var(--font-h);font-size:20px;color:#fffaee;">🛤 이야기 길 보기</div>
         <div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:2px;">엔딩별로 이야기 흐름을 읽어보며 점검하는 도구</div>
       </div>
       <button id="btn-route-close" style="background:rgba(255,255,255,.2);border:none;color:#fff;width:32px;height:32px;border-radius:50%;font-size:18px;cursor:pointer;">✕</button>
     </div>
-    <div style="padding:16px 20px 8px;display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid #f0e8ff;" id="route-tabs"></div>
+    <div style="padding:16px 20px 8px;display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid #eee0c8;" id="route-tabs"></div>
     <div style="padding:16px 20px 24px;" id="route-content">
       <div style="color:var(--muted);text-align:center;padding:20px;">루트를 선택하세요</div>
     </div>
@@ -3288,14 +3289,14 @@
 <script src="firebase.js?v=141admin1cbase10amemberlogin1sec5tcphase1drefinestab1accountux1teacherjoin1dragperf1errko1renderdiff1"></script>
 <script src="canvasInteraction.js?v=120renderdiff1crossa1crossb1"></script>
 <script src="sceneRenderer.js?v=119base10bbase10auto1coverstart1scenetitle1ascenetitle2apwanav2vpreturn1perfqa1branchcard1branchcard2branchcard3branchcard4cover1cover2cover3compassbtn1pbflowcopy1cardquickedit1cardexpandpersist1dragperf1crossa1"></script>
-<script src="storyAnalyzer.js?v=136checkbuttons1heuristic3crossa1"></script>
+<script src="storyAnalyzer.js?v=136checkbuttons1heuristic3crossa1routewarm1routetabs1"></script>
 <script src="mediaManager.js?v=114copyfix1uitextfix1"></script>
 <script src="adminConsole.js?v=103copyfix1pwanav2imgs2settings1writeafterui1waq1finishgroup1scenepubprint1accountmode1uitextfix1teacherprint1teamcard1memberlist1legacyux1delsafety2tutorialcd1adminredesign1teacherjoin1aipermwarn1adminmanual1csvbulk1errko1crossa1"></script>
 <!-- ADMIN-REDESIGN Phase 3: 교사·학생 상세 설명서(화면형) -->
 <script src="admin-manual.js?v=adminmanual3print"></script>
 <script src="preview.js?v=96"></script>
 <script src="projectSettings.js?v=114copyfix1coverstart2errko1"></script>
-<script src="ui.js?v=109copyfix2c2base10bfixendingguard1addscene1base10auto1branchtopbar1cscenetitle1asessionrefresh1apwanav2homenav1vpreturn1sec5tcphase1dcompassbtn1cardquickedit1accountux1tutorialtrig1teacherjoin1adminback1cardnobackdrop1adminloading1errko1crossa1crossb1"></script>
+<script src="ui.js?v=109copyfix2c2base10bfixendingguard1addscene1base10auto1branchtopbar1cscenetitle1asessionrefresh1apwanav2homenav1vpreturn1sec5tcphase1dcompassbtn1cardquickedit1accountux1tutorialtrig1teacherjoin1adminback1cardnobackdrop1adminloading1errko1crossa1crossb1btncleanup1"></script>
 <!-- v95: 모바일 텍스트형 브랜치 전용 (텍스트 작품 + 모바일에서만 활성) -->
 <script src="mobileTextBranch.js?v=compassbundle1uitextfix1"></script>
 <!-- TUTORIAL-PRD: 콘텐츠·삽화·데모(먼저) → 도움말/환영/인쇄 -->

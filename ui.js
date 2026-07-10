@@ -575,9 +575,15 @@ async function deleteScene(num) {
 }
 
 function clearAll() {
-  /* 반드시 확인창 먼저 — 확인 전 아무 삭제 없음.
-     Undo 제거됨 → 되돌릴 수 없음을 명확히 경고. */
-  if (!confirm('정말 모든 장면을 초기화할까요?\n이 작업은 되돌릴 수 없어요.')) return;
+  /* 반드시 확인창 먼저 — 확인 전 아무 삭제 없음. Undo 제거됨 → 되돌릴 수 없음.
+     BTN-CLEANUP-1(2026-07-10): confirm 1회 → 타이핑 확인으로 강화 — 팀 작품 전체가
+     사라지는 파괴적 동작이라 "전체 초기화"를 직접 입력해야만 실행. */
+  const typed = prompt('⚠️ 모든 장면이 삭제되고 되돌릴 수 없어요!\n정말 처음부터 다시 시작하려면 아래 칸에 "전체 초기화"라고 똑같이 써 주세요.');
+  if (typed === null) return;                       /* 취소 */
+  if (typed.trim() !== '전체 초기화') {
+    alert('입력한 글자가 달라서 초기화하지 않았어요. (작품은 그대로예요)');
+    return;
+  }
   scenes = {}; nextNum = 1;
   _afterMutation();
 }

@@ -25,7 +25,7 @@
   <link rel="preconnect" href="https://firebasestorage.googleapis.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Jua&family=Nanum+Gothic:wght@400;700&family=Gowun+Batang:wght@400;700&family=Black+Han+Sans&family=Nanum+Pen+Script&family=Gaegu:wght@400;700&family=Cormorant+Garamond:wght@400;700&family=Hahmlet:wght@400;700&family=Diphylleia&family=Noto+Sans+KR:wght@400;700&family=Noto+Serif+KR:wght@400;700&family=Gowun+Dodum&family=Do+Hyeon&family=Hi+Melody&family=Yeon+Sung&family=East+Sea+Dokdo&family=Stylish&display=swap" rel="stylesheet"/>
   <link href="https://cdn.jsdelivr.net/gh/quiple/galmuri/dist/galmuri.css" rel="stylesheet"/>
-  <link rel="stylesheet" href="viewer.css?v=140moviehide2wintab2deadcss2advedithide1absorbtitle1advedithidetext1toptoolbar1toptoolbar2atoptoolbar2btoptoolbar3atoptoolbar3btoptoolbar4atoptoolbar4bprojectsettings1aprojectsettings1bprojectsettings1chudai1bprojectsettings2bprojectsettings2ccpbimage1bpbimage1cpbimage1dscenestyle1scenestyle1cglyphstyle1cglyphstyle1dglyphapplyalltextmode1dmoviesettings1movietool1abmovietool1dpanelcleanup1apanelcleanup1bpanelcleanup1cbackbone1aibackbone1aiibackbone2ideadcode2csscleanup1scenetitle1bviewertopbar1vieweraimodebar1aviewerplayclick1viewerplaytopchrome1viewerplaychoiceunlinked1d97cendcolorrefineia2textdefaults1markers2ia3pbmood2saveaibtnsurface1mobiletextdrawfix1mobiletextcompact1mobiletextcover1mobiletextfixedframe1drawingstudio2simplefieldfix1fullscreen1chromeflow1stagefill1fillmax1themeext1themefill1crossa1crossb1"/>
+  <link rel="stylesheet" href="viewer.css?v=140moviehide2wintab2deadcss2advedithide1absorbtitle1advedithidetext1toptoolbar1toptoolbar2atoptoolbar2btoptoolbar3atoptoolbar3btoptoolbar4atoptoolbar4bprojectsettings1aprojectsettings1bprojectsettings1chudai1bprojectsettings2bprojectsettings2ccpbimage1bpbimage1cpbimage1dscenestyle1scenestyle1cglyphstyle1cglyphstyle1dglyphapplyalltextmode1dmoviesettings1movietool1abmovietool1dpanelcleanup1apanelcleanup1bpanelcleanup1cbackbone1aibackbone1aiibackbone2ideadcode2csscleanup1scenetitle1bviewertopbar1vieweraimodebar1aviewerplayclick1viewerplaytopchrome1viewerplaychoiceunlinked1d97cendcolorrefineia2textdefaults1markers2ia3pbmood2saveaibtnsurface1mobiletextdrawfix1mobiletextcompact1mobiletextcover1mobiletextfixedframe1drawingstudio2simplefieldfix1fullscreen1chromeflow1stagefill1fillmax1themeext1themefill1crossa1crossb1routewarm1"/>
   <link rel="stylesheet" href="v03-modes.css?v=140movieh3wintab1viewerplaylayout1viewerplayaspect1aviewerplaychoicecompact1designsys6d7d8bubble1bd9cozy1d9cozy2d9cozy3d9safeareaD9paperd9safeareaalld94bto7d95bgalleryd94c6b7bd97bnightinkd96c7cbtnd9finald9final2d9final3d9final4d9final5d9final6ttheme1pbmood1apbmood2saveimehotfix1refinestab1fillmax1covertheme1textcovertheme1moviepaper1moviedesktext1movieendtext1movietypo1"/>
   <link rel="stylesheet" href="pb-tone.css?v=16"/>
   <!-- Phase 0.5 mock — AI 기능 UI (step1: 진입 버튼만) -->
@@ -155,14 +155,14 @@
 <!-- v123: 루트보기 패널 (다듬기 화면 안에서도 열림). maker.html과 동일 구조. -->
 <div id="route-panel" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:400;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto;">
   <div style="background:#fff;border-radius:20px;width:100%;max-width:600px;box-shadow:0 16px 48px rgba(0,0,0,.25);overflow:hidden;">
-    <div style="background:linear-gradient(135deg,#9b4dca,#c084fc);padding:16px 24px;display:flex;align-items:center;justify-content:space-between;">
+    <div style="background:linear-gradient(135deg,#c66f4a,#d98e63);padding:16px 24px;display:flex;align-items:center;justify-content:space-between;">
       <div>
-        <div style="font-family:'Jua',sans-serif;font-size:20px;color:#fff;">🛤 이야기 길 보기</div>
+        <div style="font-family:'Jua',sans-serif;font-size:20px;color:#fffaee;">🛤 이야기 길 보기</div>
         <div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:2px;">엔딩별로 이야기 흐름을 읽어보며 점검하는 도구</div>
       </div>
       <button id="btn-route-close" style="background:rgba(255,255,255,.2);border:none;color:#fff;width:32px;height:32px;border-radius:50%;font-size:18px;cursor:pointer;">✕</button>
     </div>
-    <div style="padding:16px 20px 8px;display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid #f0e8ff;" id="route-tabs"></div>
+    <div style="padding:16px 20px 8px;display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid #eee0c8;" id="route-tabs"></div>
     <div style="padding:16px 20px 24px;" id="route-content">
       <div style="color:#888;text-align:center;padding:20px;">루트를 선택하세요</div>
     </div>
@@ -229,7 +229,7 @@
   /* PERF-2B-1: 편집 전용 viewer-image-edit.js(그림 편집툴)·storyAnalyzer.js(루트/구조 보기)도 지연 로드.
      감상 모드는 미로드(추가 ~70KB 감소). 편집 진입 시 edit 번들에 포함. */
   var IMG_SRC   = 'viewer-image-edit.js?v=96copyfix1';
-  var STORY_SRC = 'storyAnalyzer.js?v=136heuristic3perf2b1crossa1';
+  var STORY_SRC = 'storyAnalyzer.js?v=136heuristic3perf2b1crossa1routewarm1routetabs1';
   var loaders = {};
   function loadOnce(src, key) {
     if (loaders[key]) return loaders[key];

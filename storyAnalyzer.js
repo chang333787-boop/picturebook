@@ -332,6 +332,8 @@ function checkStructure() {
 
 const ROUTES_PER_ENDING_CAP = 20;   // 엔딩당 표시 경로 수 상한
 let _routeMode = 'entry';            // 'entry' | 'replay'
+/* ROUTE-TABS-1(2026-07-10): 선택된 엔딩 그룹 key — 칩 선택식(한 번에 한 엔딩만 표시) */
+let _rtSelectedKey = null;
 
 /* ── HTML escape ── */
 function _rtEsc(s) {
@@ -793,7 +795,8 @@ function _rtGroupByEnding(routes) {
 /* ── 루트보기 패널 오픈/닫기 ── */
 function openRoutePanel() {
   document.getElementById('route-panel').style.display = 'flex';
-  /* 패널 열 때마다 현재 구조로 다시 그림 */
+  /* 패널 열 때마다 현재 구조로 다시 그림 — 선택 칩은 기본(진엔딩 우선)으로 리셋 */
+  _rtSelectedKey = null;
   renderRoutePanel();
 }
 
@@ -814,13 +817,14 @@ function renderRoutePanel() {
 
   const modeBtn = (mode, label, num) => {
     const active = _routeMode === mode;
-    const bg     = active ? '#9b4dca' : '#fff';
-    const color  = active ? '#fff'    : '#7030b0';
+    /* ROUTE-WARM-1(2026-07-10): 보라 계열 → 프로젝트 웜톤(코랄·크림·진갈색) 통일 */
+    const bg     = active ? '#c66f4a' : '#fffdf7';
+    const color  = active ? '#fffaee' : '#2b1f10';
     const disabled = num == null;
     return `<button class="js-rt-mode" data-mode="${mode}" ${disabled ? 'disabled' : ''}
       style="padding:7px 14px;border-radius:50px;font-family:var(--font-h);font-size:13px;
-      cursor:${disabled ? 'not-allowed' : 'pointer'};border:2px solid #c090f0;
-      background:${disabled ? '#f4eeff' : bg};color:${disabled ? '#b0a0c8' : color};
+      cursor:${disabled ? 'not-allowed' : 'pointer'};border:2px solid rgba(198,111,74,0.35);
+      background:${disabled ? 'rgba(198,111,74,0.08)' : bg};color:${disabled ? '#9a8868' : color};
       opacity:${disabled ? 0.6 : 1};">
       ${label}${num != null ? ` (장면 ${num})` : ''}
     </button>`;
@@ -828,7 +832,7 @@ function renderRoutePanel() {
 
   tabsEl.innerHTML = `
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;width:100%;">
-      <span style="font-size:11px;color:#9b4dca;font-family:var(--font-h);">시작 기준</span>
+      <span style="font-size:11px;color:#c66f4a;font-family:var(--font-h);">시작 기준</span>
       ${modeBtn('entry',  '🟢 처음 시작', entryNum)}
       ${modeBtn('replay', '🔁 다시 할 때', replayNum)}
       <span style="flex:1;"></span>
@@ -862,42 +866,68 @@ function renderRoutePanel() {
   const issueGroups    = groups.filter(g => g.kind.startsWith('issue-'));
   const capReachedGlobal = totalRoutes >= ROUTE_MAX_PATHS;
 
-  let html = `<div style="background:#f8f0ff;border-radius:12px;padding:10px 14px;margin-bottom:14px;
-    display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:12px;color:#7030b0;">
+  let html = `<div style="background:rgba(198,111,74,0.08);border-radius:12px;padding:10px 14px;margin-bottom:14px;
+    display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:12px;color:#4a3a22;">
     <b>장면 ${curStart}</b>에서 시작 ·
     엔딩 <b>${endingGroups.length}</b>개 ·
     경로 <b>${totalRoutes}</b>개
-    ${issueGroups.length ? ` · <span style="color:#c05000;">이슈 ${issueGroups.length}종</span>` : ''}
-    ${capReachedGlobal ? `<span style="color:#c00;">⚠️ 경로가 너무 많아 일부만 계산됨</span>` : ''}
+    ${issueGroups.length ? ` · <span style="color:#c8503c;">이슈 ${issueGroups.length}종</span>` : ''}
+    ${capReachedGlobal ? `<span style="color:#c8503c;">⚠️ 경로가 너무 많아 일부만 계산됨</span>` : ''}
   </div>`;
 
-  groups.forEach(g => {
+  /* ROUTE-TABS-1: 진엔딩 우선 정렬 + 칩 선택식 — 전 그룹 펼침(스크롤 과다) 대신
+     누른 엔딩의 경로만 표시. 칩: ⭐진엔딩 → 🏁엔딩N → 이슈 순. */
+  const KIND_ORDER = { 'true-ending': 0, 'ending': 1 };
+  groups.sort((a, b) => (KIND_ORDER[a.kind] !== undefined ? KIND_ORDER[a.kind] : 2)
+                      - (KIND_ORDER[b.kind] !== undefined ? KIND_ORDER[b.kind] : 2));
+  const _selected = groups.find(g => g.key === _rtSelectedKey) || groups[0];
+  _rtSelectedKey = _selected.key;
+
+  const _chipMeta = g => (
+    g.kind === 'true-ending' ? { icon: '⭐', on: '#c79550' } :
+    g.kind === 'ending'      ? { icon: '🏁', on: '#c66f4a' } :
+                               { icon: g.icon || '⚠️', on: '#c8503c' });
+  html += `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;">
+    ${groups.map(g => {
+      const m = _chipMeta(g);
+      const on = g.key === _selected.key;
+      return `<button class="js-rt-group-chip" data-key="${g.key}"
+        style="padding:6px 12px;border-radius:50px;font-family:var(--font-h);font-size:12px;cursor:pointer;
+        border:1.5px solid ${on ? m.on : 'rgba(198,111,74,0.35)'};
+        background:${on ? m.on : '#fffdf7'};color:${on ? '#fffaee' : '#4a3a22'};">
+        ${m.icon} ${_rtEsc(g.title)} <span style="opacity:.75;">· ${g.routes.length}</span>
+      </button>`;
+    }).join('')}
+  </div>`;
+
+  {
+    const g = _selected;
     const shown    = g.routes.slice(0, ROUTES_PER_ENDING_CAP);
     const overflow = g.routes.length - shown.length;
 
     let headerColor, headerBg, headerBorder, icon;
-    if (g.kind === 'true-ending')        { headerColor = '#b08000'; headerBg = '#fffbe6'; headerBorder = '#f0c000'; icon = '⭐'; }
-    else if (g.kind === 'ending')        { headerColor = '#7030b0'; headerBg = '#f8f0ff'; headerBorder = '#c090f0'; icon = '🏁'; }
-    else                                 { headerColor = '#8a5000'; headerBg = '#fff8e8'; headerBorder = '#f0a060'; icon = g.icon || '⚠️'; }
+    if (g.kind === 'true-ending')        { headerColor = '#8a6a30'; headerBg = 'rgba(199,149,80,0.12)'; headerBorder = 'rgba(199,149,80,0.45)'; icon = '⭐'; }
+    else if (g.kind === 'ending')        { headerColor = '#b3603e'; headerBg = 'rgba(198,111,74,0.08)'; headerBorder = 'rgba(198,111,74,0.35)'; icon = '🏁'; }
+    else                                 { headerColor = '#c8503c'; headerBg = 'rgba(200,80,60,0.08)'; headerBorder = 'rgba(200,80,60,0.35)'; icon = g.icon || '⚠️'; }
 
     const endingNumHtml = (g.endingNum != null) ? ` · 장면 ${g.endingNum}` : '';
 
     html += `<details class="rt-group" open
-      style="border:1.5px solid ${headerBorder};border-radius:12px;margin-bottom:12px;background:#fff;">
+      style="border:1.5px solid ${headerBorder};border-radius:12px;margin-bottom:12px;background:#fffdf7;">
       <summary style="padding:10px 14px;cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;
         background:${headerBg};border-radius:10px 10px 0 0;font-family:var(--font-h);">
         <span style="font-size:15px;">${icon}</span>
         <span style="color:${headerColor};font-size:14px;">${_rtEsc(g.title)}${endingNumHtml}</span>
-        <span style="margin-left:auto;font-size:11px;color:${headerColor};background:#fff;padding:2px 8px;border-radius:50px;border:1px solid ${headerBorder};">
+        <span style="margin-left:auto;font-size:11px;color:${headerColor};background:#fffdf7;padding:2px 8px;border-radius:50px;border:1px solid ${headerBorder};">
           경로 ${g.routes.length}개
         </span>
       </summary>
       <div style="padding:8px 14px 12px;">
         ${shown.map((p, i) => _rtPathHtml(p, i)).join('')}
-        ${overflow > 0 ? `<div style="margin-top:6px;padding:8px 12px;background:#fff8e8;border-radius:8px;font-size:12px;color:#8a5000;">경로가 많아 ${ROUTES_PER_ENDING_CAP}개까지만 표시했어요. (남은 ${overflow}개)</div>` : ''}
+        ${overflow > 0 ? `<div style="margin-top:6px;padding:8px 12px;background:rgba(200,80,60,0.08);border-radius:8px;font-size:12px;color:#c8503c;">경로가 많아 ${ROUTES_PER_ENDING_CAP}개까지만 표시했어요. (남은 ${overflow}개)</div>` : ''}
       </div>
     </details>`;
-  });
+  }
 
   contentEl.innerHTML = html;
 }
@@ -992,6 +1022,7 @@ function _rtBindRouteEvents() {
       const mode = btn.dataset.mode;
       if (mode && mode !== _routeMode) {
         _routeMode = mode;
+        _rtSelectedKey = null;
         renderRoutePanel();
       }
     });
@@ -1000,6 +1031,15 @@ function _rtBindRouteEvents() {
   /* 장면 줄 → 카드 점프 + v130 인라인 편집 */
   if (content) {
     content.addEventListener('click', e => {
+      /* ROUTE-TABS-1: 엔딩 칩 선택 — 해당 엔딩 경로만 표시 */
+      const chip = e.target.closest('.js-rt-group-chip');
+      if (chip) {
+        if (chip.dataset.key !== _rtSelectedKey) {
+          _rtSelectedKey = chip.dataset.key;
+          renderRoutePanel();
+        }
+        return;
+      }
       /* v130: ✎ 본문 수정 — scene 카드 점프보다 우선 처리 */
       const editBodyBtn = e.target.closest('.js-rt-edit-body');
       if (editBodyBtn) {

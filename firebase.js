@@ -641,6 +641,9 @@ function _enterTeam(val, teamRef, opts) {
      콜백이 최소 1회 실행된 뒤에만 true가 된다. 팀(재)입장마다 여기서 먼저 false로 초기화.
      기본 틀(BASE10) 버튼 표시/생성 가드 전용. 다른 로직은 이 플래그를 쓰지 않는다. */
   window.__branchScenesLoaded = false;
+  /* RENDER-DIFF-1: 팀(재)입장마다 부분 렌더 기준선 초기화 — 새 팀 첫 스냅샷이
+     이전 팀 기준선과 diff되어 렌더가 생략되는 일이 없게(항상 전체 렌더 경로). */
+  _renderedSceneJson = null;
 
   /* W7 신규 흐름 강화: 입장 직후 ptype-screen 노출 — 사용자가 작품 유형 선택.
      · viewer-meta/projectType once 조회 → 기존 유형 있으면 그 카드에 "이전 선택" 강조
@@ -767,7 +770,8 @@ function _enterTeam(val, teamRef, opts) {
                        || window.__cardGrabbing === true;
 
     if (!isTypingCard && !isInteracting) {
-      renderAll();
+      /* RENDER-DIFF-1: 바뀐 장면 카드만 재생성(첫 로드·대량 변경은 내부에서 전체 렌더). */
+      _renderScenesDiff();
     } else {
       /* DRAG-PERF-1: 건너뛴 에코가 다음 에코까지 stale로 남지 않게 — 조작이 끝나면 한 번 재렌더. */
       _scheduleSkippedEchoRender();
@@ -997,9 +1001,72 @@ function _sceneToDbShape(s) {
   return out;
 }
 
+/* ════════════════════════════════════════════════════════════════
+   RENDER-DIFF-1(2026-07-10): 에코 부분 렌더 — 바뀐 장면 카드만 재생성.
+   ──────────────────────────────────────────────────────────────
+   기존: 매 에코마다 renderAll()이 모든 카드를 파괴·재생성(카드당 리스너 ~30개
+   재바인딩) → 팀 동시 편집·자기 쓰기 에코 때마다 화면 전반 잔버벅.
+   이제: 마지막 렌더 시점의 장면별 JSON 기준선과 비교해 변경/신규 카드만
+   renderCard(이미 "기존 카드 제거→재생성" 계약·펼침상태/잠금 복원 내장),
+   삭제된 카드만 remove. 화살표는 SVG 전체 재그리기 유지(저비용·양끝 의존 안전).
+   · 기준선 없음(첫 로드)·renderCard 부재·대량 변경(>12)이면 전체 렌더.
+   · 로컬 편집(좌표/본문)으로 기준선이 낡으면 다음 에코에서 해당 카드만
+     한 번 더 그려질 뿐(정확성 무해). ui.js 등 로컬 renderAll 경로는 불변.
+   · 저장 대기(dirty) 장면은 항상 다시 그림 — 에코가 미저장 변경을 되돌렸을 때
+     종전 renderAll처럼 되돌림이 화면에 드러나야(무증상 은폐 방지) 함.
+   ════════════════════════════════════════════════════════════════ */
+let _renderedSceneJson = null;   /* num → JSON.stringify(scene) — 마지막 렌더 반영 상태 */
+
+function _snapshotScenesJson() {
+  const out = {};
+  Object.keys(scenes).forEach(k => {
+    try { out[k] = JSON.stringify(scenes[k]); }
+    catch (e) { out[k] = '__unserializable__' + Date.now(); }
+  });
+  return out;
+}
+
+/* 로컬 미저장 변경이 걸려 있는 장면 번호들 — push 대기(dirtyScenes)·입력 debounce
+   대기(ui.js _titleDirty/_bodyDirty). 이 장면들은 diff 결과와 무관하게 다시 그린다. */
+function _locallyDirtySceneNums() {
+  const out = new Set();
+  try { if (typeof dirtyScenes !== 'undefined' && dirtyScenes) dirtyScenes.forEach(n => out.add(String(n))); } catch (e) {}
+  try { if (typeof _titleDirty !== 'undefined' && _titleDirty) _titleDirty.forEach(n => out.add(String(n))); } catch (e) {}
+  try { if (typeof _bodyDirty !== 'undefined' && _bodyDirty) _bodyDirty.forEach(n => out.add(String(n))); } catch (e) {}
+  return out;
+}
+
+function _renderScenesDiff() {
+  if (!_renderedSceneJson || typeof renderCard !== 'function' || typeof drawArrows !== 'function') {
+    if (typeof renderAll === 'function') renderAll();
+    _renderedSceneJson = _snapshotScenesJson();
+    return;
+  }
+  const next = _snapshotScenesJson();
+  const changed = [];   /* 신규 + 내용 변경 */
+  const removed = [];
+  Object.keys(next).forEach(k => { if (next[k] !== _renderedSceneJson[k]) changed.push(k); });
+  Object.keys(_renderedSceneJson).forEach(k => { if (!(k in next)) removed.push(k); });
+  /* 에코-되돌림 은폐 방지: dirty 장면은 강제 재렌더(화면=scenes 최신값으로 정렬) */
+  _locallyDirtySceneNums().forEach(k => { if (scenes[k] && changed.indexOf(k) === -1) changed.push(k); });
+
+  if (changed.length === 0 && removed.length === 0) { _renderedSceneJson = next; return; }
+  if (changed.length + removed.length > 12) {
+    renderAll();
+    _renderedSceneJson = next;
+    return;
+  }
+  removed.forEach(k => { const el = document.getElementById('card-' + k); if (el) el.remove(); });
+  changed.forEach(k => { if (scenes[k]) renderCard(scenes[k]); });
+  drawArrows();
+  if (typeof renderSideList === 'function') renderSideList();
+  _renderedSceneJson = next;
+}
+
 /* DRAG-PERF-1(2026-07-10): 타이핑/조작 중이라 건너뛴 에코 재렌더 예약.
    기존엔 스킵된 에코가 다음 에코까지 화면에 반영 안 됨(stale) — 300ms 간격으로
-   조작 종료를 확인해 한 번만 renderAll. scenes 메모리는 항상 최신이므로 데이터 안전. */
+   조작 종료를 확인해 한 번만 재렌더(RENDER-DIFF-1 부분 렌더 경유).
+   scenes 메모리는 항상 최신이므로 데이터 안전. */
 let _echoRetryTimer = null;
 function _scheduleSkippedEchoRender() {
   clearTimeout(_echoRetryTimer);
@@ -1015,7 +1082,7 @@ function _scheduleSkippedEchoRender() {
                      || window.__cardGrabbing === true;
     if (typing || interacting) { _echoRetryTimer = setTimeout(_retry, 300); return; }
     _echoRetryTimer = null;
-    if (typeof renderAll === 'function') renderAll();
+    _renderScenesDiff();
   }, 300);
 }
 

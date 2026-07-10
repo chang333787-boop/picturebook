@@ -67,7 +67,12 @@ function _startDrag(el, s, cv) {
     });
     dragState = { num: s.num, group: true, nums, offsets };
   } else {
-    dragState = { num: s.num, ox: s.x - cv.x, oy: s.y - cv.y };
+    /* RENDER-DIFF-1(2026-07-10): 클로저 s 대신 전역 scenes 기준 — 부분 렌더 도입으로
+       재렌더 안 된 카드의 클로저 s가 옛 에코의 분리된 객체(옛 좌표)로 남을 수 있어,
+       그 좌표로 오프셋을 계산하면 재드래그 시 카드가 옛 위치로 점프백함.
+       pointermove가 이미 전역 scenes[num]을 갱신하므로 기준을 통일한다(그룹 분기와 동일). */
+    const sc = (typeof scenes !== 'undefined' && scenes[s.num]) ? scenes[s.num] : s;
+    dragState = { num: s.num, ox: sc.x - cv.x, oy: sc.y - cv.y };
   }
   el.classList.add('dragging');
 }

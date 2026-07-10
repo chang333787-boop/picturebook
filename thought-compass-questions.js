@@ -110,7 +110,7 @@
     {
       id: 'protagonist', order: 2, g: 'G3',
       title: '누구의 이야기인가요?',
-      help: '사람이 아니어도 괜찮아요. 동물이나 상상 속 존재도 주인공이 될 수 있어요.',
+      help: '사람이 아니어도 괜찮아요. 동물이나 상상 속 존재도 주인공이 될 수 있어요. 주인공의 성격(용감한지, 겁이 많은지)도 함께 떠올려 보세요.',
       choices: [_choice('protagonist_person', '사람'), _choice('protagonist_animal', '동물이나 생물'), _choice('protagonist_thing', '사물·로봇·상상 속 존재'), _choice('protagonist_group', '여럿이 함께하는 이야기예요 (친구·형제)')],
       allowCustom: true, customLabel: '직접 적을래요', allowUnsure: true, maxLength: MAX_CORE_LEN,
       sufficientWhen: '대상 분명 + 특징 1가지',
@@ -119,7 +119,7 @@
     {
       id: 'goal', order: 3, g: 'G4',
       title: '주인공이 가장 원하는 것은 무엇인가요?',
-      help: '주인공이 가장 바라는 것을 떠올려 보세요.',
+      help: '주인공이 가장 바라는 것을 떠올려 보세요. 왜 그걸 원하는지도 생각해 보면 이야기가 단단해져요.',
       choices: [_choice('goal_find', '중요한 사람이나 물건을 찾고 싶어요'), _choice('goal_help', '누군가를 돕거나 지키고 싶어요'), _choice('goal_challenge', '새로운 곳에 가거나 도전하고 싶어요'), _choice('goal_solve', '어떤 문제나 수수께끼를 풀고 싶어요')],
       allowCustom: true, customLabel: '직접 적을래요', allowUnsure: true, maxLength: MAX_CORE_LEN,
       sufficientWhen: '원하는 행동·결과 대상이 분명',
@@ -128,7 +128,7 @@
     {
       id: 'mainlineStart', order: 4, g: 'V2-4',
       title: '이야기는 어떤 장면에서 시작하나요?',
-      help: '이야기의 첫 장면을 떠올려 보세요.',
+      help: '이야기의 첫 장면을 떠올려 보세요. 어디에서(교실·숲·우주 등) 일어나는 이야기인지도 함께 정하면 좋아요.',
       choices: [_choice('start_ordinary', '평범한 하루에서 시작해요'), _choice('start_strange', '이상한 일이 벌어지며 시작해요'), _choice('start_newplace', '주인공이 낯선 곳에 가며 시작해요')],
       allowCustom: true, customLabel: '직접 적을래요', allowUnsure: true, maxLength: MAX_CORE_LEN,
       sufficientWhen: '첫 장면 그림 1개 분명',
@@ -182,7 +182,7 @@
     {
       id: 'coreMessage', order: 10, g: 'G7',
       title: '끝까지 지키고 싶은 이야기의 중심은 무엇인가요?',
-      help: '이야기를 고치더라도 끝까지 지키고 싶은 것을 골라 보세요.',
+      help: '이야기를 만들다 보면 AI나 친구들의 도움으로 글을 고치게 될 수도 있어요. 그럴 때도 바뀌지 않게 지키고 싶은 것을 골라 보세요.',
       choices: [_choice('anchor_character', '주인공의 성격이나 마음'), _choice('anchor_scene', '꼭 넣고 싶은 장면이나 대사'), _choice('anchor_ending', '결말의 의미나 이야기 분위기'), _choice('anchor_relationship', '인물들 사이의 관계 (우정·가족)')],
       allowCustom: true, customLabel: '직접 적을래요', allowUnsure: true, maxLength: MAX_CORE_LEN,
       sufficientWhen: '지키고 싶은 중심 1개 분명',

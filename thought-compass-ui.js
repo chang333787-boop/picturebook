@@ -116,6 +116,21 @@
     progWrap.appendChild(bar);
     card.appendChild(progWrap);
 
+    /* COMPASS-CONTEXT-STRIP(2026-07-10): 질문 간 유기성 — 직전 답 최대 2개를 화면에 보여줘
+       "지금까지의 내 이야기 위에 쌓는다"는 감각을 만든다(기존엔 AI에게만 priorSummaries 전달·학생 화면엔 없음).
+       targetLength(장면 수)는 스토리 요소가 아니라 제외. 표시만·저장/판정 무영향. */
+    try {
+      if (typeof _priorSummaries === 'function') {
+        const _prior = _priorSummaries().filter(s => s.key !== q.id && s.key !== 'targetLength');
+        if (_prior.length) {
+          const _t = (s) => { const x = String(s.text || '').trim(); return '“' + (x.length > 26 ? x.slice(0, 26) + '…' : x) + '”'; };
+          const strip = _el('p', 'tc-flow-help', '📖 지금까지 내 이야기: ' + _prior.slice(-2).map(_t).join(' → '));
+          strip.style.cssText = 'margin:2px 0 0;padding:7px 11px;background:#f4efe2;border:1px solid #e3d9c2;border-radius:9px;font-size:12.5px;color:#6b5a38;line-height:1.5;';
+          card.appendChild(strip);
+        }
+      }
+    } catch (e) { /* 표시 실패해도 흐름 무영향 */ }
+
     /* 질문 */
     const qTitle = _el('h2', 'tc-flow-title', q.title);
     qTitle.id = 'tc-flow-title';

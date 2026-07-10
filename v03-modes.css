@@ -6079,3 +6079,39 @@ body[data-pb-theme="night-story"] .choice-v03--picturebook:focus-visible {
 body[data-pb-theme="night-story"] .choice-v03--picturebook:active:not(:disabled) {
   background: rgba(20, 27, 54, 0.95);
 }
+
+/* ════════ MOVIE-PAPER-TONE(2026-07-10): 무비형 결정 패널(본문+행동버튼)을 '종이 동화책' 톤으로 ════════
+   기존 어두운 overlay(교육웹 느낌)를 따뜻한 종이 톤으로 — 인쇄/그림책 paper-storybook 정본 값 이식.
+   · panel/card 두 deco 모두 --md-* 토큰 override로 처리(레이아웃 무변경).
+   · caption-bar 자막 띠(어두운 배경+흰 글씨)는 별도 규칙(특이도 높음)이라 그대로 유지.
+   · 무비 엔딩(.movie-ending-decision)은 .movie-decision 토큰 공유 → 자동으로 같은 톤. */
+.scene-screen--movie[data-movie-deco="panel"] {
+  --md-bg: linear-gradient(to top, rgba(247,238,206,0.95) 55%, rgba(247,238,206,0.35) 100%);
+}
+body[data-page-orientation="portrait"] .scene-screen--movie[data-movie-deco="panel"] {
+  --md-bg: linear-gradient(to top, rgba(247,238,206,0.92) 55%, rgba(247,238,206,0.3) 100%);
+}
+.scene-screen--movie[data-movie-deco="card"] {
+  --md-bg: rgba(250,243,222,0.94);
+  --md-border: 1px solid rgba(150,135,100,.5);
+  --md-shadow: 0 14px 44px rgba(60,45,20,0.28);
+}
+/* 본문 — 종이 위 진갈색(paper 정본 글색). caption-bar는 위 규칙이 더 특이해서 흰 자막 유지. */
+.scene-screen--movie .movie-decision__desc {
+  color: #3a2c14;
+  text-shadow: none;
+}
+/* 행동버튼 — paper 노트 인덱스 탭 톤(인쇄 .pbp-choice와 동일 계열). */
+.scene-screen--movie .choice-v03 {
+  background: linear-gradient(#f1e7cc, #e7d8b4);
+  color: #4a3a22;
+  border: 1.2px solid #b6a479;
+  border-radius: 4px 4px 7px 7px;
+  font-weight: 700;
+  box-shadow: 0 1px 2px rgba(110,95,55,.16);
+}
+.scene-screen--movie .choice-v03:hover:not(:disabled) {
+  background: linear-gradient(#f7efd8, #eee0c0);
+  border-color: #9a6b3f;
+  transform: translateY(-1px);
+}

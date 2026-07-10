@@ -1537,6 +1537,18 @@ function _bindSceneEvents(stage, scene) {
     video.addEventListener('ended', () => {
       const movieScreen = video.closest('.scene-screen--movie');
       if (movieScreen) movieScreen.setAttribute('data-played', 'true');
+      /* MOVIE-FS-EXIT(2026-07-10): 네이티브 전체화면으로 보던 중 영상이 끝나면 전체화면을 자동 해제 —
+         전체화면은 <video>만 차지해 결정 패널(본문/행동버튼)이 안 보이므로, 해제해야 이어서 선택 가능.
+         (표준 fullscreenElement + iOS Safari webkitDisplayingFullscreen 둘 다 처리. 실패해도 무해.) */
+      try {
+        if (document.fullscreenElement && typeof document.exitFullscreen === 'function') {
+          document.exitFullscreen().catch(() => {});
+        } else if (document.webkitFullscreenElement && typeof document.webkitExitFullscreen === 'function') {
+          document.webkitExitFullscreen();
+        } else if (video.webkitDisplayingFullscreen && typeof video.webkitExitFullscreen === 'function') {
+          video.webkitExitFullscreen();
+        }
+      } catch (e) { /* noop */ }
     });
   });
 

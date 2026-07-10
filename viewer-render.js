@@ -957,6 +957,25 @@ function _setupPbPhotoWrappers(stage) {
   });
 }
 
+/* 무비형 결정 패널 페일세이프 (2026-07-10):
+   무비형은 영상이 'ended' 될 때만 data-played="true"로 바뀌어 본문·선택지(.movie-decision)가 노출된다.
+   그런데 크롬북(ChromeOS) 등에서 HEVC(H.265) 영상은 디코딩이 안 돼 재생 자체가 실패 → 'ended'가 영영 안 오고
+   독자가 선택지를 못 봐 멈춰버린다(소리만 나거나 화면이 검게 뜸). error/재생 실패를 감지해 결정 패널을 노출한다.
+   · error : 코덱 미지원/디코드 실패 시 즉시 노출
+   · 안전 타임아웃 : error/ended 둘 다 안 오고 재생이 시작조차 못 하면(느린 실패) 노출
+   정상 영상은 곧바로 'playing' → started=true라 타임아웃이 발동하지 않는다. */
+function _bindMovieDecisionFailsafe(video) {
+  if (!video) return;
+  const reveal = () => {
+    const sc = video.closest('.scene-screen--movie');
+    if (sc && sc.getAttribute('data-played') !== 'true') sc.setAttribute('data-played', 'true');
+  };
+  video.addEventListener('error', reveal);
+  let started = false;
+  video.addEventListener('playing', () => { started = true; }, { once: true });
+  setTimeout(() => { if (!started) reveal(); }, 10000);
+}
+
 /* ── 모드 3: 무비형 (movie) ──
    구조: 위 미디어(어두운 프레임) + 아래 결정 패널(light)
    결정 패널: 자연 높이 + 최대 40%, 넘치면 내부 스크롤
@@ -1550,6 +1569,7 @@ function _bindSceneEvents(stage, scene) {
         }
       } catch (e) { /* noop */ }
     });
+    _bindMovieDecisionFailsafe(video);
   });
 
   /* 체험전시형 표준 네비 (4단계 신규) — 뒤로가기 / 처음으로.
@@ -2233,6 +2253,7 @@ function _renderMovieEnding(stage, scene) {
       const sc = video.closest('.scene-screen--movie');
       if (sc) sc.setAttribute('data-played', 'true');
     });
+    _bindMovieDecisionFailsafe(video);
   });
 
   /* 다시 시작 / 직전 장면 — _renderStoryEnding과 동일 동작. */

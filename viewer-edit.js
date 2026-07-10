@@ -184,6 +184,38 @@ function _viewerProbeVideoDuration(file) {
   });
 }
 
+/* 크롬북 HEVC 감지 (2026-07-10):
+   아이폰 "고효율" 녹화 영상은 HEVC(H.265)로 저장되는데 크롬북(ChromeOS)에서 디코딩이 안 돼
+   화면이 검게 뜨고 소리만 난다. 업로더 기기(맥/아이패드)는 HEVC를 지원해 재생 테스트로는 못 걸러내므로,
+   파일 바이트에서 코덱 식별자(fourcc)를 직접 스캔한다. hvc1/hev1 = HEVC. moov 박스가 파일 끝에 있는
+   아이폰 영상까지 잡으려 앞·뒤 청크를 모두 스캔한다. 감지 실패(예외)는 업로드를 막지 않는다(false 반환). */
+async function _viewerVideoIsHevc(file) {
+  try {
+    if (!file) return false;
+    const HVC1 = [0x68, 0x76, 0x63, 0x31]; // 'hvc1'
+    const HEV1 = [0x68, 0x65, 0x76, 0x31]; // 'hev1'
+    const scan = (buf) => {
+      const b = new Uint8Array(buf);
+      const find = (sig) => {
+        outer: for (let i = 0; i + sig.length <= b.length; i++) {
+          for (let j = 0; j < sig.length; j++) { if (b[i + j] !== sig[j]) continue outer; }
+          return true;
+        }
+        return false;
+      };
+      return find(HVC1) || find(HEV1);
+    };
+    const CHUNK = 4 * 1024 * 1024;
+    const head = await file.slice(0, Math.min(CHUNK, file.size)).arrayBuffer();
+    if (scan(head)) return true;
+    if (file.size > CHUNK) {
+      const tail = await file.slice(Math.max(0, file.size - CHUNK)).arrayBuffer();
+      if (scan(tail)) return true;
+    }
+    return false;
+  } catch (e) { return false; }
+}
+
 async function viewerUploadVideoToStorage(file, sceneNum, opts) {
   /* viewer는 named app 'viewer'를 사용 — default app 아님.
      getViewerDb()와 같은 방식으로 named app에서 storage 가져옴.
@@ -6634,6 +6666,20 @@ function _bindMovieToolVideoActions(modal, scene) {
           showErr('영상 업로드가 활성화되지 않았어요. 페이지를 새로고침해주세요.');
           return;
         }
+
+        /* 크롬북 호환성 경고 — HEVC(아이폰 고효율) 영상은 크롬북에서 화면이 안 나온다.
+           올리기 전에 감지해 안내하고, 그래도 올릴지 물어본다. */
+        try {
+          if (await _viewerVideoIsHevc(file)) {
+            const goOn = await showViewerConfirm({
+              title: '크롬북에서 안 보일 수 있는 영상이에요',
+              message: '이 영상은 아이폰 "고효율(H.265)" 형식이라, 크롬북·태블릿에서는 화면이 안 나오고 소리만 날 수 있어요.\n\n아이폰에서 [설정 → 카메라 → 포맷 → "높은 호환성"]으로 바꿔 다시 찍거나, H.264(mp4)로 변환해서 올리면 어느 기기에서든 잘 보여요.\n\n그래도 이 영상을 올릴까요?',
+              confirmText: '그래도 올리기',
+              danger: false,
+            });
+            if (!goOn) return;
+          }
+        } catch (e) { /* 감지 실패해도 업로드는 계속 */ }
 
         if (progEl) {
           progEl.style.display = 'block';

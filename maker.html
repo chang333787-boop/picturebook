@@ -10,6 +10,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
   <!-- v36: PWA — 홈 화면에 추가하면 전체화면 앱처럼 동작 -->
   <link rel="manifest" href="manifest.json"/>
+  <link rel="icon" type="image/png" href="icons/icon-192.png"/>
+  <link rel="apple-touch-icon" href="icons/icon-192.png"/>
   <meta name="theme-color" content="#fbf6ea"/>
   <meta name="color-scheme" content="light"/> <!-- CROSS-A: 삼성인터넷 등 강제 다크모드 색반전 방지 -->
   <meta name="mobile-web-app-capable" content="yes"/>
@@ -3219,7 +3221,7 @@
       <div class="admin-side-foot">
         <button id="btn-admin-refresh" class="admin-refresh-btn" title="새로고침">🔄 <span>새로고침</span></button>
         <button id="btn-admin-home" class="admin-refresh-btn" title="교사 홈으로 나가기">🌿 <span>나가기</span></button>
-        <button id="btn-admin-close" class="admin-close-btn" title="닫기(교사 홈)">✕</button>
+      <!-- CONTEST-FIX-1: ✕ 닫기 제거 — 🌿 나가기와 완전 동일 동작(index 이동) 중복. ui.js 바인딩은 ?.라 무해. -->
       </div>
     </aside>
 
@@ -3288,20 +3290,20 @@
 <script src="thought-compass-scenes.js?v=compassbundle1"></script>
 <script src="firebase.js?v=141admin1cbase10amemberlogin1sec5tcphase1drefinestab1accountux1teacherjoin1dragperf1errko1renderdiff1"></script>
 <script src="canvasInteraction.js?v=120renderdiff1crossa1crossb1"></script>
-<script src="sceneRenderer.js?v=119base10bbase10auto1coverstart1scenetitle1ascenetitle2apwanav2vpreturn1perfqa1branchcard1branchcard2branchcard3branchcard4cover1cover2cover3compassbtn1pbflowcopy1cardquickedit1cardexpandpersist1dragperf1crossa1"></script>
+<script src="sceneRenderer.js?v=119base10bbase10auto1coverstart1scenetitle1ascenetitle2apwanav2vpreturn1perfqa1branchcard1branchcard2branchcard3branchcard4cover1cover2cover3compassbtn1pbflowcopy1cardquickedit1cardexpandpersist1dragperf1crossa1contest1"></script>
 <script src="storyAnalyzer.js?v=136checkbuttons1heuristic3crossa1routewarm1routetabs1"></script>
 <script src="mediaManager.js?v=114copyfix1uitextfix1"></script>
-<script src="adminConsole.js?v=103copyfix1pwanav2imgs2settings1writeafterui1waq1finishgroup1scenepubprint1accountmode1uitextfix1teacherprint1teamcard1memberlist1legacyux1delsafety2tutorialcd1adminredesign1teacherjoin1aipermwarn1adminmanual1csvbulk1errko1crossa1"></script>
+<script src="adminConsole.js?v=103copyfix1pwanav2imgs2settings1writeafterui1waq1finishgroup1scenepubprint1accountmode1uitextfix1teacherprint1teamcard1memberlist1legacyux1delsafety2tutorialcd1adminredesign1teacherjoin1aipermwarn1adminmanual1csvbulk1errko1crossa1contest1"></script>
 <!-- ADMIN-REDESIGN Phase 3: 교사·학생 상세 설명서(화면형) -->
-<script src="admin-manual.js?v=adminmanual3print"></script>
+<script src="admin-manual.js?v=adminmanual4contest"></script>
 <script src="preview.js?v=96"></script>
 <script src="projectSettings.js?v=114copyfix1coverstart2errko1"></script>
-<script src="ui.js?v=109copyfix2c2base10bfixendingguard1addscene1base10auto1branchtopbar1cscenetitle1asessionrefresh1apwanav2homenav1vpreturn1sec5tcphase1dcompassbtn1cardquickedit1accountux1tutorialtrig1teacherjoin1adminback1cardnobackdrop1adminloading1errko1crossa1crossb1btncleanup1"></script>
+<script src="ui.js?v=109copyfix2c2base10bfixendingguard1addscene1base10auto1branchtopbar1cscenetitle1asessionrefresh1apwanav2homenav1vpreturn1sec5tcphase1dcompassbtn1cardquickedit1accountux1tutorialtrig1teacherjoin1adminback1cardnobackdrop1adminloading1errko1crossa1crossb1btncleanup1contest1"></script>
 <!-- v95: 모바일 텍스트형 브랜치 전용 (텍스트 작품 + 모바일에서만 활성) -->
 <script src="mobileTextBranch.js?v=compassbundle1uitextfix1"></script>
 <!-- TUTORIAL-PRD: 콘텐츠·삽화·데모(먼저) → 도움말/환영/인쇄 -->
 <script src="fullscreen-persist.js?v=fspersist1"></script>
-<script src="tutorial-content.js?v=tutorialbranchcard1"></script>
+<script src="tutorial-content.js?v=tutorialbranchcard1contest1"></script>
 <script src="tutorial-art.js?v=tutorialrefine2"></script>
 <script src="tutorial-demo.js?v=tutorialbranchcard1"></script>
 <script src="tutorial-help.js?v=tutorialart1"></script>

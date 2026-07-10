@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
   <!-- v36: PWA — 홈 화면에 추가하면 전체화면 앱처럼 동작 -->
   <link rel="manifest" href="manifest.json"/>
+  <link rel="icon" type="image/png" href="icons/icon-192.png"/>
+  <link rel="apple-touch-icon" href="icons/icon-192.png"/>
   <meta name="theme-color" content="#fbf6ea"/>
   <meta name="color-scheme" content="light"/> <!-- CROSS-A: 삼성인터넷 등 강제 다크모드 색반전 방지 -->
   <meta name="mobile-web-app-capable" content="yes"/>
@@ -632,7 +634,7 @@ document.getElementById('class-code').addEventListener('input', e => {
     try {
       const snap = await db.ref('classCodes/' + raw).once('value');
       if (snap.exists()) {
-        status.textContent = '✗ 이미 다른 반이 쓰고 있어요. 다른 코드로 박아주세요.';
+        status.textContent = '✗ 이미 다른 반이 쓰고 있어요. 다른 코드를 정해 주세요.';
         status.style.color = 'var(--error)';
         _codeAvailable = false;
       } else {
@@ -659,7 +661,7 @@ document.getElementById('btn-create-class').addEventListener('click', async () =
   errEl.textContent = '';
   if (!user) { errEl.textContent = '로그인이 필요해요.'; return; }
   if (!/^[A-Z0-9]{4,6}$/.test(code)) { errEl.textContent = '클래스 코드는 영문 대문자 + 숫자 4~6자여야 해요.'; return; }
-  if (!_codeAvailable) { errEl.textContent = '코드 중복 확인이 끝난 후 박아주세요.'; return; }
+  if (!_codeAvailable) { errEl.textContent = '코드 중복 확인이 끝난 뒤 만들기를 눌러 주세요.'; return; }
 
   btn.disabled = true;
   btn.textContent = '만드는 중...';

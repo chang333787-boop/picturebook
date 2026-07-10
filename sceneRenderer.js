@@ -644,7 +644,8 @@ function bindCardEvents(el, s) {
   const num = s.num;
 
   /* 번호 바꾸기 */
-  el.querySelector('.js-rename-btn')
+  /* CONTEST-FIX-1: 표지는 번호 개념을 UI에서 숨김(📖 배지) — 번호 바꾸기 트리거 차단 */
+  if (s.type !== 'cover') el.querySelector('.js-rename-btn')
     ?.addEventListener('click', () => renameScene(num));
 
   /* 삭제 */

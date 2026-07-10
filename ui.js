@@ -523,10 +523,28 @@ async function renameScene(num) {
   }
   const s = { ...scenes[num], num: newNum };
   delete scenes[num]; scenes[newNum] = s;
+  /* CONTEST-FIX-1(2026-07-10): 번호 바꾸기가 legacy nextA/B만 재매핑해 buttons[].nextId·
+     connectObjects[].nextId·시작점(entry/replay)이 옛 번호에 남아 연결(화살표)이 끊기던 버그 —
+     deleteScene과 동일한 참조 정리 로직으로 전 참조 재매핑. */
+  const numStr = String(num), newNumStr = String(newNum);
   Object.values(scenes).forEach(sc => {
-    if (sc.nextA === num) sc.nextA = newNum;
-    if (sc.nextB === num) sc.nextB = newNum;
+    if (sc.nextA === num || sc.nextA === numStr) sc.nextA = newNum;
+    if (sc.nextB === num || sc.nextB === numStr) sc.nextB = newNum;
+    if (Array.isArray(sc.buttons)) {
+      sc.buttons.forEach(b => {
+        if (b && (b.nextId === num || b.nextId === numStr)) b.nextId = newNumStr;
+      });
+    }
+    if (Array.isArray(sc.connectObjects)) {
+      sc.connectObjects.forEach(co => {
+        if (co && (co.nextId === num || co.nextId === numStr)) co.nextId = newNumStr;
+      });
+    }
   });
+  if (typeof projectMeta === 'object' && projectMeta) {
+    if (String(projectMeta.entrySceneId)  === numStr) projectMeta.entrySceneId  = newNumStr;
+    if (String(projectMeta.replaySceneId) === numStr) projectMeta.replaySceneId = newNumStr;
+  }
   releaseLock(num);
   _afterMutation();
 }
@@ -1161,7 +1179,11 @@ window.addEventListener('DOMContentLoaded', () => {
 
   /* 관리자 패널 — Auth 기반 직접 진입 후 패널 닫기/새로고침 */
   document.getElementById('btn-admin-close')  ?.addEventListener('click', closeAdmin);
-  document.getElementById('btn-admin-refresh')?.addEventListener('click', loadAdminData);
+  document.getElementById('btn-admin-refresh')?.addEventListener('click', () => {
+    /* CONTEST-FIX-1: 60초 캐시 안에서 무동작이던 버그 — 요약바 새로고침과 동일하게 캐시 무효화 후 로드 */
+    if (typeof _invalidateAdminCache === 'function') _invalidateAdminCache('side-refresh');
+    loadAdminData();
+  });
   /* 관리 콘솔 처음으로 — index 이동만. 교사 Auth 세션/관리 선택 상태는 건드리지 않음.
      replace로 이동(뒤로가기로 관리 화면 재튕김 방지). */
   document.getElementById('btn-admin-home')?.addEventListener('click', () => {

@@ -4,6 +4,8 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <meta name="theme-color" content="#fbf6ea"/>
+  <link rel="icon" type="image/png" href="icons/icon-192.png"/>
+  <link rel="apple-touch-icon" href="icons/icon-192.png"/>
   <title>가지(branch) — 개인정보 처리방침</title>
   <style>
     :root{
@@ -147,7 +149,7 @@
   <header class="intro">
     <div class="leaf">🌿</div>
     <h1>가지(branch) 개인정보 처리방침</h1>
-    <div class="dates">시행일: 2026-06-10 · 최종 수정일: 2026-06-10</div>
+    <div class="dates">시행일: 2026-06-10 · 최종 수정일: 2026-07-10</div>
   </header>
 
   <div class="lead">
@@ -233,16 +235,18 @@
       <li><b>Google Firebase</b> — Authentication(로그인), Realtime Database(데이터 저장),
         Cloud Storage(파일 저장), Cloud Functions(서버 처리), Hosting 등 인프라</li>
       <li><b>GitHub Pages</b> 등 정적 호스팅 — 페이지 제공</li>
-      <li><b>OpenAI API</b> — AI 텍스트(및 향후 이미지) 기능 제공</li>
+      <li><b>Anthropic API</b> — AI 텍스트 기능(글 다듬기·생각 점검 질문·작품 검사) 제공</li>
+      <li><b>OpenAI API</b> — AI 이미지 기능(그림책 마감 변환, 교사가 학급에서 켠 경우에만) 제공</li>
     </ul>
   </section>
 
   <section class="card">
     <h2><span class="n">6</span> AI 기능과 개인정보</h2>
     <p class="soft">
-      AI 기능은 선택적으로 사용하는 기능입니다. AI 텍스트 기능을 사용할 때에는
-      작품 본문, 장면 정보, 선택지 등 기능 수행에 필요한 정보가 OpenAI API로 전송될 수 있습니다.
-      향후 AI 이미지 기능을 사용할 때에는 업로드 이미지 또는 그림판 이미지가 OpenAI API로 전송될 수 있습니다.
+      AI 기능은 선택적으로 사용하는 기능이며, 교사가 학급 설정에서 켠 기능만 사용할 수 있습니다.
+      AI 텍스트 기능을 사용할 때에는 작품 본문, 장면 정보, 선택지 등 기능 수행에 필요한 정보가
+      Anthropic API로 전송될 수 있습니다. AI 이미지 기능을 사용할 때에는 업로드 이미지 또는
+      그림판 이미지가 OpenAI API로 전송될 수 있습니다.
     </p>
     <div class="highlight">
       AI 기능을 사용하지 않으면 해당 작품 내용이나 이미지는 AI API로 전송되지 않습니다.
@@ -252,9 +256,9 @@
       특히 이미지 AI 결과는 원본 이미지 데이터를 바로 덮어쓰지 않는 구조를 원칙으로 합니다.
     </p>
     <div class="note">
-      OpenAI API로 전송되는 데이터는 OpenAI의 API 데이터 처리 정책에 따라 처리됩니다.
-      OpenAI는 API 입력 및 출력을 기본적으로 모델 학습에 사용하지 않는다고 안내하고 있으나,
-      구체적인 보관 기간과 처리 방식은 OpenAI의 정책 및 서비스 설정에 따릅니다.
+      Anthropic·OpenAI API로 전송되는 데이터는 각 회사의 API 데이터 처리 정책에 따라 처리됩니다.
+      두 회사 모두 API 입력 및 출력을 기본적으로 모델 학습에 사용하지 않는다고 안내하고 있으나,
+      구체적인 보관 기간과 처리 방식은 각 회사의 정책 및 서비스 설정에 따릅니다.
     </div>
   </section>
 

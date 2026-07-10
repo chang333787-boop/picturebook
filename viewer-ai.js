@@ -2570,6 +2570,10 @@
     /* UI-REBUILD-1: 글 보기 = 원본 | AI 장면발전(s2)만. 텍스트 1단계(s1) 토글 폐기.
        s2 후보 없으면 바 미표시(s1만 있는 구작품도 바 숨김 → 본문은 원본 표시). */
     const hasS2 = _isS2Finalized();
+    /* CONTEST-FIX-1(2026-07-10): 학급 AI가 원천 꺼졌거나 교사가 s2를 안 켠 반에서 만들어둔 s2도
+       없으면 — 영영 켤 수 없는 disabled 토글('먼저 만들면 켜져요')을 노출하지 않음.
+       기존 s2가 있으면 보기 전용으로 유지(AI 호출 없음·안전). */
+    if (!hasS2 && (isClassAiHardOff() || !_isModeAllowedByTeacher('s2'))) { _hideAiToggleBar(); return; }
     /* AI-TOGGLE-ALWAYS-1(2026-07-08): variant 유무와 무관하게 토글을 항상 배치(레이아웃 일관·
        '생겼다 없어졌다' 방지, 사용자 요구). s2 없으면 아래 'AI 장면발전' 버튼을 disabled로 →
        원본만 활성, AI를 돌린 뒤 켜짐. */
@@ -2663,6 +2667,8 @@
     if (!_aiToggleProjectTypeAllowed()) { _hideAiImageToggleBar(); return; }
     /* imageS1(AI 그림 정돈)은 폐기 — 'AI 그림책 마감'(s2)만. */
     const hasS2 = _hasImageVariantS2();
+    /* CONTEST-FIX-1: 텍스트 토글과 동일 — 영영 켤 수 없는 disabled 토글 비노출. */
+    if (!hasS2 && (isClassAiHardOff() || !_isModeAllowedByTeacher('imageS2'))) { _hideAiImageToggleBar(); return; }
     /* AI-TOGGLE-ALWAYS-1(2026-07-08): 그림책 작품이면 그림 토글 항상 배치(레이아웃 일관) — s2 없으면
        아래 'AI 그림책 마감' 버튼 disabled. 그림 없는 작품(텍스트 등)엔 그림 토글 미표시.
        단 레거시라도 이미지 s2 후보가 있으면(=사실상 그림책) 표시. */

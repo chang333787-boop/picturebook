@@ -1311,12 +1311,12 @@ function _printEntryCards(classId) {
 
   const cardsHtml = teams.map(t => `
     <div class="aec-card">
-      <div class="aec-brand">🌿 가지 — 작품 보기</div>
+      <div class="aec-brand">🌿 가지 — 작품 만들기 입장 카드</div>
       <div class="aec-team">${esc(t.accountName || t.name)}</div>
       <div class="aec-row"><span class="aec-k">클래스 코드</span><span class="aec-v">${esc(code)}</span></div>
       <div class="aec-row"><span class="aec-k">모둠 이름</span><span class="aec-v">${esc(t.accountName || t.name)}</span></div>
       <div class="aec-row"><span class="aec-k">비밀번호(PIN)</span><span class="aec-v aec-pin">${esc(t.accountPin)}</span></div>
-      <div class="aec-hint">작품 보기 화면에서 클래스 코드와 모둠 이름·비밀번호를 입력해요.</div>
+      <div class="aec-hint">작품 만들기 화면에서 클래스 코드·모둠 이름·비밀번호(PIN)를 입력해요.</div>
     </div>`).join('');
 
   /* 명단(한눈에 확인용) — 카드 뒤 페이지에 표 */
@@ -1660,7 +1660,9 @@ function _teamCardHtml(t) {
   const moreBtn   = `<button class="admin-action-btn admin-action-btn--more js-admin-more" title="더 보기">⋯</button>
     <div class="admin-more-menu" style="display:none;">
       ${accountMenuItems}
-      <button class="admin-more-item js-admin-print" data-name="${t.name}" title="장면 무대 그대로 그림책처럼 인쇄해요 (그림책 작품용)">🖨 그림책 인쇄</button>
+      ${t.total > 0
+        ? `<button class="admin-more-item js-admin-print" data-name="${t.name}" title="장면 무대 그대로 그림책처럼 인쇄해요 (그림책 작품용)">🖨 그림책 인쇄</button>`
+        : `<button class="admin-more-item" disabled style="opacity:0.45;cursor:default;" title="아직 장면이 없어서 인쇄할 수 없어요">🖨 그림책 인쇄</button>`}
       <button class="admin-more-item js-admin-print-wa" data-name="${t.name}" title="이 모둠의 생각 점검 질문·작품 검사 결과를 인쇄해요 (학생 태블릿엔 프린터가 없어 교사가 대신 인쇄)">🖨 고쳐쓰기 자료 인쇄</button>
       <button class="admin-more-item js-admin-print-tc" data-name="${t.name}" title="이 모둠의 생각 나침반 설계도를 열어 인쇄해요 (카드형/나침반형)">🖨 생각 나침반 인쇄</button>
       <button class="admin-more-item js-admin-issue-code" data-encoded="${t.encodedName}" data-name="${t.name}">📤 복사 코드 발급</button>

@@ -12,6 +12,8 @@
   <meta name="color-scheme" content="light"/> <!-- CROSS-A: 삼성인터넷 등 강제 다크모드 색반전 방지 -->
   <!-- v36: PWA — 홈 화면에 추가하면 전체화면 앱처럼 동작. 브라우저 chrome 사라짐. -->
   <link rel="manifest" href="manifest.json"/>
+  <link rel="icon" type="image/png" href="icons/icon-192.png"/>
+  <link rel="apple-touch-icon" href="icons/icon-192.png"/>
   <meta name="mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
@@ -129,7 +131,7 @@
       <!-- 조용한 하단 링크 -->
       <p style="text-align:center;margin:22px 0 0;font-size:12px;">
         <a href="./privacy.html" target="_blank" rel="noopener"
-           style="color:rgba(255,255,255,0.5);text-decoration:none;border-bottom:1px dashed rgba(255,255,255,0.25);padding-bottom:1px;">개인정보 처리방침</a>
+           style="color:rgba(90,75,55,0.6);text-decoration:none;border-bottom:1px dashed rgba(90,75,55,0.3);padding-bottom:1px;">개인정보 처리방침</a>
       </p>
 
     </div><!-- /wh__main -->
@@ -285,7 +287,7 @@
 </script>
 
 <!-- ADMIN-REDESIGN Phase 3: 첫 화면에서 여는 교사·학생 상세 설명서 -->
-<script src="admin-manual.js?v=adminmanual3print"></script>
+<script src="admin-manual.js?v=adminmanual4contest"></script>
 <script>
   document.getElementById('wh-manual-btn')?.addEventListener('click', function () {
     if (window.AdminManual && typeof window.AdminManual.open === 'function') window.AdminManual.open('teacher');

@@ -5113,7 +5113,9 @@ function _renderCoverPopoverBody(scene) {
         title="닫기" aria-label="닫기">✕</button>
     </div>
     <div class="edit-cover-popover__body">
-      ${_coverThemeRowHtml(scene)}
+      <!-- CONTEST-FIX-1: '표지 색' row 제거 — COVER-THEME(811e59a)/TEXT-COVER-THEME(81a5833)으로
+           표지가 스킨/텍스트 테마를 따라가면서 coverTheme 색 버튼이 화면 무효(테마 CSS가 항상 덮음).
+           저장된 coverTheme 값·핸들러는 보존(무해). -->
       ${_coverTitleYRowHtml(scene)}
     </div>`;
 }
@@ -5610,7 +5612,7 @@ function _renderImagePopoverBody() {
         title="닫기" aria-label="닫기">✕</button>
     </div>
     <div class="edit-image-popover__body">
-      <p class="edit-image-popover__note">장면 그림을 올리거나, 직접 그리고, 위치를 다듬을 수 있어요.</p>
+      <p class="edit-image-popover__note">장면 그림을 올리거나 직접 그릴 수 있어요.</p>
       ${scene ? _pbImageActionsHtml(scene) : ''}
     </div>`;
 }

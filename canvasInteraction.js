@@ -182,6 +182,7 @@ window.addEventListener('DOMContentLoaded', () => {
   const wrap = getWrap();
 
   wrap.addEventListener('mousedown', e => {
+    if (e.button !== 0) return; /* CROSS-A: 우클릭/중클릭 팬 방지 */
     if (e.target === wrap || e.target === getCanvas() || e.target.id === 'arrows')
       panState = { lastX: e.clientX, lastY: e.clientY };
   });
@@ -197,17 +198,31 @@ window.addEventListener('DOMContentLoaded', () => {
 
   document.addEventListener('mouseup', () => { panState = null; });
 
-  /* ── Ctrl+휠 줌 ── */
+  /* ── 휠: Ctrl/Meta+휠 = 줌(delta 비례), 일반 휠 = 캔버스 팬 ──
+     CROSS-A(2026-07-10):
+     · 기존엔 Ctrl 없는 휠을 통째로 무시 → 윈도우 마우스/트랙패드로 캔버스 이동 불가
+       (팬 수단이 빈 배경 드래그뿐). 이제 휠=팬(맥 트랙패드 두손가락·윈도우 휠 세로,
+       shift+휠=가로 관례). Firefox deltaMode=1(줄 단위)은 ×16 px 근사 보정.
+     · 줌도 고정 ±0.1 → delta 비례 + frame당 8% clamp(터치 핀치 v120-lite와 동일 정책)
+       — 크롬북/정밀 터치패드 핀치(ctrlKey 합성 휠 초당 ~60회)에서 폭주하던 문제. */
   wrap.addEventListener('wheel', e => {
-    if (!e.ctrlKey && !e.metaKey) return;
     e.preventDefault();
-    const oldZoom = zoom;
-    zoom = Math.min(2.0, Math.max(0.3,
-      Math.round((zoom + (e.deltaY < 0 ? 0.1 : -0.1)) * 10) / 10));
-    const rect = wrap.getBoundingClientRect();
-    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
-    canvasOffX = mx - (mx - canvasOffX) * (zoom / oldZoom);
-    canvasOffY = my - (my - canvasOffY) * (zoom / oldZoom);
+    const unit = (e.deltaMode === 1) ? 16 : 1;
+    if (e.ctrlKey || e.metaKey) {
+      const oldZoom = zoom;
+      const factor = Math.max(0.92, Math.min(1.08, Math.exp(-e.deltaY * unit * 0.0015)));
+      zoom = Math.min(2.0, Math.max(0.3, zoom * factor));
+      const rect = wrap.getBoundingClientRect();
+      const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+      canvasOffX = mx - (mx - canvasOffX) * (zoom / oldZoom);
+      canvasOffY = my - (my - canvasOffY) * (zoom / oldZoom);
+      applyTransform();
+      return;
+    }
+    let dx = e.deltaX * unit, dy = e.deltaY * unit;
+    if (e.shiftKey && dx === 0) { dx = dy; dy = 0; }
+    canvasOffX -= dx;
+    canvasOffY -= dy;
     applyTransform();
   }, { passive: false });
 

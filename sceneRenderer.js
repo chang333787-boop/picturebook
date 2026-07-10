@@ -922,6 +922,7 @@ function bindCardEvents(el, s) {
   }
 
   el.addEventListener('pointerdown', e => {
+    if (e.button !== 0) return; /* CROSS-A: 우클릭/중클릭이 드래그·편집잠금 유발 방지(터치/펜=0이라 안전) */
     if (['INPUT','BUTTON','LABEL','TEXTAREA','IMG'].includes(e.target.tagName)) return;
     if (e.target.classList.contains('port-dot')) return;
 
@@ -1058,6 +1059,7 @@ function bindCardEvents(el, s) {
     dot.style.touchAction = 'none';
 
     dot.addEventListener('pointerdown', async e => {
+      if (e.button !== 0) return; /* CROSS-A: 우클릭 연결선 방지 */
       e.stopPropagation();
       if (isLockedByOther(num)) return;
       e.preventDefault();

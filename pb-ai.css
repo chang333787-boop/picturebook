@@ -1377,7 +1377,7 @@
   body.print-write-after > *:not(.write-after-print-root) { display: none !important; }
   body.print-write-after .write-after-print-root {
     display: block; width: 690px; margin: 0 auto; color: #111;
-    font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; font-size: 11pt; line-height: 1.5;
+    font-family: 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; /* CROSS-A: 윈도우도 동일 웹폰트로 인쇄(맥 검수=실인쇄 일치) */ font-size: 11pt; line-height: 1.5;
   }
   body.print-write-after .wa-print-title { font-size: 18pt; margin: 0 0 4px; }
   body.print-write-after .wa-print-meta { font-size: 10pt; color: #333; }
@@ -1408,7 +1408,7 @@
   body.print-picturebook > *:not(.pb-print-root) { display: none !important; }
   body.print-picturebook .pb-print-root {
     display: block; width: auto; max-width: 100%; margin: 0; color: #111;
-    font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; line-height: 1.5;
+    font-family: 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; /* CROSS-A: 윈도우도 동일 웹폰트로 인쇄(맥 검수=실인쇄 일치) */ line-height: 1.5;
   }
   body.print-picturebook .pbp-page { break-after: page; page: pbprint; }
   body.print-picturebook .pbp-page:last-child { break-after: auto; }

@@ -58,6 +58,8 @@
 html, body {
   height: 100%;
   overflow: hidden;
+  /* CROSS-A: 태블릿 pull-to-refresh(아래로 쓸어내림 새로고침) 차단 — 감상/제작 중 작업 유실 방지 */
+  overscroll-behavior-y: none;
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-story);
@@ -8007,7 +8009,7 @@ body.viewer-edit-readonly .movie-tool-modal button:not(.movie-tool-close) {
    2. 잠금 배너 버튼 터치 영역 min-height 40px
    3. 도구 패널 주요 버튼 최소 터치 영역
    PC 마우스(coarse 아님)·모바일 폰(768 미만)은 영향 없음. */
-@media (pointer: coarse) and (min-width: 768px) {
+@media (any-pointer: coarse) and (min-width: 768px) { /* CROSS-A: 클램셸 크롬북(primary=fine)도 포함 */
   .edit-text-input,
   .js-edit-text-input {
     font-size: 16px;
@@ -8119,3 +8121,11 @@ body.pb-is-scene-switching .choice-preset--ghost {
   .pb-draw-core .pb-draw-action { min-height: 40px; padding: 7px 9px; font-size: 12px; }
   .pb-draw-more-btn { min-height: 40px; font-size: 12px; padding: 7px 10px; }
 }
+
+/* CROSS-A(2026-07-10): 윈도우 클래식 스크롤바(17px 회색) 웜톤·슬림 통일.
+   맥/크롬북은 오버레이 스크롤바라 영향 없음. scrollbar-width 지원 Chrome(121+)은
+   표준 속성, 그 이전은 ::-webkit-scrollbar 규칙 적용. */
+* { scrollbar-width: thin; scrollbar-color: rgba(120,90,50,.35) transparent; }
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-thumb { background: rgba(120,90,50,.35); border-radius: 4px; }
+*::-webkit-scrollbar-track { background: transparent; }

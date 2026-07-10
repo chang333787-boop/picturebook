@@ -923,7 +923,7 @@ function _openReceiveCopyModal() {
     }
   };
   submitBtn?.addEventListener('click', submit);
-  input?.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
+  input?.addEventListener('keydown', e => { if (e.isComposing || e.keyCode === 229) return; if (e.key === 'Enter') submit(); }); /* CROSS-A: IME 가드 */
 }
 function applyTemplate(tpl) {
   if (tpl === 'blank' || Object.keys(scenes).length > 0) return;
@@ -1017,9 +1017,11 @@ window.addEventListener('DOMContentLoaded', () => {
   /* 입장 */
   document.getElementById('btn-join')?.addEventListener('click', joinTeam);
   document.getElementById('join-input')?.addEventListener('keydown', e => {
+    if (e.isComposing || e.keyCode === 229) return; /* CROSS-A: 한글 IME 조합 중 Enter 가드 */
     if (e.key === 'Enter') document.getElementById('join-pin')?.focus();
   });
   document.getElementById('join-pin')?.addEventListener('keydown', e => {
+    if (e.isComposing || e.keyCode === 229) return; /* CROSS-A: 한글 IME 조합 중 Enter 가드 */
     if (e.key === 'Enter') joinTeam();
   });
 
@@ -1313,6 +1315,7 @@ window.addEventListener('DOMContentLoaded', () => {
     );
     /* v2에서는 join-code → join-input → join-pin 순으로 포커스 이동 */
     document.getElementById('join-code')?.addEventListener('keydown', e => {
+      if (e.isComposing || e.keyCode === 229) return; /* CROSS-A: 한글 IME 조합 중 Enter 가드 */
       if (e.key === 'Enter') document.getElementById('join-input')?.focus();
     });
     /* TEAM-ACCOUNT-UX-1: 클래스 코드 확정(blur) 시 팀 생성 모드에 맞춰 입장 폼 문구 조정. */

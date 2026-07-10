@@ -6,6 +6,7 @@
   <!-- v36: PWA — 홈 화면에 추가하면 전체화면 앱처럼 동작 -->
   <link rel="manifest" href="manifest.json"/>
   <meta name="theme-color" content="#fbf6ea"/>
+  <meta name="color-scheme" content="light"/> <!-- CROSS-A: 삼성인터넷 등 강제 다크모드 색반전 방지 -->
   <meta name="mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
@@ -434,8 +435,8 @@ auth.onAuthStateChanged(async user => {
 
 /* ── 로그인/가입 분기 핸들러 ── */
 btnLogin.addEventListener('click', () => _signupMode ? _doSignup() : _doLogin());
-pwInput.addEventListener('keydown', e => { if (e.key === 'Enter') (_signupMode ? _doSignup() : _doLogin()); });
-emailInput.addEventListener('keydown', e => { if (e.key === 'Enter') pwInput.focus(); });
+pwInput.addEventListener('keydown', e => { if (e.isComposing || e.keyCode === 229) return; if (e.key === 'Enter') (_signupMode ? _doSignup() : _doLogin()); }); /* CROSS-A: IME 가드 */
+emailInput.addEventListener('keydown', e => { if (e.isComposing || e.keyCode === 229) return; if (e.key === 'Enter') pwInput.focus(); }); /* CROSS-A: IME 가드 */
 
 /* v90: 가입/로그인 모드 전환 */
 document.getElementById('btn-toggle-mode').addEventListener('click', e => {

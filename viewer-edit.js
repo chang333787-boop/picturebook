@@ -1751,6 +1751,8 @@ function _attachPbEditableInteractions(frame) {
        2026-05-27 Cover-1: kicker/subtitle도 표지 단일 줄 입력이라 동일 처리. */
     if (field === 'title' || field === 'kicker' || field === 'subtitle') {
       el.addEventListener('keydown', e => {
+        /* CROSS-A: 1845(HOTFIX-IME)와 동일 — 조합 중 Enter는 확정용, blur 금지("문을 연다다" 방지) */
+        if (e.isComposing || e.keyCode === 229) return;
         if (e.key === 'Enter') {
           e.preventDefault();
           el.blur();

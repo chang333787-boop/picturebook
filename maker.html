@@ -11,6 +11,7 @@
   <!-- v36: PWA — 홈 화면에 추가하면 전체화면 앱처럼 동작 -->
   <link rel="manifest" href="manifest.json"/>
   <meta name="theme-color" content="#fbf6ea"/>
+  <meta name="color-scheme" content="light"/> <!-- CROSS-A: 삼성인터넷 등 강제 다크모드 색반전 방지 -->
   <meta name="mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
@@ -34,9 +35,16 @@
       --font-h:'Jua',sans-serif; --font-b:'Nanum Gothic',sans-serif;
     }
     *{box-sizing:border-box;margin:0;padding:0;}
+    /* CROSS-A: 윈도우 클래식 스크롤바 웜톤·슬림 통일(맥/크롬북 오버레이는 무영향) */
+    *{scrollbar-width:thin;scrollbar-color:rgba(120,90,50,.35) transparent;}
+    *::-webkit-scrollbar{width:8px;height:8px;}
+    *::-webkit-scrollbar-thumb{background:rgba(120,90,50,.35);border-radius:4px;}
+    *::-webkit-scrollbar-track{background:transparent;}
     body{
       font-family:var(--font-b);background:var(--bg);color:var(--text);
       height:100vh;
+      height:100dvh; /* CROSS-A: 안드로이드 가상 키보드(layout viewport 리사이즈) 대응 */
+      overscroll-behavior-y:none; /* CROSS-A: pull-to-refresh 차단 */
       display:grid;
       grid-template-rows: auto 1fr;
       grid-template-columns: 1fr;
@@ -965,7 +973,7 @@
     .scene-card.dragging{box-shadow:0 8px 18px rgba(120,70,35,.24);cursor:grabbing;z-index:999;transform:scale(0.985);outline:2px solid rgba(208,104,63,0.60);outline-offset:1px;transition:none !important;}
     /* v119: 태블릿(coarse pointer + 768px 이상) CSS 가벼움 — box-shadow/transition 박은 거 줄임.
        PC(마우스)나 모바일 폰(768 미만)은 영향 없음. 태블릿 페인트 비용 박지 X. */
-    @media (pointer: coarse) and (min-width: 768px) {
+    @media (any-pointer: coarse) and (min-width: 768px) { /* CROSS-A: 클램셸 크롬북(primary=fine)도 포함 */
       .scene-card {
         box-shadow: 0 2px 6px rgba(120,90,50,.15);
         transition: none;
@@ -1609,7 +1617,7 @@
     }
     .admin-mi:hover { background:rgba(199,149,80,.14); }
     .admin-mi.is-active { background:#c79550; color:#fffaee; box-shadow:0 2px 8px rgba(150,110,40,.28); }
-    .admin-content { flex:1; overflow-y:auto; padding:0 0 40px; box-sizing:border-box; }
+    .admin-content { flex:1; overflow-y:auto; padding:0 0 40px; box-sizing:border-box; scrollbar-gutter:stable; /* CROSS-A: 탭 전환 시 스크롤바 유무로 17px 덜컥임 방지(윈도우) */ }
     .admin-tab { display:none; }
     .admin-tab.is-active { display:block; }
     /* 좁은 화면(태블릿 세로 등): 좌측메뉴 가로 상단바로 */
@@ -3273,16 +3281,16 @@
 <script src="thought-compass-review.js?v=compassrose1teacherprint1legacyux1tutorialtrig1"></script>
 <script src="thought-compass-scenes.js?v=compassbundle1"></script>
 <script src="firebase.js?v=141admin1cbase10amemberlogin1sec5tcphase1drefinestab1accountux1teacherjoin1dragperf1errko1renderdiff1"></script>
-<script src="canvasInteraction.js?v=120renderdiff1"></script>
-<script src="sceneRenderer.js?v=119base10bbase10auto1coverstart1scenetitle1ascenetitle2apwanav2vpreturn1perfqa1branchcard1branchcard2branchcard3branchcard4cover1cover2cover3compassbtn1pbflowcopy1cardquickedit1cardexpandpersist1dragperf1"></script>
-<script src="storyAnalyzer.js?v=136checkbuttons1heuristic3"></script>
+<script src="canvasInteraction.js?v=120renderdiff1crossa1"></script>
+<script src="sceneRenderer.js?v=119base10bbase10auto1coverstart1scenetitle1ascenetitle2apwanav2vpreturn1perfqa1branchcard1branchcard2branchcard3branchcard4cover1cover2cover3compassbtn1pbflowcopy1cardquickedit1cardexpandpersist1dragperf1crossa1"></script>
+<script src="storyAnalyzer.js?v=136checkbuttons1heuristic3crossa1"></script>
 <script src="mediaManager.js?v=114copyfix1uitextfix1"></script>
-<script src="adminConsole.js?v=103copyfix1pwanav2imgs2settings1writeafterui1waq1finishgroup1scenepubprint1accountmode1uitextfix1teacherprint1teamcard1memberlist1legacyux1delsafety2tutorialcd1adminredesign1teacherjoin1aipermwarn1adminmanual1csvbulk1errko1"></script>
+<script src="adminConsole.js?v=103copyfix1pwanav2imgs2settings1writeafterui1waq1finishgroup1scenepubprint1accountmode1uitextfix1teacherprint1teamcard1memberlist1legacyux1delsafety2tutorialcd1adminredesign1teacherjoin1aipermwarn1adminmanual1csvbulk1errko1crossa1"></script>
 <!-- ADMIN-REDESIGN Phase 3: 교사·학생 상세 설명서(화면형) -->
 <script src="admin-manual.js?v=adminmanual3print"></script>
 <script src="preview.js?v=96"></script>
 <script src="projectSettings.js?v=114copyfix1coverstart2errko1"></script>
-<script src="ui.js?v=109copyfix2c2base10bfixendingguard1addscene1base10auto1branchtopbar1cscenetitle1asessionrefresh1apwanav2homenav1vpreturn1sec5tcphase1dcompassbtn1cardquickedit1accountux1tutorialtrig1teacherjoin1adminback1cardnobackdrop1adminloading1errko1"></script>
+<script src="ui.js?v=109copyfix2c2base10bfixendingguard1addscene1base10auto1branchtopbar1cscenetitle1asessionrefresh1apwanav2homenav1vpreturn1sec5tcphase1dcompassbtn1cardquickedit1accountux1tutorialtrig1teacherjoin1adminback1cardnobackdrop1adminloading1errko1crossa1"></script>
 <!-- v95: 모바일 텍스트형 브랜치 전용 (텍스트 작품 + 모바일에서만 활성) -->
 <script src="mobileTextBranch.js?v=compassbundle1uitextfix1"></script>
 <!-- TUTORIAL-PRD: 콘텐츠·삽화·데모(먼저) → 도움말/환영/인쇄 -->

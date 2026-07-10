@@ -1057,6 +1057,7 @@ function _rtBindRouteEvents() {
 
     /* v130: 키보드 단축키 — textarea Ctrl/Cmd+Enter 저장, Esc 취소 / input Enter 저장, Esc 취소 */
     content.addEventListener('keydown', e => {
+      if (e.isComposing || e.keyCode === 229) return; /* CROSS-A: 한글 IME 조합 중 Enter 가드 */
       const ta = e.target.closest('.rt-inline-body-editor');
       if (ta) {
         if (e.key === 'Escape') {

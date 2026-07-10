@@ -692,6 +692,7 @@ function _renderTeamCreatePanel(classId) {
     else alert('설명서를 불러오지 못했어요. 새로고침 후 다시 시도해 주세요.');
   });
   [nameEl, pinEl].forEach(el => el && el.addEventListener('keydown', e => {
+    if (e.isComposing || e.keyCode === 229) return; /* CROSS-A: 한글 IME 조합 중 Enter 가드 */
     if (e.key === 'Enter') { e.preventDefault(); btn.click(); }
   }));
 }

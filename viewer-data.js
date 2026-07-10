@@ -310,6 +310,10 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
        getProjectTextDefaults가 null 반환 → resolution이 현행과 동일(화면변화 0). raw 보관, 해석은 getter가 정규화. */
     ViewerState.project.textDefaults =
       (meta.textDefaults && typeof meta.textDefaults === 'object') ? meta.textDefaults : null;
+  /* TEXT-MARKS-1(2026-07-10): 문장 꾸미기(줄/문장 형광펜) — viewer-meta/textMarks/{num} = {n:세그수, m:[{i,h,s?,c?}]}.
+     body는 순수 문자열 그대로(원본·AI·인쇄 무결), 표시 정보만 별도 저장. */
+  ViewerState.project.textMarks =
+    (meta.textMarks && typeof meta.textMarks === 'object') ? meta.textMarks : null;
 
     /* v64: 장면 전환 효과 (작품 단위 메타)
        v73: 속도는 string('fast'/'normal'/'slow')에서 number(0~100)로 마이그레이션.
@@ -533,6 +537,94 @@ async function saveProjectTextDefaults(patch) {
   }
   ViewerState.project.textDefaults = merged;     /* 낙관적 in-memory 갱신 → 재렌더 즉시 반영 */
   await db.ref(`${basePath}/viewer-meta`).update({ textDefaults: merged });
+}
+
+/* ════════════════════════════════════════════════════════════════
+   TEXT-MARKS-1(2026-07-10): 문장 꾸미기(형광펜) 헬퍼 — 텍스트 모드 전용.
+   ─────────────────────────────────────────────────────────────
+   · 세그먼트: 엔터가 있으면 줄 단위, 없으면(저학년 한 덩어리 본문) 문장 단위(。.!?…)
+     자동 강등 — 이어붙이면 원문과 byte 동일(무손실).
+   · mark = {i:세그 인덱스, h:trim 해시, s:'lg'|'sm'|null, c:'c1'~'c6'|null}.
+     렌더 시 해시 불일치 세그는 그 세그만 조용히 무효(본문 고치면 꾸밈이 풀리는 정책).
+   · 저장 노드 {n:세그수, m:[...]} — 다듬기 자기 경로 재해시(tcRehashMarksForBody)용.
+   ════════════════════════════════════════════════════════════════ */
+function tcSegmentBody(body) {
+  const str = String(body == null ? '' : body);
+  if (!str) return [];
+  if (str.indexOf('\n') !== -1) {
+    const parts = str.split('\n');
+    const out = [];
+    parts.forEach((p, i) => { out.push(p); if (i < parts.length - 1) out.push('\n'); });
+    return out;
+  }
+  const m = str.match(/[^.!?…。]*[.!?…。]+\s*|[^.!?…。]+\s*$/g);
+  return (m && m.join('') === str) ? m : [str];
+}
+
+function tcHash(s) {
+  const t = String(s == null ? '' : s).trim();
+  let h = 5381;
+  for (let i = 0; i < t.length; i++) h = ((h << 5) + h + t.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
+}
+
+/* 유효 marks만 {segIdx: {s,c}}로 — 해시 불일치/공백 세그는 제외(자가 무효화) */
+function getSceneTextMarks(sceneId, body) {
+  try {
+    const all = (typeof ViewerState !== 'undefined' && ViewerState.project) ? ViewerState.project.textMarks : null;
+    const node = all ? all[String(sceneId)] : null;
+    const list = node && Array.isArray(node.m) ? node.m : null;
+    if (!list || !list.length) return null;
+    const segs = tcSegmentBody(body);
+    const out = {};
+    list.forEach(mk => {
+      if (!mk || typeof mk.i !== 'number') return;
+      const seg = segs[mk.i];
+      if (typeof seg !== 'string' || !seg.trim()) return;
+      if (tcHash(seg) !== mk.h) return;
+      if (!mk.s && !mk.c) return;
+      out[mk.i] = { s: mk.s || null, c: mk.c || null };
+    });
+    return Object.keys(out).length ? out : null;
+  } catch (e) { return null; }
+}
+
+async function saveSceneTextMarks(sceneId, marksList, segCount) {
+  if (!_isTextProject()) return;
+  const db          = getViewerDb();
+  const teamName    = ViewerState.project.teamName;
+  const classId     = ViewerState.project.classId;
+  const encodedName = encodeURIComponent(teamName);
+  const basePath    = classId
+    ? `classes/${classId}/teams/${encodedName}`
+    : `teams/${encodedName}`;
+  const key  = String(sceneId);
+  const node = (marksList && marksList.length) ? { n: segCount, m: marksList } : null;
+  const cur = (ViewerState.project.textMarks && typeof ViewerState.project.textMarks === 'object')
+    ? { ...ViewerState.project.textMarks } : {};
+  if (node) cur[key] = node; else delete cur[key];
+  ViewerState.project.textMarks = Object.keys(cur).length ? cur : null;   /* 낙관적 갱신 */
+  await db.ref(`${basePath}/viewer-meta/textMarks/${key}`).set(node);
+}
+
+/* 다듬기 자기 경로 재앵커 — 세그 수가 그대로면 인덱스 유지+새 텍스트로 재해시(오타 수정 생존).
+   수가 바뀌면 손대지 않음(세그별 해시 불일치가 자연 무효화). fire-and-forget. */
+function tcRehashMarksForBody(sceneId, newBody) {
+  try {
+    const all = (typeof ViewerState !== 'undefined' && ViewerState.project) ? ViewerState.project.textMarks : null;
+    const node = all ? all[String(sceneId)] : null;
+    if (!node || !Array.isArray(node.m) || !node.m.length) return;
+    const segs = tcSegmentBody(newBody);
+    if (typeof node.n === 'number' && segs.length !== node.n) return;
+    const m = node.m.map(mk => {
+      if (!mk || typeof mk.i !== 'number') return mk;
+      const seg = segs[mk.i];
+      if (typeof seg !== 'string' || !seg.trim()) return mk;
+      return { ...mk, h: tcHash(seg) };
+    });
+    const p = saveSceneTextMarks(sceneId, m, segs.length);
+    if (p && typeof p.catch === 'function') p.catch(() => {});
+  } catch (e) { /* noop */ }
 }
 
 /* ================================================================

@@ -1739,6 +1739,10 @@ function _attachPbEditableInteractions(frame) {
         _queueSave(scene.num || scene.id, patch);
         if (typeof _flushPendingSave === 'function') _flushPendingSave();
       }
+      /* TEXT-MARKS-1: 다듬기 자기 경로 재앵커 — 세그 수 불변이면 재해시(오타 수정에도 꾸밈 생존) */
+      if (field === 'body' && typeof tcRehashMarksForBody === 'function') {
+        tcRehashMarksForBody(scene.id, text);
+      }
       /* ADV-EDIT-ABSORB-TITLE-1: 텍스트형 제목칸을 빈 채로 blur → draft 해제 + 재렌더(→ 다시 '+ 제목 추가' 칩).
          text-card__title(텍스트형 전용 class)에만 적용 — picturebook/cover/movie 제목엔 영향 X. */
       if (field === 'title' && el.classList.contains('text-card__title') && !text.trim()) {
@@ -5858,8 +5862,93 @@ function _imagePopoverEsc(e) {
    ================================================================ */
 function _sceneStylePopoverEl() { return document.getElementById('edit-scene-style-popover'); }
 
-/* REFINE-IA-2: 텍스트 꾸미기 활성 탭 — 'project'(이야기 전체) | 'scene'(이 장면만). 기본=장면. */
+/* REFINE-IA-2: 텍스트 꾸미기 활성 탭 — 'project'(이야기 전체) | 'scene'(이 장면만) | 'marks'(문장 꾸미기). 기본=장면. */
 let _sceneStyleTab = 'scene';
+
+/* ═══ TEXT-MARKS-1(2026-07-10): 문장 꾸미기 — 줄/문장 탭 선택 상태 모델 ═══
+   드래그 selection 대신 세그먼트를 탭해 고르는 방식 — blur·재렌더에도 선택이 앱 상태로 생존.
+   탭 활성 중 본문 contenteditable=false + pointerdown preventDefault(iPad 키보드 팝업 차단). */
+let _tcSelSegs = new Set();
+let _tcMarksBodyEl = null;
+
+function _tcFindBodyEl() { return document.querySelector('#viewer-frame .text-card__body'); }
+
+function _tcRenderPickBody(scene) {
+  const el = _tcMarksBodyEl || _tcFindBodyEl();
+  if (!el || !scene) return;
+  const body = String(scene.body || '');
+  const segs = (typeof tcSegmentBody === 'function') ? tcSegmentBody(body) : [body];
+  const marks = (typeof getSceneTextMarks === 'function') ? (getSceneTextMarks(scene.id, body) || {}) : {};
+  el.innerHTML = segs.map((seg, i) => {
+    if (!seg.trim()) return escHtml(seg);
+    const mk = marks[i];
+    const cls = (mk && mk.s ? ' tc-seg--' + mk.s : '') + (mk && mk.c ? ' tc-seg--' + mk.c : '')
+      + (_tcSelSegs.has(i) ? ' tc-seg--picked' : '');
+    return `<span class="tc-seg js-tc-pick${cls}" data-seg="${i}">${escHtml(seg)}</span>`;
+  }).join('');
+}
+
+function _tcEnterMarksMode(scene) {
+  const el = _tcFindBodyEl();
+  if (!el || !scene) return;
+  _tcMarksBodyEl = el;
+  el.setAttribute('contenteditable', 'false');
+  el.classList.add('tc-picking');
+  _tcRenderPickBody(scene);
+  if (!el._tcBound) {
+    el._tcBound = true;
+    el.addEventListener('pointerdown', e => {
+      if (!el.classList.contains('tc-picking')) return;
+      e.preventDefault();
+    });
+    el.addEventListener('click', e => {
+      if (!el.classList.contains('tc-picking')) return;
+      const seg = e.target.closest('.js-tc-pick');
+      if (!seg) return;
+      const i = parseInt(seg.dataset.seg, 10);
+      if (_tcSelSegs.has(i)) _tcSelSegs.delete(i); else _tcSelSegs.add(i);
+      seg.classList.toggle('tc-seg--picked', _tcSelSegs.has(i));
+    });
+  }
+}
+
+function _tcExitMarksMode() {
+  const el = _tcMarksBodyEl;
+  _tcSelSegs = new Set();
+  _tcMarksBodyEl = null;
+  if (!el) return;
+  el.classList.remove('tc-picking');
+  /* 본문을 정상 렌더(편집 평문 contenteditable)로 복귀 — 프레임 재렌더가 가장 안전 */
+  if (typeof _scheduleViewerFrameReRender === 'function') _scheduleViewerFrameReRender();
+}
+
+async function _tcApplyToSelection(scene, patchObj) {
+  if (!_editText.editable) return;
+  if (_variantBlocked()) return;
+  if (!_tcSelSegs.size) { alert('먼저 본문에서 꾸밀 문장을 톡 눌러 골라주세요.'); return; }
+  const body = String(scene.body || '');
+  const segs = tcSegmentBody(body);
+  const cur = getSceneTextMarks(scene.id, body) || {};
+  _tcSelSegs.forEach(i => {
+    const seg = segs[i];
+    if (typeof seg !== 'string' || !seg.trim()) return;
+    const mk = { s: (cur[i] && cur[i].s) || null, c: (cur[i] && cur[i].c) || null };
+    if (Object.prototype.hasOwnProperty.call(patchObj, 's')) mk.s = patchObj.s || null;
+    if (Object.prototype.hasOwnProperty.call(patchObj, 'c')) mk.c = patchObj.c || null;
+    if (!mk.s && !mk.c) delete cur[i]; else cur[i] = mk;
+  });
+  const list = Object.keys(cur).map(k => {
+    const i = parseInt(k, 10);
+    return { i, h: tcHash(segs[i]), s: cur[k].s || null, c: cur[k].c || null };
+  });
+  try {
+    await saveSceneTextMarks(scene.id, list, segs.length);
+    _tcRenderPickBody(scene);        /* 선택 유지한 채 즉시 반영 */
+  } catch (e) {
+    console.error('[TEXT-MARKS-1] 저장 실패:', e);
+    alert('꾸미기를 저장하지 못했어요. 잠시 후 다시 시도해 주세요.');
+  }
+}
 
 /* 작품 기본값 탭에 표시할 값 — getProjectTextDefaults sparse + 시스템 fallback으로 채운 표시용 객체. */
 function _textProjectDisplayDefaults() {
@@ -5896,11 +5985,12 @@ function _renderSceneStylePopoverBody() {
   /* TEXT-MODE-1C / REFINE-IA-2: text는 [이야기 전체][이 장면만] 탭, picturebook은 기존(톤+글자+모든장면적용). */
   let bodyInner, noteHtml = '';
   if (ptype === 'text') {
-    const tab = (_sceneStyleTab === 'project') ? 'project' : 'scene';
+    const tab = (_sceneStyleTab === 'project' || _sceneStyleTab === 'marks') ? _sceneStyleTab : 'scene';
     const tabBar = `
       <div class="edit-scene-style-tabs" role="tablist">
         <button type="button" class="edit-scene-style-tab js-scene-style-tab ${tab === 'project' ? 'active' : ''}" data-tab="project" role="tab" aria-selected="${tab === 'project'}">이야기 전체</button>
         <button type="button" class="edit-scene-style-tab js-scene-style-tab ${tab === 'scene' ? 'active' : ''}" data-tab="scene" role="tab" aria-selected="${tab === 'scene'}">이 장면만</button>
+        <button type="button" class="edit-scene-style-tab js-scene-style-tab ${tab === 'marks' ? 'active' : ''}" data-tab="marks" role="tab" aria-selected="${tab === 'marks'}">🖍 문장 꾸미기</button>
       </div>`;
     if (tab === 'project') {
       const pd = _textProjectDisplayDefaults();
@@ -5912,6 +6002,24 @@ function _renderSceneStylePopoverBody() {
         ${_textGlyphStyleSectionHtml(scene, { style: pd.style, noWeight: true })}
         <div class="edit-section-hint">엔딩 장면도 이 기본값을 따라요.</div>`;
       noteHtml = `<p class="edit-scene-style-popover__note">모든 장면에서 기본으로 사용할 글과 화면 스타일이에요. <b>새 장면에도 같이 적용</b>돼요.</p>`;
+    } else if (tab === 'marks') {
+      /* TEXT-MARKS-1: 문장 꾸미기 탭 — 본문 세그먼트 탭 선택 + 크기/색 칩 */
+      bodyInner = `
+        <div class="edit-scene-style-subtitle">🖍 문장 꾸미기</div>
+        <div class="edit-section-hint">본문에서 꾸밀 문장을 <b>톡 눌러</b> 고른 뒤(여러 개 가능), 크기·색을 고르세요.</div>
+        <div class="tc-chip-row"><span class="tc-chip-label">크기</span>
+          <button type="button" class="js-tc-size tc-chip" data-s="lg">크게</button>
+          <button type="button" class="js-tc-size tc-chip" data-s="sm">작게</button>
+          <button type="button" class="js-tc-size tc-chip" data-s="">보통으로</button>
+        </div>
+        <div class="tc-chip-row"><span class="tc-chip-label">색</span>
+          ${['c1','c2','c3','c4','c5','c6'].map(c => `<button type="button" class="js-tc-color tc-chip tc-chip--swatch tc-chip--${c}" data-c="${c}" aria-label="글자색 ${c}"></button>`).join('')}
+          <button type="button" class="js-tc-color tc-chip" data-c="">원래 색</button>
+        </div>
+        <div class="edit-scene-style-apply-all">
+          <button type="button" class="js-tc-clear-all edit-style-reset-all-btn">🧽 이 장면 꾸밈 모두 지우기</button>
+        </div>`;
+      noteHtml = `<p class="edit-scene-style-popover__note">문장을 <b>고치면</b> 그 문장의 꾸밈은 자동으로 풀려요. 꾸밈은 감상 화면에서 보여요.</p>`;
     } else {
       const ovr = scene ? _sceneStyleOverrideMap(scene) : {};
       const anyOvr = !!(ovr.theme || ovr.fontFamily || ovr.fontSize || ovr.color || ovr.weight);
@@ -6116,15 +6224,38 @@ function _bindSceneStylePopover(pop) {
     /* REFINE-IA-2: 탭 전환 — _sceneStyleTab 갱신 후 본문 재렌더+재바인딩. */
     pop.querySelectorAll('.js-scene-style-tab').forEach(btn => {
       btn.addEventListener('click', () => {
-        const t = (btn.dataset.tab === 'project') ? 'project' : 'scene';
+        const t = (btn.dataset.tab === 'project') ? 'project'
+                : (btn.dataset.tab === 'marks') ? 'marks' : 'scene';
         if (t === _sceneStyleTab) return;
         _sceneStyleTab = t;
         _rerenderSceneStylePopover();
       });
     });
+    if (_sceneStyleTab !== 'marks') _tcExitMarksMode();
     if (_sceneStyleTab === 'project') {
       /* 이야기 전체 탭 — 작품 기본값 저장(saveProjectTextDefaults). */
       if (typeof _bindProjectTextDefaultsActions === 'function') _bindProjectTextDefaultsActions(pop);
+    } else if (_sceneStyleTab === 'marks') {
+      /* TEXT-MARKS-1: AI 보기 중엔 원본 문장 꾸미기 불가 — 장면 탭으로 복귀 */
+      if (_variantBlocked && _variantBlocked()) {
+        alert('원본 보기에서만 문장을 꾸밀 수 있어요.');
+        _sceneStyleTab = 'scene';
+        _rerenderSceneStylePopover();
+        return;
+      }
+      _tcEnterMarksMode(scene);
+      pop.querySelectorAll('.js-tc-size').forEach(b =>
+        b.addEventListener('click', () => _tcApplyToSelection(scene, { s: b.dataset.s || null })));
+      pop.querySelectorAll('.js-tc-color').forEach(b =>
+        b.addEventListener('click', () => _tcApplyToSelection(scene, { c: b.dataset.c || null })));
+      pop.querySelector('.js-tc-clear-all')?.addEventListener('click', async () => {
+        if (!confirm('이 장면의 문장 꾸미기를 모두 지울까요? (글 내용은 그대로예요)')) return;
+        try {
+          await saveSceneTextMarks(scene.id, null, 0);
+          _tcSelSegs = new Set();
+          _tcRenderPickBody(scene);
+        } catch (e) { alert('지우지 못했어요. 잠시 후 다시 시도해 주세요.'); }
+      });
     } else {
       /* 이 장면만 탭 — sparse override 저장 + 항목별/전체 되돌리기 + 고급(모든 장면 복사). */
       if (typeof _bindTextSceneStyleActions === 'function') _bindTextSceneStyleActions(pop, scene);
@@ -6566,6 +6697,7 @@ function _openSceneStylePopover() {
 }
 
 function _closeSceneStylePopover() {
+  if (typeof _tcExitMarksMode === 'function') _tcExitMarksMode();  /* TEXT-MARKS-1 */
   const pop = _sceneStylePopoverEl();
   if (!pop || pop.hidden) return;
   pop.hidden = true;

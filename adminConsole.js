@@ -638,6 +638,7 @@ function _renderTeamCreatePanel(classId) {
         placeholder="PIN (숫자 4~6자리)" autocomplete="off"/>
       <button id="admin-tc-pin-auto" class="admin-tc-btn admin-tc-btn--ghost" type="button" title="숫자 4자리 PIN을 자동으로 만들어요">🎲 자동</button>
       <button id="admin-tc-create" class="admin-tc-btn">팀 만들기</button>
+      <button id="admin-tc-csv" class="admin-tc-btn admin-tc-btn--ghost" type="button" title="CSV 파일(팀이름,PIN) 또는 엑셀 붙여넣기로 여러 모둠을 한 번에 만들어요">📄 CSV로 한꺼번에</button>
     </div>
     <div class="admin-tc-cardrow">
       <button id="admin-tc-manual" class="admin-tc-btn" type="button" title="교사·학생 사용법을 화면에서 자세히 봐요 — 계정 만들기·권한부여부터(처음 하는 분용)">📖 자세한 설명서</button>
@@ -660,6 +661,9 @@ function _renderTeamCreatePanel(classId) {
     if (pinEl) { pinEl.value = _genPin(_knownAccountPins()); pinEl.focus(); }
   });
   if (printBtn) printBtn.addEventListener('click', () => _printEntryCards(classId));
+  /* CSV-BULK-1: CSV/붙여넣기 일괄 생성 오버레이. */
+  const csvBtn = document.getElementById('admin-tc-csv');
+  if (csvBtn) csvBtn.addEventListener('click', () => _openCsvBulkOverlay(classId));
   /* TUTORIAL-PRD Phase C/D: 정적 사용설명서 인쇄(학생 1장·교사 1장). 모듈 미로드 시 안내. */
   const manualS = document.getElementById('admin-tc-print-manual-student');
   const manualT = document.getElementById('admin-tc-print-manual-teacher');
@@ -750,6 +754,318 @@ async function _createTeamAccount(classId, nameEl, pinEl, btn, statusEl) {
     }
     btn.disabled = false; btn.textContent = prevLabel;
   }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   CSV-BULK-1: CSV 업로드/붙여넣기로 학생(모둠) 계정 일괄 생성
+   ──────────────────────────────────────────────────────────────
+   · 단일 생성(_createTeamAccount)과 완전히 같은 정책: 검증(이름 1~30자,
+     PIN 숫자 4~6자리), teamKey=encodeURIComponent(이름), 팀 노드 존재 시 건너뜀,
+     account child만 set(scenes/viewer-meta/pin 등 미접근). Rules 변경 불필요.
+   · 형식: "팀이름,PIN" 한 줄에 하나. PIN 비우면 자동 생성(🎲). 머리글 행 자동 감지.
+   · 한국 Excel CSV는 CP949(EUC-KR)가 흔함 → UTF-8 해석 실패 시 euc-kr로 재해석.
+   · Excel이 "0123" 같은 PIN의 앞 0을 지워 3자리가 되는 사고 → 자동 보정하지 않고
+     행 오류로 알림(교사 의도 확인이 안전).
+   · 흐름: 파일/붙여넣기 → 미리보기 표(행별 상태) → 만들기(행별 순차 쓰기+진행 표시)
+     → 결과 요약 + 입장 카드 인쇄 연결. 만들기 전에는 DB 접근 0.
+   ════════════════════════════════════════════════════════════════ */
+const _CSV_BULK_MAX_ROWS = 60;
+
+/* UTF-8(fatal) → 실패 시 EUC-KR. BOM 제거. */
+function _csvDecodeBuffer(buf) {
+  let text;
+  try { text = new TextDecoder('utf-8', { fatal: true }).decode(buf); }
+  catch (e) {
+    try { text = new TextDecoder('euc-kr').decode(buf); }
+    catch (e2) { text = new TextDecoder('utf-8').decode(buf); }
+  }
+  return text.replace(/^﻿/, '');
+}
+
+/* 한 줄을 delimiter 기준으로 분할 — 큰따옴표 필드("a,b" / "" 이스케이프) 지원. */
+function _csvSplitLine(line, delim) {
+  const out = [];
+  let cur = '', inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQ) {
+      if (ch === '"') {
+        if (line[i + 1] === '"') { cur += '"'; i++; }
+        else inQ = false;
+      } else cur += ch;
+    } else if (ch === '"') {
+      inQ = true;
+    } else if (ch === delim) {
+      out.push(cur); cur = '';
+    } else cur += ch;
+  }
+  out.push(cur);
+  return out.map(s => s.trim());
+}
+
+/* 텍스트 → 행 목록. 각 행 {name, pin, autoPin, status:'ready'|'exists'|'error', reason}.
+   status는 미리보기용 사전 판정 — 실제 쓰기 때 존재 여부를 서버에서 다시 확인한다. */
+function _parseTeamsCsv(text) {
+  const rawLines = String(text || '').split(/\r\n|\r|\n/);
+  const rows = [];
+  const seenNames = new Set();
+  const existingNames = new Set((adminState.allTeams || []).map(t => t && t.name).filter(Boolean));
+  const usedPins = _knownAccountPins().slice();
+  let headerSkipped = false;
+
+  for (const raw of rawLines) {
+    if (!raw || !raw.trim()) continue;
+    /* delimiter: 탭 우선(엑셀 복사-붙여넣기) → 쉼표 → 세미콜론 → 한 칸 이름만 */
+    const delim = raw.includes('\t') ? '\t' : (raw.includes(',') ? ',' : (raw.includes(';') ? ';' : null));
+    const fields = delim ? _csvSplitLine(raw, delim) : [raw.trim()];
+    const name = (fields[0] || '').trim();
+    const pinRaw = (fields[1] || '').trim();
+
+    /* 머리글 행 감지(첫 데이터 행에서 1회): 이름 칸이 팀/이름/모둠/name 이고
+       PIN 칸이 비었거나 숫자가 아니면 머리글로 보고 건너뜀. */
+    if (!headerSkipped && rows.length === 0) {
+      headerSkipped = true;
+      if (/^(팀|모둠|이름|팀\s*이름|모둠\s*이름|name)/i.test(name) && (!pinRaw || !/^[0-9]+$/.test(pinRaw))) continue;
+    }
+
+    if (rows.length >= _CSV_BULK_MAX_ROWS) {
+      rows.push({ name, pin: '', autoPin: false, status: 'error', reason: `한 번에 ${_CSV_BULK_MAX_ROWS}개까지만 만들 수 있어요.` });
+      break;
+    }
+
+    const row = { name, pin: pinRaw, autoPin: false, status: 'ready', reason: '' };
+
+    if (!name) { row.status = 'error'; row.reason = '팀 이름이 비어 있어요.'; rows.push(row); continue; }
+    if (name.length > 30) { row.status = 'error'; row.reason = '팀 이름은 30자 이내여야 해요.'; rows.push(row); continue; }
+    /* RTDB 키 안전: encodeURIComponent가 '.'은 남겨서 키 오류가 남 → 사전 차단. */
+    if (name.includes('.')) { row.status = 'error'; row.reason = "팀 이름에 '.'(마침표)는 쓸 수 없어요."; rows.push(row); continue; }
+    if (seenNames.has(name)) { row.status = 'error'; row.reason = '파일 안에 같은 이름이 또 있어요.'; rows.push(row); continue; }
+    seenNames.add(name);
+
+    if (!pinRaw) {
+      row.pin = _genPin(usedPins);
+      row.autoPin = true;
+    } else if (/^[0-9]{1,3}$/.test(pinRaw)) {
+      row.status = 'error';
+      row.reason = `PIN이 ${pinRaw.length}자리예요 — 엑셀이 앞의 0을 지웠을 수 있어요. 4자리로 다시 적어주세요.`;
+      rows.push(row); continue;
+    } else if (!/^[0-9]{4,6}$/.test(pinRaw)) {
+      row.status = 'error'; row.reason = 'PIN은 숫자 4~6자리여야 해요.';
+      rows.push(row); continue;
+    }
+    usedPins.push(row.pin);
+
+    if (existingNames.has(name)) { row.status = 'exists'; row.reason = '이미 있는 팀 — 건너뛰어요.'; }
+    rows.push(row);
+  }
+  return rows;
+}
+
+/* 서식 CSV 내려받기 — BOM 포함 UTF-8(한국 엑셀에서 바로 열림). */
+function _csvTemplateDownload() {
+  const csv = '﻿팀이름,PIN\n1모둠,1234\n2모둠,\n3모둠,5678\n';
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '가지_모둠_계정_서식.csv';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+
+function _csvBulkStyleTag() {
+  if (document.getElementById('admin-csv-style')) return;
+  const st = document.createElement('style');
+  st.id = 'admin-csv-style';
+  st.textContent = `
+    #admin-csv-overlay{position:fixed;inset:0;z-index:100050;background:rgba(40,30,15,0.45);display:flex;align-items:center;justify-content:center;padding:18px;}
+    #admin-csv-overlay .acsv-card{background:#fffdf7;border:1px solid #e6d8bb;border-radius:16px;max-width:640px;width:100%;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 18px 50px rgba(60,40,15,0.3);font-family:inherit;color:#4a3a22;}
+    #admin-csv-overlay .acsv-head{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid #eee0c8;}
+    #admin-csv-overlay .acsv-title{font-size:16px;font-weight:800;color:#3a2c14;flex:1;}
+    #admin-csv-overlay .acsv-body{padding:14px 18px;overflow:auto;display:flex;flex-direction:column;gap:12px;}
+    #admin-csv-overlay .acsv-hint{font-size:12.5px;color:#8a7350;line-height:1.55;}
+    #admin-csv-overlay .acsv-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+    #admin-csv-overlay .acsv-paste{width:100%;min-height:88px;border:1px solid #d9c39a;border-radius:10px;padding:8px 10px;font-size:13px;font-family:inherit;color:#4a3a22;background:#fff;resize:vertical;}
+    #admin-csv-overlay .acsv-table{width:100%;border-collapse:collapse;font-size:13px;}
+    #admin-csv-overlay .acsv-table th,#admin-csv-overlay .acsv-table td{border-bottom:1px solid #eee0c8;padding:6px 8px;text-align:left;}
+    #admin-csv-overlay .acsv-table th{color:#8a6a30;font-size:12px;}
+    #admin-csv-overlay .acsv-st--ready{color:#3f7d3a;font-weight:700;}
+    #admin-csv-overlay .acsv-st--exists{color:#a07a20;}
+    #admin-csv-overlay .acsv-st--error{color:#b3452e;}
+    #admin-csv-overlay .acsv-st--done{color:#3f7d3a;font-weight:700;}
+    #admin-csv-overlay .acsv-st--fail{color:#b3452e;font-weight:700;}
+    #admin-csv-overlay .acsv-pin--auto{color:#8a6a30;}
+    #admin-csv-overlay .acsv-foot{display:flex;gap:8px;justify-content:flex-end;align-items:center;padding:12px 18px;border-top:1px solid #eee0c8;flex-wrap:wrap;}
+    #admin-csv-overlay .acsv-summary{margin-right:auto;font-size:13px;color:#4a3a22;font-weight:700;}
+  `;
+  document.head.appendChild(st);
+}
+
+function _openCsvBulkOverlay(classId) {
+  if (!adminState.verified || !classId) return;
+  _csvBulkStyleTag();
+  const prev = document.getElementById('admin-csv-overlay');
+  if (prev) prev.remove();
+
+  const ov = document.createElement('div');
+  ov.id = 'admin-csv-overlay';
+  ov.innerHTML = `
+    <div class="acsv-card" role="dialog" aria-modal="true" aria-label="CSV로 모둠 한꺼번에 만들기">
+      <div class="acsv-head">
+        <div class="acsv-title">📄 CSV로 모둠 한꺼번에 만들기</div>
+        <button type="button" class="admin-tc-btn admin-tc-btn--ghost" data-act="close">닫기</button>
+      </div>
+      <div class="acsv-body">
+        <div class="acsv-hint">
+          한 줄에 <b>팀이름,PIN</b> 순서로 적어주세요. PIN을 비우면 자동으로 만들어 드려요.<br>
+          엑셀에서 두 열(이름·PIN)을 복사해 아래 칸에 붙여넣어도 돼요. 한 번에 ${_CSV_BULK_MAX_ROWS}개까지.
+        </div>
+        <div class="acsv-row">
+          <button type="button" class="admin-tc-btn admin-tc-btn--ghost" data-act="template">📄 서식(CSV) 내려받기</button>
+          <button type="button" class="admin-tc-btn" data-act="file">📂 CSV 파일 선택</button>
+        </div>
+        <textarea class="acsv-paste" data-el="paste" placeholder="또는 여기에 붙여넣기:&#10;1모둠,1234&#10;2모둠,&#10;3모둠,5678"></textarea>
+        <div class="acsv-row">
+          <button type="button" class="admin-tc-btn admin-tc-btn--ghost" data-act="parse">👀 미리보기</button>
+        </div>
+        <div data-el="preview"></div>
+      </div>
+      <div class="acsv-foot">
+        <div class="acsv-summary" data-el="summary"></div>
+        <button type="button" class="admin-tc-btn admin-tc-btn--ghost" data-act="print" style="display:none;">🖨 입장 카드 인쇄</button>
+        <button type="button" class="admin-tc-btn" data-act="run" style="display:none;">만들기</button>
+      </div>
+    </div>`;
+  document.body.appendChild(ov);
+
+  const $ = (sel) => ov.querySelector(sel);
+  const previewEl = $('[data-el="preview"]');
+  const summaryEl = $('[data-el="summary"]');
+  const runBtn    = $('[data-act="run"]');
+  const printBtn  = $('[data-act="print"]');
+  let rows = [];
+  let running = false;
+
+  function close() { if (running) { if (!confirm('만들기가 진행 중이에요. 정말 닫을까요?')) return; } ov.remove(); }
+  $('[data-act="close"]').addEventListener('click', close);
+  ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
+  document.addEventListener('keydown', function onEsc(ev) {
+    if (ev.key === 'Escape') { const o = document.getElementById('admin-csv-overlay'); if (o && !running) o.remove(); if (!o) document.removeEventListener('keydown', onEsc); }
+  });
+
+  $('[data-act="template"]').addEventListener('click', _csvTemplateDownload);
+
+  $('[data-act="file"]').addEventListener('click', () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.csv,text/csv,.txt,text/plain';
+    input.style.display = 'none';
+    input.addEventListener('change', async (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      try {
+        const buf = await file.arrayBuffer();
+        $('[data-el="paste"]').value = _csvDecodeBuffer(buf);
+        renderPreview();
+      } catch (err) {
+        summaryEl.textContent = '파일을 읽지 못했어요. CSV(텍스트) 파일인지 확인해 주세요.';
+      }
+    });
+    document.body.appendChild(input);
+    input.click();
+    setTimeout(() => input.remove(), 1000);
+  });
+
+  $('[data-act="parse"]').addEventListener('click', renderPreview);
+
+  function renderPreview() {
+    rows = _parseTeamsCsv($('[data-el="paste"]').value);
+    if (!rows.length) {
+      previewEl.innerHTML = '';
+      summaryEl.textContent = '읽을 내용이 없어요. 파일을 선택하거나 붙여넣어 주세요.';
+      runBtn.style.display = 'none';
+      return;
+    }
+    const stLabel = { ready: '✓ 만들 준비', exists: '⚠ 이미 있음', error: '✗ 오류' };
+    previewEl.innerHTML = `
+      <table class="acsv-table">
+        <thead><tr><th>#</th><th>팀 이름</th><th>PIN</th><th>상태</th></tr></thead>
+        <tbody>
+          ${rows.map((r, i) => `
+            <tr data-row="${i}">
+              <td>${i + 1}</td>
+              <td>${_escHtml(r.name)}</td>
+              <td>${_escHtml(r.pin)}${r.autoPin ? ' <span class="acsv-pin--auto">🎲자동</span>' : ''}</td>
+              <td class="acsv-st acsv-st--${r.status}">${stLabel[r.status]}${r.reason ? ' — ' + _escHtml(r.reason) : ''}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>`;
+    const readyN = rows.filter(r => r.status === 'ready').length;
+    const existsN = rows.filter(r => r.status === 'exists').length;
+    const errN = rows.filter(r => r.status === 'error').length;
+    summaryEl.textContent = `만들 팀 ${readyN}개` + (existsN ? ` · 건너뜀 ${existsN}` : '') + (errN ? ` · 오류 ${errN}` : '');
+    runBtn.style.display = readyN ? '' : 'none';
+    runBtn.textContent = `${readyN}개 팀 만들기`;
+    printBtn.style.display = 'none';
+  }
+
+  runBtn.addEventListener('click', async () => {
+    if (running) return;
+    const targets = rows.map((r, i) => ({ ...r, idx: i })).filter(r => r.status === 'ready');
+    if (!targets.length) return;
+    running = true;
+    runBtn.disabled = true;
+    runBtn.textContent = '만드는 중...';
+    const uid = (typeof auth !== 'undefined' && auth.currentUser) ? auth.currentUser.uid : null;
+    let created = 0, skipped = 0, failed = 0;
+
+    for (const t of targets) {
+      const cell = previewEl.querySelector(`tr[data-row="${t.idx}"] .acsv-st`);
+      try {
+        const teamKey = encodeURIComponent(t.name);
+        const teamRef = db.ref(`classes/${classId}/teams/${teamKey}`);
+        /* 단일 생성과 동일: 팀 노드가 이미 있으면 건드리지 않고 건너뜀(안전 우선). */
+        const snap = await teamRef.once('value');
+        if (snap.exists()) {
+          skipped++;
+          if (cell) { cell.className = 'acsv-st acsv-st--exists'; cell.textContent = '⚠ 이미 있음 — 건너뜀'; }
+          continue;
+        }
+        const now = Date.now();
+        await teamRef.child('account').set({
+          displayName: t.name,
+          pin: t.pin,
+          status: 'active',
+          createdBy: uid,
+          createdAt: now,
+          updatedAt: now,
+        });
+        created++;
+        if (cell) { cell.className = 'acsv-st acsv-st--done'; cell.textContent = '✓ 만들었어요'; }
+        /* 입장 카드 인쇄 브릿지: 목록 새로고침 전에도 인쇄에 잡히도록 최소 필드만 반영.
+           (_printEntryCards는 registered/accountName/accountPin/name만 사용.
+            목록 렌더는 loadAdminData가 서버 데이터로 전체 교체하므로 화면 영향 없음.) */
+        if (Array.isArray(adminState.allTeams) && !adminState.allTeams.some(x => x && x.name === t.name)) {
+          adminState.allTeams.push({ name: t.name, registered: true, accountName: t.name, accountPin: t.pin, accountStatus: 'active' });
+        }
+      } catch (err) {
+        console.error('[admin] CSV 팀 생성 실패:', t.name, err);
+        failed++;
+        const msg = /PERMISSION_DENIED|permission[_ ]?denied/i.test(String((err && (err.code || err.message)) || ''))
+          ? '권한 없음' : '실패';
+        if (cell) { cell.className = 'acsv-st acsv-st--fail'; cell.textContent = `✗ ${msg}`; }
+      }
+    }
+
+    running = false;
+    runBtn.textContent = '완료';
+    summaryEl.textContent = `✓ ${created}개 만듦` + (skipped ? ` · 건너뜀 ${skipped}` : '') + (failed ? ` · 실패 ${failed}` : '');
+    if (created) printBtn.style.display = '';
+    _invalidateAdminCache('csv-bulk-create');
+    loadAdminData();
+  });
+
+  printBtn.addEventListener('click', () => _printEntryCards(classId));
 }
 
 /* v94: 빈 상태 — 작품 없을 때 학생 안내 */

@@ -5924,6 +5924,10 @@ function _renderSceneStylePopoverBody() {
              getTextEffect가 전역 우선으로 무시(DB 삭제 X). 관련 함수/핸들러(_textEffectSectionHtml·
              js-edit-text-entrance·js-edit-text-body-effect)는 미렌더로 dead(바인딩 0·에러 없음). -->
         <div class="edit-scene-style-apply-all">
+          <!-- STYLE-PROMOTE-1(2026-07-10): 상속 승격 — 지금 장면의 글자 모양을 이야기 전체 기본값으로.
+               기존 resolver(작품 기본값+장면 예외) 그대로 사용: 기본값을 따르는 장면·새 장면·엔딩이 전부 따라오고
+               직접 꾸민(marker) 장면은 보존. 굵기는 textDefaults 범위 밖(장면별 유지) — 레거시 뒤집힘 방지. -->
+          <button type="button" class="js-scene-style-promote edit-style-promote-btn">⤴ 이 글자 모양을 이야기 전체 기본으로</button>
           <button type="button" class="js-scene-style-reset-all edit-style-reset-all-btn" ${anyOvr ? '' : 'disabled'}>↩ 이 장면을 작품 기본값으로 되돌리기</button>
           <details class="edit-style-advanced">
             <summary>고급</summary>
@@ -6459,6 +6463,69 @@ function _bindSceneStyleResetActions(root, scene) {
       if (!_patchTextTheme()) _scheduleViewerFrameReRender();
       if (!_patchTextStyle()) _scheduleViewerFrameReRender();
       _rerenderSceneStylePopover();
+    });
+  }
+
+  /* STYLE-PROMOTE-1(2026-07-10): 승격 — 현재 장면의 resolved 글자 모양을 작품 기본값으로.
+     비평 반영: ①정직한 소급 문구(앞 장면 포함) ②직접 꾸민 장면 수 표시+보존 ③weight 제외(장면별 유지)
+     ④승격한 현재 장면은 예외(marker) 해제 → 기본값 자체를 따르게(weight 예외만 유지). */
+  const promote = root.querySelector('.js-scene-style-promote');
+  if (promote) {
+    promote.addEventListener('click', async () => {
+      if (!_editText.editable) return;
+      if (_variantBlocked()) return;
+      if (typeof getTextStyle !== 'function' || typeof saveProjectTextDefaults !== 'function') return;
+      const resolved = getTextStyle(scene);
+      const theme = (typeof getTextTheme === 'function') ? getTextTheme(scene) : null;
+      const all = (ViewerState && ViewerState.scenes) ? Object.values(ViewerState.scenes) : [];
+      const marked = all.filter(s => {
+        if (!s || s.type === 'cover' || String(s.id) === String(scene.id)) return false;
+        const m = (s.textStyleOverride && typeof s.textStyleOverride === 'object') ? s.textStyleOverride : {};
+        return !!(s.textThemeOverride || m.fontFamily || m.fontSize || m.color);
+      }).length;
+      const ok = await showViewerConfirm({
+        title: '이야기 전체 기본으로 할까요?',
+        message: '지금 장면의 글자 모양(테마·글씨체·크기·색)이 이야기 전체의 기본값이 돼요.\n앞 장면을 포함해 기본값을 따르는 모든 장면과 새 장면, 엔딩이 이 모양으로 바뀌어요.'
+          + (marked ? ('\n직접 다르게 꾸민 장면 ' + marked + '개는 그대로 둬요.') : '')
+          + '\n(글자 굵기는 장면마다 따로 유지돼요)',
+        confirmText: '전체 기본으로',
+      });
+      if (!ok) return;
+      try {
+        await saveProjectTextDefaults({
+          textTheme: theme,
+          textStyle: {
+            fontFamily: resolved.fontFamily || null,   /* null=테마 기본 글씨체 sentinel */
+            fontSize: resolved.fontSize,
+            color: resolved.color || '',
+          },
+        });
+        /* 현재 장면의 예외 해제 — 이제 기본값을 따름. weight 예외만 보존. */
+        const hadWeightMarker = !!(scene.textStyleOverride && scene.textStyleOverride.weight);
+        const weightVal = (scene.textStyleRaw && scene.textStyleRaw.weight !== undefined)
+          ? scene.textStyleRaw.weight
+          : (scene.textStyle && scene.textStyle.weight !== undefined ? scene.textStyle.weight : undefined);
+        const sw = (hadWeightMarker && weightVal !== undefined) ? { weight: weightVal } : {};
+        const mw = hadWeightMarker ? { weight: true } : {};
+        delete scene.textTheme;
+        scene.textThemeOverride = false;
+        scene.textStyleRaw = { ...sw };
+        scene.textStyle = { ...sw };
+        scene.textStyleOverride = { ...mw };
+        _queueSave(scene.num || scene.id, {
+          textTheme: null,
+          textThemeOverride: false,
+          textStyle: Object.keys(sw).length ? sw : null,
+          textStyleOverride: Object.keys(mw).length ? mw : null,
+        });
+        _flushPendingSave();
+        if (!_patchTextTheme()) _scheduleViewerFrameReRender();
+        if (!_patchTextStyle()) _scheduleViewerFrameReRender();
+        _rerenderSceneStylePopover();
+      } catch (e) {
+        console.error('[STYLE-PROMOTE-1] 실패:', e);
+        alert('전체 기본으로 바꾸지 못했어요. 잠시 후 다시 시도해 주세요.');
+      }
     });
   }
 }

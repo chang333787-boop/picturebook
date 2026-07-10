@@ -796,6 +796,21 @@ body.viewer-edit-readonly .edit-image-popover button:not(.edit-image-popover__cl
 }
 .edit-style-reset-chip:hover { background: #f2e6cf; }
 /* 전체 되돌리기 버튼 */
+.edit-style-promote-btn {
+  width: 100%;
+  padding: 9px 12px;
+  margin-bottom: 6px;
+  border-radius: 10px;
+  border: 1.5px solid rgba(198, 111, 74, 0.55);
+  background: rgba(198, 111, 74, 0.10);
+  color: #b3603e;
+  font-family: 'Jua', sans-serif;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background .12s, border-color .12s;
+}
+.edit-style-promote-btn:hover { background: rgba(198, 111, 74, 0.18); border-color: #c66f4a; }
+
 .edit-style-reset-all-btn {
   width: 100%;
   padding: 9px 12px;

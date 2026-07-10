@@ -1298,7 +1298,7 @@ function _normalizeTextStyle(raw) {
   if (typeof raw.fontFamily === 'string' && raw.fontFamily && raw.fontFamily !== 'auto') {
     fontFamily = raw.fontFamily;
   }
-  const fontSize   = _clampNum(raw.fontSize, 10, 36, TEXT_STYLE_DEFAULTS.fontSize);
+  const fontSize   = _clampNum(raw.fontSize, 10, 50, TEXT_STYLE_DEFAULTS.fontSize) /* FONTSIZE-CLAMP-FIX: 슬라이더 UI(12~50)와 정합 — 37~50 저장값이 재로드 후 36으로 줄던 버그 */;
   const color      = (typeof raw.color === 'string') ? raw.color : TEXT_STYLE_DEFAULTS.color;
   const weight     = (raw.weight === 'bold') ? 'bold' : 'normal';
   return { fontFamily, fontSize, color, weight };
@@ -1316,7 +1316,7 @@ function _sparseTextStyleOverride(raw) {
     out.fontFamily = raw.fontFamily;
   }
   if (typeof raw.fontSize === 'number' && isFinite(raw.fontSize)) {
-    out.fontSize = _clampNum(raw.fontSize, 10, 36, TEXT_STYLE_DEFAULTS.fontSize);
+    out.fontSize = _clampNum(raw.fontSize, 10, 50, TEXT_STYLE_DEFAULTS.fontSize) /* FONTSIZE-CLAMP-FIX: 슬라이더 UI(12~50)와 정합 — 37~50 저장값이 재로드 후 36으로 줄던 버그 */;
   }
   if (typeof raw.color === 'string' && raw.color) {
     out.color = raw.color;
@@ -1340,7 +1340,7 @@ function getProjectTextDefaults() {
     style.fontFamily = rawS.fontFamily;
   }
   if (typeof rawS.fontSize === 'number' && isFinite(rawS.fontSize)) {
-    style.fontSize = _clampNum(rawS.fontSize, 10, 36, TEXT_STYLE_DEFAULTS.fontSize);
+    style.fontSize = _clampNum(rawS.fontSize, 10, 50, TEXT_STYLE_DEFAULTS.fontSize);
   }
   if (typeof rawS.color === 'string' && rawS.color) {
     style.color = rawS.color;

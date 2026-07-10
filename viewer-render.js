@@ -783,6 +783,16 @@ function _renderScenePicturebook(stage, scene, submode) {
        </div>`
     : `<div class="pb-illust pb-illust--empty scene-media-frame">
          <div class="pb-empty-mark">⌘</div>
+         <!-- PB-EMPTY-GUIDE(2026-07-10): 그림 없는 장면 — 편집 모드에서만 보이는 "그림 자리" 안내.
+              순수 시각 안내(pointer-events:none·저장 0). 그림이 생기면 bgImage 분기로 렌더돼 자연 소멸.
+              실제 그림 표시는 기존 경로(contain) 그대로라 이 박스가 그림을 구속하지 않음. -->
+         <div class="pb-illust-guide" aria-hidden="true">
+           <div class="pb-illust-guide__canvas">
+             <span class="pb-illust-guide__icon">🖼</span>
+             <b>여기가 그림 자리예요</b>
+             <small>🎨 장면꾸미기에서 그림을 올리거나 직접 그려요</small>
+           </div>
+         </div>
          ${titleOverlayInIllustHtml}
        </div>`;
 

@@ -1652,6 +1652,44 @@ body.edit-mode-active:not(.viewer-test-active) .scene-screen--movie[data-played=
   align-items: center;
   text-align: center;
 }
+/* ════════════════════════════════════════════════════════════════
+   PB-EMPTY-GUIDE(2026-07-10): 그림 없는 장면의 "그림 자리" 안내 — 편집 모드 전용.
+   처음 쓰는 학생이 어디가 그림 공간인지 몰라서, 그리기 캔버스와 같은 3:2 흰 캔버스를
+   시각적으로만 표시(pointer-events:none). 감상·감상테스트에선 숨김(기존 ⌘ 그대로).
+   그림 업로드/그리기 시 empty 분기 자체가 사라져 자연 소멸 — 그림 표시를 구속하지 않음. */
+.pb-illust-guide { display: none; }
+body.edit-mode-active:not(.viewer-test-active) .pb-illust--empty .pb-illust-guide {
+  display: flex;
+  position: absolute;
+  inset: 0;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 1;
+}
+.pb-illust-guide__canvas {
+  /* 높이 기준 3:2 — imageCenter(3:2 무대)·split(더 넓은 영역) 양쪽에서 안전하게 수납 */
+  height: 76%;
+  aspect-ratio: 3 / 2;
+  max-width: 90%;
+  background: #ffffff;
+  border: 2px dashed rgba(198, 111, 74, 0.45);
+  border-radius: 14px;
+  box-shadow: 0 4px 18px rgba(80, 50, 20, 0.10);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
+  font-family: var(--font-ui, 'Jua', sans-serif);
+  color: #8a7350;
+  padding: 12px;
+}
+.pb-illust-guide__icon { font-size: clamp(22px, 4vw, 34px); opacity: 0.85; }
+.pb-illust-guide__canvas b { font-size: clamp(14px, 1.8vw, 18px); color: #6b5638; font-weight: 700; }
+.pb-illust-guide__canvas small { font-size: clamp(11px, 1.3vw, 13px); opacity: 0.8; }
+
 /* MOVIE-ENDING-DARKTEXT(2026-07-10): 엔딩 decision은 이제 종이 톤 패널(.movie-decision 토큰 공유)이라
    흰 글씨는 밝은 배경 위에서 안 보인다. 본문 정본 글색(#3a2c14 진갈색)으로 통일. */
 .scene-screen--movie .movie-ending-mark {

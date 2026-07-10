@@ -6096,9 +6096,18 @@ body[data-page-orientation="portrait"] .scene-screen--movie[data-movie-deco="pan
   --md-border: 1px solid rgba(150,135,100,.5);
   --md-shadow: 0 14px 44px rgba(60,45,20,0.28);
 }
-/* 본문 — 종이 위 진갈색(paper 정본 글색). caption-bar는 위 규칙이 더 특이해서 흰 자막 유지. */
+/* 본문 — 종이 위 진갈색(paper 정본 글색). */
 .scene-screen--movie .movie-decision__desc {
   color: #3a2c14;
+  text-shadow: none;
+}
+/* MOVIE-CAPTION-DARKTEXT(2026-07-10): 자막 띠(caption-bar) 모드도 종이 톤+진갈색으로 —
+   기존 '어두운 띠+흰 글씨'가 종이 테마 위에서 안 보인다는 사용자 보고. 선택자 특이도(0,3,0)를
+   caption-bar 원규칙(1633·동일 0,3,0)과 맞추고 소스 뒤라 우선. 배경만 종이로 바꾸고 나머지(패딩/라운드)는 원규칙 유지. */
+.scene-screen--movie[data-movie-caption="caption-bar"] .movie-decision__desc {
+  background: rgba(247,238,206,0.96);
+  color: #3a2c14;
+  border: 1px solid rgba(150,135,100,.45);
   text-shadow: none;
 }
 /* 행동버튼 — paper 노트 인덱스 탭 톤(인쇄 .pbp-choice와 동일 계열). */

@@ -139,11 +139,16 @@
       + '#' + OVERLAY_ID + '.show-teacher .am-deck[data-which="teacher"]{display:block;}'
       + '#' + OVERLAY_ID + '.show-teacher .am-deck[data-which="student"]{display:none;}'
       + '@media print{'
+      + '  @page{size:A4 portrait;margin:12mm;}'   /* 세로(portrait) 기준 고정 */
       + '  body > *:not(#' + OVERLAY_ID + '){display:none !important;}'
       + '  #' + OVERLAY_ID + '{position:static;background:#fff;overflow:visible;}'
       + '  #' + OVERLAY_ID + ' .am-top{position:static;border:none;}'
       + '  #' + OVERLAY_ID + ' .am-tabs,#' + OVERLAY_ID + ' .am-btn{display:none !important;}'
       + '  #' + OVERLAY_ID + ' .am-deck{display:block !important;}'
+      /* 교사용·학생용을 페이지로 구분 — 학생 덱은 항상 새 페이지에서 시작. */
+      + '  #' + OVERLAY_ID + ' .am-deck[data-which="student"]{break-before:page;page-break-before:always;}'
+      /* 덱 제목이 페이지 끝에 홀로 남지 않게. */
+      + '  #' + OVERLAY_ID + ' .am-deck-head{break-after:avoid;page-break-after:avoid;}'
       + '  #' + OVERLAY_ID + ' .am-sec{break-inside:avoid;box-shadow:none;}'
       + '  #' + OVERLAY_ID + ' .am-sec--warn,#' + OVERLAY_ID + ' .am-sec-n{-webkit-print-color-adjust:exact;print-color-adjust:exact;}'
       + '}'

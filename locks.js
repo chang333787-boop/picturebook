@@ -65,8 +65,14 @@ function touchEdit(num) {
   if (!ed) return;
   clearTimeout(ed.idleTimer);
   ed.idleTimer = setTimeout(() => releaseLock(num), IDLE_RELEASE);
-  ed.lastActivity = Date.now();
-  if (lockRef) lockRef.child(num).update({ lockedAt: Date.now() });
+  const now = Date.now();
+  ed.lastActivity = now;
+  /* DRAG-PERF-1(2026-07-10): lockedAt DB 쓰기 스로틀 — 키입력·탭마다 나가던 쓰기가
+     에코→syncCardState churn을 만들던 문제. 5초 heartbeat가 어차피 갱신하므로
+     의미 변화 0(idle 타이머 리셋은 위에서 매번), 쓰기·에코량만 감소. */
+  if (ed._lastLockWrite && now - ed._lastLockWrite < 2500) return;
+  ed._lastLockWrite = now;
+  if (lockRef) lockRef.child(num).update({ lockedAt: now });
 }
 
 /* 잠금 해제 + 세션 정리 */

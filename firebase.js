@@ -744,21 +744,31 @@ function _enterTeam(val, teamRef, opts) {
        scenes 값은 이미 업데이트됨 → blur나 장면 전환 시 자연스럽게 반영됨.
        팀 내 lock 시스템 덕에 내가 편집 중인 장면을 남이 동시 수정하는 상황은 거의 없음. */
     const focused = document.activeElement;
+    /* DRAG-PERF-1(2026-07-10): js-cover-title/js-cover-subtitle 추가 — 표지 입력이 가드에서
+       누락돼 타이핑 중 에코 renderAll이 포커스·한글 조합을 날리던 버그. */
     const isTypingCard = focused
       && focused.classList
       && (focused.classList.contains('js-title-input')  ||
           focused.classList.contains('js-body-input')   ||
-          focused.classList.contains('js-choice-label'));
+          focused.classList.contains('js-choice-label') ||
+          focused.classList.contains('js-cover-title')  ||
+          focused.classList.contains('js-cover-subtitle'));
 
     /* v118: pan/drag/pinch 중엔 renderAll 호출 X — Firebase echo가 진행 중인 사용자 조작을
        방해함. 조작이 끝난 후 사용자가 카드 입력 중이 아니면 다음 업데이트에서
-       자동 동기화됨. 안전 — scenes 메모리는 최신으로 유지됨. */
+       자동 동기화됨. 안전 — scenes 메모리는 최신으로 유지됨.
+       DRAG-PERF-1: __cardGrabbing(카드 pointerdown~pointerup 창, sceneRenderer가 관리) 추가 —
+       dragState가 서기 전 그랩 순간의 에코가 카드를 파괴해 드래그가 조용히 죽던 문제. */
     const isInteracting = (typeof panState !== 'undefined' && panState)
                        || (typeof dragState !== 'undefined' && dragState)
-                       || (typeof pinchState !== 'undefined' && pinchState);
+                       || (typeof pinchState !== 'undefined' && pinchState)
+                       || window.__cardGrabbing === true;
 
     if (!isTypingCard && !isInteracting) {
       renderAll();
+    } else {
+      /* DRAG-PERF-1: 건너뛴 에코가 다음 에코까지 stale로 남지 않게 — 조작이 끝나면 한 번 재렌더. */
+      _scheduleSkippedEchoRender();
     }
     /* v116: 모바일 텍스트형이 활성 상태면 노드 구조 화면도 같이 갱신.
        옛엔 renderAll(PC sceneRenderer)만 호출 → 모바일 _mtbRender 호출 X →
@@ -983,6 +993,28 @@ function _sceneToDbShape(s) {
     delete out.body;
   }
   return out;
+}
+
+/* DRAG-PERF-1(2026-07-10): 타이핑/조작 중이라 건너뛴 에코 재렌더 예약.
+   기존엔 스킵된 에코가 다음 에코까지 화면에 반영 안 됨(stale) — 300ms 간격으로
+   조작 종료를 확인해 한 번만 renderAll. scenes 메모리는 항상 최신이므로 데이터 안전. */
+let _echoRetryTimer = null;
+function _scheduleSkippedEchoRender() {
+  clearTimeout(_echoRetryTimer);
+  _echoRetryTimer = setTimeout(function _retry() {
+    const f = document.activeElement;
+    const typing = f && f.classList &&
+      (f.classList.contains('js-title-input') || f.classList.contains('js-body-input') ||
+       f.classList.contains('js-choice-label') || f.classList.contains('js-cover-title') ||
+       f.classList.contains('js-cover-subtitle'));
+    const interacting = (typeof panState !== 'undefined' && panState)
+                     || (typeof dragState !== 'undefined' && dragState)
+                     || (typeof pinchState !== 'undefined' && pinchState)
+                     || window.__cardGrabbing === true;
+    if (typing || interacting) { _echoRetryTimer = setTimeout(_retry, 300); return; }
+    _echoRetryTimer = null;
+    if (typeof renderAll === 'function') renderAll();
+  }, 300);
 }
 
 function pushToFirebase(num) {

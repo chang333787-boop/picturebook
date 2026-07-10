@@ -680,15 +680,19 @@ function bindCardEvents(el, s) {
     radio.addEventListener('change', () => updateType(num, radio.dataset.value));
   });
 
-  /* v37: 표지 전용 input들 */
+  /* v37: 표지 전용 input들.
+     DRAG-PERF-1(2026-07-10) 버그 수정: 기존 코드는 존재하지 않는 pushToFirebaseDebounced로
+     폴백해 pushToFirebase()를 num 없이 호출 → dirtyScenes가 비어 키입력마다 "전체 scenes set()"
+     + 그 에코가 renderAll을 돌려 입력 포커스·한글 조합이 유실됐음.
+     이제 num을 넘겨 해당 장면만 update(제목/본문 input과 동일 경로). pushToFirebase 자체가
+     600ms debounce라 별도 debounce 불필요. */
   const coverTitle = el.querySelector('.js-cover-title');
   if (coverTitle) {
     coverTitle.addEventListener('focus', () => ensureEditable(num));
     coverTitle.addEventListener('input', e => {
       s.title = e.target.value;
       if (typeof scenes !== 'undefined' && scenes[num]) scenes[num].title = e.target.value;
-      if (typeof pushToFirebaseDebounced === 'function') pushToFirebaseDebounced();
-      else if (typeof pushToFirebase === 'function') pushToFirebase();
+      if (typeof pushToFirebase === 'function') pushToFirebase(num);
     });
   }
   const coverSubtitle = el.querySelector('.js-cover-subtitle');
@@ -697,8 +701,7 @@ function bindCardEvents(el, s) {
     coverSubtitle.addEventListener('input', e => {
       s.subtitle = e.target.value;
       if (typeof scenes !== 'undefined' && scenes[num]) scenes[num].subtitle = e.target.value;
-      if (typeof pushToFirebaseDebounced === 'function') pushToFirebaseDebounced();
-      else if (typeof pushToFirebase === 'function') pushToFirebase();
+      if (typeof pushToFirebase === 'function') pushToFirebase(num);
     });
   }
   el.querySelectorAll('.js-cover-theme').forEach(btn => {
@@ -708,7 +711,7 @@ function bindCardEvents(el, s) {
       s.coverTheme = val;
       if (typeof scenes !== 'undefined' && scenes[num]) scenes[num].coverTheme = val;
       el.querySelectorAll('.js-cover-theme').forEach(b => b.classList.toggle('active', b === btn));
-      if (typeof pushToFirebase === 'function') pushToFirebase();
+      if (typeof pushToFirebase === 'function') pushToFirebase(num);
     });
   });
 
@@ -856,6 +859,68 @@ function bindCardEvents(el, s) {
      핵심 정책: 이동도 편집. 잠금 확보 전 드래그 시작 금지.
      · 개별: 해당 장면 ensureEditable, 실패 시 드래그 안 함
      · 묶음(groupMoveOn): connected 장면 전체 잠금 확보, 하나라도 실패하면 취소 */
+  /* DRAG-PERF-1(2026-07-10): 임계값(8px) 판정+드래그 시작을 헬퍼로 추출 —
+     el pointermove와 document 폴백(빠른 플릭으로 포인터가 카드를 이탈한 경우) 양쪽에서 사용.
+     낙관적 시작: pointerdown에서 isLockedByOther 동기 체크는 이미 통과했으므로, 잠금 왕복이
+     아직 대기 중이어도 즉시 드래그를 시작해 카드가 손을 바로 따라오게 한다(씹힘 해소).
+     잠금이 드물게 실패하면 시작 좌표로 롤백+원좌표 재저장 — 잠금 정책·데이터 안전 유지. */
+  function _tryStartPendingDrag(e) {
+    if (!el._pendingDrag || el._pendingDrag.pointerId !== e.pointerId || dragState) return false;
+    const dx = e.clientX - el._pendingDrag.startX;
+    const dy = e.clientY - el._pendingDrag.startY;
+    if (Math.sqrt(dx * dx + dy * dy) <= 8) return false;
+    e.preventDefault();
+    try { el.setPointerCapture(e.pointerId); } catch (err) { /* 이미 해제된 포인터 등 — 무해 */ }
+    const pDrag = el._pendingDrag;
+    el._pendingDrag = null;
+
+    /* 롤백용 시작 좌표 스냅샷 */
+    const snapNums = pDrag.group ? pDrag.nums : [pDrag.num];
+    const snapshot = {};
+    snapNums.forEach(n => { const sc = scenes[n]; if (sc) snapshot[n] = { x: sc.x, y: sc.y }; });
+    const rollback = (msg) => {
+      snapNums.forEach(n => {
+        const sc = scenes[n];
+        if (!sc || !snapshot[n]) return;
+        sc.x = snapshot[n].x; sc.y = snapshot[n].y;
+        const cel = document.getElementById('card-' + n);
+        if (cel) { cel.style.left = sc.x + 'px'; cel.style.top = sc.y + 'px'; cel.classList.remove('group-selected'); }
+      });
+      if (dragState && dragState.num === pDrag.num) dragState = null;
+      el.classList.remove('dragging');
+      try { el.releasePointerCapture(e.pointerId); } catch (err) {}
+      /* 이미 손을 뗐다면 pointerup이 이동 좌표를 저장했을 수 있음 — 원좌표로 재저장 */
+      snapNums.forEach(n => { if (typeof pushToFirebase === 'function') pushToFirebase(n); });
+      _finalizeArrowDraw();
+      syncCardState(pDrag.num);
+      alert(msg);
+    };
+
+    if (pDrag.group) {
+      if (pDrag.lockAllOk === false) {
+        try { el.releasePointerCapture(e.pointerId); } catch (err) {}
+        alert('일부 장면을 잠글 수 없어서 묶음 이동을 취소했어요.');
+        return true;
+      }
+      _startDrag(el, s, pDrag.cv);
+      if (pDrag.lockAllOk !== true) {
+        pDrag.lockAllP.then(ok => { if (!ok) rollback('일부 장면을 잠글 수 없어서 묶음 이동을 취소했어요.'); });
+      }
+    } else {
+      if (pDrag.lockOk === false) {
+        try { el.releasePointerCapture(e.pointerId); } catch (err) {}
+        syncCardState(num);
+        alert('다른 사람이 편집 중인 장면은 이동할 수 없어요.');
+        return true;
+      }
+      _startDrag(el, s, pDrag.cv);
+      if (pDrag.lockOk !== true) {
+        pDrag.lockP.then(ok => { if (!ok) rollback('다른 사람이 편집 중인 장면은 이동할 수 없어요.'); });
+      }
+    }
+    return true;
+  }
+
   el.addEventListener('pointerdown', e => {
     if (['INPUT','BUTTON','LABEL','TEXTAREA','IMG'].includes(e.target.tagName)) return;
     if (e.target.classList.contains('port-dot')) return;
@@ -893,63 +958,31 @@ function bindCardEvents(el, s) {
       };
       lockP.then(ok => { if (el._pendingDrag) el._pendingDrag.lockOk = ok; });
     }
+
+    /* DRAG-PERF-1: ① 그랩 창(잡은 순간~드래그 시작) 동안 Firebase 에코 renderAll이 카드를
+       파괴해 그랩이 조용히 죽던 문제 — 전역 플래그로 에코 렌더를 잠시 미룸(firebase.js가 확인).
+       ② 빠른 플릭으로 포인터가 카드를 벗어나면 el pointermove가 안 와 드래그가 시작조차
+       안 되던 문제 — document 폴백으로 임계값 판정을 이어받음(캡처는 시작 시점에 걸림 —
+       pointerdown 즉시 캡처는 click이 카드로 재타게팅돼 본문 미리보기 클릭 등을 깨므로 금지).
+       ③ 카드 밖에서 손을 뗀 경우 stale _pendingDrag도 여기서 정리. */
+    window.__cardGrabbing = true;
+    const _pid = e.pointerId;
+    const _docMove = ev => { if (ev.pointerId === _pid) _tryStartPendingDrag(ev); };
+    const _docEnd = ev => {
+      if (ev.pointerId !== _pid) return;
+      document.removeEventListener('pointermove', _docMove);
+      document.removeEventListener('pointerup', _docEnd);
+      document.removeEventListener('pointercancel', _docEnd);
+      window.__cardGrabbing = false;
+      if (el._pendingDrag && el._pendingDrag.pointerId === _pid) el._pendingDrag = null;
+    };
+    document.addEventListener('pointermove', _docMove);
+    document.addEventListener('pointerup', _docEnd);
+    document.addEventListener('pointercancel', _docEnd);
   });
 
   el.addEventListener('pointermove', e => {
-    if (el._pendingDrag && el._pendingDrag.pointerId === e.pointerId && !dragState) {
-      const dx = e.clientX - el._pendingDrag.startX;
-      const dy = e.clientY - el._pendingDrag.startY;
-      if (Math.sqrt(dx * dx + dy * dy) > 8) {
-        e.preventDefault();
-        el.setPointerCapture(e.pointerId);
-        const pDrag = el._pendingDrag;
-        el._pendingDrag = null;
-
-        if (pDrag.group) {
-          /* 묶음 이동 — all-or-nothing 검증 */
-          if (pDrag.lockAllOk === true) {
-            _startDrag(el, s, pDrag.cv);
-          } else if (pDrag.lockAllOk === false) {
-            el.releasePointerCapture(e.pointerId);
-            alert('일부 장면을 잠글 수 없어서 묶음 이동을 취소했어요.');
-          } else {
-            /* 잠금 아직 대기 중 — 완료될 때까지 기다림 */
-            el._deferredDrag = pDrag;
-            pDrag.lockAllP.then(ok => {
-              el._deferredDrag = null;
-              if (!ok) {
-                alert('일부 장면을 잠글 수 없어서 묶음 이동을 취소했어요.');
-                return;
-              }
-              if (dragState || pDrag.cancelled) return;
-              _startDrag(el, s, pDrag.cv);
-            });
-          }
-        } else {
-          /* 개별 이동 */
-          if (pDrag.lockOk === true) {
-            _startDrag(el, s, pDrag.cv);
-          } else if (pDrag.lockOk === false) {
-            el.releasePointerCapture(e.pointerId);
-            syncCardState(num);
-            alert('다른 사람이 편집 중인 장면은 이동할 수 없어요.');
-          } else {
-            el._deferredDrag = pDrag;
-            pDrag.lockP.then(ok => {
-              el._deferredDrag = null;
-              if (!ok) {
-                syncCardState(num);
-                alert('다른 사람이 편집 중인 장면은 이동할 수 없어요.');
-                return;
-              }
-              if (dragState || pDrag.cancelled) return;
-              _startDrag(el, s, pDrag.cv);
-            });
-          }
-        }
-      }
-      return;
-    }
+    if (_tryStartPendingDrag(e)) return;
     if (!dragState || dragState.num !== num) return;
     e.preventDefault();
     const cv = toCanvas(e.clientX, e.clientY);
@@ -1048,20 +1081,26 @@ function bindCardEvents(el, s) {
       tl.setAttribute('x2', startX); tl.setAttribute('y2', startY);
     });
 
+    /* DRAG-PERF-1: 매 move마다 전체 카드 highlight 순회 제거 — 대상이 바뀔 때만 토글. */
+    let _dotHl = null;
     dot.addEventListener('pointermove', e => {
       if (!connState) return;
       e.preventDefault();
       const cv = toCanvas(e.clientX, e.clientY);
       const tl = document.getElementById('temp-line');
       tl.setAttribute('x2', cv.x); tl.setAttribute('y2', cv.y);
-      document.querySelectorAll('.scene-card').forEach(c => c.classList.remove('highlight'));
       const target = getCardAt(e.clientX, e.clientY);
-      if (target && target !== connState.fromNum)
-        document.getElementById('card-' + target)?.classList.add('highlight');
+      const next = (target && target !== connState.fromNum) ? target : null;
+      if (next !== _dotHl) {
+        if (_dotHl) document.getElementById('card-' + _dotHl)?.classList.remove('highlight');
+        if (next) document.getElementById('card-' + next)?.classList.add('highlight');
+        _dotHl = next;
+      }
     });
 
     dot.addEventListener('pointerup', e => {
       if (!connState) return;
+      _dotHl = null;
       document.querySelectorAll('.scene-card').forEach(c => c.classList.remove('highlight'));
       document.getElementById('temp-line').setAttribute('display', 'none');
       const target = getCardAt(e.clientX, e.clientY);
@@ -1226,6 +1265,12 @@ let _arrowDrawTimer = null;
 let _arrowDrawLastTime = 0;
 const ARROW_DRAW_THROTTLE_MS = 100;
 
+/* DRAG-PERF-1: 드래그 중 갱신 대상 num 집합 — 개별이면 그 카드, 그룹이면 그룹 전체. */
+function _dragArrowNums() {
+  if (!dragState) return null;
+  return new Set((dragState.group ? dragState.nums : [dragState.num]).map(String));
+}
+
 function _scheduleArrowDrawDuringDrag() {
   const now = performance.now();
   const elapsed = now - _arrowDrawLastTime;
@@ -1234,7 +1279,7 @@ function _scheduleArrowDrawDuringDrag() {
     _arrowDrawLastTime = now;
     if (_arrowDrawTimer) { clearTimeout(_arrowDrawTimer); _arrowDrawTimer = null; }
     if (rafId) cancelAnimationFrame(rafId);
-    rafId = requestAnimationFrame(() => { drawArrows(); rafId = null; });
+    rafId = requestAnimationFrame(() => { drawArrows(_dragArrowNums()); rafId = null; });
     return;
   }
   /* trailing edge — throttle 구간 안에 들어온 추가 호출은 묶음 */
@@ -1243,7 +1288,7 @@ function _scheduleArrowDrawDuringDrag() {
     _arrowDrawTimer = null;
     _arrowDrawLastTime = performance.now();
     if (rafId) cancelAnimationFrame(rafId);
-    rafId = requestAnimationFrame(() => { drawArrows(); rafId = null; });
+    rafId = requestAnimationFrame(() => { drawArrows(_dragArrowNums()); rafId = null; });
   }, ARROW_DRAW_THROTTLE_MS - elapsed);
 }
 
@@ -1255,9 +1300,21 @@ function _finalizeArrowDraw() {
   rafId = requestAnimationFrame(() => { drawArrows(); rafId = null; });
 }
 
-function drawArrows() {
+/* DRAG-PERF-1(2026-07-10): 드래그 중 부분 갱신 — 전체 화살표 삭제·재생성(화살표 수 비례 10Hz 잔렉)
+   대신 드래그 중인 카드와 연결된 화살표만 다시 그린다. onlyNums 없으면 기존 전체 재그리기 그대로.
+   요소 선택은 생성 시 달아두는 data-af(출발 num)/data-at(도착 num)로 한다. */
+let _arrowOnlyNums = null;
+
+function drawArrows(onlyNums) {
   const svg = document.getElementById('arrows');
-  svg.querySelectorAll('path.arrow, circle.arrow, text.arrow-label, rect.arrow-label').forEach(el => el.remove());
+  _arrowOnlyNums = (onlyNums && onlyNums.size) ? onlyNums : null;
+  if (_arrowOnlyNums) {
+    svg.querySelectorAll('path.arrow, circle.arrow, text.arrow-label, rect.arrow-label').forEach(el => {
+      if (_arrowOnlyNums.has(el.getAttribute('data-af')) || _arrowOnlyNums.has(el.getAttribute('data-at'))) el.remove();
+    });
+  } else {
+    svg.querySelectorAll('path.arrow, circle.arrow, text.arrow-label, rect.arrow-label').forEach(el => el.remove());
+  }
 
   /* W6: 체험전시형은 connectObjects[] 기반 화살표.
      다른 모드는 기존 buttons[] 흐름 그대로. */
@@ -1300,6 +1357,7 @@ function drawArrows() {
       }
     }
   });
+  _arrowOnlyNums = null;
 }
 
 /* 인덱스 기반 화살표 그리기 (W2-B-β) — A/B 외 N개 지원.
@@ -1313,6 +1371,8 @@ const _PORT_MARKERS = ['ahA', 'ahB', 'ahC', 'ahD', 'ahE', 'ahF'];
 
 function drawArrowForIndex(svg, s, idx, nextNum, labelText) {
   if (!nextNum || !scenes[nextNum]) return;
+  /* DRAG-PERF-1: 부분 갱신 모드 — 드래그 카드와 무관한 화살표는 건너뜀(이미 그려져 있음). */
+  if (_arrowOnlyNums && !_arrowOnlyNums.has(String(s.num)) && !_arrowOnlyNums.has(String(nextNum))) return;
   const t = scenes[nextNum];
 
   /* 시작 위치 — 인덱스별 y 오프셋. BRANCH-CARD-REDESIGN-4: 분기 간격 20→32(캡슐 높이 23 > 기존 20이라 겹침).
@@ -1326,8 +1386,11 @@ function drawArrowForIndex(svg, s, idx, nextNum, labelText) {
   const color    = _PORT_COLORS[idx] || _PORT_COLORS[0];
   const markerId = _PORT_MARKERS[idx] || _PORT_MARKERS[0];
 
+  /* DRAG-PERF-1: 부분 갱신용 식별 속성 — 이 화살표가 잇는 두 장면 num. */
+  const _af = String(s.num), _at = String(nextNum);
   const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
   path.setAttribute('class', 'arrow');
+  path.setAttribute('data-af', _af); path.setAttribute('data-at', _at);
   path.setAttribute('d', `M${x1},${y1} C${cx},${y1} ${cx},${y2} ${x2},${y2}`);
   path.setAttribute('fill', 'none');
   path.setAttribute('stroke', color);
@@ -1341,6 +1404,7 @@ function drawArrowForIndex(svg, s, idx, nextNum, labelText) {
   /* BRANCH-CARD-REDESIGN-2: 출발 연결점 — 작고 둥근 컬러 원 */
   const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
   dot.setAttribute('class', 'arrow arrow-start-dot');
+  dot.setAttribute('data-af', _af); dot.setAttribute('data-at', _at);
   dot.setAttribute('cx', x1); dot.setAttribute('cy', y1); dot.setAttribute('r', '3.4');
   dot.setAttribute('fill', color); dot.setAttribute('opacity', '0.9');
   svg.appendChild(dot);
@@ -1356,6 +1420,7 @@ function drawArrowForIndex(svg, s, idx, nextNum, labelText) {
 
     const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
     bg.setAttribute('class', 'arrow-label');
+    bg.setAttribute('data-af', _af); bg.setAttribute('data-at', _at);
     bg.setAttribute('x', lx);  bg.setAttribute('y', ly);
     bg.setAttribute('width', lw); bg.setAttribute('height', lh);
     bg.setAttribute('rx', 11.5); bg.setAttribute('ry', 11.5);
@@ -1365,6 +1430,7 @@ function drawArrowForIndex(svg, s, idx, nextNum, labelText) {
 
     const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
     txt.setAttribute('class', 'arrow-label');
+    txt.setAttribute('data-af', _af); txt.setAttribute('data-at', _at);
     txt.setAttribute('x', lx + lw / 2); txt.setAttribute('y', ly + 15.5);
     txt.setAttribute('text-anchor', 'middle');
     txt.setAttribute('font-size', '12.5');

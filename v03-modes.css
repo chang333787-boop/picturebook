@@ -1488,6 +1488,9 @@ body[data-page-orientation="portrait"] .scene-screen--movie .movie-stage {
   --md-shadow: none;
   --md-gap: 16px;
   --md-body-font: 22px;
+  /* MOVIE-TYPO-1(2026-07-10): 행동버튼 16→18px — 그림책 선택지(25~28px) 대비 작다는 조사 확정.
+     panel 한정(공통 토큰·portrait·card는 유지). 버튼은 flex 균등분배+wrap이라 깨짐 없음. */
+  --md-btn-font: 18px;
   --md-btn-py: 13px;
   --md-btn-gap: 18px;
 }
@@ -1635,7 +1638,9 @@ body.edit-mode-active:not(.viewer-test-active) .scene-screen--movie[data-played=
   color: #fff;
   padding: 10px 14px;
   border-radius: 6px;
-  font-size: 14px;
+  /* MOVIE-TYPO-1(2026-07-10): 14→16px — 자막 컨벤션상 overlay(22px)보다 작게 두되 초등 최소선까지.
+     자막띠 높이 소폭 증가는 .movie-decision max-height+스크롤로 흡수. */
+  font-size: 16px;
   line-height: 1.5;
   text-align: center;
   letter-spacing: 0.01em;
@@ -1667,7 +1672,9 @@ body.edit-mode-active:not(.viewer-test-active) .scene-screen--movie[data-played=
 }
 .scene-screen--movie .movie-ending-body {
   color: #3a2c14;
-  font-size: 14px;
+  /* MOVIE-TYPO-1(2026-07-10): 14→16px — 모드 내 최저값·초등 본문 기준 미달 조사 확정.
+     엔딩 decision은 max-height+내부 스크롤이라 길어져도 레이아웃 안 밀림. */
+  font-size: 16px;
   line-height: 1.55;
   margin: 0;
   white-space: pre-wrap;

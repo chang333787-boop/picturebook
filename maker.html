@@ -960,7 +960,9 @@
     /* v119: 드래그 중 transition 박지 X — 카드가 손가락 박은 거 즉시 따라옴 */
     /* DRAG-FEEDBACK-1: 잡힌·떠있는 느낌 강화 — 살짝 눌림(scale)+그림자 리프트+강조 외곽선+약한 어두움.
        위치는 left/top 기준이라 transform:scale은 위치를 깨지 않음(중앙 기준 ~1.5% 축소). */
-    .scene-card.dragging{box-shadow:0 16px 36px rgba(120,70,35,.30);cursor:grabbing;z-index:999;transform:scale(0.985);outline:2px solid rgba(208,104,63,0.60);outline-offset:1px;filter:brightness(0.97);transition:none !important;}
+    /* DRAG-PERF-1(2026-07-10): filter:brightness 제거+그림자 blur 축소 — 드래그 매 프레임 리페인트 비용↓.
+       '잡힘' 피드백은 outline+scale로 충분(태블릿 v119 규칙과 동일 접근). */
+    .scene-card.dragging{box-shadow:0 8px 18px rgba(120,70,35,.24);cursor:grabbing;z-index:999;transform:scale(0.985);outline:2px solid rgba(208,104,63,0.60);outline-offset:1px;transition:none !important;}
     /* v119: 태블릿(coarse pointer + 768px 이상) CSS 가벼움 — box-shadow/transition 박은 거 줄임.
        PC(마우스)나 모바일 폰(768 미만)은 영향 없음. 태블릿 페인트 비용 박지 X. */
     @media (pointer: coarse) and (min-width: 768px) {
@@ -3253,7 +3255,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-functions-compat.js"></script>
 <!-- v37f 캐시 — 표지 사이드/구조 색 -->
 <script src="state.js?v=96"></script>
-<script src="locks.js?v=96"></script>
+<script src="locks.js?v=96dragperf1"></script>
 <!-- SEC-4: 학생 로그인 핵심 로직(순수 모듈). firebase.js보다 먼저 로드 -->
 <script src="membership-login.js?v=memberlogin1"></script>
 <!-- THOUGHT-COMPASS (생각 나침반) Phase 1 — feature branch 전용. foundation→질문→store→controller→gate 순. firebase.js보다 먼저 로드(런타임 참조 안전). -->
@@ -3270,9 +3272,9 @@
 <script src="thought-compass-rose.js?v=compassrose1teacherprint1"></script>
 <script src="thought-compass-review.js?v=compassrose1teacherprint1legacyux1tutorialtrig1"></script>
 <script src="thought-compass-scenes.js?v=compassbundle1"></script>
-<script src="firebase.js?v=141admin1cbase10amemberlogin1sec5tcphase1drefinestab1accountux1teacherjoin1"></script>
+<script src="firebase.js?v=141admin1cbase10amemberlogin1sec5tcphase1drefinestab1accountux1teacherjoin1dragperf1"></script>
 <script src="canvasInteraction.js?v=120"></script>
-<script src="sceneRenderer.js?v=119base10bbase10auto1coverstart1scenetitle1ascenetitle2apwanav2vpreturn1perfqa1branchcard1branchcard2branchcard3branchcard4cover1cover2cover3compassbtn1pbflowcopy1cardquickedit1cardexpandpersist1"></script>
+<script src="sceneRenderer.js?v=119base10bbase10auto1coverstart1scenetitle1ascenetitle2apwanav2vpreturn1perfqa1branchcard1branchcard2branchcard3branchcard4cover1cover2cover3compassbtn1pbflowcopy1cardquickedit1cardexpandpersist1dragperf1"></script>
 <script src="storyAnalyzer.js?v=136checkbuttons1heuristic3"></script>
 <script src="mediaManager.js?v=114copyfix1uitextfix1"></script>
 <script src="adminConsole.js?v=103copyfix1pwanav2imgs2settings1writeafterui1waq1finishgroup1scenepubprint1accountmode1uitextfix1teacherprint1teamcard1memberlist1legacyux1delsafety2tutorialcd1adminredesign1teacherjoin1aipermwarn1adminmanual1csvbulk1"></script>

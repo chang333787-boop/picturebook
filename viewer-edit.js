@@ -3339,8 +3339,11 @@ function _pbImageActionsHtml(scene) {
         ${hasImage
           ? `<button type="button" class="edit-toggle js-pb-image-draw" disabled style="opacity:0.4;" title="사진이 있을 땐 그리기를 사용할 수 없어요. 삭제 후 다시 그릴 수 있어요.">✏️ 그리기</button>`
           : `<button type="button" class="edit-toggle js-pb-image-draw">✏️ 그리기</button>`}
-        <button type="button" class="edit-toggle js-pb-image-transform" ${hasImage ? '' : 'disabled style="opacity:0.4;"'}>✂️ 크기·이동</button>
-        <button type="button" class="edit-toggle js-pb-image-crop" ${hasImage ? '' : 'disabled style="opacity:0.4;"'}>✄ 자르기</button>
+        <!-- IMG-BTN-RETIRE(2026-07-10): ✂️크기·이동/✄자르기 버튼 제거 — 조사 결과 imageCenter(주력)
+             감상 렌더가 background-image(contain)라 imageTransform이 화면에 반영되지 않는 사문화 버튼
+             (조정해도 변화 없음=학생 혼란·"그림 안 자름" 원칙과도 충돌). 인쇄도 미반영.
+             enterImageTransformEdit/enterImageCropEdit·기존 작품의 scene.imageTransform 저장값은
+             보존(렌더 무해·기능 복구 시 재사용). -->
       </div>
     </div>`;
 }

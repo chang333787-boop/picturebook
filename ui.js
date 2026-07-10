@@ -916,7 +916,9 @@ function _openReceiveCopyModal() {
     } catch (e) {
       submitBtn.disabled = false;
       submitBtn.textContent = '받기';
-      err.textContent = e.message || '받기 실패';
+      /* ERR-KO-1: 서버 한글 안내는 유지, 영어 기술 문구는 쉬운 한글로 */
+      err.textContent = (e && e.message && /[가-힣]/.test(e.message))
+        ? e.message : '작품을 받지 못했어요. 코드를 확인하고 잠시 후 다시 시도해 주세요.';
       err.style.display = 'block';
     }
   };

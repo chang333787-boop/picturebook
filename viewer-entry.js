@@ -105,7 +105,9 @@ async function handleEntrySubmit() {
 
     await _enterViewer(teamName, false, false, classId);
   } catch (err) {
-    _setEntryError(err.message || '작품을 불러오는 중 오류가 발생했어요.');
+    _setEntryError((err && err.message && /[가-힣]/.test(err.message))
+      ? err.message   /* 우리가 의도한 한글 안내는 그대로 */
+      : '작품을 불러오지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요.');  /* ERR-KO-1: 영어 기술 문구 차단 */
     _setEntryLoading(false);
   }
 }
@@ -215,7 +217,9 @@ async function _enterViewer(teamName, editMode = false, fromMaker = false, class
   } catch (err) {
     /* PERF-2: 편집 번들 로드 등 진입 실패 시 editMode 상태를 되돌려 재진입 오염 방지(Codex minor 반영). */
     ViewerState.editMode = false;
-    _setEntryError(err.message || '작품을 불러오는 중 오류가 발생했어요.');
+    _setEntryError((err && err.message && /[가-힣]/.test(err.message))
+      ? err.message   /* 우리가 의도한 한글 안내는 그대로 */
+      : '작품을 불러오지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요.');  /* ERR-KO-1: 영어 기술 문구 차단 */
     /* POLISH-AUTH-FIX(Phase F): 편집 권한(maker UID) 복원 실패 → 만들기 화면 복귀 버튼 제공. */
     if (err && err.code === 'viewer/edit-auth-missing') _showMakerReturnButton();
     _setEntryLoading(false);

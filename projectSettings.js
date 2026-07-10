@@ -127,7 +127,8 @@ async function handleCoverImageUpload(input) {
       const r = await uploadImageToStorage(dataUrl, '_cover');
       coverUrl = r.downloadURL;
     } catch (e) {
-      throw new Error(`표지 업로드 실패: ${e.message || e}`);
+      console.error('[projectSettings] 표지 업로드 실패(원인):', e);  /* ERR-KO-1: 원인은 콘솔로만 */
+      throw new Error('이미지를 올리지 못했어요. 인터넷 연결을 확인해 주세요.');
     }
     /* 미리보기 즉시 갱신 (로컬 projectMeta는 저장 버튼 누를 때 확정) */
     projectMeta.coverImageData = coverUrl;

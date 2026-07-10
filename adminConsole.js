@@ -174,6 +174,18 @@ async function _resolveTeacherClassId() {
      2. classes/$classId/teams/ 기준으로만 로드
      3. classId 확보 실패 시 에러 표시 (전체 teams/ 열지 않음)
    ================================================================ */
+/* ERR-KO-1(2026-07-10): 목록/상세 로드 실패 → 쉬운 한글 안내.
+   err.message의 영어 기술 문구(permission_denied 등)가 innerHTML로 그대로 뜨던 문제.
+   우리가 던진 한글 메시지는 그대로 존중. */
+function _adminErrText(err) {
+  const m = err && err.message;
+  if (m && /[가-힣]/.test(m)) return m;
+  const raw = String((err && (err.code || err.message)) || '').toLowerCase();
+  if (raw.includes('permission') || raw.includes('denied')) return '보기 권한이 없어요. 담당 교사 계정으로 로그인했는지 확인해 주세요.';
+  if (/(network|unavailable|timeout|fetch|offline)/.test(raw)) return '인터넷 연결이 불안정해요. 연결을 확인하고 새로고침해 주세요.';
+  return '불러오지 못했어요. 잠시 후 새로고침해 주세요.';
+}
+
 function loadAdminData() {
   if (!adminState.verified) return;
 
@@ -207,7 +219,7 @@ function _loadAdminDataV1() {
     _renderFilterBar(adminState.allTeams);
     _renderTeamList();
   }).catch(err => {
-    list.innerHTML = `<div class="admin-error">오류: ${err.message}</div>`;
+    list.innerHTML = `<div class="admin-error">⚠️ ${_escHtml(_adminErrText(err))}</div>`;
   });
 }
 
@@ -278,7 +290,7 @@ async function _loadAdminDataV2() {
     _renderFilterBar(adminState.allTeams);
     _renderTeamList();
   }).catch(err => {
-    list.innerHTML = `<div class="admin-error">오류: ${err.message}</div>`;
+    list.innerHTML = `<div class="admin-error">⚠️ ${_escHtml(_adminErrText(err))}</div>`;
   });
 }
 
@@ -2080,7 +2092,7 @@ function _toggleDetail(encodedName) {
 
     detail.innerHTML = `<div class="admin-detail-inner">${problemsHtml}${sceneChips}${memberHtml}</div>`;
   }).catch(err => {
-    detail.innerHTML = `<div class="admin-error" style="padding:8px 0;">오류: ${err.message}</div>`;
+    detail.innerHTML = `<div class="admin-error" style="padding:8px 0;">⚠️ ${_escHtml(_adminErrText(err))}</div>`;
   });
 }
 

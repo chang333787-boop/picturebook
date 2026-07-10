@@ -645,7 +645,7 @@
     } catch (e) {
       _hideCallingModal();
       console.error('[Phase A] 텍스트 2단계 실패', e);
-      showAiNotice('AI 장면 발전에 실패했어요. 잠시 후 다시 시도해 주세요.\n' + (e && e.message ? e.message : ''));
+      showAiNotice('AI 장면 발전을 하지 못했어요.\n' + _friendlyAiError(e));
       return;
     }
     _hideCallingModal();
@@ -1002,7 +1002,7 @@
       }
       _hideCallingModal();
       _setAiTextS1Status(count > 0 ? 'candidate_ready' : 'none');
-      showAiNotice('AI 문장 정돈에 실패했어요. 잠시 후 다시 시도해 주세요.\n' + (e && e.message ? e.message : ''));
+      showAiNotice('AI 문장 정돈을 하지 못했어요.\n' + _friendlyAiError(e));
       return;
     }
 
@@ -2732,11 +2732,32 @@
   };
   let _imageAiS1Busy = false;
 
-  /* 응답 reasonCode → 사용자 안내(순수). 매핑 없으면 서버 message, 그것도 없으면 기본 준비중 문구. */
+  /* ERR-KO-1(2026-07-10): 실패 원인 → 쉬운 한글 안내.
+     e.code/e.message의 영어 기술 문구(permission-denied, internal, functions/... 등)가
+     학생 화면 alert/모달에 그대로 뜨던 문제. 우리 서버가 보낸 한글 메시지는 그대로 존중. */
+  function _friendlyAiError(e) {
+    const koMsg = (e && e.message && /[가-힣]/.test(e.message)) ? e.message : null;
+    if (koMsg) return koMsg;
+    const raw = String((e && (e.code || e.message)) || '').toLowerCase();
+    if (raw.indexOf('permission') !== -1 || raw.indexOf('denied') !== -1)
+      return '선생님이 아직 이 AI 기능을 허락하지 않았어요.\n선생님께 물어봐 주세요.';
+    if (raw.indexOf('unauthenticated') !== -1)
+      return '연결이 잠시 풀렸어요. 화면을 새로고침한 뒤 다시 해 주세요.';
+    if (/(network|unavailable|deadline|timeout|fetch|offline)/.test(raw))
+      return '인터넷 연결이 불안정해요. 연결을 확인하고 다시 해 주세요.';
+    if (/(resource-exhausted|quota|too many)/.test(raw))
+      return '지금은 AI를 쓰는 친구들이 많아요. 잠시 후 다시 해 주세요.';
+    return '잠시 문제가 생겼어요. 조금 뒤에 다시 해 주세요.';
+  }
+
+  /* 응답 reasonCode → 사용자 안내(순수). 매핑 없으면 서버의 "한글" message만 통과,
+     영어/기술 문구면 기본 문구(ERR-KO-1). */
   function _imageAiNoticeForResponse(res) {
     const rc = res && res.reasonCode;
     if (rc && IMAGE_AI_NOTICE[rc]) return IMAGE_AI_NOTICE[rc];
-    return (res && res.message) || '이미지 AI 기능은 준비 중입니다. 원본 그림은 그대로 유지됩니다.';
+    const m = res && res.message;
+    if (m && /[가-힣]/.test(m)) return m;
+    return '이미지 AI 기능은 준비 중입니다. 원본 그림은 그대로 유지됩니다.';
   }
 
   /* HttpsError code → 사용자 안내(순수). 매핑 없으면 null(일반 실패 문구로). */
@@ -2794,7 +2815,7 @@
         });
       } catch (e) {
         const mapped = _imageAiNoticeForError(e && (e.code || e.message));
-        alert(mapped || ('이미지 AI 호출에 실패했어요. 잠시 후 다시 시도해 주세요.\n' + (e && e.message ? e.message : '')));
+        alert(mapped || ('이미지 AI를 쓰지 못했어요.\n' + _friendlyAiError(e)));
         return;
       }
 
@@ -3788,7 +3809,7 @@
       }
       /* 모델/네트워크 실패 — quota 환불 */
       _refundQuota('s1');
-      showAiNotice('AI 호출에 실패했어요. 잠시 후 다시 시도해 주세요.\n' + (e && e.message ? e.message : ''), { title: '문장 정돈 안내' });
+      showAiNotice('문장 정돈을 하지 못했어요.\n' + _friendlyAiError(e), { title: '문장 정돈 안내' });
       return;
     }
 
@@ -4198,7 +4219,7 @@
         _refundQuota('check');
       }
       console.error('[v140 / Phase A] 작품 검사 실패', e);
-      showAiNotice('작품 검사에 실패했어요. 잠시 후 다시 시도해 주세요.\n' + (e && e.message ? e.message : ''));
+      showAiNotice('작품 검사를 하지 못했어요.\n' + _friendlyAiError(e));
       return;
     }
 
@@ -4492,7 +4513,7 @@
       if (e && e.message === 'cancelled') return;
       if (!useRealApi) _refundQuota('writeAfterQuestions');
       console.error('[Phase A] 생각 점검 질문 실패', e);
-      showAiNotice('생각 점검 질문을 만들지 못했어요. 잠시 후 다시 시도해 주세요.\n' + (e && e.message ? e.message : ''));
+      showAiNotice('생각 점검 질문을 만들지 못했어요.\n' + _friendlyAiError(e));
       return;
     }
     _hideCallingModal();

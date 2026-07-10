@@ -453,6 +453,8 @@ async function _joinTeamV2() {
         /* TEAM-ACCOUNT-UX-1: teacher_managed 학급의 "다시 확인" 류 실패엔 교실 맥락 안내를 덧붙인다.
            팀 존재 여부는 여전히 비노출(모드는 학급 단위). PIN 형식·잠금 등 다른 문구는 그대로. */
         let _msg = out.message;
+        /* ERR-KO-1(2026-07-10): 서버가 한글 안내를 못 준 경우(코드/영문) 쉬운 한글로 대체 */
+        if (!_msg || !/[가-힣]/.test(_msg)) _msg = '들어가지 못했어요. 모둠 이름과 비밀번호(PIN)를 확인해 주세요.';
         /* 실제 입장 대상 학급(foundClassId)의 모드를 직접 읽는다 — 폼 문구용 캐시(코드 기준)는
            직전 코드값이라 stale일 수 있어 신뢰하지 않는다. 실패 시에만 도는 1회 read. */
         const _mode = await _readTeamCreationMode(foundClassId).catch(() => null);

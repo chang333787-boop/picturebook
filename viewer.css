@@ -805,6 +805,7 @@ body.viewer-edit-readonly .edit-image-popover button:not(.edit-image-popover__cl
   cursor: pointer; transition: background .12s, border-color .12s;
 }
 .tc-chip:hover { background: rgba(198,111,74,0.10); border-color: #c66f4a; }
+.tc-chip--on { background: #c66f4a; color: #fffaee; border-color: #c66f4a; }
 .tc-chip--swatch { width: 26px; height: 26px; padding: 0; border-radius: 50%; border-width: 2px; }
 .tc-chip--c1 { background: #c8503c; } .tc-chip--c2 { background: #c66f4a; }
 .tc-chip--c3 { background: #8a6a30; } .tc-chip--c4 { background: #5a8a4a; }

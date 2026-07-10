@@ -6176,8 +6176,10 @@ body[data-page-orientation="portrait"] .scene-screen--movie[data-movie-deco="pan
    TEXT-MARKS-1(2026-07-10): 문장 꾸미기(형광펜) — 텍스트 본문 세그먼트.
    크기는 em(부모=테마 배율 포함에 곱) — calc(--text-fs-body) 금지(비평 F4:
    handwriting ×1.4 등 테마 배율에서 '크게'가 주변보다 작아지는 역전 방지). */
-.text-card__body .tc-seg--lg { font-size: 1.25em; }
-.text-card__body .tc-seg--sm { font-size: 0.85em; }
+.text-card__body .tc-seg--lg,
+.pb-text__body .tc-seg--lg { font-size: 1.25em; }
+.text-card__body .tc-seg--sm,
+.pb-text__body .tc-seg--sm { font-size: 0.85em; }
 .tc-seg--c1 { color: #c8503c; }  /* 빨강 */
 .tc-seg--c2 { color: #c66f4a; }  /* 코랄 */
 .tc-seg--c3 { color: #8a6a30; }  /* 골드 */
@@ -6185,9 +6187,12 @@ body[data-page-orientation="portrait"] .scene-screen--movie[data-movie-deco="pan
 .tc-seg--c5 { color: #4a7ab8; }  /* 파랑 */
 .tc-seg--c6 { color: #7a5aa8; }  /* 보라 */
 /* 선택 모드(문장 꾸미기 탭 활성) */
-.text-card__body.tc-picking .tc-seg { cursor: pointer; border-radius: 6px; transition: background .1s; }
-.text-card__body.tc-picking .tc-seg:hover { background: rgba(198,111,74,0.10); }
-.text-card__body .tc-seg--picked {
+.text-card__body.tc-picking .tc-seg,
+.pb-text__body.tc-picking .tc-seg { cursor: pointer; border-radius: 6px; transition: background .1s; }
+.text-card__body.tc-picking .tc-seg:hover,
+.pb-text__body.tc-picking .tc-seg:hover { background: rgba(198,111,74,0.10); }
+.text-card__body .tc-seg--picked,
+.pb-text__body .tc-seg--picked {
   outline: 2px dashed rgba(198,111,74,0.65);
   outline-offset: 2px;
   border-radius: 6px;

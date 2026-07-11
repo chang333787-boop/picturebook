@@ -91,6 +91,9 @@ function classifyLockOwner(num) {
   const now = Date.now();
   /* TTL 초과 → stale — 진짜 점유 아님 */
   if (now - lock.lockedAt > V_LOCK_TTL) return null;
+  /* CLOCK-SKEW-GUARD(2026-07-11 실사고): 시계 빠른 기기의 미래 lockedAt은 TTL 검사가
+     영원히 안 풀림 → 미래 1분 이상 = 고장값, 점유 아님 */
+  if (lock.lockedAt - now > 60000) return null;
   if (lock.editorId !== V_DEVICE_ID) return 'other';
   /* 같은 deviceId */
   if (lock.instanceId && lock.instanceId === V_INSTANCE_ID) return 'self-tab';
@@ -131,8 +134,9 @@ function viewerTryLock(num) {
       /* 내 탭이 이미 보유 */
       const isMine = current && current.editorId === V_DEVICE_ID &&
                      current.instanceId === V_INSTANCE_ID;
-      /* TTL 초과 stale — 누구 것이든 덮어씀 */
-      const stale  = current && (now - current.lockedAt > V_LOCK_TTL);
+      /* TTL 초과 stale — 누구 것이든 덮어씀 (+ 미래 잠금 = 고장 시계, CLOCK-SKEW-GUARD) */
+      const stale  = current && (now - current.lockedAt > V_LOCK_TTL
+                                 || current.lockedAt - now > 60000);
       /* same-device stale — 같은 기기 이전 탭 잔재. heartbeat 여유 지난 후 자동 회수. */
       const sameDeviceStale = current &&
         current.editorId === V_DEVICE_ID &&

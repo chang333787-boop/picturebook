@@ -858,7 +858,9 @@ function _enterTeam(val, teamRef, opts) {
       const changed = JSON.stringify(pLock) !== JSON.stringify(nLock);
       if (changed) updateCardLockUI(Number(num));
 
-      if (nLock && now - nLock.lockedAt > LOCK_TTL && nLock.editorId !== SESSION_ID) {
+      if (nLock && nLock.editorId !== SESSION_ID
+          && (now - nLock.lockedAt > LOCK_TTL
+              || nLock.lockedAt - now > 60000 /* CLOCK-SKEW-GUARD(2026-07-11): 미래 잠금=고장 시계, 정리 */)) {
         lockRef.child(num).remove();
       }
     });

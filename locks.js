@@ -21,6 +21,9 @@ function isLockedByOther(num) {
   if (!lock) return false;
   if (lock.editorId === SESSION_ID) return false;
   if (Date.now() - lock.lockedAt > LOCK_TTL) return false;
+  /* CLOCK-SKEW-GUARD(2026-07-11 실사고): 시계가 빠른 기기가 lockedAt을 미래로 찍으면
+     TTL 만료 검사가 영원히 통과 못 해 '다른 사람이 편집 중'이 눌러붙음 → 미래 1분 이상 = 고장값, 무시 */
+  if (lock.lockedAt - Date.now() > 60000) return false;
   return true;
 }
 
@@ -34,7 +37,8 @@ async function tryLock(num) {
     lockRef.child(num).transaction(current => {
       const now = Date.now();
       if (!current || current.editorId === SESSION_ID ||
-          now - current.lockedAt > LOCK_TTL) {
+          now - current.lockedAt > LOCK_TTL ||
+          current.lockedAt - now > 60000 /* CLOCK-SKEW-GUARD: 미래 잠금 = 고장값 덮어씀 */) {
         return { editorId: SESSION_ID, lockedAt: now };
       }
       return undefined; // abort

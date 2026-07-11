@@ -121,6 +121,21 @@
       }
     },
 
+    "notices": {
+      "$classId": {
+        ".read": "auth != null && (root.child('classes/' + $classId + '/meta/teacher_uid').val() === auth.uid || auth.token.role === 'super_admin')",
+        "$target": {
+          ".read": "auth != null && root.child('classes/' + $classId + '/teams/' + $target + '/members/' + auth.uid + '/status').val() === 'active'",
+          "$noticeId": {
+            ".write": "auth != null && auth.token.role === 'super_admin'",
+            "readAt": {
+              ".write": "auth != null && (root.child('classes/' + $classId + '/teams/' + $target + '/members/' + auth.uid + '/status').val() === 'active' || root.child('classes/' + $classId + '/meta/teacher_uid').val() === auth.uid)"
+            }
+          }
+        }
+      }
+    },
+
     "ai-usage": {
       ".read": false,
       ".write": false

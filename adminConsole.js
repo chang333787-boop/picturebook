@@ -218,7 +218,15 @@ async function _renderMasterClassPicker() {
     </select>
     <button type="button" id="admin-master-reset-ai"
       style="min-height:34px;padding:4px 12px;border:1.5px solid #c66f4a;background:#fffaee;color:#c66f4a;border-radius:8px;font-size:12.5px;font-weight:700;cursor:pointer;">
-      🔄 이 학급 AI 횟수 리셋</button>`;
+      🔄 이 학급 AI 횟수 리셋</button>
+    <button type="button" id="admin-master-send-notice"
+      style="min-height:34px;padding:4px 12px;border:1.5px solid #8a5a2a;background:#fffaee;color:#8a5a2a;border-radius:8px;font-size:12.5px;font-weight:700;cursor:pointer;">
+      📢 주의 보내기</button>`;
+  /* MASTER-M3: 주의 보내기 — 팀 또는 담당 교사에게(notices/{classId}/{대상}) */
+  host.querySelector('#admin-master-send-notice')?.addEventListener('click', () => {
+    const selEl = host.querySelector('#admin-master-class-select');
+    if (selEl && selEl.value) _openMasterNoticeModal(selEl.value);
+  });
   /* MASTER-M2: 학급 전체 AI 횟수 리셋 — super_admin 전용 callable(수업 중 무오류 삭제 방식) */
   host.querySelector('#admin-master-reset-ai')?.addEventListener('click', async () => {
     const selEl = host.querySelector('#admin-master-class-select');
@@ -253,6 +261,58 @@ async function _renderMasterClassPicker() {
     _loadAdminDataV2();
   });
   return true;
+}
+
+/* MASTER-M3(2026-07-11): 주의 보내기 모달 — write는 rules상 super_admin만 통과.
+   대상 팀 목록 = 현재 로드된 학급의 adminState.allTeams(encodedName=DB 팀 키).
+   받는 쪽 표시는 notices.js(수신 배너)가 처리. */
+function _openMasterNoticeModal(classId) {
+  document.getElementById('admin-master-notice-modal')?.remove();
+  const teams = (adminState.allTeams || []).map(t => ({ key: t.encodedName, label: t.name }));
+  const wrap = document.createElement('div');
+  wrap.id = 'admin-master-notice-modal';
+  wrap.style.cssText = 'position:fixed;inset:0;z-index:100001;background:rgba(0,0,0,.35);'
+    + 'display:flex;align-items:center;justify-content:center;padding:20px;';
+  wrap.innerHTML = `
+    <div style="background:#fff;border-radius:14px;max-width:460px;width:100%;padding:18px 20px;box-shadow:0 12px 40px rgba(0,0,0,.25);">
+      <div style="font-weight:700;font-size:15px;color:#a4592f;margin-bottom:10px;">📢 주의 보내기</div>
+      <label style="font-size:13px;font-weight:700;">받는 대상</label>
+      <select id="mn-target" style="display:block;width:100%;min-height:36px;margin:4px 0 10px;font-size:13px;">
+        <option value="_teacher">👩‍🏫 담당 교사에게</option>
+        ${teams.map(t => `<option value="${_escHtml(t.key)}">${_escHtml(t.label)} 팀에게</option>`).join('')}
+      </select>
+      <label style="font-size:13px;font-weight:700;">내용 (300자까지)</label>
+      <textarea id="mn-text" maxlength="300" rows="4"
+        placeholder="예) 친구가 상처받을 수 있는 표현이 보여요. 서로 기분 좋게 읽을 수 있는 글로 고쳐 주세요 🙂"
+        style="display:block;width:100%;margin:4px 0 4px;font-size:14px;padding:8px;box-sizing:border-box;border:1px solid #d8c49a;border-radius:8px;"></textarea>
+      <div style="font-size:12px;color:#8a6a30;margin-bottom:12px;">받는 쪽이 다음에 화면을 열면 위에 알림 띠로 떠요. [확인했어요]를 누르면 사라져요.</div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button type="button" id="mn-cancel" style="min-height:36px;padding:6px 14px;border:1px solid #ccc;border-radius:8px;background:#fff;cursor:pointer;">취소</button>
+        <button type="button" id="mn-send" style="min-height:36px;padding:6px 16px;border:none;border-radius:8px;background:#c96f4a;color:#fff;font-weight:700;cursor:pointer;">보내기</button>
+      </div>
+    </div>`;
+  document.body.appendChild(wrap);
+  wrap.querySelector('#mn-cancel').addEventListener('click', () => wrap.remove());
+  wrap.addEventListener('click', e => { if (e.target === wrap) wrap.remove(); });
+  wrap.querySelector('#mn-send').addEventListener('click', async () => {
+    const target = wrap.querySelector('#mn-target').value;
+    const text = wrap.querySelector('#mn-text').value.trim();
+    if (!text) { alert('내용을 적어주세요.'); return; }
+    const btn = wrap.querySelector('#mn-send');
+    btn.disabled = true; btn.textContent = '보내는 중...';
+    try {
+      await db.ref(`notices/${classId}/${target}`).push({
+        text,
+        from: 'master',
+        createdAt: firebase.database.ServerValue.TIMESTAMP,
+      });
+      wrap.remove();
+      alert('보냈어요. 받는 쪽이 다음에 화면을 열면 알림 띠가 떠요.');
+    } catch (e) {
+      btn.disabled = false; btn.textContent = '보내기';
+      alert('보내지 못했어요: ' + ((e && e.message) || '알 수 없는 오류'));
+    }
+  });
 }
 
 /* ================================================================

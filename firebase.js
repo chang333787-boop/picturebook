@@ -507,7 +507,7 @@ async function _teacherJoinTeam(classIdArg, teamName) {
     if (out && out.ok) {
       classId = classIdArg;   /* 전역 classId — 이후 저장/viewer 링크에 사용 */
       const teamRef = db.ref(getTeamPath(encodeURIComponent(teamName), classIdArg));
-      _enterTeam(teamName, teamRef);
+      _enterTeam(teamName, teamRef, { sessionKind: 'teacher' });   /* SINGLE-SESSION-1: 교사 인수 문구 */
       return true;
     }
   } catch (e) { /* permission-denied(교사 아님)/네트워크 → 폼 폴백 */ }
@@ -635,6 +635,30 @@ function _enterTeam(val, teamRef, opts) {
   } catch (e) { /* sessionStorage 막혀도 정상 동작 유지 */ }
 
   dbRef = teamRef.child('scenes');
+
+  /* SINGLE-SESSION-1(2026-07-11): 모둠당 편집 접속 1개 — 진입 시 세션 선언.
+     같은 기기(브랜치↔다듬기 왕복·F5·새 탭)는 경고 없이 조용히 이어받고,
+     다른 기기가 살아있으면 confirm 후 인수(이전 기기는 저장 flush 후 안내·종료).
+     취소하면 첫 화면으로. 장치 실패 시엔 세션 없이 정상 진행(fail-open) —
+     기존 데이터(scenes·계정)는 0바이트 무접촉(신규 session 노드만). */
+  if (window.BranchSession) {
+    const _sessKind = (opts && opts.sessionKind === 'teacher') ? 'teacher' : 'student';
+    window.BranchSession.claim(db, teamRef, {
+      kind: _sessKind,
+      confirmTakeover: (cur) => Promise.resolve(confirm(
+        _sessKind === 'teacher'
+          ? '학생이 이 모둠을 편집 중일 수 있어요.\n들어가면 학생 기기의 접속은 종료돼요. 들어갈까요?'
+          : '지금 다른 기기에서 이 모둠을 편집하고 있어요.\n계속 들어가면 그 기기의 접속은 종료돼요. 들어갈까요?')),
+      onKicked: (v) => {
+        try { if (typeof flushBodySaves === 'function') flushBodySaves(); } catch (e) {}
+        try { if (typeof flushTitleSaves === 'function') flushTitleSaves(); } catch (e) {}
+        alert(window.BranchSession.kickMessage(v));
+        location.replace('index.html');
+      },
+    }).then(res => {
+      if (res && res.denied) location.replace('index.html');
+    }).catch(() => { /* fail-open */ });
+  }
 
   /* BASE10-1: scenes 첫 스냅샷 도착 플래그.
      "로드 전 scenes={}를 빈 작품으로 오판"하는 위험을 막기 위해, 아래 dbRef.on('value')

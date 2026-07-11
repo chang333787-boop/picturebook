@@ -208,6 +208,22 @@ async function _enterViewer(teamName, editMode = false, fromMaker = false, class
         ? `classes/${classId}/teams/${encodedName}`
         : `teams/${encodedName}`;
       if (typeof initViewerLocks === 'function') initViewerLocks(basePath);
+      /* SINGLE-SESSION-1(2026-07-11): 다듬기도 편집 접속 — maker와 같은 세션 노드.
+         브랜치→다듬기 같은 기기 이동은 경고 없이 이어받음. 감상 모드는 세션 안 잡음. */
+      if (window.BranchSession) {
+        window.BranchSession.claim(getViewerDb(), basePath, {
+          kind: 'student',
+          confirmTakeover: () => Promise.resolve(confirm(
+            '지금 다른 기기에서 이 모둠을 편집하고 있어요.\n계속 들어가면 그 기기의 접속은 종료돼요. 들어갈까요?')),
+          onKicked: async (v) => {
+            try { if (typeof _flushPendingSave === 'function') await _flushPendingSave(); } catch (e) {}
+            alert(window.BranchSession.kickMessage(v));
+            location.replace('index.html');
+          },
+        }).then(res => {
+          if (res && res.denied) location.replace('index.html');
+        }).catch(() => { /* fail-open */ });
+      }
       /* PERF-2: 편집 코드(viewer-edit.js+viewer-ai.js) 지연 로드 — startViewerEdit가 편집 함수를 호출하므로 먼저 보장. */
       if (typeof window.ensureEditBundle === 'function') await window.ensureEditBundle();
       /* C-2: sceneNum이 있으면 그 장면부터 시작 (maker 카드의 다듬기 진입점에서 옴).

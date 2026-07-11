@@ -119,6 +119,10 @@
             "comments": {
               ".read": "root.child('classes/' + $classId + '/teams/' + $team + '/viewer-meta/isPublic').val() === true || (auth != null && (root.child('classes/' + $classId + '/teams/' + $team + '/members/' + auth.uid + '/status').val() === 'active' || root.child('classes/' + $classId + '/meta/teacher_uid').val() === auth.uid || auth.token.role === 'super_admin'))",
               ".write": "auth != null && (root.child('classes/' + $classId + '/meta/teacher_uid').val() === auth.uid || auth.token.role === 'super_admin')"
+            },
+            "session": {
+              ".read": "auth != null",
+              ".write": "auth != null"
             }
           }
         }
@@ -183,6 +187,10 @@
           ".write": "auth != null"
         },
         "locks": {
+          ".read": "auth != null",
+          ".write": "auth != null"
+        },
+        "session": {
           ".read": "auth != null",
           ".write": "auth != null"
         },

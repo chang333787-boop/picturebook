@@ -5534,6 +5534,8 @@ function _positionProjectPopover(pop) {
   if (!trigger) return;
   const r = trigger.getBoundingClientRect();
   pop.style.top = (r.bottom + 8) + 'px';
+  /* POPOVER-NOSCROLL(2026-07-11): 트리거 아래 남은 화면 높이 전부 허용(장면꾸미기와 동일) */
+  pop.style.maxHeight = Math.max(240, window.innerHeight - r.bottom - 20) + 'px';
   const popW = pop.offsetWidth || 320;
   let left = r.left;
   const maxLeft = window.innerWidth - popW - 12;
@@ -5566,6 +5568,7 @@ function _closeProjectPopover() {
   pop.innerHTML = '';
   pop.style.left = '';
   pop.style.top  = '';
+  pop.style.maxHeight = '';   /* POPOVER-NOSCROLL: 인라인 높이 초기화 */
   document.querySelector('.js-edit-project-popover')?.classList.remove('is-active');
   document.removeEventListener('click', _projectPopoverOutside, true);
   document.removeEventListener('keydown', _projectPopoverEsc, true);

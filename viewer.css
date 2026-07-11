@@ -493,7 +493,9 @@ body.viewer-edit-readonly .edit-cover-popover button:not(.edit-cover-popover__cl
   position: fixed;
   z-index: 120;
   width: min(380px, calc(100vw - 24px));
-  max-height: min(72vh, 600px);
+  /* POPOVER-NOSCROLL(2026-07-11): 작품/감상 설정도 한눈에 — 화면 높이만큼 펼침.
+     정확한 남은 높이는 _positionProjectPopover 인라인 재계산, 낮은 화면만 스크롤 안전망. */
+  max-height: calc(100vh - 100px);
   overflow: auto;
   background: #fffdf8;
   border: 1px solid #cdddd9;

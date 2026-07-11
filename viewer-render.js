@@ -2511,7 +2511,7 @@ function renderHUD() {
      - 그 외: entry 화면 */
   /* ✕ 버튼 동작 (역할별 분기):
      - _testingEdit 중: 감상 테스트 종료 → edit로 복귀 (장면 유지)
-     - editMode(fromMaker): 편집 종료 → maker로 복귀 (window.close 또는 저장 URL)
+     - editMode(fromMaker): 편집 종료 → maker로 복귀 (항상 location.replace — RETURN-NOCLOSE)
      - 감상 중 fromMaker: maker로 복귀
      - 일반 감상 (direct entry): entry 화면 */
   hud.querySelector('.js-hud-exit')?.addEventListener('click', () => {
@@ -2665,24 +2665,11 @@ async function _returnToMaker() {
      replace는 현재 viewer 항목을 maker로 대체 → 뒤로가기 시 viewer로 되돌아가지 않음.
      (🌿홈·모둠바꾸기·branch.html도 같은 이유로 이미 location.replace 사용) */
 
-  /* 3. opener 살아있으면(구버전 새 탭 호환) close 시도 */
-  if (window.opener && !window.opener.closed) {
-    /* close 성공 시 탭이 즉시 사라지므로 setTimeout은 실행되지 않음.
-       close가 브라우저 정책에 막혀 실패하면 setTimeout 콜백이 실행되어 URL 이동 */
-    setTimeout(() => {
-      /* 여기까지 왔다 = close 실패. 메모리의 fallbackUrl로 이동 */
-      window.location.replace(fallbackUrl);
-    }, 150);
-    try {
-      window.close();
-    } catch (e) {
-      /* close 자체가 throw — 즉시 fallback */
-      window.location.replace(fallbackUrl);
-    }
-    return;
-  }
-
-  /* 4. opener 없음(단일 창) → fallback URL로 복귀(replace) */
+  /* 3. (2026-07-11 RETURN-NOCLOSE HOTFIX) 구버전 새 탭 호환 window.close() 제거.
+     단일 창 흐름에선 같은 탭 안에서 이동해도 opener가 "이 탭을 처음 연 페이지"로 남아
+     opener 분기를 타는데, 크롬 버전에 따라 close()가 허용되면 복귀 대신 창이 통째로
+     꺼짐(윈도우/크롬북 업데이트 후 실사고 — 맥 구버전은 close 실패 → fallback으로 멀쩡).
+     복귀는 항상 replace — 옛 팝업 흐름이 남아 있어도 replace면 창 소멸 0으로 안전. */
   window.location.replace(fallbackUrl);
 }
 

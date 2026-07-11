@@ -165,6 +165,96 @@ async function _resolveTeacherClassId() {
   return snap.val();   // teacherClasses/$uid = classId (문자열)
 }
 
+/* ════════════════════════════════════════════════════════════════
+   MASTER-M1(2026-07-11): 총괄(super_admin) — 전체 학급 선택 바.
+   ─────────────────────────────────────────────────────────────
+   · 개별 학급 권한(rules의 super_admin 동급 허용)은 이미 있으나 "나열 수단"이 없어
+     자기 학급만 보이던 문제 해소. 목록 소스 = classes-index(read: super_admin만,
+     신규 학급 생성 시 teacher-auth가 기록·기존 학급은 07-11 백필 완료).
+   · 일반 교사에겐 아무 UI/추가 read 없음(role 확인 후에만 동작) — 기존 흐름 무영향.
+   ════════════════════════════════════════════════════════════════ */
+let _authRoleCache = null;
+async function _getAuthRole() {
+  if (_authRoleCache !== null) return _authRoleCache;
+  try {
+    const user = getCurrentUser();
+    if (!user) return (_authRoleCache = '');
+    const t = await user.getIdTokenResult();
+    _authRoleCache = (t && t.claims && t.claims.role) || '';
+  } catch (e) { _authRoleCache = ''; }
+  return _authRoleCache;
+}
+
+async function _renderMasterClassPicker() {
+  let host = document.getElementById('admin-master-class-picker');
+  if (host && host.dataset.loaded === '1') return true;   /* 이미 렌더됨(선택 상태 보존) */
+  if (!host) {
+    const bar = document.getElementById('admin-class-bar');
+    if (!bar || !bar.parentNode) return false;
+    host = document.createElement('div');
+    host.id = 'admin-master-class-picker';
+    host.style.cssText = 'display:flex;align-items:center;gap:10px;flex-wrap:wrap;'
+      + 'margin:0 0 10px;padding:10px 14px;background:#fdf3e0;border:1.5px solid #c9a96a;'
+      + 'border-radius:10px;font-size:13px;';
+    bar.parentNode.insertBefore(host, bar);
+  }
+  let idx = null;
+  try {
+    idx = (await db.ref('classes-index').once('value')).val();
+  } catch (e) { host.remove(); return false; }   /* read 거부 = super_admin 아님 */
+  if (!idx || typeof idx !== 'object') { host.remove(); return false; }
+  const items = Object.entries(idx).map(([id, m]) => ({
+    id,
+    name:  (m && m.name) || '',
+    code:  (m && m.code) || '',
+    email: (m && m.teacher_email) || '',
+    at:    (m && m.createdAt) || 0,
+  })).sort((a, b) => b.at - a.at);
+  host.dataset.loaded = '1';
+  host.innerHTML = `
+    <span style="font-weight:700;color:#8a5a2a;">👑 총괄 관리 — 학급 선택</span>
+    <select id="admin-master-class-select" style="min-height:34px;font-size:13px;max-width:100%;">
+      ${items.map(c => `<option value="${_escHtml(c.id)}">${_escHtml((c.name || '(이름 없음)') + (c.code ? ' · 코드 ' + c.code : '') + (c.email ? ' — ' + c.email : ''))}</option>`).join('')}
+    </select>
+    <button type="button" id="admin-master-reset-ai"
+      style="min-height:34px;padding:4px 12px;border:1.5px solid #c66f4a;background:#fffaee;color:#c66f4a;border-radius:8px;font-size:12.5px;font-weight:700;cursor:pointer;">
+      🔄 이 학급 AI 횟수 리셋</button>`;
+  /* MASTER-M2: 학급 전체 AI 횟수 리셋 — super_admin 전용 callable(수업 중 무오류 삭제 방식) */
+  host.querySelector('#admin-master-reset-ai')?.addEventListener('click', async () => {
+    const selEl = host.querySelector('#admin-master-class-select');
+    const cid = selEl ? selEl.value : '';
+    const label = selEl ? selEl.options[selEl.selectedIndex].textContent : cid;
+    if (!cid) return;
+    if (!confirm(`[${label}]\n이 학급 모든 팀의 AI 사용 횟수를 리셋할까요?\n(작품 데이터는 건드리지 않아요)`)) return;
+    const btn = host.querySelector('#admin-master-reset-ai');
+    btn.disabled = true; btn.textContent = '리셋 중...';
+    try {
+      await firebase.app().functions('asia-northeast3').httpsCallable('adminResetAiUsage')({ classId: cid });
+      btn.textContent = '✅ 리셋 완료';
+    } catch (e) {
+      alert('리셋하지 못했어요: ' + ((e && e.message) || '알 수 없는 오류'));
+      btn.textContent = '🔄 이 학급 AI 횟수 리셋';
+    } finally {
+      btn.disabled = false;
+      setTimeout(() => { btn.textContent = '🔄 이 학급 AI 횟수 리셋'; }, 2500);
+    }
+  });
+  const sel = host.querySelector('#admin-master-class-select');
+  if (adminState.masterClassId && idx[adminState.masterClassId]) {
+    sel.value = adminState.masterClassId;
+  } else {
+    const own = await _resolveTeacherClassId();
+    if (own && idx[own]) sel.value = own;
+    adminState.masterClassId = sel.value;
+  }
+  sel.addEventListener('change', () => {
+    adminState.masterClassId = sel.value;
+    _invalidateAdminCache('master-class-switch');
+    _loadAdminDataV2();
+  });
+  return true;
+}
+
 /* ================================================================
    팀 데이터 로드
    ─────────────────────────────────────────────────────────────────
@@ -228,8 +318,14 @@ async function _loadAdminDataV2() {
   const list = document.getElementById('admin-team-list');
   list.innerHTML = '<div class="admin-loading">클래스 정보를 확인하는 중...</div>';
 
-  /* classId 확보 */
-  const resolvedClassId = await _resolveTeacherClassId();
+  /* classId 확보 — MASTER-M1: super_admin은 학급 선택 바에서 고른 학급 우선 */
+  let resolvedClassId = null;
+  const _role = await _getAuthRole();
+  if (_role === 'super_admin') {
+    const ok = await _renderMasterClassPicker();
+    if (ok && adminState.masterClassId) resolvedClassId = adminState.masterClassId;
+  }
+  if (!resolvedClassId) resolvedClassId = await _resolveTeacherClassId();
   if (!resolvedClassId) {
     list.innerHTML = `<div class="admin-error">
       ⚠️ 이 계정에 연결된 클래스를 찾을 수 없어요.<br>

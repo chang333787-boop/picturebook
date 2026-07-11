@@ -691,6 +691,15 @@ document.getElementById('btn-create-class').addEventListener('click', async () =
       [`classCodes/${code}`]:         classId,
       [`teacherClasses/${user.uid}`]: classId,
       [`classes/${classId}/settings/teamCreationMode`]: 'teacher_managed',
+      /* MASTER-M1(2026-07-11): 총괄 학급 목록용 경량 인덱스(read=super_admin만).
+         룰: !data.exists() && newData.teacher_uid===auth.uid — 생성 시 최초 1회 기록 */
+      [`classes-index/${classId}`]: {
+        teacher_uid: user.uid,
+        teacher_email: user.email || '',
+        code: code,
+        name: name || '',
+        createdAt: firebase.database.ServerValue.TIMESTAMP,
+      },
     });
     /* 성공 → 인증 화면 */
     await _showLoggedIn(user, 'teacher');

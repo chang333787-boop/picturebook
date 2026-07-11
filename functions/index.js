@@ -2702,6 +2702,44 @@ exports.resetImageSourceMode = onCall(
 );
 
 /* ════════════════════════════════════════════════════════════════
+   MASTER-M2(2026-07-11): 총괄 AI 횟수 리셋 — super_admin 전용 callable.
+   ──────────────────────────────────────────────────────────────
+   · ai-usage/{classId}(/{teamName}) 노드 삭제 방식 — 읽기가 전부 (val()||0)이라
+     수업 진행 중 어느 시점에 지워도 무오류(2026-07-11 수동 리셋과 동일 기법).
+   · rules 무변경(ai-usage 클라 접근 전면 차단 유지) — admin SDK로만 삭제.
+   · 일일 한도(ai-usage-by-root/ai-usage-global)는 비용 가드라 대상 아님.
+   · 감사 로그: ai-stats/resets/{pushId} — 누가/어느 학급/어느 팀/언제.
+   ════════════════════════════════════════════════════════════════ */
+exports.adminResetAiUsage = onCall(
+  { enforceAppCheck: false },
+  async (req) => {
+    if (!req.auth) throw new HttpsError('unauthenticated', '로그인이 필요해요.');
+    const role = req.auth.token && req.auth.token.role;
+    if (role !== 'super_admin') {
+      throw new HttpsError('permission-denied', '총괄 관리자만 사용할 수 있어요.');
+    }
+    const classId  = String((req.data && req.data.classId) || '').trim();
+    const teamName = String((req.data && req.data.teamName) || '').trim();
+    if (!classId || /[.#$\[\]\/]/.test(classId)) {
+      throw new HttpsError('invalid-argument', 'classId가 올바르지 않아요.');
+    }
+    if (teamName && /[.#$\[\]\/]/.test(teamName)) {
+      throw new HttpsError('invalid-argument', 'teamName이 올바르지 않아요.');
+    }
+    const path = teamName ? `ai-usage/${classId}/${teamName}` : `ai-usage/${classId}`;
+    await admin.database().ref(path).remove();
+    await admin.database().ref('ai-stats/resets').push({
+      by: req.auth.uid,
+      classId,
+      teamName: teamName || null,
+      at: admin.database.ServerValue.TIMESTAMP,
+    });
+    logger.info('[adminResetAiUsage]', { by: req.auth.uid, classId, teamName: teamName || '(학급 전체)' });
+    return { ok: true };
+  }
+);
+
+/* ════════════════════════════════════════════════════════════════
    비용 추정 + stats (Cloud Logging에 기록)
    ──────────────────────────────────────────────────────────────
    Haiku 4.5 단가 (2026-05 기준):

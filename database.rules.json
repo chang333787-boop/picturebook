@@ -113,6 +113,14 @@
       }
     },
 
+    "classes-index": {
+      ".read": "auth != null && auth.token.role === 'super_admin'",
+      "$classId": {
+        ".write": "auth != null && (auth.token.role === 'super_admin' || (!data.exists() && newData.child('teacher_uid').val() === auth.uid))",
+        ".validate": "newData.hasChild('teacher_uid')"
+      }
+    },
+
     "ai-usage": {
       ".read": false,
       ".write": false

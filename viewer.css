@@ -8150,3 +8150,59 @@ body.pb-is-scene-switching .choice-preset--ghost {
 
 /* CROSS-B: iPad long-press 시 이미지 저장/공유 시트 억제(감상 무대 그림·영상) — iOS 전용 속성 */
 #viewer-frame img, .movie-video { -webkit-touch-callout: none; }
+
+/* ════════════════════════════════════════════════════════════════
+   SHELF-1(2026-07-11): 학급 책장 화면 — 목업(shelf-comment-mockup) 확정 시안.
+   가운데 정렬 + 최대 폭(넓은 화면 가구 느낌), 기기 폭 따라 3~6권/줄 자동. */
+#shelf-screen { position: fixed; inset: 0; overflow-y: auto; background: #f6ecd8;
+  padding: 26px 20px 60px; z-index: 30; font-family: 'Jua', 'Apple SD Gothic Neo', sans-serif; }
+#shelf-screen.hidden { display: none; }
+#shelf-screen .shelf-inner { max-width: 980px; margin: 0 auto; }
+#shelf-screen .shelf-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+#shelf-screen .shelf-head h1 { font-size: 24px; color: #3a2c14; margin: 0; }
+#shelf-screen .shelf-cnt { color: #a4592f; font-size: 14px; }
+#shelf-screen .shelf-home { margin-left: auto; font-size: 13px; color: rgba(80,50,20,0.6); text-decoration: none;
+  padding: 6px 14px; border: 1px dashed rgba(80,50,20,0.25); border-radius: 6px; }
+#shelf-screen .shelf-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 20px 16px; padding-bottom: 16px; border-bottom: 10px solid #b98d5a; border-radius: 2px; }
+#shelf-screen .shelf-book { cursor: pointer; transition: transform .15s; }
+#shelf-screen .shelf-book:hover { transform: translateY(-5px); }
+#shelf-screen .shelf-cover { aspect-ratio: 2/3; border-radius: 8px 14px 14px 8px; padding: 16px 12px; position: relative;
+  display: flex; flex-direction: column; justify-content: center; text-align: center;
+  box-shadow: -4px 0 0 rgba(0,0,0,.12) inset, 0 6px 14px rgba(90,70,30,.25); }
+#shelf-screen .shelf-cover-t { font-size: 16.5px; line-height: 1.3; }
+#shelf-screen .shelf-cover-s { font-size: 10.5px; opacity: .75; margin-top: 6px; }
+#shelf-screen .shelf-badge { position: absolute; top: 8px; right: 8px; background: rgba(255,255,255,.88);
+  color: #a4592f; font-size: 11px; padding: 2px 8px; border-radius: 20px; }
+#shelf-screen .shelf-team { text-align: center; font-size: 12px; color: #7a6a4f; margin-top: 8px; }
+#shelf-screen .shelf-foot { margin-top: 14px; font-size: 12px; color: #b09a6f; }
+#shelf-screen .shelf-empty { grid-column: 1 / -1; text-align: center; color: #8a6a30;
+  font-size: 14.5px; line-height: 1.7; padding: 40px 10px; }
+
+/* COMMENT-1: 댓글 서랍 — 우측 고정, 웜톤 */
+#comment-drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(340px, 92vw); z-index: 60;
+  background: #fffaf0; border-left: 2px solid #e2d3b0; padding: 14px 16px; overflow-y: auto;
+  display: flex; flex-direction: column; box-shadow: -6px 0 22px rgba(60,40,10,.18);
+  font-family: 'Jua', 'Apple SD Gothic Neo', sans-serif; }
+#comment-drawer.hidden { display: none; }
+#comment-drawer .cmt-head { display: flex; align-items: center; justify-content: space-between;
+  color: #a4592f; font-size: 16px; margin-bottom: 4px; }
+#comment-drawer .cmt-close { border: none; background: #f3e3bd; color: #6b4a24; width: 30px; height: 30px;
+  border-radius: 50%; cursor: pointer; font-size: 13px; }
+#comment-drawer .cmt-note { font-size: 11.5px; color: #b09a6f; margin-bottom: 12px; }
+#comment-drawer .cmt-list { flex: 1; }
+#comment-drawer .cmt-item { background: #fff; border: 1px solid #eee0c0; border-radius: 10px;
+  padding: 9px 12px; margin-bottom: 8px; }
+#comment-drawer .cmt-who { font-size: 12px; color: #a4592f; font-weight: 700; }
+#comment-drawer .cmt-txt { font-size: 13.5px; color: #3a2c14; margin-top: 2px; line-height: 1.45;
+  word-break: break-word; }
+#comment-drawer .cmt-empty { color: #b09a6f; font-size: 13px; text-align: center; padding: 26px 6px; line-height: 1.6; }
+#comment-drawer .cmt-loading { color: #b09a6f; font-size: 13px; text-align: center; padding: 26px 6px; }
+#comment-drawer .cmt-form { margin-top: 10px; border-top: 1.5px solid #eee0c0; padding-top: 10px; }
+#comment-drawer .cmt-form input, #comment-drawer .cmt-form textarea { width: 100%; box-sizing: border-box;
+  border: 1.5px solid #e2d3b0; border-radius: 9px; padding: 8px 10px; font-family: inherit; font-size: 13px;
+  margin-bottom: 6px; background: #fff; }
+#comment-drawer .cmt-err { color: #c62828; font-size: 12px; min-height: 16px; margin-bottom: 4px; }
+#comment-drawer .cmt-send { width: 100%; padding: 10px; border: none; border-radius: 9px; background: #c96f4a;
+  color: #fff; font-family: inherit; font-size: 14px; cursor: pointer; }
+#comment-drawer .cmt-send:disabled { opacity: .6; }

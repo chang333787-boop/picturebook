@@ -39,6 +39,14 @@
             ".validate": "newData.isString() && (newData.val() === 'legacy_open' || newData.val() === 'teacher_managed' || newData.val() === 'locked')"
           }
         },
+        "shelf": {
+          ".read": false,
+          ".write": "auth != null && (root.child('classes/' + $classId + '/meta/teacher_uid').val() === auth.uid || auth.token.role === 'super_admin')"
+        },
+        "commentAuth": {
+          ".read": "auth != null && (root.child('classes/' + $classId + '/meta/teacher_uid').val() === auth.uid || auth.token.role === 'super_admin')",
+          ".write": "auth != null && (root.child('classes/' + $classId + '/meta/teacher_uid').val() === auth.uid || auth.token.role === 'super_admin')"
+        },
         "teams": {
           ".read": "auth != null && (root.child('classes/' + $classId + '/meta/teacher_uid').val() === auth.uid || auth.token.role === 'super_admin')",
           "$team": {
@@ -107,6 +115,10 @@
             "aiChecks": {
               ".read": "auth != null && (root.child('classes/' + $classId + '/teams/' + $team + '/members/' + auth.uid + '/status').val() === 'active' || root.child('classes/' + $classId + '/meta/teacher_uid').val() === auth.uid || auth.token.role === 'super_admin')",
               ".write": false
+            },
+            "comments": {
+              ".read": "root.child('classes/' + $classId + '/teams/' + $team + '/viewer-meta/isPublic').val() === true || (auth != null && (root.child('classes/' + $classId + '/teams/' + $team + '/members/' + auth.uid + '/status').val() === 'active' || root.child('classes/' + $classId + '/meta/teacher_uid').val() === auth.uid || auth.token.role === 'super_admin'))",
+              ".write": "auth != null && (root.child('classes/' + $classId + '/meta/teacher_uid').val() === auth.uid || auth.token.role === 'super_admin')"
             }
           }
         }

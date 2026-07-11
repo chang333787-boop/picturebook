@@ -2740,6 +2740,101 @@ exports.adminResetAiUsage = onCall(
 );
 
 /* ════════════════════════════════════════════════════════════════
+   SHELF-1(2026-07-11): 학급 책장 조회 — 코드/공개 검증은 서버에서.
+   ──────────────────────────────────────────────────────────────
+   · 입력: { classCode } (반 학생 — 코드 지식 = 입장권) 또는 { classId } (링크 모드 —
+     settings/shelfPublic === true 일 때만). 인증 불요(외부 감상자 포함).
+   · 반환: 학급 이름 + classes/{cid}/shelf 노드(공개 작품만 — 관리화면 공개 토글이 유지)
+     + 팀별 댓글 수. shelf 노드는 클라 read 금지(rules) — 이 함수가 유일한 읽기 경로라
+     "classId만 아는 외부인"이 공개 토글 없이 팀명 목록을 긁어갈 수 없다.
+   ════════════════════════════════════════════════════════════════ */
+exports.getClassShelf = onCall(
+  { enforceAppCheck: false },
+  async (req) => {
+    const codeRaw = String((req.data && req.data.classCode) || '').trim().toUpperCase();
+    let classId = String((req.data && req.data.classId) || '').trim();
+    if (classId && /[.#$\[\]\/]/.test(classId)) throw new HttpsError('invalid-argument', 'classId가 올바르지 않아요.');
+    if (codeRaw) {
+      if (!/^[A-Z0-9]{4,10}$/.test(codeRaw)) throw new HttpsError('invalid-argument', '클래스 코드 형식이 올바르지 않아요.');
+      const cid = (await admin.database().ref(`classCodes/${codeRaw}`).once('value')).val();
+      if (!cid) throw new HttpsError('not-found', '클래스 코드가 올바르지 않아요. 선생님께 확인해주세요.');
+      classId = String(cid);
+    } else if (classId) {
+      const pub = (await admin.database().ref(`classes/${classId}/settings/shelfPublic`).once('value')).val();
+      if (pub !== true) throw new HttpsError('permission-denied', '이 학급의 책장은 클래스 코드로만 볼 수 있어요.');
+    } else {
+      throw new HttpsError('invalid-argument', '클래스 코드가 필요해요.');
+    }
+    const metaSnap = await admin.database().ref(`classes/${classId}/meta`).once('value');
+    const meta = metaSnap.val() || {};
+    const shelfRaw = (await admin.database().ref(`classes/${classId}/shelf`).once('value')).val() || {};
+    const works = [];
+    for (const [enc, w] of Object.entries(shelfRaw)) {
+      if (!w || typeof w !== 'object') continue;
+      let cc = 0;
+      try {
+        const cSnap = await admin.database().ref(`classes/${classId}/teams/${enc}/comments`).once('value');
+        cc = cSnap.numChildren();
+      } catch (e) { cc = 0; }
+      works.push({
+        team: decodeURIComponent(enc), enc,
+        t: (typeof w.t === 'string') ? w.t.slice(0, 60) : '',
+        s: (typeof w.s === 'string') ? w.s.slice(0, 80) : '',
+        ty: (typeof w.ty === 'string') ? w.ty : '',
+        th: (typeof w.th === 'string') ? w.th : '',
+        at: w.at || 0,
+        cc,
+      });
+    }
+    works.sort((a, b) => (b.at || 0) - (a.at || 0));
+    const commentEnabled = (await admin.database().ref(`classes/${classId}/settings/commentEnabled`).once('value')).val() === true;
+    return { ok: true, classId, className: meta.name || '', commentEnabled, works };
+  }
+);
+
+/* ════════════════════════════════════════════════════════════════
+   COMMENT-1(2026-07-11): 댓글 쓰기 — 댓글 코드는 쓰기에만 필요(읽기는 rules 직접 read).
+   서버 검증: 기능 ON + 코드 일치(commentAuth/code — 클라 read 금지 노드) + 길이 제한 +
+   팀당 일일 상한 30. 인증 불요(학부모/외부 코드 소지자). 삭제는 교사/총괄(rules 직접).
+   ════════════════════════════════════════════════════════════════ */
+exports.postWorkComment = onCall(
+  { enforceAppCheck: false },
+  async (req) => {
+    const d = req.data || {};
+    const classId = String(d.classId || '').trim();
+    const enc = String(d.team || '').trim();
+    const code = String(d.code || '').trim();
+    const name = String(d.name || '').trim().slice(0, 12);
+    const text = String(d.text || '').trim().slice(0, 200);
+    if (!classId || /[.#$\[\]\/]/.test(classId) || !enc || /[.#$\[\]\/]/.test(enc)) {
+      throw new HttpsError('invalid-argument', '요청이 올바르지 않아요.');
+    }
+    if (!name) throw new HttpsError('invalid-argument', '이름을 적어주세요.');
+    if (!text) throw new HttpsError('invalid-argument', '댓글 내용을 적어주세요.');
+    if (!code) throw new HttpsError('invalid-argument', '댓글 코드를 입력해주세요. (선생님에게 받을 수 있어요)');
+    const enabled = (await admin.database().ref(`classes/${classId}/settings/commentEnabled`).once('value')).val();
+    if (enabled !== true) throw new HttpsError('failed-precondition', '이 학급은 아직 댓글 기능을 켜지 않았어요.');
+    const realCode = (await admin.database().ref(`classes/${classId}/commentAuth/code`).once('value')).val();
+    if (!realCode || String(realCode) !== code) {
+      throw new HttpsError('permission-denied', '댓글 코드가 맞지 않아요. 선생님께 확인해주세요.');
+    }
+    /* 작품이 실제 공개 상태인지(비공개 작품에 댓글 유입 차단) */
+    const isPub = (await admin.database().ref(`classes/${classId}/teams/${enc}/viewer-meta/isPublic`).once('value')).val();
+    if (isPub !== true) throw new HttpsError('failed-precondition', '이 작품은 지금 댓글을 받을 수 없어요.');
+    /* 팀당 일일 상한 */
+    const ymd = _todayYmd();
+    const cntRef = admin.database().ref(`classes/${classId}/commentDaily/${enc}/${ymd}`);
+    const tx = await cntRef.transaction(n => ((n || 0) >= 30 ? undefined : (n || 0) + 1));
+    if (!tx.committed) throw new HttpsError('resource-exhausted', '오늘은 이 작품에 댓글이 많이 달렸어요. 내일 다시 남겨주세요.');
+    await admin.database().ref(`classes/${classId}/teams/${enc}/comments`).push({
+      name, text, at: admin.database.ServerValue.TIMESTAMP,
+    });
+    logger.info('[postWorkComment]', { classId, team: enc });
+    return { ok: true };
+  }
+);
+
+/* ════════════════════════════════════════════════════════════════
    비용 추정 + stats (Cloud Logging에 기록)
    ──────────────────────────────────────────────────────────────
    Haiku 4.5 단가 (2026-05 기준):

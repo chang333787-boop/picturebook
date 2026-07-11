@@ -71,6 +71,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const lockBtn     = e.target.closest('.js-admin-lock');    // ADMIN-1D: 등록 팀 잠금/해제
     const regBtn      = e.target.closest('.js-admin-register'); // ADMIN-1E: 기존 팀 관리팀 등록
     const acctDelBtn  = e.target.closest('.js-admin-account-del'); // DELETE-SAFETY-2: 계정만 삭제
+    const commentsBtn = e.target.closest('.js-admin-comments');    // COMMENT-1: 팀 댓글 보기·삭제
 
     if (makerBtn)  _openMaker(makerBtn.dataset.name);
     if (viewerBtn) _openViewer(viewerBtn.dataset.name);
@@ -89,6 +90,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (lockBtn)   _toggleTeamLock(lockBtn.dataset.encoded, lockBtn.dataset.name, lockBtn.dataset.status);
     if (regBtn)    _registerExistingTeam(regBtn.dataset.encoded, regBtn.dataset.name);
     if (acctDelBtn) _deleteAccountOnly(acctDelBtn.dataset.encoded, acctDelBtn.dataset.name);
+    if (commentsBtn) _openCommentsManage(commentsBtn.dataset.encoded, commentsBtn.dataset.name);
   });
 
   /* 2026-06: 수동 새로고침 — 캐시 무효화 후 강제 재읽기. summary bar는 정적 요소라
@@ -417,6 +419,8 @@ async function _loadAdminDataV2() {
   _renderAiSettingsPanel(resolvedClassId);
   /* ADMIN-1C: 학생 팀 생성 방식 설정 패널 (계정 생성 카드 위) */
   _renderTeamModePanel(resolvedClassId);
+  /* SHELF-1/COMMENT-1: 책장·댓글 설정 패널 */
+  _renderShelfCommentPanel(resolvedClassId);
   /* ADMIN-1B: 교사 팀/학생 계정 사전 생성 패널 */
   _renderTeamCreatePanel(resolvedClassId);
 
@@ -1276,6 +1280,11 @@ function _escHtml(s) {
 function _analyzeTeam(encodedName, scenes, isPublic = false, meta = {}, account = null, members = null) {
   const name     = decodeURIComponent(encodedName);
   const total    = scenes.length;
+  /* SHELF-1: 책장 표지용 — 표지 장면의 제목/한줄/테마(공개 토글 때 shelf 노드에 기록) */
+  const _coverScene = scenes.find(s => s && (s.type === 'cover' || s.isCover)) || null;
+  const shelfTitle    = (_coverScene && typeof _coverScene.title === 'string') ? _coverScene.title : '';
+  const shelfSubtitle = (_coverScene && typeof _coverScene.subtitle === 'string') ? _coverScene.subtitle : '';
+  const shelfTheme    = (_coverScene && typeof _coverScene.coverTheme === 'string') ? _coverScene.coverTheme : '';
   const endings  = scenes.filter(s => s.type === 'ending').length;
   const trueEnds = scenes.filter(s => s.type === 'ending' && s.trueEnding).length;
   const hasImage = scenes.some(s => s.imageData);
@@ -1388,6 +1397,7 @@ function _analyzeTeam(encodedName, scenes, isPublic = false, meta = {}, account 
 
   return {
     encodedName, name, total,
+    shelfTitle, shelfSubtitle, shelfTheme,   /* SHELF-1: 공개 토글 시 책장 노드 기록용 */
     endings, normals, trueEnds,
     entryNum, replayNum, entryValid, replayValid, entryBroken, replayBroken,
     hasImage, connectivity, noTitle, isolated, status, interpretation, problems,
@@ -1822,6 +1832,7 @@ function _teamCardHtml(t) {
       <button class="admin-more-item js-admin-print-wa" data-name="${t.name}" title="이 모둠의 생각 점검 질문·작품 검사 결과를 인쇄해요 (학생 태블릿엔 프린터가 없어 교사가 대신 인쇄)">🖨 고쳐쓰기 자료 인쇄</button>
       <button class="admin-more-item js-admin-print-tc" data-name="${t.name}" title="이 모둠의 생각 나침반 설계도를 열어 인쇄해요 (카드형/나침반형)">🖨 생각 나침반 인쇄</button>
       <button class="admin-more-item js-admin-issue-code" data-encoded="${t.encodedName}" data-name="${t.name}">📤 복사 코드 발급</button>
+      <button class="admin-more-item js-admin-comments" data-encoded="${t.encodedName}" data-name="${t.name}" title="이 작품에 달린 댓글을 보고 지울 수 있어요">💬 댓글 관리</button>
       <button class="admin-more-item admin-more-item--danger js-admin-delete" data-encoded="${t.encodedName}" data-name="${t.name}" title="작품(장면·그림)까지 영구 삭제해요. 되돌릴 수 없어요.">🗑 모둠 전체 삭제 (작품까지)</button>
     </div>`;
 
@@ -1907,6 +1918,130 @@ function _openCompassReviewForTeam(teamName) {
   window.ThoughtCompassReview.openReadOnly({ classId: classId, teamName: teamName, fromAdmin: true });
 }
 
+/* ════════════════════════════════════════════════════════════════
+   SHELF-1/COMMENT-1(2026-07-11): 📚 책장 · 💬 댓글 설정 패널 + 팀 댓글 관리.
+   ──────────────────────────────────────────────────────────────
+   · 책장 링크 공개(settings/shelfPublic, 기본 OFF — 실명 팀명 학급 보호)
+   · 댓글 기능(settings/commentEnabled) + 댓글 코드(commentAuth/code — 교사만 read)
+   · 팀 카드 ⋯메뉴 [💬 댓글 관리] = 목록 보기+개별 삭제(rules: 교사/총괄 write)
+   ════════════════════════════════════════════════════════════════ */
+async function _renderShelfCommentPanel(classId) {
+  if (!classId) return;
+  let host = document.getElementById('admin-shelf-comment');
+  if (!host) {
+    const anchor = document.getElementById('admin-ai-settings');
+    if (!anchor || !anchor.parentNode) return;
+    host = document.createElement('div');
+    host.id = 'admin-shelf-comment';
+    anchor.insertAdjacentElement('afterend', host);
+  }
+  let shelfPublic = false, commentEnabled = false, commentCode = '';
+  try { shelfPublic = (await db.ref(`classes/${classId}/settings/shelfPublic`).once('value')).val() === true; } catch (e) {}
+  try { commentEnabled = (await db.ref(`classes/${classId}/settings/commentEnabled`).once('value')).val() === true; } catch (e) {}
+  try { commentCode = (await db.ref(`classes/${classId}/commentAuth/code`).once('value')).val() || ''; } catch (e) {}
+
+  const rowStyle = 'display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:13.5px;color:#3a2c14;flex-wrap:wrap;';
+  const btnStyle = 'min-height:32px;padding:4px 12px;border:1px solid #c9a96a;background:#fffaf0;color:#8a5a2a;border-radius:8px;font-size:12.5px;cursor:pointer;';
+  host.style.cssText = 'background:#fff;border:1.5px solid #e8d9bf;border-radius:12px;padding:14px 16px;margin:0 0 12px;';
+  const shelfUrl = location.origin + location.pathname.replace(/maker\.html.*$/, '') + `viewer.html?shelf=1&classId=${encodeURIComponent(classId)}`;
+  host.innerHTML = `
+    <div style="font-weight:700;color:#a4592f;font-size:14px;margin-bottom:10px;">📚 우리 반 책장 · 💬 댓글</div>
+    <div style="${rowStyle}">
+      <span>책장 링크 공개</span>
+      <button type="button" id="asc-shelf-toggle" style="${btnStyle}${shelfPublic ? 'background:#6a9a5a;color:#fff;border-color:#6a9a5a;' : ''}">${shelfPublic ? 'ON — 링크로 누구나' : 'OFF — 클래스 코드 필요'}</button>
+      ${shelfPublic ? `<button type="button" id="asc-shelf-copy" style="${btnStyle}">📋 책장 링크 복사</button>` : ''}
+    </div>
+    <div style="font-size:11.5px;color:#9a8868;margin:-4px 0 10px;">학생은 작품 보기에서 클래스 코드만 입력하면 책장이 열려요. 공개된 작품만 책장에 나와요.</div>
+    <div style="${rowStyle}">
+      <span>댓글 기능</span>
+      <button type="button" id="asc-cmt-toggle" style="${btnStyle}${commentEnabled ? 'background:#6a9a5a;color:#fff;border-color:#6a9a5a;' : ''}">${commentEnabled ? 'ON' : 'OFF'}</button>
+      <span style="margin-left:6px;">댓글 코드</span>
+      <span id="asc-cmt-code" style="background:#fdf3e0;border:1.5px solid #c9a96a;border-radius:8px;padding:4px 12px;letter-spacing:2px;color:#8a5a2a;">${_escHtml(commentCode || '(없음)')}</span>
+      <button type="button" id="asc-cmt-change" style="${btnStyle}">변경</button>
+    </div>
+    <div style="font-size:11.5px;color:#9a8868;margin-top:-4px;">댓글 코드가 있어야 댓글을 남길 수 있어요(보는 건 자유). 코드를 바꾸면 이전 코드는 바로 무효가 돼요. 삭제는 각 팀 카드 ⋯ 메뉴의 [💬 댓글 관리]에서.</div>`;
+
+  host.querySelector('#asc-shelf-toggle')?.addEventListener('click', async () => {
+    try {
+      await db.ref(`classes/${classId}/settings/shelfPublic`).set(!shelfPublic);
+      _renderShelfCommentPanel(classId);
+    } catch (e) { alert('설정을 저장하지 못했어요.'); }
+  });
+  host.querySelector('#asc-shelf-copy')?.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(shelfUrl); alert('책장 링크를 복사했어요:\n' + shelfUrl); }
+    catch (e) { alert('복사 실패. 직접 적어주세요:\n' + shelfUrl); }
+  });
+  host.querySelector('#asc-cmt-toggle')?.addEventListener('click', async () => {
+    try {
+      if (!commentEnabled && !commentCode) {
+        /* 처음 켤 때 코드가 없으면 같이 만들기 */
+        const c = prompt('댓글 코드를 정해주세요 (숫자/영문 4~6자)', String(Math.floor(1000 + Math.random() * 9000)));
+        if (!c) return;
+        const cc = c.trim();
+        if (!/^[A-Za-z0-9]{4,6}$/.test(cc)) { alert('코드는 숫자/영문 4~6자로 해주세요.'); return; }
+        await db.ref(`classes/${classId}/commentAuth/code`).set(cc);
+      }
+      await db.ref(`classes/${classId}/settings/commentEnabled`).set(!commentEnabled);
+      _renderShelfCommentPanel(classId);
+    } catch (e) { alert('설정을 저장하지 못했어요.'); }
+  });
+  host.querySelector('#asc-cmt-change')?.addEventListener('click', async () => {
+    const c = prompt('새 댓글 코드 (숫자/영문 4~6자) — 이전 코드는 바로 무효가 돼요', commentCode || '');
+    if (!c) return;
+    const cc = c.trim();
+    if (!/^[A-Za-z0-9]{4,6}$/.test(cc)) { alert('코드는 숫자/영문 4~6자로 해주세요.'); return; }
+    try {
+      await db.ref(`classes/${classId}/commentAuth/code`).set(cc);
+      _renderShelfCommentPanel(classId);
+    } catch (e) { alert('코드를 저장하지 못했어요.'); }
+  });
+}
+
+/* COMMENT-1: 팀 댓글 관리 모달 — 목록 + 개별 삭제 */
+async function _openCommentsManage(encodedName, teamName) {
+  if (!(DATA_PATH_VERSION === 'v2' && adminState.adminClassId)) return;
+  const classId = adminState.adminClassId;
+  document.getElementById('admin-comments-modal')?.remove();
+  const wrap = document.createElement('div');
+  wrap.id = 'admin-comments-modal';
+  wrap.style.cssText = 'position:fixed;inset:0;z-index:100001;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;padding:20px;';
+  wrap.innerHTML = `<div style="background:#fff;border-radius:14px;max-width:480px;width:100%;max-height:80vh;display:flex;flex-direction:column;padding:18px 20px;box-shadow:0 12px 40px rgba(0,0,0,.25);">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <span style="font-weight:700;font-size:15px;color:#a4592f;">💬 ${_escHtml(teamName)} — 댓글 관리</span>
+      <button type="button" id="acm-close" style="border:none;background:#f3e3bd;color:#6b4a24;width:30px;height:30px;border-radius:50%;cursor:pointer;">✕</button>
+    </div>
+    <div id="acm-list" style="flex:1;overflow-y:auto;">불러오는 중...</div>
+  </div>`;
+  document.body.appendChild(wrap);
+  wrap.querySelector('#acm-close').addEventListener('click', () => wrap.remove());
+  wrap.addEventListener('click', e => { if (e.target === wrap) wrap.remove(); });
+
+  const listEl = wrap.querySelector('#acm-list');
+  const ref = db.ref(`classes/${classId}/teams/${encodedName}/comments`);
+  async function _load() {
+    let raw = null;
+    try { raw = (await ref.once('value')).val(); } catch (e) { listEl.textContent = '댓글을 불러오지 못했어요.'; return; }
+    const items = Object.entries(raw || {})
+      .map(([id, c]) => ({ id, name: (c && c.name) || '', text: (c && c.text) || '', at: (c && c.at) || 0 }))
+      .sort((a, b) => a.at - b.at);
+    if (!items.length) { listEl.innerHTML = '<div style="color:#9a8868;font-size:13px;text-align:center;padding:24px 0;">댓글이 없어요.</div>'; return; }
+    listEl.innerHTML = items.map(c => `
+      <div style="display:flex;gap:8px;align-items:flex-start;background:#fffaf0;border:1px solid #eee0c0;border-radius:10px;padding:8px 10px;margin-bottom:7px;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:12px;color:#a4592f;font-weight:700;">${_escHtml(c.name)} <span style="color:#b8a888;font-weight:400;">· ${c.at ? new Date(c.at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''}</span></div>
+          <div style="font-size:13px;color:#3a2c14;line-height:1.45;word-break:break-word;">${_escHtml(c.text)}</div>
+        </div>
+        <button type="button" class="acm-del" data-id="${_escHtml(c.id)}" style="border:1px solid #d9948a;background:#fff5f2;color:#b3402e;border-radius:7px;padding:4px 9px;font-size:11.5px;cursor:pointer;flex:0 0 auto;">삭제</button>
+      </div>`).join('');
+    listEl.querySelectorAll('.acm-del').forEach(b => b.addEventListener('click', async () => {
+      if (!confirm('이 댓글을 지울까요?')) return;
+      try { await ref.child(b.dataset.id).remove(); _load(); }
+      catch (e) { alert('지우지 못했어요.'); }
+    }));
+  }
+  _load();
+}
+
 /* ================================================================
    공개/비공개 토글
    viewer-meta/isPublic을 반전 저장 후 카드 즉시 갱신
@@ -1927,6 +2062,24 @@ async function _toggleIsPublic(encodedName, teamName, currentIsPublic) {
     /* allTeams 상태 즉시 업데이트 후 카드 리렌더 */
     const team = adminState.allTeams.find(t => t.encodedName === encodedName);
     if (team) team.isPublic = newIsPublic;
+
+    /* SHELF-1: 학급 책장 노드 동기화 — 공개=표지 정보 등재 / 비공개=제거.
+       isPublic의 유일한 쓰기 지점이 여기라 이 훅 하나로 책장이 항상 정합.
+       실패해도 공개 전환 자체는 유지(책장 등재만 다음 토글에서 재시도). */
+    if (DATA_PATH_VERSION === 'v2' && adminState.adminClassId) {
+      const shelfRef = db.ref(`classes/${adminState.adminClassId}/shelf/${encodedName}`);
+      const p = newIsPublic
+        ? shelfRef.set({
+            t:  (team && team.shelfTitle) || '',
+            s:  (team && team.shelfSubtitle) || '',
+            ty: (team && team.projectType) || '',
+            th: (team && team.shelfTheme) || '',
+            at: firebase.database.ServerValue.TIMESTAMP,
+          })
+        : shelfRef.remove();
+      p.catch(err => console.warn('[SHELF-1] 책장 동기화 실패:', err));
+    }
+
     _invalidateAdminCache('toggle-public');   // 상태 변경 — 다음 재진입 때 fresh 읽기
     _renderTeamList();
   } catch (err) {

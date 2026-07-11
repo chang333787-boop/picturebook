@@ -70,7 +70,16 @@ function _processQueryParam() {
   const sceneNum  = params.get('scene') || null;    // C-2: 특정 장면 자동 선택
   const ptypeHint = params.get('ptype') || null;    // W7: maker가 보낸 모드 hint (lock 보강)
 
-  if (!teamName) return;
+  if (!teamName) {
+    /* SHELF-1: 책장 공개 링크(?shelf=1&classId=...) — 서버가 shelfPublic 검증 */
+    if (params.get('shelf') === '1' && classId && window.BranchShelf) {
+      window.BranchShelf.openShelf({ classId }).catch(err => {
+        _setEntryError((err && err.message && /[가-힣]/.test(err.message))
+          ? err.message : '책장을 불러오지 못했어요.');
+      });
+    }
+    return;
+  }
 
   _enterViewer(teamName, editMode, fromMaker, classId, sceneNum, ptypeHint);
 }
@@ -87,16 +96,24 @@ async function handleEntrySubmit() {
     codeInput?.focus();
     return;
   }
-  if (!teamName) {
-    _setEntryError('팀 이름을 입력해주세요');
-    teamInput?.focus();
-    return;
-  }
 
   _setEntryLoading(true);
   _setEntryError('');
 
   try {
+    /* SHELF-1(2026-07-11): 팀 이름을 비우면 → 우리 반 책장(공개 작품 나열).
+       코드 검증·목록은 getClassShelf callable이 서버에서 수행. */
+    if (!teamName) {
+      if (!window.BranchShelf || typeof window.BranchShelf.openShelf !== 'function') {
+        _setEntryError('팀 이름을 입력해주세요');
+        _setEntryLoading(false);
+        return;
+      }
+      await window.BranchShelf.openShelf({ classCode: code });
+      _setEntryLoading(false);
+      return;
+    }
+
     /* classCodes/$code → classId 조회 (viewer 전용 Firebase 인스턴스 사용) */
     const classId = await lookupClassIdForViewer(code);
     if (!classId) {

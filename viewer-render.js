@@ -2494,12 +2494,23 @@ function renderHUD() {
       <div class="hud-center"></div>
       <div class="hud-right">
         ${mode === 'explore' ? `<span class="hud-explore-count">${ViewerState.visitedSceneIds.size}곳 방문</span>` : ''}
+        ${(!fromMaker && !isEdit && window.BranchShelf && window.BranchShelf.hasCtx && window.BranchShelf.hasCtx())
+          ? '<button class="hud-btn hud-btn--shelf js-hud-shelf" title="우리 반 책장으로" aria-label="우리 반 책장으로">📚</button>' : ''}
+        ${(!fromMaker && !isEdit && ViewerState.project && ViewerState.project.classId && window.BranchShelf)
+          ? '<button class="hud-btn hud-btn--comments js-hud-comments" title="이 책의 댓글" aria-label="이 책의 댓글">💬</button>' : ''}
         ${_fsSupported() ? `<button class="hud-btn hud-btn--fullscreen js-hud-fullscreen" data-fs-toggle title="전체 화면" aria-label="전체 화면">⛶</button>` : ''}
         <button class="hud-btn hud-btn--exit js-hud-exit" title="나가기">✕</button>
       </div>
     </div>`;
 
   hud.querySelector('.js-hud-back')?.addEventListener('click', navigateBack);
+  /* SHELF-1/COMMENT-1: 책장 복귀·댓글 패널 (감상 전용 — 위 노출 조건과 동일) */
+  hud.querySelector('.js-hud-shelf')?.addEventListener('click', () => {
+    if (window.BranchShelf) window.BranchShelf.returnToShelf();
+  });
+  hud.querySelector('.js-hud-comments')?.addEventListener('click', () => {
+    if (window.BranchShelf) window.BranchShelf.toggleComments();
+  });
 
   /* 전체 화면 토글 — 클릭/상태는 공유 모듈이 [data-fs-toggle] 위임으로 처리.
      동적 생성된 이 버튼의 초기 상태만 동기화해 준다. */
@@ -2531,6 +2542,11 @@ function renderHUD() {
     if (ViewerState.fromMaker) {
       /* 감상 중 fromMaker → maker로 복귀 */
       _returnToMaker();
+      return;
+    }
+    /* SHELF-1: 책장에서 온 감상 → 책장으로 복귀 */
+    if (window.BranchShelf && window.BranchShelf.hasCtx && window.BranchShelf.hasCtx()) {
+      window.BranchShelf.returnToShelf();
       return;
     }
     /* 일반 direct 감상 → entry 화면 */

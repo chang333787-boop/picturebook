@@ -2451,7 +2451,7 @@ function renderHUD() {
     && _hudScene.type !== 'cover' && !_hudScene.isCover);
   const makerBarHtml = fromMaker ? `
     <div class="maker-return-bar ${isEdit ? 'maker-return-bar--editing' : ''}">
-      <span class="maker-return-label">${isEdit ? '🎨 마감 편집 중' : '✏️ 제작자 테스트 중'}</span>
+      <span class="maker-return-label">${isEdit ? '🎨 다듬는 중' : '✏️ 제작자 테스트 중'}</span>
       <div class="maker-return-actions">
         ${isEdit ? `
           <button class="maker-return-btn maker-return-btn--tool js-refine-help" title="다듬기 사용법을 다시 봐요" aria-label="다듬기 사용법 다시 보기">❓ 사용법</button>
@@ -2462,9 +2462,9 @@ function renderHUD() {
             ? '<button class="maker-return-btn maker-return-btn--tool js-edit-scene-style-popover" title="이야기 전체 기본값과 이 장면만 다르게 꾸미기" aria-label="꾸미기 — 이야기 전체 / 이 장면만">🎨 꾸미기</button>'
             : '<button class="maker-return-btn maker-return-btn--tool js-edit-scene-style-popover" title="현재 장면의 글과 화면을 꾸며요. 같은 스타일을 모든 장면에 복사할 수 있어요" aria-label="장면 꾸미기 — 현재 장면의 글과 화면">🎨 장면 꾸미기</button>') : ''}
           ${_isMovieToolHudScene ? '<button class="maker-return-btn maker-return-btn--tool js-edit-movie-tool-modal" title="이 장면의 영상과 본문 표시를 설정합니다" aria-label="이 장면의 영상과 본문 표시를 설정합니다">🎬 무비</button>' : ''}
-          ${_aiAllowed ? '<button class="maker-return-btn maker-return-btn--ai js-ai-trigger" title="작품 마무리 — 질문·검사로 고칠 곳을 찾고, 직접 고친 뒤, 마지막 다듬기" aria-label="작품 마무리 — 질문·검사·직접 고치기·마지막 다듬기">📁 작품 마무리</button>' : ''}
+          ${_aiAllowed ? '<button class="maker-return-btn maker-return-btn--ai js-ai-trigger" title="작품 마무리 — 질문·검사로 고칠 곳을 찾고, 직접 고친 뒤, 마지막 다듬기" aria-label="작품 마무리 — 질문·검사·직접 고치기·마지막 다듬기">📔 작품 마무리</button>' : ''}
           <button class="maker-return-btn maker-return-btn--test js-edit-preview-test" title="실제 관람자 화면으로 확인">▶ 감상해 보기</button>
-          <button class="maker-return-btn maker-return-btn--save js-edit-save" title="즉시 저장">💾 저장</button>
+          <button class="maker-return-btn maker-return-btn--save js-edit-save" title="자동으로 저장돼요 — 지금 바로 저장하고 싶을 때 눌러요">💾 저장</button>
           <!-- REFINE-STAB-D: ⋯ 더보기 제거 — 작업 흐름 중심 정리.
                · ⚙ 감상/작품 설정 = 상단 단독(기존 js-edit-project-popover 핸들러 그대로)
                · 🧭 나침반 = 상단 단독(기록 있을 때만 — _applyCompassMenuVisibility가 display 제어)

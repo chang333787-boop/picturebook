@@ -1674,20 +1674,23 @@ const MTB_THEMES = [
   { id: 'retro',       label: '레트로 게임' },
   { id: 'dark',        label: '밤의 미스터리' },
 ];
+/* LOW-9(2026-07-11): 괄호 영어 식별자 제거(id로 충분) */
 const MTB_TEXT_ENTRANCES = [
   { id: 'none',       label: '없음' },
-  { id: 'fade',       label: '서서히 (fade)' },
-  { id: 'slide-up',   label: '위로 올라옴 (slide-up)' },
-  { id: 'blur-in',    label: '흐릿하다 또렷이 (blur-in)' },
-  { id: 'pop',        label: '튕김 (pop)' },
-  { id: 'typewriter', label: '타자기 (typewriter)' },
+  { id: 'fade',       label: '서서히' },
+  { id: 'slide-up',   label: '위로 올라옴' },
+  { id: 'blur-in',    label: '흐릿하다 또렷이' },
+  { id: 'pop',        label: '튕김' },
+  { id: 'typewriter', label: '타자기' },
 ];
+/* LOW-9: '없음' 추가(데스크톱 전환효과와 동일 옵션·저장값 none은 렌더가 이미 지원) */
 const MTB_SCENE_TRANSITIONS = [
-  { id: 'fade',     label: '기본 (fade)' },
-  { id: 'book',     label: '책 넘김 (book)' },
-  { id: 'scale',    label: '확대 (scale)' },
-  { id: 'slide-up', label: '위로 슬라이드 (slide-up)' },
-  { id: 'flip3d',   label: '3D 뒤집기 (flip3d)' },
+  { id: 'none',     label: '없음' },
+  { id: 'fade',     label: '기본' },
+  { id: 'book',     label: '책 넘김' },
+  { id: 'scale',    label: '확대' },
+  { id: 'slide-up', label: '위로 슬라이드' },
+  { id: 'flip3d',   label: '3D 뒤집기' },
 ];
 
 function _mtbInitVisPanel() {

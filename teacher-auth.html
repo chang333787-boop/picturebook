@@ -209,7 +209,7 @@
 
   <!-- 브랜드 -->
   <div class="auth-brand">
-    <div class="auth-brand-sub">ㅡ 한 학기를 책임지는 ㅡ</div>
+    <div class="auth-brand-sub">— 한 학기를 책임지는 —</div>
     <div class="auth-brand-logo">가지 <span class="auth-brand-logo-accent">교사 관리</span></div>
   </div>
 
@@ -610,9 +610,17 @@ let _currentUserForCreate = null;
 /* v92: 클래스 코드 실시간 중복 검증 (입력 박힌 후 300ms 디바운스) */
 let _codeCheckTimer = null;
 let _codeAvailable = false;
+/* IME-TRUNC-FIX(2026-07-11): 한글 조합 중 value 재작성(toUpperCase)은 조합을 끊어 글자가 깨짐 —
+   조합 중엔 재작성 보류(검증만), 조합 끝나면 정리 */
+document.getElementById('class-code').addEventListener('compositionstart', e => { e.target._imeComposing = true; });
+document.getElementById('class-code').addEventListener('compositionend', e => {
+  e.target._imeComposing = false;
+  e.target.value = e.target.value.trim().toUpperCase();
+  e.target.dispatchEvent(new Event('input'));
+});
 document.getElementById('class-code').addEventListener('input', e => {
   const raw = e.target.value.trim().toUpperCase();
-  e.target.value = raw;
+  if (!e.target._imeComposing) e.target.value = raw;
   const status = document.getElementById('class-code-status');
   _codeAvailable = false;
 

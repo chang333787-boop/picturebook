@@ -559,7 +559,7 @@ async function _renderAiSettingsPanel(classId) {
 function _drawAiSettingsPanel(panel, classId, state, exists) {
   const statusCls = state.enabled ? 'on' : 'off';
   const statusTxt = state.enabled ? 'AI 켜짐' : 'AI 꺼짐';
-  const notSavedNote = exists ? '' : ' · 아직 저장된 적 없음(기본 동작 유지 중)';
+  const notSavedNote = exists ? '' : ' · 설정 안 함 — 저장해야 이 설정이 적용돼요';
 
   const modeToggles = AI_MODE_DEFS.map(d => {
     const checked = state.modes[d.key] ? 'checked' : '';
@@ -697,7 +697,7 @@ async function _renderTeamModePanel(classId) {
 
   /* locked가 저장돼 있으면 라디오는 일단 teacher_managed로 표시하되 안내 문구 노출 */
   const lockedNote = (mode === 'locked')
-    ? '<div class="admin-tm-locked">현재 입장이 잠겨 있어요(준비 중 기능). 아래에서 방식을 바꾸면 잠금이 풀립니다.</div>'
+    ? '<div class="admin-tm-locked">현재 입장이 잠겨 있어요. 아래에서 방식을 바꾸면 잠금이 풀려요.</div>'
     : '';
   const sel = (mode === 'locked') ? 'teacher_managed' : mode;
 
@@ -1643,13 +1643,16 @@ function _renderFilterBar(teams) {
     { key: 'ready',           label: '감상 가능' },
     { key: 'not-started',     label: '미시작' },
   ];
-  /* 2026-05-29 admin 2차: 모드 필터 — 상태 필터와 AND 결합. 미선택 상태면 모든 모드. */
+  /* 2026-05-29 admin 2차: 모드 필터 — 상태 필터와 AND 결합. 미선택 상태면 모든 모드.
+     LOW-1(2026-07-11): '체험전시'는 신규 제작이 막힌 모드 — 해당 팀이 실제로 있을 때만 필터 노출. */
+  const _hasExperience = Array.isArray(adminState.allTeams)
+    && adminState.allTeams.some(t => t && t.projectType === 'experience');
   const modeFilters = [
     { key: 'all',         label: '전체 모드' },
     { key: 'picturebook', label: '그림책' },
     { key: 'text',        label: '텍스트' },
     { key: 'movie',       label: '무비' },
-    { key: 'experience',  label: '체험전시' },
+    ...(_hasExperience ? [{ key: 'experience', label: '체험전시' }] : []),
     { key: 'unset',       label: '미선택' },
   ];
   const sorts = [

@@ -901,8 +901,15 @@ function _openReceiveCopyModal() {
   const submitBtn = overlay.querySelector('.js-copy-receive-submit');
 
   input?.focus();
-  input?.addEventListener('input', () => {
+  /* IME-TRUNC-FIX(2026-07-11): 한글 조합 중 value 재작성은 조합을 끊어 유령 글자를 남김 —
+     조합 중엔 보류, 조합이 끝나면 숫자만 남기고 정리 */
+  input?.addEventListener('compositionstart', () => { input._imeComposing = true; });
+  input?.addEventListener('compositionend', () => {
+    input._imeComposing = false;
     input.value = input.value.replace(/\D/g, '').slice(0, 4);
+  });
+  input?.addEventListener('input', () => {
+    if (!input._imeComposing) input.value = input.value.replace(/\D/g, '').slice(0, 4);
     err.style.display = 'none';
   });
 
@@ -1152,7 +1159,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   /* ── 구조 편집 Ctrl+Z 제거 (협업 안정화 1차) ──
      브라우저 기본 텍스트 undo는 INPUT/TEXTAREA에서 그대로 동작 — 가로채지 않음 */
-  document.getElementById('mode-toggle-btn')?.addEventListener('click', toggleMode);
+  /* LOW-6: mode-toggle-btn 제거됨 — 바인딩 삭제(toggleMode는 호환 스텁 유지) */
   document.getElementById('file-input')     ?.addEventListener('change', importJSON);
 
   /* 미리보기 */

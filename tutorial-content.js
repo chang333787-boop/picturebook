@@ -71,7 +71,7 @@
       art: 'movie', types: ['movie'] },
     { title: '⚙ 작품 설정',
       line: '장면이 바뀔 때 효과(전환)와 스킨 같은 작품 전체 설정을 정해요.', art: 'settings' },
-    { title: '📁 작품 마무리',
+    { title: '📔 작품 마무리',
       line: '다 만들면 [작품 마무리]로 점검 질문에 답하고, 검사 결과를 보며 고쳐 완성해요.',
       art: 'ai', types: ['text', 'picturebook'] },
     { title: '저장은 자동, 나갈 땐 뒤로',

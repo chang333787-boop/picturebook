@@ -2117,8 +2117,9 @@
       transition:background 0.12s;
     }
     .mtb-summary-chip:disabled { cursor:default; }
-    .mtb-summary-chip:not(:disabled):hover,
-    .mtb-summary-chip:not(:disabled):active {
+    span.mtb-summary-chip { cursor:default; }   /* LOW-19: 정보 칩(span)은 클릭 아님 */
+    button.mtb-summary-chip:not(:disabled):hover,
+    button.mtb-summary-chip:not(:disabled):active {
       background:rgba(198,111,74,0.10);
     }
     .mtb-summary-chip[data-kind="incomplete"]:not(:disabled) { color:#a66a1a; font-weight:bold; }
@@ -2572,9 +2573,9 @@
   </div>
   <!-- v107: 상단 요약 바 — 한눈에 상태 파악 + ⚠/🔌 칩 탭 → 다음 문제 노드 점프 -->
   <div class="mtb-summary" id="mtb-summary" style="display:none;">
-    <button type="button" class="mtb-summary-chip" data-kind="total" disabled>📊 장면 <span class="mtb-summary-num" data-num="total">0</span></button>
+    <span class="mtb-summary-chip" data-kind="total">📊 장면 <span class="mtb-summary-num" data-num="total">0</span></span><!-- LOW-19: 정보 칩은 button 아님 -->
     <span class="mtb-summary-sep">·</span>
-    <button type="button" class="mtb-summary-chip" data-kind="ending" disabled>🏁 엔딩 <span class="mtb-summary-num" data-num="ending">0</span></button>
+    <span class="mtb-summary-chip" data-kind="ending">🏁 엔딩 <span class="mtb-summary-num" data-num="ending">0</span></span>
     <span class="mtb-summary-sep">·</span>
     <button type="button" class="mtb-summary-chip" data-kind="incomplete" title="탭하면 다음 미완성 장면으로 이동">⚠ 미완성 <span class="mtb-summary-num" data-num="incomplete">0</span></button>
     <span class="mtb-summary-sep">·</span>
@@ -2751,7 +2752,7 @@
       <br>제목 칸에 본문 같은 긴 글이 들어있을 수 있어요.
     </div>
     <div class="legacy-toast-hint">
-      ※ 정리 도구는 곧 추가됩니다. 지금은 다듬기 화면에서 직접 정리할 수 있어요.
+      ※ 다듬기 화면에서 제목과 본문을 정리할 수 있어요.
     </div>
   </div>
   <button class="legacy-toast-close" type="button"
@@ -2834,26 +2835,12 @@
   }
 </style>
 
-<script>
-  /* legacy 마이그레이션 토스트 표시 — firebase.js에서 호출
-     (A-1: 알림만. A-2 다음 턴에서 실제 마이그레이션 실행 추가 예정) */
-  function showLegacyMigrationToast(count) {
-    const toast = document.getElementById('legacy-migration-toast');
-    const countEl = document.getElementById('legacy-toast-count');
-    if (!toast || !countEl) return;
-    countEl.textContent = String(count || 0);
-    toast.style.display = 'flex';
-    /* 30초 후 자동 닫힘 — 사용자가 그 사이 닫지 않았으면 */
-    setTimeout(() => {
-      if (toast.style.display === 'flex') toast.style.display = 'none';
-    }, 30000);
-  }
-</script>
+<!-- LOW-7(2026-07-11): showLegacyMigrationToast 이중 정의 제거 — firebase.js 구현이 단일 정본 -->
 
 <!-- 입장 화면 (Warm Paper) — 로그인만 처리 -->
 <div id="join-screen">
   <div class="join-card">
-    <p class="join-logo">ㅡ 함께 만들어요 ㅡ</p>
+    <p class="join-logo">— 함께 만들어요 —</p>
     <h1 class="join-title">작품 <span class="join-title-accent">만들기</span></h1>
     <p class="join-sub">선생님이 알려준 클래스 코드, 팀 이름, PIN을 입력해요</p>
 
@@ -2882,7 +2869,7 @@
 <!-- 작품 유형 선택 화면 (입장 후 표시) — Warm Paper 톤 + 4모드 cover 무드 -->
 <div id="ptype-screen">
   <div class="ptype-wrap">
-    <p class="ptype-logo">ㅡ 첫 걸음 ㅡ</p>
+    <p class="ptype-logo">— 첫 걸음 —</p>
     <h1 class="ptype-title">어떤 작품을 만들까요?</h1>
     <p class="ptype-sub">작품 유형은 한 번 정하면 같은 팀에서 계속 같은 유형으로 작업해요.</p>
     <div class="ptype-grid" id="ptype-grid">
@@ -2971,7 +2958,7 @@
       <a class="tb-btn tb-btn-test" id="btn-open-viewer" href="#"
          title="실제 관람자 화면 확인">▶ 감상해 보기</a>
       <button class="tb-btn tb-btn-viewedit" id="btn-viewer-edit"
-              title="선택지 위치·스타일을 마감해요">🎨 감상 화면 다듬기</button>
+              title="선택지 위치와 글꼴을 예쁘게 다듬어요">🎨 감상 화면 다듬기</button>
     </div>
   </div>
 
@@ -3015,7 +3002,7 @@
           <div id="file-more-menu" class="tb-more-menu" role="menu" hidden>
             <!-- PATH-CHECK-REMOVE(2026-07-09): '이야기 길 점검' 삭제(실용성 부족·사용자 요청). '이야기 길 보기'는 유지. -->
             <button id="btn-route" type="button" role="menuitem" title="장면 흐름(루트)을 살펴봐요">🛤 이야기 길 보기</button>
-            <button id="btn-clear" class="danger" type="button" role="menuitem" title="모든 장면을 삭제하고 빈 작품으로 초기화합니다" aria-label="전체 초기화">🗑 전체 초기화</button>
+            <button id="btn-clear" class="danger" type="button" role="menuitem" title="모든 장면을 지우고 빈 작품으로 되돌려요" aria-label="전체 초기화">🗑 전체 초기화</button>
           </div>
         </div>
       </div>
@@ -3031,7 +3018,7 @@
 
     <!-- 저장 상태 + 도움말 -->
     <div class="tb-status-group">
-      <button id="mode-toggle-btn" style="display:none;" title="간단히/더보기 토글">⚙️ 더보기</button>
+      <!-- LOW-6(2026-07-11): mode-toggle-btn(간단히/더보기) no-op 잔재 제거 — toggleMode는 호환 스텁만 유지 -->
       <div id="save-status"><div id="save-dot"></div><span id="save-label">-</span></div>
       <button class="tb-btn tb-btn--ghost adv-only" id="btn-help" title="도움말">❓</button>
     </div>
@@ -3292,20 +3279,20 @@
 <script src="notices.js?v=notices2"></script>
 <script src="session.js?v=ssn1"></script>
 <script src="canvasInteraction.js?v=120renderdiff1crossa1crossb1"></script>
-<script src="sceneRenderer.js?v=119base10bbase10auto1coverstart1scenetitle1ascenetitle2apwanav2vpreturn1perfqa1branchcard1branchcard2branchcard3branchcard4cover1cover2cover3compassbtn1pbflowcopy1cardquickedit1cardexpandpersist1dragperf1crossa1contest1"></script>
+<script src="sceneRenderer.js?v=119base10bbase10auto1coverstart1scenetitle1ascenetitle2apwanav2vpreturn1perfqa1branchcard1branchcard2branchcard3branchcard4cover1cover2cover3compassbtn1pbflowcopy1cardquickedit1cardexpandpersist1dragperf1crossa1contest1low1"></script>
 <script src="storyAnalyzer.js?v=136checkbuttons1heuristic3crossa1routewarm1routetabs1"></script>
 <script src="mediaManager.js?v=114copyfix1uitextfix1"></script>
-<script src="adminConsole.js?v=103copyfix1pwanav2imgs2settings1writeafterui1waq1finishgroup1scenepubprint1accountmode1uitextfix1teacherprint1teamcard1memberlist1legacyux1delsafety2tutorialcd1adminredesign1teacherjoin1aipermwarn1adminmanual1csvbulk1errko1crossa1contest1master1master2shelf1"></script>
+<script src="adminConsole.js?v=103copyfix1pwanav2imgs2settings1writeafterui1waq1finishgroup1scenepubprint1accountmode1uitextfix1teacherprint1teamcard1memberlist1legacyux1delsafety2tutorialcd1adminredesign1teacherjoin1aipermwarn1adminmanual1csvbulk1errko1crossa1contest1master1master2shelf1low1"></script>
 <!-- ADMIN-REDESIGN Phase 3: 교사·학생 상세 설명서(화면형) -->
-<script src="admin-manual.js?v=adminmanual4contest"></script>
+<script src="admin-manual.js?v=adminmanual4contestlow1"></script>
 <script src="preview.js?v=96"></script>
 <script src="projectSettings.js?v=114copyfix1coverstart2errko1"></script>
-<script src="ui.js?v=109copyfix2c2base10bfixendingguard1addscene1base10auto1branchtopbar1cscenetitle1asessionrefresh1apwanav2homenav1vpreturn1sec5tcphase1dcompassbtn1cardquickedit1accountux1tutorialtrig1teacherjoin1adminback1cardnobackdrop1adminloading1errko1crossa1crossb1btncleanup1contest1"></script>
+<script src="ui.js?v=109copyfix2c2base10bfixendingguard1addscene1base10auto1branchtopbar1cscenetitle1asessionrefresh1apwanav2homenav1vpreturn1sec5tcphase1dcompassbtn1cardquickedit1accountux1tutorialtrig1teacherjoin1adminback1cardnobackdrop1adminloading1errko1crossa1crossb1btncleanup1contest1low1"></script>
 <!-- v95: 모바일 텍스트형 브랜치 전용 (텍스트 작품 + 모바일에서만 활성) -->
-<script src="mobileTextBranch.js?v=compassbundle1uitextfix1"></script>
+<script src="mobileTextBranch.js?v=compassbundle1uitextfix1low1"></script>
 <!-- TUTORIAL-PRD: 콘텐츠·삽화·데모(먼저) → 도움말/환영/인쇄 -->
 <script src="fullscreen-persist.js?v=fspersist1"></script>
-<script src="tutorial-content.js?v=tutorialbranchcard1contest1"></script>
+<script src="tutorial-content.js?v=tutorialbranchcard1contest1low1"></script>
 <script src="tutorial-art.js?v=tutorialrefine2"></script>
 <script src="tutorial-demo.js?v=tutorialbranchcard1"></script>
 <script src="tutorial-help.js?v=tutorialart1"></script>

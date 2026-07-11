@@ -1788,11 +1788,30 @@ function _attachChoiceLabelEditable(el, scene) {
 
   let choiceSaveTimer = null;
 
+  /* IME-TRUNC-FIX(2026-07-11): 한글 조합 중 maxLen 절단이 발동하면 textContent 재작성+캐럿
+     강제 이동으로 조합이 끊겨 마지막 글자가 깨지거나 중복됨('이상한 글씨' 실사례 경로).
+     조합 중엔 절단을 보류하고 compositionend에서 1회 정리한다. */
+  el.addEventListener('compositionstart', () => { el._imeComposing = true; });
+  el.addEventListener('compositionend', () => {
+    el._imeComposing = false;
+    const t = el.textContent;
+    if (t.length > maxLen) {
+      el.textContent = t.slice(0, maxLen);
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      range.collapse(false);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      el.dispatchEvent(new Event('input'));   /* 절단 반영 저장 경로 재사용 */
+    }
+  });
+
   el.addEventListener('input', () => {
     if (!_editText.editable) return;
     let value = el.textContent;
-    /* maxLen 안전망 — paste 등으로 초과 시 절단 */
-    if (value.length > maxLen) {
+    /* maxLen 안전망 — paste 등으로 초과 시 절단 (조합 중엔 보류 → compositionend에서 정리) */
+    if (value.length > maxLen && !el._imeComposing) {
       value = value.slice(0, maxLen);
       el.textContent = value;
       /* caret을 끝으로 옮김 — 절단 직후 자연스러운 위치 */
@@ -5359,9 +5378,11 @@ function _renderProjectPopoverBody() {
       <p class="edit-project-popover__note">${_pp_isText ? '<b>작품 전체</b>에 적용돼요. 장면이 바뀌고 글이 나타나는 방식을 정해요.' : '현재 장면 하나가 아니라 <b>작품 전체</b>에 적용돼요.'}</p>
       ${_pageOrientationSectionHtml()}
       ${_pbSubmodeBlock}
-      <div class="edit-divider"></div>
-      ${_movieDecisionSectionHtml()}
-      ${_pbSettingsBlock}
+      ${(() => { /* LOW-15(2026-07-11): 빈 섹션이면 divider도 생략 — 구분선 2연속 방지 */
+        const _mv = _movieDecisionSectionHtml();
+        return _mv ? `<div class="edit-divider"></div>${_mv}` : '';
+      })()}
+      ${_pbSettingsBlock ? `<div class="edit-divider"></div>${_pbSettingsBlock}` : ''}
       <div class="edit-divider"></div>
       ${_workSettingsSectionHtml()}
     </div>`;
@@ -6862,7 +6883,7 @@ function renderTestingBanner() {
       style="padding:5px 14px;border-radius:50px;border:1.5px solid rgba(88,166,255,0.5);
       background:rgba(88,166,255,0.15);color:#58a6ff;
       font-family:var(--font-ui,Jua,sans-serif);font-size:12px;cursor:pointer;white-space:nowrap;">
-      ✏️ 마감 편집으로 돌아가기
+      ✏️ 다듬기로 돌아가기
     </button>`;
 
   const frame = document.getElementById('viewer-frame');

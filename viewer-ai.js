@@ -891,7 +891,8 @@
   }
 
   /* ════════════════════════════════════════════════════════════════
-     v140-step2: _startTextS1V140 — 1단계 진입 (drafting 차단 + 후보 누적)
+     ⚠️ 폐기 흐름(v140 AI 1단계 후보 모달) — 현재 UI 진입점 0(비노출). 삭제 예정·심사 무관(LOW-18).
+   v140-step2: _startTextS1V140 — 1단계 진입 (drafting 차단 + 후보 누적)
      ──────────────────────────────────────────────────────────────
      v139의 _startTextS1은 사용하지 않음 — 옛 흐름 비활성. 호출되지 않음.
      사용자 결정 #F: drafting 중에는 다른 AI 호출 차단.
@@ -2835,6 +2836,10 @@
 
   /* 진입 버튼 노출 — 게이트(projectType + 교사 명시적 imageS1=true)만 통과하면 표시. 이미지 존재는 클릭 시 확인. */
   function _showImageAiEntryButton() {
+    /* LOW-13(2026-07-11): imageS1(AI 그림 정돈)은 폐기·imageS2로 대체 — 진입 버튼 영구 비노출.
+       (레거시 학급의 modes.imageS1=true 저장값이 남아 있어도 dead-end 버튼을 띄우지 않는다) */
+    _hideImageAiEntryButton(); return;
+    /* eslint-disable no-unreachable */
     if (!_aiToggleProjectTypeAllowed()) { _hideImageAiEntryButton(); return; }
     if (!_isImageS1ExplicitlyEnabledByTeacher()) { _hideImageAiEntryButton(); return; }
     _hideImageAiEntryButton();
@@ -3443,7 +3448,7 @@
           ${_showImageS2Card ? _renderModeCard({
             key: 'imageS2', icon: '🖼', title: 'AI 그림책 마감',
             desc: '그림책 그림을 더 완성된 느낌으로 다듬어요. AI가 만든 그림은 후보로만 저장돼요. 학생이 그린 원본 그림은 그대로 남아요. (교사용 · 외부 AI 전송 가능)',
-            enabled: rewriteDone && _imageS2Allowed, disabledReason: !rewriteDone ? lockReason : '설정에서 ‘AI 그림책 마감’을 켜 주세요', remaining: null,
+            enabled: rewriteDone && _imageS2Allowed, disabledReason: !rewriteDone ? lockReason : '선생님이 아직 열어주지 않았어요', remaining: null,
           }) : ''}
           </div>
         </div>`;
@@ -4838,7 +4843,7 @@
   }
 
   /* ════════════════════════════════════════════════════════════════
-     openModal — viewer 상단 [📁 작품 마무리] 진입점
+     openModal — viewer 상단 [📔 작품 마무리] 진입점
      ════════════════════════════════════════════════════════════════ */
   async function openModal() {
     /* Phase 1: 카드가 교사 권한을 반영하도록 모달 전에 aiSettings 로드 보장. */

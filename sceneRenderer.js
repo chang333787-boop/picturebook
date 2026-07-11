@@ -450,7 +450,7 @@ function _buildPicturebookCardContent(s) {
   const _emptyCls = _bodyTrim ? '' : ' pb-body-preview--empty';
   return `
     ${_buildImageAreaHtml(s)}
-    <div class="pb-body-preview${_emptyCls}" title="⋯을 눌러 이 장면을 수정할 수 있어요">${_previewText}</div>
+    <div class="pb-body-preview${_emptyCls}" title="눌러서 장면 글을 고칠 수 있어요 (⋯은 자세히 펼치기)">${_previewText}</div>
     <div class="pb-edit-zone">
       <div class="card-body card-body--picturebook">
         <textarea class="card-body-textarea js-body-input"

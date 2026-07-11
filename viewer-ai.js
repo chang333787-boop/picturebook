@@ -3166,6 +3166,48 @@
   }
 
   /* ════════════════════════════════════════════════════════════════
+     FINISH-READY-GATE(2026-07-11): "끝까지 만들고 쓰는 기능" 확인 게이트.
+     온보딩(다시 안 보기 가능)과 달리 세션당 1회는 반드시 묻는다 —
+     횟수 제한 기능을 만들다 만 작품에 소모하는 실사용 사고 방지.
+     sessionStorage라 탭/수업이 바뀌면 다시 묻고, 마무리 흐름 중 재진입은 안 막음.
+     ════════════════════════════════════════════════════════════════ */
+  const SS_READY_GATE_KEY = 'branchAiReadyGate1';
+  function _hasPassedReadyGate() {
+    try { return sessionStorage.getItem(SS_READY_GATE_KEY) === '1'; }
+    catch (e) { return false; }
+  }
+  function _showReadyGateModal(onConfirm) {
+    const html = `
+      <div class="ai-modal__header">
+        <div class="ai-modal__title">🏁 잠깐! 작품을 끝까지 만들었나요?</div>
+      </div>
+      <div class="ai-modal__body">
+        <p class="ai-onboarding-text">
+          <b>작품 마무리는 이야기를 끝까지 다 만든 뒤에 쓰는 기능이에요.</b><br/>
+          사용할 수 있는 횟수가 정해져 있어서, 만드는 중에 써 버리면<br/>
+          정말 마무리할 때 못 쓸 수 있어요.
+        </p>
+        <div class="ai-onboarding-hint">
+          장면들과 엔딩까지 다 만들었는지 먼저 확인해 보세요.
+        </div>
+      </div>
+      <div class="ai-modal__footer">
+        <button class="ai-btn js-ai-ready-later">아직 만드는 중이에요</button>
+        <button class="ai-btn ai-btn--primary js-ai-ready-go">네! 끝까지 만들었어요</button>
+      </div>
+    `;
+    const root = _createModalRoot('ai-ready-gate-modal', html);
+    root.querySelector('.js-ai-ready-later').addEventListener('click', () => {
+      _removeModalRoot('ai-ready-gate-modal');
+    });
+    root.querySelector('.js-ai-ready-go').addEventListener('click', () => {
+      try { sessionStorage.setItem(SS_READY_GATE_KEY, '1'); } catch (e) {}
+      _removeModalRoot('ai-ready-gate-modal');
+      if (typeof onConfirm === 'function') onConfirm();
+    });
+  }
+
+  /* ════════════════════════════════════════════════════════════════
      모드 선택 모달
      ════════════════════════════════════════════════════════════════ */
   function _renderModeCard(opts) {
@@ -4803,10 +4845,14 @@
     try { await _loadClassAiSettings(); } catch (e) { /* fallback 허용 */ }
     /* Phase 5C: 1단계 완료 표시용 최근 결과 존재 여부 로드(best-effort·DB read만·AI 0). */
     try { await _preloadWriteAfterLatestFlags(); } catch (e) { /* 무시 */ }
+    /* FINISH-READY-GATE: 온보딩 뒤(스킵 시 바로) "끝까지 만들었나요?" 확인 — 세션당 1회. */
+    const _enter = _hasPassedReadyGate()
+      ? _showModeModal
+      : () => _showReadyGateModal(_showModeModal);
     if (!_hasSeenOnboarding()) {
-      _showOnboardingModal(_showModeModal);
+      _showOnboardingModal(_enter);
     } else {
-      _showModeModal();
+      _enter();
     }
   }
 

@@ -6536,6 +6536,9 @@ function _positionSceneStylePopover(pop) {
   if (!trigger) return;
   const r = trigger.getBoundingClientRect();
   pop.style.top = (r.bottom + 8) + 'px';
+  /* POPOVER-NOSCROLL(2026-07-11): 트리거 아래 남은 화면 높이를 전부 허용 —
+     내용이 그보다 짧으면 그만큼만(스크롤 0), 길면 그 안에서만 스크롤(안전망). */
+  pop.style.maxHeight = Math.max(240, window.innerHeight - r.bottom - 20) + 'px';
   const popW = pop.offsetWidth || 320;
   let left = r.left;
   const maxLeft = window.innerWidth - popW - 12;
@@ -6571,6 +6574,7 @@ function _closeSceneStylePopover() {
   pop.innerHTML = '';
   pop.style.left = '';
   pop.style.top  = '';
+  pop.style.maxHeight = '';   /* POPOVER-NOSCROLL: 인라인 높이 초기화 */
   document.querySelector('.js-edit-scene-style-popover')?.classList.remove('is-active');
   document.removeEventListener('click', _sceneStylePopoverOutside, true);
   document.removeEventListener('keydown', _sceneStylePopoverEsc, true);

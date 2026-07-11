@@ -641,7 +641,10 @@ body.viewer-edit-readonly .edit-image-popover button:not(.edit-image-popover__cl
   position: fixed;
   z-index: 120;
   width: min(320px, calc(100vw - 24px));
-  max-height: min(60vh, 480px);
+  /* POPOVER-NOSCROLL(2026-07-11): 스크롤 없이 한눈에 — 화면 높이만큼 펼침.
+     정확한 남은 높이는 _positionSceneStylePopover가 인라인으로 재계산.
+     아주 낮은 화면에서만 overflow:auto가 안전망으로 동작. */
+  max-height: calc(100vh - 100px);
   overflow: auto;
   background: #fffdf8;
   border: 1px solid #e2cdd8;

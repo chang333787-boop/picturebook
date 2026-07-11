@@ -168,6 +168,10 @@
       ".read": true,
       ".write": false
     },
+    "app-version": {
+      ".read": true,
+      ".write": false
+    },
     "ai-stats": {
       ".read": false,
       ".write": false

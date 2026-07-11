@@ -113,11 +113,32 @@
     });
   }
 
+  /* ════════════════════════════════════════════════════════════════
+     FORCE-RELOAD-1(2026-07-11): 원격 강제 새로고침 채널.
+     app-version(read:true·클라 write 불가) 값이 "이 탭이 처음 본 값"과 달라지면
+     저장 flush 후 새로고침 — 긴급 패치를 전 접속자에게 즉시 배포할 때 관리자가
+     콘솔/MCP로 값만 바꾸면 됨. 값 비교라 시계 무관, 리스너 실패는 조용히 무시(fail-open). */
+  function _watchAppVersion() {
+    try {
+      var baseline;
+      firebase.database().ref('app-version').on('value', function (snap) {
+        var v = snap.val();
+        if (baseline === undefined) { baseline = (v == null ? null : v); return; }   /* 첫 값 = 기준 */
+        if (v == null || v === baseline) return;
+        try { if (typeof flushBodySaves === 'function') flushBodySaves(); } catch (e) {}
+        try { if (typeof flushTitleSaves === 'function') flushTitleSaves(); } catch (e) {}
+        try { if (typeof _flushPendingSave === 'function') _flushPendingSave(); } catch (e) {}
+        setTimeout(function () { try { location.reload(); } catch (e) {} }, 900);
+      });
+    } catch (e) { /* fail-open */ }
+  }
+
   let _bootTries = 0;
   function _boot() {
     try {
       /* viewer는 기본 앱 초기화가 데이터 로드 시점이라 늦을 수 있음 — 앱 생길 때까지 재시도 */
       firebase.app();
+      _watchAppVersion();
       firebase.auth().onAuthStateChanged(function (user) {
         if (user && !_shown && !_timer) _start(user);
       });

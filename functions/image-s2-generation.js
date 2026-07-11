@@ -10,7 +10,9 @@
    ════════════════════════════════════════════════════════════════ */
 
 /* ── 상수 (PRD §6·§11) ───────────────────────────────────────── */
-const PROMPT_VERSION = 'imgS2-p5-v1';   /* P5 완성형 그림책 마감 프롬프트(강한선 녹임+어설픔 조화). 실제 프롬프트는 adapter OPENAI_S2_PROMPT. */
+const PROMPT_VERSION = 'imgS2-p6-hint1';   /* P6 IMG-HINT-2(본문=해석 힌트·동점 전용). 실제 프롬프트는 adapter buildS2Prompt.
+   dedup에 포함되므로 버전 상향 = 이미 변환된 장면도 "다시 변환 요청 시" 새 규칙으로 재생성(그때 횟수 소모).
+   기존 완료작을 보기만 하는 건 무영향. (전례: P3→P4 상향과 동일 정책) */
 const FIT_POLICY = 'fit-imagecenter-landscape';
 /* 그림중심형 가로 프레임. 실측 px 는 PRD §16 미결 → 제안 기본값(3:2). 모델 확정 후 확정. */
 const TARGET_FRAME = { w: 1536, h: 1024, aspect: '3:2' };
@@ -303,6 +305,9 @@ async function runImageS2Generation(input, deps) {
     gen = await adapter.generate({
       originalSrc: gate.originalSrc, sourceMode: gate.sourceMode,
       promptVersion: PROMPT_VERSION, targetFrame: TARGET_FRAME, sceneId,
+      /* IMG-HINT-2(2026-07-11): 장면 본문 = 해석 힌트(어댑터가 맥락 프레임에 가둬 동봉).
+         본문 없으면 어댑터가 기존 프롬프트를 byte 동일 사용 — dedup/캐시 키는 불변(그림 기준). */
+      storyText: (scene && typeof scene.body === 'string') ? scene.body : '',
     });
   } catch (e) {
     return refundAnd({ ok: false, status: 'failed', code: 'IMAGE_AI_PROVIDER_ERROR', sceneId });

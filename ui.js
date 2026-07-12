@@ -1092,7 +1092,7 @@ window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('file-input')?.click());
   document.getElementById('btn-clear')      ?.addEventListener('click', clearAll);
   document.getElementById('btn-group-move') ?.addEventListener('click', toggleGroupMove);
-  document.getElementById('btn-preview')    ?.addEventListener('click', startPreview);
+  /* PREVIEW-RETIRE(2026-07-12): btn-preview·preview.js 제거 — W7 통합 이후 진입점 없는 사장 기능 정리 */
   document.getElementById('btn-route')      ?.addEventListener('click', openRoutePanel);
   /* HOTFIX(생각 나침반 결과 보기): 저장된 결과를 읽기 전용으로 다시 봄(기존 ThoughtCompassReview 재사용).
      질문 생성·API 호출·BASE10 재생성 없음. 버튼 표시는 _updateCompassResultButton이 제어. */
@@ -1161,20 +1161,6 @@ window.addEventListener('DOMContentLoaded', () => {
      브라우저 기본 텍스트 undo는 INPUT/TEXTAREA에서 그대로 동작 — 가로채지 않음 */
   /* LOW-6: mode-toggle-btn 제거됨 — 바인딩 삭제(toggleMode는 호환 스텁 유지) */
   document.getElementById('file-input')     ?.addEventListener('change', importJSON);
-
-  /* 미리보기 */
-  document.getElementById('btn-preview-restart')?.addEventListener('click', restartPreview);
-  document.getElementById('btn-preview-close')  ?.addEventListener('click', closePreview);
-  /* preview → 완성본 보기: 현재 팀 viewer로 새 탭 */
-  document.getElementById('btn-preview-open-viewer')?.addEventListener('click', () => {
-    const name = teamName ? encodeURIComponent(teamName) : '';
-    const cid  = classId  ? `&classId=${encodeURIComponent(classId)}` : '';
-    const url  = name ? `viewer.html?team=${name}${cid}&from=maker` : 'viewer.html';
-    closePreview();
-    flushTitleSaves();
-    _saveReturnContext('maker');
-    _openInternalUrl(url);
-  });
 
   /* 루트 */
   document.getElementById('btn-route-close')?.addEventListener('click', closeRoutePanel);
@@ -1251,11 +1237,10 @@ window.addEventListener('DOMContentLoaded', () => {
     _openReceiveCopyModal();
   });
 
-  /* ESC */
+  /* ESC — PREVIEW-RETIRE: closePreview 분기 제거(오버레이 삭제됨) */
   document.addEventListener('keydown', e => {
     if (e.key !== 'Escape') return;
     if (document.getElementById('img-modal')?.style.display === 'flex') closeImageModal();
-    else closePreview();
   });
 
   /* v43: 카드 외부 영역에 이미지 드롭 시 브라우저 기본 동작(이미지 새 탭 열기) 차단.
@@ -1301,8 +1286,7 @@ window.addEventListener('DOMContentLoaded', () => {
   });
 
   /* W7 통합: "빠르게 확인하기" + "완성본 보기" → "감상 테스트" 하나로 통합.
-     btn-preview(다음 단계 패널)는 제거됨 → ui.js의 startPreview 핸들러는 noop.
-     preview 모달 코드(preview.js)는 다른 진입점 없으면 자연 사장. 코드는 보존(회귀 X).
+     PREVIEW-RETIRE(2026-07-12): 사장됐던 preview.js·#preview-overlay·관련 CSS 최종 제거.
      감상 테스트 → btn-open-viewer (아래 _updateViewerLink) — viewer.html 새 탭. */
 
   /* 완성본 보기 → viewer.html?team=...&from=maker(&classId=...)

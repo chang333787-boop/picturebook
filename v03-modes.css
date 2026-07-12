@@ -3363,12 +3363,39 @@ body[data-pb-theme="forest-storybook"]   .cover-as-pb .cover-book {
    톤을 따라가게 — 그림책 표지와 대칭. body[data-text-theme]는 텍스트 작품에서만 붙음(pbTheme와 별개 속성=안 섞임).
    본문(.scene-screen--text[data-text-theme])은 이미 테마 적용됨 — 여기선 표지(.cover-as-pb)만 톤 이식. */
 body[data-text-theme] .cover-as-pb .pb-page { background: transparent; }
-body[data-text-theme="classic"]     .cover-as-pb { background: #f3f3f1; }  body[data-text-theme="classic"]     .cover-as-pb .cover-book { background: #fbfbfa; border: 1px solid #dcdcd8; }
-body[data-text-theme="paperbook"]   .cover-as-pb { background: #e9ddc3; }  body[data-text-theme="paperbook"]   .cover-as-pb .cover-book { background: #efe3c9; border: 1px solid #c2ab82; }
-body[data-text-theme="note"]        .cover-as-pb { background: #eef5fb; }  body[data-text-theme="note"]        .cover-as-pb .cover-book { background: #ffffff; border: 1px solid #c4d6e6; }
-body[data-text-theme="handwriting"] .cover-as-pb { background: #f6edda; }  body[data-text-theme="handwriting"] .cover-as-pb .cover-book { background: #fffaf0; border: 1px solid #e0c890; }
-body[data-text-theme="retro"]       .cover-as-pb { background: #0e0e0e; }  body[data-text-theme="retro"]       .cover-as-pb .cover-book { background: #141414; border: 1px solid #4af09a; }
-body[data-text-theme="dark"]        .cover-as-pb { background: #0e1320; }  body[data-text-theme="dark"]        .cover-as-pb .cover-book { background: #161d2e; border: 1px solid rgba(255,255,255,.16); }
+/* COVER-TEXT-2(2026-07-12·Level 2): 텍스트 표지 카드에도 장면 .text-card의 질감·테두리·그림자 미러링
+   (그림책 COVER-THEME-2와 대칭 — 종이결·줄노트·픽셀 글로우가 표지부터 이어지게). 외곽 배경(.cover-as-pb)은 유지. */
+body[data-text-theme="classic"]     .cover-as-pb { background: #f3f3f1; }
+body[data-text-theme="classic"]     .cover-as-pb .cover-book { background: #ffffff; border: 1px solid #e0e0e0; }
+body[data-text-theme="paperbook"]   .cover-as-pb { background: #e9ddc3; }
+body[data-text-theme="paperbook"]   .cover-as-pb .cover-book {
+  background:
+    repeating-linear-gradient(0deg, transparent 0 2px, rgba(120, 90, 50, 0.03) 2px 3px),
+    #f4ead5;
+  border: 1px solid #c8b896;
+  box-shadow: 0 4px 12px rgba(120, 90, 50, 0.15);
+}
+body[data-text-theme="note"]        .cover-as-pb { background: #eef5fb; }
+body[data-text-theme="note"]        .cover-as-pb .cover-book {
+  background:
+    linear-gradient(#dceaf5 1px, transparent 1px) 0 0/100% 28px,
+    #fafdff;
+  border: 1px solid #c8d8e8;
+}
+body[data-text-theme="handwriting"] .cover-as-pb { background: #f6edda; }
+body[data-text-theme="handwriting"] .cover-as-pb .cover-book {
+  background: #fffaf0; border: 1px solid #e8d4a8; border-radius: 4px;
+}
+body[data-text-theme="retro"]       .cover-as-pb { background: #0e0e0e; }
+body[data-text-theme="retro"]       .cover-as-pb .cover-book {
+  background: #1a1a1a; border: 2px solid #4af09a; border-radius: 0;
+  box-shadow: 0 0 20px rgba(74, 240, 154, 0.15);
+}
+body[data-text-theme="dark"]        .cover-as-pb { background: #0e1320; }
+body[data-text-theme="dark"]        .cover-as-pb .cover-book {
+  background: #161d2f; border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
 /* 어두운 테마(retro/dark) 표지 글자 밝게 — 대비 확보 */
 body[data-text-theme="retro"] .cover-as-pb .cover-title-pb, body[data-text-theme="dark"] .cover-as-pb .cover-title-pb,
 body[data-text-theme="retro"] .cover-as-pb .cover-subtitle-pb, body[data-text-theme="dark"] .cover-as-pb .cover-subtitle-pb,

@@ -3325,10 +3325,39 @@ body[data-pb-theme="cozy-storybook"]     .cover-as-pb .pb-page,
 body[data-pb-theme="paper-storybook"]    .cover-as-pb .pb-page,
 body[data-pb-theme="gallery-picturebook"] .cover-as-pb .pb-page,
 body[data-pb-theme="forest-storybook"]   .cover-as-pb .pb-page { background: transparent; }
-body[data-pb-theme="cozy-storybook"]     .cover-as-pb .cover-book { background: linear-gradient(#f7efd6, #ecdfc6); border: 1px solid rgba(150,120,70,.28); }
-body[data-pb-theme="paper-storybook"]    .cover-as-pb .cover-book { background: linear-gradient(#f7eece, #ece0bf); border: 1px solid rgba(150,135,100,.4); }
-body[data-pb-theme="gallery-picturebook"] .cover-as-pb .cover-book { background: #fbfbfa; border: 1px solid rgba(120,120,115,.28); }
-body[data-pb-theme="forest-storybook"]   .cover-as-pb .cover-book { background: linear-gradient(#e8f0de, #d3e0c6); border: 1px solid rgba(94,125,74,.3); }
+/* COVER-THEME-2(2026-07-12·Level 2): 표지 카드에 장면 무대(.picturebook-page)의 질감을 그대로 미러링 —
+   표지만 민무늬라 장면 넘기면 재질이 갑자기 생기던 단절 해소. 값은 각 테마 .picturebook-page에서 복사(단일 미러). */
+body[data-pb-theme="cozy-storybook"]     .cover-as-pb .cover-book {
+  background:
+    repeating-linear-gradient(135deg, rgba(0,0,0,.018) 0 1px, transparent 1px 7px),
+    linear-gradient(#fdf7ea, #f6ead1);
+  border: 1px solid #ecddbf;
+  border-radius: 18px;
+  box-shadow: 0 3px 12px rgba(120,90,40,.16);
+}
+body[data-pb-theme="paper-storybook"]    .cover-as-pb .cover-book {
+  background:
+    repeating-linear-gradient(45deg, rgba(120,90,50,.05) 0 1px, transparent 1px 6px),
+    repeating-linear-gradient(-45deg, rgba(80,55,25,.035) 0 1px, transparent 1px 8px),
+    radial-gradient(150% 130% at 50% 35%, #f6eedd 38%, #e6d9bf 100%);
+  border: 1px solid #cabd9d;
+  border-radius: 5px;
+  box-shadow: 0 2px 8px rgba(70,50,20,.18), inset 0 0 26px rgba(120,90,40,.14);
+}
+body[data-pb-theme="gallery-picturebook"] .cover-as-pb .cover-book {
+  background: #ffffff;
+  border: 1px solid #e6e6e2;
+  border-radius: 3px;
+  box-shadow: 0 4px 14px rgba(0,0,0,.10);
+}
+body[data-pb-theme="forest-storybook"]   .cover-as-pb .cover-book {
+  background:
+    repeating-linear-gradient(60deg, rgba(94,125,74,.045) 0 2px, transparent 2px 16px),
+    linear-gradient(#f0f6e9, #e6efdc);
+  border: 1px solid #c9d8ba;
+  border-radius: 14px;
+  box-shadow: 0 3px 11px rgba(50,70,40,.16);
+}
 
 /* TEXT-COVER-THEME(2026-07-09): 텍스트 작품 표지도 자기 텍스트 테마(classic/paperbook/note/handwriting/retro/dark)
    톤을 따라가게 — 그림책 표지와 대칭. body[data-text-theme]는 텍스트 작품에서만 붙음(pbTheme와 별개 속성=안 섞임).

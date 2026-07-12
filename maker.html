@@ -1706,6 +1706,28 @@
       display:flex;align-items:center;gap:6px;
     }
     .admin-tc-desc { font-size:12px;color:#8a7350;line-height:1.5; }
+    /* ADMIN-REDESIGN Phase 3: 설명서·인쇄물 탭 */
+    .admin-docs { display:flex;flex-direction:column; }
+    .admin-docs-actions { display:flex;gap:8px;flex-wrap:wrap; }
+    .admin-docs-details summary {
+      cursor:pointer;font-size:12.5px;color:#8a6a3a;padding:2px 0;user-select:none;
+    }
+    .admin-docs-details summary:hover { color:#6b4f26; }
+    .admin-docs-steps {
+      list-style:none;margin:8px 0 2px;padding:10px 12px;
+      background:rgba(199,149,80,.07);border-radius:10px;
+      display:flex;flex-direction:column;gap:7px;
+    }
+    .admin-docs-step {
+      display:flex;align-items:flex-start;gap:8px;
+      font-size:13px;color:#4a3d28;line-height:1.5;
+    }
+    .admin-docs-num {
+      flex:0 0 auto;width:18px;height:18px;border-radius:50%;
+      background:#c66f4a;color:#fff;font-size:11px;font-weight:700;
+      display:flex;align-items:center;justify-content:center;margin-top:2px;
+    }
+    .admin-docs-ico { flex:0 0 auto; }
     .admin-tc-form { display:flex;align-items:center;gap:8px;flex-wrap:wrap; }
     .admin-tc-input {
       flex:1 1 160px;min-width:120px;
@@ -3160,6 +3182,7 @@
       <nav class="admin-menu">
         <button type="button" class="admin-mi is-active" data-admin-tab="teams">👥 <span>팀·작품</span></button>
         <button type="button" class="admin-mi" data-admin-tab="settings">⚙️ <span>학급 설정</span></button>
+        <button type="button" class="admin-mi" data-admin-tab="docs">📖 <span>설명서·인쇄물</span></button>
       </nav>
       <div class="admin-side-foot">
         <button id="btn-admin-refresh" class="admin-refresh-btn" title="새로고침">🔄 <span>새로고침</span></button>
@@ -3191,6 +3214,11 @@
         <div id="admin-team-mode" class="admin-tc admin-tm" style="display:none;"></div>
         <!-- 교사 팀/학생 계정 사전 생성 패널 -->
         <div id="admin-team-create" class="admin-tc" style="display:none;"></div>
+      </section>
+
+      <!-- 탭: 설명서·인쇄물 (ADMIN-REDESIGN Phase 3 — 화면형 상세본 + 인쇄 트리거 편입) -->
+      <section class="admin-tab" data-admin-tab="docs">
+        <div id="admin-docs" class="admin-docs"></div>
       </section>
     </main>
 
@@ -3238,7 +3266,7 @@
 <script src="sceneRenderer.js?v=119base10bbase10auto1coverstart1scenetitle1ascenetitle2apwanav2vpreturn1perfqa1branchcard1branchcard2branchcard3branchcard4cover1cover2cover3compassbtn1pbflowcopy1cardquickedit1cardexpandpersist1dragperf1crossa1contest1low1polish12"></script>
 <script src="storyAnalyzer.js?v=136checkbuttons1heuristic3crossa1routewarm1routetabs1polish12"></script>
 <script src="mediaManager.js?v=114copyfix1uitextfix1"></script>
-<script src="adminConsole.js?v=103copyfix1pwanav2imgs2settings1writeafterui1waq1finishgroup1scenepubprint1accountmode1uitextfix1teacherprint1teamcard1memberlist1legacyux1delsafety2tutorialcd1adminredesign1teacherjoin1aipermwarn1adminmanual1csvbulk1errko1crossa1contest1master1master2shelf1low1polish12"></script>
+<script src="adminConsole.js?v=103copyfix1pwanav2imgs2settings1writeafterui1waq1finishgroup1scenepubprint1accountmode1uitextfix1teacherprint1teamcard1memberlist1legacyux1delsafety2tutorialcd1adminredesign1teacherjoin1aipermwarn1adminmanual1csvbulk1errko1crossa1contest1master1master2shelf1low1polish12phase3docs1"></script>
 <!-- ADMIN-REDESIGN Phase 3: 교사·학생 상세 설명서(화면형) -->
 <script src="admin-manual.js?v=adminmanual4contestlow1polish12"></script>
 <script src="projectSettings.js?v=114copyfix1coverstart2errko1"></script>
@@ -3247,7 +3275,7 @@
 <script src="mobileTextBranch.js?v=compassbundle1uitextfix1low1polish12"></script>
 <!-- TUTORIAL-PRD: 콘텐츠·삽화·데모(먼저) → 도움말/환영/인쇄 -->
 <script src="fullscreen-persist.js?v=fspersist1"></script>
-<script src="tutorial-content.js?v=tutorialbranchcard1contest1low1polish12"></script>
+<script src="tutorial-content.js?v=tutorialbranchcard1contest1low1polish12phase3docs1"></script>
 <script src="tutorial-art.js?v=tutorialrefine2polish12"></script>
 <script src="tutorial-demo.js?v=tutorialbranchcard1"></script>
 <script src="tutorial-help.js?v=tutorialart1"></script>

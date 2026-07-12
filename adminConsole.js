@@ -813,10 +813,9 @@ function _renderTeamCreatePanel(classId) {
       <button id="admin-tc-csv" class="admin-tc-btn admin-tc-btn--ghost" type="button" title="CSV 파일(팀이름,PIN) 또는 엑셀 붙여넣기로 여러 모둠을 한 번에 만들어요">📄 CSV로 한꺼번에</button>
     </div>
     <div class="admin-tc-cardrow">
-      <button id="admin-tc-manual" class="admin-tc-btn" type="button" title="교사·학생 사용법을 화면에서 자세히 봐요 — 계정 만들기·권한부여부터(처음 하는 분용)">📖 자세한 설명서</button>
+      <!-- ADMIN-REDESIGN Phase 3: 설명서·인쇄 버튼은 좌측메뉴 [설명서·인쇄물] 탭으로 편입.
+           입장 카드 인쇄만 계정 생성 직후 동선이라 여기 잔류. -->
       <button id="admin-tc-print-cards" class="admin-tc-btn admin-tc-btn--ghost" type="button" title="등록된 모둠의 클래스 코드·이름·PIN을 카드로 인쇄해요 (학생 배부용)">🖨 입장 카드 인쇄</button>
-      <button id="admin-tc-print-manual-student" class="admin-tc-btn admin-tc-btn--ghost" type="button" title="학생이 책상에 두고 보는 작품 만들기 사용법 1장 (배부용)">🖨 사용설명서(학생)</button>
-      <button id="admin-tc-print-manual-teacher" class="admin-tc-btn admin-tc-btn--ghost" type="button" title="교사 수업 준비 가이드 1장 (로그인·계정·인쇄·점검)">🖨 준비 가이드(교사)</button>
     </div>
     <div id="admin-tc-status" class="admin-tc-status"></div>
   `;
@@ -836,21 +835,6 @@ function _renderTeamCreatePanel(classId) {
   /* CSV-BULK-1: CSV/붙여넣기 일괄 생성 오버레이. */
   const csvBtn = document.getElementById('admin-tc-csv');
   if (csvBtn) csvBtn.addEventListener('click', () => _openCsvBulkOverlay(classId));
-  /* TUTORIAL-PRD Phase C/D: 정적 사용설명서 인쇄(학생 1장·교사 1장). 모듈 미로드 시 안내. */
-  const manualS = document.getElementById('admin-tc-print-manual-student');
-  const manualT = document.getElementById('admin-tc-print-manual-teacher');
-  const _tp = (fn) => {
-    if (window.TutorialPrint && typeof window.TutorialPrint[fn] === 'function') window.TutorialPrint[fn]();
-    else alert('사용설명서 인쇄 기능을 불러오지 못했어요. 새로고침 후 다시 시도해 주세요.');
-  };
-  if (manualS) manualS.addEventListener('click', () => _tp('printStudent'));
-  if (manualT) manualT.addEventListener('click', () => _tp('printTeacher'));
-  /* ADMIN-REDESIGN Phase 3: 화면형 상세 설명서(교사 계정 만들기·권한부여부터). */
-  const manualDetail = document.getElementById('admin-tc-manual');
-  if (manualDetail) manualDetail.addEventListener('click', () => {
-    if (window.AdminManual && typeof window.AdminManual.open === 'function') window.AdminManual.open('teacher');
-    else alert('설명서를 불러오지 못했어요. 새로고침 후 다시 시도해 주세요.');
-  });
   [nameEl, pinEl].forEach(el => el && el.addEventListener('keydown', e => {
     if (e.isComposing || e.keyCode === 229) return; /* CROSS-A: 한글 IME 조합 중 Enter 가드 */
     if (e.key === 'Enter') { e.preventDefault(); btn.click(); }
@@ -2500,3 +2484,86 @@ function _deleteTeam(encodedName, displayName) {
       }
     });
 }
+
+/* ================================================================
+   ADMIN-REDESIGN Phase 3 — 설명서·인쇄물 탭 (#admin-docs)
+   ─────────────────────────────────────────────────────────────────
+   정적 콘텐츠(팀 데이터 0)라 DOMContentLoaded 1회 렌더+바인딩.
+   인쇄는 기존 함수 그대로(TutorialPrint/_printEntryCards) — 트리거만 이동.
+   입장 카드는 클릭 시점의 adminState 메모리 사용(loadAdminData 이후 유효).
+   스텝 문구는 TutorialContent 단일 소스(tutorial-content.js) 재사용.
+   ================================================================ */
+function _renderDocsTab() {
+  const host = document.getElementById('admin-docs');
+  if (!host) return;
+  const C = window.TutorialContent || null;
+  const esc = _escHtml;
+  const stepsHtml = (steps) => (Array.isArray(steps) ? steps : []).map((st, i) => `
+    <li class="admin-docs-step">
+      <span class="admin-docs-num">${i + 1}</span>
+      <span class="admin-docs-ico">${esc(st.icon)}</span>
+      <span><b>${esc(st.title)}</b> — ${esc(st.text)}</span>
+    </li>`).join('');
+
+  host.innerHTML = `
+    <div class="admin-tc">
+      <div class="admin-tc-head">
+        <div class="admin-tc-title">🧭 시작하기 — 관리 화면 안내</div>
+        <div class="admin-tc-desc">계정 만들기·AI 권한·작품 관리·인쇄까지, 교사/학생 사용법을 화면에서 차례로 봐요. (처음 하는 분용)</div>
+      </div>
+      <div class="admin-docs-actions">
+        <button id="admin-docs-manual" class="admin-tc-btn" type="button">📖 화면으로 보기</button>
+      </div>
+    </div>
+    <div class="admin-tc">
+      <div class="admin-tc-head">
+        <div class="admin-tc-title">📄 준비 가이드 (교사용)</div>
+        <div class="admin-tc-desc">수업 전 준비 순서를 담은 A4 가이드예요. 인쇄 전에 아래에서 내용을 먼저 볼 수 있어요.</div>
+      </div>
+      <details class="admin-docs-details">
+        <summary>내용 미리 보기</summary>
+        <ol class="admin-docs-steps">${stepsHtml(C && C.teacherSteps)}</ol>
+      </details>
+      <div class="admin-docs-actions">
+        <button id="admin-docs-print-teacher" class="admin-tc-btn admin-tc-btn--ghost" type="button">🖨 인쇄</button>
+      </div>
+    </div>
+    <div class="admin-tc">
+      <div class="admin-tc-head">
+        <div class="admin-tc-title">📄 사용설명서 (학생 배부용)</div>
+        <div class="admin-tc-desc">학생이 책상에 두고 보는 작품 만들기 순서 1장이에요.</div>
+      </div>
+      <details class="admin-docs-details">
+        <summary>내용 미리 보기</summary>
+        <ol class="admin-docs-steps">${stepsHtml(C && C.studentPrintSteps)}</ol>
+      </details>
+      <div class="admin-docs-actions">
+        <button id="admin-docs-print-student" class="admin-tc-btn admin-tc-btn--ghost" type="button">🖨 인쇄</button>
+      </div>
+    </div>
+    <div class="admin-tc">
+      <div class="admin-tc-head">
+        <div class="admin-tc-title">🎫 입장 카드</div>
+        <div class="admin-tc-desc">등록된 모둠의 클래스 코드·모둠 이름·PIN을 카드로 뽑아 나눠 줘요. 모둠 등록은 [학급 설정] 탭에서 해요.</div>
+      </div>
+      <div class="admin-docs-actions">
+        <button id="admin-docs-print-cards" class="admin-tc-btn admin-tc-btn--ghost" type="button">🖨 인쇄</button>
+      </div>
+    </div>`;
+
+  const _tp = (fn) => {
+    if (window.TutorialPrint && typeof window.TutorialPrint[fn] === 'function') window.TutorialPrint[fn]();
+    else alert('인쇄 기능을 불러오지 못했어요. 새로고침 후 다시 시도해 주세요.');
+  };
+  document.getElementById('admin-docs-manual')?.addEventListener('click', () => {
+    if (window.AdminManual && typeof window.AdminManual.open === 'function') window.AdminManual.open('teacher');
+    else alert('설명서를 불러오지 못했어요. 새로고침 후 다시 시도해 주세요.');
+  });
+  document.getElementById('admin-docs-print-teacher')?.addEventListener('click', () => _tp('printTeacher'));
+  document.getElementById('admin-docs-print-student')?.addEventListener('click', () => _tp('printStudent'));
+  document.getElementById('admin-docs-print-cards')?.addEventListener('click', () => {
+    if (adminState.adminClassId) _printEntryCards(adminState.adminClassId);
+    else alert('학급 정보를 아직 불러오지 못했어요. [팀·작품] 탭이 열린 뒤 다시 시도해 주세요.');
+  });
+}
+window.addEventListener('DOMContentLoaded', _renderDocsTab);

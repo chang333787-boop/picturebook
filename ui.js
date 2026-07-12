@@ -1434,6 +1434,9 @@ window.addEventListener('DOMContentLoaded', () => {
            클릭 핸들러는 위에서 이미 바인딩됨(숨김 상태에도 안전). */
         const _backBtn = document.getElementById('btn-back-to-admin');
         if (_backBtn) _backBtn.style.display = '';
+        /* SCRIPT-DRAFT-2: 교사 세션 표시 + 대본 구조 가져오기 제안 스케줄(빈 무비형 작품 한정) */
+        window._teacherSessionActive = true;
+        if (typeof _scheduleScriptDraftImportOffer === 'function') _scheduleScriptDraftImportOffer();
       }
       if (!ok) {
         /* 폴백: 일반 입장 폼(팀명 채우고 PIN 직접) */
@@ -1530,4 +1533,176 @@ if (typeof window !== 'undefined' && window.visualViewport) {
       }
     });
   })();
+}
+
+/* ════════════════════════════════════════════════════════════════
+   SCRIPT-DRAFT-2 — 대본 도우미 초안 → 장면 구조 가져오기
+   ─────────────────────────────────────────────────────────────────
+   조건(전부 만족 시에만 배너): 교사 tauth 세션(window._teacherSessionActive)
+   · localStorage 초안(48h 이내·같은 classId) · scenes 로드 완료 + 0개
+   · projectType==='movie'. 쓰기는 BASE10과 동일 경로
+   (mobileTextBranch.js writeCustomScenesIfEmpty — 로드/빈작품/원격재확인/락 가드 공유).
+   장면 키 = 대본 번호 그대로(1..N) → 인쇄 대본과 캔버스 번호 일치.
+   표지 = N+1 (실작품 관례: 표지 num은 마지막이어도 무방 — type 기반 렌더).
+   ⚠️ 라벨 계약: viewer adaptChoices가 choiceA/B로 buttons 라벨을 덮어쓰므로
+   buttons[].label과 choiceA/B를 반드시 같은 문자열로 동기해 쓴다.
+   ════════════════════════════════════════════════════════════════ */
+let _asdImportOfferDismissed = false;
+let _asdImportTimer = null;
+
+function _readScriptDraftForImport() {
+  try {
+    const raw = localStorage.getItem('branchScriptDraftLast');
+    if (!raw) return null;
+    const box = JSON.parse(raw);
+    if (!box || box.v !== 1 || !box.draft || !Array.isArray(box.draft.scenes)) return null;
+    if (Date.now() - (box.at || 0) > 48 * 3600 * 1000) return null;   /* 48h 지난 초안은 제안 안 함 */
+    if (typeof classId === 'string' && classId && box.classId && box.classId !== classId) return null;
+    return box.draft;
+  } catch (e) { return null; }
+}
+
+function _scheduleScriptDraftImportOffer() {
+  /* scenes/meta 도착 시점이 유동적 — 이벤트 + 완만한 재시도(2s×15회) 둘 다 */
+  window.addEventListener('mtb-project-ready', _maybeOfferScriptDraftImport);
+  let tries = 0;
+  clearInterval(_asdImportTimer);
+  _asdImportTimer = setInterval(() => {
+    tries++;
+    if (_maybeOfferScriptDraftImport() || tries >= 15) clearInterval(_asdImportTimer);
+  }, 2000);
+}
+
+function _maybeOfferScriptDraftImport() {
+  if (_asdImportOfferDismissed) return true;                       /* 이 세션에선 다시 안 물음 */
+  if (document.getElementById('asd-import-banner')) return true;
+  if (!window._teacherSessionActive) return false;
+  const loaded = (typeof window.isBranchScenesLoaded === 'function')
+    ? window.isBranchScenesLoaded() : !!window.__branchScenesLoaded;
+  if (!loaded) return false;
+  if (typeof scenes !== 'object' || !scenes || Object.keys(scenes).length > 0) return false;
+  const pt = (typeof projectMeta !== 'undefined' && projectMeta && projectMeta.projectType)
+    || (typeof selectedProjectType === 'string' ? selectedProjectType : null);
+  if (pt !== 'movie') return false;
+  const draft = _readScriptDraftForImport();
+  if (!draft) return false;
+
+  const n = draft.scenes.filter(s => s && typeof s === 'object').length;
+  const bar = document.createElement('div');
+  bar.id = 'asd-import-banner';
+  bar.style.cssText = 'position:fixed;top:64px;left:50%;transform:translateX(-50%);z-index:900;'
+    + 'background:#fffaee;border:1.5px solid #c9a96a;border-radius:12px;'
+    + 'box-shadow:0 6px 24px rgba(80,50,20,.18);padding:10px 16px;display:flex;'
+    + 'align-items:center;gap:10px;font-size:13px;color:#2b1f10;max-width:92vw;flex-wrap:wrap;';
+  const label = document.createElement('span');
+  label.textContent = `🎬 대본 초안 「${String(draft.title || '제목 없음')}」 — 장면 ${n}개 + 표지를 이 작품에 만들까요?`;
+  const goBtn = document.createElement('button');
+  goBtn.textContent = '만들기';
+  goBtn.style.cssText = 'min-height:32px;padding:4px 14px;border:none;border-radius:8px;cursor:pointer;'
+    + 'background:#c79550;color:#fffaee;font-family:var(--font-h);font-size:13px;';
+  const laterBtn = document.createElement('button');
+  laterBtn.textContent = '나중에';
+  laterBtn.style.cssText = 'min-height:32px;padding:4px 12px;border:1.5px solid #d9c49a;border-radius:8px;'
+    + 'cursor:pointer;background:#fffaee;color:#8a6a3a;font-size:12.5px;';
+  bar.appendChild(label); bar.appendChild(goBtn); bar.appendChild(laterBtn);
+  document.body.appendChild(bar);
+
+  laterBtn.addEventListener('click', () => { _asdImportOfferDismissed = true; bar.remove(); });
+  goBtn.addEventListener('click', () => _runScriptDraftImport(draft, bar, goBtn, label));
+  return true;
+}
+
+async function _runScriptDraftImport(draft, bar, goBtn, label) {
+  const ok = window.showMakerConfirm
+    ? await window.showMakerConfirm({
+        title: '대본 구조를 만들까요?',
+        message: '대본의 장면·선택지 연결 그대로 카드가 만들어져요. 대사는 인쇄한 대본을 보고 촬영하고, 각 장면에는 영상만 올리면 돼요.',
+        confirmText: '만들기', cancelText: '취소', danger: false,
+      })
+    : confirm('대본 구조(장면+표지+연결)를 이 작품에 만들까요?');
+  if (!ok) return;
+  goBtn.disabled = true; goBtn.textContent = '만드는 중…';
+  try {
+    const map = _buildScenesFromScriptDraft(draft);
+    const res = (typeof window.writeCustomScenesIfEmpty === 'function')
+      ? await window.writeCustomScenesIfEmpty(map)
+      : { ok: false, reason: 'no-writer' };
+    if (res && res.ok) {
+      label.textContent = '✅ 장면 구조를 만들었어요! 카드를 옮기고 영상을 채워 주세요.';
+      goBtn.remove();
+      setTimeout(() => bar.remove(), 4000);
+      _asdImportOfferDismissed = true;
+    } else {
+      const why = res && res.reason;
+      label.textContent = why === 'not-empty' || why === 'remote-exists'
+        ? '⚠️ 이미 장면이 있는 작품에는 만들 수 없어요.'
+        : '⚠️ 만들지 못했어요. 잠시 후 다시 시도해 주세요.';
+      goBtn.disabled = false; goBtn.textContent = '만들기';
+    }
+  } catch (e) {
+    label.textContent = '⚠️ 만들지 못했어요. 잠시 후 다시 시도해 주세요.';
+    goBtn.disabled = false; goBtn.textContent = '만들기';
+  }
+}
+
+/* 대본 JSON → maker 장면맵 (BASE10 스키마 준수: buttons[]+choiceA/B 동기·nextA/B 미기록) */
+function _buildScenesFromScriptDraft(draft) {
+  const arr = (draft.scenes || []).filter(s => s && typeof s === 'object');
+  const out = {};
+  arr.forEach((s, i) => {
+    const key = String(s.num);
+    if (out[key]) return;   /* 중복 번호는 첫 장면만 */
+    const isBranch = s.kind === 'branch';
+    const isEnd = s.kind === 'ending' || s.kind === 'trueEnding';
+    /* 비갈림·비엔딩 장면은 배열 순서상 다음 장면으로 연결(대본 생성 순서 = 경로 순서) */
+    const seqNext = (!isBranch && !isEnd && arr[i + 1]) ? String(arr[i + 1].num) : null;
+    let buttons = [], choiceA = '', choiceB = '';
+    if (isBranch) {
+      const cs = (Array.isArray(s.choices) ? s.choices : []).filter(c => c && typeof c === 'object').slice(0, 2);
+      buttons = cs.map((c, bi) => ({
+        id: (c.id === 'A' || c.id === 'B') ? c.id : (bi === 0 ? 'A' : 'B'),
+        label: String(c.text || ''),
+        nextId: String(c.next),
+      }));
+      choiceA = buttons[0] ? buttons[0].label : '';
+      choiceB = buttons[1] ? buttons[1].label : '';
+    } else if (!isEnd && seqNext) {
+      buttons = [{ id: 'A', label: '다음으로 가기', nextId: seqNext }];
+      choiceA = '다음으로 가기';
+    }
+    const sc = {
+      num: Number(s.num),
+      title: String(s.title || ''),
+      body: String(s.stage || ''),
+      type: isEnd ? 'ending' : 'normal',
+      buttons, choiceA, choiceB,
+      choiceCount: isBranch ? 2 : 1,
+      _hasBody: true,
+      presentationMode: 'movie',
+      x: 40 + (i % 5) * 300,
+      y: 60 + Math.floor(i / 5) * 240,
+    };
+    if (s.kind === 'trueEnding') sc.trueEnding = true;
+    out[key] = sc;
+  });
+  /* 표지 = 최대 번호 + 1 (type 기반 렌더라 번호 위치 무관 — 실작품 관례 확인됨) */
+  const maxNum = arr.reduce((m, s) => Math.max(m, Number(s.num) || 0), 0);
+  const coverNum = maxNum + 1;
+  out[String(coverNum)] = {
+    num: coverNum,
+    title: String(draft.title || ''),
+    body: '',
+    type: 'cover',
+    subtitle: String((draft.cover && draft.cover.intro) || ''),
+    coverTheme: 'default',
+    titleVerticalPosition: 50,
+    buttons: [{ id: 'A', label: '▶️ 시작하기', nextId: '1' }],
+    choiceA: '▶️ 시작하기', choiceB: '',
+    choiceCount: 1,
+    _hasBody: true,
+    presentationMode: 'movie',
+    x: 40 + (arr.length % 5) * 300,
+    y: 60 + Math.floor(arr.length / 5) * 240,
+  };
+  return out;
 }

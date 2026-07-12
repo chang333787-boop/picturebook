@@ -2698,6 +2698,11 @@ function _renderScriptTab() {
       /* 렌더 성공 후에만 마지막 결과로 보관 — 불량 draft가 복사/인쇄에 남지 않게(리뷰 #1) */
       $('asd-result').innerHTML = _scriptDraftHtml(draft);
       _asdLastDraft = draft;
+      /* SCRIPT-DRAFT-2: 🛠수정으로 빈 무비형 작품에 들어가면 [구조 가져오기] 배너가 이걸 읽음 */
+      try {
+        localStorage.setItem('branchScriptDraftLast',
+          JSON.stringify({ v: 1, at: Date.now(), classId: payload.classId, draft }));
+      } catch (e) { /* 저장 실패해도 대본 표시는 유효 */ }
       $('asd-result-card').style.display = '';
       $('asd-result-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch (e) {

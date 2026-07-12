@@ -2383,8 +2383,11 @@ async function _writeBase10IfEmpty(opts) {
 
     /* 기본 장면 1회 기록 (set 전체 덮어쓰기 X — update 사용) */
     /* HOTFIX: ptype 전달 → 그림책이면 빌더가 imageCenter 명시.
-       COMPASS-LENGTH-BASE: storyCount(8/12/15) 전달 — 미지정=8(기존 BASE10 동일). */
-    const raw = _mtbBuildBase10Scenes({ source, ptype: opts.ptype, storyCount: opts.storyCount });
+       COMPASS-LENGTH-BASE: storyCount(8/12/15) 전달 — 미지정=8(기존 BASE10 동일).
+       SCRIPT-DRAFT-2: customScenes(사전 구성 장면맵)가 오면 빌더 대신 그대로 사용 —
+       가드(로드/빈 작품/원격 재확인/락)와 _sceneToDbShape 경유는 동일. */
+    const raw = opts.customScenes
+      || _mtbBuildBase10Scenes({ source, ptype: opts.ptype, storyCount: opts.storyCount });
     const payload = {};
     Object.keys(raw).forEach(k => {
       payload[k] = (typeof _sceneToDbShape === 'function') ? _sceneToDbShape(raw[k]) : raw[k];
@@ -2558,6 +2561,9 @@ async function _createBase10FromDesktop() {
 /* PC 쪽(ui.js)에서 위임 호출 — build 함수도 함께 노출(구조 일치 보장용) */
 window.createBase10StarterScenes = _createBase10FromDesktop;
 window.buildBase10StarterScenes = _mtbBuildBase10Scenes;
+/* SCRIPT-DRAFT-2: 대본 도우미 구조 가져오기 — BASE10과 같은 가드·락·쓰기 경로 공유 */
+window.writeCustomScenesIfEmpty = (sceneMap) =>
+  _writeBase10IfEmpty({ source: 'scriptDraft', customScenes: sceneMap, markInitialized: false });
 
 /* ── 초기화 ── */
 function _mtbInit() {

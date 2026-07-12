@@ -2567,3 +2567,285 @@ function _renderDocsTab() {
   });
 }
 window.addEventListener('DOMContentLoaded', _renderDocsTab);
+
+/* ════════════════════════════════════════════════════════════════
+   SCRIPT-DRAFT-1 — 🎬 대본 도우미 탭 (#admin-script)
+   ─────────────────────────────────────────────────────────────────
+   교사 전용 무비형 대본 초안 생성. 서버 callable teacherScriptDraft
+   (담당교사/super_admin 게이트·교사 일일 10회 한도·학생 quota와 분리).
+   정적 폼이라 DOMContentLoaded 1회 렌더. classId는 클릭 시점 adminState.
+   ?test=1 이면 callable 대신 mock 대본(기존 TEST MODE 정책과 동일 취지).
+   인쇄 = 기존 인쇄 게이트 패턴(body class + 전용 root + @media print + afterprint 정리).
+   ════════════════════════════════════════════════════════════════ */
+function _renderScriptTab() {
+  const host = document.getElementById('admin-script');
+  if (!host) return;
+  host.innerHTML = `
+    <div class="admin-tc">
+      <div class="admin-tc-head">
+        <div class="admin-tc-title">🎬 무비형 대본 도우미</div>
+        <div class="admin-tc-desc">소재를 적으면 AI가 촬영용 분기 대본 초안을 만들어요.
+          초안은 출발점이에요 — 학급 토의로 함께 고쳐 쓰는 걸 권장해요. (하루 10회)</div>
+      </div>
+      <div class="asd-form">
+        <div class="asd-label">주제/상황 (필수)</div>
+        <textarea id="asd-topic" maxlength="400" placeholder="예: 학교에서 없어진 물건 때문에 생긴 오해와 갈등, 그리고 해결 과정"></textarea>
+        <div class="asd-label">주인공 구성 (필수) — 인원·성별·이름(있으면)</div>
+        <input id="asd-characters" class="admin-tc-input" type="text" maxlength="300"
+          placeholder="예: 6명 (남 2, 여 4)" autocomplete="off"/>
+        <div class="asd-label">배경 장소 (비우면 학교)</div>
+        <input id="asd-place" class="admin-tc-input" type="text" maxlength="120"
+          placeholder="예: 교실, 복도, 운동장" autocomplete="off"/>
+        <div class="asd-label">분기 구조 · 결말 성격 · 톤</div>
+        <div class="asd-row">
+          <select id="asd-structure">
+            <option value="갈림 2번 · 총 11장면 · 엔딩 3개(진엔딩 경로 8장면)">갈림 2번 · 총 11장면 · 엔딩 3개 (추천)</option>
+            <option value="갈림 2번 합류식 · 총 8장면 · 엔딩 2개(잘못된 선택도 본줄기로 합류, 진엔딩 경로 8장면)">갈림 2번 합류식 · 총 8장면 (촬영 최소)</option>
+            <option value="갈림 3번 · 총 13장면 · 엔딩 4개(진엔딩 경로 8장면)">갈림 3번 · 총 13장면 · 엔딩 4개 (분기 풍성)</option>
+          </select>
+          <select id="asd-ending">
+            <option value="">결말: AI가 알아서</option>
+            <option value="따뜻한 화해로 끝나는 결말">따뜻한 화해</option>
+            <option value="작은 반전이 있는 결말">작은 반전</option>
+            <option value="여운을 남기는 열린 결말">열린 결말</option>
+          </select>
+          <select id="asd-tone">
+            <option value="코믹과 진지 반반(앞부분 가볍게, 결말로 갈수록 진지하게)">톤: 코믹+진지 반반 (추천)</option>
+            <option value="밝고 코믹하게">코믹 위주</option>
+            <option value="차분하고 진지하게">진지 위주</option>
+          </select>
+          <select id="asd-grade">
+            <option value="초등 3~4학년">3~4학년</option>
+            <option value="초등 1~2학년">1~2학년</option>
+            <option value="초등 5~6학년">5~6학년</option>
+          </select>
+        </div>
+        <div class="asd-label">담고 싶은 메시지 (비우면 AI가 알아서)</div>
+        <input id="asd-message" class="admin-tc-input" type="text" maxlength="200"
+          placeholder="예: 친구를 믿어주자" autocomplete="off"/>
+        <div class="asd-row">
+          <button id="asd-generate" class="admin-tc-btn" type="button">🎬 대본 초안 만들기</button>
+        </div>
+        <div id="asd-status" class="asd-status"></div>
+      </div>
+    </div>
+    <div class="admin-tc" id="asd-result-card" style="display:none;">
+      <div class="admin-tc-head">
+        <div class="admin-tc-title">📜 대본 초안</div>
+        <div class="admin-tc-desc">마음에 안 드는 부분은 조건을 바꿔 다시 만들거나, 인쇄해서 학급 토의로 다듬어 주세요.</div>
+      </div>
+      <div id="asd-result" class="asd-result"></div>
+      <div class="admin-docs-actions">
+        <button id="asd-copy" class="admin-tc-btn admin-tc-btn--ghost" type="button">📋 복사</button>
+        <button id="asd-print" class="admin-tc-btn admin-tc-btn--ghost" type="button">🖨 인쇄</button>
+      </div>
+    </div>`;
+
+  const $ = (id) => document.getElementById(id);
+  const statusEl = $('asd-status');
+  const setStatus = (msg) => { if (statusEl) statusEl.textContent = msg || ''; };
+
+  $('asd-generate')?.addEventListener('click', async () => {
+    const topic = $('asd-topic').value.trim();
+    const characters = $('asd-characters').value.trim();
+    if (!topic)      { setStatus('⚠️ 주제/상황을 입력해 주세요.'); $('asd-topic').focus(); return; }
+    if (!characters) { setStatus('⚠️ 주인공 구성을 입력해 주세요.'); $('asd-characters').focus(); return; }
+    if (!adminState.adminClassId) { setStatus('⚠️ 학급 정보를 아직 불러오지 못했어요. [팀·작품] 탭이 열린 뒤 다시 시도해 주세요.'); return; }
+
+    const payload = {
+      classId: adminState.adminClassId,
+      topic,
+      characters,
+      place:       $('asd-place').value.trim(),
+      structure:   $('asd-structure').value,
+      endingStyle: $('asd-ending').value,
+      tone:        $('asd-tone').value,
+      grade:       $('asd-grade').value,
+      message:     $('asd-message').value.trim(),
+    };
+    const btn = $('asd-generate');
+    btn.disabled = true; btn.textContent = '✍️ 대본 쓰는 중… (30초쯤 걸려요)';
+    setStatus('');
+    try {
+      let draft;
+      if (/[?&]test=1/.test(location.search)) {
+        await new Promise(r => setTimeout(r, 600));
+        draft = {
+          title: '테스트 대본',
+          cover: { intro: 'TEST MODE 목업이에요.', artIdea: '책상 위 가방 하나와 물음표 그림자', cast: '○모둠 (하은·지우 역)' },
+          characters: [{ name: '하은', desc: '키링 주인' }, { name: '지우', desc: '오해받는 아이' }],
+          flow: '1(갈림①)→2🏆',
+          scenes: [
+            { num: 1, title: '갈림 테스트', place: '교실', kind: 'branch', stage: '목업 지문입니다.',
+              lines: [{ who: '하은', voice: '밝게', action: '손 흔들며', text: '이건 테스트 대본이에요!' }],
+              choices: [{ id: 'A', text: '믿는다', next: 2, value: '믿음' }, { id: 'B', text: '의심한다', next: 2, value: '확인' }],
+              camera: '고정샷 10초.', caption: '' },
+            { num: 2, title: '끝', place: '교실', kind: 'trueEnding', stage: '끝 장면.',
+              lines: [{ who: '지우', voice: '차분히', action: '웃으며', text: '끝!' }],
+              choices: [], camera: '정면 고정샷.', caption: '테스트 자막입니다.' },
+          ],
+        };
+      } else {
+        const res = await firebase.app().functions('asia-northeast3')
+          .httpsCallable('teacherScriptDraft')(payload);
+        if (res && res.data && res.data.refused) {
+          setStatus('⚠️ ' + (res.data.reason || '이 소재는 수업용 대본으로 만들기 어려워요. 소재를 조금 바꿔 주세요.'));
+          return;
+        }
+        if (!res || !res.data || !res.data.ok || !res.data.draft) throw new Error('empty');
+        draft = res.data.draft;
+      }
+      /* 렌더 성공 후에만 마지막 결과로 보관 — 불량 draft가 복사/인쇄에 남지 않게(리뷰 #1) */
+      $('asd-result').innerHTML = _scriptDraftHtml(draft);
+      _asdLastDraft = draft;
+      $('asd-result-card').style.display = '';
+      $('asd-result-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (e) {
+      const msg = (e && e.message) || '';
+      if (/resource-exhausted|다 썼어요/.test(msg)) setStatus('⚠️ ' + msg.replace(/^.*?:\s*/, ''));
+      else if (/permission-denied|담당 교사/.test(msg)) setStatus('⚠️ 담당 교사 계정으로만 만들 수 있어요.');
+      else if (/잘렸어요/.test(msg)) setStatus('⚠️ 대본이 너무 길어서 잘렸어요. 장면 수가 적은 구조로 다시 만들어 주세요.');
+      else setStatus('⚠️ 대본을 만들지 못했어요. 잠시 후 다시 시도해 주세요.');
+    } finally {
+      btn.disabled = false; btn.textContent = '🎬 대본 초안 만들기';
+    }
+  });
+
+  $('asd-copy')?.addEventListener('click', async () => {
+    try {
+      const text = _asdLastDraft ? _scriptDraftText(_asdLastDraft) : '';
+      if (!text) return;
+      await navigator.clipboard.writeText(text);
+      setStatus('📋 복사했어요.');
+    } catch (e) { setStatus('⚠️ 복사하지 못했어요. 결과를 드래그해서 복사해 주세요.'); }
+    setTimeout(() => setStatus(''), 2000);
+  });
+
+  $('asd-print')?.addEventListener('click', () => _printScriptDraft());
+}
+
+/* SCRIPT-DRAFT-1: 마지막 생성 결과(JSON) — 복사(텍스트 변환)·인쇄에서 재사용 */
+let _asdLastDraft = null;
+
+/* 대본 JSON → 카드형 HTML (화면·인쇄 공용. 모든 값 escape·null 안전 — 리뷰 #1) */
+function _scriptDraftHtml(d) {
+  const esc = (v) => _escHtml(v == null ? '' : v);
+  const chars = (d.characters || []).filter(c => c && typeof c === 'object').map(c =>
+    `<li>${esc(c.name)} — ${esc(c.desc)}</li>`).join('');
+  const cover = d.cover || {};
+  const scenes = (d.scenes || []).filter(s => s && typeof s === 'object').map(s => {
+    const isBranch = s.kind === 'branch';
+    const isEnd    = s.kind === 'ending' || s.kind === 'trueEnding';
+    const badge = s.kind === 'trueEnding' ? '<span class="asd-badge asd-badge--true">🏆 진엔딩</span>'
+                : s.kind === 'ending'     ? '<span class="asd-badge asd-badge--end">🏁 엔딩</span>' : '';
+    const lines = (s.lines || []).filter(l => l && typeof l === 'object').map(l => `
+      <div class="asd-line"><span class="asd-who">${esc(l.who)}</span>${
+        l.voice ? `<span class="asd-nv">🗣️ ${esc(l.voice)}</span>` : ''}${
+        l.action ? `<span class="asd-nv">🎭 ${esc(l.action)}</span>` : ''}
+        <span class="asd-say">"${esc(l.text)}"</span></div>`).join('');
+    const choices = isBranch ? (s.choices || []).filter(c => c && typeof c === 'object').map(c => `
+      <div class="asd-choice">[선택 ${esc(c.id)}] "${esc(c.text)}" → 장면 ${esc(String(c.next))}${
+        c.value ? ` <span class="asd-choiceval">(가치: ${esc(c.value)})</span>` : ''}</div>`).join('') : '';
+    return `
+    <div class="asd-sc${isBranch ? ' asd-sc--branch' : ''}${isEnd ? ' asd-sc--ending' : ''}">
+      <div class="asd-sc-title">장면 ${esc(String(s.num))} — ${esc(s.title)} ${badge}
+        <span class="asd-place">(${esc(s.place)})</span></div>
+      ${s.stage ? `<div class="asd-stage">지문: ${esc(s.stage)}</div>` : ''}
+      ${lines}${choices}
+      ${s.camera ? `<div class="asd-camera">📹 ${esc(s.camera)}</div>` : ''}
+      ${s.caption ? `<div class="asd-caption">자막: ${esc(s.caption)}</div>` : ''}
+    </div>`;
+  }).join('');
+  return `
+    <div class="asd-h1">🎬 ${esc(d.title)}</div>
+    <div class="asd-sec">📖 표지</div>
+    <ul class="asd-cover">
+      <li><b>제목</b>: ${esc(d.title)}</li>
+      ${cover.intro ? `<li><b>한 줄 소개</b>: ${esc(cover.intro)}</li>` : ''}
+      ${cover.artIdea ? `<li><b>표지 그림 아이디어</b>: ${esc(cover.artIdea)}</li>` : ''}
+      ${cover.cast ? `<li><b>만든 사람들</b>: ${esc(cover.cast)}</li>` : ''}
+    </ul>
+    ${chars ? `<div class="asd-sec">등장인물</div><ul class="asd-cover">${chars}</ul>` : ''}
+    ${d.flow ? `<div class="asd-sec">구조도</div><div class="asd-flow">${esc(d.flow)}</div>` : ''}
+    <div class="asd-sec">장면들</div>
+    ${scenes}`;
+}
+
+/* 대본 JSON → 복사용 일반 텍스트 (null 안전 — 리뷰 #1) */
+function _scriptDraftText(d) {
+  const t = (v) => (v == null ? '' : String(v));
+  const out = [`🎬 ${t(d.title)}`, ''];
+  const cover = d.cover || {};
+  out.push('[표지]');
+  out.push(`제목: ${t(d.title)}`);
+  if (cover.intro)   out.push(`한 줄 소개: ${t(cover.intro)}`);
+  if (cover.artIdea) out.push(`표지 그림 아이디어: ${t(cover.artIdea)}`);
+  if (cover.cast)    out.push(`만든 사람들: ${t(cover.cast)}`);
+  out.push('');
+  const chars = (Array.isArray(d.characters) ? d.characters : []).filter(c => c && typeof c === 'object');
+  if (chars.length) {
+    out.push('[등장인물]');
+    chars.forEach(c => out.push(`${t(c.name)} — ${t(c.desc)}`));
+    out.push('');
+  }
+  if (d.flow) { out.push(`[구조도] ${t(d.flow)}`, ''); }
+  (d.scenes || []).filter(s => s && typeof s === 'object').forEach(s => {
+    const tag = s.kind === 'trueEnding' ? ' 🏆진엔딩' : s.kind === 'ending' ? ' 🏁엔딩' : '';
+    out.push(`■ 장면 ${t(s.num)} — ${t(s.title)}${tag} (${t(s.place)})`);
+    if (s.stage) out.push(`지문: ${t(s.stage)}`);
+    (s.lines || []).filter(l => l && typeof l === 'object').forEach(l => {
+      out.push(`- ${t(l.who)}: 🗣️${t(l.voice)} 🎭${t(l.action)}`);
+      out.push(`  "${t(l.text)}"`);
+    });
+    if (s.kind === 'branch') (s.choices || []).filter(c => c && typeof c === 'object').forEach(c =>
+      out.push(`[선택 ${t(c.id)}] "${t(c.text)}" → 장면 ${t(c.next)}${c.value ? ` (가치: ${t(c.value)})` : ''}`));
+    if (s.camera)  out.push(`📹 ${t(s.camera)}`);
+    if (s.caption) out.push(`자막: ${t(s.caption)}`);
+    out.push('');
+  });
+  return out.join('\n');
+}
+
+/* 대본 인쇄 — 화면과 같은 카드형 서식으로 인쇄.
+   tutorial-print와 동일 게이트 패턴(전용 root + body class + @media print + afterprint 정리).
+   카드 클래스(asd-sc 등)는 maker.html CSS를 그대로 받고, 인쇄 전용 보정만 아래 스타일로. */
+function _printScriptDraft() {
+  if (!_asdLastDraft) return;
+  const ROOT_ID = 'asd-print-root';
+  const STYLE_ID = 'asd-print-style';
+  const cleanup = () => {
+    document.body.classList.remove('asd-print-on');
+    document.getElementById(ROOT_ID)?.remove();
+    document.getElementById(STYLE_ID)?.remove();
+    window.removeEventListener('afterprint', cleanup);
+  };
+  document.getElementById(ROOT_ID)?.remove();
+  const root = document.createElement('div');
+  root.id = ROOT_ID;
+  root.innerHTML = _scriptDraftHtml(_asdLastDraft);
+  document.body.appendChild(root);
+  const style = document.createElement('style');
+  style.id = STYLE_ID;
+  style.textContent = `
+    #${ROOT_ID} { display:none; }
+    @media print {
+      body.asd-print-on > *:not(#${ROOT_ID}) { display:none !important; }
+      body.asd-print-on #${ROOT_ID} {
+        display:block;margin:8mm 10mm;color:#1c140a;
+        font-family:'Nanum Gothic','Jua',sans-serif;font-size:11pt;line-height:1.6;
+      }
+      #${ROOT_ID} .asd-h1 { font-size:17pt; }
+      #${ROOT_ID} .asd-sec { font-size:12.5pt;margin:5mm 0 2mm; }
+      #${ROOT_ID} .asd-sc { break-inside:avoid;margin:0 0 4mm;padding:3.5mm 4.5mm; }
+      #${ROOT_ID} .asd-nv { font-size:8.5pt; }
+      #${ROOT_ID} .asd-camera, #${ROOT_ID} .asd-stage { font-size:9.5pt; }
+    }`;
+  document.head.appendChild(style);
+  try {
+    document.body.classList.add('asd-print-on');
+    window.addEventListener('afterprint', cleanup);
+    window.print();
+    setTimeout(cleanup, 2000);
+  } catch (e) { cleanup(); }
+}
+window.addEventListener('DOMContentLoaded', _renderScriptTab);

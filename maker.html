@@ -1728,6 +1728,56 @@
       display:flex;align-items:center;justify-content:center;margin-top:2px;
     }
     .admin-docs-ico { flex:0 0 auto; }
+    /* SCRIPT-DRAFT-1: 대본 도우미 탭 */
+    .asd-form { display:flex;flex-direction:column;gap:8px;max-width:680px; }
+    /* admin-tc-input의 flex-basis가 세로 플렉스에서 높이로 해석되는 것 차단 */
+    .asd-form > .admin-tc-input { flex:0 0 auto;width:100%;box-sizing:border-box; }
+    .asd-form textarea {
+      min-height:64px;resize:vertical;font:inherit;font-size:13px;
+      padding:8px 10px;border:1.5px solid #d9c49a;border-radius:8px;background:#fff;color:#2b1f10;
+    }
+    .asd-row { display:flex;gap:8px;flex-wrap:wrap; }
+    .asd-row .admin-tc-input { flex:1 1 180px; }
+    .asd-row select {
+      flex:1 1 180px;min-height:36px;font-size:13px;padding:4px 8px;
+      border:1.5px solid #d9c49a;border-radius:8px;background:#fff;color:#2b1f10;
+    }
+    .asd-label { font-size:11.5px;color:#8a7350;margin:2px 0 -4px; }
+    .asd-status { font-size:12.5px;color:#8a6a3a;min-height:18px; }
+    .asd-result {
+      font-size:13.5px;line-height:1.65;color:#2b1f10;
+      background:#fff;border:1.5px solid #e6d6ba;border-radius:10px;
+      padding:16px 20px;max-height:65vh;overflow-y:auto;max-width:860px;
+    }
+    /* 대본 카드형 렌더 (화면·인쇄 공용 클래스) */
+    .asd-h1 { font-family:var(--font-h);font-size:19px;margin:2px 0 10px; }
+    .asd-sec {
+      font-family:var(--font-h);font-size:15px;margin:16px 0 6px;color:#8a5a2a;
+      border-bottom:1.5px dashed #e0cfa8;padding-bottom:3px;
+    }
+    .asd-cover { list-style:none;margin:0;padding:0; }
+    .asd-cover li { margin:3px 0; }
+    .asd-flow { font-size:12.5px;color:#4a3d28; }
+    .asd-sc { margin:12px 0 14px;padding:11px 13px;background:#fdf9ef;border:1px solid #eee0c2;border-radius:10px; }
+    .asd-sc--branch { border-color:#c9a96a;background:#fdf3e0; }
+    .asd-sc--ending { border-color:#d98e63; }
+    .asd-sc-title { font-family:var(--font-h);font-size:14.5px;margin-bottom:5px; }
+    .asd-place { color:#8a7350;font-weight:400;font-size:12px; }
+    .asd-stage { font-size:12.5px;color:#7a6a50;margin-bottom:7px; }
+    .asd-line { margin:6px 0; }
+    .asd-who { font-weight:800; }
+    .asd-nv {
+      font-size:11.5px;color:#8a6a3a;background:rgba(199,149,80,.12);
+      border-radius:6px;padding:1px 7px;margin-left:4px;
+    }
+    .asd-say { display:block;margin:2px 0 0 14px; }
+    .asd-choice { margin:7px 0 2px 4px;font-weight:800; }
+    .asd-choiceval { font-weight:400;font-size:11.5px;color:#8a6a3a; }
+    .asd-camera { margin-top:7px;font-size:12px;color:#5a7a5a; }
+    .asd-caption { margin-top:7px;font-size:12.5px;color:#7a5a3a;font-style:italic; }
+    .asd-badge { font-size:11px;border-radius:50px;padding:2px 10px;margin-left:4px;vertical-align:middle; }
+    .asd-badge--true { background:#f6e6b0;color:#8a6a1a; }
+    .asd-badge--end { background:#f8ddd0;color:#a04a2a; }
     .admin-tc-form { display:flex;align-items:center;gap:8px;flex-wrap:wrap; }
     .admin-tc-input {
       flex:1 1 160px;min-width:120px;
@@ -3183,6 +3233,7 @@
         <button type="button" class="admin-mi is-active" data-admin-tab="teams">👥 <span>팀·작품</span></button>
         <button type="button" class="admin-mi" data-admin-tab="settings">⚙️ <span>학급 설정</span></button>
         <button type="button" class="admin-mi" data-admin-tab="docs">📖 <span>설명서·인쇄물</span></button>
+        <button type="button" class="admin-mi" data-admin-tab="script">🎬 <span>대본 도우미</span></button>
       </nav>
       <div class="admin-side-foot">
         <button id="btn-admin-refresh" class="admin-refresh-btn" title="새로고침">🔄 <span>새로고침</span></button>
@@ -3219,6 +3270,11 @@
       <!-- 탭: 설명서·인쇄물 (ADMIN-REDESIGN Phase 3 — 화면형 상세본 + 인쇄 트리거 편입) -->
       <section class="admin-tab" data-admin-tab="docs">
         <div id="admin-docs" class="admin-docs"></div>
+      </section>
+
+      <!-- 탭: 대본 도우미 (SCRIPT-DRAFT-1 — 교사 전용 무비형 대본 초안 AI) -->
+      <section class="admin-tab" data-admin-tab="script">
+        <div id="admin-script" class="admin-docs"></div>
       </section>
     </main>
 
@@ -3266,7 +3322,7 @@
 <script src="sceneRenderer.js?v=119base10bbase10auto1coverstart1scenetitle1ascenetitle2apwanav2vpreturn1perfqa1branchcard1branchcard2branchcard3branchcard4cover1cover2cover3compassbtn1pbflowcopy1cardquickedit1cardexpandpersist1dragperf1crossa1contest1low1polish12"></script>
 <script src="storyAnalyzer.js?v=136checkbuttons1heuristic3crossa1routewarm1routetabs1polish12"></script>
 <script src="mediaManager.js?v=114copyfix1uitextfix1"></script>
-<script src="adminConsole.js?v=103copyfix1pwanav2imgs2settings1writeafterui1waq1finishgroup1scenepubprint1accountmode1uitextfix1teacherprint1teamcard1memberlist1legacyux1delsafety2tutorialcd1adminredesign1teacherjoin1aipermwarn1adminmanual1csvbulk1errko1crossa1contest1master1master2shelf1low1polish12phase3docs1"></script>
+<script src="adminConsole.js?v=103copyfix1pwanav2imgs2settings1writeafterui1waq1finishgroup1scenepubprint1accountmode1uitextfix1teacherprint1teamcard1memberlist1legacyux1delsafety2tutorialcd1adminredesign1teacherjoin1aipermwarn1adminmanual1csvbulk1errko1crossa1contest1master1master2shelf1low1polish12phase3docs1scriptdraft1"></script>
 <!-- ADMIN-REDESIGN Phase 3: 교사·학생 상세 설명서(화면형) -->
 <script src="admin-manual.js?v=adminmanual4contestlow1polish12"></script>
 <script src="projectSettings.js?v=114copyfix1coverstart2errko1"></script>

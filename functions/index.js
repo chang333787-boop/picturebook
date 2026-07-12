@@ -36,7 +36,7 @@ const { setGlobalOptions } = require('firebase-functions/v2');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
 const Anthropic = require('@anthropic-ai/sdk');
-const { TEXT_S1_SYSTEM_PROMPT, TEXT_S2_SYSTEM_PROMPT, WORK_CHECK_SYSTEM_PROMPT, WRITE_AFTER_QUESTIONS_SYSTEM_PROMPT, THOUGHT_COMPASS_FOLLOWUP_SYSTEM_PROMPT, buildUserMessage, buildUserMessageS2Chunk } = require('./prompts');
+const { TEXT_S1_SYSTEM_PROMPT, TEXT_S2_SYSTEM_PROMPT, WORK_CHECK_SYSTEM_PROMPT, WRITE_AFTER_QUESTIONS_SYSTEM_PROMPT, THOUGHT_COMPASS_FOLLOWUP_SYSTEM_PROMPT, SCRIPT_DRAFT_SYSTEM_PROMPT, buildUserMessage, buildUserMessageS2Chunk, buildScriptDraftUserMessage } = require('./prompts');
 /* WRITE-AFTER Phase 3 — 생각 점검 질문 순수 로직(검증/정규화/snapshot 제한). firebase 비의존. */
 const WAQ = require('./write-after-questions');
 /* WRITE-AFTER H1/H2 — 팀 AI 접근 권한 순수 결정(super_admin/teacher/active member). RTDB read는 _checkTeamAiMembership. */
@@ -839,12 +839,15 @@ const S2_CHUNK_SIZE = 4;     /* chunk당 발전 대상 장면 수 — 출력 토
 const S2_CONCURRENCY = 4;    /* 동시 Anthropic 호출 상한(wave). 초대형 작품 안정성 위해 제한 */
 const S2_MAX_SCENES = 24;    /* 본문 있는 장면 수 상한. 초과 시 호출 前 차단(quota 차감 X) */
 
-async function _callAnthropic(apiKey, systemPrompt, userMessage, model) {
-  const client = new Anthropic({ apiKey, timeout: ANTHROPIC_TIMEOUT_MS });
+/* opts(선택): { maxTokens, timeoutMs } — SCRIPT-DRAFT-1처럼 출력이 큰 호출만 개별 상향.
+   미전달 시 기존 상수 그대로라 기존 핸들러 동작 불변. */
+async function _callAnthropic(apiKey, systemPrompt, userMessage, model, opts) {
+  const o = opts || {};
+  const client = new Anthropic({ apiKey, timeout: o.timeoutMs || ANTHROPIC_TIMEOUT_MS });
 
   const response = await client.messages.create({
     model: model || HAIKU_MODEL,
-    max_tokens: MAX_TOKENS,
+    max_tokens: o.maxTokens || MAX_TOKENS,
     system: systemPrompt,
     messages: [
       { role: 'user', content: userMessage }
@@ -2738,6 +2741,187 @@ exports.adminResetAiUsage = onCall(
     return { ok: true };
   }
 );
+
+/* ════════════════════════════════════════════════════════════════
+   SCRIPT-DRAFT-1(2026-07-12): 교사 무비형 대본 도우미 — 초안 생성.
+   ──────────────────────────────────────────────────────────────
+   · 교사 전용(담당교사 or super_admin) — 학생 ai-usage/quota 체계와 완전 분리.
+   · 한도: ai-usage-teacher/{uid}/{KST일자}/scriptDraft — 하루 10회(transaction).
+     클라 rules 접근 없음(admin SDK 전용 노드) — rules 무변경.
+   · 학생 snapshot이 없으므로 _runAiPrecheck(팀 스냅샷용)는 안 씀.
+     입력 길이 상한 + 프롬프트 거절 규칙으로 방어(교사 전용이라 위험 낮음).
+   · 감사 로그: ai-stats/scriptDraft push(uid/classId/토큰).
+   ════════════════════════════════════════════════════════════════ */
+const SCRIPT_DRAFT_DAILY_LIMIT = 10;
+
+exports.teacherScriptDraft = onCall(
+  {
+    secrets: [ANTHROPIC_API_KEY],
+    enforceAppCheck: false,
+    /* 대본 JSON은 출력이 큼(11~13장면) — 함수/모델 시간·토큰 예산을 이 함수만 상향 */
+    timeoutSeconds: 120,
+  },
+  async (req) => {
+    if (!req.auth) throw new HttpsError('unauthenticated', '로그인이 필요해요.');
+    const uid  = req.auth.uid;
+    const role = (req.auth.token && req.auth.token.role) || null;
+
+    const classId = String((req.data && req.data.classId) || '').trim();
+    if (!classId || /[.#$\[\]\/]/.test(classId)) {
+      throw new HttpsError('invalid-argument', 'classId가 올바르지 않아요.');
+    }
+
+    /* 교사 게이트 — joinTeamMembership isTeacher 판별과 동일 기준(서버 read=위조 불가) */
+    if (role !== 'super_admin') {
+      const teacherUid = (await admin.database()
+        .ref(`classes/${classId}/meta/teacher_uid`).once('value')).val();
+      if (!teacherUid || teacherUid !== uid) {
+        throw new HttpsError('permission-denied', '담당 교사만 사용할 수 있어요.');
+      }
+    }
+
+    /* 입력 검증 — 길이 상한(프롬프트 폭주 방지) */
+    const d = req.data || {};
+    const field = (k, max) => {
+      const v = String(d[k] == null ? '' : d[k]).trim();
+      if (v.length > max) {
+        throw new HttpsError('invalid-argument', `${k} 입력이 너무 길어요(최대 ${max}자).`);
+      }
+      return v;
+    };
+    const input = {
+      topic:       field('topic', 400),
+      characters:  field('characters', 300),
+      place:       field('place', 120),
+      structure:   field('structure', 120),
+      endingStyle: field('endingStyle', 100),
+      tone:        field('tone', 100),
+      grade:       field('grade', 30),
+      message:     field('message', 200),
+    };
+    if (!input.topic)      throw new HttpsError('invalid-argument', '주제/상황을 입력해 주세요.');
+    if (!input.characters) throw new HttpsError('invalid-argument', '주인공 구성을 입력해 주세요.');
+    if (!input.structure)  throw new HttpsError('invalid-argument', '분기 구조를 골라 주세요.');
+
+    /* 교사 일일 한도 — KST 날짜 기준 transaction 증가(초과 시 롤백) */
+    const kstDate = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10).replace(/-/g, '');
+    const limitRef = admin.database().ref(`ai-usage-teacher/${uid}/${kstDate}/scriptDraft`);
+    const tx = await limitRef.transaction((cur) => {
+      const n = (typeof cur === 'number' && cur >= 0) ? cur : 0;
+      if (n >= SCRIPT_DRAFT_DAILY_LIMIT) return;   /* undefined = abort */
+      return n + 1;
+    });
+    if (!tx.committed) {
+      throw new HttpsError('resource-exhausted',
+        `오늘 대본 만들기 횟수(${SCRIPT_DRAFT_DAILY_LIMIT}회)를 다 썼어요. 내일 다시 만들 수 있어요.`);
+    }
+
+    const refund = () =>
+      limitRef.transaction((cur) => Math.max(0, (cur || 0) - 1)).catch(() => {});
+
+    try {
+      const userMsg = buildScriptDraftUserMessage(input);
+      /* 13장면 한국어 JSON은 8000토큰에 걸칠 수 있어 이 호출만 예산 상향(리뷰 #4) */
+      const ai = await _callAnthropic(ANTHROPIC_API_KEY.value(), SCRIPT_DRAFT_SYSTEM_PROMPT, userMsg,
+        null, { maxTokens: 16000, timeoutMs: 110000 });
+
+      /* 잘림 감지(리뷰 #2) — 잘린 JSON은 어차피 파싱 실패라 먼저 구체 안내로 전환 */
+      if (ai.stopReason === 'max_tokens') {
+        logger.warn('[teacherScriptDraft] truncated', { by: uid, out: ai.outputTokens });
+        throw new HttpsError('internal', '대본이 너무 길어서 잘렸어요. 장면 수가 적은 구조로 다시 만들어 주세요.');
+      }
+
+      /* JSON 출력 파싱(기존 s1/s2 인프라 재사용) + 정리 + 최소 형태 검증.
+         카드형 렌더·인쇄, 그리고 P2(장면 자동 생성)의 입력이 이 구조. */
+      const draft = _sanitizeScriptDraft(_parseJsonStrict(ai.text));
+      if (draft && draft.refused === true) {
+        await refund();   /* 소재 거절은 횟수 미차감(학생 block=0차감 정책과 동일 취지) */
+        return { ok: false, refused: true, reason: String(draft.reason || '').slice(0, 200) };
+      }
+      const shapeErr = _validateScriptDraft(draft);
+      if (shapeErr) throw new Error('shape: ' + shapeErr);
+
+      /* 감사로그는 비치명 — push 실패가 성공한 대본을 삼키지 않게(리뷰 #5) */
+      await admin.database().ref('ai-stats/scriptDraft').push({
+        by: uid,
+        classId,
+        inputTokens: ai.inputTokens,
+        outputTokens: ai.outputTokens,
+        stopReason: ai.stopReason,
+        at: admin.database.ServerValue.TIMESTAMP,
+      }).catch((e) => logger.warn('[teacherScriptDraft] stats push fail', { message: e && e.message }));
+      logger.info('[teacherScriptDraft]', { by: uid, classId, out: ai.outputTokens });
+
+      return { ok: true, draft };
+    } catch (e) {
+      /* AI/파싱 실패 시 오늘 한도 1회 환불 후, 구체 메시지(HttpsError)는 그대로 전달 */
+      await refund();
+      logger.error('[teacherScriptDraft] fail', { by: uid, message: e && e.message });
+      if (e instanceof HttpsError) throw e;
+      throw new HttpsError('internal', '대본을 만들지 못했어요. 잠시 후 다시 시도해 주세요.');
+    }
+  }
+);
+
+/* SCRIPT-DRAFT-1: AI 출력 정리(리뷰 #1) — null 항목 제거·문자열 강제.
+   가벼운 슬립(항목 null·필드 누락)은 살리고, 본질 결함만 _validateScriptDraft가 거른다. */
+function _sanitizeScriptDraft(d) {
+  if (!d || typeof d !== 'object' || d.refused === true) return d;
+  const str = (v) => (v == null ? '' : String(v));
+  const out = {
+    title: str(d.title).trim(),
+    cover: {
+      intro:   str(d.cover && d.cover.intro),
+      artIdea: str(d.cover && d.cover.artIdea),
+      cast:    str(d.cover && d.cover.cast),
+    },
+    characters: (Array.isArray(d.characters) ? d.characters : [])
+      .filter((c) => c && typeof c === 'object' && c.name)
+      .map((c) => ({ name: str(c.name), desc: str(c.desc) })),
+    flow: str(d.flow),
+    scenes: (Array.isArray(d.scenes) ? d.scenes : [])
+      .filter((s) => s && typeof s === 'object')
+      .map((s) => ({
+        num: Number(s.num),
+        title: str(s.title),
+        place: str(s.place),
+        kind: str(s.kind),
+        stage: str(s.stage),
+        lines: (Array.isArray(s.lines) ? s.lines : [])
+          .filter((l) => l && typeof l === 'object' && (l.text || l.who))
+          .map((l) => ({ who: str(l.who), voice: str(l.voice), action: str(l.action), text: str(l.text) })),
+        choices: (Array.isArray(s.choices) ? s.choices : [])
+          .filter((c) => c && typeof c === 'object')
+          .map((c) => ({ id: str(c.id), text: str(c.text), next: Number(c.next), value: str(c.value) })),
+        camera: str(s.camera),
+        caption: str(s.caption),
+      })),
+  };
+  return out;
+}
+
+/* SCRIPT-DRAFT-1: 대본 JSON 최소 형태 검증 — 통과 못 하면 사유 문자열 반환(정상=null) */
+function _validateScriptDraft(d) {
+  if (!d || typeof d !== 'object') return '객체 아님';
+  if (typeof d.title !== 'string' || !d.title.trim()) return 'title 없음';
+  if (!Array.isArray(d.scenes) || d.scenes.length < 1) return 'scenes 없음';
+  if (d.scenes.length > 24) return '장면 수 초과(' + d.scenes.length + ')';
+  const KINDS = ['normal', 'branch', 'ending', 'trueEnding'];
+  for (const s of d.scenes) {
+    if (!s || typeof s !== 'object') return '장면 형식 오류';
+    if (typeof s.num !== 'number' || !Number.isFinite(s.num)) return '장면 번호 없음';
+    if (typeof s.title !== 'string') return '장면 제목 없음';
+    if (!KINDS.includes(s.kind)) return '장면 kind 오류(' + s.kind + ')';
+    if (!Array.isArray(s.lines)) return '장면 lines 없음';
+    if (s.kind === 'branch') {
+      if (!Array.isArray(s.choices) || s.choices.length !== 2) return '갈림 장면 choices 오류';
+      for (const c of s.choices) {
+        if (!Number.isFinite(c.next)) return '갈림 연결(next) 오류';
+      }
+    }
+  }
+  return null;
+}
 
 /* ════════════════════════════════════════════════════════════════
    SHELF-1(2026-07-11): 학급 책장 조회 — 코드/공개 검증은 서버에서.

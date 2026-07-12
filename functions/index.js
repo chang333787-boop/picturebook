@@ -2892,7 +2892,13 @@ function _sanitizeScriptDraft(d) {
           .map((l) => ({ who: str(l.who), voice: str(l.voice), action: str(l.action), text: str(l.text) })),
         choices: (Array.isArray(s.choices) ? s.choices : [])
           .filter((c) => c && typeof c === 'object')
-          .map((c) => ({ id: str(c.id), text: str(c.text), next: Number(c.next), value: str(c.value) })),
+          .map((c) => ({
+            id: str(c.id),
+            /* AI가 "[선택 A]" 접두어를 문구에 중복 포함하는 슬립 제거(실생성 관측) */
+            text: str(c.text).replace(/^\s*\[?\s*선택\s*[AB]\s*\]?\s*/, ''),
+            next: Number(c.next),
+            value: str(c.value),
+          })),
         camera: str(s.camera),
         caption: str(s.caption),
       })),

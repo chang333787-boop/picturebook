@@ -769,6 +769,7 @@ exports.SCRIPT_DRAFT_SYSTEM_PROMPT = `당신은 한국 초등학교 교실에서
 - kind는 정확히 "normal" | "branch"(갈림) | "ending"(일반 엔딩) | "trueEnding"(진엔딩) 중 하나.
 - 갈림(branch) 장면의 choices는 정확히 2개:
   { "id": "A", "text": "선택지 문구", "next": 다음장면번호(숫자), "value": "가치 한 구절" }
+- choices.text에는 "[선택 A]" 같은 접두어·괄호를 넣지 말고 문구만 쓰세요(화면이 접두어를 따로 붙임).
 - 엔딩 장면은 choices를 빈 배열로, caption에 한 줄 여운 자막을 넣으세요. 엔딩이 아니면 caption은 "".
 - characters에 이름이 없으면 흔한 한국 초등학생 이름을 지어 쓰세요.
 

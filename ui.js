@@ -1661,7 +1661,8 @@ function _buildScenesFromScriptDraft(draft) {
       const cs = (Array.isArray(s.choices) ? s.choices : []).filter(c => c && typeof c === 'object').slice(0, 2);
       buttons = cs.map((c, bi) => ({
         id: (c.id === 'A' || c.id === 'B') ? c.id : (bi === 0 ? 'A' : 'B'),
-        label: String(c.text || ''),
+        /* 구버전 초안(localStorage) 방어 — "[선택 A]" 접두어 제거는 서버 sanitize에도 있음 */
+        label: String(c.text || '').replace(/^\s*\[?\s*선택\s*[AB]\s*\]?\s*/, ''),
         nextId: String(c.next),
       }));
       choiceA = buttons[0] ? buttons[0].label : '';

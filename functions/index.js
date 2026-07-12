@@ -195,7 +195,7 @@ function _normalizeSceneForCheckHash(raw) {
 
 /* scenes 노드(배열/객체 모두 가능 — Firebase는 숫자키를 배열로 반환)에서 정렬된 정규화 투영을 만들어
    _bodyHash로 8자리 해시 + 유효 장면 수를 반환. 유효 장면이 없으면 hash=null(캐시 비활성 → 기존 동작 유지). */
-function _computeWorkCheckHash(scenesVal) {
+function _computeWorkCheckHash(scenesVal, anchor) {
   const out = [];
   if (scenesVal && typeof scenesVal === 'object') {
     const keys = Object.keys(scenesVal).filter((k) => scenesVal[k] != null);
@@ -210,7 +210,42 @@ function _computeWorkCheckHash(scenesVal) {
     });
   }
   if (out.length === 0) return { hash: null, sceneCount: 0 };
-  return { hash: _bodyHash(JSON.stringify(out)), sceneCount: out.length };
+  /* COMPASS-ANCHOR-1: 나침반 다짐이 있으면 해시에 포함 — 다짐이 바뀌면 재검사되고,
+     다짐 없는 팀은 기존 해시와 바이트 동일(기존 캐시 보존). */
+  const basis = anchor ? JSON.stringify({ s: out, a: String(anchor) }) : JSON.stringify(out);
+  return { hash: _bodyHash(basis), sceneCount: out.length };
+}
+
+/* ════════════════════════════════════════════════════════════════
+   COMPASS-ANCHOR-1 — 생각 나침반 '끝까지 지키고 싶은 것'(anchor) 서버 read.
+   ──────────────────────────────────────────────────────────────
+   · 경로: classes/{cid}/teams/{enc}/writingGuide/preWriting/answers
+   · v2=coreMessage, v1=protectedCore. confirmed + !deferred + 비어있지 않을 때만.
+   · 실패/부재 = null(fail-open — anchor 없이도 AI 기존 그대로 동작).
+   · 클라가 보내지 않고 서버가 직접 읽음(위조 불가·클라 변경 0).
+   ════════════════════════════════════════════════════════════════ */
+function _pickAnchorFromAnswers(answers) {
+  if (!answers || typeof answers !== 'object') return null;
+  for (const key of ['coreMessage', 'protectedCore']) {
+    const a = answers[key];
+    if (!a || typeof a !== 'object') continue;
+    if (a.deferred === true) continue;                              /* '만들면서 정할래요' 제외 */
+    if (a.answerStatus && a.answerStatus !== 'confirmed') continue;
+    const text = String(a.answerText || '').trim();
+    if (text) return text.slice(0, 120);
+  }
+  return null;
+}
+
+async function _fetchCompassAnchor(classId, teamName) {
+  try {
+    const enc = encodeURIComponent(teamName);
+    const snap = await admin.database()
+      .ref(`classes/${classId}/teams/${enc}/writingGuide/preWriting/answers`).once('value');
+    return _pickAnchorFromAnswers(snap.val());
+  } catch (e) {
+    return null;   /* anchor는 보조 신호 — 읽기 실패가 AI 기능을 막으면 안 됨 */
+  }
 }
 
 /* ════════════════════════════════════════════════════════════════
@@ -1549,14 +1584,15 @@ function _checkS2SceneCap(snapshot) {
    callFn: async (targetIds, userMessage, idx) => { text, inputTokens, outputTokens }
    반환: { mergedResults, totalInputTokens, totalOutputTokens, chunkCount }
    실패 시 throw(plain Error) — 호출자(핸들러)가 _refundQuota 처리. (all-or-nothing) */
-async function _runS2Chunks(snapshot, callFn) {
+async function _runS2Chunks(snapshot, callFn, anchor) {
   const allIds = Object.keys(snapshot || {});
   const chunks = _chunkSceneIds(allIds, S2_CHUNK_SIZE);
   let totalInputTokens = 0;
   let totalOutputTokens = 0;
 
   const pickedParts = await _runWithConcurrency(chunks, S2_CONCURRENCY, async (targetIds, idx) => {
-    const userMsg = buildUserMessageS2Chunk(snapshot, targetIds);
+    /* COMPASS-ANCHOR-1: anchor는 모든 chunk에 동일 전달(미전달=기존 바이트 동일) */
+    const userMsg = buildUserMessageS2Chunk(snapshot, targetIds, anchor);
     const ai = await callFn(targetIds, userMsg, idx);
     totalInputTokens += (ai && ai.inputTokens) || 0;
     totalOutputTokens += (ai && ai.outputTokens) || 0;
@@ -1663,7 +1699,8 @@ exports.callTextAiBatchS2 = onCall(
          all-or-nothing: 한 chunk라도 실패하면 _runS2Chunks가 throw → 아래 catch에서 환불. */
       const { mergedResults, totalInputTokens, totalOutputTokens, chunkCount } =
         await _runS2Chunks(snapshot, (targetIds, userMsg) =>
-          _callAnthropic(ANTHROPIC_API_KEY.value(), TEXT_S2_SYSTEM_PROMPT, userMsg, S2_MODEL));
+          _callAnthropic(ANTHROPIC_API_KEY.value(), TEXT_S2_SYSTEM_PROMPT, userMsg, S2_MODEL),
+          await _fetchCompassAnchor(ctx.classId, ctx.teamName));   /* COMPASS-ANCHOR-1 */
 
       logger.info('[ai/s2] 전체 chunk 응답 박힘', {
         model: S2_MODEL, chunkCount, chunkSize: S2_CHUNK_SIZE,
@@ -1728,11 +1765,13 @@ exports.callWorkCheck = onCall(
        해시 계산 불가(scenes 읽기 실패/빈 작품)면 _curHash=null → 캐시 비활성(기존 동작 그대로). */
     const _enc = encodeURIComponent(ctx.teamName);
     const _cacheRef = admin.database().ref(`classes/${ctx.classId}/teams/${_enc}/aiChecks/workCheck/latest`);
+    /* COMPASS-ANCHOR-1: 다짐은 해시 계산 전에 읽는다(다짐 변경=캐시 무효) */
+    const _anchor = await _fetchCompassAnchor(ctx.classId, ctx.teamName);
     let _curHash = null;
     let _curSceneCount = 0;
     try {
       const _scenesSnap = await admin.database().ref(`classes/${ctx.classId}/teams/${_enc}/scenes`).once('value');
-      const _h = _computeWorkCheckHash(_scenesSnap.val());
+      const _h = _computeWorkCheckHash(_scenesSnap.val(), _anchor);
       _curHash = _h.hash;
       _curSceneCount = _h.sceneCount;
     } catch (e) {
@@ -1774,7 +1813,7 @@ exports.callWorkCheck = onCall(
     await _consumeQuota(ctx);
 
     try {
-      const userMsg = buildUserMessage(snapshot, 'check');
+      const userMsg = buildUserMessage(snapshot, 'check', _anchor);
       const ai = await _callAnthropic(ANTHROPIC_API_KEY.value(), WORK_CHECK_SYSTEM_PROMPT, userMsg);
 
       logger.info('[ai/check] Anthropic 응답 박힘', {
@@ -1879,7 +1918,8 @@ exports.callWriteAfterQuestions = onCall(
     await _consumeQuota(ctx);
 
     try {
-      const userMsg = buildUserMessage(snapshot, 'writeAfterQuestions');
+      const userMsg = buildUserMessage(snapshot, 'writeAfterQuestions',
+        await _fetchCompassAnchor(ctx.classId, ctx.teamName));   /* COMPASS-ANCHOR-1 */
       const ai = await _callAnthropic(ANTHROPIC_API_KEY.value(), WRITE_AFTER_QUESTIONS_SYSTEM_PROMPT, userMsg);
 
       logger.info('[ai/writeAfterQuestions] Anthropic 응답', {

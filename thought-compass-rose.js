@@ -44,7 +44,9 @@
     return s;
   }
 
-  /* opts: { map(storyMapV2 필수), memo?(자유메모 텍스트), fromAdmin?(관리모드 진입 — 인쇄 직행) } */
+  /* opts: { map(storyMapV2 필수), memo?(자유메모 텍스트), fromAdmin?(관리모드 진입 — 인쇄 직행),
+     onClose?(✕ 닫기 시 호출 — 결과보기 rose-기본 흐름에서 화면 전체를 한 번에 닫기 위함),
+     onSheetView?(있으면 [📄 줄글로 보기] 버튼 노출 — rose만 닫고 호출·onClose 미호출) } */
   function open(opts) {
     opts = opts || {};
     const map = opts.map;
@@ -71,8 +73,24 @@
     });
     const closeBtn = _el('button', 'tc-rose-close', '✕ 닫기');
     closeBtn.type = 'button';
-    closeBtn.addEventListener('click', close);
-    bar.appendChild(printBtn); bar.appendChild(closeBtn);
+    closeBtn.addEventListener('click', function () {
+      close();
+      /* ROSE-FIRST(2026-07-12): 결과보기에서 rose가 기본 화면 — 닫기 한 번에 화면 전체 복귀 */
+      if (typeof opts.onClose === 'function') { try { opts.onClose(); } catch (e) {} }
+    });
+    bar.appendChild(printBtn);
+    /* ROSE-FIRST: 줄글(카드) 설계도는 rose 안에서 선택해 들어가는 보조 보기 */
+    if (typeof opts.onSheetView === 'function') {
+      const sheetBtn = _el('button', 'tc-rose-print tc-rose-sheet', '📄 줄글로 보기');
+      sheetBtn.type = 'button';
+      sheetBtn.title = '카드(줄글) 설계도로 봐요';
+      sheetBtn.addEventListener('click', function () {
+        close();   /* rose만 닫음 — onClose 미호출(아래 줄글 화면이 드러남) */
+        try { opts.onSheetView(); } catch (e) {}
+      });
+      bar.appendChild(sheetBtn);
+    }
+    bar.appendChild(closeBtn);
     overlay.appendChild(bar);
 
     const paper = _el('div', 'tc-rose-paper');

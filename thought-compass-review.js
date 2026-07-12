@@ -192,17 +192,31 @@
       roseBtn.type = 'button';
       roseBtn.title = '나침반 모양 설계도로 보고 인쇄해요 (태블릿 가로·인쇄용)';
       roseBtn.addEventListener('click', function () {
-        /* TEACHER-PRINT-ROUTE-1: fromAdmin(관리모드 진입)을 rose에 전달 — 인쇄 버튼 직행 여부. */
-        window.ThoughtCompassRose.open({ map: map, memo: R.userNotes || '', fromAdmin: _isFromAdmin() });
+        /* TEACHER-PRINT-ROUTE-1: fromAdmin(관리모드 진입)을 rose에 전달 — 인쇄 버튼 직행 여부.
+           ROSE-FIRST: 결과보기(readOnly)에선 여기서 열어도 닫기 한 번=전체 복귀 원칙 유지.
+           완료 확인 단계는 훅 없이 — rose 닫으면 확인·고치기 화면으로 돌아옴(필수 흐름). */
+        window.ThoughtCompassRose.open({
+          map: map, memo: R.userNotes || '', fromAdmin: _isFromAdmin(),
+          onClose: R.readOnly ? close : undefined,
+          onSheetView: R.readOnly ? function () {} : undefined,
+        });
       });
       headBtns.appendChild(roseBtn);
-      /* 자동 오픈 — 이 리뷰 세션에서 1회만(고치기 재렌더에 재팝업 X)·관리 인쇄 경유 제외·모바일 제외 */
-      if (!R._roseAutoOpened && !_isFromAdmin() && window.innerWidth > 600) {
+      /* ROSE-FIRST(2026-07-12): 결과보기(readOnly)는 나침반형이 기본 화면 —
+         ✕ 닫기 한 번에 리뷰 전체가 닫히고(브랜치/다듬기로 복귀), 줄글(카드) 보기는
+         rose 안 [📄 줄글로 보기]로 진입(그 화면 닫기도 한 번=전체 닫힘).
+         완료 확인 단계(readOnly=false)는 고치기·완료 흐름이 있어 자동 오픈하지 않음(버튼만). */
+      if (R.readOnly && !R._roseAutoOpened && !_isFromAdmin() && window.innerWidth > 600) {
         R._roseAutoOpened = true;
         setTimeout(function () {
-          try { window.ThoughtCompassRose.open({ map: map, memo: R.userNotes || '', fromAdmin: false }); }
-          catch (e) { /* noop */ }
-        }, 250);
+          try {
+            window.ThoughtCompassRose.open({
+              map: map, memo: R.userNotes || '', fromAdmin: false,
+              onClose: close,               /* 한 번에 화면 복귀 */
+              onSheetView: function () {},  /* rose만 닫혀 아래 줄글 화면이 드러남 */
+            });
+          } catch (e) { /* noop */ }
+        }, 120);
       }
     }
     /* TEACHER-PRINT-ROUTE-1: 학생 태블릿엔 프린터가 없어 기본은 "선생님께 부탁" 안내.

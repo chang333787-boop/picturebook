@@ -18,7 +18,7 @@ window.addEventListener('DOMContentLoaded', () => {
       if (!panel) return;
       const collapsed = panel.classList.toggle('is-collapsed');
       toggleBtn.classList.toggle('is-panel-collapsed', collapsed);
-      toggleBtn.textContent = collapsed ? '▶' : '◀';
+      toggleBtn.textContent = collapsed ? '▶️' : '◀';
       toggleBtn.title = collapsed ? '인스펙터 펼치기' : '인스펙터 접기';
     });
   }

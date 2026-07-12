@@ -19,7 +19,7 @@ function startPreview() {
      없으면 기존 start scene fallback. 둘 다 없으면 안내. */
   const entryNum = (typeof _resolveEntryNum === 'function') ? _resolveEntryNum() : null;
   if (entryNum == null) {
-    alert('첫 감상 시작점이 지정되지 않았어요.\n장면을 만들거나 [⚙ 표지·시작점]에서 지정해주세요.');
+    alert('첫 감상 시작점이 지정되지 않았어요.\n장면을 만들거나 [⚙️ 표지·시작점]에서 지정해주세요.');
     return;
   }
   previewHistory = [];
@@ -265,7 +265,7 @@ function _renderPreviewMovie(s) {
   const mediaInner = poster
     ? `<div class="movie-poster" style="background-image:url('${poster}')"></div>`
     : `<div class="movie-poster movie-poster--empty">
-         <div class="movie-empty-mark">▶</div>
+         <div class="movie-empty-mark">▶️</div>
        </div>`;
 
   const bodyHtml = body

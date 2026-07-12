@@ -1789,7 +1789,7 @@ function _teamCardHtml(t) {
   if (t.total > 0 && t.memberCount === 0)
     badges.push('<span class="admin-badge admin-badge--legacy" title="이 모둠은 입장 기록이 오래됐어요. 학생이 모둠 이름·비밀번호(PIN)로 다시 들어오면 최신 상태가 되고, 결과 보기·저장도 정상 동작해요.">⏳ 입장 기록 오래됨</span>');
   if (t.trueEnds > 0) badges.push('<span class="admin-badge admin-badge--true">⭐ 진엔딩</span>');
-  if (t.hasImage)     badges.push('<span class="admin-badge admin-badge--img">🖼 이미지</span>');
+  if (t.hasImage)     badges.push('<span class="admin-badge admin-badge--img">🖼️ 이미지</span>');
   if (t.status === 'in-progress' && t.total > 0)
     badges.push(`<span class="admin-badge admin-badge--conn">연결 ${t.connectivity}%</span>`);
   /* 2026-05-29 admin 3차: 미연결 버튼 배지 — 1 이상일 때만 표시.
@@ -1804,8 +1804,8 @@ function _teamCardHtml(t) {
 
   const makerBtn  = `<button class="admin-action-btn admin-action-btn--maker js-admin-maker" data-name="${t.name}" title="Maker로 열기">🛠 수정</button>`;
   const viewerBtn = canView
-    ? `<button class="admin-action-btn admin-action-btn--viewer js-admin-viewer" data-name="${t.name}" title="Viewer로 보기">▶ 감상</button>`
-    : `<button class="admin-action-btn admin-action-btn--viewer admin-action-btn--disabled" disabled title="감상 가능 상태가 아니에요">▶ 감상</button>`;
+    ? `<button class="admin-action-btn admin-action-btn--viewer js-admin-viewer" data-name="${t.name}" title="Viewer로 보기">▶️ 감상</button>`
+    : `<button class="admin-action-btn admin-action-btn--viewer admin-action-btn--disabled" disabled title="감상 가능 상태가 아니에요">▶️ 감상</button>`;
   const publicBtn = `<button class="admin-action-btn js-admin-toggle-public ${t.isPublic ? 'admin-action-btn--public-on' : 'admin-action-btn--public-off'}"
     data-encoded="${t.encodedName}" data-name="${t.name}" data-public="${t.isPublic}"
     title="${t.isPublic ? '비공개로 전환' : '공개로 전환'}">

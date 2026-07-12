@@ -485,7 +485,7 @@ body.viewer-edit-readonly .edit-cover-popover button:not(.edit-cover-popover__cl
   filter: grayscale(0.25);
 }
 
-/* ── PROJECT-SETTINGS-1A: "⚙ 작품 설정" 상단 팝오버 ──
+/* ── PROJECT-SETTINGS-1A: "⚙️ 작품 설정" 상단 팝오버 ──
    choice/cover 팝오버와 같은 골격(position:fixed, HUD 아래 anchor)이되 class 분리.
    장면 도구(따뜻한 갈색 헤더)와 구분되도록 헤더만 차분한 청록 계열 — "작품 전체"임을
    살짝 드러냄. z-index는 다른 팝오버와 동일 레벨(상호배타라 동시 노출 없음). */
@@ -562,7 +562,7 @@ body.viewer-edit-readonly .edit-project-popover button:not(.edit-project-popover
   filter: grayscale(0.25);
 }
 
-/* ── PB-IMAGE-1B: picturebook "🖼 그림" 상단 팝오버 ──
+/* ── PB-IMAGE-1B: picturebook "🖼️ 그림" 상단 팝오버 ──
    choice/cover/project 팝오버와 같은 골격(position:fixed, HUD 아래 anchor)이되 class 분리.
    장면 그림 도구라 헤더만 차분한 청보라 계열로 구분. z-index는 다른 팝오버와 동일
    레벨(상호배타라 동시 노출 없음). 1B는 빈 셸. */
@@ -863,11 +863,11 @@ body.viewer-edit-readonly .edit-scene-style-popover button:not(.edit-scene-style
 /* ── PANEL-CLEANUP-1C: 표지 1단의 중복 렌더(표지색·제목 높낮이·양옆 마감 테마·작품 전환효과)가
    실제 제거됨(_typeSectionCoverHtml 호출부 삭제) → TOP-TOOLBAR-3B(.edit-row--cover-theme)·
    TOP-TOOLBAR-4B(.edit-row--cover-title-y)·PROJECT-SETTINGS-1C(.edit-cover-worksettings-dup)
-   dead hide rule 제거. 공용 helper는 🎨 #edit-cover-popover·⚙ 팝오버(#edit-panel 밖)·
+   dead hide rule 제거. 공용 helper는 🎨 #edit-cover-popover·⚙️ 팝오버(#edit-panel 밖)·
    cover-less edge가 계속 사용(무영향). */
 
 /* PANEL-CSS-CLEANUP: #edit-panel .edit-project-dup-orientation 숨김 규칙 제거
-   (#edit-panel DOM 삭제로 inert). 화면 방향은 ⚙ 작품 설정 팝오버가 전담. */
+   (#edit-panel DOM 삭제로 inert). 화면 방향은 ⚙️ 작품 설정 팝오버가 전담. */
 
 /* ── PANEL-CLEANUP-1A: 🎬 무비 모달로 이관된 우측 영상/본문 중복 렌더가 실제 제거됨(호출부 삭제)
    → MOVIE-TOOL-1D dead hide rule(.edit-movie-dup-video-tools/.edit-movie-dup-body-toggle) 제거.
@@ -876,12 +876,12 @@ body.viewer-edit-readonly .edit-scene-style-popover button:not(.edit-scene-style
 /* ── PANEL-CLEANUP-1B: picturebook 우측 중복 렌더가 실제 제거됨(호출부 삭제) → dead hide rule 제거:
    PROJECT-SETTINGS-2C-C(.edit-project-dup-cardstyle) · PB-IMAGE-1D(.edit-project-dup-image-actions)
    · SCENE-STYLE-1C(.edit-scene-dup-tone) · GLYPH-STYLE-1D(.edit-pb-dup-glyph-controls)
-   · GLYPH-APPLYALL(.edit-pb-dup-inline-style). 공용 helper는 🖼/🎭/⚙ 팝오버(#edit-panel 밖)가
+   · GLYPH-APPLYALL(.edit-pb-dup-inline-style). 공용 helper는 🖼️/🎭/⚙️ 팝오버(#edit-panel 밖)가
    계속 사용. _pbToneSectionHtml/_pbInlineStyleHtml 본체는 보존(우패널 전용 dead, handler 정리는 별도). */
 
 /* ── PANEL-CLEANUP-1A: text/movie 우측 중복 렌더가 실제 제거됨(호출부 삭제) →
    TEXT-MODE-1D(.edit-text-dup-style-sections)·MOVIE-SETTINGS-1(.edit-movie-dup-project-settings)
-   dead hide rule 제거. helper는 🎭/⚙ 팝오버가 계속 사용. picturebook/cover dup rule은 유지. */
+   dead hide rule 제거. helper는 🎭/⚙️ 팝오버가 계속 사용. picturebook/cover dup rule은 유지. */
 /* 🎭 팝오버 내 "모든 장면 적용" 상단 여백(글자 스타일 컨트롤과 구분). */
 .edit-scene-style-apply-all { margin-top: 4px; }
 
@@ -908,7 +908,7 @@ body.viewer-edit-readonly #viewer-frame .connect-object .js-co-resize {
   pointer-events: none !important;
   opacity: 0.55 !important;
 }
-/* HUD 저장 버튼만 차단 — 다른 HUD 액션(▶ 감상 테스트, 🛤 루트, 🗺 구조, ← 브랜치) 살림 */
+/* HUD 저장 버튼만 차단 — 다른 HUD 액션(▶️ 감상 테스트, 🛤 루트, 🗺 구조, ← 브랜치) 살림 */
 body.viewer-edit-readonly .js-edit-save {
   pointer-events: none !important;
   opacity: 0.55 !important;
@@ -8211,3 +8211,8 @@ body.pb-is-scene-switching .choice-preset--ghost {
 #comment-drawer .cmt-send { width: 100%; padding: 10px; border: none; border-radius: 9px; background: #c96f4a;
   color: #fff; font-family: inherit; font-size: 14px; cursor: pointer; }
 #comment-drawer .cmt-send:disabled { opacity: .6; }
+
+/* KO-WRAP-1(2026-07-11): 한국어 줄바꿈 전역 — 단어(어절) 중간에서 줄이 끊기거나
+   '요' 한 글자만 다음 줄로 떨어지는 미관 문제 해소. keep-all=공백 단위로만 줄바꿈,
+   overflow-wrap=극단적으로 긴 문자열(URL 등) 넘침 안전판. 개별 요소의 기존 선언이 우선. */
+body { word-break: keep-all; overflow-wrap: break-word; }

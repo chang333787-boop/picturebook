@@ -44,7 +44,7 @@
 
     /* 작품 고르기 — 2x2 카드 */
     ptype: _wrap(`${bg}
-      ${[[C.greenL, '📖'], [C.coralL, '🎬'], [C.sky, '🖼'], [C.sun, '✋']].map((m, i) => {
+      ${[[C.greenL, '📖'], [C.coralL, '🎬'], [C.sky, '🖼️'], [C.sun, '✋']].map((m, i) => {
         const x = 40 + (i % 2) * 78, y = 24 + Math.floor(i / 2) * 50;
         return `<rect x="${x}" y="${y}" width="66" height="40" rx="9" fill="${C.card}" stroke="${C.line}" stroke-width="1.5"/><rect x="${x}" y="${y}" width="66" height="12" rx="9" fill="${m[0]}"/><rect x="${x}" y="${y + 6}" width="66" height="6" fill="${m[0]}"/><text x="${x + 33}" y="${y + 30}" text-anchor="middle" font-size="15">${m[1]}</text>`;
       }).join('')}
@@ -99,13 +99,13 @@
       <rect x="64" y="80" width="44" height="13" rx="6.5" fill="${C.coral}"/><rect x="112" y="80" width="44" height="13" rx="6.5" fill="${C.green}"/>
       <g transform="translate(120,92)"><ellipse cx="6" cy="16" rx="8" ry="5" fill="#00000022"/><path d="M0 0 q0 -10 6 -10 q6 0 6 10 l0 6 q-6 4 -12 0 z" fill="#ffd9a0" stroke="${C.brown}" stroke-width="1"/></g>`, '감상하기'),
 
-    /* AI 도움받기 — 낙서 → 반짝임 완성 */
+    /* AI 도움받기 — 낙서 → 반짝임 완성 (POLISH-ART: 좌우 25/25 여백 대칭으로 재배치 — 오른쪽 치우침 해소) */
     ai: _wrap(`${bg}
-      ${sceneCard(40, 30, 60, 80, { imgFill: '#efe6da' })}
-      <path d="M120 70 h24" stroke="${C.mut}" stroke-width="2" marker-end="url(#aiar)"/>
+      ${sceneCard(25, 30, 60, 80, { imgFill: '#efe6da' })}
+      <path d="M95 70 h30" stroke="${C.mut}" stroke-width="2" marker-end="url(#aiar)"/>
       <defs><marker id="aiar" markerWidth="7" markerHeight="7" refX="4" refY="3.5" orient="auto"><path d="M0 0 L7 3.5 L0 7 z" fill="${C.mut}"/></marker></defs>
-      ${sceneCard(150, 30, 60, 80, { sun: true, tree: true, imgFill: C.greenL })}
-      <g fill="${C.sun}"><path d="M132 40 l2 5 l5 2 l-5 2 l-2 5 l-2 -5 l-5 -2 l5 -2 z"/><path d="M186 24 l1.5 4 l4 1.5 l-4 1.5 l-1.5 4 l-1.5 -4 l-4 -1.5 l4 -1.5 z"/></g>`, 'AI 도움받기'),
+      ${sceneCard(135, 30, 60, 80, { sun: true, tree: true, imgFill: C.greenL })}
+      <g fill="${C.sun}"><path d="M110 46 l2 5 l5 2 l-5 2 l-2 5 l-2 -5 l-5 -2 l5 -2 z"/><path d="M171 22 l1.5 4 l4 1.5 l-4 1.5 l-1.5 4 l-1.5 -4 l-4 -1.5 l4 -1.5 z"/></g>`, 'AI 도움받기'),
 
     /* 글 바로 고치기 — 글줄 + 연필/커서 */
     editText: _wrap(`${bg}
@@ -136,11 +136,11 @@
       <circle cx="111" cy="81" r="9" fill="${C.coral}"/><text x="111" y="85" text-anchor="middle" font-size="10" fill="#fff">✥</text>
       <g fill="${C.coral}"><rect x="62" y="56" width="7" height="7" rx="1.5"/><rect x="153" y="56" width="7" height="7" rx="1.5"/><rect x="62" y="98" width="7" height="7" rx="1.5"/><rect x="153" y="98" width="7" height="7" rx="1.5"/></g>`, '글상자 다루기'),
 
-    /* 꾸미기 — 큰 Aa + 색 스와치 + 슬라이더 */
+    /* 꾸미기 — 큰 Aa + 색 스와치 + 슬라이더 (POLISH-ART: 두 덩어리를 캔버스 중심축에 정렬 — 여백 균형) */
     style: _wrap(`${bg}
-      <text x="70" y="82" font-family="serif" font-size="52" font-weight="800" fill="${C.coral}">Aa</text>
-      <g><circle cx="128" cy="40" r="9" fill="${C.coral}"/><circle cx="150" cy="40" r="9" fill="${C.green}"/><circle cx="172" cy="40" r="9" fill="${C.sky}"/><circle cx="128" cy="62" r="9" fill="${C.sun}"/><circle cx="150" cy="62" r="9" fill="${C.brown}"/><circle cx="172" cy="62" r="9" fill="${C.ink}"/></g>
-      <rect x="124" y="88" width="56" height="6" rx="3" fill="${C.line}"/><circle cx="150" cy="91" r="7" fill="${C.coral}"/>`, '글자·색 꾸미기'),
+      <text x="38" y="86" font-family="serif" font-size="54" font-weight="800" fill="${C.coral}">Aa</text>
+      <g><circle cx="130" cy="46" r="9" fill="${C.coral}"/><circle cx="152" cy="46" r="9" fill="${C.green}"/><circle cx="174" cy="46" r="9" fill="${C.sky}"/><circle cx="130" cy="68" r="9" fill="${C.sun}"/><circle cx="152" cy="68" r="9" fill="${C.brown}"/><circle cx="174" cy="68" r="9" fill="${C.ink}"/></g>
+      <rect x="124" y="92" width="56" height="6" rx="3" fill="${C.line}"/><circle cx="150" cy="95" r="7" fill="${C.coral}"/>`, '글자·색 꾸미기'),
 
     /* 무비 — 태블릿 속 재생 삼각형 + 타임라인 */
     movie: _wrap(`${bg}

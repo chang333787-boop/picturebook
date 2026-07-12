@@ -2837,7 +2837,7 @@ body.edit-mode-active:not(.viewer-test-active) .scene-screen--text .text-ending-
 /* R6: 선택지 글자를 본문(펜·큰 글씨)과 지나치게 차이나지 않게 소폭↑ */
 .scene-screen--text[data-text-theme="handwriting"] .choice-v03 { border-radius: 999px; font-size: 16px; }
 
-/* ── 5. retro 레트로 게임 — 어두운 화면 + 녹색 픽셀 + 픽셀 프레임 + ▶ 커서 + 약한 스캔라인. ── */
+/* ── 5. retro 레트로 게임 — 어두운 화면 + 녹색 픽셀 + 픽셀 프레임 + ▶️ 커서 + 약한 스캔라인. ── */
 .scene-screen--text[data-text-theme="retro"] .text-card {
   background-color: #0d130d;
   color: #93dca8;            /* R1/R5: 네온→차분한 녹색, 채도 더 낮춰 장시간 피로↓ */

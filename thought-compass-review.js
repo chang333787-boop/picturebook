@@ -184,9 +184,10 @@
     const head = _el('div', 'tc-sheet-head');
     head.appendChild(_el('div', 'tc-sheet-title', '🧭 내 이야기 큰줄기 설계도'));
     const headBtns = _el('div', 'tc-sheet-head-btns');
-    /* COMPASS-ROSE-1: 나침반형 보기·인쇄 — v2 결과보기(read-only) 전용 선택 보기.
-       카드형이 기본(모바일 정본 — ≤600px에서 버튼 CSS 숨김). 검토(완료 전)·v1엔 미노출. */
-    if (R.readOnly && window.ThoughtCompassRose && typeof window.ThoughtCompassRose.open === 'function') {
+    /* COMPASS-ROSE-1: 나침반형 보기·인쇄 — 카드형은 모바일 정본(≤600px에서 버튼 CSS 숨김)·v1 미노출.
+       COMPASS-ROSE-DEFAULT(2026-07-11 사용자): 완료 확인 단계에도 노출 + 넓은 화면에선
+       나침반형을 기본으로 자동 1회 오픈(닫으면 카드형·고치기 흐름 그대로). */
+    if (window.ThoughtCompassRose && typeof window.ThoughtCompassRose.open === 'function') {
       const roseBtn = _el('button', 'tc-sheet-print-btn tc-sheet-rose-btn', '🧭 나침반형');
       roseBtn.type = 'button';
       roseBtn.title = '나침반 모양 설계도로 보고 인쇄해요 (태블릿 가로·인쇄용)';
@@ -195,6 +196,14 @@
         window.ThoughtCompassRose.open({ map: map, memo: R.userNotes || '', fromAdmin: _isFromAdmin() });
       });
       headBtns.appendChild(roseBtn);
+      /* 자동 오픈 — 이 리뷰 세션에서 1회만(고치기 재렌더에 재팝업 X)·관리 인쇄 경유 제외·모바일 제외 */
+      if (!R._roseAutoOpened && !_isFromAdmin() && window.innerWidth > 600) {
+        R._roseAutoOpened = true;
+        setTimeout(function () {
+          try { window.ThoughtCompassRose.open({ map: map, memo: R.userNotes || '', fromAdmin: false }); }
+          catch (e) { /* noop */ }
+        }, 250);
+      }
     }
     /* TEACHER-PRINT-ROUTE-1: 학생 태블릿엔 프린터가 없어 기본은 "선생님께 부탁" 안내.
        관리모드(fromAdmin) 진입 시엔 기존 그대로 바로 인쇄. 보조 버튼으로 기기 인쇄 유지. */

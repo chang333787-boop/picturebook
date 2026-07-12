@@ -1466,7 +1466,7 @@ function _aiImageVariantBlocksOriginalEdit(opts) {
    hasImage 조건부 disabled와 충돌하지 않도록 컨테이너 레벨 inline 스타일만 토글).
    원본 보기로 돌아오면 inline 스타일을 제거해 기존 상태 복원.
    PB-IMAGE-1A: #edit-panel 단일 의존 제거 → 문서 전체의 모든 .edit-pb-image-actions에
-   적용. 향후 상단 🖼 그림 팝오버로 진입 버튼을 복제해도 같은 grey-out 잠금이 적용되게 하는
+   적용. 향후 상단 🖼️ 그림 팝오버로 진입 버튼을 복제해도 같은 grey-out 잠금이 적용되게 하는
    선행 작업. 기능 차단(_aiImageVariantBlocksOriginalEdit)은 상태 기반이라 그대로(무수정). */
 function _applyAiImageVariantEditLock() {
   try {
@@ -2704,7 +2704,7 @@ function _workSettingsSectionHtml() {
       </div>
     </div>
     <div class="edit-row edit-row--compact">
-      <label class="edit-label">⏱ 전환 속도 <span class="edit-label-note">(빠름 ◀ ${curS}% ▶ 느림)</span></label>
+      <label class="edit-label">⏱ 전환 속도 <span class="edit-label-note">(빠름 ◀ ${curS}% ▶️ 느림)</span></label>
       <input type="range" class="edit-slider js-scene-transition-speed"
         min="0" max="100" step="1" value="${curS}">
     </div>
@@ -2716,7 +2716,7 @@ function _workSettingsSectionHtml() {
       </div>
     </div>
     <div class="edit-row edit-row--compact">
-      <label class="edit-label">⏱ 텍스트 속도 <span class="edit-label-note">(빠름 ◀ ${curTES}% ▶ 느림)</span></label>
+      <label class="edit-label">⏱ 텍스트 속도 <span class="edit-label-note">(빠름 ◀ ${curTES}% ▶️ 느림)</span></label>
       <input type="range" class="edit-slider js-text-entrance-speed"
         min="0" max="100" step="1" value="${curTES}">
       <div class="edit-section-hint">행동 버튼은 텍스트 등장 끝난 후 자동으로 부드럽게 나타나요.</div>
@@ -2787,7 +2787,7 @@ function _bindSpeedSlider(panel, selector, field) {
         ViewerState.project.textEntrance);
     }
     if (label) {
-      label.textContent = `(빠름 ◀ ${pct}% ▶ 느림)`;
+      label.textContent = `(빠름 ◀ ${pct}% ▶️ 느림)`;
     }
     /* v121: 미리보기 throttle (옛엔 매 input마다 실행 → 태블릿 부담) */
     _schedulePreviewWorkEffect(field);
@@ -3341,16 +3341,16 @@ function _pbChoiceLinkSectionHtml(scene, rowDelete) {
    · 이미지 업로드 진입점 / 바로 그리기 진입점
    · 그림 중심형 전용: 본문 글상자 / 배경막 (3단계는 진입점만) */
 /* PB-IMAGE-1C: 장면 그림 진입 버튼(.edit-pb-image-actions) HTML helper — 우측 인스펙터와
-   상단 🖼 그림 팝오버가 같은 HTML 재사용. class/구조/input(class 기반, id 없음) 무변경.
+   상단 🖼️ 그림 팝오버가 같은 HTML 재사용. class/구조/input(class 기반, id 없음) 무변경.
    1D에서 우측 호출부만 wrapper로 감싸 숨기기 쉽게 분리. */
 function _pbImageActionsHtml(scene) {
   const hasImage = !!(scene && (scene.imageData || scene.imageUrl));
   return `
     <div class="edit-row">
-      <label class="edit-label">🖼 장면 그림 ${hasImage ? '<span class="edit-label-note">(있음)</span>' : '<span class="edit-label-note">(없음)</span>'}</label>
+      <label class="edit-label">🖼️ 장면 그림 ${hasImage ? '<span class="edit-label-note">(있음)</span>' : '<span class="edit-label-note">(없음)</span>'}</label>
       <div class="edit-pb-image-actions">
         <label class="edit-toggle js-pb-image-upload-label" style="cursor:pointer;">
-          ${hasImage ? '🔄 바꾸기' : '🖼 업로드'}
+          ${hasImage ? '🔄 바꾸기' : '🖼️ 업로드'}
           <input type="file" accept="image/*" class="js-pb-image-upload-input" style="display:none;">
         </label>
         ${hasImage
@@ -3372,7 +3372,7 @@ function _pbImageActionsHtml(scene) {
    _typeSectionPicturebookHtml 인라인을 그대로 추출 — class/selector/data(js-pb-submode·data-val)·
    first-scene disabled(lockedAttr/lockedClass)·lockHint 무변경, 렌더 결과 동일. 저장/핸들러
    (.js-pb-submode 바인딩·전 장면 picturebookSubmode 저장·variant lock)는 무관(HTML만).
-   향후 PB-LAYOUT-1B에서 ⚙ 작품 설정 팝오버가 이 helper를 재사용 예정.
+   향후 PB-LAYOUT-1B에서 ⚙️ 작품 설정 팝오버가 이 helper를 재사용 예정.
    ※ dead path인 _picturebookSubmodeHtml(spread/stage)과는 별개 — 혼동 금지. */
 function _pbSubmodeSectionHtml(scene) {
   /* D8-CLEAN-1: 그림책 대표=imageCenter 확정 → 하위 모드(분할형/그림중심형) 토글 UI 숨김.
@@ -3724,11 +3724,11 @@ function _typeSectionExperienceHtml(scene) {
       <div class="edit-pb-image-row">
         <div class="edit-pb-image-status">
           ${hasBg
-            ? `🖼 <strong>배경 있음</strong>`
+            ? `🖼️ <strong>배경 있음</strong>`
             : `<span class="edit-section-note">아직 배경이 없어요</span>`}
         </div>
         <div class="edit-toggle-group">
-          <button type="button" class="edit-toggle js-exp-bg-upload">🖼 배경 업로드/교체</button>
+          <button type="button" class="edit-toggle js-exp-bg-upload">🖼️ 배경 업로드/교체</button>
         </div>
       </div>
     </div>
@@ -3743,7 +3743,7 @@ function _typeSectionExperienceHtml(scene) {
         <div class="edit-section-hint">+ 추가</div>
         <div class="edit-toggle-group" style="flex-wrap:wrap;">
           <button type="button" class="edit-toggle js-exp-co-add" data-val="button">🔘 버튼</button>
-          <button type="button" class="edit-toggle js-exp-co-add" data-val="arrow">➡ 화살표</button>
+          <button type="button" class="edit-toggle js-exp-co-add" data-val="arrow">➡️ 화살표</button>
           <button type="button" class="edit-toggle js-exp-co-add" data-val="flag">🚩 깃발</button>
           <button type="button" class="edit-toggle js-exp-co-add" data-val="next">⏭ 다음</button>
           <button type="button" class="edit-toggle js-exp-co-add" data-val="invisible">👻 투명 영역</button>
@@ -3770,7 +3770,7 @@ const _CO_TYPE_LABEL_MAP = {
 };
 const _CO_TYPE_ICON_MAP = {
   button:    '🔘',
-  arrow:     '➡',
+  arrow:     '➡️',
   flag:      '🚩',
   next:      '⏭',
   back:      '⏮',
@@ -4050,7 +4050,7 @@ function _modePickerHtml(scene) {
    · 기본값 stage — 명시 설정 안 된 경우 stage 카드가 active
    ================================================================ */
 const PICTUREBOOK_SUBMODE_OPTIONS = [
-  { key: 'stage',  icon: '🖼',  label: '장면형',   desc: '큰 장면 + 글' },
+  { key: 'stage',  icon: '🖼️',  label: '장면형',   desc: '큰 장면 + 글' },
   { key: 'spread', icon: '📖', label: '펼침면형', desc: '좌그림 우텍스트' },
 ];
 
@@ -4072,7 +4072,7 @@ function _picturebookSubmodeHtml(scene) {
 
   const detailMap = {
     spread: { title: '📖 펼침면형', desc: '왼쪽 그림 · 오른쪽 글 — 책 펼침 리듬.' },
-    stage:  { title: '🖼 장면형',   desc: '큰 장면 위에 글·선택지 — 기본 인터랙티브.' },
+    stage:  { title: '🖼️ 장면형',   desc: '큰 장면 위에 글·선택지 — 기본 인터랙티브.' },
   };
   const d = detailMap[current] || detailMap.stage;
   const detail = `
@@ -4156,14 +4156,14 @@ const _PB_TONE_ENDING_TONES = [
 ];
 
 /* PANEL-DEADCODE-1: _pbToneSectionHtml(우패널 전용 본문 카드 톤 collapsible) 제거 — 카드톤/엔딩톤은
-   🎭 장면 스타일(_pbSceneToneSectionHtml), 카드 스타일/색계열은 ⚙ 작품 설정이 주 동선.
+   🎭 장면 스타일(_pbSceneToneSectionHtml), 카드 스타일/색계열은 ⚙️ 작품 설정이 주 동선.
    PANEL-CLEANUP-1B에서 호출부 제거됨 → 0 active caller. 공용 _pbToneRowHtml·_PB_TONE_* consts·
    _pbSceneToneSectionHtml은 무관(유지). */
 
 /* SCENE-STYLE-1: 🎭 장면 스타일 팝오버용 — 현재 장면의 장면단위 톤 row만.
    비엔딩=본문 카드 톤(pbCardTone) / 엔딩=엔딩 마감톤(pbEndingTone). 기존 순수 _pbToneRowHtml
    + 기존 const 재사용. axis(card-tone/card-end-tone)·저장 경로(_queueSave)는 우측과 동일.
-   ★ 작품단위 card-style/card-color는 포함하지 않음(그건 ⚙ 작품 설정). _pbToneSectionHtml 무수정. */
+   ★ 작품단위 card-style/card-color는 포함하지 않음(그건 ⚙️ 작품 설정). _pbToneSectionHtml 무수정. */
 function _pbSceneToneSectionHtml(scene) {
   /* D8-CLEAN-1: 신규 5스킨에서 스킨이 본문/엔딩 톤을 담당(imageCenter pb-tone 무력화 완료) →
      본문 톤(pbCardTone)/엔딩 마감톤(pbEndingTone) UI 숨김. 필드·pb-tone.css·_pbToneClasses 무변경
@@ -4248,7 +4248,7 @@ function _bindPbToneEvents(panel, scene) {
       }
       /* 미리보기 즉시 갱신 — viewer-render의 _renderScenePicturebook이 다시 호출되며
          .pb-frame에 새 톤 클래스가 적용됨.
-         ⚠️ 이 핸들러는 ⚙ 작품 설정·🎨 장면 스타일 팝오버 안에서만 호출된다.
+         ⚠️ 이 핸들러는 ⚙️ 작품 설정·🎨 장면 스타일 팝오버 안에서만 호출된다.
          renderCurrentScene()은 HUD/네비까지 통째 재렌더해 팝오버 DOM이 닫혀버린다
          (다른 팝오버 옵션은 _scheduleViewerFrameReRender만 써서 안 닫힘 → 일관성 깨짐).
          frame만 갱신해 팝오버를 유지한다. 팝오버 닫기는 ✕ 버튼으로만. */
@@ -4348,7 +4348,7 @@ function _moviePanelHtml(scene) {
             ? `<img src="${escHtml(posterSrc)}" alt="포스터 미리보기" class="edit-movie-poster-preview">
                <div class="edit-movie-slot-overlay-label">포스터 (장면 이미지 사용 중)</div>`
             : `<div class="edit-movie-slot-locked-badge">🔒 준비 중</div>
-               <div class="edit-movie-slot-icon">🖼</div>
+               <div class="edit-movie-slot-icon">🖼️</div>
                <div class="edit-movie-slot-title">포스터 이미지</div>
                <div class="edit-movie-slot-note">없으면 장면 이미지가 대신 쓰여요</div>`}
         </div>
@@ -4920,12 +4920,12 @@ function _bindHudEditActions() {
     _toggleCoverPopover();
   });
 
-  /* PROJECT-SETTINGS-1A: ⚙ 작품 설정 — 작품 전체 설정 상단 팝오버 토글(모든 장면 타입). */
+  /* PROJECT-SETTINGS-1A: ⚙️ 작품 설정 — 작품 전체 설정 상단 팝오버 토글(모든 장면 타입). */
   document.querySelector('.js-edit-project-popover')?.addEventListener('click', () => {
     _toggleProjectPopover();
   });
 
-  /* PB-IMAGE-1B: 🖼 그림 — picturebook 장면 그림 도구 상단 팝오버 토글(1B는 빈 셸). */
+  /* PB-IMAGE-1B: 🖼️ 그림 — picturebook 장면 그림 도구 상단 팝오버 토글(1B는 빈 셸). */
   document.querySelector('.js-edit-image-popover')?.addEventListener('click', () => {
     _toggleImagePopover();
   });
@@ -5266,18 +5266,18 @@ function _coverPopoverEsc(e) {
 }
 
 /* ================================================================
-   PROJECT-SETTINGS-1A: "⚙ 작품 설정" 상단 팝오버 (빈 셸)
+   PROJECT-SETTINGS-1A: "⚙️ 작품 설정" 상단 팝오버 (빈 셸)
    ─────────────────────────────────────────────────────────────
    · 작품 전체 설정(양옆 마감 테마·작품 전환효과 등)이 향후 들어갈 자리.
    · 1A는 빈 셸 — 안내 문구만. 실제 기능 복제는 PROJECT-SETTINGS-1B.
    · 장면 도구(🔗/🎨)와 달리 "작품 전체"라 모든 장면 타입에서 노출(조건부 아님).
-   · 상호배타: 열 때 🔗/🎨 팝오버를 닫음. 반대(🔗/🎨를 열면 ⚙ 닫힘)는 ⚙ 팝오버의
+   · 상호배타: 열 때 🔗/🎨 팝오버를 닫음. 반대(🔗/🎨를 열면 ⚙️ 닫힘)는 ⚙️ 팝오버의
      바깥클릭 핸들러가 트리거 클릭을 잡아 자동 처리(기존 팝오버 로직 무수정).
    · edit-choice/cover-popover 패턴 그대로 재사용(열기/닫기/바깥클릭/ESC/HUD재렌더 close).
    ================================================================ */
 function _projectPopoverEl() { return document.getElementById('edit-project-popover'); }
 
-/* PROJECT-SETTINGS-2C: ⚙ 작품 설정 팝오버용 본문 카드 스타일/색계열 섹션(작품단위).
+/* PROJECT-SETTINGS-2C: ⚙️ 작품 설정 팝오버용 본문 카드 스타일/색계열 섹션(작품단위).
    우측 _pbToneSectionHtml의 card-style/card-color row를 같은 순수 helper(_pbToneRowHtml)+
    같은 const(_PB_TONE_CARD_STYLES/COLORS)로 재구성. axis(card-style/card-color)·class
    (js-pb-tone-btn)·저장 경로(proj.textCardStyle/Color + saveViewerMeta)는 우측과 동일.
@@ -5305,7 +5305,7 @@ function _pbProjectCardStyleSectionHtml() {
     <div class="edit-divider"></div>`;
 }
 
-/* PROJECT-SETTINGS-2A: ⚙ 작품 설정 팝오버용 페이지 방향 row. 작품 전체 viewer-meta.
+/* PROJECT-SETTINGS-2A: ⚙️ 작품 설정 팝오버용 페이지 방향 row. 작품 전체 viewer-meta.
    pageOrientation을 가로/세로로 조절. class(js-pb-orientation)·data-val·저장 경로는
    우측 패널과 동일. 팝오버는 "작품 전체"라 항상 편집 가능(우측의 첫장면 잠금 없음). */
 function _pageOrientationSectionHtml() {
@@ -5326,7 +5326,7 @@ function _pageOrientationSectionHtml() {
     </div>`;
 }
 
-/* MOVIE-SETTINGS-1: ⚙ 작품 설정 팝오버용 무비 선택지 표시방식(작품단위 viewer-meta.movieDecisionStyle).
+/* MOVIE-SETTINGS-1: ⚙️ 작품 설정 팝오버용 무비 선택지 표시방식(작품단위 viewer-meta.movieDecisionStyle).
    우측 js-movie-deco와 동일 class/data-val/저장 경로. movie 작품에서만 노출(text/pb/cover '').
    팝오버는 작품 전체라 첫장면 잠금 없이 항상 편집 가능. */
 function _movieDecisionSectionHtml() {
@@ -5370,7 +5370,7 @@ function _renderProjectPopoverBody() {
   })();
   return `
     <div class="edit-project-popover__head">
-      <span class="edit-project-popover__title">${_pp_isText ? '⚙ 감상 설정' : '⚙ 작품 설정'}</span>
+      <span class="edit-project-popover__title">${_pp_isText ? '⚙️ 감상 설정' : '⚙️ 작품 설정'}</span>
       <button type="button" class="edit-project-popover__close js-project-popover-close"
         title="닫기" aria-label="닫기">✕</button>
     </div>
@@ -5546,7 +5546,7 @@ function _bindProjectPopover(pop) {
 }
 
 function _positionProjectPopover(pop) {
-  /* REFINE-IA-3: ⚙ 설정이 ⋯ 더보기 메뉴 안으로 이동 → 트리거가 닫힌 메뉴 안이면 rect=0.
+  /* REFINE-IA-3: ⚙️ 설정이 ⋯ 더보기 메뉴 안으로 이동 → 트리거가 닫힌 메뉴 안이면 rect=0.
      이 경우 ⋯ 더보기 버튼을 앵커로 사용(위치 어긋남 방지). */
   let trigger = document.querySelector('.js-edit-project-popover');
   if (!trigger || trigger.getBoundingClientRect().width === 0) {
@@ -5616,12 +5616,12 @@ function _projectPopoverEsc(e) {
 }
 
 /* ================================================================
-   PB-IMAGE-1B: picturebook "🖼 그림" 상단 팝오버 (빈 셸)
+   PB-IMAGE-1B: picturebook "🖼️ 그림" 상단 팝오버 (빈 셸)
    ─────────────────────────────────────────────────────────────
    · 장면 그림 도구(업로드·삭제·그리기·크기이동·자르기)가 향후 들어갈 자리.
    · 1B는 빈 셸 — 안내 문구만. 실제 진입 버튼 복제는 PB-IMAGE-1C.
    · picturebook 비표지 장면에서만 트리거 노출(renderHUD의 _isPbImageHudScene).
-   · 상호배타: 열 때 🔗/🎨/⚙ 팝오버를 닫음. 반대는 🖼 팝오버 바깥클릭 핸들러가 자동 처리.
+   · 상호배타: 열 때 🔗/🎨/⚙️ 팝오버를 닫음. 반대는 🖼️ 팝오버 바깥클릭 핸들러가 자동 처리.
    · edit-choice/cover/project-popover 패턴 그대로 재사용(열기/닫기/바깥클릭/ESC/HUD재렌더 close).
    ================================================================ */
 function _imagePopoverEl() { return document.getElementById('edit-image-popover'); }
@@ -5632,7 +5632,7 @@ function _renderImagePopoverBody() {
   const scene = ViewerState.scenes[ViewerState.currentSceneId];
   return `
     <div class="edit-image-popover__head">
-      <span class="edit-image-popover__title">🖼 그림</span>
+      <span class="edit-image-popover__title">🖼️ 그림</span>
       <button type="button" class="edit-image-popover__close js-image-popover-close"
         title="닫기" aria-label="닫기">✕</button>
     </div>
@@ -5652,7 +5652,7 @@ function _bindImagePopover(pop) {
   if (typeof _applyAiImageVariantEditLock === 'function') _applyAiImageVariantEditLock();
 }
 
-/* PB-IMAGE-1C: 🖼 팝오버 전용 이미지 진입 버튼 바인딩.
+/* PB-IMAGE-1C: 🖼️ 팝오버 전용 이미지 진입 버튼 바인딩.
    우측 인스펙터 핸들러(viewer-edit.js _bindEditPanelEvents picturebook 분기)와 동일한
    기존 함수/흐름을 그대로 호출 — viewerUploadImageToStorage / _openPbDrawModal /
    enterImageTransformEdit / enterImageCropEdit / _queueSave. 새 저장 로직 없음.
@@ -5875,10 +5875,10 @@ function _imagePopoverEsc(e) {
 /* ================================================================
    SCENE-STYLE-1: picturebook "🎭 장면 스타일" 상단 팝오버
    ─────────────────────────────────────────────────────────────
-   · 현재 장면의 장면단위 톤(본문 카드 톤 / 엔딩 마감톤). 작품 설정 아님 → ⚙ 아닌 별도 도구.
+   · 현재 장면의 장면단위 톤(본문 카드 톤 / 엔딩 마감톤). 작품 설정 아님 → ⚙️ 아닌 별도 도구.
    · 내용은 _pbSceneToneSectionHtml(scene), 바인딩은 2C에서 검증된 _bindPbToneEvents(pop, scene)
      그대로 재사용(renderEditPanel 부작용 없음·active grid-scope·_queueSave 동일·variant-lock 없음).
-   · 상호배타: 열 때 🔗/🎨/⚙/🖼 팝오버 닫음. 반대는 바깥클릭 핸들러가 자동 처리.
+   · 상호배타: 열 때 🔗/🎨/⚙️/🖼️ 팝오버 닫음. 반대는 바깥클릭 핸들러가 자동 처리.
    · 트리거는 picturebook 비표지 장면에서만(renderHUD의 _isPbImageHudScene 재사용).
    ================================================================ */
 function _sceneStylePopoverEl() { return document.getElementById('edit-scene-style-popover'); }
@@ -6877,7 +6877,7 @@ function renderTestingBanner() {
   ].join(';');
   banner.innerHTML = `
     <span style="font-family:var(--font-ui,Jua,sans-serif);font-size:12px;color:rgba(88,166,255,0.9);">
-      ▶ 감상해 보는 중 — 실제 관람자 화면이에요
+      ▶️ 감상해 보는 중 — 실제 관람자 화면이에요
     </span>
     <button id="btn-edit-test-return"
       style="padding:5px 14px;border-radius:50px;border:1.5px solid rgba(88,166,255,0.5);

@@ -2040,7 +2040,7 @@
       box-shadow:0 0 0 3px rgba(198,111,74,.20), 0 2px 8px rgba(198,111,74,.30);
     }
     .mtb-node--entry::after {
-      content:'▶';
+      content:'▶️';
       position:absolute;top:-10px;right:-10px;
       font-size:11px;color:#c66f4a;
       background:#fffaee;width:18px;height:18px;
@@ -2476,6 +2476,7 @@
       background:#c79550;color:#fffaee;border-color:#c79550;
     }
   </style>
+<style>/* KO-WRAP-1: 한국어 어절 단위 줄바꿈(전역) */ body{word-break:keep-all;overflow-wrap:break-word;}</style>
 </head>
 <body>
 
@@ -2567,7 +2568,7 @@
     <div class="mtb-header-right">
       <button class="mtb-header-btn" id="mtb-cover-toggle" title="작품 표지(제목·소개)를 만들거나 편집">📖 표지</button>
       <button class="mtb-header-btn" id="mtb-place-toggle" title="노드 드래그로 위치 박기">📍 배치</button>
-      <button class="mtb-header-btn" id="mtb-play-test" title="실제 감상 화면으로 확인">▶ 감상</button>
+      <button class="mtb-header-btn" id="mtb-play-test" title="실제 감상 화면으로 확인">▶️ 감상</button>
       <button class="mtb-header-btn" id="mtb-pc-toggle">🖥 PC</button>
     </div>
   </div>
@@ -2619,7 +2620,7 @@
     <div class="mtb-edit-nav">
       <button class="mtb-edit-nav-btn" id="mtb-edit-prev" title="이전 장면">◀</button>
       <div class="mtb-edit-save-status" id="mtb-edit-status"></div>
-      <button class="mtb-edit-nav-btn" id="mtb-edit-next" title="다음 장면">▶</button>
+      <button class="mtb-edit-nav-btn" id="mtb-edit-next" title="다음 장면">▶️</button>
     </div>
   </div>
   <div class="mtb-edit-body">
@@ -2651,13 +2652,13 @@
       <!-- v115: 표현 설정 안내 (표지 편집 시에만 표시) -->
       <div class="mtb-pc-hint mtb-cover-only" id="mtb-pc-hint" style="display:none;">
         <div style="font-size:12px;color:#9a8868;line-height:1.55;padding:10px 12px;background:#fffaee;border:1px dashed #e8dfc8;border-radius:8px;margin-top:14px;">
-          🎨 작품 분위기(테마·텍스트 등장 효과·장면 전환)는 <strong>🎨 표현 설정</strong>에서 박을 수 있어요. 아래 ⚙ 글자 설정 옆에 박혀있어요.
+          🎨 작품 분위기(테마·텍스트 등장 효과·장면 전환)는 <strong>🎨 표현 설정</strong>에서 박을 수 있어요. 아래 ⚙️ 글자 설정 옆에 박혀있어요.
         </div>
       </div>
 
       <!-- v100: 설정 토글 (폰트/크기/색/굵기) -->
       <button class="mtb-edit-settings-toggle" id="mtb-edit-settings-toggle">
-        <span>⚙ 글자 설정</span>
+        <span>⚙️ 글자 설정</span>
         <span id="mtb-edit-settings-arrow">▼</span>
       </button>
       <div class="mtb-edit-settings-panel" id="mtb-edit-settings-panel">
@@ -2956,7 +2957,7 @@
       </div>
       <!-- W8: 다음 단계 — 상단 바에 자연스럽게 녹임 (floating 패널 폐기) -->
       <a class="tb-btn tb-btn-test" id="btn-open-viewer" href="#"
-         title="실제 관람자 화면 확인">▶ 감상해 보기</a>
+         title="실제 관람자 화면 확인">▶️ 감상해 보기</a>
       <button class="tb-btn tb-btn-viewedit" id="btn-viewer-edit"
               title="선택지 위치와 글꼴을 예쁘게 다듬어요">🎨 감상 화면 다듬기</button>
     </div>
@@ -2977,7 +2978,7 @@
              읽기 전용 — 저장된 결과만 다시 봄(질문 생성·API 호출 없음). 기본 숨김. -->
         <button class="tb-btn tb-btn-tool" id="btn-compass-result" title="이 작품의 생각 나침반 결과를 다시 봐요" style="display:none;">🧭 생각 나침반</button>
         <button class="tb-btn tb-btn-tool adv-only" id="btn-project-settings"
-          title="감상 시작·다시 하기 장면을 설정해요">⚙ 시작점</button>
+          title="감상 시작·다시 하기 장면을 설정해요">⚙️ 시작점</button>
         <button class="tb-btn tb-btn-tool" id="btn-group-move"
           title="여러 장면 묶음 이동">🔗 묶음 이동: 꺼짐</button>
       </div>
@@ -3093,7 +3094,7 @@
     display:flex;align-items:center;justify-content:space-between;
     background:rgba(0,0,0,0.3);backdrop-filter:blur(4px);">
     <div style="display:flex;align-items:center;gap:10px;">
-      <span style="font-family:var(--font-h);font-size:16px;color:#fff;">▶ 미리보기 중</span>
+      <span style="font-family:var(--font-h);font-size:16px;color:#fff;">▶️ 미리보기 중</span>
       <span id="preview-team-badge" style="font-size:12px;color:#a0c0ff;background:rgba(255,255,255,0.1);padding:3px 10px;border-radius:50px;"></span>
     </div>
     <div style="display:flex;gap:10px;">
@@ -3149,7 +3150,7 @@
   <div style="background:#fff;border-radius:20px;width:100%;max-width:560px;box-shadow:0 16px 48px rgba(0,0,0,.25);overflow:hidden;">
     <div style="background:linear-gradient(135deg,#2e7d32,#66bb6a);padding:16px 24px;display:flex;align-items:center;justify-content:space-between;">
       <div>
-        <div style="font-family:var(--font-h);font-size:20px;color:#fff;">⚙ 시작점 설정</div>
+        <div style="font-family:var(--font-h);font-size:20px;color:#fff;">⚙️ 시작점 설정</div>
         <div style="font-size:12px;color:rgba(255,255,255,.85);margin-top:2px;">감상 시작과 다시 하기 위치를 정해요</div>
       </div>
       <button id="ps-close-btn" style="background:rgba(255,255,255,.2);border:none;color:#fff;width:32px;height:32px;border-radius:50%;font-size:18px;cursor:pointer;">✕</button>
@@ -3273,30 +3274,30 @@
 <script src="thought-compass-ui.js?v=compassfollowup1pathcheckremove1adminredesign1compassdepth1"></script>
 <script src="thought-compass-sheet.js?v=tcsheet1"></script>
 <script src="thought-compass-rose.js?v=compassrose1teacherprint1"></script>
-<script src="thought-compass-review.js?v=compassrose1teacherprint1legacyux1tutorialtrig1"></script>
+<script src="thought-compass-review.js?v=compassrose1teacherprint1legacyux1tutorialtrig1polish12"></script>
 <script src="thought-compass-scenes.js?v=compassbundle1"></script>
 <script src="firebase.js?v=141admin1cbase10amemberlogin1sec5tcphase1drefinestab1accountux1teacherjoin1dragperf1errko1renderdiff1clockskew1ssn1"></script>
 <script src="notices.js?v=notices2"></script>
 <script src="session.js?v=ssn1"></script>
 <script src="canvasInteraction.js?v=120renderdiff1crossa1crossb1"></script>
-<script src="sceneRenderer.js?v=119base10bbase10auto1coverstart1scenetitle1ascenetitle2apwanav2vpreturn1perfqa1branchcard1branchcard2branchcard3branchcard4cover1cover2cover3compassbtn1pbflowcopy1cardquickedit1cardexpandpersist1dragperf1crossa1contest1low1"></script>
-<script src="storyAnalyzer.js?v=136checkbuttons1heuristic3crossa1routewarm1routetabs1"></script>
+<script src="sceneRenderer.js?v=119base10bbase10auto1coverstart1scenetitle1ascenetitle2apwanav2vpreturn1perfqa1branchcard1branchcard2branchcard3branchcard4cover1cover2cover3compassbtn1pbflowcopy1cardquickedit1cardexpandpersist1dragperf1crossa1contest1low1polish12"></script>
+<script src="storyAnalyzer.js?v=136checkbuttons1heuristic3crossa1routewarm1routetabs1polish12"></script>
 <script src="mediaManager.js?v=114copyfix1uitextfix1"></script>
-<script src="adminConsole.js?v=103copyfix1pwanav2imgs2settings1writeafterui1waq1finishgroup1scenepubprint1accountmode1uitextfix1teacherprint1teamcard1memberlist1legacyux1delsafety2tutorialcd1adminredesign1teacherjoin1aipermwarn1adminmanual1csvbulk1errko1crossa1contest1master1master2shelf1low1"></script>
+<script src="adminConsole.js?v=103copyfix1pwanav2imgs2settings1writeafterui1waq1finishgroup1scenepubprint1accountmode1uitextfix1teacherprint1teamcard1memberlist1legacyux1delsafety2tutorialcd1adminredesign1teacherjoin1aipermwarn1adminmanual1csvbulk1errko1crossa1contest1master1master2shelf1low1polish12"></script>
 <!-- ADMIN-REDESIGN Phase 3: 교사·학생 상세 설명서(화면형) -->
-<script src="admin-manual.js?v=adminmanual4contestlow1"></script>
-<script src="preview.js?v=96"></script>
+<script src="admin-manual.js?v=adminmanual4contestlow1polish12"></script>
+<script src="preview.js?v=96polish12"></script>
 <script src="projectSettings.js?v=114copyfix1coverstart2errko1"></script>
 <script src="ui.js?v=109copyfix2c2base10bfixendingguard1addscene1base10auto1branchtopbar1cscenetitle1asessionrefresh1apwanav2homenav1vpreturn1sec5tcphase1dcompassbtn1cardquickedit1accountux1tutorialtrig1teacherjoin1adminback1cardnobackdrop1adminloading1errko1crossa1crossb1btncleanup1contest1low1"></script>
 <!-- v95: 모바일 텍스트형 브랜치 전용 (텍스트 작품 + 모바일에서만 활성) -->
-<script src="mobileTextBranch.js?v=compassbundle1uitextfix1low1"></script>
+<script src="mobileTextBranch.js?v=compassbundle1uitextfix1low1polish12"></script>
 <!-- TUTORIAL-PRD: 콘텐츠·삽화·데모(먼저) → 도움말/환영/인쇄 -->
 <script src="fullscreen-persist.js?v=fspersist1"></script>
-<script src="tutorial-content.js?v=tutorialbranchcard1contest1low1"></script>
-<script src="tutorial-art.js?v=tutorialrefine2"></script>
+<script src="tutorial-content.js?v=tutorialbranchcard1contest1low1polish12"></script>
+<script src="tutorial-art.js?v=tutorialrefine2polish12"></script>
 <script src="tutorial-demo.js?v=tutorialbranchcard1"></script>
 <script src="tutorial-help.js?v=tutorialart1"></script>
-<script src="tutorial-welcome.js?v=tutshow1tutscope1"></script>
+<script src="tutorial-welcome.js?v=tutshow1tutscope1polish12"></script>
 <script src="tutorial-print.js?v=tutorialart1"></script>
 
 </body>

@@ -206,7 +206,7 @@ function _mtbBuildLayout() {
     const stat = { branchCount: buttons.length, incomplete: false, reasons: [] };
 
     /* v111: cover scene 완성 기준은 별도 — 제목 또는 한 줄 소개 중 하나라도 채워져 있으면 완성.
-       cover의 buttons[0]은 "▶ 시작하기" 자동 생성 (nextId는 entrySceneId가 흡수). body/buttons
+       cover의 buttons[0]은 "▶️ 시작하기" 자동 생성 (nextId는 entrySceneId가 흡수). body/buttons
        검사 안 함. branchCount도 0으로 두어 노드에 분기수 배지 미표시 (cover는 분기 X). */
     if (isCover) {
       stat.branchCount = 0;
@@ -2308,7 +2308,7 @@ function _mtbBuildBase10Scenes(opts) {
   out['1'] = {
     num: 1, title: '', body: '', type: 'cover',
     subtitle: '', coverTheme: 'default', titleVerticalPosition: 50,
-    buttons: [{ label: '▶ 시작하기', nextId: '2' }],
+    buttons: [{ label: '▶️ 시작하기', nextId: '2' }],
     choiceA: '', choiceB: '', choiceCount: 1,
     _hasBody: true, presentationMode: 'picturebook',
     x: p1.x, y: p1.y,

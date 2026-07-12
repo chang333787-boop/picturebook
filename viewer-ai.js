@@ -3446,7 +3446,7 @@
             enabled: rewriteDone && a.s2.enabled, disabledReason: !rewriteDone ? lockReason : a.s2.reason, remaining: null,
           })}
           ${_showImageS2Card ? _renderModeCard({
-            key: 'imageS2', icon: '🖼', title: 'AI 그림책 마감',
+            key: 'imageS2', icon: '🖼️', title: 'AI 그림책 마감',
             desc: '그림책 그림을 더 완성된 느낌으로 다듬어요. AI가 만든 그림은 후보로만 저장돼요. 학생이 그린 원본 그림은 그대로 남아요. (교사용 · 외부 AI 전송 가능)',
             enabled: rewriteDone && _imageS2Allowed, disabledReason: !rewriteDone ? lockReason : '선생님이 아직 열어주지 않았어요', remaining: null,
           }) : ''}

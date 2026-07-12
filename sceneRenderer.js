@@ -77,7 +77,7 @@ function addScene(type) {
     base.coverTheme = 'default';         // 표지 테마 (default | cream | sage | sky | coral)
     base.titleVerticalPosition = 50;     // 제목 높낮이 (0~100, 50=가운데)
     /* v37: 표지에도 single button — 첫 장면으로 연결되는 시작 port */
-    base.buttons = [{ label: '▶ 시작하기', nextId: null }];
+    base.buttons = [{ label: '▶️ 시작하기', nextId: null }];
   } else if (type === 'ending') {
     /* 엔딩 전용 — 기존 흐름. trueEnding은 사용자가 별도 토글 */
     base.trueEnding = false;
@@ -187,12 +187,12 @@ function buildCardHTML(s) {
   if (_isExperience) {
     portsHTML = '';
   } else if (s.type === 'cover') {
-    /* v69: 표지 시작 버튼 — 라벨 "▶ 시작하기" 고정 (사용자 수정 X).
+    /* v69: 표지 시작 버튼 — 라벨 "▶️ 시작하기" 고정 (사용자 수정 X).
         input 대신 readonly 텍스트 + 연결 dot만. 사용자 보고: "표지는 시작하기 고정이니까 칸 막아줘". */
     portsHTML = `
       <div class="card-ports card-ports--cover">
         <div class="port-row port-row--cover-fixed">
-          <span class="port-label-fixed">▶ 시작하기</span>
+          <span class="port-label-fixed">▶️ 시작하기</span>
           <div class="port-dot port-dot--A" data-num="${s.num}" data-port="A" title="드래그해서 첫 장면 연결"></div>
         </div>
       </div>`;
@@ -396,7 +396,7 @@ function _buildImageAreaHtml(s) {
       </div>`
     : `<div class="card-image-area">
         <label class="card-img-btn">
-          🖼 이미지 넣기
+          🖼️ 이미지 넣기
           <input class="js-img-upload" type="file" accept="image/*"
             data-num="${s.num}" style="display:none"/>
         </label>
@@ -475,7 +475,7 @@ function _buildMovieCardContent(s) {
   if (hasVideo) {
     mediaBadge = `<span class="card-meta-badge card-meta-badge--video">🎬 영상</span>`;
   } else if (hasPoster) {
-    mediaBadge = `<span class="card-meta-badge card-meta-badge--image">🖼 포스터</span>`;
+    mediaBadge = `<span class="card-meta-badge card-meta-badge--image">🖼️ 포스터</span>`;
   } else {
     mediaBadge = `<span class="card-meta-badge card-meta-badge--empty">⚪ 미디어 없음</span>`;
   }

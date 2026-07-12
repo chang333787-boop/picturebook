@@ -843,7 +843,7 @@ function renderRoutePanel() {
   if (curStart == null) {
     contentEl.innerHTML = `<div style="color:var(--muted);text-align:center;padding:24px;">
       ${_routeMode === 'entry' ? '처음 시작 장면' : '다시 할 때 시작 장면'}이 지정되지 않았어요.<br>
-      <span style="font-size:11px;">[⚙ 시작점]에서 설정하거나 장면을 먼저 만들어 주세요.</span>
+      <span style="font-size:11px;">[⚙️ 시작점]에서 설정하거나 장면을 먼저 만들어 주세요.</span>
     </div>`;
     return;
   }

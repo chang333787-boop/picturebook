@@ -56,7 +56,7 @@ function renderCurrentScene() {
   if (safeHint) safeHint.classList.toggle('hidden', !ViewerState.editMode);
   stage.classList.toggle('edit-mode-on', ViewerState.editMode);
   document.body.classList.toggle('edit-mode-active', ViewerState.editMode);
-  /* v128: 감상 테스트 상태 명시 — 다듬기 화면 안에서 "▶ 감상 테스트" 눌렀을 때
+  /* v128: 감상 테스트 상태 명시 — 다듬기 화면 안에서 "▶️ 감상 테스트" 눌렀을 때
      ViewerState._testingEdit = true 설정됨. CSS animation:none 룰이 감상 테스트에선
      적용되면 안 됨 (실제 감상과 동일 조건으로 보여줘야). class를 명시적으로 지정해 두면
      edit-mode-on/active 잔재가 있어도 CSS에서 안전하게 분기 가능. */
@@ -193,7 +193,7 @@ function _prefetchNextSceneImages() {
   if (!cur) return;
   const targets = [];
   if (typeof _shouldShowCover === 'function' && _shouldShowCover()) {
-    targets.push(cur);                             /* 표지 → ▶시작하기가 여는 진입 장면 */
+    targets.push(cur);                             /* 표지 → ▶️시작하기가 여는 진입 장면 */
   } else if (Array.isArray(cur.choices)) {
     cur.choices.forEach(c => {
       const t = (c && c.nextId != null) ? ViewerState.scenes[c.nextId] : null;
@@ -300,7 +300,7 @@ function renderCover() {
             <div class="pb-text pb-text--cover">
               <div class="cover-kicker${kickerEmptyCls}"${editKickerAttrs}>${escHtml(kicker)}</div>
               <h1 class="cover-title-pb"${editTitleAttrs}>${escHtml(title)}</h1>
-              <button class="cover-start-btn js-cover-start">▶ 시작하기</button>
+              <button class="cover-start-btn js-cover-start">▶️ 시작하기</button>
             </div>
           </div>
         </div>
@@ -333,7 +333,7 @@ function renderCover() {
                 : ''}
             </div>
             <div class="cover-book__bottom">
-              <button class="cover-start-btn js-cover-start">▶ 시작하기</button>
+              <button class="cover-start-btn js-cover-start">▶️ 시작하기</button>
             </div>
           </div>
         </div>
@@ -788,7 +788,7 @@ function _renderScenePicturebook(stage, scene, submode) {
               실제 그림 표시는 기존 경로(contain) 그대로라 이 박스가 그림을 구속하지 않음. -->
          <div class="pb-illust-guide" aria-hidden="true">
            <div class="pb-illust-guide__canvas">
-             <span class="pb-illust-guide__icon">🖼</span>
+             <span class="pb-illust-guide__icon">🖼️</span>
              <b>여기가 그림 자리예요</b>
              <small>🎨 장면꾸미기에서 그림을 올리거나 직접 그려요</small>
            </div>
@@ -1032,7 +1032,7 @@ function _renderSceneMovie(stage, scene) {
     mediaInner = `<div class="movie-poster" style="background-image:url('${poster}')"></div>`;
   } else {
     mediaInner = `<div class="movie-poster movie-poster--empty">
-      <div class="movie-empty-mark">▶</div>
+      <div class="movie-empty-mark">▶️</div>
     </div>`;
   }
 
@@ -2389,9 +2389,9 @@ function renderHUD() {
   if (typeof _closeChoicePopover === 'function') _closeChoicePopover();
   /* TOP-TOOLBAR-3A: 표지 "🎨 표지" 팝오버도 HUD 재렌더 시 닫음(같은 stale 방지). */
   if (typeof _closeCoverPopover === 'function') _closeCoverPopover();
-  /* PROJECT-SETTINGS-1A: "⚙ 작품 설정" 팝오버도 HUD 재렌더 시 닫음(같은 stale 방지). */
+  /* PROJECT-SETTINGS-1A: "⚙️ 작품 설정" 팝오버도 HUD 재렌더 시 닫음(같은 stale 방지). */
   if (typeof _closeProjectPopover === 'function') _closeProjectPopover();
-  /* PB-IMAGE-1B: "🖼 그림" 팝오버도 HUD 재렌더 시 닫음(같은 stale 방지). */
+  /* PB-IMAGE-1B: "🖼️ 그림" 팝오버도 HUD 재렌더 시 닫음(같은 stale 방지). */
   if (typeof _closeImagePopover === 'function') _closeImagePopover();
   /* SCENE-STYLE-1: "🎭 장면 스타일" 팝오버도 HUD 재렌더 시 닫음(같은 stale 방지). */
   if (typeof _closeSceneStylePopover === 'function') _closeSceneStylePopover();
@@ -2432,20 +2432,20 @@ function renderHUD() {
      (표지=🎨 표지 / 일반=🔗 버튼 / 엔딩=둘 다 없음) → HUD 과밀 방지. */
   const _isCoverHudScene = !!(_hudScene
     && (_hudScene.type === 'cover' || _hudScene.isCover));
-  /* PB-IMAGE-1B: picturebook 비표지 장면에서만 "🖼 그림" 트리거 — 이미지 도구는
+  /* PB-IMAGE-1B: picturebook 비표지 장면에서만 "🖼️ 그림" 트리거 — 이미지 도구는
      picturebook 전용이고 표지(_typeSectionCoverHtml)엔 없음. text/movie 제외.
      (1B는 빈 셸; 실제 진입 버튼 복제는 1C.) */
   const _isPbImageHudScene = !!(_hudScene
     && ViewerState.project && ViewerState.project.projectType === 'picturebook'
     && _hudScene.type !== 'cover' && !_hudScene.isCover);
   /* TEXT-MODE-1C: "🎭 장면 스타일"은 picturebook(톤+글자) OR text(글자+테마+효과) 비표지 장면에 노출.
-     🖼 그림은 위 _isPbImageHudScene(picturebook 전용) 그대로 — text엔 안 뜸. */
+     🖼️ 그림은 위 _isPbImageHudScene(picturebook 전용) 그대로 — text엔 안 뜸. */
   const _isSceneStyleHudScene = !!(_hudScene
     && ViewerState.project
     && (ViewerState.project.projectType === 'picturebook' || ViewerState.project.projectType === 'text')
     && _hudScene.type !== 'cover' && !_hudScene.isCover);
   /* MOVIE-TOOL-1A: "🎬 무비" 트리거 — movie 비표지 장면(영상·본문 표시 도구 모달). text/pb 미노출.
-     🖼/🎭 조건은 무수정(movie엔 둘 다 안 뜸). */
+     🖼️/🎭 조건은 무수정(movie엔 둘 다 안 뜸). */
   const _isMovieToolHudScene = !!(_hudScene
     && ViewerState.project && ViewerState.project.projectType === 'movie'
     && _hudScene.type !== 'cover' && !_hudScene.isCover);
@@ -2457,23 +2457,23 @@ function renderHUD() {
           <button class="maker-return-btn maker-return-btn--tool js-refine-help" title="다듬기 사용법을 다시 봐요" aria-label="다듬기 사용법 다시 보기">❓ 사용법</button>
           ${_isNormalHudScene ? '<button class="maker-return-btn maker-return-btn--tool js-edit-choice-popover" title="행동 버튼과 연결 장면을 편집합니다" aria-label="행동 버튼과 연결 장면을 편집합니다">🔗 버튼</button>' : ''}
           ${_isCoverHudScene ? '<button class="maker-return-btn maker-return-btn--tool js-edit-cover-popover" title="표지 색과 표지 느낌을 편집합니다" aria-label="표지 색과 표지 느낌을 편집합니다">🎨 표지</button>' : ''}
-          ${_isPbImageHudScene ? '<button class="maker-return-btn maker-return-btn--tool js-edit-image-popover" title="장면 그림을 편집해요 — 업로드·직접 그리기" aria-label="장면 그림을 편집합니다">🖼 그림</button>' : ''}
+          ${_isPbImageHudScene ? '<button class="maker-return-btn maker-return-btn--tool js-edit-image-popover" title="장면 그림을 편집해요 — 업로드·직접 그리기" aria-label="장면 그림을 편집합니다">🖼️ 그림</button>' : ''}
           ${_isSceneStyleHudScene ? ((ViewerState.project && ViewerState.project.projectType === 'text')
             ? '<button class="maker-return-btn maker-return-btn--tool js-edit-scene-style-popover" title="이야기 전체 기본값과 이 장면만 다르게 꾸미기" aria-label="꾸미기 — 이야기 전체 / 이 장면만">🎨 꾸미기</button>'
             : '<button class="maker-return-btn maker-return-btn--tool js-edit-scene-style-popover" title="현재 장면의 글과 화면을 꾸며요. 같은 스타일을 모든 장면에 복사할 수 있어요" aria-label="장면 꾸미기 — 현재 장면의 글과 화면">🎨 장면 꾸미기</button>') : ''}
           ${_isMovieToolHudScene ? '<button class="maker-return-btn maker-return-btn--tool js-edit-movie-tool-modal" title="이 장면의 영상과 본문 표시를 설정합니다" aria-label="이 장면의 영상과 본문 표시를 설정합니다">🎬 무비</button>' : ''}
           ${_aiAllowed ? '<button class="maker-return-btn maker-return-btn--ai js-ai-trigger" title="작품 마무리 — 질문·검사로 고칠 곳을 찾고, 직접 고친 뒤, 마지막 다듬기" aria-label="작품 마무리 — 질문·검사·직접 고치기·마지막 다듬기">📔 작품 마무리</button>' : ''}
-          <button class="maker-return-btn maker-return-btn--test js-edit-preview-test" title="실제 관람자 화면으로 확인">▶ 감상해 보기</button>
+          <button class="maker-return-btn maker-return-btn--test js-edit-preview-test" title="실제 관람자 화면으로 확인">▶️ 감상해 보기</button>
           <button class="maker-return-btn maker-return-btn--save js-edit-save" title="자동으로 저장돼요 — 지금 바로 저장하고 싶을 때 눌러요">💾 저장</button>
           <!-- REFINE-STAB-D: ⋯ 더보기 제거 — 작업 흐름 중심 정리.
-               · ⚙ 감상/작품 설정 = 상단 단독(기존 js-edit-project-popover 핸들러 그대로)
+               · ⚙️ 감상/작품 설정 = 상단 단독(기존 js-edit-project-popover 핸들러 그대로)
                · 🧭 나침반 = 상단 단독(기록 있을 때만 — _applyCompassMenuVisibility가 display 제어)
                · 🛤 이야기 길 보기·🖨 그림책 인쇄 = 작품 마무리 모달 안 '이야기 길 확인'으로 이동(viewer-ai)
                · 🔍 구조 보기 = 다듬기에서 삭제(브랜치 화면의 이야기 길 점검이 담당)
                · 🌿 처음으로 = 다듬기에서 제거(브랜치 화면에는 유지) -->
           ${(ViewerState.project && ViewerState.project.projectType === 'text')
-            ? '<button class="maker-return-btn maker-return-btn--tool js-edit-project-popover" title="장면이 바뀌고 글이 나타나는 방식(작품 전체)" aria-label="감상 설정 — 작품 전체 재생 방식">⚙ 감상 설정</button>'
-            : '<button class="maker-return-btn maker-return-btn--tool js-edit-project-popover" title="작품 전체에 적용되는 설정이에요" aria-label="작품 전체 설정">⚙ 작품 설정</button>'}
+            ? '<button class="maker-return-btn maker-return-btn--tool js-edit-project-popover" title="장면이 바뀌고 글이 나타나는 방식(작품 전체)" aria-label="감상 설정 — 작품 전체 재생 방식">⚙️ 감상 설정</button>'
+            : '<button class="maker-return-btn maker-return-btn--tool js-edit-project-popover" title="작품 전체에 적용되는 설정이에요" aria-label="작품 전체 설정">⚙️ 작품 설정</button>'}
           <button class="maker-return-btn maker-return-btn--tool js-edit-compass-result" title="이 작품의 생각 나침반 결과를 다시 봐요" style="display:none;">🧭 생각 나침반</button>
           <button class="maker-return-btn js-edit-return-maker" title="브랜치 화면으로 돌아가기" aria-label="브랜치 화면으로 돌아가기">← 브랜치 화면으로</button>
         ` : `

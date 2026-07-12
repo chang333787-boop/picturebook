@@ -78,7 +78,7 @@
     var overlay = _el('div', { id: PANEL_ID, style: 'position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:16px;' });
     var card = _el('div', { style: 'background:#fff;max-width:560px;width:100%;max-height:88vh;overflow:auto;border-radius:14px;padding:18px 18px 14px;font-family:-apple-system,system-ui,sans-serif;color:#2b2b2b;box-shadow:0 8px 40px rgba(0,0,0,.3);' });
     card.appendChild(_el('div', { style: 'display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;' },
-      '<h3 style="margin:0;font-size:17px;">🖼 AI 그림책 마감</h3>'));
+      '<h3 style="margin:0;font-size:17px;">🖼️ AI 그림책 마감</h3>'));
     card.appendChild(_el('p', { style: 'margin:0 0 12px;font-size:13px;color:#666;' }, '학생 그림을 보존하면서 그림책 느낌으로 마감해요.'));
     var body = _el('div', { id: PANEL_ID + '-body' }, '<p style="color:#999;font-size:13px;">불러오는 중…</p>');
     card.appendChild(body);
@@ -257,7 +257,7 @@
     if (['picturebook', 'text'].indexOf(_ptype()) === -1 && _ptype()) return;
     if (document.getElementById('imageS2-batch-entry')) return;
     var bar = _el('div', { id: 'imageS2-batch-entry', style: 'position:fixed;right:12px;bottom:12px;z-index:99990;' });
-    var btn = _el('button', { style: 'padding:9px 14px;border-radius:20px;border:none;background:#6a8a5b;color:#fff;font-size:13px;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.25);font-family:-apple-system,system-ui,sans-serif;' }, '🖼 AI 그림책 마감');
+    var btn = _el('button', { style: 'padding:9px 14px;border-radius:20px;border:none;background:#6a8a5b;color:#fff;font-size:13px;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.25);font-family:-apple-system,system-ui,sans-serif;' }, '🖼️ AI 그림책 마감');
     btn.onclick = _openPanel;
     bar.appendChild(btn);
     document.body.appendChild(bar);

@@ -96,8 +96,8 @@
         else visual = `<div style="font-size:44px;line-height:1;margin-bottom:10px;">${_esc(s.icon || '🌿')}</div>`;
         card.innerHTML = `
           ${visual}
-          <div style="font-size:19px;font-weight:800;color:#3a2c14;margin-bottom:8px;">${_esc(s.title)}</div>
-          <div style="font-size:14px;color:#6b5638;line-height:1.6;min-height:40px;">${_esc(s.line)}</div>
+          <div style="font-size:19px;font-weight:800;color:#3a2c14;margin-bottom:8px;word-break:keep-all;">${_esc(s.title)}</div>
+          <div style="font-size:14px;color:#6b5638;line-height:1.6;min-height:40px;word-break:keep-all;overflow-wrap:break-word;">${_esc(s.line).replace(/&lt;b&gt;/g, '<b>').replace(/&lt;\/b&gt;/g, '</b>')}</div>
           <div style="margin:14px 0 12px;">${dots}</div>`;
         /* demo 슬라이드면 인터랙티브 미니 데모 마운트 */
         if (s.demo && typeof window !== 'undefined' && window.TutorialDemo && typeof window.TutorialDemo.mount === 'function') {

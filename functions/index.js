@@ -2978,6 +2978,90 @@ function _validateScriptDraft(d) {
      + 팀별 댓글 수. shelf 노드는 클라 read 금지(rules) — 이 함수가 유일한 읽기 경로라
      "classId만 아는 외부인"이 공개 토글 없이 팀명 목록을 긁어갈 수 없다.
    ════════════════════════════════════════════════════════════════ */
+/* ════════════════════════════════════════════════════════════════
+   TEACHER-CLONE-FULL(2026-07-12): 교사 전용 작품 완전 복제.
+   ──────────────────────────────────────────────────────────────
+   배경: 학생용 복사(redeemCopyCode)는 의도적으로 작품 본체(scenes+viewer-meta)만
+   복사한다. 그러나 시연·클린룸(블라인드 대응)용 복제는 AI 변형 토글이 살아있어야
+   해서 aiVariants 등 산출물까지 필요 — 해당 노드들은 클라 write:false(rules)라
+   서버(admin SDK) 콜러블로만 가능. 학생 복사 흐름은 무변경.
+   · 게이트: super_admin ∥ (src·dst 두 학급 모두의 담당 교사)
+   · 복사: scenes·viewer-meta(isPublic:false 강제+copiedFrom full 스탬프)
+           ·aiVariants·aiVariantSummary·aiChecks·writingGuide(있는 것만)
+   · 제외: account/pin/members/session/comments (계정·개인정보·소통 기록)
+   · dst는 빈 작품(scenes 없음)이어야 함. 단일 원자 update. rules 무변경.
+   ════════════════════════════════════════════════════════════════ */
+const CLONE_NODES = ['scenes', 'viewer-meta', 'aiVariants', 'aiVariantSummary', 'aiChecks', 'writingGuide'];
+
+exports.teacherCloneTeamFull = onCall(
+  { enforceAppCheck: false },
+  async (req) => {
+    if (!req.auth) throw new HttpsError('unauthenticated', '로그인이 필요해요.');
+    const uid  = req.auth.uid;
+    const role = (req.auth.token && req.auth.token.role) || null;
+
+    const field = (k) => {
+      const v = String((req.data && req.data[k]) || '').trim();
+      if (!v || /[.#$\[\]\/]/.test(v)) throw new HttpsError('invalid-argument', k + '가 올바르지 않아요.');
+      return v;
+    };
+    const srcClassId = field('srcClassId');
+    const dstClassId = field('dstClassId');
+    const srcEnc = encodeURIComponent(field('srcTeamName'));
+    const dstEnc = encodeURIComponent(field('dstTeamName'));
+    if (srcClassId === dstClassId && srcEnc === dstEnc) {
+      throw new HttpsError('invalid-argument', '같은 작품으로는 복제할 수 없어요.');
+    }
+
+    /* 교사 게이트 — super_admin 아니면 두 학급 모두 담당 교사여야 */
+    if (role !== 'super_admin') {
+      const [srcT, dstT] = await Promise.all([
+        admin.database().ref(`classes/${srcClassId}/meta/teacher_uid`).once('value'),
+        admin.database().ref(`classes/${dstClassId}/meta/teacher_uid`).once('value'),
+      ]);
+      if (srcT.val() !== uid || dstT.val() !== uid) {
+        throw new HttpsError('permission-denied', '두 학급 모두의 담당 교사만 완전 복제를 할 수 있어요.');
+      }
+    }
+
+    const srcBase = `classes/${srcClassId}/teams/${srcEnc}`;
+    const dstBase = `classes/${dstClassId}/teams/${dstEnc}`;
+
+    /* 원본 존재 + 대상 빈 작품 확인 */
+    const [srcScenes, dstScenes] = await Promise.all([
+      admin.database().ref(`${srcBase}/scenes`).once('value'),
+      admin.database().ref(`${dstBase}/scenes`).once('value'),
+    ]);
+    if (!srcScenes.exists()) throw new HttpsError('not-found', '원본 작품에 장면이 없어요.');
+    if (dstScenes.exists()) throw new HttpsError('failed-precondition', '이미 작품이 있는 모둠이에요. 빈 모둠으로만 복제할 수 있어요.');
+
+    /* 노드 일괄 read → 단일 원자 update */
+    const snaps = await Promise.all(
+      CLONE_NODES.map((n) => admin.database().ref(`${srcBase}/${n}`).once('value')));
+    const updates = {};
+    const copied = [];
+    CLONE_NODES.forEach((n, i) => {
+      if (!snaps[i].exists()) return;
+      let val = snaps[i].val();
+      if (n === 'viewer-meta') {
+        val = Object.assign({}, val, {
+          isPublic: false,
+          copiedFrom: {
+            srcClassId, srcTeamEncoded: srcEnc,
+            full: true, by: uid, copiedAt: admin.database.ServerValue.TIMESTAMP,
+          },
+        });
+      }
+      updates[`${dstBase}/${n}`] = val;
+      copied.push(n);
+    });
+    await admin.database().ref().update(updates);
+
+    logger.info('[teacherCloneTeamFull]', { by: uid, srcClassId, dstClassId, copied });
+    return { ok: true, copied };
+  }
+);
+
 exports.getClassShelf = onCall(
   { enforceAppCheck: false },
   async (req) => {

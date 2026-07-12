@@ -3402,6 +3402,18 @@ body[data-text-theme="retro"] .cover-as-pb .cover-subtitle-pb, body[data-text-th
 body[data-text-theme="retro"] .cover-as-pb .cover-kicker, body[data-text-theme="dark"] .cover-as-pb .cover-kicker { color: #e8edf5 !important; }
 body[data-text-theme="retro"] .cover-as-pb .cover-title-pb { color: #4af09a !important; }
 
+/* COVER-MOVIE-2(2026-07-12): 무비형 표지 — 무비 룩(W8 Warm Paper) 토큰 미러링.
+   무비는 테마 1종 고정이라 값도 고정. 외곽=종이톤(--v03-bg-soft), 카드=결정 패널과 같은
+   크림 카드(--v03-card-bg/border/shadow 값 복사). 발명 장식 없음(스크린 검정은 미디어 전용 정체성). */
+body[data-movie-theme="warmpaper"] .cover-as-pb .pb-page { background: transparent; }
+body[data-movie-theme="warmpaper"] .cover-as-pb { background: #f4ecd8; }
+body[data-movie-theme="warmpaper"] .cover-as-pb .cover-book {
+  background: #fffaee;
+  border: 1px solid rgba(80, 50, 20, 0.10);
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(120, 90, 50, 0.06), 0 8px 24px rgba(120, 90, 50, 0.08);
+}
+
 body[data-pb-theme="cozy-storybook"] .scene-screen--pb { background: #ecdfc6; }
 body[data-pb-theme="cozy-storybook"] .picturebook-page {
   background:

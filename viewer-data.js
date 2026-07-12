@@ -371,6 +371,7 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
          · 명시적 스킨(paper/gallery/forest/night/cozy)은 그대로 통과(보존). */
       document.body.dataset.pbTheme = normalizePicturebookTheme(ViewerState.project.pbTheme);
       delete document.body.dataset.textTheme;
+      delete document.body.dataset.movieTheme;
     } else if (ptype === 'text') {
       /* TEXT-COVER-THEME(2026-07-09): 텍스트 표지도 자기 텍스트 테마 톤을 따라가게 — body에 textTheme 표시값 적용
          (그림책 pbTheme와 대칭·별개 속성이라 안 섞임). 본문 테마는 .scene-screen--text[data-text-theme]로 이미 적용됨.
@@ -380,9 +381,17 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
         : (ViewerState.project.textTheme || 'classic');
       document.body.dataset.textTheme = _tt;
       delete document.body.dataset.pbTheme;
+      delete document.body.dataset.movieTheme;
+    } else if (ptype === 'movie') {
+      /* COVER-MOVIE-2(2026-07-12): 무비형 표지도 무비 룩(Warm Paper 종이톤 플레이어)을 따라가게 —
+         무비는 테마가 1종 고정이라 값도 고정('warmpaper'). pb/text와 대칭(표시용 body data만·DB 무변경). */
+      document.body.dataset.movieTheme = 'warmpaper';
+      delete document.body.dataset.pbTheme;
+      delete document.body.dataset.textTheme;
     } else {
       delete document.body.dataset.pbTheme;
       delete document.body.dataset.textTheme;
+      delete document.body.dataset.movieTheme;
     }
     /* v82: v79에서 도입한 body.dataset.coverTheme 폐기 — 사용자 의도는 표지 색이 아닌
        pb-theme(양옆 마감 테마)이 letterbox 전체 둘러쌈. body.dataset.pbTheme이 이미

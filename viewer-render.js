@@ -1031,8 +1031,15 @@ function _renderSceneMovie(stage, scene) {
   } else if (poster) {
     mediaInner = `<div class="movie-poster" style="background-image:url('${poster}')"></div>`;
   } else {
+    /* MOVIE-EMPTY-GUIDE(2026-07-12): 대본 도우미 P2로 "구조만 있고 영상 없는" 상태가
+       정식 워크플로가 됨 — 아이콘만 있던 placeholder에 상황 안내 한 줄.
+       편집(다듬기)=행동 안내 / 감상=준비 중 안내로 구분. */
+    const emptyMsg = ViewerState.editMode
+      ? '아직 영상이 없어요 — 촬영한 영상을 올리면 여기서 재생돼요'
+      : '촬영 준비 중인 장면이에요';
     mediaInner = `<div class="movie-poster movie-poster--empty">
-      <div class="movie-empty-mark">▶️</div>
+      <div class="movie-empty-mark">🎬</div>
+      <div class="movie-empty-text">${emptyMsg}</div>
     </div>`;
   }
 
@@ -2196,8 +2203,12 @@ function _renderMovieEnding(stage, scene) {
   } else if (poster) {
     mediaInner = `<div class="movie-poster" style="background-image:url('${poster}')"></div>`;
   } else {
+    /* MOVIE-EMPTY-GUIDE: 엔딩 마감 아이콘(🏆/🏁)은 감상에선 그대로(의도된 디자인) —
+       편집(다듬기)에서만 업로드 안내 한 줄 추가. */
+    const endingEmptyHint = ViewerState.editMode
+      ? `<div class="movie-empty-text">아직 영상이 없어요 — 촬영한 영상을 올리면 여기서 재생돼요</div>` : '';
     mediaInner = `<div class="movie-poster movie-poster--empty">
-      <div class="movie-empty-mark">${systemIcon}</div>
+      <div class="movie-empty-mark">${systemIcon}</div>${endingEmptyHint}
     </div>`;
   }
   const initialPlayed = hasVideo ? 'false' : 'true';

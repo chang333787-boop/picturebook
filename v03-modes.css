@@ -1574,6 +1574,8 @@ body[data-page-orientation="portrait"] .scene-screen--movie[data-movie-deco="car
 .scene-screen--movie .movie-poster--empty {
   display: grid;
   place-items: center;
+  align-content: center;
+  gap: 10px;
   background: var(--v03-media-bg);
 }
 .scene-screen--movie .movie-empty-mark {
@@ -1582,6 +1584,15 @@ body[data-page-orientation="portrait"] .scene-screen--movie[data-movie-deco="car
   color: rgba(255, 255, 255, 0.18);
   font-weight: 300;
   /* 중성적 placeholder — v0.3 명세 */
+}
+/* MOVIE-EMPTY-GUIDE: 영상 없는 장면 안내 한 줄 (편집=업로드 안내 / 감상=준비 중) */
+.scene-screen--movie .movie-empty-text {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.45);
+  text-align: center;
+  padding: 0 16px;
+  line-height: 1.5;
+  word-break: keep-all;
 }
 .scene-screen--movie .movie-controls {
   position: absolute;

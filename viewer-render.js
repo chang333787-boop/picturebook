@@ -1361,8 +1361,15 @@ function _v03ChoiceBtnHtml(scene, choice, mode, idx, dispIdx) {
   const _isUnlinked = !choice.nextId;
   const disabled = (_isUnlinked && _isEditBtn && mode !== 'text' && mode !== 'movie') ? 'disabled' : '';
   const unlinkedAttr = (_isUnlinked && !_isEditBtn) ? ' aria-disabled="true" data-unlinked="1"' : '';
+  /* SINGLE-BTN-HINT(2026-07-12): 이 장면에 '의미 있는' 버튼이 이거 하나뿐이고 연결돼 있으면
+     (선형 진행 버튼) 빈 라벨 안내를 '다음 장면으로'로 — 처음 하는 학생이 공란에 헷갈리지 않게.
+     여러 갈래(2개+)엔 적용 안 함(각 선택지는 서로 다른 문구여야 하므로 일반 안내 유지). */
+  const _meaningfulCount = Array.isArray(scene.choices)
+    ? scene.choices.filter(c => c && (String(c.label || '').trim() || c.nextId)).length : 0;
+  const _soloNext  = _meaningfulCount === 1 && !!choice.nextId;
+  const _labelHint = _soloNext ? '다음 장면으로' : '(행동 버튼을 적어보세요)';
   /* W8: 빈 라벨 placeholder — 사용자 보고 "(빈 버튼)" → 더 친절 안내 */
-  const label    = String(choice.label || '').trim() || '(행동 버튼을 적어보세요)';
+  const label    = String(choice.label || '').trim() || _labelHint;
   const isEmpty  = !String(choice.label || '').trim();
   const emptyClass = isEmpty ? ' choice-v03--empty' : '';
 
@@ -1389,7 +1396,7 @@ function _v03ChoiceBtnHtml(scene, choice, mode, idx, dispIdx) {
     const _rawLabelPb = String(choice.label || '');
     const _pbEmptyCls = (_allowChoiceEdit && !_rawLabelPb.trim()) ? ' is-empty' : '';
     const _pbLabelContent = _allowChoiceEdit ? escHtml(_rawLabelPb) : escHtml(label);
-    const _pbPlaceholder = _allowChoiceEdit ? '(행동 버튼을 적어보세요)' : '(버튼 문구)';
+    const _pbPlaceholder = _allowChoiceEdit ? _labelHint : '(버튼 문구)';
     return `<button class="choice-v03 choice-v03--picturebook scene-choice-button js-choice${emptyClass}"
       data-choice-id="${escHtml(choice.id)}"
       data-pb-color="${colorIdx}"
@@ -1420,7 +1427,7 @@ function _v03ChoiceBtnHtml(scene, choice, mode, idx, dispIdx) {
       _textLabelHtml = `<span class="text-choice-label${_emptyLabelCls}"`
         + ` contenteditable="true" data-pb-editable="choice-label"`
         + ` data-choice-idx="${idx != null ? idx : 0}"`
-        + ` data-placeholder="(행동 버튼을 적어보세요)">${escHtml(_rawLabel)}</span>`;
+        + ` data-placeholder="${escHtml(_labelHint)}">${escHtml(_rawLabel)}</span>`;
     }
   }
   return `<button class="choice-v03 choice-v03--${mode}${mode === 'movie' ? '' : ' scene-choice-button'} js-choice${emptyClass}"

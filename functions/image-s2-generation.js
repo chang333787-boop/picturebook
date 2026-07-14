@@ -308,6 +308,9 @@ async function runImageS2Generation(input, deps) {
       /* IMG-HINT-2(2026-07-11): 장면 본문 = 해석 힌트(어댑터가 맥락 프레임에 가둬 동봉).
          본문 없으면 어댑터가 기존 프롬프트를 byte 동일 사용 — dedup/캐시 키는 불변(그림 기준). */
       storyText: (scene && typeof scene.body === 'string') ? scene.body : '',
+      /* MOOD-P8(2026-07-14): 책 전체 이야기 = 책 단위 무대/분위기 일관성(W-A). 콜러블이 주입.
+         전체 이야기도 dedup/캐시 키에 미포함(그림 기준) — 글 수정≠재변환. 없으면 P7 동작. */
+      wholeStoryText: (typeof i.wholeStoryText === 'string') ? i.wholeStoryText : '',
     });
   } catch (e) {
     return refundAnd({ ok: false, status: 'failed', code: 'IMAGE_AI_PROVIDER_ERROR', sceneId });

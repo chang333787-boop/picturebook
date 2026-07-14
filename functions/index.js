@@ -2394,6 +2394,31 @@ async function _uploadImageS2Result(opts) {
   return { url, storagePath };
 }
 
+/* MOOD-P8(2026-07-14): 팀 scenes 전체 본문을 장면 순서대로 모아 "책 전체 이야기" 문자열 생성.
+   어댑터 W-A 프레임이 책 단위 무대/분위기 일관성에 사용(장소 미기재 중간 페이지가 지구로 새는 것 방지).
+   원본 scenes read-only. 실패/빈 작품이면 '' 반환 → 어댑터는 P7 동작(페일세이프). */
+async function _buildWholeStoryText(baseRef) {
+  try {
+    const snap = await baseRef.child('scenes').once('value');
+    const scenes = snap.val();
+    if (!scenes || typeof scenes !== 'object') return '';
+    const ids = Object.keys(scenes).filter((k) => scenes[k] != null);
+    ids.sort((a, b) => {
+      const na = Number(a); const nb = Number(b);
+      if (isFinite(na) && isFinite(nb)) return na - nb;
+      return a < b ? -1 : (a > b ? 1 : 0);
+    });
+    const parts = [];
+    ids.forEach((k) => {
+      const b = (scenes[k] && typeof scenes[k].body === 'string') ? scenes[k].body.trim() : '';
+      if (b) parts.push(b);
+    });
+    return parts.join(' / ');
+  } catch (e) {
+    return '';
+  }
+}
+
 exports.callImageAiS2 = onCall(
   /* IMAGE-S2-9: OpenAI secret 결선. gpt-image-2 medium 50~70s+ → per-function timeout 상향(전역 60s override).
      secret 미존재 시 adapter=not-configured → 생성 차단·차감 0(안전 기본 유지). */
@@ -2421,9 +2446,11 @@ exports.callImageAiS2 = onCall(
     const enc = encodeURIComponent(ctx.teamName);
     const baseRef = admin.database().ref(`classes/${ctx.classId}/teams/${enc}`);
     const adapter = _selectImageS2Adapter();
+    /* MOOD-P8: 책 전체 이야기(무대/분위기 일관성). read-only·실패 시 '' → P7 페일세이프. */
+    const wholeStoryText = await _buildWholeStoryText(baseRef);
 
     const result = await ImageS2Gen.runImageS2Generation(
-      { classId: ctx.classId, enc, sceneId: sid, forceRegenerate: norm.value.forceRegenerate, isTeacher: genAuthorized },
+      { classId: ctx.classId, enc, sceneId: sid, forceRegenerate: norm.value.forceRegenerate, isTeacher: genAuthorized, wholeStoryText },
       {
         readScene: async (s) => { const snap = await baseRef.child(`scenes/${s}`).once('value'); return snap.val(); },
         readPolicy: async () => { const snap = await baseRef.child('viewer-meta/imagePolicy').once('value'); return snap.val(); },

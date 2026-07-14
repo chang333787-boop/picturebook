@@ -1280,7 +1280,10 @@
   background: rgba(43, 31, 16, 0.42);
   -webkit-backdrop-filter: blur(2px);
   backdrop-filter: blur(2px);
-  z-index: 720;            /* 안내 카드(700)보다 위 — 선택을 요구하므로 우선 */
+  z-index: 100060;         /* DRAW-CONFIRM-Z-FIX(2026-07-14): 선택을 요구하는 confirm은 항상 최상위.
+                              기존 720은 그리기 모달(9999)·기타 maker 모달(10006/10010)·나침반(100000/1)
+                              뒤에 숨어, 그림 그린 뒤 X/저장 시 '저장 안 하고 닫을까요?' confirm이 안 보여
+                              X가 안 먹는 것처럼 보이던 버그(사용자 보고). 모든 모달 위로 올려 항상 클릭 가능. */
   display: flex;
   align-items: center;
   justify-content: center;

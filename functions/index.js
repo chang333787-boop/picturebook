@@ -415,6 +415,33 @@ async function _checkTeamAiMembership(args) {
   return TeamAiAuth.decideTeamAiAccess({ isTeacher: false, memberStatus });
 }
 
+/* ════════════════════════════════════════════════════════════════
+   IMAGE-S2-STUDENT-1(2026-07-14): AI 그림책 마감(imageS2) 실행 자격.
+   ──────────────────────────────────────────────────────────────
+   교사(super_admin ∥ 학급 teacher_uid) 또는 "그 팀 active 멤버(=자기 모둠 작품)".
+   _validateRequest가 이미 학급 AI enabled + modes.imageS2 를 보장하므로,
+   여기서는 "누가"만 판정 — 남의 팀 그림을 임의로 변환하는 것만 차단(멤버십).
+   반환: { ok:boolean, isTeacher:boolean }. ok=false면 호출부가 permission-denied.
+   ════════════════════════════════════════════════════════════════ */
+async function _resolveImageS2Actor(ctx, req) {
+  let isTeacher = ((req.auth.token && req.auth.token.role) === 'super_admin');
+  if (!isTeacher) {
+    try {
+      const tSnap = await admin.database().ref(`classes/${ctx.classId}/meta/teacher_uid`).once('value');
+      if (tSnap.val() === ctx.uid) isTeacher = true;
+    } catch (e) { isTeacher = false; }
+  }
+  if (isTeacher) return { ok: true, isTeacher: true };
+  /* 학생: 자기 모둠(active member)일 때만 허용 */
+  let activeMember = false;
+  try {
+    const enc = encodeURIComponent(ctx.teamName);
+    const ms = await admin.database().ref(`classes/${ctx.classId}/teams/${enc}/members/${ctx.uid}/status`).once('value');
+    activeMember = (ms.val() === 'active');
+  } catch (e) { activeMember = false; }
+  return { ok: activeMember, isTeacher: false };
+}
+
 async function _validateRequest(req, mode, opts) {
   /* opts.skipUsageLimits=true → 사용량 한도(전역/root/브랜치 quota) 검사를 건너뜀.
      saveTextVariant(저장 전용)는 AI를 호출하지 않으므로 quota 소진 후에도 저장 가능해야 함.
@@ -2375,17 +2402,12 @@ exports.callImageAiS2 = onCall(
     /* 권한 + quota 게이트(imageS2). MODE_KEY_MAP.imageS2 → aiSettings.modes.imageS2 필요. */
     const ctx = await _validateRequest(req, 'imageS2', { skipUsageLimits: false });
 
-    /* 생성=교사만(PRD §8). super_admin 또는 이 학급 teacher_uid. 학생은 거부(원본 토글 미리보기만). */
-    let isTeacher = ((req.auth.token && req.auth.token.role) === 'super_admin');
-    if (!isTeacher) {
-      try {
-        const tSnap = await admin.database().ref(`classes/${ctx.classId}/meta/teacher_uid`).once('value');
-        if (tSnap.val() === ctx.uid) isTeacher = true;
-      } catch (e) { isTeacher = false; }
+    /* IMAGE-S2-STUDENT-1: 교사 또는 그 팀 active 멤버(자기 모둠 작품). 학급 AI enabled+imageS2는 _validateRequest가 이미 보장. */
+    const actor = await _resolveImageS2Actor(ctx, req);
+    if (!actor.ok) {
+      throw new HttpsError('permission-denied', '내 모둠 그림만 AI 마감할 수 있어요.');
     }
-    if (!isTeacher) {
-      throw new HttpsError('permission-denied', '그림 변환은 담당 선생님만 할 수 있어요.');
-    }
+    const isTeacher = actor.isTeacher;
 
     /* client는 sceneId만 — 임의 URL/Storage path/base64/프롬프트 거부(PRD §13). */
     const norm = ImageS2Gen.normalizeGenerationRequest(req.data);
@@ -2449,11 +2471,9 @@ exports.callStartImageS2Batch = onCall(
   { enforceAppCheck: false },
   async (req) => {
     const ctx = await _validateRequest(req, 'imageS2', { skipUsageLimits: true });   /* 계획만 — quota는 장면별 callImageAiS2가 차감 */
-    let isTeacher = ((req.auth.token && req.auth.token.role) === 'super_admin');
-    if (!isTeacher) {
-      try { const t = await admin.database().ref(`classes/${ctx.classId}/meta/teacher_uid`).once('value'); if (t.val() === ctx.uid) isTeacher = true; } catch (e) { isTeacher = false; }
-    }
-    if (!isTeacher) throw new HttpsError('permission-denied', '그림 변환은 담당 선생님만 할 수 있어요.');
+    /* IMAGE-S2-STUDENT-1: 교사 또는 그 팀 active 멤버(자기 모둠 작품)만. */
+    const actor = await _resolveImageS2Actor(ctx, req);
+    if (!actor.ok) throw new HttpsError('permission-denied', '내 모둠 그림만 AI 마감할 수 있어요.');
 
     const enc = encodeURIComponent(ctx.teamName);
     const baseRef = admin.database().ref(`classes/${ctx.classId}/teams/${enc}`);

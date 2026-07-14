@@ -52,27 +52,32 @@ function classifyPolicy(raw) {
      { action:'idempotent', policy }            — 동일 모드 → 기록 안 함(현재값 유지)
      { action:'conflict', currentSourceMode }   — 반대 모드 → abort + 차단
      { action:'corrupt', code }                 — 비정상 저장값 → abort + CORRUPT_IMAGE_POLICY(자동복구 X) */
-function decideSourceModeLock(currentRaw, req) {
+/* hasImages(선택): 작품에 현재 원본 이미지가 하나라도 있는가.
+   SOURCE-MODE-RELOCK(2026-07-14): hasImages===false면 "정해진 방식 없음"으로 봐서
+   낡은 잠금(모두 삭제 후 잔존)을 무시하고 새 모드로 재잠금 — "다 지우면 다른 방법도 자연스럽게".
+   미전달(undefined)=기존 동작(하위호환·하니스 무영향). corrupt는 그대로(교사 개입). */
+function decideSourceModeLock(currentRaw, req, hasImages) {
   const cls = classifyPolicy(currentRaw);
   const mode = req && req.sourceMode;
   if (cls === 'corrupt') {
     return { action: 'corrupt', code: 'CORRUPT_IMAGE_POLICY' };
   }
-  if (cls === 'absent') {
-    return {
-      action: 'lock',
-      policy: {
-        sourceMode: mode,
-        lockedAtSceneId: (req && req.sceneId != null) ? String(req.sceneId) : null,
-        lockedAt: (req && typeof req.now === 'number') ? req.now : null,
-        lockedBy: (req && typeof req.uid === 'string') ? req.uid : null,
-      },
-    };
-  }
+  const _freshLock = () => ({
+    action: 'lock',
+    policy: {
+      sourceMode: mode,
+      lockedAtSceneId: (req && req.sceneId != null) ? String(req.sceneId) : null,
+      lockedAt: (req && typeof req.now === 'number') ? req.now : null,
+      lockedBy: (req && typeof req.uid === 'string') ? req.uid : null,
+    },
+  });
+  if (cls === 'absent') return _freshLock();
   const cur = normalizePolicy(currentRaw);
   if (cur.sourceMode === mode) {
     return { action: 'idempotent', policy: cur };   /* 기존 lock 메타 보존 */
   }
+  /* 반대 모드지만 작품에 이미지가 0장 → 낡은 잠금 자동 해제 후 새 모드로 재잠금 */
+  if (hasImages === false) return _freshLock();
   return { action: 'conflict', currentSourceMode: cur.sourceMode };
 }
 
@@ -88,12 +93,14 @@ function decideSourceModeLock(currentRaw, req) {
    - valid & 반대 모드 → block SOURCE_MODE_CONFLICT (업로드 전 차단)
    - corrupt → block CORRUPT_IMAGE_POLICY
    ⚠️ 사전 게이트는 최종 결정자 아님(TOCTOU) — allow여도 업로드 후 서버 lock transaction 필수. */
-function decidePreGate(policyRaw, mode) {
+function decidePreGate(policyRaw, mode, hasImages) {
   const cls = classifyPolicy(policyRaw);
   if (cls === 'corrupt') return { allow: false, code: 'CORRUPT_IMAGE_POLICY' };
   if (cls === 'absent') return { allow: true };
   const cur = normalizePolicy(policyRaw);
   if (cur.sourceMode === mode) return { allow: true, currentSourceMode: cur.sourceMode };
+  /* SOURCE-MODE-RELOCK: 반대 모드지만 이미지 0장 → 낡은 잠금 무시하고 허용(서버 lock이 재잠금) */
+  if (hasImages === false) return { allow: true };
   return { allow: false, code: 'SOURCE_MODE_CONFLICT', currentSourceMode: cur.sourceMode };
 }
 

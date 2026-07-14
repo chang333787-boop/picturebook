@@ -2673,11 +2673,21 @@ exports.lockImageSourceMode = onCall(
     const reqObj = { sourceMode: data.sourceMode, sceneId: sceneId || null, uid: ctx.uid, now: Date.now() };
     const ref = admin.database().ref(`${ctx.teamBase}/viewer-meta/imagePolicy`);
 
+    /* SOURCE-MODE-RELOCK(2026-07-14): 작품에 원본 이미지가 0장이면 낡은 잠금을 자동 해제하고
+       새 모드로 재잠금(모두 삭제 후 방식 바꾸기). 추가되는 새 이미지는 아직 scene에 미기록
+       (gate-first)이라 여기 카운트엔 안 잡힘 → 남은 다른 이미지만 셈. 실 이미지가 남아 있으면
+       hasImages=true → 기존 conflict 유지(진짜 섞기 차단). */
+    let hasImages = undefined;
+    try {
+      const scenesSnap = await admin.database().ref(`${ctx.teamBase}/scenes`).once('value');
+      hasImages = ImageS2Policy.scenesHaveOriginalImage(scenesSnap.val());
+    } catch (e) { hasImages = undefined; /* 읽기 실패 → 기존 엄격 동작 유지(안전) */ }
+
     let decision = null;
     let txn;
     try {
       txn = await ref.transaction((currentRaw) => {
-        decision = ImageS2Policy.decideSourceModeLock(currentRaw, reqObj);
+        decision = ImageS2Policy.decideSourceModeLock(currentRaw, reqObj, hasImages);
         if (decision.action === 'lock') return decision.policy;   /* 기록 */
         return;                                                   /* abort(idempotent/conflict) */
       });

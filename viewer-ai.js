@@ -1705,7 +1705,20 @@
     catch (e) { return { allow: false, code: 'POLICY_READ_FAILED', retryable: true }; }   /* hold — 원본 보호 */
     const sm = raw && raw.sourceMode;
     if (sm === 'upload' || sm === 'draw') {
-      if (sm !== mode) return { allow: false, code: 'SOURCE_MODE_CONFLICT', currentSourceMode: sm };
+      if (sm !== mode) {
+        /* SOURCE-MODE-RELOCK(2026-07-14): 반대 모드지만 작품에 원본 이미지가 0장이면 허용 —
+           '모두 삭제 후 방식 바꾸기'. 서버 lock이 낡은 잠금을 새 모드로 재잠금. 이미지가 남아
+           있으면 종전대로 conflict(진짜 섞기 차단). 로컬 scenes 기준(사전 게이트=advisory). */
+        var _scenes = (typeof ViewerState !== 'undefined' && ViewerState && ViewerState.scenes)
+          ? ViewerState.scenes : null;
+        var _hasImage = !!_scenes && Object.keys(_scenes).some(function (k) {
+          var s = _scenes[k];
+          return s && ((typeof s.imageData === 'string' && s.imageData) ||
+                       (typeof s.imageUrl === 'string' && s.imageUrl));
+        });
+        if (!_hasImage) return { allow: true };
+        return { allow: false, code: 'SOURCE_MODE_CONFLICT', currentSourceMode: sm };
+      }
       return { allow: true, currentSourceMode: sm };
     }
     return { allow: true };   /* absent / (corrupt → 서버 lock에서 차단) */

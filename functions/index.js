@@ -2407,7 +2407,10 @@ exports.callImageAiS2 = onCall(
     if (!actor.ok) {
       throw new HttpsError('permission-denied', '내 모둠 그림만 AI 마감할 수 있어요.');
     }
-    const isTeacher = actor.isTeacher;
+    /* 생성 코어(decideGenerationGate)의 isTeacher는 '생성 인가' 게이트일 뿐 —
+       바깥에서 교사/멤버 인가를 이미 마쳤으므로 인가된 호출(학생 자기 모둠 포함)은 통과시킨다.
+       실제 교사 여부가 필요하면 actor.isTeacher. (IMAGE-S2-STUDENT-1) */
+    const genAuthorized = true;
 
     /* client는 sceneId만 — 임의 URL/Storage path/base64/프롬프트 거부(PRD §13). */
     const norm = ImageS2Gen.normalizeGenerationRequest(req.data);
@@ -2420,7 +2423,7 @@ exports.callImageAiS2 = onCall(
     const adapter = _selectImageS2Adapter();
 
     const result = await ImageS2Gen.runImageS2Generation(
-      { classId: ctx.classId, enc, sceneId: sid, forceRegenerate: norm.value.forceRegenerate, isTeacher },
+      { classId: ctx.classId, enc, sceneId: sid, forceRegenerate: norm.value.forceRegenerate, isTeacher: genAuthorized },
       {
         readScene: async (s) => { const snap = await baseRef.child(`scenes/${s}`).once('value'); return snap.val(); },
         readPolicy: async () => { const snap = await baseRef.child('viewer-meta/imagePolicy').once('value'); return snap.val(); },

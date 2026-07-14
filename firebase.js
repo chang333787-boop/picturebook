@@ -652,7 +652,13 @@ function _enterTeam(val, teamRef, opts) {
       onKicked: (v) => {
         try { if (typeof flushBodySaves === 'function') flushBodySaves(); } catch (e) {}
         try { if (typeof flushTitleSaves === 'function') flushTitleSaves(); } catch (e) {}
-        alert(window.BranchSession.kickMessage(v));
+        /* SESSION-MSG-1: 오탐 대비 — 교사 인수 외에는 새로고침 재접속 선택 제공([확인]=reload). */
+        const _msg = window.BranchSession.kickMessage(v);
+        if (window.BranchSession.kickAllowsReload && window.BranchSession.kickAllowsReload(v)) {
+          if (confirm(_msg)) { location.reload(); return; }
+        } else {
+          alert(_msg);
+        }
         location.replace('index.html');
       },
     }).then(res => {

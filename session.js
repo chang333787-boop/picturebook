@@ -123,16 +123,25 @@
     _claimed = false;
   }
 
-  /* kick 안내 문구 — 새 세션 주인에 따라 */
+  /* kick 안내 문구 — 새 세션 주인에 따라.
+     SESSION-MSG-1(2026-07-14): 오탐(같은 사람인데 다른 브라우저/시크릿/localStorage 삭제로
+     '다른 기기'로 오인) 대비 — 새로고침으로 되돌아올 수 있음을 안내. 교사 인수만 예외(되받기 금지). */
   function kickMessage(newSession) {
     if (newSession && newSession.deviceId === DEVICE_ID) {
-      return '이 모둠을 다른 탭(화면)에서 열어서, 이 화면은 잠시 쉬어요.\n한 화면에서만 편집할 수 있어요.';
+      return '이 모둠을 다른 탭(화면)에서 열었어요.\n이 화면에서 계속하려면 [확인]을 눌러 새로고침하세요.\n([취소]를 누르면 첫 화면으로 나가요.)';
     }
     if (newSession && newSession.kind === 'teacher') {
       return '선생님이 이 모둠 편집 화면에 들어와서, 이 기기의 접속이 잠시 종료됐어요.\n선생님이 끝나면 다시 들어갈 수 있어요.';
     }
-    return '다른 기기에서 이 모둠에 로그인해서, 이 기기의 접속이 종료됐어요.\n(모둠은 한 기기에서만 편집할 수 있어요)';
+    return '다른 사람이 이 모둠에 접속했어요.\n혹시 방금까지 나 혼자 작업 중이었다면, [확인]을 눌러 새로고침해서 다시 들어오세요.\n([취소]를 누르면 첫 화면으로 나가요.)';
   }
 
-  window.BranchSession = { claim, release, kickMessage, DEVICE_ID };
+  /* onKicked 핸들러가 "새로고침 재접속"을 제안할지 판정.
+     교사가 의도적으로 인수한 경우(kind==='teacher')는 학생이 되받지 못하게 false → 안내 후 나가기만.
+     그 외(다른 기기/다른 탭·오탐 포함)는 true → confirm으로 새로고침 선택 가능. */
+  function kickAllowsReload(newSession) {
+    return !(newSession && newSession.kind === 'teacher');
+  }
+
+  window.BranchSession = { claim, release, kickMessage, kickAllowsReload, DEVICE_ID };
 })();

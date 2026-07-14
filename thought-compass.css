@@ -97,6 +97,18 @@
 
 /* ── 최종 검토 화면(Phase I) ── */
 .tc-review-card { max-width: 600px; }
+/* COMPASS-CTA-STICKY-1(2026-07-14): 검토 화면의 '이 생각으로 시작하기' 버튼이 설계도+질문리스트+
+   메모 아래로 밀려 초등학생이 못 찾던 문제 → 스크롤해도 항상 카드 하단에 붙어 보이게(sticky).
+   검토 화면(.tc-review-card)에만 적용 — 질문 화면 nav는 그대로. DOM/로직 무변경. */
+.tc-review-card .tc-flow-nav {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  background: #fffdf8;               /* 카드 배경과 동일 — 아래 내용 비침 방지 */
+  margin-top: 14px;
+  padding: 12px 0 2px;
+  border-top: 1px solid rgba(60, 40, 10, .10);
+}
 .tc-review-list { display: flex; flex-direction: column; gap: 12px; margin-top: 6px; }
 .tc-review-item { position: relative; border: 1px solid #ece3d2; border-radius: 14px; padding: 14px 14px 12px; background: #fffefb; }
 .tc-review-q { font-size: 14px; font-weight: 700; color: #6b5638; margin-bottom: 6px; line-height: 1.45; word-break: keep-all; overflow-wrap: anywhere; padding-right: 64px; }

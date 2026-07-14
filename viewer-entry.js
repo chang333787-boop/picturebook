@@ -217,7 +217,13 @@ async function _enterViewer(teamName, editMode = false, fromMaker = false, class
             '지금 다른 기기에서 이 모둠을 편집하고 있어요.\n계속 들어가면 그 기기의 접속은 종료돼요. 들어갈까요?')),
           onKicked: async (v) => {
             try { if (typeof _flushPendingSave === 'function') await _flushPendingSave(); } catch (e) {}
-            alert(window.BranchSession.kickMessage(v));
+            /* SESSION-MSG-1: 오탐 대비 — 교사 인수 외에는 새로고침 재접속 선택([확인]=reload). */
+            const _msg = window.BranchSession.kickMessage(v);
+            if (window.BranchSession.kickAllowsReload && window.BranchSession.kickAllowsReload(v)) {
+              if (confirm(_msg)) { location.reload(); return; }
+            } else {
+              alert(_msg);
+            }
             location.replace('index.html');
           },
         }).then(res => {

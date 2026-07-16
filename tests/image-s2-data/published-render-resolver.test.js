@@ -79,6 +79,43 @@ test('scene.sceneId fallback(id 없을 때) 매칭', () => {
   assert.strictEqual(getPublishedImageDisplaySrc({ sceneId: 7, imageData: ORIG }, ORIG), S2_URL);
 });
 
+/* ★ AI-DEFAULT-VIEW-1(2026-07-16) — 선택 노드가 없으면 usable한 s2가 자동 기본(감상 전용).
+   "AI 하면 AI가 기본, 안 하면 원본" — 명시 선택(original)은 그대로 이김. */
+test('AI-DEFAULT: selection 없음 + usable s2 → AI url (자동 기본)', () => {
+  _setPublishedImageCaches({ '1': { s2: { url: S2_URL, stale: false } } }, null);
+  assert.strictEqual(getPublishedImageDisplaySrc(scene(), ORIG), S2_URL);
+});
+
+test('AI-DEFAULT: selection 없음 + stale s2 → 원본(자동 기본 미적용)', () => {
+  _setPublishedImageCaches({ '1': { s2: { url: S2_URL, stale: true } } }, null);
+  assert.strictEqual(getPublishedImageDisplaySrc(scene(), ORIG), ORIG);
+});
+
+test('AI-DEFAULT: selection 없음 + url 빈 s2 → 원본', () => {
+  _setPublishedImageCaches({ '1': { s2: { url: '', stale: false } } }, null);
+  assert.strictEqual(getPublishedImageDisplaySrc(scene(), ORIG), ORIG);
+});
+
+test('AI-DEFAULT: 명시 original 선택은 자동 기본을 이긴다', () => {
+  _setPublishedImageCaches({ '1': { s2: { url: S2_URL, stale: false } } }, { '1': { selected: 'original' } });
+  assert.strictEqual(getPublishedImageDisplaySrc(scene(), ORIG), ORIG);
+});
+
+test('AI-DEFAULT: 편집(editMode) 세션은 자동 기본 제외 → 원본', () => {
+  _setPublishedImageCaches({ '1': { s2: { url: S2_URL, stale: false } } }, null);
+  global.ViewerState = { editMode: true };
+  try {
+    assert.strictEqual(getPublishedImageDisplaySrc(scene(), ORIG), ORIG);
+  } finally {
+    delete global.ViewerState;
+  }
+});
+
+test('AI-DEFAULT: 키 불일치 s2(다른 장면 것) → 원본', () => {
+  _setPublishedImageCaches({ '2': { s2: { url: S2_URL, stale: false } } }, null);
+  assert.strictEqual(getPublishedImageDisplaySrc(scene({ id: '1' }), ORIG), ORIG);
+});
+
 /* IMAGE-S2-RENDER-2 — 선택 적용 직후 캐시 동기 갱신 setter */
 const { setPublishedImageSelectionForScene } = V;
 

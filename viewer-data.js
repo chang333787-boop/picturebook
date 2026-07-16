@@ -1792,9 +1792,14 @@ function _setPublishedImageCaches(imageNode, selNode) {
 
 /* ★ IMAGE-S2-RENDER-1: 렌더용 동기 helper — 호출부가 해석한 originalSrc(scene.imageData||imageUrl)를 받아,
    교사가 발행 선택(imageSelections.selected==='s2')한 장면이면 usable(url·!stale)한 s2 url로 표시.
-   - selection 없음/original/누락/stale/url없음/키불일치 → originalSrc 그대로(기존 동작 100% 유지).
+   - 명시 선택 original/누락(stale/url없음/키불일치) → originalSrc 그대로.
    - 원본 scene.imageData/imageUrl은 절대 변경하지 않음(표시용 src만 결정).
-   - 캐시 미적재(loadTeamData 전·구작품) → originalSrc. viewer-ai 보기 토글과 독립(토글은 호출부에서 이 결과 위에 덧씌움). */
+   - 캐시 미적재(loadTeamData 전·구작품) → originalSrc. viewer-ai 보기 토글과 독립(토글은 호출부에서 이 결과 위에 덧씌움).
+   ★ AI-DEFAULT-VIEW-1(2026-07-16): 선택 노드가 아예 없는 장면은 usable한 s2가 있으면 그것이 기본
+   ("AI 하면 AI가 기본, 안 하면 원본") — 장면별 [AI 결과 사용] 클릭 없이도 감상 기본이 AI.
+   - 명시 선택(original/s2)은 그대로 존중(교사/학생이 정한 게 이김 — 기존 동작 불변).
+   - 다듬기(editMode) 세션은 자동 기본 제외: 편집 대상은 원본이므로 화면도 원본(토글로 비교는 가능).
+   - stale·url없음은 resolveSceneImageSource가 원본 fallback 보장. 원본을 고치면 stale → 자동 원본 복귀. */
 function getPublishedImageDisplaySrc(scene, originalSrc) {
   try {
     if (!scene || typeof resolveSceneImageSource !== 'function') return originalSrc;
@@ -1802,8 +1807,15 @@ function getPublishedImageDisplaySrc(scene, originalSrc) {
     if (sid == null) return originalSrc;
     const key = String(sid);
     const sel = _pubImageSelBySid ? _pubImageSelBySid[key] : null;
-    if (!sel || sel.selected !== 's2') return originalSrc;   /* 선택 없음/original → 원본(기존 동작) */
     const s2 = _pubImageS2BySid ? _pubImageS2BySid[key] : null;
+    if (!sel) {
+      /* AI-DEFAULT-VIEW-1: 선택 없음 → s2 자동 기본(감상 전용·편집 제외) */
+      const editing = (typeof ViewerState !== 'undefined' && ViewerState && ViewerState.editMode === true);
+      if (editing || !s2) return originalSrc;
+      const auto = resolveSceneImageSource(scene, null, s2, 's2');   /* previewMode 's2' = usable하면 s2 */
+      return (auto && auto.kind === 's2' && typeof auto.src === 'string' && auto.src) ? auto.src : originalSrc;
+    }
+    if (sel.selected !== 's2') return originalSrc;   /* 명시 original → 원본(기존 동작) */
     const r = resolveSceneImageSource(scene, sel, s2, null);  /* previewMode 없음 = 작품 발행 기준 */
     return (r && r.kind === 's2' && typeof r.src === 'string' && r.src) ? r.src : originalSrc;
   } catch (e) { return originalSrc; }

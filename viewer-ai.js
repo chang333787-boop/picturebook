@@ -549,6 +549,16 @@
     if (typeof _showImageAiEntryButton === 'function') {
       try { _showImageAiEntryButton(); } catch (e) { /* noop */ }
     }
+    /* TOGGLE-SHOW-RACE-FIX(2026-07-16): 설정 로드 완료 후 보기 토글 바도 재노출(멱등·읽기 전용).
+       reinit/preload의 _showAiImageToggleBar가 설정 로드 '전'에 돌면 게이트(_isModeAllowedByTeacher)가
+       false로 평가돼 pb 다듬기에서 그림 토글이 영영 안 뜨던 레이스(F5하면 캐시가 빨라 뜸) 해소.
+       위 엔트리 버튼 재평가와 동일 패턴 — 토글 바만 누락돼 있었음. */
+    if (typeof _showAiImageToggleBar === 'function') {
+      try { _showAiImageToggleBar(); } catch (e) { /* noop */ }
+    }
+    if (typeof _showAiToggleBar === 'function') {
+      try { _showAiToggleBar(); } catch (e) { /* noop */ }
+    }
     return _classAiSettings;
   }
 
@@ -2779,7 +2789,15 @@
   function _updateAiImageToggleBar() {
     const bar = document.getElementById('ai-image-view-toggle-bar');
     if (!bar) return;
-    const mode = _getAiImageViewMode();
+    let mode = _getAiImageViewMode();
+    /* AI-DEFAULT-VIEW-1(2026-07-16): 토글을 아직 안 누른 감상 세션(raw null)은 발행 레이어가
+       s2를 자동 기본으로 보여주므로, 하이라이트도 'AI 그림책 마감'에 맞춘다(보이는 것=표시).
+       편집(다듬기)은 자동 기본이 꺼져 있어(원본 편집 대상) 기존대로 원본 하이라이트. */
+    try {
+      const raw = localStorage.getItem(_getMockImageViewModeKey());
+      const editing = !!(typeof ViewerState !== 'undefined' && ViewerState && ViewerState.editMode === true);
+      if (raw == null && !editing && _hasImageVariantS2()) mode = 'aiS2';
+    } catch (e) { /* noop — 기존 하이라이트 유지 */ }
     bar.querySelectorAll('.ai-view-toggle-btn').forEach(function (btn) {
       btn.classList.toggle('is-active', !btn.disabled && btn.getAttribute('data-mode') === mode);
     });

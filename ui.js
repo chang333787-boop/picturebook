@@ -880,6 +880,10 @@ async function _enterMakerAfterPtypeSelected(ptype) {
   }
   hidePtypeScreen();
 
+  /* COACH-GATE-FIX(2026-07-16): 기존 작품 재진입에서 나침반 게이트가 열렸는지(함수 스코프 플래그) —
+     열렸으면 아래 환영/코치를 건너뛴다(게이트 위 표시 방지). */
+  let _compassGatedExisting = false;
+
   /* BASE10-3A: 신규 작품 projectType 저장이 "성공"했고(savedNewProjectType),
      명시 유형이 text/picturebook일 때만 기본 10장면 자동 생성(모달 없음).
      · 기존 작품 재진입(savedNewProjectType=false) → 실행 안 됨
@@ -902,8 +906,13 @@ async function _enterMakerAfterPtypeSelected(ptype) {
         _compassGated = !!(_r && _r.activated);
       } catch (_) { _compassGated = false; }
     } else if (_hasCompassCtl && !_trulyNew && typeof window.ThoughtCompassController.activateForExistingEntry === 'function') {
-      try { await window.ThoughtCompassController.activateForExistingEntry({ classId: classId, teamName: teamName, projectType: ptype }); }
-      catch (_) { /* noop */ }
+      /* COACH-GATE-FIX(2026-07-16): 재진입도 게이트 여부를 존중 — 종전엔 반환값을 버려서 나침반
+         진행 중(게이트 열림)인데도 아래 환영+코치가 게이트 위에 뜨고 시퀄이 조기 소비됨
+         (정작 완료 후엔 코치 미표시). 신규 경로와 동일하게 activated를 받아 처리. */
+      try {
+        const _r2 = await window.ThoughtCompassController.activateForExistingEntry({ classId: classId, teamName: teamName, projectType: ptype });
+        _compassGated = !!(_r2 && _r2.activated);
+      } catch (_) { /* noop */ }
     }
     if (_compassGated) { _armMakerCoach(ptype); return; }   /* 게이트가 maker UI 가로챔. 나침반 완료 후 review.js 환영 종료 시 코치. starter는 완료 후 생성. */
     if (typeof window.createStarterTemplateForNewProject === 'function') {
@@ -914,13 +923,17 @@ async function _enterMakerAfterPtypeSelected(ptype) {
       && window.ThoughtCompassController && typeof window.ThoughtCompassController.activateForExistingEntry === 'function'
       && typeof classId === 'string' && classId && typeof teamName === 'string' && teamName) {
     /* 기존 작품(ptype 화면 경유, projectType 이미 있음) — 진행 중이면 이어서 게이트, 미시작이면 진입 버튼 */
-    try { await window.ThoughtCompassController.activateForExistingEntry({ classId: classId, teamName: teamName, projectType: ptype }); }
-    catch (_) { /* noop */ }
+    /* COACH-GATE-FIX(2026-07-16): 여기도 게이트 열림이면 환영/코치를 띄우지 않음(아래 가드). */
+    try {
+      const _r3 = await window.ThoughtCompassController.activateForExistingEntry({ classId: classId, teamName: teamName, projectType: ptype });
+      _compassGatedExisting = !!(_r3 && _r3.activated);
+    } catch (_) { /* noop */ }
   }
 
   /* TUTORIAL-PRD(S2): 환영 모달 — 나침반을 타는 신규 text/pb는 위에서 _compassGated로 return되어
      여기 도달 안 함(그 경로는 나침반 완료 후 review.js가 띄움 = 사용자 결정 "나침반 뒤").
      여기 도달 = 무비/체험/v1(classId 없음)/기존 재진입 → 에디터 진입 시 1회. 기기당 1회·에디터 안 막음. */
+  if (_compassGatedExisting) { _armMakerCoach(ptype); return; }   /* COACH-GATE-FIX: 게이트 위 환영 방지 — 완료 후 review.js 환영→시퀄이 코치 처리 */
   if (typeof window !== 'undefined' && window.TutorialWelcome && typeof window.TutorialWelcome.maybeShow === 'function') {
     _armMakerCoach(ptype);   /* 환영 종료 시 시퀄이 코치 표시/억제 결정(무비/체험/v1/기존재진입 경로) */
     try { await window.TutorialWelcome.maybeShow(); } catch (e) { /* noop */ }

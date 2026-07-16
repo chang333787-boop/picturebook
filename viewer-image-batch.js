@@ -11,9 +11,11 @@
 
   var PER_IMAGE_USD = 0.05;        /* gpt-image-2 medium landscape 추정 */
   var PER_IMAGE_SECONDS = 70;      /* 보수적(실측 50~70s) */
-  /* ★ 현재 프롬프트 버전 — functions/image-s2-generation.js PROMPT_VERSION 과 일치시킬 것(P3→P4 등 변경 시 양쪽 갱신).
-     이전 버전(P3) 변형은 cached로 보지 않고 '다시 생성 대상'으로 센다(서버 dedup/stale 정책과 정합). */
-  var CURRENT_PROMPT_VERSION = 'imgS2-p4-v1';
+  /* ★ 현재 프롬프트 버전 — functions/image-s2-generation.js PROMPT_VERSION 과 일치시킬 것(변경 시 양쪽 갱신).
+     이전 버전 변형은 cached로 보지 않고 '다시 생성 대상'으로 센다(서버 dedup/stale 정책과 정합).
+     VERSION-SYNC(2026-07-16): p4에서 멈춰 있던 것을 서버(p8)와 동기 — 불일치 동안 최신 변형 전부
+     '재생성 대상' 오계산(all-done 게이트 사망)+'이전 버전 결과' 오배지가 떠 있었음. */
+  var CURRENT_PROMPT_VERSION = 'imgS2-p8-mood1';
   /* 변형이 "최신 버전 + 사용 가능"한가 — cached(변환 불필요) 판정용. 이전 버전이면 false(=재생성 대상). */
   function isVariantCurrent(v) {
     return !!(v && typeof v.url === 'string' && v.url && v.stale !== true && v.promptVersion === CURRENT_PROMPT_VERSION);
@@ -58,6 +60,23 @@
     }
   }
 
+  /* AI-FINISH-REASSURE-2(2026-07-16): 실패 코드가 '다시 누르면 될 수 있는' 일시적 실패인가.
+     일시적(재시도 유효): 서버 응답 지연/시간초과/깨진 출력/알 수 없는 오류.
+     반복 불가(재시도 무의미 — 반드시 사유를 보여줘야 함): 얼굴사진 안전차단·권한/설정·정책 손상·원본 없음 등. */
+  function isRetryableFailCode(code) {
+    switch (String(code)) {
+      case 'IMAGE_AI_PROVIDER_ERROR':
+      case 'IMAGE_AI_TIMEOUT':
+      case 'IMAGE_AI_INVALID_OUTPUT':
+      case 'internal':
+      case 'functions/internal':
+      case 'ERROR':
+        return true;
+      default:
+        return false;   /* UNSAFE_OUTPUT·permission-denied·POLICY 계열 등 — 반복해도 안 됨 */
+    }
+  }
+
   /* 배치 결과 요약(순수) — 성공/실패 집계 + 사유. 0 성공이면 "완료"가 아니라 실패로 본다. */
   function summarizeBatchResult(o) {
     var t = o || {}; var total = t.total || 0, ok = t.succeeded || 0, fail = t.failed || 0;
@@ -67,7 +86,9 @@
       ? (ok + '개 성공' + (fail ? ' / ' + fail + '개 실패' : ''))
       : ('AI 결과가 생성되지 않았어요 (0개 성공' + (fail ? ' / ' + fail + '개 실패' : '') + ')');
     var allPolicy = (ok === 0 && fail > 0 && Object.keys(codes).length === 1 && codes.IMAGE_POLICY_REQUIRED === fail);
-    return { headline: headline, reasons: reasons, anySuccess: ok > 0, allFailedPolicy: allPolicy };
+    /* AI-FINISH-REASSURE-2: 반복 불가 실패가 하나라도 있으면 사유를 숨기면 안 됨(무한 헛반복 방지). */
+    var hasNonRetryable = Object.keys(codes).some(function (c) { return !isRetryableFailCode(c); });
+    return { headline: headline, reasons: reasons, anySuccess: ok > 0, allFailedPolicy: allPolicy, hasNonRetryable: hasNonRetryable };
   }
 
   function formatCostUsd(usd) {
@@ -172,6 +193,7 @@
     sceneStatusLabel: sceneStatusLabel, progressSummary: progressSummary, nextTarget: nextTarget,
     resolveCompareImages: resolveCompareImages,
     describeBatchFailCode: describeBatchFailCode, summarizeBatchResult: summarizeBatchResult,
+    isRetryableFailCode: isRetryableFailCode,
     CURRENT_PROMPT_VERSION: CURRENT_PROMPT_VERSION, isVariantCurrent: isVariantCurrent,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

@@ -10,9 +10,11 @@
    ════════════════════════════════════════════════════════════════ */
 
 /* ── 상수 (PRD §6·§11) ───────────────────────────────────────── */
-const PROMPT_VERSION = 'imgS2-p7-setting1';   /* P7 SETTING(본문=해석 힌트+무대/장소 힌트·조명 노을기본 폐기·텍스트leak 가드). 실제 프롬프트는 adapter buildS2Prompt.
+const PROMPT_VERSION = 'imgS2-p8-mood1';   /* P8 MOOD(전체 이야기 W-A로 책단위 무대·분위기 일관성). 실제 프롬프트는 adapter buildS2Prompt.
    dedup에 포함되므로 버전 상향 = 이미 변환된 장면도 "다시 변환 요청 시" 새 규칙으로 재생성(그때 횟수 소모).
-   기존 완료작을 보기만 하는 건 무영향. (전례: P3→P4·P6→P7 상향과 동일 정책) */
+   기존 완료작을 보기만 하는 건 무영향. (전례: P3→P4·P6→P7 상향과 동일 정책)
+   VERSION-SYNC(2026-07-16): P8 배포(16f1e26) 때 어댑터 라벨만 올리고 이 dedup 키를 누락 → 감사에서
+   발견해 정정. 클라 viewer-image-batch.js CURRENT_PROMPT_VERSION과 반드시 일치 유지. */
 const FIT_POLICY = 'fit-imagecenter-landscape';
 /* 그림중심형 가로 프레임. 실측 px 는 PRD §16 미결 → 제안 기본값(3:2). 모델 확정 후 확정. */
 const TARGET_FRAME = { w: 1536, h: 1024, aspect: '3:2' };

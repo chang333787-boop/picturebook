@@ -1221,6 +1221,9 @@
      (_fbTextVariants는 아래에서 let 선언 — 런타임 호출 시점엔 이미 초기화됨) */
   function _fbHasVariant(variantKey) {
     if (!_fbTextVariants) return false;
+    /* SHELF-STALE-FIX(2026-07-16): 이미지 리더와 동일 — 캐시가 '현재 팀' 것일 때만 유효.
+       책장 SPA 전환 직후 재로딩 전/실패 시 이전 책 텍스트 변형이 새 책에 새는 것 차단. */
+    if (_fbTextVariantsKey !== _fbVariantCacheKey()) return false;
     const m = _fbTextVariants[variantKey];
     return !!(m && Object.keys(m).length > 0);
   }
@@ -1302,6 +1305,7 @@
   /* 동기 — 캐시에서만 읽음. 캐시 미로딩이면 null(호출부가 localStorage/원본 fallback). */
   function _getFbVariantBody(variantKey, sceneId) {
     if (!_fbTextVariants) return null;
+    if (_fbTextVariantsKey !== _fbVariantCacheKey()) return null;   /* SHELF-STALE-FIX: 다른 팀 캐시 무시 */
     const m = _fbTextVariants[variantKey];
     if (!m) return null;
     const b = m[String(sceneId)];
@@ -1311,6 +1315,7 @@
   /* Phase 4-D-1: variant layout(picturebookBodyBox) 동기 조회. FB 캐시 우선 → localStorage final → null. */
   function _getFbVariantLayout(variantKey, sceneId) {
     if (!_fbTextVariantLayouts) return null;
+    if (_fbTextVariantsKey !== _fbVariantCacheKey()) return null;   /* SHELF-STALE-FIX: 다른 팀 캐시 무시(layouts는 같은 키 공유) */
     const m = _fbTextVariantLayouts[variantKey];
     if (!m) return null;
     const v = m[String(sceneId)];
@@ -1352,6 +1357,7 @@
   /* Phase 4-D-2A: variant style(textStyle) 동기 조회. FB 캐시 우선 → localStorage final.style → null. */
   function _getFbVariantStyle(variantKey, sceneId) {
     if (!_fbTextVariantStyles) return null;
+    if (_fbTextVariantsKey !== _fbVariantCacheKey()) return null;   /* SHELF-STALE-FIX: 다른 팀 캐시 무시(styles는 같은 키 공유) */
     const m = _fbTextVariantStyles[variantKey];
     if (!m) return null;
     const v = m[String(sceneId)];
@@ -1521,8 +1527,15 @@
      이미지·텍스트 변형을 새 팀 기준으로 force 재로딩 + 토글 바 재구성(_show*가 현재 팀 변형으로 재평가)
      + 프레임 재렌더. 토글 모드는 team-scoped(namespace 수정)라 새 책은 기본 '원본'으로 시작. */
   async function _reinitForCurrentTeam() {
+    /* SHELF-REINIT-RACE-FIX(2026-07-16): 세대 토큰 — 책 연타 전환 시 '늦게 끝난 이전 책 reinit'이
+       현재 책의 토글 바를 재구성(hasS2=false 평가→모드 소거)하거나 캐시를 덮는 것 방지.
+       await 후 팀이 바뀌었으면(=더 새 reinit이 진행 중) 이 세대는 조용히 양보. 리더들은
+       팀키 가드가 있어 stale 캐시 자체도 무해. */
+    const startKey = _fbVariantCacheKey();
     try { await _loadFirebaseImageVariants(true); } catch (e) { /* noop */ }
+    if (_fbVariantCacheKey() !== startKey) return;
     try { await _loadFirebaseTextVariants(true); } catch (e) { /* noop */ }
+    if (_fbVariantCacheKey() !== startKey) return;
     try { if (typeof _showAiImageToggleBar === 'function') _showAiImageToggleBar(); } catch (e) { /* noop */ }
     try { if (typeof _showAiToggleBar === 'function') _showAiToggleBar(); } catch (e) { /* noop */ }
     try { if (typeof _requestViewerFrameRerender === 'function') _requestViewerFrameRerender(); } catch (e) { /* noop */ }

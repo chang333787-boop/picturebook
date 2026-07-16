@@ -271,6 +271,25 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
   } catch (e) { /* noop */ }
 
   /* 프로젝트 메타 — projectType 외 나머지 필드 처리 (위에서 이미 받음) */
+  /* SHELF-META-RESET(2026-07-16): SPA(책장·entry 재입장) 책 전환 시 이전 책 meta 잔존 차단.
+     아래 if(meta) 블록의 필드들은 'meta에 키가 있을 때만' 대입되는 조건부라, 새 책 meta에 키가
+     없으면(다듬기 안 거친 공개 작품 등) 재사용되는 ViewerState.project에 **직전 책 값이 상속**됨 —
+     다른 팀 표지 제목/그림·시작점·페이지방향·스킨·모드가 새 책에 뜨던 버그(책장 stale 계열의 뿌리).
+     대입 전에 viewer-state.js 초기값으로 일괄 리셋. meta가 통째로 null인 팀(isPublic 게이트 포함)도 커버.
+     뒤따르는 폴백 로직(text 강제 portrait/landscape 기본/cozy 스킨 정규화)은 그대로 동작. */
+  ViewerState.project.mode = 'story';
+  ViewerState.project.theme = 'default';
+  ViewerState.project.template = 'full-image';
+  ViewerState.project.isPublic = false;
+  ViewerState.project.coverTitle = null;
+  ViewerState.project.coverImageData = null;
+  ViewerState.project.entrySceneId = null;
+  ViewerState.project.replaySceneId = null;
+  ViewerState.project.pageOrientation = null;
+  ViewerState.project.movieDecisionStyle = null;
+  ViewerState.project.pbTheme = null;
+  ViewerState.project.textTheme = null;
+
   if (meta) {
     if (meta.mode)     ViewerState.project.mode     = meta.mode;
     if (meta.theme)    ViewerState.project.theme    = meta.theme;
@@ -501,6 +520,9 @@ async function saveSceneText(num, fields) {
     'textTheme',          /* W5: 텍스트형 테마 (8종 중 1) */
     'textEffect',         /* W5: 텍스트형 효과 {entrance, body} */
     'imageData',          /* W7: 무비형 포스터 이미지 (그림책형/체험전시형도 사용 — 다듬기 패널 업로드 저장) */
+    'imageUrl',           /* SOURCE-MODE-RESIDUAL-FIX-2(2026-07-16): 그림 삭제 시 레거시 imageUrl도 null로 —
+                             627280d가 이 화이트리스트 누락으로 no-op였던 것을 실효화(삭제 핸들러가 null 전달).
+                             null 저장 = RTDB 키 삭제. 다른 경로는 이 필드를 안 보냄. */
     /* v67: 표지 scene 필드 — 다듬기에서 설정한 정보 저장 (이전엔 ALLOWED 누락으로 손실) */
     'subtitle',           /* 표지 한 줄 소개 */
     'coverTheme',         /* 표지 색 테마 */

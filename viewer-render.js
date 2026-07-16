@@ -996,8 +996,11 @@ function _pbBodyFitAllowed(stage) {
   if (typeof ViewerState !== 'undefined' && ViewerState.editMode) return false;
   if (typeof document !== 'undefined' && document.body
       && document.body.classList.contains('edit-mode-active')) return false;
+  /* PB-FIT-LEAVING-FIX(2026-07-16): 다듬기→[▶ 감상 테스트] 전환 직후엔 옛 '편집' 장면이
+     .is-leaving으로 duration+50ms 잔존 — 그걸 편집 중으로 오인해 확장을 통째로 스킵하던 버그
+     (2회차 테스트부터 매번, 첫 장면 잘림 재현). 떠나는 장면은 제외하고 판정. */
   if (stage && stage.querySelector
-      && stage.querySelector('.scene-screen[data-edit-mode="true"]')) return false;
+      && stage.querySelector('.scene-screen[data-edit-mode="true"]:not(.is-leaving)')) return false;
   return true;
 }
 

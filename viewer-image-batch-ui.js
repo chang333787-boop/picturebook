@@ -183,14 +183,21 @@
     var extra = summary.allFailedPolicy
       ? '<p style="font-size:12px;color:#777;margin-top:8px;line-height:1.6;">이 작품의 그림은 예전에 만들어져 입력 방식(업로드·그림판) 정보가 없어요. 관리자에게 문의해 주세요. 원본 그림은 그대로 보존됐어요.</p>'
       : '<p style="font-size:12px;color:#777;margin-top:8px;">원본 그림은 그대로 보존됐어요.</p>';
-    /* AI-FINISH-REASSURE(2026-07-16): 0개 성공이어도 대개 반복하면 되는 일시적 실패 → 빨간 '실패(코드)'
-       나열 대신 "다시 반복" 안내로. 단 allFailedPolicy(예전 작품 입력방식 정보 없음)는 반복해도 안 되는
-       케이스라 기존 안내(extra) 유지 + 헤드라인만 담백하게. */
+    /* AI-FINISH-REASSURE-2(2026-07-16): 실패 성격으로 분기 — 감사에서 잡힌 회귀(원인 은폐) 수정.
+       · 전부 '일시적'(서버 지연/시간초과 등) → "다시 반복하면 돼요" 안심 안내(사유 숨김 유지).
+       · '반복 불가'(얼굴사진 안전차단·권한/설정·원본 없음 등)가 하나라도 있으면 → 사유 목록 표시
+         (숨기면 교사가 무한 헛반복). 일시적 실패가 섞여 있으면 그 몫은 재시도 안내 한 줄 추가. */
     body.innerHTML = summary.allFailedPolicy
       ? ('<div style="font-size:14px;color:#c0392b;font-weight:600;">그림을 마감하지 못했어요</div>' + extra)
-      : ('<div style="font-size:14px;color:#4a7a3a;font-weight:600;">이번엔 한 번에 안 만들어졌어요 😊</div>'
-         + '<p style="font-size:13px;color:#555;margin-top:8px;line-height:1.7;">AI 그림책 마감은 한 번에 다 안 될 수 있어요. <b>다시 눌러 될 때까지 몇 번 반복</b>하면 만들어져요. 걱정 마세요!</p>'
-         + '<p style="font-size:12px;color:#777;margin-top:8px;">원본 그림은 그대로 보존됐어요.</p>');
+      : summary.hasNonRetryable
+        ? ('<div style="font-size:14px;color:#c0392b;font-weight:600;">' + _esc(summary.headline) + '</div>'
+           + (summary.reasons.length ? '<ul style="margin:8px 0 0;padding-left:18px;font-size:12px;color:#a0522d;line-height:1.7;">' + summary.reasons.map(function (r) { return '<li>' + _esc(r) + '</li>'; }).join('') + '</ul>' : '')
+           + (Object.keys(failCodes).some(function (c) { return L.isRetryableFailCode && L.isRetryableFailCode(c); })
+               ? '<p style="font-size:12px;color:#4a7a3a;margin-top:8px;">‘잠시 후 다시 시도’ 항목은 다시 누르면 될 수 있어요.</p>' : '')
+           + extra)
+        : ('<div style="font-size:14px;color:#4a7a3a;font-weight:600;">이번엔 한 번에 안 만들어졌어요 😊</div>'
+           + '<p style="font-size:13px;color:#555;margin-top:8px;line-height:1.7;">AI 그림책 마감은 한 번에 다 안 될 수 있어요. <b>다시 눌러 될 때까지 몇 번 반복</b>하면 만들어져요. 걱정 마세요!</p>'
+           + '<p style="font-size:12px;color:#777;margin-top:8px;">원본 그림은 그대로 보존됐어요.</p>');
   }
 
   /* IMAGE-TOGGLE-REFRESH(2026-07-09): 배치 생성/적용으로 s2 variant가 생긴 직후 viewer-ai의 이미지 variant

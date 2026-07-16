@@ -415,6 +415,7 @@ buttons, choices, choiceA, choiceB, choiceCount, nextA, nextB, nextId, storyTone
 
 [출력 — JSON only]
 반드시 지정된 JSON schema로만 응답하세요. 마크다운·설명문·인사말·추가 텍스트 금지. JSON 외 어떤 텍스트도 금지.
+[JSON 이스케이프 — 매우 중요] 문자열 값 안에 큰따옴표(")가 나오면 반드시 \\" 로, 줄바꿈은 \\n 으로 이스케이프하세요. 아이 본문에 대사 따옴표("...")나 특수문자가 많아도 값 전체를 하나의 유효한 JSON 문자열로 만들어야 합니다. 이스케이프를 빠뜨리면 응답이 깨집니다.
 
 [출력 schema]
 {

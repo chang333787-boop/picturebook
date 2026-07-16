@@ -900,6 +900,9 @@ const ANTHROPIC_TIMEOUT_MS = 50000;  /* Functions timeout 60s 기준 — 여유 
 const S2_CHUNK_SIZE = 4;     /* chunk당 발전 대상 장면 수 — 출력 토큰 폭주/timeout 회피 */
 const S2_CONCURRENCY = 4;    /* 동시 Anthropic 호출 상한(wave). 초대형 작품 안정성 위해 제한 */
 const S2_MAX_SCENES = 24;    /* 본문 있는 장면 수 상한. 초과 시 호출 前 차단(quota 차감 X) */
+/* T2-JSON-RETRY(2026-07-16): 청크 JSON 파싱 실패 시 재호출에 덧붙이는 엄격 JSON 리마인더.
+   원인=모델이 문자열 값 안 따옴표/줄바꿈을 이스케이프 안 함(대사 많은 아이 글). */
+const JSON_STRICT_RETRY_REMINDER = '\n\n[매우 중요] 앞선 응답의 JSON이 깨졌습니다. 반드시 유효한 JSON 하나만 출력하세요. 문자열 값 안의 큰따옴표(")는 반드시 \\" 로, 줄바꿈은 \\n 으로 이스케이프하세요. JSON 앞뒤에 설명·마크다운·코드펜스를 붙이지 마세요.';
 
 /* opts(선택): { maxTokens, timeoutMs } — SCRIPT-DRAFT-1처럼 출력이 큰 호출만 개별 상향.
    미전달 시 기존 상수 그대로라 기존 핸들러 동작 불변. */
@@ -1624,11 +1627,28 @@ async function _runS2Chunks(snapshot, callFn, anchor) {
     totalInputTokens += (ai && ai.inputTokens) || 0;
     totalOutputTokens += (ai && ai.outputTokens) || 0;
 
+    /* T2-JSON-RETRY(2026-07-16): 모델이 문자열 값 안 따옴표/줄바꿈 이스케이프를 빠뜨려 JSON이 깨지면
+       (대사 따옴표 많은 아이 글에서 발생·확률적) 그 청크만 1회 재호출 — 엄격 JSON 리마인더 첨부.
+       재시도도 실패하면 기존처럼 throw → 전체 환불. s1/작품검사는 이 경로를 안 타므로 무영향. */
     let parsed;
     try {
       parsed = _parseJsonStrict(ai && ai.text);
     } catch (e) {
-      throw new Error(`chunk ${idx + 1}/${chunks.length} JSON 파싱 실패: ${e.message}`);
+      logger.warn('[ai/s2] chunk JSON 파싱 실패 — 1회 재시도', { chunk: idx + 1, error: e.message });
+      const retryMsg = userMsg + JSON_STRICT_RETRY_REMINDER;
+      let ai2;
+      try {
+        ai2 = await callFn(targetIds, retryMsg, idx);
+      } catch (callErr) {
+        throw new Error(`chunk ${idx + 1}/${chunks.length} 재호출 실패: ${(callErr && callErr.message) || callErr}`);
+      }
+      totalInputTokens += (ai2 && ai2.inputTokens) || 0;
+      totalOutputTokens += (ai2 && ai2.outputTokens) || 0;
+      try {
+        parsed = _parseJsonStrict(ai2 && ai2.text);
+      } catch (e2) {
+        throw new Error(`chunk ${idx + 1}/${chunks.length} JSON 파싱 실패(재시도 후): ${e2.message}`);
+      }
     }
     if (!parsed || typeof parsed !== 'object' || !parsed.results || typeof parsed.results !== 'object') {
       throw new Error(`chunk ${idx + 1}/${chunks.length} results 구조 없음`);

@@ -155,10 +155,12 @@
     var succeeded = 0, failed = 0, failCodes = {};
     function paint() {
       var doneN = succeeded + failed;
-      body.innerHTML = '<div style="font-size:14px;">변환 중… <b>' + doneN + ' / ' + targets.length + '</b>'
-        + (failed ? ' <span style="color:#c0392b;">(실패 ' + failed + ')</span>' : '') + '</div>'
+      /* AI-FINISH-REASSURE(2026-07-16): 한 번에 안 되는 장면이 있어도 반복하면 되므로, 빨간 '(실패 N)'
+         대신 "다시 하면 돼요" 안내로. 실패는 정상 과정이라 사용자 불안 방지(로직·집계 불변). */
+      body.innerHTML = '<div style="font-size:14px;">변환 중… <b>' + doneN + ' / ' + targets.length + '</b></div>'
         + '<div style="height:8px;background:#eee;border-radius:6px;margin-top:8px;overflow:hidden;"><div style="height:100%;width:' + (targets.length ? Math.round(doneN / targets.length * 100) : 100) + '%;background:#6a8a5b;"></div></div>'
-        + '<p style="font-size:12px;color:#888;margin-top:8px;">창을 닫으면 변환이 멈춰요. 완료 전에는 이 화면을 유지해 주세요.<br>(지금까지 만든 결과는 저장돼요 — 다시 열어 이어서 변환할 수 있어요.)</p>';
+        + '<p style="font-size:12px;color:#6a8a5b;margin-top:8px;line-height:1.6;">한 번에 다 안 될 수 있어요 — 그럴 땐 <b>다시 눌러 될 때까지 반복</b>하면 다 만들어져요. 😊</p>'
+        + '<p style="font-size:12px;color:#888;margin-top:6px;">창을 닫으면 변환이 멈춰요. 완료 전에는 이 화면을 유지해 주세요.<br>(지금까지 만든 결과는 저장돼요 — 다시 열어 이어서 변환할 수 있어요.)</p>';
     }
     paint();
     for (var i = 0; i < targets.length; i++) {
@@ -181,9 +183,14 @@
     var extra = summary.allFailedPolicy
       ? '<p style="font-size:12px;color:#777;margin-top:8px;line-height:1.6;">이 작품의 그림은 예전에 만들어져 입력 방식(업로드·그림판) 정보가 없어요. 관리자에게 문의해 주세요. 원본 그림은 그대로 보존됐어요.</p>'
       : '<p style="font-size:12px;color:#777;margin-top:8px;">원본 그림은 그대로 보존됐어요.</p>';
-    body.innerHTML = '<div style="font-size:14px;color:#c0392b;font-weight:600;">' + _esc(summary.headline) + '</div>'
-      + (summary.reasons.length ? '<ul style="margin:8px 0 0;padding-left:18px;font-size:12px;color:#a0522d;line-height:1.7;">' + summary.reasons.map(function (r) { return '<li>' + _esc(r) + '</li>'; }).join('') + '</ul>' : '')
-      + extra;
+    /* AI-FINISH-REASSURE(2026-07-16): 0개 성공이어도 대개 반복하면 되는 일시적 실패 → 빨간 '실패(코드)'
+       나열 대신 "다시 반복" 안내로. 단 allFailedPolicy(예전 작품 입력방식 정보 없음)는 반복해도 안 되는
+       케이스라 기존 안내(extra) 유지 + 헤드라인만 담백하게. */
+    body.innerHTML = summary.allFailedPolicy
+      ? ('<div style="font-size:14px;color:#c0392b;font-weight:600;">그림을 마감하지 못했어요</div>' + extra)
+      : ('<div style="font-size:14px;color:#4a7a3a;font-weight:600;">이번엔 한 번에 안 만들어졌어요 😊</div>'
+         + '<p style="font-size:13px;color:#555;margin-top:8px;line-height:1.7;">AI 그림책 마감은 한 번에 다 안 될 수 있어요. <b>다시 눌러 될 때까지 몇 번 반복</b>하면 만들어져요. 걱정 마세요!</p>'
+         + '<p style="font-size:12px;color:#777;margin-top:8px;">원본 그림은 그대로 보존됐어요.</p>');
   }
 
   /* IMAGE-TOGGLE-REFRESH(2026-07-09): 배치 생성/적용으로 s2 variant가 생긴 직후 viewer-ai의 이미지 variant

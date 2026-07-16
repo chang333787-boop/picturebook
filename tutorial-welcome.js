@@ -39,6 +39,18 @@
     if (el) el.remove();
   }
 
+  /* TUTORIAL-SKIP-SUPPRESS-1(2026-07-16): 환영 종료 직후 1회 실행할 후속(코치) 훅.
+     maker(브랜치) 경로의 환영은 review.js(수정 불가)/ui.js에서 bare로 떠서 호출부가 반환값을
+     읽기 어렵다 → 여기 '시퀄'로 {shown,dontShow,skipped}를 전달받아 코치 표시/억제를 결정한다.
+     armCoach로 1회 등록 → 다음 maybeShow 종료(표시 후 finish/조기 통과 모두)에서 소비 후 즉시 해제(누수 방지).
+     미등록이면 아무 동작도 안 함(기존 환영 흐름 무영향). */
+  let _pendingSequel = null;
+  function armCoach(fn) { _pendingSequel = (typeof fn === 'function') ? fn : null; }
+  function _fireSequel(res) {
+    const fn = _pendingSequel; _pendingSequel = null;
+    if (fn) { try { fn(res); } catch (e) { /* noop */ } }
+  }
+
   /* Promise<boolean> — true=표시함, false=조건 미충족으로 통과.
      opts = { deck: 'welcome'|'refineWelcome'(콘텐츠 배열 키), keyPrefix: seen 네임스페이스 }.
      기본 = 환영 모달(welcome). 다듬기 튜토리얼은 {deck:'refineWelcome', keyPrefix:'tutorial_refine'}. */
@@ -57,9 +69,14 @@
       if (filterType) slides = slides.filter(s => !s.types || s.types.indexOf(filterType) !== -1);
       const version = (C && C.version) ? C.version : 1;
       if (!slides.length || (!force && _isDismissed(prefix, version, scope))) {
-        resolve(deferDismiss ? { shown: false, dontShow: false } : false); return;
+        const _res = { shown: false, dontShow: false, skipped: false };
+        resolve(deferDismiss ? _res : false);
+        _fireSequel(_res);   /* 환영이 안 떴어도 시퀄은 소비(코치 억제 유지 + arm 해제) */
+        return;
       }
-      if (typeof document === 'undefined' || !document.body) { resolve(false); return; }
+      if (typeof document === 'undefined' || !document.body) {
+        resolve(false); _fireSequel({ shown: false, dontShow: false, skipped: false }); return;
+      }
       _remove();
 
       let idx = 0;
@@ -76,11 +93,16 @@
 
       /* TUTORIAL-SHOW-POLICY-1: 기본은 매 진입 표시. finish 시 '다시 열지 않기'가 체크됐을 때만 억제. */
       let dontShow = false;
-      const finish = () => {
-        /* deferDismiss(시퀀스)면 여기서 확정하지 않음 → 코치까지 뜬 뒤 호출부가 markDismissed(코치가 억제되기 전에 표시되도록). */
+      /* TUTORIAL-SKIP-SUPPRESS-1: '넘어가기(건너뛰기)'로 닫혔는지(skipped)를 신호로 추가.
+         반환/시퀄에 {shown,dontShow,skipped} 전달 → 호출부(refine·maker)가 skip/dontShow면 코치 억제.
+         bare(비-deferDismiss) 즉시 확정은 기존과 동일하게 dontShow만(회귀 0) — skip 확정은 호출부/시퀄이 담당. */
+      const finish = (viaSkip) => {
+        const skipped = !!viaSkip;
         if (dontShow && !deferDismiss) _markDismissed(prefix, version, scope);
         _remove();
-        resolve(deferDismiss ? { shown: true, dontShow: dontShow } : true);
+        const _res = { shown: true, dontShow: dontShow, skipped: skipped };
+        resolve(deferDismiss ? _res : true);
+        _fireSequel(_res);
       };
 
       const _art = (id) => (typeof window !== 'undefined' && window.TutorialArt) ? window.TutorialArt.get(id) : '';
@@ -133,7 +155,7 @@
         const skip = document.createElement('button');
         skip.type = 'button'; skip.textContent = '건너뛰기';
         skip.style.cssText = 'margin-top:8px;border:none;background:none;color:#a8946e;font-size:12px;cursor:pointer;';
-        skip.addEventListener('click', finish);
+        skip.addEventListener('click', () => finish(true));   /* 넘어가기 → skipped:true */
         card.appendChild(skip);
       };
 
@@ -152,6 +174,8 @@
   if (typeof window !== 'undefined') {
     window.TutorialWelcome = {
       maybeShow: maybeShow, reset: reset, _isDismissed: _isDismissed,
+      /* TUTORIAL-SKIP-SUPPRESS-1: 다음 환영 종료 직후 1회 실행할 후속(코치) 훅 등록(maker 경로용). */
+      armCoach: armCoach,
       /* TUTORIAL-SCOPE-1: 시퀀스(환영+코치) 완료 후 호출부가 dismiss를 확정할 때 사용. */
       markDismissed: function (prefix, scope) {
         const C = _content(); const version = (C && C.version) ? C.version : 1;

@@ -62,7 +62,9 @@
     }
     const rp = TC.resolveResumePoint(state);
     /* V2: 질문 세트 버전 판별(fresh/v2 데이터→2, v1 진행·완료 데이터→1). 저장 시 재스탬프용으로 S에 보존. */
-    const qVersion = (typeof TC.resolveQuestionSetVersion === 'function') ? TC.resolveQuestionSetVersion(state) : 1;
+    /* MODE-REGRESS-GUARD(2026-07-16): foundation(thought-compass.js) 미로드 시 폴백을 옛 모드(1)가
+       아니라 최신(2)으로 — 스테일/부분 로드가 "옛 모드 회귀"로 굳는 것을 방지. 정상 로드 시엔 무영향. */
+    const qVersion = (typeof TC.resolveQuestionSetVersion === 'function') ? TC.resolveQuestionSetVersion(state) : 2;
     const vm = Flow.createFlow({ version: qVersion, resume: { index: rp.questionIndex, answers: rp.answers } });
     const followUps = Array.isArray(rp.followUps) ? rp.followUps.slice() : [];
     S = { ctx: ctx, vm: vm, busy: false, draftTimer: null, error: null, version: qVersion,

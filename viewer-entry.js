@@ -153,22 +153,25 @@ window.__maybeRunRefineTutorial = function (ptype, opts) {
     var force = !!opts.force;               /* ? 재열람: dismiss 무시하고 강제 */
     var scope = _refineTutorialScope();
     if (typeof window === 'undefined' || !window.TutorialWelcome || typeof window.TutorialWelcome.maybeShow !== 'function') return;
-    /* deferDismiss: 환영에서 '다시 열지 않기'를 즉시 확정하지 않고(코치가 먼저 뜨도록) 시퀀스 끝에서 확정. */
+    /* deferDismiss: bare 즉시확정 대신 여기서 결과(skip/dontShow/진행)를 보고 코치 표시/억제를 결정. */
     window.TutorialWelcome.maybeShow({ deck: 'refineWelcome', keyPrefix: 'tutorial_refine', filterType: ptype || null, scope: scope, force: force, deferDismiss: true })
       .then(function (res) {
         var dontShow = !!(res && res.dontShow);
-        var coachDone = Promise.resolve(false);
-        try {
-          if (window.TutorialCoach && typeof window.TutorialCoach.run === 'function') {
-            coachDone = window.TutorialCoach.run({ stepsKey: 'refineCoach', keyPrefix: 'tutorial_refine_coach', dismissKeyPrefix: 'tutorial_refine', filterType: ptype || null, scope: scope, force: force });
-          }
-        } catch (e) { coachDone = Promise.resolve(false); }
-        Promise.resolve(coachDone).then(function () {
-          /* 환영+코치 시퀀스가 끝난 뒤에만 dismiss 확정 → 코치가 화면에 뜨기 전에 억제되던 문제 해소. */
-          if (dontShow && typeof window.TutorialWelcome.markDismissed === 'function') {
+        var skipped  = !!(res && res.skipped);
+        /* TUTORIAL-SKIP-SUPPRESS-1: '넘어가기(skip)' 또는 '다시 보지 않기(dontShow)' →
+           이 진입에서 코치 아예 안 띄움 + 즉시 dismiss(다음부터 환영·코치 둘 다 억제). */
+        if (dontShow || skipped) {
+          if (typeof window.TutorialWelcome.markDismissed === 'function') {
             try { window.TutorialWelcome.markDismissed('tutorial_refine', scope); } catch (e) { /* noop */ }
           }
-        }).catch(function () { /* noop */ });
+          return;
+        }
+        /* 진행(시작하기) → 지금처럼 코치 표시. 진행 시엔 dismiss 미기록(정책: 매 진입 표시). */
+        try {
+          if (window.TutorialCoach && typeof window.TutorialCoach.run === 'function') {
+            window.TutorialCoach.run({ stepsKey: 'refineCoach', keyPrefix: 'tutorial_refine_coach', dismissKeyPrefix: 'tutorial_refine', filterType: ptype || null, scope: scope, force: force });
+          }
+        } catch (e) { /* noop */ }
       })
       .catch(function () { /* noop */ });
   } catch (e) { /* noop */ }

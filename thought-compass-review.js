@@ -73,7 +73,8 @@
     }
     state = state || {};
     /* V2: 저장 데이터 기준 질문 세트 선택(v1 완료본은 v1 그대로 표시 — 하위호환). */
-    const qVersion = (TC && typeof TC.resolveQuestionSetVersion === 'function') ? TC.resolveQuestionSetVersion(state) : 1;
+    /* MODE-REGRESS-GUARD(2026-07-16): foundation 미로드 폴백을 옛(1)→최신(2)로. 정상 로드 시 무영향. */
+    const qVersion = (TC && typeof TC.resolveQuestionSetVersion === 'function') ? TC.resolveQuestionSetVersion(state) : 2;
     const vm = { questions: Q ? Q.getCoreQuestions(qVersion) : [], answers: (state.answers && typeof state.answers === 'object') ? state.answers : {} };
     R = { ctx: ctx, vm: vm, followUps: Array.isArray(state.followUps) ? state.followUps : [], busy: false, error: null, readOnly: true, userNotes: _userNotesText(state) };
     /* LEGACY-MEMBERSHIP-UX-1: 권한 거부(멤버십 오래됨)면 빈 화면 대신 재입장 안내.

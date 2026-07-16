@@ -745,6 +745,18 @@ function _onPtypeCardClick(clickedType) {
   }
 
   /* 기존 유형 없음 (신규 작품) 또는 같은 유형 클릭 — 즉시 진입 */
+  /* MODE-CONFIRM-1(2026-07-16): 신규 선택(기존 유형 없음)일 때만 1회 확인 — 유형은 한 번 정하면 못 바꿈.
+     같은 유형 재클릭(_ptypeExistingType === clickedType)은 기존 작품 재진입이라 확인 없이 즉시 진입(기존 동작 유지). */
+  if (!_ptypeExistingType) {
+    var _ok = true;
+    try {
+      _ok = window.confirm(
+        '「' + (_LABEL[clickedType] || clickedType) + '」 모드로 시작할까요?\n' +
+        '작품 유형은 한 번 정하면 바꿀 수 없어요. 이 모드로 계속 만들게 돼요.'
+      );
+    } catch (e) { _ok = true; }   /* confirm 불가 환경 → 기존대로 진입(회귀 0) */
+    if (!_ok) return;             /* 취소 → 진입하지 않음 */
+  }
   selectProjectType(clickedType);
   _enterMakerAfterPtypeSelected(clickedType);
 }
@@ -780,6 +792,59 @@ async function _updateCompassResultButton() {
   } catch (_) { if (key === _compassBtnLastKey) btn.style.display = 'none'; }
 }
 if (typeof window !== 'undefined') window._updateCompassResultButton = _updateCompassResultButton;
+
+/* ─────────────────────────────────────────────────────────────
+   TUTORIAL(maker 코치마크): 신규 작품 진입 시 환영 모달 뒤 6요소를 코치로 안내.
+   ②(refine, viewer-entry.js __maybeRunRefineTutorial)와 '동일 패턴' — 환영에서 skip/dontShow면
+   코치 억제, 진행이면 코치 표시. 환영 dismiss 키('tutorial_welcome')를 코치와 공유해 한 번의
+   skip/dontShow로 환영·코치 둘 다 억제(refine이 'tutorial_refine'를 공유하는 것과 대칭).
+   · maker 환영은 두 곳에서 뜸: (a) ui.js 아래 _enterMakerAfterPtypeSelected(무비/체험/v1/기존재진입),
+     (b) 나침반 완료 후 review.js(수정 불가). 둘 다 bare maybeShow → TutorialWelcome.armCoach 시퀄로 통일.
+   · 코치 엔진(tutorial-coach.js)은 maker.html에만 로드. 대상이 실재/가시일 때만 뜸(가시성 가드 + rAF/지연·소폭 재시도). */
+function _runMakerCoach(ptype) {
+  if (typeof window === 'undefined' || !window.TutorialCoach || typeof window.TutorialCoach.run !== 'function') return;
+  var _tries = 0;
+  var _go = function () {
+    _tries++;
+    var ready = false;
+    try {
+      var C = window.TutorialContent;
+      var steps = (C && Array.isArray(C.makerCoach)) ? C.makerCoach : [];
+      if (ptype) steps = steps.filter(function (s) { return !s.types || s.types.indexOf(ptype) !== -1; });
+      ready = steps.some(function (s) { try { return !!document.querySelector(s.sel); } catch (e) { return false; } });
+    } catch (e) { ready = false; }
+    if (!ready) { if (_tries < 8) setTimeout(_go, 200); return; }   /* 렌더 지연 대비 소폭 재시도 후 포기(과잉 대기 방지) */
+    try {
+      window.TutorialCoach.run({
+        stepsKey: 'makerCoach', keyPrefix: 'tutorial_maker_coach',
+        dismissKeyPrefix: 'tutorial_welcome', filterType: ptype || null,
+      });
+    } catch (e) { /* noop */ }
+  };
+  if (typeof requestAnimationFrame === 'function') requestAnimationFrame(function () { setTimeout(_go, 0); });
+  else setTimeout(_go, 30);
+}
+/* 환영(maker) 종료 결과로 코치 표시/억제 결정 — refine과 동일 로직. */
+function _makerCoachAfterWelcome(res, ptype) {
+  try {
+    if (!res || !res.shown) return;                     /* 환영이 안 떴으면(이미 억제) 코치도 그대로 억제 */
+    if (res.dontShow || res.skipped) {                  /* 넘어가기/다시 보지 않기 → 코치 생략 + 즉시 dismiss(둘 다 억제) */
+      if (window.TutorialWelcome && typeof window.TutorialWelcome.markDismissed === 'function') {
+        try { window.TutorialWelcome.markDismissed('tutorial_welcome', null); } catch (e) { /* noop */ }
+      }
+      return;
+    }
+    _runMakerCoach(ptype);                              /* 진행(시작하기) → 코치 표시(진행 시 dismiss 미기록 = 매 진입) */
+  } catch (e) { /* noop */ }
+}
+/* 신규 작품 진입 환영 앞에서 1회 arm. 환영(현 진입 또는 나침반 뒤 review.js) 종료 시 시퀄이 위 로직 실행. */
+function _armMakerCoach(ptype) {
+  try {
+    if (window.TutorialWelcome && typeof window.TutorialWelcome.armCoach === 'function') {
+      window.TutorialWelcome.armCoach(function (res) { _makerCoachAfterWelcome(res, ptype); });
+    }
+  } catch (e) { /* noop */ }
+}
 
 /* ptype 결정 후 firebase에 저장 + maker 캔버스 노출 */
 async function _enterMakerAfterPtypeSelected(ptype) {
@@ -840,7 +905,7 @@ async function _enterMakerAfterPtypeSelected(ptype) {
       try { await window.ThoughtCompassController.activateForExistingEntry({ classId: classId, teamName: teamName, projectType: ptype }); }
       catch (_) { /* noop */ }
     }
-    if (_compassGated) return;   /* 게이트가 maker UI를 가로챔. starter는 완료 후 생성. */
+    if (_compassGated) { _armMakerCoach(ptype); return; }   /* 게이트가 maker UI 가로챔. 나침반 완료 후 review.js 환영 종료 시 코치. starter는 완료 후 생성. */
     if (typeof window.createStarterTemplateForNewProject === 'function') {
       try { await window.createStarterTemplateForNewProject(ptype); }
       catch (_) { /* noop */ }
@@ -857,6 +922,7 @@ async function _enterMakerAfterPtypeSelected(ptype) {
      여기 도달 안 함(그 경로는 나침반 완료 후 review.js가 띄움 = 사용자 결정 "나침반 뒤").
      여기 도달 = 무비/체험/v1(classId 없음)/기존 재진입 → 에디터 진입 시 1회. 기기당 1회·에디터 안 막음. */
   if (typeof window !== 'undefined' && window.TutorialWelcome && typeof window.TutorialWelcome.maybeShow === 'function') {
+    _armMakerCoach(ptype);   /* 환영 종료 시 시퀄이 코치 표시/억제 결정(무비/체험/v1/기존재진입 경로) */
     try { await window.TutorialWelcome.maybeShow(); } catch (e) { /* noop */ }
   }
 }

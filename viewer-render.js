@@ -890,6 +890,7 @@ function _renderScenePicturebook(stage, scene, submode) {
         </div>
       </div>`);
     _setupPbPhotoWrappers(stage);
+    _fitPbBodyOverlays(stage);   /* PB-BODY-FIT-1: 감상 전용 본문 글상자 자동확장(저장 불변) */
     return;
   }
 
@@ -965,6 +966,138 @@ function _setupPbPhotoWrappers(stage) {
       photo._roAttached = true;
     }
   });
+}
+
+/* ── PB-BODY-FIT-1 (2026-07-16): 그림 중심형 본문 글상자 자동확장 (감상 전용) ─────────
+   문제: imageCenter 본문 글상자(.pb-stage__body-overlay)에 저자가 데스크톱 드래그
+   리사이즈로 "숫자 height(%)"를 저장하면, 폰트는 고정 px·무대는 3:2라 작은 기기
+   (태블릿/크롬북)에서 같은 글이 더 많은 줄 → 고정 높이 안 overflow:auto 내부 스크롤에
+   갇힘(초등생은 스크롤 인지 못 해 "잘렸다"고 느낌). height:null(auto) 장면은 이미
+   콘텐츠 자동확장이라 문제 없음.
+   해결: 글이 다 렌더된 뒤 글상자가 글을 못 담으면 inline height만 키워 아래로 확장.
+   · 저장 절대 불변 — scene.picturebookBodyBox/_queueSave 미접근. overlay.style.height만 조정.
+     (선례: 위 _pbShowsVariantBody가 "저장 불변 + 렌더 시 height 완화"를 이미 함.)
+   · 저자 명시 height는 "바닥(floor)"으로만 작동 → 인쇄의 min-height 변환
+     (picturebook-print.js:290 'min-height:'+h+'%')과 동일 철학(필요시 늘고 아니면 멈춤).
+   · height:null(auto) 오버레이는 손대지 않음(이미 원하는 동작).
+   · 무대 이탈 방지: top% + height% <= 95%. 넘치면 확장 안 하고 저자값 유지(스크롤 유지).
+   · 감상 전용: 편집 모드(리사이즈 핸들·저장 경로 존재)에선 실행 안 함.
+   · 흔들림 방지: 확장값이 이전과 근사하면 DOM 미변경(idempotent) → 80ms transition 미재생.
+     측정 시 스크롤바 리플로·기존 확장 오염 차단 위해 임시 overflow:hidden+height:auto
+     (동기 복원·미페인트).
+   · 렌더 후 rAF 1회 + document.fonts.ready(FOUT) + 뷰포트 resize/회전(디바운스) 재측정.
+     오버레이 전용 ResizeObserver는 달지 않음(자기유발 루프 금지). */
+const _PB_FIT_MAX_BOTTOM_PCT = 95;   /* top% + height% 상한(무대 이탈 방지·정규화 12~90%창과 정합) */
+const _PB_FIT_OVERFLOW_TOL_PCT = 0.75;  /* 저자 높이 대비 이 % 이하 초과는 무시(미세 흔들림 방지) */
+const _PB_FIT_WRITE_TOL_PCT = 0.5;   /* 직전 적용값과 이 % 이내면 DOM 미변경(재적용 깜빡임 차단) */
+
+/* 감상 모드에서만 개입 — 편집이면 false(리사이즈 핸들/저장 경로가 담당). */
+function _pbBodyFitAllowed(stage) {
+  if (typeof ViewerState !== 'undefined' && ViewerState.editMode) return false;
+  if (typeof document !== 'undefined' && document.body
+      && document.body.classList.contains('edit-mode-active')) return false;
+  if (stage && stage.querySelector
+      && stage.querySelector('.scene-screen[data-edit-mode="true"]')) return false;
+  return true;
+}
+
+/* 오버레이 1개 맞춤 — 명시 height(%)가 있을 때만 개입. 저장 불변·inline height만 조정. */
+function _fitOnePbBodyOverlay(overlay) {
+  if (!overlay || !overlay.isConnected) return;
+  if (!overlay.querySelector('.pb-text__body')) return;
+
+  /* 저자 명시 base 높이(%) 확보 — 확장 후에도 기준이 남게 dataset에 1회 보존.
+     신규 렌더 element는 dataset 미설정 → 이때의 inline height가 저자 명시값. */
+  let baseHpct;
+  if (overlay.dataset.pbFitBaseH) {
+    baseHpct = parseFloat(overlay.dataset.pbFitBaseH);
+  } else {
+    const inlineH = overlay.style.height || '';
+    if (inlineH.indexOf('%') === -1) return;   /* auto(=null 저자) → 손대지 않음 */
+    baseHpct = parseFloat(inlineH);
+    if (!Number.isFinite(baseHpct)) return;
+    overlay.dataset.pbFitBaseH = String(baseHpct);
+  }
+
+  const stageEl = overlay.closest('.pb-stage');
+  if (!stageEl) return;
+  const stageH = stageEl.clientHeight;
+  if (!stageH) return;   /* 레이아웃 전 → 이후 rAF/폰트/resize 재측정에서 처리 */
+
+  const prevHeight = overlay.style.height;
+  const prevOverflow = overlay.style.overflow;
+  const prevTransition = overlay.style.transition;
+  /* 측정: 참 콘텐츠 높이를 얻기 위해 height:auto + overflow:hidden(스크롤바 리플로·기존 확장 오염 차단).
+     ⚠ scrollHeight 읽기는 강제 reflow → 중간 'auto' 값이 CSS transition baseline이 되어
+     매 측정마다 auto→height 애니메이션(흔들림)이 재생될 수 있음. 측정 동안 transition을 꺼서 차단,
+     원래 높이로 되돌린 뒤 reflow로 확정(baseline 고정), 그 다음 transition을 복구한다. */
+  overlay.style.transition = 'none';
+  overlay.style.overflow = 'hidden';
+  overlay.style.height = 'auto';
+  const needPx = overlay.scrollHeight;     /* padding 포함 콘텐츠 총 높이(스크롤바 없이) */
+  overlay.style.overflow = prevOverflow;   /* CSS overflow:auto 복원 */
+  overlay.style.height = prevHeight;       /* 측정 전 높이로 원복 */
+  void overlay.offsetHeight;               /* 강제 reflow: prevHeight를 transition-off 상태로 확정(baseline) */
+  overlay.style.transition = prevTransition; /* CSS 80ms transition 복구 */
+
+  const topPct = parseFloat(overlay.style.top);
+  const topSafe = Number.isFinite(topPct) ? topPct : 0;
+  const maxPct = _PB_FIT_MAX_BOTTOM_PCT - topSafe;
+  const contentPct = (needPx / stageH) * 100;
+
+  let targetPct;
+  if (contentPct <= baseHpct + _PB_FIT_OVERFLOW_TOL_PCT) {
+    targetPct = baseHpct;                            /* 저자 박스에 다 들어감 → 저자값 유지(floor) */
+  } else if (contentPct <= maxPct) {
+    targetPct = Math.ceil(contentPct * 100) / 100;   /* 딱 맞게 확장(올림=1px 잔여 스크롤바 방지) */
+  } else {
+    targetPct = baseHpct;                            /* 무대 이탈 → 확장 안 함(저자값·스크롤 유지) */
+  }
+
+  /* idempotent — 직전 적용 높이와 근사하면 DOM 미변경(transition 미재생). baseline은 prevHeight로
+     이미 확정돼 있으므로, 여기서 target을 쓸 때만 prevHeight→target 80ms 확장이 1회 발동한다. */
+  const prevPct = parseFloat(prevHeight);
+  const changed = !Number.isFinite(prevPct) || Math.abs(targetPct - prevPct) > _PB_FIT_WRITE_TOL_PCT;
+  if (changed) overlay.style.height = targetPct + '%';
+}
+
+/* 현재 무대의 imageCenter 본문 글상자 전부 맞춤(감상 전용·leaving 화면 제외). */
+function _fitPbBodyOverlaysNow() {
+  if (typeof document === 'undefined') return;
+  const stage = document.getElementById('viewer-frame');
+  if (!stage || !_pbBodyFitAllowed(stage)) return;
+  stage.querySelectorAll('.scene-screen:not(.is-leaving) .js-pb-body-overlay')
+    .forEach(_fitOnePbBodyOverlay);
+}
+
+/* 뷰포트/회전/폰트 로드 재측정 리스너 — 1회만 등록(디바운스·자기유발 루프 없음). */
+function _bindPbFitGlobalListeners() {
+  if (typeof window === 'undefined' || window.__pbFitListenersBound) return;
+  window.__pbFitListenersBound = true;
+  let t = null;
+  const debounced = function () {
+    if (t) clearTimeout(t);
+    t = setTimeout(function () { t = null; _fitPbBodyOverlaysNow(); }, 150);
+  };
+  window.addEventListener('resize', debounced);
+  if (window.visualViewport && window.visualViewport.addEventListener) {
+    window.visualViewport.addEventListener('resize', debounced);
+  }
+  /* 본문 폰트(Gowun Batang 등) async 로드 후 글높이 변동 → 1회 재측정(FOUT). */
+  if (document.fonts && document.fonts.ready && typeof document.fonts.ready.then === 'function') {
+    document.fonts.ready.then(function () {
+      if (typeof requestAnimationFrame === 'function') requestAnimationFrame(_fitPbBodyOverlaysNow);
+      else _fitPbBodyOverlaysNow();
+    });
+  }
+}
+
+/* imageCenter 렌더 직후 진입점 — 리스너 1회 등록 + 레이아웃 후 rAF 1회 측정. */
+function _fitPbBodyOverlays(stage) {
+  _bindPbFitGlobalListeners();
+  if (!_pbBodyFitAllowed(stage)) return;   /* 편집 모드면 측정 스킵(리스너는 감상 전환 대비 등록됨) */
+  if (typeof requestAnimationFrame === 'function') requestAnimationFrame(_fitPbBodyOverlaysNow);
+  else _fitPbBodyOverlaysNow();
 }
 
 /* 무비형 결정 패널 페일세이프 (2026-07-10):
@@ -1957,6 +2090,7 @@ function _renderStoryEnding(stage, scene) {
           </div>
         </div>
       </div>`);
+    _fitPbBodyOverlays(stage);   /* PB-BODY-FIT-1: 엔딩 imageCenter 본문 글상자도 동일 자동확장(저장 불변) */
   } else {
   _stageReplaceScene(stage, `
     <div class="scene-screen scene-screen--pb scene-surface pb--split ending-as-pb${noImageClass}"

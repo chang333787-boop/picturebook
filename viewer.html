@@ -13,6 +13,17 @@
   <meta name="color-scheme" content="light"/> <!-- CROSS-A: 삼성인터넷 등 강제 다크모드 색반전 방지 -->
   <!-- v36: PWA — 홈 화면에 추가하면 전체화면 앱처럼 동작 -->
   <link rel="manifest" href="manifest.json"/>
+  <!-- MODE-REGRESS-GUARD(2026-07-16): 설치 전용 SW 자체 등록 — index.html을 안 거치고 viewer.html에
+       직접 진입해도 SW가 등록돼 navigation no-store로 stale 진입 HTML(옛 번들 로드)을 막는다.
+       설치 전용·캐시0·network-only라 부작용 없음. index.html:212 동일. -->
+  <script>
+    if ('serviceWorker' in navigator && window.isSecureContext) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('./service-worker.js', { scope: './', updateViaCache: 'none' })
+          .catch(function () { /* 등록 실패는 조용히 무시 */ });
+      });
+    }
+  </script>
   <link rel="icon" type="image/png" href="icons/icon-192.png"/>
   <link rel="apple-touch-icon" href="icons/icon-192.png"/>
   <meta name="mobile-web-app-capable" content="yes"/>
@@ -220,7 +231,7 @@
 <script src="viewer-image-batch-ui.js?v=78abc7c3b5"></script>
 <script src="viewer-locks.js?v=52dc9a8ae5"></script>
 <script src="viewer-controls.js?v=f6cfa6b1d3"></script>
-<script src="viewer-render.js?v=995788e146"></script>
+<script src="viewer-render.js?v=0610042b59"></script>
 <!-- PERF-2: viewer 편집(viewer-edit.js)·AI(viewer-ai.js) 코드 지연 로딩.
      감상 모드는 둘 다 로드하지 않음(초기 다운로드 ~568KB 감소). 편집 진입 시 window.ensureEditBundle()로 1회 로드.
      · 감상 렌더는 편집 함수를 editMode+typeof 가드로만 호출 → 미로드여도 안전.
@@ -267,11 +278,11 @@
 <!-- 전체 화면 유지(멀티페이지) 공유 모듈 -->
 <script src="fullscreen-persist.js?v=ba97ed7f7e"></script>
 <!-- TUTORIAL: 다듬기(감상 화면 다듬기) 첫 진입 1회 튜토리얼 -->
-<script src="tutorial-content.js?v=9c6cebeb5e"></script>
+<script src="tutorial-content.js?v=c3b0bac2f2"></script>
 <script src="tutorial-art.js?v=89f1207629"></script>
-<script src="tutorial-welcome.js?v=7ad713503f"></script>
-<script src="tutorial-coach.js?v=8c46a4d913"></script>
-<script src="viewer-entry.js?v=894ae7fd2d"></script>
+<script src="tutorial-welcome.js?v=781a3ec985"></script>
+<script src="tutorial-coach.js?v=fa76f1e7b9"></script>
+<script src="viewer-entry.js?v=ea6438240c"></script>
 
 </body>
 </html>

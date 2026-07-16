@@ -10,6 +10,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
   <!-- v36: PWA — 홈 화면에 추가하면 전체화면 앱처럼 동작 -->
   <link rel="manifest" href="manifest.json"/>
+  <!-- MODE-REGRESS-GUARD(2026-07-16): 설치 전용 SW 자체 등록 — index.html을 안 거치고 maker.html에
+       직접 진입(북마크/PWA/딥링크)해도 SW가 등록돼 navigation no-store로 stale 진입 HTML(옛 번들 →
+       생각 나침반 옛 모드 회귀)을 막는다. 설치 전용·캐시0·network-only라 부작용 없음. index.html:212 동일. -->
+  <script>
+    if ('serviceWorker' in navigator && window.isSecureContext) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('./service-worker.js', { scope: './', updateViaCache: 'none' })
+          .catch(function () { /* 등록 실패는 조용히 무시 — 화면/팝업 막지 않음 */ });
+      });
+    }
+  </script>
   <link rel="icon" type="image/png" href="icons/icon-192.png"/>
   <link rel="apple-touch-icon" href="icons/icon-192.png"/>
   <meta name="theme-color" content="#fbf6ea"/>
@@ -3310,10 +3321,10 @@
 <script src="thought-compass-gate.js?v=daa0e9f967"></script>
 <script src="thought-compass-ai.js?v=b523ddbb41"></script>
 <script src="thought-compass-editsession.js?v=a6240e629b"></script>
-<script src="thought-compass-ui.js?v=24c5376056"></script>
+<script src="thought-compass-ui.js?v=8faa82435d"></script>
 <script src="thought-compass-sheet.js?v=6c696f11a3"></script>
 <script src="thought-compass-rose.js?v=0e8e3bbe5f"></script>
-<script src="thought-compass-review.js?v=87b9c3256b"></script>
+<script src="thought-compass-review.js?v=640b16f0a0"></script>
 <script src="thought-compass-scenes.js?v=4ce48b7126"></script>
 <script src="firebase.js?v=56818d7f12"></script>
 <script src="notices.js?v=37cfc95c97"></script>
@@ -3326,16 +3337,18 @@
 <!-- ADMIN-REDESIGN Phase 3: 교사·학생 상세 설명서(화면형) -->
 <script src="admin-manual.js?v=1ece1a12f2"></script>
 <script src="projectSettings.js?v=5eb05c2079"></script>
-<script src="ui.js?v=3b078b0e62"></script>
+<script src="ui.js?v=43a91979c3"></script>
 <!-- v95: 모바일 텍스트형 브랜치 전용 (텍스트 작품 + 모바일에서만 활성) -->
 <script src="mobileTextBranch.js?v=87f6f2624d"></script>
 <!-- TUTORIAL-PRD: 콘텐츠·삽화·데모(먼저) → 도움말/환영/인쇄 -->
 <script src="fullscreen-persist.js?v=ba97ed7f7e"></script>
-<script src="tutorial-content.js?v=9c6cebeb5e"></script>
+<script src="tutorial-content.js?v=c3b0bac2f2"></script>
 <script src="tutorial-art.js?v=89f1207629"></script>
 <script src="tutorial-demo.js?v=b90d0f64b8"></script>
 <script src="tutorial-help.js?v=65a10e467b"></script>
-<script src="tutorial-welcome.js?v=7ad713503f"></script>
+<script src="tutorial-welcome.js?v=781a3ec985"></script>
+<!-- maker 첫 진입 코치마크 엔진(makerCoach) -->
+<script src="tutorial-coach.js?v=fa76f1e7b9"></script>
 <script src="tutorial-print.js?v=ea811a63f0"></script>
 
 </body>

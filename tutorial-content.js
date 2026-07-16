@@ -118,6 +118,29 @@
       text: '끝나면 여기로 나가요. 바꾼 건 자동으로 저장돼요!' },
   ];
 
+  /* maker(브랜치 메이커) 첫 진입 코치마크 — 신규 작품 starter 렌더 후 6요소 안내(sel=CSS 선택자).
+     types 있으면 해당 유형만(엔진 run(filterType)에서 스킵). 대상 없거나 숨김이면 자동 스킵(가시성 가드).
+     같은 클래스가 여러 카드에 있어도 querySelector가 첫 요소 — 표지 카드엔 이 클래스들이 없어
+     자연히 '첫 비표지 카드'가 대상이 됨(#1 이미지·#2 글씨칸·#3 ⋯더보기). */
+  const makerCoach = [
+    { sel: '.card-image-area',
+      text: '여기에 사진을 올릴 수 있어요. 다듬기 화면에서는 직접 그릴 수도 있어요.',
+      types: ['picturebook', 'experience'] },
+    { sel: '.pb-body-preview',
+      text: '저걸 누르면 여기서 글을 쓸 수 있어요.',
+      types: ['picturebook'] },
+    { sel: '.card-more.js-card-more',
+      text: '여기서 행동 버튼을 추가하고 다른 장면과 이을 수 있어요.',
+      types: ['picturebook'] },
+    { sel: '#btn-compass-result',
+      text: '방금 만든 생각 나침반을 보면서 만들 수 있어요.',
+      types: ['text', 'picturebook'] },
+    { sel: '#btn-project-settings',
+      text: '여기서 시작점을 지정할 수 있어요.' },
+    { sel: '#btn-viewer-edit',
+      text: '감상 화면 다듬기로 가면 내 그림책을 이쁘게 꾸밀 수 있어요.' },
+  ];
+
   return {
     /* version 올리면 환영 모달 seen-플래그 키가 바뀌어 모두에게 1회 다시 표시.
        v2: 삽화·인터랙티브 데모 추가 + 트리거를 "나침반 질문 뒤"로 이동(2026-07-07).
@@ -127,6 +150,7 @@
     welcome: welcome,
     refineWelcome: refineWelcome,
     refineCoach: refineCoach,
+    makerCoach: makerCoach,
     studentPrintSteps: studentPrintSteps,
     teacherSteps: teacherSteps,
   };

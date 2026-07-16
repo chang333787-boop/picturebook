@@ -37,7 +37,19 @@
 
   function _end() { _cleanup(true); }
 
-  function _findEl(sel) { try { return document.querySelector(sel); } catch (e) { return null; } }
+  /* TUTORIAL-COACH-VIS-1(2026-07-16): 존재만이 아니라 '보이는' 대상만 유효.
+     display:none(#btn-compass-result 기록 없을 때 등)·detached·0크기는 미발견 취급 → 그 스텝 스킵
+     (기존엔 스포트라이트가 (0,0)에 깨져 떴음). position:fixed는 offsetParent가 null이므로
+     rect 크기로 보정(보이면 w/h>0). refineCoach·makerCoach 양쪽에 이로움(회귀 아님·개선). */
+  function _findEl(sel) {
+    try {
+      const el = document.querySelector(sel);
+      if (!el) return null;
+      if (el.offsetParent !== null) return el;
+      const r = el.getBoundingClientRect();
+      return (r && r.width > 0 && r.height > 0) ? el : null;
+    } catch (e) { return null; }
+  }
 
   function _render() {
     /* 현재 스텝의 대상이 없으면 다음으로 스킵(모두 없으면 종료) */

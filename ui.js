@@ -828,12 +828,16 @@ function _runMakerCoach(ptype) {
 function _makerCoachAfterWelcome(res, ptype) {
   try {
     if (!res || !res.shown) return;                     /* 환영이 안 떴으면(이미 억제) 코치도 그대로 억제 */
-    if (res.dontShow || res.skipped) {                  /* 넘어가기/다시 보지 않기 → 코치 생략 + 즉시 dismiss(둘 다 억제) */
+    /* AUDIT-B2 SKIP-SCOPE(2026-07-16): '넘어가기'는 이번 진입만 코치 생략(기록 없음 — 다음에 다시 안내),
+       '다시 보지 않기'만 영구 dismiss. 종전엔 skip도 기기 전체 영구 억제라 공유 크롬북에서 한 학생의
+       넘어가기 1회가 이후 모든 모둠의 환영+코치를 죽였음(사용자 원요청 의미로 복원). */
+    if (res.dontShow) {
       if (window.TutorialWelcome && typeof window.TutorialWelcome.markDismissed === 'function') {
         try { window.TutorialWelcome.markDismissed('tutorial_welcome', null); } catch (e) { /* noop */ }
       }
       return;
     }
+    if (res.skipped) return;                            /* 이번 진입만 코치 생략 */
     _runMakerCoach(ptype);                              /* 진행(시작하기) → 코치 표시(진행 시 dismiss 미기록 = 매 진입) */
   } catch (e) { /* noop */ }
 }

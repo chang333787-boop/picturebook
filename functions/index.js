@@ -2853,6 +2853,9 @@ exports.clearImagesAndSwitchSourceMode = onCall(
     });
     /* 원본 이미지(표지·전 갈래) + AI 이미지 변형 + 방식 잠금 정책을 한 번에 비움(원자). */
     updates['aiVariants/image'] = null;
+    /* AUDIT-B2(2026-07-16): 발행 선택(imageSelections)도 함께 정리 — 남겨두면 나중에 같은 sceneId로
+       재생성했을 때 옛 {selected:'s2'}가 교사 발행 조치 없이 새 변형을 자동 발행 표시함. */
+    updates['aiVariants/imageSelections'] = null;
     updates['viewer-meta/imagePolicy'] = null;
     try {
       await admin.database().ref(ctx.teamBase).update(updates);

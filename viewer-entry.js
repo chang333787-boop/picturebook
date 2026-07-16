@@ -158,14 +158,16 @@ window.__maybeRunRefineTutorial = function (ptype, opts) {
       .then(function (res) {
         var dontShow = !!(res && res.dontShow);
         var skipped  = !!(res && res.skipped);
-        /* TUTORIAL-SKIP-SUPPRESS-1: '넘어가기(skip)' 또는 '다시 보지 않기(dontShow)' →
-           이 진입에서 코치 아예 안 띄움 + 즉시 dismiss(다음부터 환영·코치 둘 다 억제). */
-        if (dontShow || skipped) {
+        /* TUTORIAL-SKIP-SUPPRESS-1 + AUDIT-B2 SKIP-SCOPE(2026-07-16): 코치 생략은 둘 다,
+           영구 dismiss는 '다시 보지 않기'만. '넘어가기'는 이번 진입만 생략(기록 없음 — 다음에 다시 안내).
+           maker 쪽(_makerCoachAfterWelcome)과 동일 정책. */
+        if (dontShow) {
           if (typeof window.TutorialWelcome.markDismissed === 'function') {
             try { window.TutorialWelcome.markDismissed('tutorial_refine', scope); } catch (e) { /* noop */ }
           }
           return;
         }
+        if (skipped) return;   /* 이번 진입만 코치 생략 */
         /* 진행(시작하기) → 지금처럼 코치 표시. 진행 시엔 dismiss 미기록(정책: 매 진입 표시). */
         try {
           if (window.TutorialCoach && typeof window.TutorialCoach.run === 'function') {

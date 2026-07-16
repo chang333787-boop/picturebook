@@ -1037,7 +1037,12 @@ function _fitOnePbBodyOverlay(overlay) {
   overlay.style.transition = 'none';
   overlay.style.overflow = 'hidden';
   overlay.style.height = 'auto';
-  const needPx = overlay.scrollHeight;     /* padding 포함 콘텐츠 총 높이(스크롤바 없이) */
+  /* AUDIT-B2 BORDER-FIX(2026-07-16): scrollHeight는 border 제외(content+padding)인데 오버레이는
+     box-sizing:border-box — cozy/paper(1.5px)·gallery(1px) 테마에서 border×2만큼 미달해 확장 후에도
+     마지막 줄이 2~3px 클립되던 잔여 오버플로 보정. */
+  const _cs = getComputedStyle(overlay);
+  const _borderPx = (parseFloat(_cs.borderTopWidth) || 0) + (parseFloat(_cs.borderBottomWidth) || 0);
+  const needPx = overlay.scrollHeight + _borderPx;   /* padding 포함 콘텐츠 총 높이 + border(박스높이 기준) */
   overlay.style.overflow = prevOverflow;   /* CSS overflow:auto 복원 */
   overlay.style.height = prevHeight;       /* 측정 전 높이로 원복 */
   void overlay.offsetHeight;               /* 강제 reflow: prevHeight를 transition-off 상태로 확정(baseline) */

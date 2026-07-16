@@ -1963,6 +1963,11 @@ function _renderStoryEnding(stage, scene) {
         : 'contenteditable="true" data-pb-editable="body"')
     : '';
 
+  /* SCENE-BRANCH-BACK(2026-07-16): 되돌리기 버튼 라벨 — 경로에 진짜 갈림길이 있으면 '직전 갈림길로',
+     없으면(외길) 기존 '직전 장면으로'로 폴백. 클릭은 navigateToLastBranch가 폴백까지 처리. */
+  const _backLabel = ((typeof findLastBranchSceneId === 'function') && findLastBranchSceneId())
+    ? '← 직전 갈림길로' : '← 직전 장면으로';
+
   /* 텍스트 영역 — 작품 제목(작게) + 엔딩 본문(메인) + 이야기 끝 스탬프 + 경로 요약 + 버튼
      v133: 각 요소에 terminal-step + 종류별 modifier. CSS animation-delay 변수로 순차. */
   const endingTextHtml = `
@@ -1979,7 +1984,7 @@ function _renderStoryEnding(stage, scene) {
            data-count="${ViewerState.historyStack.length > 0 ? 2 : 1}">
         <button class="terminal-btn terminal-btn--primary js-restart" disabled aria-disabled="true">↺ 다른 결말 찾기</button>
         ${ViewerState.historyStack.length > 0
-          ? `<button class="terminal-btn terminal-btn--ghost js-back" disabled aria-disabled="true">← 직전 장면으로</button>` : ''}
+          ? `<button class="terminal-btn terminal-btn--ghost js-back" disabled aria-disabled="true">${_backLabel}</button>` : ''}
       </div>
     </div>`;
 
@@ -2084,7 +2089,7 @@ function _renderStoryEnding(stage, scene) {
             <div class="pb-text pb-text--bottom-only">
               <div class="pb-text__actions ending-actions scene-choice-group" data-count="${_endHasBack ? 2 : 1}">
                 <button class="choice-v03 choice-v03--picturebook js-restart" disabled aria-disabled="true">↺ 다른 결말 찾기</button>
-                ${_endHasBack ? `<button class="choice-v03 choice-v03--picturebook js-back" disabled aria-disabled="true">← 직전 장면으로</button>` : ''}
+                ${_endHasBack ? `<button class="choice-v03 choice-v03--picturebook js-back" disabled aria-disabled="true">${_backLabel}</button>` : ''}
               </div>
             </div>
           </div>
@@ -2160,7 +2165,7 @@ function _renderStoryEnding(stage, scene) {
     if (_backBtn.disabled) { e.preventDefault(); return; }
     if (_backFired) return;
     _backFired = true;
-    navigateBack();
+    navigateToLastBranch();
   });
 }
 
@@ -2264,7 +2269,7 @@ function _renderTextEnding(stage, scene) {
             </div>
             <div class="text-ending-actions is-locked" data-count="${hasBack ? 2 : 1}">
               <button class="terminal-btn terminal-btn--primary js-restart" disabled aria-disabled="true">↺ 다른 결말 찾기</button>
-              ${hasBack ? `<button class="terminal-btn terminal-btn--ghost js-back" disabled aria-disabled="true">← 직전 장면으로</button>` : ''}
+              ${hasBack ? `<button class="terminal-btn terminal-btn--ghost js-back" disabled aria-disabled="true">${((typeof findLastBranchSceneId === 'function') && findLastBranchSceneId()) ? '← 직전 갈림길로' : '← 직전 장면으로'}</button>` : ''}
             </div>
           </div>
         </div>
@@ -2304,7 +2309,7 @@ function _renderTextEnding(stage, scene) {
     if (_backBtn.disabled) { e.preventDefault(); return; }
     if (_backFired) return;
     _backFired = true;
-    navigateBack();
+    navigateToLastBranch();
   });
 }
 
@@ -2408,7 +2413,7 @@ function _renderMovieEnding(stage, scene) {
           ${routeHtml}
           <div class="movie-ending-actions">
             <button class="terminal-btn terminal-btn--primary js-restart">↺ 다른 결말 찾기</button>
-            ${hasBack ? `<button class="terminal-btn terminal-btn--ghost js-back">← 직전 장면으로</button>` : ''}
+            ${hasBack ? `<button class="terminal-btn terminal-btn--ghost js-back">${((typeof findLastBranchSceneId === 'function') && findLastBranchSceneId()) ? '← 직전 갈림길로' : '← 직전 장면으로'}</button>` : ''}
           </div>
         </div>
       </div>
@@ -2452,7 +2457,7 @@ function _renderMovieEnding(stage, scene) {
   _backBtn?.addEventListener('click', () => {
     if (_backFired) return;
     _backFired = true;
-    navigateBack();
+    navigateToLastBranch();
   });
 }
 

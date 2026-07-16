@@ -127,6 +127,36 @@ function navigateBack() {
   renderCurrentScene();
 }
 
+/* ── SCENE-BRANCH-BACK(2026-07-16): 엔딩 '직전 갈림길로' ──
+   문제: 엔딩에서 '직전 장면으로' 가도 그 장면이 외길(선택지 1개)이면 다시 엔딩으로 갈 수밖에 없어
+   실제로 다른 길을 못 고른다. → 경로(historyStack)를 거슬러 '연결된 선택지가 2개 이상이던 가장 최근
+   장면'(진짜 갈림길)으로 돌아가 다른 선택지를 고를 수 있게 한다. 없으면 navigateBack()으로 폴백. */
+function _findLastBranchIndex() {
+  const stack = (ViewerState && Array.isArray(ViewerState.historyStack)) ? ViewerState.historyStack : [];
+  for (let i = stack.length - 1; i >= 0; i--) {
+    const s = ViewerState.scenes[stack[i]];
+    if (!s || !Array.isArray(s.choices)) continue;
+    const linked = s.choices.filter((c) => c && c.nextId).length;   /* 연결된 선택지만 = 진짜 갈림 */
+    if (linked >= 2) return i;
+  }
+  return -1;
+}
+/* 갈림길 sceneId(라벨/표시 판단용) 또는 null(=갈림길 없음). */
+function findLastBranchSceneId() {
+  const i = _findLastBranchIndex();
+  return (i < 0) ? null : ViewerState.historyStack[i];
+}
+/* 직전 갈림길로 이동. 갈림길 없으면 navigateBack()으로 폴백(=직전 장면·기존 동작 유지). */
+function navigateToLastBranch() {
+  const i = _findLastBranchIndex();
+  if (i < 0) { navigateBack(); return; }
+  const targetId = ViewerState.historyStack[i];
+  ViewerState.stopAudio();
+  ViewerState.historyStack = ViewerState.historyStack.slice(0, i);  /* 그 갈림길 앞까지만 남김 → 재선택 시 경로 자연 연결 */
+  ViewerState.currentSceneId = targetId;
+  renderCurrentScene();
+}
+
 /* ── 처음으로 (재시작) ──
    구조 개편: 엔딩 이후 "다른 결말 찾기"는 replaySceneId로 이동.
    → 소개 장면이 있더라도 두 번째 감상부터는 건너뛰고 본편으로 바로.

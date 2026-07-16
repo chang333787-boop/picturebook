@@ -129,6 +129,12 @@
     { sel: '.pb-body-preview',
       text: '저걸 누르면 여기서 글을 쓸 수 있어요.',
       types: ['picturebook'] },
+    /* TEXT-COACH(2026-07-16): 텍스트형 글씨칸 — 텍스트 카드는 textarea가 바로 노출되므로 문구도 직접형.
+       셀렉터를 텍스트 카드 한정(.card-body--text)으로 — pb 카드의 접힌 textarea(js-body-input 동일
+       클래스)를 오지목하지 않게. */
+    { sel: '.card-body--text .js-body-input',
+      text: '여기에 장면의 글을 쓸 수 있어요.',
+      types: ['text'] },
     { sel: '.card-more.js-card-more',
       text: '여기서 행동 버튼을 추가하고 다른 장면과 이을 수 있어요.',
       types: ['picturebook'] },

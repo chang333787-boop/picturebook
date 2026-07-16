@@ -991,9 +991,12 @@ function _hangulRatio(s) {
   const str = String(s || '');
   if (str.length === 0) return 1;
   const hangul = (str.match(/[가-힣]/g) || []).length;
-  /* 공백·문장부호는 분모에서 제외 (한글·영문·숫자만 검사) */
-  const text = (str.match(/[가-힣a-zA-Z0-9]/g) || []).length;
-  if (text === 0) return 1;
+  /* HANGUL-RATIO-DIGIT-FIX(2026-07-16): 분모 = 한글 + 영문 글자만. 숫자·공백·문장부호는 제외.
+     이 검사의 목적은 "AI가 한국어 대신 영어 gibberish를 뱉는 것" 차단인데, 숫자는 외국어가 아니라
+     정당한 내용(예: "29억 7926만 2376일 16시간 32분 17초...")이라 분모에 넣으면 숫자 많은 장면이
+     한글비율 미달로 오거부됨. 숫자를 빼면 영어 gibberish는 여전히 걸리고 숫자 많은 한글 글은 통과. */
+  const text = (str.match(/[가-힣a-zA-Z]/g) || []).length;
+  if (text === 0) return 1;   /* 한글·영문 글자 0 (숫자/기호뿐) → 통과(외국어 아님) */
   return hangul / text;
 }
 

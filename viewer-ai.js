@@ -156,8 +156,16 @@
     let classId = '_', teamName = '_';
     try {
       if (typeof ViewerState !== 'undefined' && ViewerState) {
-        if (ViewerState.classId)  classId  = String(ViewerState.classId);
-        if (ViewerState.teamName) teamName = String(ViewerState.teamName);
+        /* SHELF-STALE-FIX(2026-07-16): 진실은 ViewerState.project.*(loadTeamData가 책마다 채움).
+           기존엔 ViewerState.classId/teamName만 봤는데 그 필드는 코드 어디서도 설정되지 않아 항상 URL로
+           폴백 → 책장 SPA 전환(URL 무변경)에서 namespace가 이전 책으로 고정 → AI그림 보기 토글 등
+           namespace 캐시가 이전 책 것으로 새던 버그(다른 애 그림 표시). project.* 우선으로 팀별 정확 분리.
+           _getCurrentClassIdTeamName(변형 캐시 키)과 동일 소스로 정렬. */
+        const proj = ViewerState.project || {};
+        if (proj.classId)  classId  = String(proj.classId);
+        if (proj.teamName) teamName = String(proj.teamName);
+        if (classId === '_' && ViewerState.classId)  classId  = String(ViewerState.classId);
+        if (teamName === '_' && ViewerState.teamName) teamName = String(ViewerState.teamName);
       }
       /* URL 파라미터에서 읽는 fallback */
       const p = new URLSearchParams(location.search);
@@ -1436,6 +1444,10 @@
   /* 동기 — 캐시에서만. 미로딩/없음이면 null(호출부가 원본 fallback). */
   function _getFbImageVariantUrl(variantKey, sceneId) {
     if (!_fbImageVariants) return null;
+    /* SHELF-STALE-FIX(2026-07-16): 캐시가 '현재 팀' 것일 때만 사용. 책장 SPA 전환 직후 재로딩(async) 전엔
+       _fbImageVariants가 아직 이전 책 것이라, 키 검증 없이 읽으면 이전 애 변형을 새 책 장면에 씌운다
+       → 키 불일치면 null(원본 fallback). _loadFirebaseImageVariants의 키 가드와 동일 기준. */
+    if (_fbImageVariantsKey !== _fbVariantCacheKey()) return null;
     const m = _fbImageVariants[variantKey];
     if (!m) return null;
     const v = m[String(sceneId)];

@@ -423,7 +423,9 @@ function _notifySourceModeBlock(res) {
   let msg;
   if (res.code === 'SOURCE_MODE_CONFLICT') {
     const other = (res.currentSourceMode === 'upload') ? '‘파일 올리기’' : '‘직접 그리기’';
-    msg = '이 작품은 이미 ' + other + ' 방식으로 시작했어요. 같은 작품에서는 두 방식을 섞을 수 없어요. (방금 고른 그림은 저장하지 않았어요.)';
+    /* SOURCE-MODE-RESIDUAL-FIX(2026-07-16): "다 지웠는데 안 바뀐다"의 실제 원인은 안 보이는 다른
+       장면(특히 안 가본 갈래)에 그림이 남아 있는 것 → 어디를 지워야 하는지 안내 추가. */
+    msg = '이 작품은 이미 ' + other + ' 방식으로 시작했어요. 다른 방식으로 바꾸려면 모든 장면(안 보이는 다른 갈래 장면까지) 그림을 먼저 다 지워야 해요. 그림이 하나도 안 남으면 방식을 바꿀 수 있어요. (방금 고른 그림은 저장하지 않았어요.)';
   } else if (res.code === 'CORRUPT_IMAGE_POLICY') {
     msg = '이 작품의 이미지 입력 방식 설정에 문제가 있어요. 선생님께 알려주세요.';
   } else {
@@ -5770,9 +5772,12 @@ function _bindPbImageActions(root, scene) {
         danger: true,
       });
       if (!ok) return;
+      /* SOURCE-MODE-RESIDUAL-FIX(2026-07-16): imageData만 지우면 레거시 작품의 imageUrl 잔여가 남아
+         "그림 다 지웠는데 방식 못 바꿈"(sourceMode 잠금 잔존)의 원인이 됨 → imageUrl도 함께 정리. */
       scene.imageData = null;
+      if (scene.imageUrl) scene.imageUrl = null;
       if (typeof _queueSave === 'function') {
-        _queueSave(scene.num || scene.id, { imageData: null });
+        _queueSave(scene.num || scene.id, { imageData: null, imageUrl: null });
         if (typeof _flushPendingSave === 'function') _flushPendingSave();
       }
       renderEditPanel();

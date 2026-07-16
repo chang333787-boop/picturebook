@@ -211,31 +211,10 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
      지연 로드 → '글 보기: 원본/AI 장면발전'·'그림 보기' 토글이 감상자에게도 복원(Phase 4-A 원설계).
      PERF-2 이득 유지: s2 없는 작품(대부분)은 기존과 동일하게 아무것도 로드하지 않음.
      로드 후 토글 표시/캐시는 viewer-ai 자체 부트스트랩이 담당. 실패해도 원본 감상은 완전 동작. */
-  try {
-    const _hasAnyS2 = (_pubTextS2BySid && Object.keys(_pubTextS2BySid).length > 0)
-      || (_pubImageS2BySid && Object.keys(_pubImageS2BySid).length > 0);
-    /* SCENE-PUBLISH-PRINT-1: ?print=pb(교사 인쇄 진입)면 s2 유무와 무관하게 viewer-ai 로드
-       (인쇄 옵션 모달이 viewer-ai에 있음).
-       TEACHER-PRINT-ROUTE-1: ?print=wa(고쳐쓰기 자료 교사 인쇄)도 동일 — 실행 코드가 viewer-ai에 있음. */
-    let _printEntry = false;
-    try {
-      const _pv = new URLSearchParams(location.search).get('print');
-      _printEntry = (_pv === 'pb' || _pv === 'wa');
-    } catch (e) { /* noop */ }
-    /* IMAGE-S2-RENDER-1 / SHELF-STALE-FIX(2026-07-16): viewer-ai 지연 로드 + 책장 SPA 재초기화.
-       - 미로드 + s2 있음/인쇄진입 → 번들 로드(부트스트랩이 첫 팀 세팅).
-       - 이미 로드됨(책장으로 둘째 책부터) → 팀별 재초기화(변형 force 재로딩 + 토글 바 재구성 + 재렌더).
-         안 하면 viewer-ai가 첫 책 부트스트랩 상태로 고정돼 "AI 토글이 첫 작품 말고는 안 먹힘". */
-    if (typeof window !== 'undefined' && !isEditViewerSession()) {
-      if (!window.viewerAi) {
-        if ((_hasAnyS2 || _printEntry) && typeof window.ensureAiViewBundle === 'function') {
-          window.ensureAiViewBundle().catch(() => { /* 감상은 원본만으로 완전 동작 */ });
-        }
-      } else if (typeof window.viewerAi.reinitForCurrentTeam === 'function') {
-        try { window.viewerAi.reinitForCurrentTeam(); } catch (e) { /* noop */ }
-      }
-    }
-  } catch (e) { /* noop */ }
+  /* SHELF-TOGGLE-REINIT-ORDER-FIX(2026-07-16): viewer-ai 지연로드/재초기화 트리거는 아래
+     ViewerState.project.teamName/classId/projectType 설정 '이후'로 이동했다. 재초기화가
+     _getCurrentClassIdTeamName()·isPb 판정에 이 값을 쓰는데, 여기서 부르면 아직 '이전 책' 값이라
+     엉뚱한 팀으로 로딩→_hasImageVariantS2 키 불일치→토글 바가 닫히거나 버튼 비활성화됐다. */
 
   /* W7 projectType 강제 lock (사용자 결정):
      "무슨일이있어도 다른모드로 맘대로 못넘어가게 설정해"
@@ -266,6 +245,30 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
   ViewerState.project.teamName = teamName;
   ViewerState.project.classId  = classId;  // ★ v2에서 저장 경로에 재사용
   ViewerState.scenes           = adaptScenes(rawScenes);
+
+  /* IMAGE-S2-RENDER-1 / SHELF-STALE-FIX(2026-07-16): viewer-ai 지연 로드 + 책장 SPA 재초기화.
+     ★ project.*(팀/타입)·scenes 설정 '이후'에 실행 — 재초기화가 새 책 컨텍스트로 돌게(ORDER-FIX).
+       위에서 부르면 _getCurrentClassIdTeamName·isPb가 이전 책 값이라 토글이 닫히던 버그.
+     - 미로드 + s2 있음/인쇄진입 → 번들 로드(부트스트랩이 첫 팀 세팅).
+     - 이미 로드됨(책장으로 둘째 책부터) → 팀별 재초기화(변형 force 재로딩 + 토글 바 재구성 + 재렌더). */
+  try {
+    const _hasAnyS2 = (_pubTextS2BySid && Object.keys(_pubTextS2BySid).length > 0)
+      || (_pubImageS2BySid && Object.keys(_pubImageS2BySid).length > 0);
+    let _printEntry = false;
+    try {
+      const _pv = new URLSearchParams(location.search).get('print');
+      _printEntry = (_pv === 'pb' || _pv === 'wa');
+    } catch (e) { /* noop */ }
+    if (typeof window !== 'undefined' && !isEditViewerSession()) {
+      if (!window.viewerAi) {
+        if ((_hasAnyS2 || _printEntry) && typeof window.ensureAiViewBundle === 'function') {
+          window.ensureAiViewBundle().catch(() => { /* 감상은 원본만으로 완전 동작 */ });
+        }
+      } else if (typeof window.viewerAi.reinitForCurrentTeam === 'function') {
+        try { window.viewerAi.reinitForCurrentTeam(); } catch (e) { /* noop */ }
+      }
+    }
+  } catch (e) { /* noop */ }
 
   /* 프로젝트 메타 — projectType 외 나머지 필드 처리 (위에서 이미 받음) */
   if (meta) {

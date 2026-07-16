@@ -2825,6 +2825,44 @@ exports.resetImageSourceMode = onCall(
 );
 
 /* ════════════════════════════════════════════════════════════════
+   SOURCE-MODE-SWITCH(2026-07-16): 학생 자가해결 — "그림 다 지우고 방식 바꾸기".
+   ──────────────────────────────────────────────────────────────
+   그리기로 잠긴 작품에서 파일 올리기로(또는 반대로) 바꾸려면 원본 이미지 0장이어야 잠금이 풀리는데,
+   안 보이는 다른 갈래 장면·표지(삭제 불가) 때문에 학생이 스스로 0장을 못 만들던 문제.
+   이 콜러블이 모든 장면(표지·전 갈래)의 원본 이미지 + AI 이미지 변형 + imagePolicy를 원자적으로 비운다.
+   · 권한: 자기 모둠 active 멤버 또는 담당 교사/super_admin(teacherOnly:false — lock과 동일 게이트).
+   · 파괴적(되돌리기 없음) — 클라에서 강한 확인 후 호출. 멱등(다시 눌러도 안전).
+   · 원자 multi-path update라 "이미지 있는데 policy 없음" 창 없음(둘 다 동시 null). racing lock이
+     그 뒤 새 이미지+policy를 기록해도 수렴(멱등 재호출 가능). reset의 CAS는 policy만 지울 때 필요했던 것.
+   ════════════════════════════════════════════════════════════════ */
+exports.clearImagesAndSwitchSourceMode = onCall(
+  { enforceAppCheck: false },
+  async (req) => {
+    const ctx = await _validateSourceModeRequest(req, { teacherOnly: false });   /* 자기팀 학생 or 교사 */
+    const scenes = (await admin.database().ref(`${ctx.teamBase}/scenes`).once('value')).val() || {};
+    const updates = {};
+    let cleared = 0;
+    Object.keys(scenes).forEach((k) => {
+      const s = scenes[k];
+      if (!s || typeof s !== 'object') return;
+      if (typeof s.imageData === 'string' && s.imageData) { updates[`scenes/${k}/imageData`] = null; cleared++; }
+      if (typeof s.imageUrl === 'string' && s.imageUrl) { updates[`scenes/${k}/imageUrl`] = null; }
+    });
+    /* 원본 이미지(표지·전 갈래) + AI 이미지 변형 + 방식 잠금 정책을 한 번에 비움(원자). */
+    updates['aiVariants/image'] = null;
+    updates['viewer-meta/imagePolicy'] = null;
+    try {
+      await admin.database().ref(ctx.teamBase).update(updates);
+    } catch (e) {
+      logger.error('[sourceMode] switch-clear 실패', { classId: ctx.classId, error: e && e.message });
+      throw new HttpsError('internal', 'INTERNAL');
+    }
+    logger.info('[sourceMode] switch-clear', { uid: ctx.uid, classId: ctx.classId, teamName: ctx.teamName, cleared });
+    return { ok: true, cleared };
+  }
+);
+
+/* ════════════════════════════════════════════════════════════════
    MASTER-M2(2026-07-11): 총괄 AI 횟수 리셋 — super_admin 전용 callable.
    ──────────────────────────────────────────────────────────────
    · ai-usage/{classId}(/{teamName}) 노드 삭제 방식 — 읽기가 전부 (val()||0)이라

@@ -1724,6 +1724,25 @@
     return { allow: true };   /* absent / (corrupt → 서버 lock에서 차단) */
   }
 
+  /* SOURCE-MODE-SWITCH(2026-07-16): 학생 자가 "그림 다 지우고 방식 바꾸기" — 서버 콜러블 호출.
+     모든 장면(표지·전 갈래) 원본 이미지 + AI 이미지 변형 + 잠금 정책을 서버가 원자적으로 비움.
+     성공 시 로컬 imagePolicy 캐시 무효화(다음 precheck가 absent를 새로 읽게). scenes 로컬 정리는 호출부(viewer-edit). */
+  async function _clearImagesAndSwitchSourceMode() {
+    const { classId, teamName } = _getCurrentClassIdTeamName();
+    if (!classId || !teamName) return { ok: false, reason: 'no-context' };
+    let data;
+    try {
+      data = await _callPhaseAFunction('clearImagesAndSwitchSourceMode', { classId: classId, teamName: teamName });
+    } catch (e) {
+      return { ok: false, reason: 'call-failed', error: e && (e.code || e.message) };
+    }
+    if (data && data.ok) {
+      try { await _loadImagePolicy(true); } catch (e) { /* 캐시 갱신 실패 무해 */ }
+      return { ok: true, cleared: data.cleared || 0 };
+    }
+    return { ok: false, reason: (data && data.code) || 'unknown' };
+  }
+
   /* ★ 업로드된 고유 객체에 대해 서버 lock 확정. ok면 호출부가 scene.imageData 기록.
      실패/충돌/corrupt/lock호출실패 → *이번 고유 객체만* 삭제(scene 무변경 → 승자/기존 무손상).
      반환 { ok, sourceMode?, idempotent? } | { ok:false, code, currentSourceMode?, retryable?, storageDeleted? }. */
@@ -5038,6 +5057,7 @@
       saveImagePolicy:               _saveImagePolicy,
       ensureImagePolicyBeforeImageAi: _ensureImagePolicyBeforeImageAi,
       _preCheckSourceMode:           _preCheckSourceMode,      /* S2-2A-FIX1: 저장 전 사전 게이트 */
+      clearImagesAndSwitchSourceMode: _clearImagesAndSwitchSourceMode,  /* SOURCE-MODE-SWITCH: 학생 자가 방식 바꾸기 */
       _commitImageSourceMode:        _commitImageSourceMode,   /* S2-2A-FIX1: 업로드 후 lock 확정(성공 시에만 scene 기록) */
       _deleteImageStorage:           _deleteImageStorage,      /* S2-2A-FIX2: flush 실패 시 신규 객체 cleanup(prefix 검증) */
       _openImageSourceModal:         _openImageSourceModal,

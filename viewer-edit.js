@@ -440,6 +440,46 @@ function _notifySourceModeBlock(res) {
   } catch (e) { try { alert(msg); } catch (e2) {} }
 }
 
+/* SOURCE-MODE-SWITCH(2026-07-16): 그리기↔업로드 방식 잠금에 막혔을 때 학생이 직접 "그림 다 지우고 바꾸기".
+   서버가 전 장면(표지·안 가본 갈래)·AI 이미지 변형·잠금을 원자적으로 비운다(자기 모둠 학생 권한).
+   파괴적이라 강한 확인 1회. 성공 시 로컬 scenes도 정리+리렌더 → 학생이 다시 올리면 새 방식으로 잠김.
+   반환 true=바꿈. 스위치 콜러블 미로드/실패면 false(호출부가 기존 안내로 폴백 가능). */
+async function _offerSwitchSourceMode(res) {
+  const other = (res && res.currentSourceMode === 'upload') ? '‘파일 올리기’' : '‘직접 그리기’';
+  let ok = false;
+  try {
+    ok = await showViewerConfirm({
+      title: '방식을 바꿀까요?',
+      message: '이 작품은 지금 ' + other + ' 방식으로 되어 있어요.\n다른 방식으로 바꾸려면 지금까지 올리거나 그린 그림(AI로 마감한 그림 포함)이 모두 지워져요. 되돌릴 수 없어요.\n\n그래도 바꿀까요?',
+      confirmText: '그림 다 지우고 바꾸기',
+      cancelText: '아니요',
+      danger: true,
+    });
+  } catch (e) { ok = false; }
+  if (!ok) return false;
+  let r = null;
+  try {
+    if (window.viewerAi && typeof window.viewerAi.clearImagesAndSwitchSourceMode === 'function') {
+      r = await window.viewerAi.clearImagesAndSwitchSourceMode();
+    }
+  } catch (e) { r = null; }
+  if (!r || r.ok !== true) {
+    const failMsg = '지금은 바꾸지 못했어요. 잠시 후 다시 해주세요.';
+    try { if (typeof showAiToast === 'function') showAiToast(failMsg); else alert(failMsg); } catch (e) {}
+    return false;
+  }
+  /* 로컬 scenes도 즉시 정리(실시간 구독 여부와 무관하게 UI 일관) */
+  try {
+    const sc = (typeof ViewerState !== 'undefined' && ViewerState && ViewerState.scenes) ? ViewerState.scenes : null;
+    if (sc) Object.keys(sc).forEach((k) => { const s = sc[k]; if (s) { if (s.imageData) s.imageData = null; if (s.imageUrl) s.imageUrl = null; } });
+  } catch (e) {}
+  try { if (typeof renderEditPanel === 'function') renderEditPanel(); } catch (e) {}
+  try { if (typeof _scheduleViewerFrameReRender === 'function') _scheduleViewerFrameReRender(); } catch (e) {}
+  const doneMsg = '그림을 모두 지웠어요. 이제 원하는 방식으로 그림을 올리거나 그릴 수 있어요.';
+  try { if (typeof showAiToast === 'function') showAiToast(doneMsg); else alert(doneMsg); } catch (e) {}
+  return true;
+}
+
 /* ════════════════════════════════════════════════════════════════
    S2-2A-FIX2 — lock 성공 후 scene flush 결과 처리(업로드·그림판 공통). flush 성공이면 true.
    ──────────────────────────────────────────────────────────────
@@ -5707,8 +5747,11 @@ function _bindPbImageActions(root, scene) {
           : { allow: true };
         if (!_gate.allow) {
           if (lbl && lbl.firstChild) lbl.firstChild.nodeValue = prevText;
-          _notifySourceModeBlock(_gate);
           e.target.value = '';
+          /* SOURCE-MODE-SWITCH: 방식 충돌이면 "그림 다 지우고 바꾸기" 1클릭 제안(학생 자가해결).
+             성공 시 다시 올리면 됨. 그 외(정책 읽기 실패 등)는 기존 안내. */
+          if (_gate.code === 'SOURCE_MODE_CONFLICT') await _offerSwitchSourceMode(_gate);
+          else _notifySourceModeBlock(_gate);
           return;
         }
         /* ② 고유 경로 업로드(기존 객체 overwrite 안 함). scene.imageData는 아직 안 바꿈. */

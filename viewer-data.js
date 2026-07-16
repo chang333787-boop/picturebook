@@ -222,9 +222,18 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
       const _pv = new URLSearchParams(location.search).get('print');
       _printEntry = (_pv === 'pb' || _pv === 'wa');
     } catch (e) { /* noop */ }
-    if ((_hasAnyS2 || _printEntry) && typeof window !== 'undefined' && !window.viewerAi
-        && typeof window.ensureAiViewBundle === 'function' && !isEditViewerSession()) {
-      window.ensureAiViewBundle().catch(() => { /* 감상은 원본만으로 완전 동작 */ });
+    /* IMAGE-S2-RENDER-1 / SHELF-STALE-FIX(2026-07-16): viewer-ai 지연 로드 + 책장 SPA 재초기화.
+       - 미로드 + s2 있음/인쇄진입 → 번들 로드(부트스트랩이 첫 팀 세팅).
+       - 이미 로드됨(책장으로 둘째 책부터) → 팀별 재초기화(변형 force 재로딩 + 토글 바 재구성 + 재렌더).
+         안 하면 viewer-ai가 첫 책 부트스트랩 상태로 고정돼 "AI 토글이 첫 작품 말고는 안 먹힘". */
+    if (typeof window !== 'undefined' && !isEditViewerSession()) {
+      if (!window.viewerAi) {
+        if ((_hasAnyS2 || _printEntry) && typeof window.ensureAiViewBundle === 'function') {
+          window.ensureAiViewBundle().catch(() => { /* 감상은 원본만으로 완전 동작 */ });
+        }
+      } else if (typeof window.viewerAi.reinitForCurrentTeam === 'function') {
+        try { window.viewerAi.reinitForCurrentTeam(); } catch (e) { /* noop */ }
+      }
     }
   } catch (e) { /* noop */ }
 

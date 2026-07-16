@@ -1455,9 +1455,11 @@
   }
 
   function _hasImageVariantS1() {
+    if (_fbImageVariantsKey !== _fbVariantCacheKey()) return false;   /* SHELF-STALE-FIX: 다른 팀 캐시 무시 */
     return !!(_fbImageVariants && _fbImageVariants.s1 && Object.keys(_fbImageVariants.s1).length);
   }
   function _hasImageVariantS2() {
+    if (_fbImageVariantsKey !== _fbVariantCacheKey()) return false;   /* SHELF-STALE-FIX: 다른 팀 캐시 무시 */
     return !!(_fbImageVariants && _fbImageVariants.s2 && Object.keys(_fbImageVariants.s2).length);
   }
 
@@ -1511,6 +1513,19 @@
       }
     }
     return out;
+  }
+
+  /* SHELF-STALE-FIX(2026-07-16): 책장 SPA로 다른 책 진입 시 팀별 재초기화.
+     viewer-ai는 지연 로드라 첫 책에서 1회만 부트스트랩됨 → 둘째 책부턴 변형/토글 바가 첫 책 것으로 고정
+     ("AI 토글이 첫 작품 말고는 안 먹힘"). loadTeamData가 (viewer-ai 이미 로드된 경우) 매 책마다 호출:
+     이미지·텍스트 변형을 새 팀 기준으로 force 재로딩 + 토글 바 재구성(_show*가 현재 팀 변형으로 재평가)
+     + 프레임 재렌더. 토글 모드는 team-scoped(namespace 수정)라 새 책은 기본 '원본'으로 시작. */
+  async function _reinitForCurrentTeam() {
+    try { await _loadFirebaseImageVariants(true); } catch (e) { /* noop */ }
+    try { await _loadFirebaseTextVariants(true); } catch (e) { /* noop */ }
+    try { if (typeof _showAiImageToggleBar === 'function') _showAiImageToggleBar(); } catch (e) { /* noop */ }
+    try { if (typeof _showAiToggleBar === 'function') _showAiToggleBar(); } catch (e) { /* noop */ }
+    try { if (typeof _requestViewerFrameRerender === 'function') _requestViewerFrameRerender(); } catch (e) { /* noop */ }
   }
 
   /* ════════════════════════════════════════════════════════════════
@@ -5055,6 +5070,7 @@
       /* P5-IMAGE-VARIANT-1: 이미지 aiVariant 읽기/표시(생성 없음·원본 불변) — viewer-render.js 이미지 사이트에서 사용 */
       _loadFirebaseImageVariants:    _loadFirebaseImageVariants,
       _preloadFirebaseImageVariants: _preloadFirebaseImageVariants,
+      reinitForCurrentTeam:          _reinitForCurrentTeam,     /* SHELF-STALE-FIX: 책장 책 전환 시 팀별 토글/변형 재초기화 */
       _getDisplayImageSrc:           _getDisplayImageSrc,
       _getAiImageViewMode:           _getAiImageViewMode,
       _setAiImageViewMode:           _setAiImageViewMode,

@@ -565,12 +565,10 @@ body:not(.edit-mode-active) .scene-screen--pb.pb--imagecenter .pb-frame {
   overflow-y: auto;
   overflow-x: hidden;
 }
-/* 4·5·6개일 때만 stretch — 행 자체를 박스 전체로 늘림 */
-.scene-screen--pb.pb--imagecenter .pb-text--bottom-only .pb-text__actions[data-count="4"],
-.scene-screen--pb.pb--imagecenter .pb-text--bottom-only .pb-text__actions[data-count="5"],
-.scene-screen--pb.pb--imagecenter .pb-text--bottom-only .pb-text__actions[data-count="6"] {
-  align-content: stretch;
-}
+/* CHOICE-4-HEIGHT(2026-07-16): (구)4·5·6개 align-content:stretch — 행을 박스 전체로 늘려
+   4개(2x2)면 버튼 높이가 1행(1~3개) 대비 크게 부풀던 원인(5번 장면15 관측). 사용자 결정
+   "4개여도 높이 커지지 않게" → 룰 제거 = 기본 align-content:center(자연 높이 행, 세로 중앙).
+   행이 박스보다 길면 기존 overflow-y:auto가 받음. 가로 매트릭스(2x2/2+3/3x2)는 불변. */
 /* 그림 중심형 선택지 버튼 — 작고 가로 분배.
    1개: 풀폭 / 2~3개: 한 줄 / 4~6개: 자동 wrap */
 .scene-screen--pb.pb--imagecenter .pb-text--bottom-only .choice-v03 {

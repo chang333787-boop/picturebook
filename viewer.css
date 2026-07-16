@@ -1682,7 +1682,10 @@ body[data-stage-aspect="pb-landscape"] #stage-wrap.letterbox-v #viewer-frame {
      사용자 명시 색(--pb-color-override)은 그대로 우선. imageCenter 엔딩은 .pb-text__body 스킨 fallback 별도. */
   color: var(--pb-color-override, #2b1f10);
   line-height: 1.4;
-  font-weight: var(--pb-fw-body, 600);
+  /* ENDING-WEIGHT-DEFAULT(2026-07-16): 기본 600(semibold)이 "엔딩만 굵게"로 보임 —
+     일반 본문(v03-modes --pb-fw-body 기본 400)과 동일하게 400. 사용자가 굵게 고르면
+     --pb-fw-body=700이 그대로 우선(기본값만 변경). */
+  font-weight: var(--pb-fw-body, 400);
   margin: 0;
   white-space: pre-wrap; /* v127: 엔딩 본문 줄바꿈/빈 줄 유지 (사용자가 입력한 \n\n 등) */
   /* 2026-05-25 fix: 본문이 남는 세로 공간을 모두 가져가고,

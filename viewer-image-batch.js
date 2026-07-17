@@ -46,10 +46,19 @@
       case 'TEACHER_ONLY':          return '담당 선생님만 변환할 수 있어요';
       case 'IMAGE_AI_NOT_CONFIGURED': return 'AI 이미지 서비스 설정이 필요해요';
       case 'SCENE_NOT_FOUND':       return '장면을 찾을 수 없어요';
-      /* IMAGE-S2-PEOPLE(2026-07-09): 사람(얼굴) 사진은 AI가 변환하기 어려워 거부됨. 사물·배경 사진이나 그림은 됨. */
-      case 'IMAGE_AI_UNSAFE_OUTPUT': return '사람(얼굴)이 담긴 사진은 변환이 어려워요. 사물·배경 사진이나 직접 그린 그림은 괜찮아요';
+      /* IMAGE-S2-PEOPLE(2026-07-09): 사람(얼굴) 사진은 AI가 변환하기 어려워 거부됨.
+         MODERATION-COPY(#61): 직접 그린 그림만 있는 팀도 이 차단을 만날 수 있어 '사람 사진' 단정형은
+         혼란 → 병렬형(가장 흔한 사유 + 대안)으로. */
+      case 'IMAGE_AI_UNSAFE_OUTPUT': return 'AI가 이 그림을 안전 기준 때문에 변환하지 못했어요. 사람 얼굴이 크게 나온 사진이 가장 흔한 사유예요. 그림 내용을 바꾸거나 원본을 그대로 사용해 주세요';
       case 'IMAGE_AI_PROVIDER_ERROR': return 'AI 서버가 잠시 응답하지 않았어요. 잠시 후 다시 시도해 주세요';
       case 'IMAGE_AI_TIMEOUT':       return '변환 시간이 초과됐어요. 다시 시도해 주세요';
+      /* BATCH-FAILCODE-MAP(#58): 미매핑이라 '변환 실패(코드)'로 새던 흔한 오류들 추가. */
+      case 'resource-exhausted':
+      case 'functions/resource-exhausted': return 'AI 사용량(이번 달 한도)을 다 썼어요. 다음 달에 다시 쓸 수 있어요';
+      case 'deadline-exceeded':
+      case 'functions/deadline-exceeded': return '변환이 오래 걸려 시간이 초과됐어요. 다시 시도해 주세요';
+      case 'unavailable':
+      case 'functions/unavailable': return 'AI 서버에 잠시 연결되지 않았어요. 잠시 후 다시 시도해 주세요';
       /* AI-PERM-MSG(2026-07-09): 권한없음(functions/permission-denied)을 원문 코드 대신 한글로 — 무엇을 켜야 하는지 안내.
          서버는 aiSettings.enabled AND modes[imageS2] 둘 다 요구 → '전체'와 '그림책 마감'을 모두 켜야 함. */
       case 'functions/permission-denied':
@@ -71,9 +80,14 @@
       case 'internal':
       case 'functions/internal':
       case 'ERROR':
+      /* BATCH-FAILCODE-MAP(#58): 시간초과·일시 연결 실패는 재시도 유효(서버는 진행됐을 수 있어 cached로 뜸). */
+      case 'deadline-exceeded':
+      case 'functions/deadline-exceeded':
+      case 'unavailable':
+      case 'functions/unavailable':
         return true;
       default:
-        return false;   /* UNSAFE_OUTPUT·permission-denied·POLICY 계열 등 — 반복해도 안 됨 */
+        return false;   /* UNSAFE_OUTPUT·permission-denied·resource-exhausted(한도)·POLICY 계열 등 — 반복해도 안 됨 */
     }
   }
 

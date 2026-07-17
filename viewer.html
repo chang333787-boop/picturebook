@@ -227,7 +227,7 @@
 <!-- SHELF-1/COMMENT-1: 학급 책장 + 작품 댓글 (viewer-entry보다 먼저 로드 — openShelf 참조) -->
 <script src="viewer-shelf.js?v=ff730ffe15"></script>
 <!-- IMAGE-S2-10 교사 UI: 순수 로직 + 독립 패널(교사 from=maker 세션에서만 자가활성·학생 미노출). 기존 렌더 무변경. -->
-<script src="viewer-image-batch.js?v=5e43ae2139"></script>
+<script src="viewer-image-batch.js?v=09fd33ba0b"></script>
 <script src="viewer-image-batch-ui.js?v=c793ae863c"></script>
 <script src="viewer-locks.js?v=52dc9a8ae5"></script>
 <script src="viewer-controls.js?v=af01f7a76c"></script>
@@ -239,7 +239,7 @@
 <script>
 (function () {
   var EDIT_SRC = 'viewer-edit.js?v=059ceee1a8';
-  var AI_SRC   = 'viewer-ai.js?v=380d3af6f7';
+  var AI_SRC   = 'viewer-ai.js?v=9019ceb49f';
   /* WRITE-AFTER-VIEWER-HTML-CACHE-HARDENED: 디버그 마커 — 로드된 진입 HTML이 어떤 번들 cachebuster를
      들고 있는지 콘솔로 확인(옛 viewer.html 캐시 의심 시 한눈에 비교). 동작 영향 없음. */
   try { console.log('[viewer] bundle cachebuster: AI_SRC=' + AI_SRC.split('?v=')[1] + ' / EDIT_SRC=' + EDIT_SRC.split('?v=')[1]); } catch (e) {}

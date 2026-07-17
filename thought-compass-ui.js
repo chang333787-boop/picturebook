@@ -241,6 +241,17 @@
     S.error = null;
     /* 직접 적기 카드 활성화 — 이 질문에 대해 입력 모드 ON(빈 입력이라도 textarea 노출). */
     const q = _Flow().currentQuestion(S.vm);
+    /* CUSTOM-RETAP-GUARD(#3): 이미 직접 적기 모드거나 기존 custom 답이 있으면 초기화하지 않고
+       textarea focus만. (버튼이 입력칸 바로 위에 계속 떠 있어 터치 기기에서 재탭 시 입력이
+       통째로 지워지던 것 방지 — 최대 200자 유실·되돌리기 없음.) */
+    const ans = _Flow().currentAnswer(S.vm);
+    const alreadyCustom = (q && S.customMode === q.id)
+      || !!(ans && ans.answerText && !ans.choiceId && !ans.deferred);
+    if (alreadyCustom) {
+      const ta0 = document.querySelector('.tc-flow-custom-input');
+      if (ta0) { try { ta0.focus(); } catch (e) {} }
+      return;
+    }
     S.customMode = q ? q.id : null;
     S.vm = _Flow().setCustomAnswer(S.vm, '', { draft: true });
     _render();
@@ -457,6 +468,12 @@
     _renderFollowUp();
   }
   function _onFollowUpCustomActivate() {
+    /* CUSTOM-RETAP-GUARD(#3): 이미 직접 적기 모드에서 답을 쓰는 중이면 초기화하지 말고 focus만. */
+    if (S.followUp.custom && S.followUp.answerText) {
+      const ta0 = document.querySelector('.tc-flow-custom-input');
+      if (ta0) { try { ta0.focus(); } catch (e) {} }
+      return;
+    }
     S.followUp.custom = true; S.followUp.choiceId = null; S.followUp.answerText = '';
     _renderFollowUp();
     const ta = document.querySelector('.tc-flow-custom-input');

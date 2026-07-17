@@ -536,6 +536,9 @@ const AI_MODE_DEFS = [
   { key: 'workCheck',label: '작품 검사',      soon: false },
   { key: 'textS2',   label: 'AI 장면발전',    soon: false },
   { key: 'imageS2',  label: 'AI 그림책 마감', soon: false, badge: '교사용' },
+  /* PICTUREBOOK-LEVELS ③: 나침반 완료 → AI 이야기 초안(그림책 1·2단계 전용).
+     서버 studentStoryDraft가 modes.storyDraft===true 요구 — OFF면 기본 틀로 폴백. */
+  { key: 'storyDraft', label: 'AI 이야기 초안', soon: false, badge: '그림책 1·2단계' },
 ];
 
 async function _renderAiSettingsPanel(classId) {
@@ -561,6 +564,8 @@ async function _renderAiSettingsPanel(classId) {
       writeAfterQuestions: exists ? !!(saved.modes && saved.modes.writeAfterQuestions) : false,
       imageS1:  exists ? !!(saved.modes && saved.modes.imageS1)  : false,
       imageS2:  exists ? !!(saved.modes && saved.modes.imageS2)  : false,
+      /* PICTUREBOOK-LEVELS ③: AI 이야기 초안 — 기본 OFF(교사 명시 opt-in) */
+      storyDraft: exists ? !!(saved.modes && saved.modes.storyDraft) : false,
     },
     policy: {
       requireCompletion:  (exists && saved.policy && saved.policy.requireCompletion  === false) ? false : true,
@@ -651,6 +656,7 @@ async function _saveAiSettings(classId, state, panel, saveBtn, statusEl) {
       writeAfterQuestions: state.modes.writeAfterQuestions === true,
       imageS1:   state.modes.imageS1   === true,
       imageS2:   state.modes.imageS2   === true,
+      storyDraft: state.modes.storyDraft === true,   /* PICTUREBOOK-LEVELS ③ */
     },
     policy: {
       requireCompletion:  state.policy.requireCompletion  !== false,

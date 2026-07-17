@@ -36,7 +36,7 @@ const { setGlobalOptions } = require('firebase-functions/v2');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
 const Anthropic = require('@anthropic-ai/sdk');
-const { TEXT_S1_SYSTEM_PROMPT, TEXT_S2_SYSTEM_PROMPT, WORK_CHECK_SYSTEM_PROMPT, WRITE_AFTER_QUESTIONS_SYSTEM_PROMPT, THOUGHT_COMPASS_FOLLOWUP_SYSTEM_PROMPT, SCRIPT_DRAFT_SYSTEM_PROMPT, buildUserMessage, buildUserMessageS2Chunk, buildScriptDraftUserMessage } = require('./prompts');
+const { TEXT_S1_SYSTEM_PROMPT, TEXT_S2_SYSTEM_PROMPT, WORK_CHECK_SYSTEM_PROMPT, WRITE_AFTER_QUESTIONS_SYSTEM_PROMPT, THOUGHT_COMPASS_FOLLOWUP_SYSTEM_PROMPT, SCRIPT_DRAFT_SYSTEM_PROMPT, STUDENT_STORY_DRAFT_SYSTEM_PROMPT, buildUserMessage, buildUserMessageS2Chunk, buildScriptDraftUserMessage, buildStudentStoryDraftUserMessage } = require('./prompts');
 /* WRITE-AFTER Phase 3 — 생각 점검 질문 순수 로직(검증/정규화/snapshot 제한). firebase 비의존. */
 const WAQ = require('./write-after-questions');
 /* WRITE-AFTER H1/H2 — 팀 AI 접근 권한 순수 결정(super_admin/teacher/active member). RTDB read는 _checkTeamAiMembership. */
@@ -515,7 +515,7 @@ async function _validateRequest(req, mode, opts) {
        (c) aiSettings 없음 → 기존 teams/{teamName}/aiPermission fallback (동작 보존).
        (d) 둘 다 없음 → 기본 ON (Phase A 호환).
      모든 검사는 quota 차감(_consumeQuota, 핸들러) 전에 수행됨. */
-  const MODE_KEY_MAP = { s1: 'textS1', s2: 'textS2', check: 'workCheck', writeAfterQuestions: 'writeAfterQuestions', imageS1: 'imageS1', imageS2: 'imageS2' };
+  const MODE_KEY_MAP = { s1: 'textS1', s2: 'textS2', check: 'workCheck', writeAfterQuestions: 'writeAfterQuestions', imageS1: 'imageS1', imageS2: 'imageS2', storyDraft: 'storyDraft' /* PICTUREBOOK-LEVELS ③ */ };
   /* aiSettings는 위(2번)에서 이미 읽음(AI-STAB-1) — 재읽기 없이 재사용. 게이트 판정은 여기서 기존 그대로. */
   if (aiSettings) {
     if (aiSettings.enabled !== true) {
@@ -3118,6 +3118,139 @@ function _validateScriptDraft(d) {
       }
     }
   }
+  return null;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   PICTUREBOOK-LEVELS ③(2026-07-18): studentStoryDraft — 생각 나침반 답
+   → 일직선 그림책 이야기 초안(그림책 1·2단계 공용).
+   ──────────────────────────────────────────────────────────────
+   · 게이트: 기존 _validateRequest 재사용(auth/testMode/학급 aiSettings enabled+
+     modes.storyDraft/멤버십 H-1/origin/killswitch). 사용량 검사는 자체 팀당 총량으로 대체.
+   · 단계·빈작품 게이트는 서버가 RTDB 직접 read(클라 위조 불가):
+     viewer-meta/picturebookLevel ∈ {1,2} + scenes 비어있음(초안=새 작품 전용).
+   · 팀당 총량 = STUDENT_STORY_DRAFT_TEAM_LIMIT (자동 1회+재시도 여유·§9 팀당 총량 결정).
+   · 출력 = {title, scenes[storyCount], ending} — 클라가 BASE10 스타터 골격에 얹음
+     (스키마 신설 없음). 정본: docs/picturebook_levels_design_20260718.md §7.4
+   ════════════════════════════════════════════════════════════════ */
+const STUDENT_STORY_DRAFT_TEAM_LIMIT = 3;
+
+exports.studentStoryDraft = onCall(
+  {
+    secrets: [ANTHROPIC_API_KEY],
+    enforceAppCheck: false,
+    /* 15장면 한국어 JSON — 대본도우미와 동일하게 시간 예산만 상향 */
+    timeoutSeconds: 120,
+  },
+  async (req) => {
+    /* 권한/설정/멤버십/killswitch — 기존 1~11단 재사용(quota만 자체 처리) */
+    const ctx = await _validateRequest(req, 'storyDraft', { skipUsageLimits: true });
+    const classId = ctx.classId;
+    const teamName = ctx.teamName;
+    const teamBase = `classes/${classId}/teams/${encodeURIComponent(teamName)}`;
+
+    /* 단계 게이트 — 서버 직접 read. 1·2단계만(3단계·레거시·비그림책 차단) */
+    const lvlSnap = await admin.database().ref(`${teamBase}/viewer-meta/picturebookLevel`).once('value');
+    const level = Number(lvlSnap.val());
+    if (level !== 1 && level !== 2) {
+      throw new HttpsError('failed-precondition', 'STORY_DRAFT_LEVEL (이 기능은 그림책 1·2단계 작품에서만 쓸 수 있어요)');
+    }
+
+    /* 빈 작품 게이트 — 초안은 새 작품 전용(기존 글 덮어쓰기 원천 차단). 키 1개만 shallow 확인 */
+    const scenesSnap = await admin.database().ref(`${teamBase}/scenes`).limitToFirst(1).once('value');
+    if (scenesSnap.exists()) {
+      throw new HttpsError('failed-precondition', 'STORY_DRAFT_NOT_EMPTY (이미 장면이 있는 작품에는 초안을 만들 수 없어요)');
+    }
+
+    /* 입력 검증 — 나침반 답 디지스트(클라 구성·400자 문답 합산 상한) */
+    const d = req.data || {};
+    const storyCount = (d.storyCount === 12 || d.storyCount === 15) ? d.storyCount : 8;
+    const answersText = String(d.answersText == null ? '' : d.answersText)
+      .replace(/[«»]/g, '"').replace(/\s+/g, ' ').trim().slice(0, 1500);
+    if (!answersText) {
+      throw new HttpsError('invalid-argument', '생각 나침반 답이 없어요.');
+    }
+
+    /* 팀당 총량 — transaction 증가(초과 시 롤백). 정본 §9 */
+    const limitRef = admin.database().ref(`${teamBase}/aiUsage/storyDraft`);
+    const tx = await limitRef.transaction((cur) => {
+      const n = (typeof cur === 'number' && cur >= 0) ? cur : 0;
+      if (n >= STUDENT_STORY_DRAFT_TEAM_LIMIT) return;   /* undefined = abort */
+      return n + 1;
+    });
+    if (!tx.committed) {
+      throw new HttpsError('resource-exhausted',
+        `이 모둠의 이야기 초안 만들기 횟수(${STUDENT_STORY_DRAFT_TEAM_LIMIT}회)를 다 썼어요. 선생님께 말씀드려 주세요.`);
+    }
+    const refund = () =>
+      limitRef.transaction((cur) => Math.max(0, (cur || 0) - 1)).catch(() => {});
+
+    try {
+      const userMsg = buildStudentStoryDraftUserMessage({ answersText, storyCount, level });
+      const ai = await _callAnthropic(ANTHROPIC_API_KEY.value(), STUDENT_STORY_DRAFT_SYSTEM_PROMPT, userMsg,
+        null, { maxTokens: 12000, timeoutMs: 110000 });
+
+      if (ai.stopReason === 'max_tokens') {
+        logger.warn('[studentStoryDraft] truncated', { by: ctx.uid, out: ai.outputTokens });
+        throw new HttpsError('internal', '이야기가 너무 길어져서 잘렸어요. 잠시 후 다시 시도해 주세요.');
+      }
+
+      const draft = _sanitizeStudentStoryDraft(_parseJsonStrict(ai.text), storyCount);
+      if (draft && draft.refused === true) {
+        await refund();   /* 소재 거절 = 횟수 미차감(대본도우미와 동일 정책) */
+        return { ok: false, refused: true, reason: String(draft.reason || '').slice(0, 200) };
+      }
+      const shapeErr = _validateStudentStoryDraft(draft, storyCount);
+      if (shapeErr) throw new Error('shape: ' + shapeErr);
+
+      /* 감사로그 — 비치명(push 실패가 성공한 초안을 삼키지 않음) */
+      await admin.database().ref('ai-stats/storyDraft').push({
+        by: ctx.uid, classId, level, storyCount,
+        inputTokens: ai.inputTokens, outputTokens: ai.outputTokens, stopReason: ai.stopReason,
+        at: admin.database.ServerValue.TIMESTAMP,
+      }).catch((e) => logger.warn('[studentStoryDraft] stats push fail', { message: e && e.message }));
+      logger.info('[studentStoryDraft]', { by: ctx.uid, classId, level, storyCount, out: ai.outputTokens });
+
+      return { ok: true, draft, level, storyCount };
+    } catch (e) {
+      /* AI/파싱 실패 = 팀 총량 1회 환불 후 구체 메시지 전달 */
+      await refund();
+      logger.error('[studentStoryDraft] fail', { by: ctx.uid, message: e && e.message });
+      if (e instanceof HttpsError) throw e;
+      throw new HttpsError('internal', '이야기 초안을 만들지 못했어요. 잠시 후 다시 시도해 주세요.');
+    }
+  }
+);
+
+/* PICTUREBOOK-LEVELS ③: AI 출력 정리 — null 제거·문자열 강제·개수/번호 정규화.
+   가벼운 슬립(초과 장면·번호 흐트러짐)은 살리고, 본질 결함만 _validateStudentStoryDraft가 거른다. */
+function _sanitizeStudentStoryDraft(d, storyCount) {
+  if (!d || typeof d !== 'object' || d.refused === true) return d;
+  const str = (v, max) => String(v == null ? '' : v).trim().slice(0, max);
+  const scenes = (Array.isArray(d.scenes) ? d.scenes : [])
+    .filter((s) => s && typeof s === 'object' && (s.body || s.title))
+    .slice(0, storyCount)
+    .map((s, i) => ({ num: i + 1, title: str(s.title, 40), body: str(s.body, 600) }));
+  return {
+    title: str(d.title, 40),
+    scenes,
+    ending: {
+      title: str(d.ending && d.ending.title, 40),
+      body:  str(d.ending && d.ending.body, 600),
+    },
+  };
+}
+
+function _validateStudentStoryDraft(d, storyCount) {
+  if (!d || typeof d !== 'object') return '객체 아님';
+  if (!d.title) return 'title 없음';
+  if (!Array.isArray(d.scenes) || d.scenes.length !== storyCount) {
+    return `scenes ${storyCount}개 아님 (${Array.isArray(d.scenes) ? d.scenes.length : 0})`;
+  }
+  for (let i = 0; i < d.scenes.length; i++) {
+    if (!d.scenes[i].body) return `scenes[${i}] body 없음`;
+  }
+  if (!d.ending || !d.ending.body) return 'ending body 없음';
   return null;
 }
 

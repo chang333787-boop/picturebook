@@ -41,13 +41,28 @@
   }
 
   /* 완료 후 기본 장면 생성(브라우저) — 기존 멱등 생성기 위임. 실패해도 완료/진입은 막지 않음(호출자).
-     COMPASS-LENGTH-BASE: ctx.answers(v2 targetLength)로 장면 수 결정 — v1/미지정=8(기존 동일). */
+     COMPASS-LENGTH-BASE: ctx.answers(v2 targetLength)로 장면 수 결정 — v1/미지정=8(기존 동일).
+     PICTUREBOOK-LEVELS ③: 그림책 1·2단계는 먼저 AI 이야기 초안(requestStoryDraftStarter)을
+     시도 — 성공 시 초안이 얹힌 BASE10이 기록됨. 어떤 실패(미배포·권한·총량·거절)든
+     아래 기본 틀 폴백으로 이어져 기존 동작과 동일(fail-open·회귀 0). */
   async function afterComplete(ctx) {
     ctx = ctx || {};
     if (TYPES.indexOf(ctx.projectType) < 0) return false;
     if (typeof window === 'undefined' || typeof window.createStarterTemplateForNewProject !== 'function') return false;
+    const storyCount = resolveStoryCount(ctx.answers);
     try {
-      return await window.createStarterTemplateForNewProject(ctx.projectType, { storyCount: resolveStoryCount(ctx.answers) });
+      const lvl = (ctx.projectType === 'picturebook' && typeof window.getPicturebookLevel === 'function')
+        ? window.getPicturebookLevel() : null;
+      if ((lvl === 1 || lvl === 2) && typeof window.requestStoryDraftStarter === 'function') {
+        const applied = await window.requestStoryDraftStarter({
+          classId: ctx.classId, teamName: ctx.teamName,
+          storyCount: storyCount, answers: ctx.answers,
+        });
+        if (applied) return true;
+      }
+    } catch (e) { /* 초안 실패 → 기본 틀 폴백 */ }
+    try {
+      return await window.createStarterTemplateForNewProject(ctx.projectType, { storyCount: storyCount });
     } catch (e) {
       return false;
     }

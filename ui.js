@@ -574,6 +574,11 @@ async function renameScene(num) {
 }
 
 async function deleteScene(num) {
+  /* PICTUREBOOK-LEVELS ③: 1·2단계 일직선 잠금 — 장면 삭제는 길을 끊으므로 차단 */
+  if (typeof isLinearPicturebookLock === 'function' && isLinearPicturebookLock()) {
+    alert(PB_LINEAR_LOCK_MSG);
+    return;
+  }
   /* DELETE-CONFIRM-HINT(#15): 카드 헤더의 작은 ✕를 잘못 눌러 엉뚱한 장면을 지우는 것 방지 —
      확인창에 장면 번호와 제목/본문 첫 줄을 함께 보여 어느 장면인지 알게 함. */
   const _sc = (typeof scenes === 'object' && scenes) ? scenes[num] : null;
@@ -721,6 +726,15 @@ function getPicturebookLevel() {
   return (selectedProjectType === 'picturebook') ? (selectedPicturebookLevel || 3) : null;
 }
 if (typeof window !== 'undefined') window.getPicturebookLevel = getPicturebookLevel;
+/* PICTUREBOOK-LEVELS ③: 1·2단계 = 일직선 구조 잠금(장면 추가/연결/삭제 차단).
+   가드는 함수 관문(addScene/connect/deleteScene), UI 숨김은 body.pb-linear-locked CSS. */
+function isLinearPicturebookLock() {
+  const lvl = getPicturebookLevel();
+  return lvl === 1 || lvl === 2;
+}
+if (typeof window !== 'undefined') window.isLinearPicturebookLock = isLinearPicturebookLock;
+const PB_LINEAR_LOCK_MSG = '1·2단계 그림책은 이야기 길이와 길(연결)이 정해져 있어요.\n장면은 그대로 두고, 글과 그림을 다듬어 보세요.';
+if (typeof window !== 'undefined') window.PB_LINEAR_LOCK_MSG = PB_LINEAR_LOCK_MSG;
 function selectProjectType(ptype, pbLevel) {
   if (!Array.isArray(PROJECT_TYPES) || !PROJECT_TYPES.includes(ptype)) return;
   selectedProjectType = ptype;
@@ -738,6 +752,12 @@ function selectProjectType(ptype, pbLevel) {
     btn.style.background = active ? '#e8f0ff' : '#fff';
     btn.style.color      = active ? 'var(--primary)' : 'var(--text)';
   });
+  /* PICTUREBOOK-LEVELS ③: 1·2단계 일직선 잠금 신호 — 구조 편집 UI 숨김(maker.html CSS).
+     selectProjectType은 신규 선택·기존 재진입·resume 모든 경로에서 호출돼 단일 훅으로 충분. */
+  try {
+    document.body.classList.toggle('pb-linear-locked',
+      ptype === 'picturebook' && (effLevel === 1 || effLevel === 2));
+  } catch (e) { /* noop */ }
 }
 
 /* ================================================================

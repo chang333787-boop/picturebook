@@ -2540,6 +2540,90 @@ async function createStarterTemplateForNewProject(explicitPtype, starterOpts) {
 }
 window.createStarterTemplateForNewProject = createStarterTemplateForNewProject;
 
+/* ════════════════════════════════════════════════════════════════
+   PICTUREBOOK-LEVELS ③(2026-07-18): AI 이야기 초안 스타터 — 그림책 1·2단계.
+   나침반 완료 훅(thought-compass-scenes afterComplete)이 호출.
+   · 콜러블 studentStoryDraft(서버가 단계/빈작품/총량 재검증) → 성공 시
+     BASE10 골격(_mtbBuildBase10Scenes)에 제목/본문만 얹어 customScenes로 기록
+     — 가드(로드/빈작품/원격재확인/락)·_sceneToDbShape 경유는 기본 틀과 100% 동일.
+   · 어떤 실패든 false 반환 → 호출자가 기본 틀 폴백(기존 동작·회귀 0).
+   정본: docs/picturebook_levels_design_20260718.md §7.4 ════════ */
+
+/* 나침반 답 {key:{answerText,deferred,...}} → "key: 답" 디지스트(맥락 전용·1500자 상한) */
+function _storyDraftAnswersDigest(answers) {
+  if (!answers || typeof answers !== 'object') return '';
+  const lines = [];
+  Object.keys(answers).forEach((k) => {
+    const a = answers[k];
+    if (!a || typeof a !== 'object') return;
+    if (a.deferred === true) return;
+    const t = String(a.answerText == null ? '' : a.answerText).replace(/\s+/g, ' ').trim();
+    if (!t) return;
+    lines.push(k + ': ' + t.slice(0, 200));
+  });
+  return lines.join('\n').slice(0, 1500);
+}
+
+/* 초안(JSON)을 BASE10 골격에 얹어 저장. 성공 시 true. */
+async function _applyStoryDraftStarter(draft, opts) {
+  opts = opts || {};
+  const sc = (opts.storyCount === 12 || opts.storyCount === 15) ? opts.storyCount : 8;
+  const skeleton = _mtbBuildBase10Scenes({ source: 'desktop', ptype: 'picturebook', storyCount: sc });
+  const endingKey = String(sc + 2);
+  /* 표지(1) = 책 제목 · 장면(2..sc+1) = 초안 순서대로 · 엔딩(sc+2) */
+  if (skeleton['1']) skeleton['1'].title = String(draft.title || '').slice(0, 40);
+  for (let i = 0; i < sc; i++) {
+    const key = String(i + 2);
+    const s = draft.scenes && draft.scenes[i];
+    if (!skeleton[key] || !s) continue;
+    skeleton[key].title = String(s.title || '').slice(0, 40);
+    skeleton[key].body  = String(s.body  || '').slice(0, 600);
+  }
+  if (skeleton[endingKey] && draft.ending) {
+    skeleton[endingKey].title = String(draft.ending.title || '').slice(0, 40);
+    skeleton[endingKey].body  = String(draft.ending.body  || '').slice(0, 600);
+  }
+  const res = await _writeBase10IfEmpty({
+    source: 'desktop', markInitialized: true, ptype: 'picturebook',
+    storyCount: sc, customScenes: skeleton,
+  });
+  if (res.ok) {
+    _mtbToast(opts.level === 1
+      ? '동화책 이야기가 준비됐어요!'
+      : 'AI 이야기 초안이 준비됐어요. 내 글로 고쳐 보세요!');
+  }
+  return !!res.ok;
+}
+
+/* 콜러블 호출 + 적용. 모든 실패 = false(호출자 폴백). */
+async function requestStoryDraftStarter(opts) {
+  opts = opts || {};
+  try {
+    if (typeof firebase === 'undefined' || !firebase.app) return false;
+    const classId = String(opts.classId || '').trim();
+    const teamName = String(opts.teamName || '').trim();
+    if (!classId || !teamName) return false;
+    const answersText = _storyDraftAnswersDigest(opts.answers);
+    if (!answersText) return false;   /* 답이 하나도 없으면 초안 불가 → 기본 틀 */
+    const sc = (opts.storyCount === 12 || opts.storyCount === 15) ? opts.storyCount : 8;
+
+    const res = await firebase.app().functions('asia-northeast3')
+      .httpsCallable('studentStoryDraft')({ classId, teamName, storyCount: sc, answersText });
+    const data = res && res.data;
+    if (!data || data.ok !== true || !data.draft) {
+      /* refused 등 — 사유는 조용히 로그만(수업 흐름 방해 금지), 기본 틀 폴백 */
+      if (data && data.refused) console.warn('[storyDraft] refused:', data.reason);
+      return false;
+    }
+    return await _applyStoryDraftStarter(data.draft, { storyCount: data.storyCount || sc, level: data.level });
+  } catch (e) {
+    /* 미배포(NOT_FOUND)·권한(MODE_NOT_ENABLED)·총량 초과 등 전부 폴백 — fail-open */
+    console.warn('[storyDraft] fallback to base10:', (e && (e.code || e.message)) || e);
+    return false;
+  }
+}
+window.requestStoryDraftStarter = requestStoryDraftStarter;
+
 /* 모바일 텍스트 브랜치 빈 화면(#mtb-start-template) 핸들러 */
 async function _mtbCreateBase10Template() {
   const btn = document.getElementById('mtb-start-template');

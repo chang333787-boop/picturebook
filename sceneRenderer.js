@@ -28,6 +28,12 @@ let _pbExpandedNum = null;
    · 장면(normal): 기존 흐름
    · 엔딩(ending): 기존 흐름 + type='ending' */
 function addScene(type) {
+  /* PICTUREBOOK-LEVELS ③: 1·2단계 일직선 잠금 — 장면/표지 추가 차단(관문 가드) */
+  if (typeof window !== 'undefined' && typeof window.isLinearPicturebookLock === 'function'
+      && window.isLinearPicturebookLock()) {
+    alert(window.PB_LINEAR_LOCK_MSG || '1·2단계 그림책은 장면을 더할 수 없어요.');
+    return;
+  }
   type = (type === 'cover' || type === 'ending' || type === 'normal') ? type : 'normal';
 
   /* 표지는 작품당 1개만 */
@@ -1196,6 +1202,13 @@ function renderCard(s) {
    연결 / 카드 위치 판별 / 화살표
    ================================================================ */
 function connect(fromNum, port, toNum) {
+  /* PICTUREBOOK-LEVELS ③: 1·2단계 일직선 잠금 — 새 연결(갈림길) 차단(관문 가드).
+     포트(●)는 CSS로 숨겨지지만 혹시 모를 다른 진입 경로도 여기서 최종 차단. */
+  if (typeof window !== 'undefined' && typeof window.isLinearPicturebookLock === 'function'
+      && window.isLinearPicturebookLock()) {
+    alert(window.PB_LINEAR_LOCK_MSG || '1·2단계 그림책은 길(연결)을 바꿀 수 없어요.');
+    return;
+  }
   const s = scenes[fromNum];
   if (!s) return;
 

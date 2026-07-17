@@ -418,6 +418,14 @@
       .ptype-grid{ gap:16px; }
     }
 
+    /* ── PICTUREBOOK-LEVELS ③: 1·2단계 일직선 잠금 — 구조 편집 UI 숨김 ──
+       함수 관문 가드(addScene/connect/deleteScene)와 이중 방어. body 클래스는
+       ui.js selectProjectType이 신규/재진입/resume 모든 경로에서 토글. */
+    body.pb-linear-locked #btn-add-cover,
+    body.pb-linear-locked #btn-add-scene,
+    body.pb-linear-locked #ss-add-btn,
+    body.pb-linear-locked .port-dot{ display:none !important; }
+
     /* v40: 복사 코드 모달 (발급/받기 공용) */
     .copy-code-modal{
       position:fixed; inset:0; z-index:9999;
@@ -3415,21 +3423,21 @@
 <script src="thought-compass-sheet.js?v=6c696f11a3"></script>
 <script src="thought-compass-rose.js?v=0e8e3bbe5f"></script>
 <script src="thought-compass-review.js?v=9bbd474395"></script>
-<script src="thought-compass-scenes.js?v=4ce48b7126"></script>
+<script src="thought-compass-scenes.js?v=9c7518995b"></script>
 <script src="firebase.js?v=19b9ed690c"></script>
 <script src="notices.js?v=4357ff14b7"></script>
 <script src="session.js?v=14b8513855"></script>
 <script src="canvasInteraction.js?v=42257f700f"></script>
-<script src="sceneRenderer.js?v=e5e5886920"></script>
+<script src="sceneRenderer.js?v=7e99bddd31"></script>
 <script src="storyAnalyzer.js?v=4799502ff8"></script>
 <script src="mediaManager.js?v=2b05836f58"></script>
-<script src="adminConsole.js?v=928bd6ae61"></script>
+<script src="adminConsole.js?v=1c00d7ca41"></script>
 <!-- ADMIN-REDESIGN Phase 3: 교사·학생 상세 설명서(화면형) -->
 <script src="admin-manual.js?v=1ece1a12f2"></script>
 <script src="projectSettings.js?v=5eb05c2079"></script>
-<script src="ui.js?v=619cf9122f"></script>
+<script src="ui.js?v=b12416d44b"></script>
 <!-- v95: 모바일 텍스트형 브랜치 전용 (텍스트 작품 + 모바일에서만 활성) -->
-<script src="mobileTextBranch.js?v=87f6f2624d"></script>
+<script src="mobileTextBranch.js?v=231c85d100"></script>
 <!-- TUTORIAL-PRD: 콘텐츠·삽화·데모(먼저) → 도움말/환영/인쇄 -->
 <script src="fullscreen-persist.js?v=ba97ed7f7e"></script>
 <script src="tutorial-content.js?v=97880e8947"></script>

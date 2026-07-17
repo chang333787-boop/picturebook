@@ -642,7 +642,10 @@ async function saveViewerMeta() {
     theme:        ViewerState.project.theme,
     template:     ViewerState.project.template,
     presentation: presentationData,
-    isPublic:     ViewerState.project.isPublic,  // 공개 정책 유지
+    /* ISPUBLIC-ECHO-FIX(#47): isPublic을 매 저장에 echo하지 않는다. update()는 명시 안 한 키를
+       보존하므로 공개 상태는 관리 화면 토글 값이 유지된다. 예전엔 진입 시점의 stale
+       ViewerState.project.isPublic을 되써, 학생이 다듬기 저장/톤 변경을 한 번만 해도 교사가
+       방금 바꾼 공개/비공개가 소리 없이 되돌아가던 것(공개↔책장 desync 포함)을 유발했다. */
     savedAt:      Date.now(),
     ...ptypePatch,                               // ★ projectType 보존 (안전망 이중)
     ..._toneStylePatch,                          // v138: 본문 카드 스타일 (작품 단위)

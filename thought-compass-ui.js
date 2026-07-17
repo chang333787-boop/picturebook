@@ -346,13 +346,19 @@
     const Flow = _Flow();
     const q = Flow.currentQuestion(S.vm);
     const ans = Flow.currentAnswer(S.vm);
+    /* RE-EDIT-SKIP-JUDGE(#6): '이전'으로 돌아가 답을 안 바꾸고 다시 앞으로 가면 통과했던 질문마다
+       AI 판정('답 살펴보고 있어요…')을 또 기다리고 후속질문이 중복 기록되던 것 → 이미 판정한 답과
+       같으면 AI 호출을 건너뛰고 바로 다음으로(검토 화면 '고치기'의 무판정 정책과 동일). */
+    if (!S.judgedAnswers) S.judgedAnswers = {};
+    const _ansKey = String((ans && ans.choiceId) || '') + ' ' + String((ans && ans.answerText) || '');
+    const _alreadyJudged = Object.prototype.hasOwnProperty.call(S.judgedAnswers, q.id) && S.judgedAnswers[q.id] === _ansKey;
     /* COMPASS-V2-FOLLOWUP: v2 가드 해제 — 서버 allowlist가 v1+v2 합집합으로 확장됨(15키).
        coreTotal은 vm 기반(v1=7·v2=10) — 상한도 세트별(12/15, flow.followUpBudgetLeft).
        targetLength(보기 전용)는 판정 가치가 없어 후속 요청 자체를 생략(비용·시간 절약).
        ※ 서버 deploy 전까지는 v2 요청이 거부→null→NEXT 안전 진행(현행과 동일 체감). */
     const meta = { followUpsUsed: S.followUpsUsed, coreTotal: S.vm.total };
     let decision = null;
-    if (q.id !== 'targetLength' && Flow.followUpBudgetLeft(meta) && window.ThoughtCompassAI && typeof window.ThoughtCompassAI.requestFollowUp === 'function') {
+    if (!_alreadyJudged && q.id !== 'targetLength' && Flow.followUpBudgetLeft(meta) && window.ThoughtCompassAI && typeof window.ThoughtCompassAI.requestFollowUp === 'function') {
       S.aiBusy = true; _render();
       try {
         decision = await window.ThoughtCompassAI.requestFollowUp({
@@ -364,6 +370,7 @@
       } catch (e) { decision = null; }
       S.aiBusy = false;
     }
+    S.judgedAnswers[q.id] = _ansKey;   /* RE-EDIT-SKIP-JUDGE(#6): 이 답으로 판정 완료 기록(재방문 시 같으면 스킵) */
     const r = Flow.resolveAfterAnswer(decision && decision.decision, meta);
     if (r.action === 'easier') {
       if (Flow.assistanceLevel(S.vm) >= 2) { _advanceCore(last); return; }   /* 이미 최대 완화 → 진행 */

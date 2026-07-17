@@ -2936,7 +2936,9 @@
         style="text-transform:uppercase;letter-spacing:2px;"/>
     </div>
 
-    <input id="join-input" class="join-input" placeholder="팀 이름 (예: 2모둠)" maxlength="20"/>
+    <!-- TEAM-NAME-LEN-UNIFY(#31): 교사 등록/CSV는 최대 30자인데 학생 입장칸만 20자라 21~30자 팀 이름을
+         끝까지 못 입력해 입장 실패하던 것 → 교사 상한(30)에 맞춤. -->
+    <input id="join-input" class="join-input" placeholder="팀 이름 (예: 2모둠)" maxlength="30"/>
     <input id="join-pin" class="join-input" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="off"
       placeholder="PIN (숫자 4~6자리)" maxlength="6"
       style="letter-spacing:4px;font-size:18px;"/>

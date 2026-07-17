@@ -1074,9 +1074,17 @@ function _openReceiveCopyModal() {
     } catch (e) {
       submitBtn.disabled = false;
       submitBtn.textContent = '받기';
-      /* ERR-KO-1: 서버 한글 안내는 유지, 영어 기술 문구는 쉬운 한글로 */
-      err.textContent = (e && e.message && /[가-힣]/.test(e.message))
-        ? e.message : '작품을 받지 못했어요. 코드를 확인하고 잠시 후 다시 시도해 주세요.';
+      /* REDEEM-PRIVATE-COPY(#48 부분): 비공개 원본은 받는 학생 권한으로 scenes read가 막혀
+         permission_denied(영어)로 실패 → '코드 확인' 오안내로 무한 재입력하던 것 → 원인 안내로.
+         (비공개 원본도 받게 하는 근본 해결은 서버측 과제.) ERR-KO-1: 서버 한글 안내는 유지. */
+      const _rm = String((e && (e.code || e.message)) || '');
+      if (/permission[_ ]?denied/i.test(_rm)) {
+        err.textContent = '이 작품을 받을 수 없어요. 원본 작품이 공개 상태인지 선생님께 확인해 주세요.';
+      } else if (e && e.message && /[가-힣]/.test(e.message)) {
+        err.textContent = e.message;
+      } else {
+        err.textContent = '작품을 받지 못했어요. 코드를 확인하고 잠시 후 다시 시도해 주세요.';
+      }
       err.style.display = 'block';
     }
   };

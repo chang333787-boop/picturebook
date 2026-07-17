@@ -2932,7 +2932,8 @@
     </div>
 
     <input id="join-input" class="join-input" placeholder="팀 이름 (예: 2모둠)" maxlength="20"/>
-    <input id="join-pin" class="join-input" type="password" placeholder="PIN (숫자 4~6자리)" maxlength="6"
+    <input id="join-pin" class="join-input" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="off"
+      placeholder="PIN (숫자 4~6자리)" maxlength="6"
       style="letter-spacing:4px;font-size:18px;"/>
     <div id="join-error" class="join-error"></div>
     <button class="join-btn" id="btn-join">입장하기 →</button>
@@ -3326,7 +3327,7 @@
 <script src="thought-compass-rose.js?v=0e8e3bbe5f"></script>
 <script src="thought-compass-review.js?v=640b16f0a0"></script>
 <script src="thought-compass-scenes.js?v=4ce48b7126"></script>
-<script src="firebase.js?v=d5cbba2d84"></script>
+<script src="firebase.js?v=d5518722fe"></script>
 <script src="notices.js?v=37cfc95c97"></script>
 <script src="session.js?v=4e8adca799"></script>
 <script src="canvasInteraction.js?v=42257f700f"></script>

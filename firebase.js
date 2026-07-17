@@ -662,7 +662,12 @@ function _enterTeam(val, teamRef, opts) {
         location.replace('index.html');
       },
     }).then(res => {
-      if (res && res.denied) location.replace('index.html');
+      if (res && res.denied) {
+        /* TAKEOVER-CANCEL-CLEAN(#7·#39): 인수 confirm에서 취소한 학생의 makerSession을 지워
+           다음에 다시 maker를 열 때 자동복귀(재확인 반복) 대신 입장 폼부터 보이게(취소 의사 유지). */
+        try { sessionStorage.removeItem('makerSession'); } catch (e) {}
+        location.replace('index.html');
+      }
     }).catch(() => { /* fail-open */ });
   }
 
@@ -1133,6 +1138,20 @@ function pushToFirebase(num) {
   }, 600);
 }
 
+/* SESSION-TTL-ACTIVITY(#40): 저장 성공 시 makerSession.savedAt을 갱신 → 재입장 TTL(2h)이
+   '진입 시각'이 아니라 '마지막 활동'을 기준으로. 2시간 넘게 계속 작업하다 F5하면 만료로 취급돼
+   입장 폼으로 튕기던 것 방지. sessionStorage.savedAt만 덮어씀(다른 필드·PIN 무접촉). */
+function _touchMakerSession() {
+  try {
+    const raw = sessionStorage.getItem('makerSession');
+    if (!raw) return;
+    const ms = JSON.parse(raw);
+    if (!ms) return;
+    ms.savedAt = Date.now();
+    sessionStorage.setItem('makerSession', JSON.stringify(ms));
+  } catch (e) { /* sessionStorage 막혀도 무해 */ }
+}
+
 /* 강제 즉시 push — 페이지 떠날 때 / 명시적 저장 시 호출.
    pushToFirebase의 setTimeout 내용을 추출해 즉시 실행 가능하게 분리 (안전망). */
 function _flushPushToFirebaseNow() {
@@ -1151,7 +1170,7 @@ function _flushPushToFirebaseNow() {
       cleanScenes[k] = _sceneToDbShape(scenes[k]);
     });
     dbRef.set(cleanScenes)
-      .then(() => setSaveStatus('saved'))
+      .then(() => { setSaveStatus('saved'); _touchMakerSession(); })
       /* SAVE-REQUEUE(#43): 실패한 저장분을 버리지 말고 재시도 예약(다음 저장/이탈 flush에서 다시 씀).
          전체 set 실패 → 전체 재시도 예약. 그대로 두면 조용히 유실되던 것 방지. */
       .catch(() => { _fullSetPending = true; setSaveStatus('error'); });
@@ -1165,7 +1184,7 @@ function _flushPushToFirebaseNow() {
   });
   dirtyScenes.clear();
   dbRef.update(updates)
-    .then(() => setSaveStatus('saved'))
+    .then(() => { setSaveStatus('saved'); _touchMakerSession(); })   /* #40: 활동 기준 TTL 갱신 */
     /* SAVE-REQUEUE(#43): 실패한 장면 키를 dirtyScenes에 되돌려 다음 flush에서 재시도(유실 방지). */
     .catch(() => { _writingKeys.forEach(n => dirtyScenes.add(n)); setSaveStatus('error'); });
 }

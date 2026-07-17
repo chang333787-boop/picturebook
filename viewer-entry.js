@@ -115,7 +115,7 @@ async function handleEntrySubmit() {
     }
 
     /* classCodes/$code → classId 조회 (viewer 전용 Firebase 인스턴스 사용) */
-    const classId = await lookupClassIdForViewer(code);
+    const classId = await _withEntryTimeout(lookupClassIdForViewer(code), 15000);   /* #44: 무한 대기 방지 */
     if (!classId) {
       _setEntryError('클래스 코드가 올바르지 않아요. 선생님께 확인해주세요.');
       _setEntryLoading(false);
@@ -180,7 +180,9 @@ window.__maybeRunRefineTutorial = function (ptype, opts) {
 async function _enterViewer(teamName, editMode = false, fromMaker = false, classId = null, sceneNum = null, ptypeHint = null) {
   try {
     _setEntryLoading(true);
-    await loadTeamData(teamName, classId, fromMaker, ptypeHint);  // fromMaker: isPublic 차단 예외용 / ptypeHint: maker 모드 hint
+    /* ENTRY-TIMEOUT(#44): 작품 로드도 타임아웃 race — ?team= 자동입장 오버레이가 무한 대기하던 것도 함께 해소
+       (수동·자동 입장 공통 경로). 지연 시 아래 catch가 한글 안내 + entry 화면 복구. */
+    await _withEntryTimeout(loadTeamData(teamName, classId, fromMaker, ptypeHint), 20000);  // fromMaker: isPublic 차단 예외용 / ptypeHint: maker 모드 hint
 
     /* edit 모드 + fromMaker 상태 설정 */
     if (editMode) ViewerState.editMode = true;
@@ -297,6 +299,19 @@ function _friendlyEntryError(err) {
 function _setEntryError(msg) {
   const errEl = document.getElementById('entry-error');
   if (errEl) errEl.textContent = msg;
+}
+
+/* ENTRY-TIMEOUT(#44): RTDB once() 읽기는 기본 타임아웃이 없어 크롬북 Wi-Fi가 끊기면(또는 순간 단절)
+   입장이 무한 '불러오는 중'에 갇혀 오류·재시도 수단이 없다 → 읽기를 타임아웃과 race해서,
+   지연 시 한글 안내(재시도 유도)로 폴백. 에러 메시지가 한글이라 _friendlyEntryError가 그대로 표시. */
+function _withEntryTimeout(promise, ms) {
+  let _t;
+  const timeout = new Promise(function (_, reject) {
+    _t = setTimeout(function () {
+      reject(new Error('연결이 지연되고 있어요. 인터넷 연결을 확인하고 다시 시도해 주세요.'));
+    }, ms || 15000);
+  });
+  return Promise.race([promise, timeout]).finally(function () { clearTimeout(_t); });
 }
 
 /* POLISH-AUTH-FIX(Phase F): 편집 권한 복원 실패 시 만들기 화면 복귀 버튼.

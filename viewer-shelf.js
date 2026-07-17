@@ -56,7 +56,10 @@
     return el;
   }
   function _showShelf() {
-    document.getElementById('entry-screen')?.classList.add('hidden');
+    const e = document.getElementById('entry-screen');
+    /* ENTRY-STUCK-FIX(2026-07-17): _enterViewer 실패 catch가 박은 인라인 display:flex !important를
+       걷어야 책장이 entry 위로 제대로 보인다(#24·#51). */
+    if (e) { e.style.removeProperty('display'); e.classList.add('hidden'); }
     document.getElementById('player-screen')?.classList.add('hidden');
     _screenEl().classList.remove('hidden');
     closeComments();
@@ -104,11 +107,12 @@
     const ctx = _ctx();
     if (!ctx || !teamName) return;
     _hideShelf();
-    try {
-      await _enterViewer(teamName, false, false, ctx.classId);
-    } catch (e) {
-      _showShelf();   /* 진입 실패(비공개 전환 등) → 책장으로 복귀 */
-    }
+    /* SHELF-OPEN-FAIL-FIX(#51): _enterViewer는 내부 catch로 에러를 삼키므로(throw 안 함) 반환값으로 판정.
+       false면 비공개 전환/로드 실패 → entry가 아니라 책장으로 복귀(코드 재입력 강요 방지). */
+    let ok = false;
+    try { ok = await _enterViewer(teamName, false, false, ctx.classId); }
+    catch (e) { ok = false; }
+    if (!ok) _showShelf();
   }
 
   /* 코드 또는 링크(공개 학급)로 책장 열기 */

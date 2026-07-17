@@ -124,9 +124,7 @@ async function handleEntrySubmit() {
 
     await _enterViewer(teamName, false, false, classId);
   } catch (err) {
-    _setEntryError((err && err.message && /[가-힣]/.test(err.message))
-      ? err.message   /* 우리가 의도한 한글 안내는 그대로 */
-      : '작품을 불러오지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요.');  /* ERR-KO-1: 영어 기술 문구 차단 */
+    _setEntryError(_friendlyEntryError(err));   /* ENTRY-ERR-KO-2: permission_denied→비공개/이름 안내 */
     _setEntryLoading(false);
   }
 }
@@ -260,12 +258,11 @@ async function _enterViewer(teamName, editMode = false, fromMaker = false, class
       requestAnimationFrame(function () { window.__hideAutoEnterLoading(); });
     }
 
+    return true;   /* SHELF-OPEN-FAIL-FIX(#51): 성공 신호 — 책장 진입이 실패 시 책장 복귀 판단에 사용 */
   } catch (err) {
     /* PERF-2: 편집 번들 로드 등 진입 실패 시 editMode 상태를 되돌려 재진입 오염 방지(Codex minor 반영). */
     ViewerState.editMode = false;
-    _setEntryError((err && err.message && /[가-힣]/.test(err.message))
-      ? err.message   /* 우리가 의도한 한글 안내는 그대로 */
-      : '작품을 불러오지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요.');  /* ERR-KO-1: 영어 기술 문구 차단 */
+    _setEntryError(_friendlyEntryError(err));   /* ENTRY-ERR-KO-2: permission_denied→비공개/이름 안내 */
     /* POLISH-AUTH-FIX(Phase F): 편집 권한(maker UID) 복원 실패 → 만들기 화면 복귀 버튼 제공. */
     if (err && err.code === 'viewer/edit-auth-missing') _showMakerReturnButton();
     _setEntryLoading(false);
@@ -277,10 +274,26 @@ async function _enterViewer(teamName, editMode = false, fromMaker = false, class
     }
     const entryEl = document.getElementById('entry-screen');
     if (entryEl) entryEl.style.cssText = 'display:flex !important;';
+    return false;   /* SHELF-OPEN-FAIL-FIX(#51): 실패 신호(내부 catch가 삼켜도 호출부가 알 수 있게) */
   }
 }
 
 /* ── UI 헬퍼 ── */
+/* ENTRY-ERR-KO-2(2026-07-17): 진입 실패 오류를 학생용 한글 안내로 매핑.
+   ① 우리가 의도한 한글 안내(예: '아직 공개되지 않은 작품이에요')는 그대로.
+   ② permission_denied(비공개 v2 작품 read 차단·팀 이름 오타로 없는 팀 read) → 원인 안내.
+      (기존엔 영어 기술 문구라 ③으로 떨어져 '인터넷 연결' 오안내 → 아이들이 새로고침만 반복)
+   ③ 그 외(진짜 네트워크/알 수 없음) → 기존 네트워크 안내. */
+function _friendlyEntryError(err) {
+  const msg = (err && err.message) ? String(err.message) : '';
+  const code = (err && err.code) ? String(err.code) : '';
+  if (/[가-힣]/.test(msg)) return msg;                    /* 우리가 만든 한글 안내 */
+  if (/permission[_ ]?denied/i.test(msg) || /permission[_ ]?denied/i.test(code)) {
+    return '이 작품을 열 수 없어요.\n아직 공개되지 않았거나 모둠 이름이 정확하지 않을 수 있어요. 선생님께 확인해 주세요.';
+  }
+  return '작품을 불러오지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요.';  /* ERR-KO-1: 영어 기술 문구 차단 */
+}
+
 function _setEntryError(msg) {
   const errEl = document.getElementById('entry-error');
   if (errEl) errEl.textContent = msg;
@@ -312,13 +325,23 @@ function _setEntryLoading(on) {
 }
 
 function _showPlayerScreen() {
-  document.getElementById('entry-screen') ?.classList.add('hidden');
+  const e = document.getElementById('entry-screen');
+  /* ENTRY-STUCK-FIX(2026-07-17): 진입 실패 catch가 박은 인라인 display:flex !important를 걷어야
+     .hidden{display:none}이 먹힌다(안 걷으면 재시도 성공해도 entry가 작품을 덮음·#24). */
+  if (e) { e.style.removeProperty('display'); e.classList.add('hidden'); }
   document.getElementById('player-screen')?.classList.remove('hidden');
 }
 
 function showEntryScreen() {
-  document.getElementById('entry-screen') ?.classList.remove('hidden');
+  const e = document.getElementById('entry-screen');
+  if (e) {
+    e.classList.remove('hidden');
+    /* ENTRY-STUCK-FIX: ?team= 자동입장 시 head 인라인 규칙(#entry-screen{display:none!important})이
+       남아 ✕로 나오면 빈 화면(#29)이 되던 것 방지 — 명시적으로 flex 강제. */
+    e.style.setProperty('display', 'flex', 'important');
+  }
   document.getElementById('player-screen')?.classList.add('hidden');
+  _setEntryLoading(false);   /* #25: 이전 진입의 '불러오는 중...' 잔류 해제 → '작품 보기' 버튼 재활성 */
   ViewerState.resetPlayback();
 }
 

@@ -68,10 +68,14 @@
 
   /* ── DOM ── */
   var PANEL_ID = 'imageS2-batch-panel';
+  /* BATCH-ABORT-ON-CLOSE(#18): 진행 화면 안내('창을 닫으면 변환이 멈춰요')와 달리 패널을 닫아도
+     _runBatch 루프가 계속 서버를 호출(장당 ~60s·$0.05)해 중복 생성·이중 과금이 나던 것 →
+     닫을 때 플래그를 세우고 루프가 각 회차 시작에서 검사해 중단(진행분은 이미 서버에 저장돼 안전). */
+  var _batchAborted = false;
   function _el(tag, attrs, html) { var e = document.createElement(tag); if (attrs) Object.keys(attrs).forEach(function (k) { e.setAttribute(k, attrs[k]); }); if (html != null) e.innerHTML = html; return e; }
   function _esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); }
 
-  function _closePanel() { var p = document.getElementById(PANEL_ID); if (p) p.remove(); }
+  function _closePanel() { _batchAborted = true; var p = document.getElementById(PANEL_ID); if (p) p.remove(); }
 
   async function _openPanel() {
     _closePanel();
@@ -146,6 +150,7 @@
 
   /* MVP 순차 오케스트레이션 — gate 통과 시에만(현재 비활성). */
   async function _runBatch(body, startBtn) {
+    _batchAborted = false;   /* BATCH-ABORT-ON-CLOSE(#18): 새 배치 시작 = 중단 플래그 초기화 */
     startBtn.disabled = true; startBtn.textContent = '시작 중…';
     var ctx = _ctx();
     var req = L.sanitizeBatchRequest({ classId: ctx.classId, teamName: ctx.teamName, forceRegenerate: false });
@@ -164,6 +169,7 @@
     }
     paint();
     for (var i = 0; i < targets.length; i++) {
+      if (_batchAborted) return;   /* BATCH-ABORT-ON-CLOSE(#18): 패널을 닫았으면 다음 장면 호출 중단 */
       var sid = L.nextTarget(targets, done); if (!sid) break;
       var res = await _call('callImageAiS2', { classId: ctx.classId, teamName: ctx.teamName, sceneId: sid, jobId: jobId });
       /* secret/배포 미설정(not-configured) → 명확 안내 후 중단. 원본 불변·추가 호출 없음. */

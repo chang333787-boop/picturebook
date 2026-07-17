@@ -153,7 +153,13 @@ async function _uploadImageFile(num, file) {
   if (!file) return;
 
   /* 중복 업로드 방지 */
-  if (mediaState.uploading.has(num)) return;
+  if (mediaState.uploading.has(num)) {
+    /* UPLOAD-RECLICK(#14): 업로드 중 재클릭을 조용히 무시하지 말고 '처리 중' 인디케이터를 재노출.
+       저장 에코 재렌더가 '⏳ 이미지 처리 중…'을 지워 [🖼️ 이미지 넣기]로 되돌아가면 실패한 것처럼
+       보이는데, 다시 눌러도 반응이 없던 것 → 재클릭 시 인디케이터를 되살려 진행 중임을 알림. */
+    try { _showUploadingIndicator(num); } catch (e) {}
+    return;
+  }
 
   /* 파일 형식 검증 */
   if (!file.type || !file.type.startsWith('image/')) {

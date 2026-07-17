@@ -526,7 +526,11 @@
     overlay.setAttribute('role', 'dialog'); overlay.setAttribute('aria-modal', 'true');
     const card = _el('div', 'tc-flow-card');
     card.appendChild(_el('h2', 'tc-flow-title', '다른 친구가 작성하고 있어요'));
-    card.appendChild(_el('p', 'tc-flow-help', '지금은 다른 친구가 생각 나침반을 작성하고 있어요. 답은 함께 볼 수 있고, 잠시 후 “다시 확인”을 눌러 이어서 할 수 있어요.'));
+    /* READONLY-COPY(#5): 이전 기기가 꺼졌거나(배터리·크래시) 다른 기기가 세션을 막 인수한 직후엔
+       세션이 살아 있는 것으로 보여 이어받기가 안 되는데, 그 이유를 몰라 막막해하던 것 → 잠시 뒤
+       (약 3분 무활동) '다시 확인'으로 이어받을 수 있음을 안내. */
+    card.appendChild(_el('p', 'tc-flow-help', '지금은 다른 친구(또는 다른 기기)가 생각 나침반을 작성하고 있어요. 답은 함께 볼 수 있어요.'));
+    card.appendChild(_el('p', 'tc-flow-help', '조금 전까지 쓰던 기기가 꺼졌거나 친구가 멈췄다면, 잠시 뒤(약 3분)에 “다시 확인”을 누르면 이어서 할 수 있어요.'));
     const nav = _el('div', 'tc-flow-nav'); nav.appendChild(_el('span', 'tc-flow-nav-spacer'));
     const retry = _el('button', 'tc-flow-next', '다시 확인'); retry.type = 'button';
     retry.addEventListener('click', function () { open(ctx); });

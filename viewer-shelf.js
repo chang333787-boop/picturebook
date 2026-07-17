@@ -192,7 +192,20 @@
             <div class="cmt-who">${esc(c.name)}</div>
             <div class="cmt-txt">${esc(c.text)}</div>
           </div>`).join('')
-      : '<div class="cmt-empty">아직 댓글이 없어요. 첫 번째 한마디를 남겨볼래요?</div>';
+      : '<div class="cmt-empty">아직 댓글이 없어요.</div>';
+    /* COMMENT-DISABLED-GUIDE(#28): 댓글 기능이 꺼진 학급이면 이름·내용·코드칸과 [댓글 남기기]를
+       다 보여주고 '첫 한마디 남겨볼래요?'로 유도한 뒤 다 적고 나서야 서버 오류로 실패하던 것 →
+       작성 폼 대신 안내만 표시(읽기는 그대로). commentEnabled는 getClassShelf 응답에 이미 포함. */
+    const _cmtEnabled = !!(_shelfData && _shelfData.commentEnabled === true);
+    const formHtml = _cmtEnabled
+      ? `<div class="cmt-form">
+        <input class="cmt-name" placeholder="이름" maxlength="12" value="">
+        <textarea class="cmt-text" rows="2" placeholder="따뜻한 한마디를 남겨주세요 (200자)" maxlength="200"></textarea>
+        <input class="cmt-code" placeholder="댓글 코드 — 선생님에게 받을 수 있어요" maxlength="10" value="${esc(_savedCode())}">
+        <div class="cmt-err" aria-live="polite"></div>
+        <button type="button" class="cmt-send">댓글 남기기</button>
+      </div>`
+      : `<div class="cmt-empty" style="margin-top:6px;">선생님이 댓글 기능을 켜면 한마디 남길 수 있어요.</div>`;
     d.innerHTML = `
       <div class="cmt-head">
         <span>💬 이 책의 댓글 <b>${items.length}</b></span>
@@ -200,15 +213,10 @@
       </div>
       <div class="cmt-note">따뜻한 말로 남겨요 · 이상한 댓글은 선생님이 지울 수 있어요</div>
       <div class="cmt-list">${listHtml}</div>
-      <div class="cmt-form">
-        <input class="cmt-name" placeholder="이름" maxlength="12" value="">
-        <textarea class="cmt-text" rows="2" placeholder="따뜻한 한마디를 남겨주세요 (200자)" maxlength="200"></textarea>
-        <input class="cmt-code" placeholder="댓글 코드 — 선생님에게 받을 수 있어요" maxlength="10" value="${esc(_savedCode())}">
-        <div class="cmt-err" aria-live="polite"></div>
-        <button type="button" class="cmt-send">댓글 남기기</button>
-      </div>`;
+      ${formHtml}`;
     d.querySelector('.cmt-close').addEventListener('click', () => d.classList.add('hidden'));
-    d.querySelector('.cmt-send').addEventListener('click', async () => {
+    const _sendBtn = d.querySelector('.cmt-send');
+    if (_sendBtn) _sendBtn.addEventListener('click', async () => {
       const base = _teamBase();
       if (!base) return;
       const name = d.querySelector('.cmt-name').value.trim();

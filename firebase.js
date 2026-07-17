@@ -910,6 +910,10 @@ function _enterTeam(val, teamRef, opts) {
 
 /* ── Firebase 저장 (scene 단위 dirty write) ── */
 const dirtyScenes = new Set();
+/* STRUCT-FULLSET-FIX(#9·#42): pushToFirebase()를 num 없이 부르면 '전체 set' 의도(장면 추가·연결·
+   삭제·전체초기화). 이 의도가 어디에도 기록되지 않아, 직전 본문/제목 편집이 남긴 numbered dirty가
+   있으면 flush가 부분 update로 빠져 구조 변경이 통째로 유실되던 것 방지 — 이 플래그로 의도 보존. */
+let _fullSetPending = false;
 
 /* legacy 마이그레이션 토스트 1회성 플래그 (A-1) — 한 작품 진입 후 한 번만 알림 */
 let _migrationToastShown = false;
@@ -1121,6 +1125,7 @@ function _scheduleSkippedEchoRender() {
 function pushToFirebase(num) {
   if (isRemote || !dbRef) return;
   if (num !== undefined) dirtyScenes.add(num);
+  else _fullSetPending = true;   /* STRUCT-FULLSET-FIX(#9·#42): no-arg = 전체 set 의도 보존 */
   setSaveStatus('changed');
   clearTimeout(pushTimer);
   pushTimer = setTimeout(() => {
@@ -1134,7 +1139,12 @@ function _flushPushToFirebaseNow() {
   if (!dbRef) return;
   clearTimeout(pushTimer);
   pushTimer = null;
-  if (dirtyScenes.size === 0) {
+  /* STRUCT-FULLSET-FIX(#9·#42): 전체 set 의도가 서 있으면 dirtyScenes 유무와 무관하게 전체 set.
+     (부분 update로 빠지면 장면 추가/연결/삭제/전체초기화가 유실됨.) 전체 set이 모두 덮으므로
+     대기 중 numbered dirty도 함께 소거. */
+  if (_fullSetPending || dirtyScenes.size === 0) {
+    _fullSetPending = false;
+    dirtyScenes.clear();
     /* 전체 set — 모든 장면을 DB shape으로 변환 */
     const cleanScenes = {};
     Object.keys(scenes).forEach(k => {

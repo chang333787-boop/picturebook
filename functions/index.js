@@ -1214,12 +1214,26 @@ function _validateS1Response(parsed, snapshot) {
     const submode = origScene.submode === 'imageCenter' ? 'imageCenter' : 'split';
     const maxLen = submode === 'imageCenter' ? 300 : 500;
     if (revised.length > maxLen) {
-      throw new Error(`장면 ${sceneId} — 글자수 hard cut 초과 (${revised.length}/${maxLen}, ${submode})`);
+      /* HARDCUT-SKIP(#59): 전체 throw(배치 전체 실패·quota 소모·'되는 애 안되는 애' 오안내) 대신
+         이 장면만 skip(원본 유지) — 한 장면이 상한을 넘겨도 나머지 장면은 정상 발전. 기존 skip 패턴 재사용. */
+      r.skip = true;
+      r.reason = '문장이 너무 길어져 이 장면은 그대로 두었어요.';
+      delete r.revisedText; delete r.summary; delete r.changes;
+      if (strongWarnings.length > 0) r.strongWarnings = strongWarnings;
+      if (weakWarnings.length > 0) r.weakWarnings = weakWarnings;
+      continue;
     }
 
     /* ─── 한글 비율 70% 미만 (기존 유지, 전체 throw) ─── */
     if (_hangulRatio(revised) < 0.7) {
-      throw new Error(`장면 ${sceneId} — 한글 비율 70% 미만`);
+      /* HANGUL-SKIP(#59): 전체 throw 대신 이 장면만 skip(원본 유지). 숫자·영문 많은 한 장면 때문에
+         배치 전체가 실패하던 것 방지. 기존 skip 패턴 재사용. */
+      r.skip = true;
+      r.reason = '한글이 아닌 내용이 많아 이 장면은 그대로 두었어요.';
+      delete r.revisedText; delete r.summary; delete r.changes;
+      if (strongWarnings.length > 0) r.strongWarnings = strongWarnings;
+      if (weakWarnings.length > 0) r.weakWarnings = weakWarnings;
+      continue;
     }
 
     /* ─── 정책 #4: 금지 필드 recursive scan (장면 단위) ─── */
@@ -1422,12 +1436,26 @@ function _validateS2Response(parsed, snapshot) {
     const submode = origScene.submode === 'imageCenter' ? 'imageCenter' : 'split';
     const maxLen = S2_MAXLEN[submode];
     if (revised.length > maxLen) {
-      throw new Error(`장면 ${sceneId} — 글자수 hard cut 초과 (${revised.length}/${maxLen}, ${submode})`);
+      /* HARDCUT-SKIP(#59): 전체 throw(배치 전체 실패·quota 소모·'되는 애 안되는 애' 오안내) 대신
+         이 장면만 skip(원본 유지) — 한 장면이 상한을 넘겨도 나머지 장면은 정상 발전. 기존 skip 패턴 재사용. */
+      r.skip = true;
+      r.reason = '문장이 너무 길어져 이 장면은 그대로 두었어요.';
+      delete r.revisedText; delete r.summary; delete r.changes;
+      if (strongWarnings.length > 0) r.strongWarnings = strongWarnings;
+      if (weakWarnings.length > 0) r.weakWarnings = weakWarnings;
+      continue;
     }
 
     /* 한글 비율 (전체 throw) */
     if (_hangulRatio(revised) < 0.7) {
-      throw new Error(`장면 ${sceneId} — 한글 비율 70% 미만`);
+      /* HANGUL-SKIP(#59): 전체 throw 대신 이 장면만 skip(원본 유지). 숫자·영문 많은 한 장면 때문에
+         배치 전체가 실패하던 것 방지. 기존 skip 패턴 재사용. */
+      r.skip = true;
+      r.reason = '한글이 아닌 내용이 많아 이 장면은 그대로 두었어요.';
+      delete r.revisedText; delete r.summary; delete r.changes;
+      if (strongWarnings.length > 0) r.strongWarnings = strongWarnings;
+      if (weakWarnings.length > 0) r.weakWarnings = weakWarnings;
+      continue;
     }
 
     /* 금지 필드 scan → 장면 단위 차단 */

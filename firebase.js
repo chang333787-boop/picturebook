@@ -418,6 +418,10 @@ async function _joinTeamV2() {
 
   if (!code) { errEl.textContent = '클래스 코드를 입력해주세요'; return; }
   if (!val)  { errEl.textContent = '팀 이름을 입력해주세요'; return; }
+  /* TEAM-NAME-DOT-GUARD(#2·#53): '.'는 encodeURIComponent가 인코딩하지 않아 RTDB 경로를 깨뜨림
+     → 서버(joinTeamMembership)가 throw→'잠시 후 다시 시도' 오안내로 영원히 실패하던 것을,
+     사전에 원인 안내로 막는다. (교사 팀 생성/CSV 가드와 동일 — 근본은 서버 검증도 후속으로.) */
+  if (val.includes('.')) { errEl.textContent = "팀 이름에 '.'(마침표)는 쓸 수 없어요. 선생님께 확인해 주세요."; return; }
   if (!pin)  { errEl.textContent = 'PIN을 입력해주세요'; return; }
   if (!/^\d{4,6}$/.test(pin)) { errEl.textContent = 'PIN은 숫자 4~6자리로 입력해주세요'; return; }
 

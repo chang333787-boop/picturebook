@@ -817,7 +817,7 @@
       + '<div class="ai-modal__header"><div class="ai-modal__title">✨ AI 장면발전 결과</div>'
       +   '<button class="ai-modal__close js-ai-modal-close" aria-label="닫기">✕</button></div>'
       + '<div class="ai-modal__body">'
-      +   '<p class="ai-mode-intro">원작의 핵심 사건과 선택지는 지키면서 장면을 더 생생하게 발전시킨 후보예요. 마음에 드는 장면만 적용할 수 있고, 원본은 그대로 남아요. <b>AI가 원문에 없던 내용이나 어색한 표현을 만들 수 있으니, 반드시 다시 읽고 적용할지 선택하세요.</b></p>'
+      +   '<p class="ai-mode-intro">원작의 핵심 사건과 선택지는 지키면서 장면을 더 생생하게 발전시킨 후보예요. <b>적용하면 가능한 장면이 한꺼번에 적용돼요.</b> 원본은 그대로 남고, 적용한 뒤에도 \'원본\' 토글로 비교하거나 AI 글을 장면별로 더 다듬을 수 있어요. <b>AI가 원문에 없던 내용이나 어색한 표현을 만들 수 있으니, 반드시 다시 읽어 보세요.</b></p>'
       +   '<div class="ai-s2-list">' + (rows || '<div class="ai-empty">발전할 장면이 없어요.</div>') + '</div>'
       + '</div>'
       + '<div class="ai-modal__footer">'
@@ -3512,7 +3512,9 @@
           </div>` : ''}
           ${rewriteBox}
         </div>`;
-          const lockReason = '먼저 2단계에서 자료를 보고 고친 뒤 ‘모두 고쳤어요’를 눌러 주세요.';
+          /* IMAGE-S2-GATE-COPY(#21): rewriteDone은 기기별(localStorage) 저장이라 교사·다른 기기에선
+             학생이 이미 눌렀어도 잠겨 보임 → 자가 해결 경로와 기기별 저장을 함께 안내. */
+          const lockReason = '아래 2단계에서 자료를 보고 고친 뒤 ‘모두 고쳤어요’를 누르면 열려요. (이 버튼은 기기마다 따로 기억해요.)';
           /* REFINE-STAB-D: 이야기 길 확인 — HUD 더보기에서 이동. 2단계 완료 뒤·3단계 앞 위치. */
           const _isPbProject = (typeof ViewerState !== 'undefined' && ViewerState.project && ViewerState.project.projectType === 'picturebook');
           const secRoute = `
@@ -4439,6 +4441,10 @@
       alert('그 장면을 찾지 못했어요.');
       return false;
     }
+    /* WRITE-AFTER-EDIT-ORIGINAL(#19): 보기 모드가 'AI 장면발전'(aiS2)으로 저장돼 있으면(새로고침 후에도
+       유지) 고쳐쓰기 편집이 원본이 아니라 AI 변형본을 건드려, 검사 지적(원본 기준)을 고쳐도 원본은
+       그대로라 재검사에서 같은 지적이 반복되던 것 방지 → 편집 진입 시 글 보기를 원본으로 되돌림. */
+    try { if (typeof _setAiViewMode === 'function') _setAiViewMode('original'); } catch (e) { /* noop */ }
     editNavigateTo(sid);
     _showWriteAfterReturnHint(source || 'directEdit');
     return true;

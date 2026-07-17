@@ -2621,8 +2621,10 @@ async function requestStoryDraftStarter(opts) {
        aiVariants s2 슬롯에 쌓여 감상 진입 시 AI-DEFAULT-VIEW-1이 자동 표시. */
     if (applied && data.level === 1) {
       try {
+        /* timeout: 서버 540s 배치 — 클라 기본 70s로는 완주 전에 deadline-exceeded가 찍힘(무해하지만
+           로그 오해 소지·1단계 e2e에서 실측). 서버값+여유(#56 _FN_TIMEOUT_MS와 동일 원칙). */
         firebase.app().functions('asia-northeast3')
-          .httpsCallable('generateStoryImages')({ classId, teamName })
+          .httpsCallable('generateStoryImages', { timeout: 570000 })({ classId, teamName })
           .then((r) => {
             const g = r && r.data;
             console.info('[storyImages] done:', g && g.generated, 'skipped:', g && g.skipped);

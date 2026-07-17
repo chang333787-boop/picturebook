@@ -5868,7 +5868,7 @@ function _bindPbImageActions(root, scene) {
         const _cid = (ViewerState.project && ViewerState.project.classId) || ViewerState.classId;
         const _team = (ViewerState.project && ViewerState.project.teamName) || ViewerState.teamName;
         const res = await firebase.app().functions('asia-northeast3')
-          .httpsCallable('generateStoryImages')({ classId: _cid, teamName: _team, sceneId: String(scene.num || scene.id), force: true });
+          .httpsCallable('generateStoryImages', { timeout: 180000 })({ classId: _cid, teamName: _team, sceneId: String(scene.num || scene.id), force: true });
         const r = res && res.data;
         if (r && r.ok === true && r.generated > 0) {
           btn.textContent = '✅ 새 그림 완성!';

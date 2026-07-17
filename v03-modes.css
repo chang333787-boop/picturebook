@@ -807,7 +807,10 @@ body:not(.edit-mode-active) .scene-screen--pb.pb--imagecenter .pb-frame {
   align-items: stretch;
   justify-content: center;
   align-content: stretch;
-  overflow: hidden;
+  /* CHOICE-COUNT-CAP(#65): 기존 7개+ 버튼 작품은 매트릭스가 없어 3줄+로 넘쳤는데 overflow:hidden이라
+     셋째 줄이 잘렸다 → overflow-y:auto로 스크롤 가능하게(1~6개 정상은 넘치지 않아 무영향). */
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 /* v53: 라벨 "행동 N개 ↓" — 기본 숨김. 모바일에서만 표시. */

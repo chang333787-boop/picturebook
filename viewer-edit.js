@@ -3251,6 +3251,13 @@ function _pbChoiceCountSectionHtml(scene) {
 function _pbAddChoiceForScene(scene) {
   if (!scene) return;
   if (!Array.isArray(scene.choices)) scene.choices = [];
+  /* CHOICE-COUNT-CAP(#65): 행동 버튼은 6개까지 — 감상 레이아웃 매트릭스가 1~6개까지만 정의돼
+     7개+부터는 split이 overflow로 잘리고 imageCenter도 깨졌다. 상한 도달 시 안내 후 무시. */
+  if (scene.choices.length >= 6) {
+    if (typeof showPlayToast === 'function') showPlayToast('행동 버튼은 6개까지 만들 수 있어요.');
+    else if (typeof window !== 'undefined' && window.alert) window.alert('행동 버튼은 6개까지 만들 수 있어요.');
+    return;
+  }
   const newIdx = scene.choices.length;
   const newId  = (typeof _autoChoiceId === 'function')
     ? _autoChoiceId(newIdx)

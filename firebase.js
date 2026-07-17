@@ -1152,17 +1152,22 @@ function _flushPushToFirebaseNow() {
     });
     dbRef.set(cleanScenes)
       .then(() => setSaveStatus('saved'))
-      .catch(() => setSaveStatus('error'));
+      /* SAVE-REQUEUE(#43): 실패한 저장분을 버리지 말고 재시도 예약(다음 저장/이탈 flush에서 다시 씀).
+         전체 set 실패 → 전체 재시도 예약. 그대로 두면 조용히 유실되던 것 방지. */
+      .catch(() => { _fullSetPending = true; setSaveStatus('error'); });
     return;
   }
   const updates = {};
+  const _writingKeys = [];
   dirtyScenes.forEach(n => {
     updates[n] = scenes[n] ? _sceneToDbShape(scenes[n]) : null;
+    _writingKeys.push(n);
   });
   dirtyScenes.clear();
   dbRef.update(updates)
     .then(() => setSaveStatus('saved'))
-    .catch(() => setSaveStatus('error'));
+    /* SAVE-REQUEUE(#43): 실패한 장면 키를 dirtyScenes에 되돌려 다음 flush에서 재시도(유실 방지). */
+    .catch(() => { _writingKeys.forEach(n => dirtyScenes.add(n)); setSaveStatus('error'); });
 }
 
 /* 페이지 이탈 시 강제 push — 600ms debounce 중인 변경 손실 방지.

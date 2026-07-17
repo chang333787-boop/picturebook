@@ -321,9 +321,18 @@ function flushTitleSaves(num) {
   }
 }
 
-/* 페이지 이탈 시 강제 flush — title + body 둘 다 */
-window.addEventListener('beforeunload', () => { flushTitleSaves(); flushBodySaves(); });
-window.addEventListener('pagehide',    () => { flushTitleSaves(); flushBodySaves(); });
+/* 페이지 이탈 시 강제 flush — title + body 둘 다.
+   UNLOAD-FLUSH-NOW(#38): flushTitle/BodySaves는 pushToFirebase(n)로 600ms 타이머만 걸어
+   즉시 안 쓴다. beforeunload는 firebase.js 핸들러의 즉시 flush에 '등록 순서'로 의존하고
+   pagehide는 firebase.js에 핸들러가 없어(아이패드 Safari 등 beforeunload 미발화 환경) 마지막
+   타이핑이 유실되던 것 → 여기서 직접 _flushPushToFirebaseNow()를 호출(존재 가드·순서 의존 제거). */
+function _unloadFlush() {
+  try { flushTitleSaves(); } catch (e) {}
+  try { flushBodySaves(); } catch (e) {}
+  try { if (typeof _flushPushToFirebaseNow === 'function') _flushPushToFirebaseNow(); } catch (e) {}
+}
+window.addEventListener('beforeunload', _unloadFlush);
+window.addEventListener('pagehide',    _unloadFlush);
 
 /* ================================================================
    CARD-QUICK-EDIT-1 — 카드 본문 미리보기 클릭 → 미니모달 '장면 글 고치기'

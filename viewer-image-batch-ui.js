@@ -141,19 +141,36 @@
     resultsBtn.onclick = function () { _renderResults(body); };
     var startBtn = _el('button', { style: 'padding:7px 14px;border-radius:8px;border:none;background:' + (gate.canStart ? '#6a8a5b' : '#cfcfcf') + ';color:#fff;font-size:13px;cursor:' + (gate.canStart ? 'pointer' : 'not-allowed') + ';' }, 'AI 그림책 마감 시작');
     startBtn.disabled = !gate.canStart;
-    if (gate.canStart) startBtn.onclick = function () { _runBatch(body, startBtn); };
-    /* foot 재구성(close 유지 + 결과/시작) */
+    if (gate.canStart) startBtn.onclick = function () { _runBatch(body, startBtn, false); };
+    /* IMAGE-S2-REGEN(#16·#55): 이미 마감된 장면(cached>0)이 있어 정식 시작이 막혀도, 원본을 다시 그린
+       경우 전 장면을 강제 재생성할 수 있게 '다시 생성' 경로를 연다. 서버 forceRegenerate 재사용(무배포).
+       강제라 비용/시간이 더 드므로 확인 후 실행. 관리자 게이트(권한·설정)는 canStart로 이미 판정. */
+    var regenBtn = null;
+    /* all-done(전부 마감) 또는 시작 가능(권한·설정 OK)일 때만 — 권한/설정 문제(not-teacher/disabled/
+       no-images)면 force도 서버에서 거부되므로 숨김. */
+    if ((gate.state === 'all-done' || gate.canStart === true) && plan && plan.cachedCount > 0 && !gate.legacyNotice) {
+      regenBtn = _el('button', { style: 'padding:7px 12px;border-radius:8px;border:1px solid #b26a00;background:#fff;color:#b26a00;font-size:12.5px;cursor:pointer;' }, '🔁 다시 생성');
+      regenBtn.title = '원본 그림을 고쳤다면 눌러 전 장면을 새로 만들어요';
+      regenBtn.onclick = function () {
+        if (!window.confirm('원본을 고친 장면을 포함해 전 장면의 AI 그림을 다시 만들까요?\n(이미 마감된 장면도 새로 생성돼 시간·횟수가 더 들어요.)')) return;
+        _runBatch(body, regenBtn, true);
+      };
+    }
+    /* foot 재구성(close 유지 + 결과/시작/재생성) */
     Array.prototype.slice.call(foot.querySelectorAll('button')).forEach(function (b) { if (b !== closeBtn) b.remove(); });
     foot.insertBefore(startBtn, closeBtn);
+    if (regenBtn) foot.insertBefore(regenBtn, startBtn);
     foot.insertBefore(resultsBtn, startBtn);
   }
 
   /* MVP 순차 오케스트레이션 — gate 통과 시에만(현재 비활성). */
-  async function _runBatch(body, startBtn) {
+  async function _runBatch(body, startBtn, force) {
     _batchAborted = false;   /* BATCH-ABORT-ON-CLOSE(#18): 새 배치 시작 = 중단 플래그 초기화 */
     startBtn.disabled = true; startBtn.textContent = '시작 중…';
     var ctx = _ctx();
-    var req = L.sanitizeBatchRequest({ classId: ctx.classId, teamName: ctx.teamName, forceRegenerate: false });
+    /* IMAGE-S2-REGEN(#16·#55): force면 최신 결과가 있어도 전 장면 재생성 → 원본을 다시 그린 뒤
+       '모두 마감됐어요'로 막혀 갱신 못 하던 것 해소. 서버는 이미 forceRegenerate 지원(무배포). */
+    var req = L.sanitizeBatchRequest({ classId: ctx.classId, teamName: ctx.teamName, forceRegenerate: force === true });
     var start = await _call('callStartImageS2Batch', req);
     if (!start || !start.ok || !start.jobId) { body.innerHTML = '<p style="color:#c0392b;font-size:13px;">시작할 수 없어요(' + _esc((start && start.code) || 'ERROR') + ').</p>'; return; }
     var jobId = start.jobId; var targets = start.targets || []; var done = {};

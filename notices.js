@@ -74,6 +74,8 @@
     document.body.appendChild(el);
     document.getElementById('branch-notice-ok').addEventListener('click', function () {
       el.remove();
+      _shown = false;   /* NOTICES-LIVE-LISTEN(#67·#70): 닫으면 다시 표시 가능 → 이후 도착한 주의도 뜬다.
+                           (읽음 처리한 것은 readAt이 기록돼 on('value') 재평가 시 미확인 목록에서 빠짐) */
       const ups = {};
       list.forEach(function (n) {
         ups[n.base + '/' + n.id + '/readAt'] = firebase.database.ServerValue.TIMESTAMP;
@@ -82,35 +84,62 @@
     });
   }
 
-  async function _check(user) {
-    if (_shown) return true;
-    let db;
-    try { db = firebase.database(); } catch (e) { return true; /* SDK 없음 — 중단 */ }
-    let list = [];
+  /* 기본(default) Firebase 인스턴스. maker·다듬기·교사보기(from=maker)는 default app이 인증돼 있어
+     notices/app-version read가 통과한다. (공개 감상 전용 named 'viewer' app 경로의 수신=#69는
+     다중앱 auth 처리가 필요해 별도 과제로 보류 — 여기선 건드리지 않는다.) */
+  function _db() {
+    try { return firebase.database(); } catch (e) { return null; }
+  }
+
+  let _teacherCid = null;
+  let _teamPathOn = false;
+  let _teacherPathOn = false;
+
+  /* 팀+교사 경로의 미확인 notice를 합산해 배너. on('value')가 부를 때마다 실행(멱등: _banner가
+     _shown/기존 배너 있으면 skip). 배너 닫으면 _shown=false로 돌아가 다음 주의가 다시 뜬다. */
+  async function _evaluate() {
+    if (_shown) return;
+    const db = _db(); if (!db) return;
     const ctx = _ctx();
+    let list = [];
     if (ctx) {
       try { list = list.concat(await _unreadAt(db, 'notices/' + ctx.classId + '/' + ctx.teamKey)); }
       catch (e) { /* 권한 없음(레거시 등) — 무시 */ }
     }
-    try {
-      const cid = (await db.ref('teacherClasses/' + user.uid).once('value')).val();
-      if (cid) {
-        list = list.concat(await _unreadAt(db, 'notices/' + cid + '/_teacher'));
-      }
-    } catch (e) { /* 교사 아님/권한 없음 — 무시 */ }
-    if (list.length) { _banner(list, db); return true; }
-    return !!ctx;   /* 팀 컨텍스트까지 확인했으면 종료, 아직 입장 전이면 재시도 */
+    if (_teacherCid) {
+      try { list = list.concat(await _unreadAt(db, 'notices/' + _teacherCid + '/_teacher')); }
+      catch (e) { /* 무시 */ }
+    }
+    if (list.length) _banner(list, db);
   }
 
+  /* NOTICES-LIVE-LISTEN(#67·#70): 폴링으로 '한 번 확인 후 종료'하던 것 → 팀/교사 경로에 상시
+     on('value') 리스너를 붙여, 수업 중(탭이 이미 열려 있음)이나 나중에 도착한 주의도 즉시 배너로.
+     팀 컨텍스트는 입장 후에 생기므로 그때까지만 짧게 폴링해 경로를 부착한다(값 비교라 시계 무관). */
   function _start(user) {
-    _check(user).then(function (done) {
-      if (done || _shown) return;
-      _timer = setInterval(function () {
-        _tries += 1;
-        if (_tries > 17 || _shown) { clearInterval(_timer); return; }   /* ~2분 */
-        _check(user).then(function (d) { if (d) clearInterval(_timer); });
-      }, 7000);
-    });
+    const db = _db(); if (!db) return;
+    /* 교사 경로(1회 확인 후 상시 리스너) */
+    db.ref('teacherClasses/' + user.uid).once('value').then(function (snap) {
+      _teacherCid = snap.val() || null;
+      if (_teacherCid && !_teacherPathOn) {
+        _teacherPathOn = true;
+        try { _db().ref('notices/' + _teacherCid + '/_teacher').on('value', function () { _evaluate(); }); } catch (e) { /* noop */ }
+      }
+    }).catch(function () { /* 교사 아님 — 무시 */ });
+    /* 팀 경로 — ctx 생길 때까지 폴링해 상시 리스너 부착 */
+    function tick() {
+      const ctx = _ctx();
+      if (ctx && !_teamPathOn) {
+        _teamPathOn = true;
+        try { _db().ref('notices/' + ctx.classId + '/' + ctx.teamKey).on('value', function () { _evaluate(); }); } catch (e) { /* noop */ }
+        return;
+      }
+      if (ctx) return;
+      _tries += 1;
+      if (_tries > 40) return;   /* ~5분간 입장 대기 후 포기(새로고침 시 재부팅) */
+      _timer = setTimeout(tick, 7000);
+    }
+    tick();
   }
 
   /* ════════════════════════════════════════════════════════════════
@@ -121,16 +150,30 @@
   function _watchAppVersion() {
     try {
       var baseline;
-      firebase.database().ref('app-version').on('value', function (snap) {
+      var db = _db(); if (!db) return;
+      db.ref('app-version').on('value', function (snap) {
         var v = snap.val();
         if (baseline === undefined) { baseline = (v == null ? null : v); return; }   /* 첫 값 = 기준 */
         if (v == null || v === baseline) return;
-        try { if (typeof flushBodySaves === 'function') flushBodySaves(); } catch (e) {}
-        try { if (typeof flushTitleSaves === 'function') flushTitleSaves(); } catch (e) {}
-        try { if (typeof _flushPendingSave === 'function') _flushPendingSave(); } catch (e) {}
-        setTimeout(function () { try { location.reload(); } catch (e) {} }, 900);
+        _doForceReload();
       });
     } catch (e) { /* fail-open */ }
+  }
+
+  /* CANVAS-GUARD(#68): 그리기/사진 편집(✓완료 전 캔버스)이 열려 있으면 리로드가 그림을 통째로
+     날린다 → 편집이 닫힐 때까지 리로드를 미룬다(긴급 패치는 편집 종료 후 반영). text/pending은 먼저 flush. */
+  function _doForceReload() {
+    try { if (typeof flushBodySaves === 'function') flushBodySaves(); } catch (e) {}
+    try { if (typeof flushTitleSaves === 'function') flushTitleSaves(); } catch (e) {}
+    try { if (typeof _flushPendingSave === 'function') _flushPendingSave(); } catch (e) {}
+    function _editingCanvas() {
+      try { return !!document.querySelector('.js-pb-img-save'); } catch (e) { return false; }
+    }
+    function _go() {
+      if (_editingCanvas()) { setTimeout(_go, 2000); return; }   /* 편집 닫힐 때까지 대기(그림 보존 우선) */
+      try { location.reload(); } catch (e) {}
+    }
+    setTimeout(_go, 900);
   }
 
   let _bootTries = 0;

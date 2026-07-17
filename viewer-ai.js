@@ -4959,6 +4959,13 @@
      openModal — viewer 상단 [📔 작품 마무리] 진입점
      ════════════════════════════════════════════════════════════════ */
   async function openModal() {
+    /* PICTUREBOOK-LEVELS ④(§7.7): 1단계 = 고쳐쓰기(작품 마무리) 스킵 — HUD 버튼 숨김의 2중 방어. */
+    if (typeof ViewerState !== 'undefined' && ViewerState.project
+        && ViewerState.project.projectType === 'picturebook'
+        && ViewerState.project.picturebookLevel === 1) {
+      alert('1단계 동화책은 작품 마무리(고쳐쓰기) 단계가 없어요.\n글자 위치와 그림을 다듬고, 감상으로 자랑해 보세요!');
+      return;
+    }
     /* Phase 1: 카드가 교사 권한을 반영하도록 모달 전에 aiSettings 로드 보장. */
     try { await _loadClassAiSettings(); } catch (e) { /* fallback 허용 */ }
     /* Phase 5C: 1단계 완료 표시용 최근 결과 존재 여부 로드(best-effort·DB read만·AI 0). */

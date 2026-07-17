@@ -289,6 +289,8 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
   ViewerState.project.movieDecisionStyle = null;
   ViewerState.project.pbTheme = null;
   ViewerState.project.textTheme = null;
+  /* PICTUREBOOK-LEVELS ④: 단계(1|2|3·없으면 null=3단계 취급) — 책 전환 시 이전 책 값 상속 차단 */
+  ViewerState.project.picturebookLevel = null;
 
   if (meta) {
     if (meta.mode)     ViewerState.project.mode     = meta.mode;
@@ -323,6 +325,12 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
     }
     if (typeof meta.pbTheme === 'string') {
       ViewerState.project.pbTheme = meta.pbTheme;
+    }
+    /* PICTUREBOOK-LEVELS ④: 그림책 단계 — 1·2·3만 인정(그 외 null=레거시 3단계 취급).
+       소비자: viewer-ai(고쳐쓰기 스킵)·viewer-edit(1단계 이미지 UI). 렌더/인쇄는 안 읽음(원칙). */
+    {
+      const _pbl = Number(meta.picturebookLevel);
+      if (_pbl === 1 || _pbl === 2 || _pbl === 3) ViewerState.project.picturebookLevel = _pbl;
     }
 
     /* v138: 그림책형 본문 카드 톤 시스템 (작품 단위)

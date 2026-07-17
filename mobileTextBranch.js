@@ -2615,7 +2615,23 @@ async function requestStoryDraftStarter(opts) {
       if (data && data.refused) console.warn('[storyDraft] refused:', data.reason);
       return false;
     }
-    return await _applyStoryDraftStarter(data.draft, { storyCount: data.storyCount || sc, level: data.level });
+    const applied = await _applyStoryDraftStarter(data.draft, { storyCount: data.storyCount || sc, level: data.level });
+    /* PICTUREBOOK-LEVELS ④: 1단계 = 그림도 자동 — fire-and-forget(대기 없음·실패해도 글은 유효).
+       서버(generateStoryImages)가 단계/토글/팀당 총량/이중 실행 lock을 재검증. 결과는
+       aiVariants s2 슬롯에 쌓여 감상 진입 시 AI-DEFAULT-VIEW-1이 자동 표시. */
+    if (applied && data.level === 1) {
+      try {
+        firebase.app().functions('asia-northeast3')
+          .httpsCallable('generateStoryImages')({ classId, teamName })
+          .then((r) => {
+            const g = r && r.data;
+            console.info('[storyImages] done:', g && g.generated, 'skipped:', g && g.skipped);
+          })
+          .catch((e) => console.warn('[storyImages] fail:', (e && (e.code || e.message)) || e));
+        _mtbToast('그림도 만들고 있어요! 조금 뒤 [감상해 보기]에서 볼 수 있어요. 🎨');
+      } catch (e) { /* 그림 실패는 비치명 */ }
+    }
+    return applied;
   } catch (e) {
     /* 미배포(NOT_FOUND)·권한(MODE_NOT_ENABLED)·총량 초과 등 전부 폴백 — fail-open */
     console.warn('[storyDraft] fallback to base10:', (e && (e.code || e.message)) || e);

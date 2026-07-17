@@ -3255,6 +3255,178 @@ function _validateStudentStoryDraft(d, storyCount) {
 }
 
 /* ════════════════════════════════════════════════════════════════
+   PICTUREBOOK-LEVELS ④(2026-07-18): generateStoryImages — 1단계 자동 그림.
+   ──────────────────────────────────────────────────────────────
+   · 대상: picturebookLevel===1(서버 read) 작품의 본문 있는 비표지 장면.
+   · 그림 = /v1/images/generations(어댑터 createOpenAiStoryImageAdapter·말풍선 PoC 구도).
+   · 결과는 기존 s2 변형 슬롯(aiVariants/image/{sid}/s2)에 저장 → AI-DEFAULT-VIEW-1이
+     감상 기본으로 자동 표시(뷰어/인쇄 무변경 원칙). 원본 scene.imageData/imageUrl 무접촉.
+   · 말풍선 자동 배치: 장면에 picturebookBodyBox가 없을 때만 상단 밴드 프리셋 기록
+     (아이가 조정한 좌표는 절대 덮지 않음).
+   · 게이트: _validateRequest(imageS2 — 교사 'AI 그림책 마감' 토글 재사용)+단계+팀당 총량
+     (§9 팀당 총량 결정: 자동 1회분+장면별 🔁 여유). 배치는 팀 lock으로 이중 실행 방지.
+   · 호출: 배치(data 없음=초안 직후 maker가 fire-and-forget) / 단일({sceneId, force}=🔁 재생성).
+   정본: docs/picturebook_levels_design_20260718.md §7.5·§7.6·§9
+   ════════════════════════════════════════════════════════════════ */
+const STORY_IMAGE_TEAM_LIMIT = 24;
+const STORY_IMAGE_LOCK_STALE_MS = 10 * 60 * 1000;
+const STORY_IMAGE_BODYBOX_PRESET = { x: 6, y: 5, width: 88, backdropOpacity: 0.85 };
+
+function _selectStoryImageAdapter() {
+  let key = '';
+  try { key = IMAGE_OPENAI_API_KEY.value() || ''; } catch (e) { key = ''; }
+  if (key) return ImageS2OpenAi.createOpenAiStoryImageAdapter({ apiKey: key, model: 'gpt-image-2', timeoutMs: 150000 });
+  return ImageS2Adapter.createNotConfiguredAdapter();
+}
+
+exports.generateStoryImages = onCall(
+  /* 9장 × 15~40s, 동시성 3 → 여유 있게 540s. 시간 초과로 일부만 되면 재호출이 dedup으로 이어서 채움. */
+  { enforceAppCheck: false, secrets: [IMAGE_OPENAI_API_KEY], timeoutSeconds: 540 },
+  async (req) => {
+    /* 권한/설정/멤버십/killswitch — 교사 토글은 기존 'AI 그림책 마감'(modes.imageS2) 재사용 */
+    const ctx = await _validateRequest(req, 'imageS2', { skipUsageLimits: true });
+    const enc = encodeURIComponent(ctx.teamName);
+    const baseRef = admin.database().ref(`classes/${ctx.classId}/teams/${enc}`);
+
+    /* 단계 게이트 — 1단계 전용(서버 read·클라 위조 불가) */
+    const lvl = Number((await baseRef.child('viewer-meta/picturebookLevel').once('value')).val());
+    if (lvl !== 1) {
+      throw new HttpsError('failed-precondition', 'STORY_IMAGE_LEVEL (이 기능은 그림책 1단계 작품에서만 쓸 수 있어요)');
+    }
+
+    const d = req.data || {};
+    const singleSceneId = d.sceneId != null ? ImageS2Gen.sanitizeSeg(d.sceneId) : null;
+    if (d.sceneId != null && !singleSceneId) {
+      throw new HttpsError('invalid-argument', 'sceneId가 올바르지 않아요.');
+    }
+    const force = d.force === true;
+
+    /* 대상 장면 — 본문 있는 비표지(엔딩 포함). 표지는 제목 중심이라 제외(§7.5·비용 고정) */
+    const scenes = (await baseRef.child('scenes').once('value')).val() || {};
+    let targetIds = Object.keys(scenes).filter((sid) => {
+      const sc = scenes[sid];
+      if (!sc || typeof sc !== 'object' || sc.type === 'cover') return false;
+      return typeof sc.body === 'string' && sc.body.trim().length > 0;
+    });
+    if (singleSceneId) {
+      targetIds = targetIds.filter((s) => s === singleSceneId);
+      if (targetIds.length === 0) {
+        throw new HttpsError('failed-precondition', '그림을 만들 수 있는 장면이 아니에요(본문이 있어야 해요).');
+      }
+    }
+    if (targetIds.length === 0) {
+      return { ok: true, generated: 0, skipped: 0, failed: [], total: 0 };
+    }
+
+    /* 배치 lock — 초안 직후 fire와 재진입 fire가 겹쳐도 이중 생성 방지(10분 stale 인수) */
+    const lockRef = baseRef.child('aiUsage/imageGenLock');
+    if (!singleSceneId) {
+      const now = Date.now();
+      const tx = await lockRef.transaction((cur) => {
+        if (typeof cur === 'number' && now - cur < STORY_IMAGE_LOCK_STALE_MS) return;   /* abort=사용 중 */
+        return now;
+      });
+      if (!tx.committed) {
+        return { ok: false, code: 'BUSY', message: '이미 그림을 만드는 중이에요. 잠시 뒤에 감상에서 확인해 주세요.' };
+      }
+    }
+    const releaseLock = async () => {
+      if (!singleSceneId) { try { await lockRef.remove(); } catch (e) { /* stale 인수로 자연 해소 */ } }
+    };
+
+    try {
+      const adapter = _selectStoryImageAdapter();
+      if (adapter.configured !== true) {
+        throw new HttpsError('failed-precondition', '이미지 AI가 아직 준비되지 않았어요. 선생님께 말씀드려 주세요.');
+      }
+      const wholeStoryText = await _buildWholeStoryText(baseRef);
+      const limitRef = baseRef.child('aiUsage/imageGen');
+      const PV = ImageS2OpenAi.STORY_IMAGE_PROMPT_VERSION;
+
+      let generated = 0, skipped = 0, limitReached = false;
+      const failed = [];
+      const queue = [...targetIds].sort((a, b) => (Number(a) || 0) - (Number(b) || 0));
+
+      const workOne = async (sid) => {
+        const body = String(scenes[sid].body || '').trim();
+        /* dedup — 이미 이 버전 결과가 있으면 스킵(차감 0). force(🔁)는 재생성 */
+        let existing = null;
+        try { existing = (await baseRef.child(`aiVariants/image/${sid}/s2`).once('value')).val(); } catch (e) { existing = null; }
+        if (!force && existing && existing.url && existing.stale !== true && existing.promptVersion === PV) {
+          skipped++; return;
+        }
+        /* 팀당 총량 — 장면당 1 소모(실패 시 환불) */
+        const tx = await limitRef.transaction((cur) => {
+          const n = (typeof cur === 'number' && cur >= 0) ? cur : 0;
+          if (n >= STORY_IMAGE_TEAM_LIMIT) return;
+          return n + 1;
+        });
+        if (!tx.committed) { limitReached = true; return; }
+        const refund = () => limitRef.transaction((cur) => Math.max(0, (cur || 0) - 1)).catch(() => {});
+
+        try {
+          const gen = await adapter.generate({ storyText: body, wholeStoryText });
+          if (!gen || gen.ok !== true) { await refund(); failed.push({ sceneId: sid, code: (gen && gen.code) || 'IMAGE_AI_PROVIDER_ERROR' }); return; }
+          const outv = ImageS2Gen.validateModelOutput({ bytes: gen.bytes, mimeType: gen.mimeType });
+          if (!outv.ok) { await refund(); failed.push({ sceneId: sid, code: outv.code }); return; }
+
+          const storagePath = ImageS2Gen.buildS2StoragePath(ctx.classId, enc, sid, require('crypto').randomUUID(), gen.mimeType);
+          if (!storagePath || !ImageS2Gen.isAllowedS2StoragePath(storagePath)) { await refund(); failed.push({ sceneId: sid, code: 'IMAGE_AI_INTERNAL_PATH' }); return; }
+          const up = await _uploadImageS2Result({ storagePath, bytes: gen.bytes, mimeType: gen.mimeType });
+
+          const variant = ImageS2Gen.buildS2Variant({
+            url: up.url, storagePath, sourceMode: 'gen',
+            basedOnImageHash: ImageS2Gen.computeImageBasedHash(body, sid, 'gen'),
+            model: gen.model || adapter.model, modelVersion: gen.modelVersion || adapter.modelVersion,
+            promptVersion: PV, finalizedAt: Date.now(),
+          });
+          if (!variant) { await refund(); failed.push({ sceneId: sid, code: 'IMAGE_AI_WRITE_FAILED' }); return; }
+          /* buildS2Variant 기본 promptVersion은 s2 정본 — 생성판 버전으로 명시 고정 */
+          variant.promptVersion = PV;
+          await baseRef.child(`aiVariants/image/${sid}/s2`).set(variant);
+
+          /* 이전 결과 객체는 7일 유예 cleanup-queue(기존 s2 패턴·best-effort) */
+          if (existing && existing.storagePath && existing.storagePath !== storagePath) {
+            try { await admin.database().ref('cleanup-queue/imageS2').push(ImageS2Gen.buildCleanupQueueRecord(existing.storagePath, Date.now())); } catch (e) { /* ignore */ }
+          }
+          /* 말풍선 자동 배치 — 좌표가 아직 없을 때만 상단 밴드 프리셋(아이 조정 보존) */
+          try {
+            const bb = (await baseRef.child(`scenes/${sid}/picturebookBodyBox`).once('value')).val();
+            if (!bb) await baseRef.child(`scenes/${sid}/picturebookBodyBox`).set(STORY_IMAGE_BODYBOX_PRESET);
+          } catch (e) { /* 프리셋 실패는 비치명(렌더 기본값 폴백) */ }
+          generated++;
+        } catch (e) {
+          await refund();
+          failed.push({ sceneId: sid, code: 'IMAGE_AI_UPLOAD_FAILED' });
+        }
+      };
+
+      /* 동시성 3 워커 풀 */
+      const workers = Array.from({ length: 3 }, async () => {
+        while (queue.length > 0 && !limitReached) {
+          const sid = queue.shift();
+          if (sid == null) break;
+          await workOne(sid);
+        }
+      });
+      await Promise.all(workers);
+
+      await admin.database().ref('ai-stats/imageGen').push({
+        by: ctx.uid, classId: ctx.classId, generated, skipped, failedCount: failed.length,
+        limitReached, at: admin.database.ServerValue.TIMESTAMP,
+      }).catch(() => {});
+      logger.info('[generateStoryImages]', {
+        by: ctx.uid, classId: ctx.classId, teamName: ctx.teamName,
+        generated, skipped, failedCount: failed.length, limitReached, single: !!singleSceneId,
+      });
+      return { ok: true, generated, skipped, failed, limitReached, total: targetIds.length };
+    } finally {
+      await releaseLock();
+    }
+  }
+);
+
+/* ════════════════════════════════════════════════════════════════
    SHELF-1(2026-07-11): 학급 책장 조회 — 코드/공개 검증은 서버에서.
    ──────────────────────────────────────────────────────────────
    · 입력: { classCode } (반 학생 — 코드 지식 = 입장권) 또는 { classId } (링크 모드 —

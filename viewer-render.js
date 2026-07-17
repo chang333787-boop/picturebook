@@ -2639,7 +2639,12 @@ function renderHUD() {
             ? '<button class="maker-return-btn maker-return-btn--tool js-edit-scene-style-popover" title="이야기 전체 기본값과 이 장면만 다르게 꾸미기" aria-label="꾸미기 — 이야기 전체 / 이 장면만">🎨 꾸미기</button>'
             : '<button class="maker-return-btn maker-return-btn--tool js-edit-scene-style-popover" title="현재 장면의 글과 화면을 꾸며요. 같은 스타일을 모든 장면에 복사할 수 있어요" aria-label="장면 꾸미기 — 현재 장면의 글과 화면">🎨 장면 꾸미기</button>') : ''}
           ${_isMovieToolHudScene ? '<button class="maker-return-btn maker-return-btn--tool js-edit-movie-tool-modal" title="이 장면의 영상과 본문 표시를 설정합니다" aria-label="이 장면의 영상과 본문 표시를 설정합니다">🎬 무비</button>' : ''}
-          ${_aiAllowed ? '<button class="maker-return-btn maker-return-btn--ai js-ai-trigger" title="작품 마무리 — 질문·검사로 고칠 곳을 찾고, 직접 고친 뒤, 마지막 다듬기" aria-label="작품 마무리 — 질문·검사·직접 고치기·마지막 다듬기">📔 작품 마무리</button>' : ''}
+          ${(_aiAllowed
+            /* PICTUREBOOK-LEVELS ④(§7.7): 1단계는 고쳐쓰기(작품 마무리) 스킵 — HUD 진입 숨김.
+               책 렌더(그림/글 표시) 경로는 무변경 — HUD 크롬 게이트만. */
+            && !(ViewerState.project && ViewerState.project.projectType === 'picturebook'
+                 && ViewerState.project.picturebookLevel === 1))
+            ? '<button class="maker-return-btn maker-return-btn--ai js-ai-trigger" title="작품 마무리 — 질문·검사로 고칠 곳을 찾고, 직접 고친 뒤, 마지막 다듬기" aria-label="작품 마무리 — 질문·검사·직접 고치기·마지막 다듬기">📔 작품 마무리</button>' : ''}
           <button class="maker-return-btn maker-return-btn--test js-edit-preview-test" title="실제 관람자 화면으로 확인">▶️ 감상해 보기</button>
           <button class="maker-return-btn maker-return-btn--save js-edit-save" title="자동으로 저장돼요 — 지금 바로 저장하고 싶을 때 눌러요">💾 저장</button>
           <!-- REFINE-STAB-D: ⋯ 더보기 제거 — 작업 흐름 중심 정리.

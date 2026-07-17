@@ -3393,6 +3393,20 @@ function _pbChoiceLinkSectionHtml(scene, rowDelete) {
    상단 🖼️ 그림 팝오버가 같은 HTML 재사용. class/구조/input(class 기반, id 없음) 무변경.
    1D에서 우측 호출부만 wrapper로 감싸 숨기기 쉽게 분리. */
 function _pbImageActionsHtml(scene) {
+  /* PICTUREBOOK-LEVELS ④: 1단계 = AI 자동 그림 — 업로드/그리기/삭제 진입을 감추고
+     안내+🔁(그림 다시 만들기)만 노출(sourceMode 충돌 원천 차단·§7.5). 2·3단계는 기존 그대로. */
+  const _pbLvl = (typeof ViewerState !== 'undefined' && ViewerState.project)
+    ? ViewerState.project.picturebookLevel : null;
+  if (_pbLvl === 1) {
+    return `
+    <div class="edit-row">
+      <label class="edit-label">🖼️ 장면 그림</label>
+      <div class="edit-pb-image-actions">
+        <span class="edit-label-note" style="display:block;margin-bottom:6px;word-break:keep-all;">1단계 동화책은 AI가 그림을 만들어 줘요. 마음에 안 들면 다시 만들 수 있어요.</span>
+        <button type="button" class="edit-toggle js-pb-image-regen1">🔁 그림 다시 만들기</button>
+      </div>
+    </div>`;
+  }
   const hasImage = !!(scene && (scene.imageData || scene.imageUrl));
   return `
     <div class="edit-row">
@@ -5833,6 +5847,44 @@ function _bindPbImageActions(root, scene) {
       renderEditPanel();
       _scheduleViewerFrameReRender();
       _closeIfPopover();
+    });
+  });
+
+  /* PICTUREBOOK-LEVELS ④: 1단계 장면별 🔁 — 서버(generateStoryImages)가 단계/토글/팀당 총량 재검증.
+     성공 시 viewer-ai 재초기화로 새 변형 즉시 반영(AI-DEFAULT가 감상 기본 표시). */
+  root.querySelectorAll('.js-pb-image-regen1').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!_editText.editable) return;
+      const ok = await showViewerConfirm({
+        title: '그림을 다시 만들까요?',
+        message: 'AI가 이 장면의 그림을 새로 만들어요.\n모둠이 쓸 수 있는 그림 만들기 횟수에서 1번을 써요.',
+        confirmText: '다시 만들기',
+        danger: false,
+      });
+      if (!ok) return;
+      const t0 = btn.textContent;
+      btn.disabled = true; btn.textContent = '🎨 만드는 중… (30초쯤 걸려요)';
+      try {
+        const _cid = (ViewerState.project && ViewerState.project.classId) || ViewerState.classId;
+        const _team = (ViewerState.project && ViewerState.project.teamName) || ViewerState.teamName;
+        const res = await firebase.app().functions('asia-northeast3')
+          .httpsCallable('generateStoryImages')({ classId: _cid, teamName: _team, sceneId: String(scene.num || scene.id), force: true });
+        const r = res && res.data;
+        if (r && r.ok === true && r.generated > 0) {
+          btn.textContent = '✅ 새 그림 완성!';
+          try { if (window.viewerAi && typeof window.viewerAi._reinitForCurrentTeam === 'function') window.viewerAi._reinitForCurrentTeam(); } catch (e) { /* noop */ }
+          setTimeout(() => { btn.disabled = false; btn.textContent = t0; }, 1800);
+        } else {
+          const _msg = (r && r.limitReached)
+            ? '이 모둠의 그림 만들기 횟수를 다 썼어요. 선생님께 말씀드려 주세요.'
+            : '그림을 다시 만들지 못했어요. 잠시 후 다시 시도해 주세요.';
+          alert(_msg);
+          btn.disabled = false; btn.textContent = t0;
+        }
+      } catch (e) {
+        alert('그림을 다시 만들지 못했어요. 잠시 후 다시 시도해 주세요.');
+        btn.disabled = false; btn.textContent = t0;
+      }
     });
   });
 

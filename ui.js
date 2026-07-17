@@ -559,14 +559,20 @@ async function renameScene(num) {
 }
 
 async function deleteScene(num) {
+  /* DELETE-CONFIRM-HINT(#15): 카드 헤더의 작은 ✕를 잘못 눌러 엉뚱한 장면을 지우는 것 방지 —
+     확인창에 장면 번호와 제목/본문 첫 줄을 함께 보여 어느 장면인지 알게 함. */
+  const _sc = (typeof scenes === 'object' && scenes) ? scenes[num] : null;
+  const _raw = _sc ? (((_sc.title && String(_sc.title).trim()) || (_sc.body && String(_sc.body).trim())) || '') : '';
+  const _oneLine = _raw.replace(/\s+/g, ' ').trim();
+  const _hint = _oneLine ? `\n\n“${_oneLine.slice(0, 30)}${_oneLine.length > 30 ? '…' : ''}”` : '';
   const ok = window.showMakerConfirm
     ? await window.showMakerConfirm({
-        title: '장면을 삭제할까요?',
-        message: '이 장면을 삭제하면 되돌릴 수 없어요.',
+        title: `장면 ${num}을(를) 삭제할까요?`,
+        message: `이 장면을 삭제하면 되돌릴 수 없어요.${_hint}`,
         confirmText: '삭제하기',
         danger: true,
       })
-    : confirm(`장면 ${num}을(를) 삭제할까요?\n삭제한 뒤에는 되돌릴 수 없어요.`);
+    : confirm(`장면 ${num}을(를) 삭제할까요?${_hint}\n\n삭제한 뒤에는 되돌릴 수 없어요.`);
   if (!ok) return;
   if (!await ensureEditable(num)) {
     alert(`다른 사람이 장면 ${num}을(를) 편집 중이에요.`); return;

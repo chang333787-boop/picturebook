@@ -253,12 +253,22 @@ async function _renderMasterClassPicker() {
   if (adminState.masterClassId && idx[adminState.masterClassId]) {
     sel.value = adminState.masterClassId;
   } else {
-    const own = await _resolveTeacherClassId();
-    if (own && idx[own]) sel.value = own;
-    adminState.masterClassId = sel.value;
+    /* MASTER-PICKER-RESTORE(#35): 다른 학급을 골라 편집하러 갔다가 관리로 복귀하면 in-memory
+       masterClassId가 날아가 자기 학급으로 리셋되던 것 → sessionStorage에 저장해 둔 선택을 복원. */
+    let _restored = null;
+    try { _restored = sessionStorage.getItem('branchMasterClassId'); } catch (e) { /* noop */ }
+    if (_restored && idx[_restored]) {
+      sel.value = _restored;
+      adminState.masterClassId = _restored;
+    } else {
+      const own = await _resolveTeacherClassId();
+      if (own && idx[own]) sel.value = own;
+      adminState.masterClassId = sel.value;
+    }
   }
   sel.addEventListener('change', () => {
     adminState.masterClassId = sel.value;
+    try { sessionStorage.setItem('branchMasterClassId', sel.value); } catch (e) { /* noop */ }   /* #35 */
     _invalidateAdminCache('master-class-switch');
     _loadAdminDataV2();
   });
@@ -269,6 +279,13 @@ async function _renderMasterClassPicker() {
    대상 팀 목록 = 현재 로드된 학급의 adminState.allTeams(encodedName=DB 팀 키).
    받는 쪽 표시는 notices.js(수신 배너)가 처리. */
 function _openMasterNoticeModal(classId) {
+  /* MASTER-NOTICE-STALE-GUARD(#34): 학급 선택을 막 바꾼 직후엔 allTeams가 아직 이전 학급 것이라,
+     이전 학급 팀 키로 새 학급(notices/{classId})에 기록돼 실제 대상 학생에게는 안 뜬다.
+     로드 완료 학급(cachedClassId)과 다르면 전송 자체를 막고 안내(팀 목록 로드 후 재시도). */
+  if (classId !== adminState.cachedClassId) {
+    alert('학급 팀 목록을 아직 불러오는 중이에요.\n잠시 후 다시 눌러 주세요.');
+    return;
+  }
   document.getElementById('admin-master-notice-modal')?.remove();
   const teams = (adminState.allTeams || []).map(t => ({ key: t.encodedName, label: t.name }));
   const wrap = document.createElement('div');

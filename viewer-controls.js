@@ -115,6 +115,15 @@ function chooseOption(choiceId) {
     return;
   }
 
+  /* CHOICE-DANGLING-TARGET(#30): nextId가 있으나 그 장면이 삭제/레거시로 존재하지 않으면
+     navigateTo가 renderError로 입장 화면까지 튕기던 것 → 미연결과 동일하게 토스트+현재 장면 유지. */
+  if (!ViewerState.scenes[choice.nextId]) {
+    if (typeof showPlayToast === 'function') {
+      showPlayToast('아직 연결되지 않은 길이에요.');
+    }
+    return;
+  }
+
   navigateTo(choice.nextId);
 }
 

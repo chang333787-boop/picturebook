@@ -83,12 +83,31 @@ function _estimateDataUrlBytes(dataUrl) {
    · 5MB 초과 → 1920px + JPEG 0.82, 필요시 해상도 단계 축소
    · 최종 한계 초과 시 throw
    ================================================================ */
+/* HEIC-DECODE-GUARD(#11): 실제로 <img>/canvas가 디코드할 수 있는 형식인지 1회 확인.
+   HEIC/HEIF는 MIME이 image/*라 형식 검사는 통과하지만 크롬(크롬북)에서 디코드가 안 돼
+   업로드는 '성공'해도 감상·인쇄에서 깨진 이미지가 된다 → 저장 전에 걸러 안내. */
+function _canDecodeImageDataUrl(dataUrl) {
+  return new Promise((resolve) => {
+    try {
+      const img = new Image();
+      img.onload  = () => resolve(!!(img.naturalWidth && img.naturalHeight));
+      img.onerror = () => resolve(false);
+      img.src = dataUrl;
+    } catch (e) { resolve(false); }
+  });
+}
+
 async function compressFileForUpload(file) {
   if (!file) throw new Error('파일이 없어요');
   if (!file.type.startsWith('image/')) throw new Error('이미지 파일만 업로드할 수 있어요');
 
   const origDataUrl   = await _readFileAsDataURL(file);
   const isTransparent = file.type === 'image/png' || file.type === 'image/webp';
+
+  /* HEIC-DECODE-GUARD(#11): 크기와 무관하게 저장 전 디코드 검증(작은 파일 early return 경로 포함). */
+  if (!(await _canDecodeImageDataUrl(origDataUrl))) {
+    throw new Error('이 사진 형식(HEIC 등)은 여기서 쓸 수 없어요.\n갤러리에서 JPG나 PNG로 저장한 뒤 올려 주세요.');
+  }
 
   if (file.size <= IMAGE_SOFT_LIMIT_BYTES) return origDataUrl;
 

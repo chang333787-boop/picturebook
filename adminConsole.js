@@ -855,6 +855,10 @@ async function _createTeamAccount(classId, nameEl, pinEl, btn, statusEl) {
   /* 최소 검증 — 팀 이름 1~30자, PIN 숫자 4~6자리(학생 입력 조건과 정합) */
   if (!name) { _tcSetStatus(statusEl, 'err', '팀 이름을 입력해주세요.'); if (nameEl) nameEl.focus(); return; }
   if (name.length > 30) { _tcSetStatus(statusEl, 'err', '팀 이름은 30자 이내로 입력해주세요.'); return; }
+  /* TEAM-NAME-DOT-GUARD(#33·#53): '.'는 encodeURIComponent가 인코딩하지 않아 RTDB 경로를 깨뜨림
+     (#$[]/ 는 인코딩되어 안전). CSV 일괄 생성과 동일 가드 — 이게 없으면 학생 입장이 '잠시 후
+     다시 시도' 오안내로 영원히 실패한다. */
+  if (name.includes('.')) { _tcSetStatus(statusEl, 'err', "팀 이름에 '.'(마침표)는 쓸 수 없어요."); if (nameEl) nameEl.focus(); return; }
   if (!pin)  { _tcSetStatus(statusEl, 'err', 'PIN을 입력해주세요.'); if (pinEl) pinEl.focus(); return; }
   if (!/^[0-9]{4,6}$/.test(pin)) { _tcSetStatus(statusEl, 'err', 'PIN은 숫자 4~6자리로 입력해 주세요.'); if (pinEl) pinEl.focus(); return; }
 
@@ -1759,6 +1763,10 @@ function _renderTeamList() {
 function _teamCardHtml(t) {
   const meta    = STATUS_META[t.status];
   const canView = t.status === 'ready';
+  /* TEAM-NAME-ESCAPE(#75): 모둠 이름에 < & " 가 있으면(예: '1<2조','톰&제리','2"반') 카드
+     마크업이 깨지거나 data-name 속성이 조기 종료돼 버튼이 엉뚱한 이름을 넘기던 것 방지.
+     click 핸들러는 dataset.name으로 읽어 브라우저가 엔티티를 자동 디코드 → 원본 그대로 전달. */
+  const nm = _escHtml(t.name);
 
   const badges = [];
   /* 2026-05-29 admin 1차: 작품 모드 배지 — 카드 첫 자리에 표시 (가장 자주 확인하는 정보).
@@ -1786,12 +1794,12 @@ function _teamCardHtml(t) {
         `<span class="admin-problem">${p.icon} ${p.text}</span>`).join('')}</div>`
     : '';
 
-  const makerBtn  = `<button class="admin-action-btn admin-action-btn--maker js-admin-maker" data-name="${t.name}" title="Maker로 열기">🛠 수정</button>`;
+  const makerBtn  = `<button class="admin-action-btn admin-action-btn--maker js-admin-maker" data-name="${nm}" title="Maker로 열기">🛠 수정</button>`;
   const viewerBtn = canView
-    ? `<button class="admin-action-btn admin-action-btn--viewer js-admin-viewer" data-name="${t.name}" title="Viewer로 보기">▶️ 감상</button>`
+    ? `<button class="admin-action-btn admin-action-btn--viewer js-admin-viewer" data-name="${nm}" title="Viewer로 보기">▶️ 감상</button>`
     : `<button class="admin-action-btn admin-action-btn--viewer admin-action-btn--disabled" disabled title="감상 가능 상태가 아니에요">▶️ 감상</button>`;
   const publicBtn = `<button class="admin-action-btn js-admin-toggle-public ${t.isPublic ? 'admin-action-btn--public-on' : 'admin-action-btn--public-off'}"
-    data-encoded="${t.encodedName}" data-name="${t.name}" data-public="${t.isPublic}"
+    data-encoded="${t.encodedName}" data-name="${nm}" data-public="${t.isPublic}"
     title="${t.isPublic ? '비공개로 전환' : '공개로 전환'}">
     ${t.isPublic ? '🌐 공개 중' : '🔒 비공개'}
   </button>`;
@@ -1803,30 +1811,30 @@ function _teamCardHtml(t) {
   /* DELETE-SAFETY-2: 삭제 위험도 3단 — ①🔒잠금(일상·되돌리기 쉬움) ②🧹계정만 삭제(작품 보존·
      입장만 차단·되돌리기 = 같은 이름 재등록) ③🗑모둠 전체 삭제(작품까지 소멸·위험 톤·재입력 강확인). */
   const accountMenuItems = t.registered
-    ? `<button class="admin-more-item js-admin-pin" data-encoded="${t.encodedName}" data-name="${t.name}">🔑 PIN 변경</button>
+    ? `<button class="admin-more-item js-admin-pin" data-encoded="${t.encodedName}" data-name="${nm}">🔑 PIN 변경</button>
       ${t.accountStatus === 'locked'
-        ? `<button class="admin-more-item js-admin-lock" data-encoded="${t.encodedName}" data-name="${t.name}" data-status="locked">🔓 잠금 해제</button>`
-        : `<button class="admin-more-item js-admin-lock" data-encoded="${t.encodedName}" data-name="${t.name}" data-status="active">🔒 잠금</button>`}
-      <button class="admin-more-item js-admin-account-del" data-encoded="${t.encodedName}" data-name="${t.name}" title="입장 계정(이름·PIN)만 지워요. 작품(장면·그림)은 그대로 남아요.">🧹 계정만 삭제 (작품 보존)</button>`
-    : `<button class="admin-more-item js-admin-register" data-encoded="${t.encodedName}" data-name="${t.name}">🧩 관리팀으로 등록</button>`;
+        ? `<button class="admin-more-item js-admin-lock" data-encoded="${t.encodedName}" data-name="${nm}" data-status="locked">🔓 잠금 해제</button>`
+        : `<button class="admin-more-item js-admin-lock" data-encoded="${t.encodedName}" data-name="${nm}" data-status="active">🔒 잠금</button>`}
+      <button class="admin-more-item js-admin-account-del" data-encoded="${t.encodedName}" data-name="${nm}" title="입장 계정(이름·PIN)만 지워요. 작품(장면·그림)은 그대로 남아요.">🧹 계정만 삭제 (작품 보존)</button>`
+    : `<button class="admin-more-item js-admin-register" data-encoded="${t.encodedName}" data-name="${nm}">🧩 관리팀으로 등록</button>`;
 
   const moreBtn   = `<button class="admin-action-btn admin-action-btn--more js-admin-more" title="더 보기">⋯</button>
     <div class="admin-more-menu" style="display:none;">
       ${accountMenuItems}
       ${t.total > 0
-        ? `<button class="admin-more-item js-admin-print" data-name="${t.name}" title="장면 무대 그대로 그림책처럼 인쇄해요 (그림책 작품용)">🖨 그림책 인쇄</button>`
+        ? `<button class="admin-more-item js-admin-print" data-name="${nm}" title="장면 무대 그대로 그림책처럼 인쇄해요 (그림책 작품용)">🖨 그림책 인쇄</button>`
         : `<button class="admin-more-item" disabled style="opacity:0.45;cursor:default;" title="아직 장면이 없어서 인쇄할 수 없어요">🖨 그림책 인쇄</button>`}
-      <button class="admin-more-item js-admin-print-wa" data-name="${t.name}" title="이 모둠의 생각 점검 질문·작품 검사 결과를 인쇄해요 (학생 태블릿엔 프린터가 없어 교사가 대신 인쇄)">🖨 고쳐쓰기 자료 인쇄</button>
-      <button class="admin-more-item js-admin-print-tc" data-name="${t.name}" title="이 모둠의 생각 나침반 설계도를 열어 인쇄해요 (카드형/나침반형)">🖨 생각 나침반 인쇄</button>
-      <button class="admin-more-item js-admin-issue-code" data-encoded="${t.encodedName}" data-name="${t.name}">📤 복사 코드 발급</button>
-      <button class="admin-more-item js-admin-comments" data-encoded="${t.encodedName}" data-name="${t.name}" title="이 작품에 달린 댓글을 보고 지울 수 있어요">💬 댓글 관리</button>
-      <button class="admin-more-item admin-more-item--danger js-admin-delete" data-encoded="${t.encodedName}" data-name="${t.name}" title="작품(장면·그림)까지 영구 삭제해요. 되돌릴 수 없어요.">🗑 모둠 전체 삭제 (작품까지)</button>
+      <button class="admin-more-item js-admin-print-wa" data-name="${nm}" title="이 모둠의 생각 점검 질문·작품 검사 결과를 인쇄해요 (학생 태블릿엔 프린터가 없어 교사가 대신 인쇄)">🖨 고쳐쓰기 자료 인쇄</button>
+      <button class="admin-more-item js-admin-print-tc" data-name="${nm}" title="이 모둠의 생각 나침반 설계도를 열어 인쇄해요 (카드형/나침반형)">🖨 생각 나침반 인쇄</button>
+      <button class="admin-more-item js-admin-issue-code" data-encoded="${t.encodedName}" data-name="${nm}">📤 복사 코드 발급</button>
+      <button class="admin-more-item js-admin-comments" data-encoded="${t.encodedName}" data-name="${nm}" title="이 작품에 달린 댓글을 보고 지울 수 있어요">💬 댓글 관리</button>
+      <button class="admin-more-item admin-more-item--danger js-admin-delete" data-encoded="${t.encodedName}" data-name="${nm}" title="작품(장면·그림)까지 영구 삭제해요. 되돌릴 수 없어요.">🗑 모둠 전체 삭제 (작품까지)</button>
     </div>`;
 
   return `
     <div class="admin-card-head">
       <div class="admin-card-identity">
-        <span class="admin-card-name">👥 ${t.name}</span>
+        <span class="admin-card-name">👥 ${nm}</span>
         <span class="admin-status-badge" style="background:${meta.bg};color:${meta.color};">
           ${meta.icon} ${meta.label}
         </span>
@@ -2165,7 +2173,7 @@ async function _deleteAccountOnly(encodedName, displayName) {
     `"${displayName}" 모둠의 입장 계정만 지울까요?\n\n` +
     `• 작품(장면·그림)은 그대로 남아요.\n` +
     `• 학생은 더 이상 이 이름·비밀번호(PIN)로 새로 입장할 수 없어요.\n` +
-    `• 다시 열려면 "학생/팀 계정 미리 만들기"에서 같은 이름을 등록하면 돼요.\n\n` +
+    `• 다시 열려면 이 모둠 카드의 ⋯ 메뉴 → [🧩 관리팀으로 등록]을 누르면 돼요.\n\n` +
     `작품까지 지우려면 '모둠 전체 삭제'를 쓰세요.`
   );
   if (!ok) return;
@@ -2458,6 +2466,12 @@ function _deleteTeam(encodedName, displayName) {
 
   db.ref(teamPath).remove()
     .then(() => {
+      /* SHELF-GHOST-FIX(#32): 공개(공개 중) 팀을 삭제하면 shelf/{name} 노드가 남아 학생 '우리 반
+         책장'에 유령 책(눌러도 안 열림)이 계속 보이던 것 → 팀 삭제 시 책장 등재도 함께 제거.
+         (isPublic 토글은 _toggleIsPublic이 동기화하지만 삭제 경로엔 훅이 없었음.) best-effort. */
+      if (DATA_PATH_VERSION === 'v2' && adminState.adminClassId) {
+        try { db.ref(`classes/${adminState.adminClassId}/shelf/${encodedName}`).remove().catch(() => {}); } catch (e) {}
+      }
       alert(`✅ "${displayName}" 팀 데이터가 삭제됐어요.`);
       adminState.allTeams = adminState.allTeams.filter(t => t.encodedName !== encodedName);
       _invalidateAdminCache('delete-team');   // 다음 재진입 때 삭제된 팀이 캐시로 살아나지 않게

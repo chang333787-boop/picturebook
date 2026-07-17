@@ -36,8 +36,12 @@
        원본=storage.googleapis.com / AI 발행(s2)=firebasestorage.googleapis.com. -->
   <link rel="preconnect" href="https://storage.googleapis.com" crossorigin/>
   <link rel="preconnect" href="https://firebasestorage.googleapis.com" crossorigin/>
+  <!-- FONT-NONBLOCK(#45): 방화벽/느린 회선(크롬북)에서 폰트 CDN 연결을 미리 여는 preconnect + 갈무리(장식 픽셀폰트) 비차단 로드. -->
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Jua&family=Nanum+Gothic:wght@400;700&family=Gowun+Batang:wght@400;700&family=Black+Han+Sans&family=Nanum+Pen+Script&family=Gaegu:wght@400;700&family=Cormorant+Garamond:wght@400;700&family=Hahmlet:wght@400;700&family=Diphylleia&family=Noto+Sans+KR:wght@400;700&family=Noto+Serif+KR:wght@400;700&family=Gowun+Dodum&family=Do+Hyeon&family=Hi+Melody&family=Yeon+Sung&family=East+Sea+Dokdo&family=Stylish&display=swap" rel="stylesheet"/>
-  <link href="https://cdn.jsdelivr.net/gh/quiple/galmuri/dist/galmuri.css" rel="stylesheet"/>
+  <link href="https://cdn.jsdelivr.net/gh/quiple/galmuri/dist/galmuri.css" rel="stylesheet" media="print" onload="this.media='all'"/>
+  <noscript><link href="https://cdn.jsdelivr.net/gh/quiple/galmuri/dist/galmuri.css" rel="stylesheet"/></noscript>
   <link rel="stylesheet" href="viewer.css?v=f49b8856a1"/>
   <link rel="stylesheet" href="v03-modes.css?v=ae0e8ecab8"/>
   <link rel="stylesheet" href="pb-tone.css?v=567c692f8d"/>

@@ -31,8 +31,13 @@
   <meta name="apple-mobile-web-app-title" content="가지"/>
   <title>가지 branch — 작품 만들기</title>
   <!-- T-THEME-1: 모바일 텍스트 편집기(mobileTextBranch) 폰트 프리뷰 정합 — viewer와 동일 셋. -->
+  <!-- FONT-NONBLOCK(#45): 폰트 CDN preconnect + 갈무리(장식 픽셀폰트) 비차단 로드(느린/방화벽 회선 렌더 차단 완화). -->
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Jua&family=Nanum+Gothic:wght@400;700&family=Gowun+Batang:wght@400;700&family=Black+Han+Sans&family=Nanum+Pen+Script&family=Gaegu:wght@400;700&family=Cormorant+Garamond:wght@400;700&family=Hahmlet:wght@400;700&family=Diphylleia&family=Noto+Sans+KR:wght@400;700&family=Noto+Serif+KR:wght@400;700&family=Gowun+Dodum&family=Do+Hyeon&family=Hi+Melody&family=Yeon+Sung&family=East+Sea+Dokdo&family=Stylish&display=swap" rel="stylesheet"/>
-  <link href="https://cdn.jsdelivr.net/gh/quiple/galmuri/dist/galmuri.css" rel="stylesheet"/>
+  <link href="https://cdn.jsdelivr.net/gh/quiple/galmuri/dist/galmuri.css" rel="stylesheet" media="print" onload="this.media='all'"/>
+  <noscript><link href="https://cdn.jsdelivr.net/gh/quiple/galmuri/dist/galmuri.css" rel="stylesheet"/></noscript>
   <!-- v0.3 모드별 기본형 (viewer와 공용 모드 CSS) -->
   <link rel="stylesheet" href="v03-modes.css?v=ae0e8ecab8"/>
   <!-- THOUGHT-COMPASS (생각 나침반) Phase 1 — feature branch 전용 -->

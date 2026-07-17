@@ -1464,7 +1464,10 @@ body[data-stage-aspect="pb-landscape"] #stage-wrap.letterbox-v #viewer-frame {
 .cover-book {
   flex: 1;
   display: grid;
-  grid-template-rows: 1fr 2fr 1fr;
+  /* COVER-LONG-TITLE-FIX(#66): 가운데(제목) 행을 minmax(0,2fr)로 — 아주 긴 제목(붙여넣기 등)이
+     grid 암묵 min-height:auto로 트랙을 넘겨 커지며 하단 '시작하기' 버튼을 화면 밖으로 밀어내던 것 방지.
+     제목이 길면 아래 .cover-book__center 안에서 스크롤(버튼 행 보존). */
+  grid-template-rows: 1fr minmax(0, 2fr) 1fr;
   padding: clamp(24px, 4vw, 56px);
   box-sizing: border-box;
   width: 100%;
@@ -1513,6 +1516,9 @@ body[data-stage-aspect="pb-landscape"] #stage-wrap.letterbox-v #viewer-frame {
   justify-content: center;
   gap: clamp(12px, 2vw, 20px);
   text-align: center;
+  /* COVER-LONG-TITLE-FIX(#66): 트랙을 넘기는 긴 제목은 이 안에서만 스크롤(버튼 밀어내지 않게). */
+  min-height: 0;
+  overflow-y: auto;
 }
 .cover-book__center .cover-title-pb {
   font-family: var(--font-ui, 'Jua', sans-serif);

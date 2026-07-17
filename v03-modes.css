@@ -561,6 +561,10 @@ body:not(.edit-mode-active) .scene-screen--pb.pb--imagecenter .pb-frame {
   justify-content: center;
   /* W8: 기본 center — 1행만 있을 땐 박스 가운데. 2행 이상은 아래에서 stretch로 오버라이드 */
   align-content: center;
+  /* CHOICE-OVERFLOW-CLIP-FIX(#62): 버튼 줄 총높이가 박스보다 크면(낮은 창·라벨 두 줄 wrap)
+     center가 첫 줄 위쪽을 컨테이너 밖으로 밀어 overflow-y:auto로도 위쪽에 못 닿던 것 방지.
+     safe center = 넘칠 때만 start로 폴백(안 잘리고 아래로 스크롤 가능). 미지원 브라우저는 위 center 유지. */
+  align-content: safe center;
   /* v36: 4+개 버튼 wrap 시 자식이 부모 늘리지 못하게 — overflow auto로 자체 스크롤. */
   overflow-y: auto;
   overflow-x: hidden;

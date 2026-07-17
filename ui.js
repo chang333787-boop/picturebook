@@ -810,6 +810,17 @@ if (typeof window !== 'undefined') window._updateCompassResultButton = _updateCo
    · maker 환영은 두 곳에서 뜸: (a) ui.js 아래 _enterMakerAfterPtypeSelected(무비/체험/v1/기존재진입),
      (b) 나침반 완료 후 review.js(수정 불가). 둘 다 bare maybeShow → TutorialWelcome.armCoach 시퀄로 통일.
    · 코치 엔진(tutorial-coach.js)은 maker.html에만 로드. 대상이 실재/가시일 때만 뜸(가시성 가드 + rAF/지연·소폭 재시도). */
+/* TUTORIAL-SCOPE-MAKER(#4): maker 환영/코치 dismiss를 '모둠 계정'(classId__teamName) 스코프로.
+   종전엔 스코프 null(기기 전체)이라 공유 크롬북에서 한 모둠이 '다시 열지 않기'를 누르면 이후 모든
+   모둠(신규 포함)의 환영·코치가 영구히 안 뜨던 것 방지. refine(_refineTutorialScope)과 동일 포맷. */
+function _makerTutorialScope() {
+  try {
+    if (classId && teamName) return encodeURIComponent(String(classId) + '__' + String(teamName));
+  } catch (e) { /* noop */ }
+  return null;
+}
+/* review.js(나침반 완료 후 환영)도 같은 스코프를 쓰도록 노출 — 두 진입 경로의 dismiss 키 정합. */
+if (typeof window !== 'undefined') window.__makerTutorialScope = _makerTutorialScope;
 function _runMakerCoach(ptype) {
   if (typeof window === 'undefined' || !window.TutorialCoach || typeof window.TutorialCoach.run !== 'function') return;
   var _tries = 0;
@@ -827,6 +838,7 @@ function _runMakerCoach(ptype) {
       window.TutorialCoach.run({
         stepsKey: 'makerCoach', keyPrefix: 'tutorial_maker_coach',
         dismissKeyPrefix: 'tutorial_welcome', filterType: ptype || null,
+        scope: _makerTutorialScope(),   /* #4: 모둠 계정 스코프 */
       });
     } catch (e) { /* noop */ }
   };
@@ -842,7 +854,8 @@ function _makerCoachAfterWelcome(res, ptype) {
        넘어가기 1회가 이후 모든 모둠의 환영+코치를 죽였음(사용자 원요청 의미로 복원). */
     if (res.dontShow) {
       if (window.TutorialWelcome && typeof window.TutorialWelcome.markDismissed === 'function') {
-        try { window.TutorialWelcome.markDismissed('tutorial_welcome', null); } catch (e) { /* noop */ }
+        /* #4: null(기기 전체) → 모둠 계정 스코프 — 다른 모둠엔 안 샘. */
+        try { window.TutorialWelcome.markDismissed('tutorial_welcome', _makerTutorialScope()); } catch (e) { /* noop */ }
       }
       return;
     }
@@ -949,7 +962,8 @@ async function _enterMakerAfterPtypeSelected(ptype) {
   if (_compassGatedExisting) { _armMakerCoach(ptype); return; }   /* COACH-GATE-FIX: 게이트 위 환영 방지 — 완료 후 review.js 환영→시퀄이 코치 처리 */
   if (typeof window !== 'undefined' && window.TutorialWelcome && typeof window.TutorialWelcome.maybeShow === 'function') {
     _armMakerCoach(ptype);   /* 환영 종료 시 시퀄이 코치 표시/억제 결정(무비/체험/v1/기존재진입 경로) */
-    try { await window.TutorialWelcome.maybeShow(); } catch (e) { /* noop */ }
+    /* #4: 모둠 계정 스코프로 dismiss 확인 → 같은 기기 다른 모둠엔 '다시 열지 않기'가 안 샘. */
+    try { await window.TutorialWelcome.maybeShow({ scope: _makerTutorialScope() }); } catch (e) { /* noop */ }
   }
 }
 

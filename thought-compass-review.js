@@ -413,7 +413,10 @@
     /* TUTORIAL-PRD(S2): 생각 나침반 질문을 끝내고 에디터로 들어오는 이 순간에 환영 튜토리얼을 띄운다
        (사용자 결정 "나침반 뒤"). 기기당 1회·닫힘 대기·실패해도 에디터 진입 무영향. */
     if (typeof window !== 'undefined' && window.TutorialWelcome && typeof window.TutorialWelcome.maybeShow === 'function') {
-      try { await window.TutorialWelcome.maybeShow(); } catch (e) { /* noop */ }
+      /* TUTORIAL-SCOPE-MAKER(#4): 나침반 완료 경로도 모둠 계정 스코프로(ui.js와 동일 헬퍼) —
+         같은 기기 다른 모둠에 '다시 열지 않기'가 새지 않게. */
+      var _scope = (typeof window.__makerTutorialScope === 'function') ? window.__makerTutorialScope() : null;
+      try { await window.TutorialWelcome.maybeShow({ scope: _scope }); } catch (e) { /* noop */ }
     }
   }
 

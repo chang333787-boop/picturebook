@@ -1148,6 +1148,11 @@ function _autoplayMovieVideo(video) {
    구조: 위 미디어(어두운 프레임) + 아래 결정 패널(light)
    결정 패널: 자연 높이 + 최대 40%, 넘치면 내부 스크롤
    설명문(body) 선택, 버튼 필수. 미디어 위에 글/버튼 안 올림. */
+/* MOVIE-REVISIT-CHOICES(#27·#64): 이 감상 세션에서 영상을 '끝까지 본' 장면 id 집합.
+   엔딩의 '← 직전 갈림길로'·HUD ‹(뒤로)로 이미 본 영상 장면에 되돌아오면, 매번 data-played="false"로
+   시작해 선택지를 다시 볼 때까지 영상을 재시청해야 했다 → 이미 본 장면은 선택지를 즉시 노출(자동재생은
+   유지). 세션 메모리라 저장 구조 무변경, 새로고침하면 초기화(처음 감상은 종전대로 끝까지 봄). */
+const _moviePlayedSceneIds = new Set();
 function _renderSceneMovie(stage, scene) {
   const choices = Array.isArray(scene.choices) ? scene.choices : [];
   const md = (typeof getMovieData === 'function') ? getMovieData(scene) : {};
@@ -1227,7 +1232,9 @@ function _renderSceneMovie(stage, scene) {
      · data-played="false" : 영상 재생 전/중 — CSS에서 .movie-decision 숨김
      · data-played="true"  : 영상 종료 또는 영상 없음 — .movie-decision 노출
      초기값: videoUrl 있으면 "false", 없으면 "true". 'ended' 이벤트로 토글. */
-  const initialPlayed = hasVideo ? 'false' : 'true';
+  /* MOVIE-REVISIT-CHOICES(#27·#64): 이미 끝까지 본 장면으로 되돌아오면 선택지 즉시 노출(자동재생은 유지). */
+  const _revisited = hasVideo && scene && _moviePlayedSceneIds.has(String(scene.id));
+  const initialPlayed = (hasVideo && !_revisited) ? 'false' : 'true';
   /* 2026-06-01 Movie-H: 작품단위 선택지 표시 방식 — panel(기본 하단 패널) | card(중앙 카드). */
   const _movieDeco = (ViewerState.project && ViewerState.project.movieDecisionStyle === 'card') ? 'card' : 'panel';
   const movieAttrs =
@@ -1739,7 +1746,12 @@ function _bindSceneEvents(stage, scene) {
   stage.querySelectorAll('.scene-screen:not(.is-leaving) .js-movie-video').forEach(video => {
     video.addEventListener('ended', () => {
       const movieScreen = video.closest('.scene-screen--movie');
-      if (movieScreen) movieScreen.setAttribute('data-played', 'true');
+      if (movieScreen) {
+        movieScreen.setAttribute('data-played', 'true');
+        /* MOVIE-REVISIT-CHOICES(#27·#64): 끝까지 본 장면 기록 → 재방문 시 선택지 즉시 노출. */
+        const _sid = movieScreen.getAttribute('data-scene-num');
+        if (_sid != null && _sid !== '') _moviePlayedSceneIds.add(String(_sid));
+      }
       /* MOVIE-FS-EXIT(2026-07-10): 네이티브 전체화면으로 보던 중 영상이 끝나면 전체화면을 자동 해제 —
          전체화면은 <video>만 차지해 결정 패널(본문/행동버튼)이 안 보이므로, 해제해야 이어서 선택 가능.
          (표준 fullscreenElement + iOS Safari webkitDisplayingFullscreen 둘 다 처리. 실패해도 무해.) */

@@ -52,9 +52,18 @@ function _restoreBranchViewportOnce() {
   try { raw = sessionStorage.getItem(BVR_KEY); } catch (e) { return; }
   if (!raw) return;
 
-  /* 복귀일 때만(=URL ?resume=1). 일반 F5·홈진입·직접URL·새 프로젝트엔 resume 없음 → 미적용. */
+  /* 복귀일 때만 적용. ?resume=1(명시 복귀) 또는 평범한 F5의 SESSION-REFRESH 자동복귀
+     (같은 탭·같은 팀의 fresh makerSession)이면 복원 — BRANCH-VIEWPORT-F5(#41)로 F5 케이스 추가.
+     아래 팀/프로젝트 일치 가드가 있어 다른 작품엔 잘못 적용되지 않음. 홈진입·직접URL·새 프로젝트엔 미적용. */
   var isReturn = false;
-  try { isReturn = (new URLSearchParams(location.search).get('resume') === '1'); } catch (e) {}
+  try {
+    var _sp = new URLSearchParams(location.search);
+    if (_sp.get('resume') === '1') isReturn = true;
+    else {
+      var _ms = JSON.parse(sessionStorage.getItem('makerSession') || 'null');
+      if (_ms && _ms.teamName && (Date.now() - (_ms.savedAt || 0) < 2 * 60 * 60 * 1000)) isReturn = true;
+    }
+  } catch (e) {}
   if (!isReturn) return; /* 키는 같은 탭 다음 캡처에서 덮어쓰이거나 탭 종료 시 소멸 */
 
   /* 여기부터는 1회 소비 — 어떤 경로로 빠져도 키 제거 */
@@ -330,6 +339,9 @@ function _unloadFlush() {
   try { flushTitleSaves(); } catch (e) {}
   try { flushBodySaves(); } catch (e) {}
   try { if (typeof _flushPushToFirebaseNow === 'function') _flushPushToFirebaseNow(); } catch (e) {}
+  /* BRANCH-VIEWPORT-F5(#41): 평범한 F5도 이탈 직전에 뷰포트(선택 장면·pan·zoom) 캡처 →
+     SESSION-REFRESH 자동복귀 시 복원(종전엔 nav 이동에서만 캡처돼 F5는 위치 소실). */
+  try { if (typeof _captureBranchViewportState === 'function') _captureBranchViewportState(); } catch (e) {}
 }
 window.addEventListener('beforeunload', _unloadFlush);
 window.addEventListener('pagehide',    _unloadFlush);

@@ -1627,8 +1627,9 @@
     -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
   body.print-picturebook .pbp-stage2-bubble-p {
-    margin: 0; font-size: 19px; line-height: 1.55;
-    white-space: pre-wrap; word-break: keep-all; overflow-wrap: anywhere; color: #222;
+    /* PRINT-STYLE(#63): 크기·굵기·색도 학생 설정 반영(print.js가 --pb-* 심음). 미설정=인쇄 기본값. */
+    margin: 0; font-size: var(--pb-fs-body, 19px); font-weight: var(--pb-fw-body, 400); line-height: 1.55;
+    white-space: pre-wrap; word-break: keep-all; overflow-wrap: anywhere; color: var(--pb-color-override, #222);
     /* PRINT-FONT(2026-07-09): 화면과 동일 본문 글씨체(--pb-font-family, print.js가 심음). 미설정=화면 기본 Gowun Batang. */
     font-family: var(--pb-font-family, 'Gowun Batang', 'Nanum Gothic', serif);
   }
@@ -1637,8 +1638,9 @@
     background: rgba(255,252,244,0.94); border-color: #7a6a4a; color: #4a3a22;
   }
   body.print-picturebook .pbp-scenepub-body {
-    margin-top: 10px; padding: 8px 12px; font-size: 15px; line-height: 1.65;
-    border: 1px solid #bbb; border-radius: 10px;
+    /* PRINT-STYLE(#63): 크기·굵기·색 학생 설정 반영(미설정=인쇄 기본). */
+    margin-top: 10px; padding: 8px 12px; font-size: var(--pb-fs-body, 15px); font-weight: var(--pb-fw-body, 400); line-height: 1.65;
+    border: 1px solid #bbb; border-radius: 10px; color: var(--pb-color-override, inherit);
     white-space: pre-wrap; word-break: keep-all;
     font-family: var(--pb-font-family, 'Gowun Batang', 'Nanum Gothic', serif);   /* PRINT-FONT */
   }

@@ -189,6 +189,22 @@
         return (st && st.fontFamily && fm[st.fontFamily]) ? fm[st.fontFamily] : '';
       } catch (e) { return ''; }
     };
+    /* PRINT-STYLE(#63): 글씨체뿐 아니라 학생이 정한 크기·굵기·색도 인쇄에 반영(전엔 19px 검정 보통
+       고정이라 화면과 딴판). 각 값을 page에 CSS 변수로 심고, 인쇄 CSS가 var(...,기본값)로 받는다.
+       크기는 학생이 명시 설정한 px만 반영(미설정=인쇄 기본 유지). 무대 폭이 화면과 유사해 px 근사(정밀
+       스케일 아님)지만 고정 19px보다 훨씬 화면에 가깝다. 굵기/색은 절대값이라 정확. */
+    const _applyPrintStyle = (page, s) => {
+      try {
+        const ff = _fontOf(s);
+        if (ff) page.style.setProperty('--pb-font-family', ff);
+        const st = (typeof getTextStyle === 'function') ? getTextStyle(s) : null;
+        if (!st) return;
+        if (Number.isFinite(st.fontSize)) page.style.setProperty('--pb-fs-body', st.fontSize + 'px');
+        if (st.weight === 'bold') page.style.setProperty('--pb-fw-body', '700');
+        else if (st.weight) page.style.setProperty('--pb-fw-body', '400');
+        if (st.color) page.style.setProperty('--pb-color-override', st.color);
+      } catch (e) { /* noop — 실패 시 인쇄 CSS 기본값 */ }
+    };
 
     const old = document.getElementById('pb-print-root');
     if (old) old.remove();
@@ -265,12 +281,11 @@
       if (s.type === 'ending') flags.push((s.trueEnding || s.isTrueEnd) ? '진엔딩' : '엔딩');
       /* PRINT-SCENE-LABEL(2026-07-09): 'N번' → '장면 N'(사용자 선호). */
       const numText = '장면 ' + res.numberByKey[k] + (flags.length ? ' · ' + flags.join(' · ') : '');
-      const _ff = _fontOf(s);   /* PRINT-FONT: 이 장면 본문 글씨체(화면과 동일) */
 
       if (img) {
         /* 장면 그대로: 고정 3:2 무대 — 인쇄 페이지 폭은 A4에서 일정하므로 % 좌표+px 폰트 = 기기 무관 결정적 */
         const page = _el('div', 'pbp-page pbp-scenepub');
-        if (_ff) page.style.setProperty('--pb-font-family', _ff);   /* PRINT-FONT */
+        _applyPrintStyle(page, s);   /* PRINT-STYLE(#63): 글씨체+크기+굵기+색 */
         const wrap = _el('div', 'pbp-stagewrap');
         const st = _el('div', 'pbp-stage2');
         const im = document.createElement('img'); im.className = 'pbp-stage2-img'; im.src = img;
@@ -306,7 +321,7 @@
       } else {
         /* 무그림 — text-only 출판 페이지(LAYOUT-4 유지) */
         const page = _el('div', 'pbp-page pbp-publish');
-        if (_ff) page.style.setProperty('--pb-font-family', _ff);   /* PRINT-FONT */
+        _applyPrintStyle(page, s);   /* PRINT-STYLE(#63): 글씨체+크기+굵기+색 */
         const card = _el('div', 'pbp-scene pbp-scene--full pbp-scene--noimg');
         if ((s.title || '').trim()) card.appendChild(_el('div', 'pbp-scene-caption', s.title.trim()));
         card.appendChild(_el('div', 'pbp-scene-body' + (body ? '' : ' pbp-scene-body--empty'), body || '(글 없음)'));

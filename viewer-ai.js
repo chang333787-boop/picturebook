@@ -825,7 +825,10 @@
       +   '<button type="button" class="ai-btn ai-btn--primary js-ai-s2-apply">적용 가능한 장면 적용하기</button>'
       + '</div>';
 
-    const root = _createModalRoot('ai-s2-result-modal', html, { size: 'large' });
+    /* S2-RESULT-LOCK(#17): 결과 모달을 lock으로 — 크롬북 터치로 바깥을 실수로 탭하거나 Esc를 눌러도
+       닫히지 않게(명시적 ✕/취소만). s2 쿼터는 작품당 2회뿐이라 한 번의 오터치로 절반이 증발하고
+       AI 비용도 낭비되던 것 방지. */
+    const root = _createModalRoot('ai-s2-result-modal', html, { size: 'large', lock: true });
     root.querySelector('.js-ai-modal-close').addEventListener('click', function () { _removeModalRoot('ai-s2-result-modal'); });
     root.querySelector('.js-ai-s2-cancel').addEventListener('click', function () { _removeModalRoot('ai-s2-result-modal'); });
     root.querySelector('.js-ai-s2-apply').addEventListener('click', function () {
@@ -4472,7 +4475,7 @@
       if (sec.items.length === 0) {
         itemsHtml = '<div class="ai-check-empty">확인할 점 없어요 ✓</div>';
       } else {
-        itemsHtml = sec.items.map((item, idx) => _renderCheckItem(sec.key, item, idx)).join('');
+        itemsHtml = sec.items.map((item, idx) => _renderCheckItem(sec.key, item, idx, check.checkedAt || '')).join('');
       }
       return `
         <div class="ai-check-category">
@@ -4542,7 +4545,7 @@
 
   /* CHECK-UI-1: real(sceneId·message·where) + 구버전 mock(wrong/correct·sceneIdFrom/To·issue·scenes·character)
      항목을 필드 존재 여부로 렌더. 누락 필드의 undefined·빈 "→" 노출을 막는다. catKey는 호환용으로만 받음. */
-  function _renderCheckItem(catKey, item, idx) {
+  function _renderCheckItem(catKey, item, idx, roundToken) {
     item = item || {};
 
     /* ── 장면 라벨 + 점프 타겟 ── (real: sceneId / 구 mock coherence: from→to / 구 mock character: scenes[]) */
@@ -4593,8 +4596,11 @@
     const jumpHtml = jumpId
       ? `<button class="ai-check-item__jump js-ai-check-jump" data-scene-id="${_escapeHtml(jumpId)}">✏️ 이 장면 고치기</button>`
       : '';
-    /* Phase 5B: '확인했어요' 체크(session/local). itemKey = 카테고리:index:장면. */
-    const seenKey = String(catKey || 'x') + ':' + (idx != null ? idx : 0) + ':' + (jumpId || oneId || '');
+    /* Phase 5B: '확인했어요' 체크(session/local). itemKey = 카테고리:index:장면.
+       SEEN-ROUND-SCOPE(#23): 검사 회차 토큰(check.checkedAt)을 키에 포함 → 글을 고치고 다시
+       검사하면 이전 회차의 '확인했어요' 체크가 이월되지 않고 새 회차 기준으로 초기화된다. */
+    const _round = (roundToken != null && roundToken !== '') ? String(roundToken) : '';
+    const seenKey = String(catKey || 'x') + ':' + (idx != null ? idx : 0) + ':' + (jumpId || oneId || '') + (_round ? (':' + _round) : '');
     const seenHtml = _seenToggleHtml('workCheck', seenKey);
     const seenOn = _isWaqSeen('workCheck', seenKey);
     return `

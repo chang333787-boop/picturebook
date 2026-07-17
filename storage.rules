@@ -1,10 +1,16 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    // 이미지 — 누구나 읽음 (감상), auth 박힌 사용자만 박음 (anonymous OK)
-    // 6MB 미만 + image MIME만 (mediaManager가 5MB로 압축한 후 박으므로 여유 1MB)
+    // 이미지 — 인증 사용자만 읽음(익명 로그인 포함). 6MB 미만 + image MIME만.
+    // STORAGE-READ-HARDEN(#71, 2026-07-17): read를 `if true`→`if request.auth != null`로 좁힘.
+    //   [이유] 종전엔 클래스코드+모둠이름만 알면(입장 카드에 인쇄) 토큰 없는 REST 경로 추측으로
+    //   비공개 작품의 아동 사진·영상이 무인증 열람됐음(scene_{num} 경로가 결정적).
+    //   [정상 동작 무영향] 렌더는 업로드 시 getDownloadURL로 받은 '토큰 URL'만 사용 → 토큰이
+    //   규칙을 우회하므로 read 규칙과 무관. getDownloadURL 호출은 업로드 시점(인증된 maker/다듬기)뿐.
+    //   [한계] 익명 로그인은 여전히 통과 → 같은 반 학생의 경로 추측까지 막으려면 Function 경유
+    //   업로드/서명 URL로 전환하는 후속 과제 필요(별도 티켓 #72 write 소유권과 함께).
     match /images/{allPaths=**} {
-      allow read: if true;
+      allow read: if request.auth != null;
       allow write: if request.auth != null
                    && (request.resource == null || (
                         request.resource.size < 6 * 1024 * 1024
@@ -12,9 +18,9 @@ service firebase.storage {
                       ));
     }
     // 영상 — firebase.js의 uploadVideoToStorage가 박는 위치
-    // 60초 영상 + 50MB 정책. rules는 60MB 박음 (여유)
+    // 60초 영상 + 50MB 정책. rules는 60MB 박음 (여유). read=인증 사용자만(#71, 이미지와 동일).
     match /videos/{allPaths=**} {
-      allow read: if true;
+      allow read: if request.auth != null;
       allow write: if request.auth != null
                    && (request.resource == null || (
                         request.resource.size < 60 * 1024 * 1024

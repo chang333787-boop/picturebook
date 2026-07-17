@@ -11,21 +11,30 @@ service firebase.storage {
     //   업로드/서명 URL로 전환하는 후속 과제 필요(별도 티켓 #72 write 소유권과 함께).
     match /images/{allPaths=**} {
       allow read: if request.auth != null;
+      // STORAGE-DELETE-BLOCK(#72, 2026-07-17): request.resource != null 요구 → 삭제(resource==null) 차단.
+      //   [이유] 종전엔 익명 사용자가 남의 팀 이미지를 삭제 가능(scene_{num} 경로 결정적 → 한 반 전체
+      //   그림 대량 삭제 스크립트 가능). Storage 규칙은 read/write만 있고 RTDB 멤버십을 못 읽어 소유권
+      //   검증이 불가하므로, 최소한 '삭제'만이라도 rules로 차단.
+      //   [정상 무영향] 앱의 Storage 삭제는 3곳 모두 best-effort(실패 시 orphan 허용)이고, 권위있는
+      //   정리는 서버 clearImagesAndSwitchSourceMode가 RTDB에서 수행 → 삭제 실패는 고아만 남길 뿐
+      //   사용자 동작 안 깨짐(고아 정리는 cleanup-queue 후속). 재업로드=같은 경로 덮어쓰기(update)라 무관.
+      //   [한계] 덮어쓰기(update)는 경로 결정적+정상 재업로드와 구분 불가라 rules로 못 막음 → 완전
+      //   방어는 Function 경유/서명 URL 업로드 전환 필요(후속·#71 한계와 동일 뿌리).
       allow write: if request.auth != null
-                   && (request.resource == null || (
-                        request.resource.size < 6 * 1024 * 1024
-                        && request.resource.contentType.matches('image/.*')
-                      ));
+                   && request.resource != null
+                   && request.resource.size < 6 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
     }
     // 영상 — firebase.js의 uploadVideoToStorage가 박는 위치
     // 60초 영상 + 50MB 정책. rules는 60MB 박음 (여유). read=인증 사용자만(#71, 이미지와 동일).
     match /videos/{allPaths=**} {
       allow read: if request.auth != null;
+      // STORAGE-DELETE-BLOCK(#72): 이미지와 동일 — 삭제(resource==null) 차단(대량 삭제 공격 방지).
+      //   영상 삭제(deleteVideoFromStorage)도 best-effort라 실패는 고아만 남김. 재업로드=덮어쓰기(무관).
       allow write: if request.auth != null
-                   && (request.resource == null || (
-                        request.resource.size < 60 * 1024 * 1024
-                        && request.resource.contentType.matches('video/.*')
-                      ));
+                   && request.resource != null
+                   && request.resource.size < 60 * 1024 * 1024
+                   && request.resource.contentType.matches('video/.*');
     }
     // 그 외 모든 경로 — 차단
     match /{allPaths=**} {

@@ -404,10 +404,20 @@
     await _ensureAnonymousAuth(app);
     /* 서울 region 고정 — functions/index.js setGlobalOptions와 일치 */
     const fns = app.functions('asia-northeast3');
-    const callable = fns.httpsCallable(fnName);
+    /* CLIENT-TIMEOUT(#56): httpsCallable 기본 timeout은 70s인데 서버 처리시간이 더 긴 함수는
+       클라만 deadline-exceeded로 끊고 서버는 계속 진행 → quota 차감·생성 완료인데 '실패'로 보여
+       헛재실행·이중과금·오안내(월2회 s2가 결과 없이 소모). 서버 timeoutSeconds보다 약간 크게 지정. */
+    const _timeout = _FN_TIMEOUT_MS[fnName];
+    const callable = _timeout ? fns.httpsCallable(fnName, { timeout: _timeout }) : fns.httpsCallable(fnName);
     const result = await callable(payload);
     return result.data;
   }
+  /* 서버 timeoutSeconds: callImageAiS2=300·callTextAiBatchS2/teacherScriptDraft=120(functions/index.js). */
+  const _FN_TIMEOUT_MS = {
+    callImageAiS2:      310000,   /* 서버 300s + 여유 */
+    callTextAiBatchS2:  130000,   /* 서버 120s + 여유 */
+    teacherScriptDraft: 130000,   /* 서버 120s + 여유 */
+  };
 
   /* Phase A 실 API 진입 판단 — 운영 모드만. TEST MODE면 mock 사용. */
   function _shouldUseRealApi() {

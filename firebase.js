@@ -691,12 +691,20 @@ function _enterTeam(val, teamRef, opts) {
      · ★ W7 핵심 fix: viewer-meta 노드는 있는데 projectType 필드만 누락된 옛 작품 →
        이번에도 ptype 화면 표시 + 사용자 선택 강제 + 저장. 다음부턴 lock 정상 작동.
      · 네트워크 실패 시에도 ptype-screen은 노출 (기존 유형 모름 상태로) */
-  teamRef.child('viewer-meta/projectType').once('value').then(snap => {
+  /* PICTUREBOOK-LEVELS ①: projectType과 함께 picturebookLevel도 읽음(자식 2개만 —
+     viewer-meta 통째 read는 coverImageData 등 무거운 필드까지 끌어와서 금지). */
+  Promise.all([
+    teamRef.child('viewer-meta/projectType').once('value'),
+    teamRef.child('viewer-meta/picturebookLevel').once('value'),
+  ]).then(([snap, lvlSnap]) => {
     const VALID = ['text', 'picturebook', 'movie', 'experience'];
     const raw = snap.exists() ? snap.val() : null;
     const existing = (typeof raw === 'string' && VALID.includes(raw)) ? raw : null;
+    const _lvlRaw = (lvlSnap && lvlSnap.exists()) ? Number(lvlSnap.val()) : null;
+    const existingPbLevel = (existing === 'picturebook'
+      && (_lvlRaw === 1 || _lvlRaw === 2 || _lvlRaw === 3)) ? _lvlRaw : null;
     if (existing && typeof selectProjectType === 'function') {
-      selectProjectType(existing);   /* 메모리 변수 동기 */
+      selectProjectType(existing, existingPbLevel);   /* 메모리 변수 동기(단계 포함) */
     }
     /* v109: resume 흐름 + 기존 작품 = ptype-screen 건너뜀. 사용자는 곧장 maker 진입.
        projectType 누락된 옛 작품 또는 신규 작품은 기존대로 ptype-screen 노출. */
@@ -711,7 +719,7 @@ function _enterTeam(val, teamRef, opts) {
       }
       return;
     }
-    if (typeof showPtypeScreen === 'function') showPtypeScreen(existing);
+    if (typeof showPtypeScreen === 'function') showPtypeScreen(existing, existingPbLevel);
     if (typeof _maker_hideLoading === 'function') _maker_hideLoading();
   }).catch(() => {
     if (typeof showPtypeScreen === 'function') showPtypeScreen(null);
@@ -1413,9 +1421,10 @@ async function redeemCopyCode(code, dstClassId, dstTeamEncoded) {
   updates[`${dstBase}/viewer-meta`]   = dstMeta;
   await db.ref().update(updates);
 
-  /* v41: 자동 진입에 쓸 projectType도 반환 */
+  /* v41: 자동 진입에 쓸 projectType도 반환 (+PICTUREBOOK-LEVELS ①: 단계 동기용) */
   return {
     ok: true, srcClassId, srcTeamEncoded,
     projectType: dstMeta.projectType || null,
+    picturebookLevel: dstMeta.picturebookLevel || null,
   };
 }

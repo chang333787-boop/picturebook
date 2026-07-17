@@ -708,11 +708,32 @@ function selectTemplate(tpl) {
    _enterTeam에서 새 작품일 경우 이 값을 viewer-meta/projectType에 저장.
    기존 작품은 viewer-meta 구독에서 읽어오는 값이 우선. */
 let selectedProjectType = (typeof DEFAULT_PROJECT_TYPE === 'string') ? DEFAULT_PROJECT_TYPE : 'picturebook';
-function selectProjectType(ptype) {
+/* PICTUREBOOK-LEVELS ①(2026-07-18): 그림책 단계(1|2|3). picturebook이 아니면 null.
+   레거시(viewer-meta/picturebookLevel 없음) 그림책 = 3단계 취급.
+   정본: docs/picturebook_levels_design_20260718.md §4 */
+let selectedPicturebookLevel = null;
+function _normalizePbLevel(v) {
+  const n = Number(v);
+  return (n === 1 || n === 2 || n === 3) ? n : null;
+}
+/* 이후 단계(나침반 세트·일직선 잠금·고쳐쓰기 게이트)가 읽는 단일 accessor. */
+function getPicturebookLevel() {
+  return (selectedProjectType === 'picturebook') ? (selectedPicturebookLevel || 3) : null;
+}
+if (typeof window !== 'undefined') window.getPicturebookLevel = getPicturebookLevel;
+function selectProjectType(ptype, pbLevel) {
   if (!Array.isArray(PROJECT_TYPES) || !PROJECT_TYPES.includes(ptype)) return;
   selectedProjectType = ptype;
+  selectedPicturebookLevel = (ptype === 'picturebook') ? _normalizePbLevel(pbLevel) : null;
+  const effLevel = (ptype === 'picturebook') ? (selectedPicturebookLevel || 3) : null;
   document.querySelectorAll('[data-ptype]').forEach(btn => {
-    const active = btn.dataset.ptype === ptype;
+    /* PICTUREBOOK-LEVELS ①: ptype-screen 카드는 자체 강조 체계(.previously-selected 코랄)가
+       있으므로 인라인 페인트 제외 — 종전엔 이 파란 인라인 보더가 Warm Paper 카드 CSS를 덮어
+       기존작품 재진입 화면이 설계와 다르게 보였음(v1 잔재). maker.html엔 그리드 밖
+       [data-ptype]가 없어(2026-07-18 확인) 이 페인트는 사실상 그리드 카드에만 닿고 있었음. */
+    if (btn.closest && btn.closest('#ptype-grid')) return;
+    const active = btn.dataset.ptype === ptype
+      && (!btn.dataset.pblevel || String(effLevel) === btn.dataset.pblevel);
     btn.style.border     = active ? '2px solid var(--primary)' : '2px solid #d0e0f5';
     btn.style.background = active ? '#e8f0ff' : '#fff';
     btn.style.color      = active ? 'var(--primary)' : 'var(--text)';
@@ -731,15 +752,19 @@ function selectProjectType(ptype) {
    · 신규 작품(existingType 없음)이면 어떤 카드 눌러도 confirm 없음 — 즉시 진입
    ================================================================ */
 let _ptypeExistingType = null;   /* firebase에서 로드된 기존 유형 */
+let _ptypeExistingPbLevel = null;   /* PICTUREBOOK-LEVELS ①: 기존 그림책의 단계(1|2|3·레거시 null=3 취급) */
 
-function showPtypeScreen(existingType) {
+function showPtypeScreen(existingType, existingPbLevel) {
   _ptypeExistingType = existingType || null;
+  _ptypeExistingPbLevel = (_ptypeExistingType === 'picturebook') ? _normalizePbLevel(existingPbLevel) : null;
   const screen = document.getElementById('ptype-screen');
   if (!screen) return;
-  /* 기존 유형 카드만 "이전 선택" 강조 */
+  /* 기존 유형 카드만 "이전 선택" 강조 — 그림책은 해당 단계 카드만(레거시=3단계 카드) */
+  const _effLevel = (_ptypeExistingType === 'picturebook') ? (_ptypeExistingPbLevel || 3) : null;
   document.querySelectorAll('#ptype-grid .ptype-card').forEach(c => {
     c.classList.toggle('previously-selected',
-      _ptypeExistingType && c.dataset.ptype === _ptypeExistingType);
+      !!(_ptypeExistingType && c.dataset.ptype === _ptypeExistingType
+         && (!c.dataset.pblevel || String(_effLevel) === c.dataset.pblevel)));
   });
   /* v40: 받기 카드는 빈 슬롯일 때만 활성 — 기존 작품이면 흐리게 */
   const receiveCard = document.getElementById('ptype-receive-copy');
@@ -751,9 +776,17 @@ function hidePtypeScreen() {
   if (screen) screen.classList.remove('show');
 }
 
-function _onPtypeCardClick(clickedType) {
+function _onPtypeCardClick(clickedType, clickedPbLevelRaw) {
   if (!Array.isArray(PROJECT_TYPES) || !PROJECT_TYPES.includes(clickedType)) return;
   const _LABEL = { text: '텍스트형', picturebook: '그림책형', movie: '무비형', experience: '체험전시형' };
+  /* PICTUREBOOK-LEVELS ①: 카드의 data-pblevel 캡처(그림책만·없으면 3단계 방어 기본값) */
+  const _PB_LEVEL_LABEL = {
+    1: '1단계 — 나의 동화책을 만들어줘요',
+    2: '2단계 — 도움을 받아 만들어봐요',
+    3: '3단계 — 갈림길이 있는 이야기를 스스로의 힘으로',
+  };
+  const clickedPbLevel = (clickedType === 'picturebook')
+    ? (_normalizePbLevel(clickedPbLevelRaw) || 3) : null;
 
   /* W7 projectType 강제 lock — 4개 모드 모두 동일 적용.
      · 텍스트형 → 다른 모드 카드 클릭 차단
@@ -769,9 +802,27 @@ function _onPtypeCardClick(clickedType) {
       '다른 모드로 만들고 싶으면 새 작품을 만들어주세요.\n\n' +
       '「' + (_LABEL[_ptypeExistingType] || _ptypeExistingType) + '」 모드로 들어갑니다.'
     );
-    selectProjectType(_ptypeExistingType);
-    _enterMakerAfterPtypeSelected(_ptypeExistingType);
+    selectProjectType(_ptypeExistingType, _ptypeExistingPbLevel);
+    _enterMakerAfterPtypeSelected(_ptypeExistingType, _ptypeExistingPbLevel);
     return;
+  }
+
+  /* PICTUREBOOK-LEVELS ① lock: 같은 그림책이라도 "단계"는 만들 때 한 번 정해지면 고정
+     (W7 유형 lock과 동일 정책 — 다른 단계 카드 클릭 시 기존 단계로 강제 진입).
+     레거시(단계 필드 없음) 작품 = 3단계 취급. */
+  if (_ptypeExistingType === 'picturebook' && clickedType === 'picturebook') {
+    const _existingLevel = _normalizePbLevel(_ptypeExistingPbLevel) || 3;
+    if (_existingLevel !== clickedPbLevel) {
+      alert(
+        '이 작품은 그림책 「' + _PB_LEVEL_LABEL[_existingLevel] + '」(으)로 만들어졌어요.\n' +
+        '단계는 만들 때 한 번 정해지면 바뀌지 않아요.\n\n' +
+        '다른 단계로 만들고 싶으면 새 작품을 만들어주세요.\n\n' +
+        '「' + _PB_LEVEL_LABEL[_existingLevel] + '」(으)로 들어갑니다.'
+      );
+      selectProjectType('picturebook', _existingLevel);
+      _enterMakerAfterPtypeSelected('picturebook', _existingLevel);
+      return;
+    }
   }
 
   /* 기존 유형 없음 (신규 작품) 또는 같은 유형 클릭 — 즉시 진입 */
@@ -779,16 +830,20 @@ function _onPtypeCardClick(clickedType) {
      같은 유형 재클릭(_ptypeExistingType === clickedType)은 기존 작품 재진입이라 확인 없이 즉시 진입(기존 동작 유지). */
   if (!_ptypeExistingType) {
     var _ok = true;
+    /* PICTUREBOOK-LEVELS ①: 그림책은 단계 이름까지 넣어 확인(단계도 함께 고정됨을 안내) */
+    var _confirmLabel = (clickedType === 'picturebook')
+      ? '그림책 ' + _PB_LEVEL_LABEL[clickedPbLevel]
+      : (_LABEL[clickedType] || clickedType);
     try {
       _ok = window.confirm(
-        '「' + (_LABEL[clickedType] || clickedType) + '」 모드로 시작할까요?\n' +
+        '「' + _confirmLabel + '」 모드로 시작할까요?\n' +
         '작품 유형은 한 번 정하면 바꿀 수 없어요. 이 모드로 계속 만들게 돼요.'
       );
     } catch (e) { _ok = true; }   /* confirm 불가 환경 → 기존대로 진입(회귀 0) */
     if (!_ok) return;             /* 취소 → 진입하지 않음 */
   }
-  selectProjectType(clickedType);
-  _enterMakerAfterPtypeSelected(clickedType);
+  selectProjectType(clickedType, clickedPbLevel);
+  _enterMakerAfterPtypeSelected(clickedType, clickedPbLevel);
 }
 
 /* HOTFIX(생각 나침반 결과 보기): 🧭 toolbar 버튼 노출 갱신.
@@ -894,7 +949,9 @@ function _armMakerCoach(ptype) {
 }
 
 /* ptype 결정 후 firebase에 저장 + maker 캔버스 노출 */
-async function _enterMakerAfterPtypeSelected(ptype) {
+async function _enterMakerAfterPtypeSelected(ptype, pbLevel) {
+  /* PICTUREBOOK-LEVELS ①: 그림책이면 단계(1|2|3)도 projectType과 같은 원자 update로 저장. */
+  const _pbLvl = (ptype === 'picturebook') ? _normalizePbLevel(pbLevel) : null;
   /* W7 projectType lock: viewer-meta/projectType 반드시 기록된 후 maker 진입.
      ─────────────────────────────────────────────────────────────
      저장 케이스:
@@ -914,9 +971,14 @@ async function _enterMakerAfterPtypeSelected(ptype) {
           ? 'classes/' + classId + '/teams/' + encodedName
           : 'teams/' + encodedName;
         try {
-          await db.ref(basePath + '/viewer-meta/projectType').set(ptype);
+          /* update() = 명시한 키만 원자 반영(viewer-meta의 다른 필드 불변).
+             그림책이면 picturebookLevel 동시 기록 — 실패 시 둘 다 미기록(부분 저장 없음). */
+          const _metaUpdate = { projectType: ptype };
+          if (_pbLvl) _metaUpdate.picturebookLevel = _pbLvl;
+          await db.ref(basePath + '/viewer-meta').update(_metaUpdate);
           /* 저장 성공 → 메모리 _ptypeExistingType 갱신 (이번 세션 안 한번 더 클릭해도 저장 스킵) */
           _ptypeExistingType = ptype;
+          _ptypeExistingPbLevel = _pbLvl;
           savedNewProjectType = true;
         } catch (saveErr) {
           alert('작품 유형 저장에 실패했어요. 네트워크를 확인하고 다시 시도해주세요.');
@@ -1064,12 +1126,16 @@ function _openReceiveCopyModal() {
       const VALID = ['text', 'picturebook', 'movie', 'experience'];
       const newPtype = (result && VALID.includes(result.projectType))
         ? result.projectType : 'picturebook';
+      /* PICTUREBOOK-LEVELS ①: 복사는 viewer-meta 통째라 picturebookLevel도 승계됨 — 메모리 동기 */
+      const newPbLevel = (newPtype === 'picturebook' && result)
+        ? _normalizePbLevel(result.picturebookLevel) : null;
       _ptypeExistingType = newPtype;   /* 받은 작품 = 기존 작품 취급 → 저장 skip */
-      if (typeof selectProjectType === 'function') selectProjectType(newPtype);
+      _ptypeExistingPbLevel = newPbLevel;
+      if (typeof selectProjectType === 'function') selectProjectType(newPtype, newPbLevel);
 
       setTimeout(() => {
         overlay.remove();
-        _enterMakerAfterPtypeSelected(newPtype);   /* hidePtypeScreen + maker 진입 */
+        _enterMakerAfterPtypeSelected(newPtype, newPbLevel);   /* hidePtypeScreen + maker 진입 */
       }, 400);
     } catch (e) {
       submitBtn.disabled = false;
@@ -1360,7 +1426,7 @@ window.addEventListener('DOMContentLoaded', () => {
      · existingType (firebase에서 로드된 기존 유형) 있고 사용자 선택과 다르면 confirm
      · 같거나 신규(existingType 없음)면 즉시 진입 */
   document.querySelectorAll('#ptype-grid [data-ptype]').forEach(btn =>
-    btn.addEventListener('click', () => _onPtypeCardClick(btn.dataset.ptype))
+    btn.addEventListener('click', () => _onPtypeCardClick(btn.dataset.ptype, btn.dataset.pblevel))
   );
 
   /* v40: "다른 모둠 작품 받기" 카드 — 빈 슬롯일 때만 활성 */

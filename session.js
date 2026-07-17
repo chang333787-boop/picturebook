@@ -99,6 +99,10 @@
           /* 다른 세션이 인수함 — 즉시 중단 */
           _kicked = true;
           _stop();
+          /* SESSION-RELEASE-FIX(#37): 인수당한 즉시 onDisconnect().remove() 취소 — 이 탭의 연결이
+             끊길 때(index로 나가기 등) 옛 onDisconnect가 새 주인의 세션 노드를 지워 15초 공백을
+             내던 것 방지. (내 것이 아니게 됐으니 이탈 시 지우면 안 됨.) */
+          try { snap.ref.onDisconnect().cancel(); } catch (e) { /* fail-open */ }
           if (_onKicked) { try { _onKicked(v); } catch (e) {} }
         }
       });
@@ -115,9 +119,14 @@
   function release() {
     const wasRef = _ref;
     _stop();
-    if (wasRef && _claimed && !_kicked) {
-      try { wasRef.remove(); } catch (e) {}
+    if (wasRef) {
+      /* SESSION-RELEASE-FIX(#37): onDisconnect().cancel()은 kicked 여부와 무관하게 항상 —
+         인수당한(kicked) 탭이 나가며 옛 onDisconnect가 새 주인 노드를 지우던 것 방지. */
       try { wasRef.onDisconnect().cancel(); } catch (e) {}
+      /* 실제 remove는 아직 내 세션일 때만(인수당했으면 남의 노드 안 지움). */
+      if (_claimed && !_kicked) {
+        try { wasRef.remove(); } catch (e) {}
+      }
     }
     _ref = null;
     _claimed = false;

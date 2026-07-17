@@ -437,8 +437,11 @@ async function updateType(num, type) {
   if (s && type === 'ending' && s.type !== 'ending' && _sceneHasOutgoingLink(s)) {
     if (typeof renderCard === 'function') renderCard(s);
     const title = '아직 뒤로 이어져 있어요';
-    const message = '이 장면은 다음 장면으로 이어지는 길이 남아 있어요.\n\n'
-      + '엔딩으로 바꾸려면 먼저 이 장면의 ‘다음으로 가기’ 연결을 지워 주세요.';
+    /* ENDING-GUARD-COPY(#13): '연결을 지우라'만으로는 방법을 몰라 막막해하던 것 → 구체 경로 안내. */
+    const message = '이 장면은 다음 장면으로 이어지는 길(행동 버튼 연결)이 남아 있어요.\n\n'
+      + '엔딩으로 바꾸려면 먼저 그 연결을 지워 주세요.\n'
+      + '· 카드끼리 이어진 연결선(●)을 끌어서 떼거나,\n'
+      + '· 카드의 행동 버튼을 편집해 ‘다음 장면’ 연결을 없애면 돼요.';
     if (window.showMakerConfirm) {
       try { await window.showMakerConfirm({ title, message, confirmText: '알겠어요', cancelText: '닫기' }); }
       catch (_) {}

@@ -390,6 +390,10 @@ const _loginLock = (typeof MembershipLogin !== 'undefined' && MembershipLogin.cr
    팀 입장 — joinTeam()이 DATA_PATH_VERSION에 따라 분기
    ================================================================ */
 function joinTeam() {
+  /* TEAM-SWITCH-RESET(2026-07-18): 수동 입장 시작 신호 — 진행 중인 자동복귀
+     (_resumeTeamFromSession·auth 복원 대기 최대 3s)가 뒤늦게 다른 팀으로
+     진입해 수동 입장과 교차하는 경합 차단(아래 resume 쪽에서 양보). */
+  window.__manualJoinInFlight = true;
   if (DATA_PATH_VERSION === 'v2') {
     _joinTeamV2();
   } else {
@@ -602,6 +606,12 @@ async function _resumeTeamFromSession(ctx) {
       sessionStorage.removeItem('makerSession');   /* 없음/비활성/권한거부/uid 변경 → 재로그인 */
       return false;
     }
+    /* TEAM-SWITCH-RESET: 대기(auth 복원 최대 3s) 중 사용자가 수동 입장을 시작했으면
+       자동복귀는 양보 — 늦은 복귀가 수동 입장 팀 위에 이전 팀을 얹던 경합 차단. */
+    if (window.__manualJoinInFlight) {
+      sessionStorage.removeItem('makerSession');
+      return false;
+    }
     classId = ctx.classId;
     const encodedName = encodeURIComponent(ctx.teamName);
     const teamRef = db.ref(getTeamPath(encodedName, ctx.classId));
@@ -618,6 +628,22 @@ async function _resumeTeamFromSession(ctx) {
    resume 흐름에서만 true로 설정. 일반 새 로그인은 false (기존 흐름 유지). */
 function _enterTeam(val, teamRef, opts) {
   opts = opts || {};
+  /* ════ TEAM-SWITCH-RESET(2026-07-18): 같은 탭 이중 진입 교차 오염 차단 ════
+     자동복귀와 수동 입장이 경합하거나 한 탭에서 팀을 바꿔 재진입하면, 이전 팀
+     scenes 리스너가 살아남아 ①로컬 scenes에 이전 팀 작품이 남고 ②저장 경로
+     (dbRef=새 팀)가 이전 팀 작품을 새 팀에 통째로 기록할 수 있었다(시연2단계
+     실사고 — 뷰어 SHELF-META-RESET '이전 책 상속'과 동일 뿌리의 maker 판).
+     · 이전 scenes 리스너 해제 + 로컬 장면/저장대기 초기화
+     · 세대 토큰: off가 닿지 못한 비동기 잔류 스냅샷(이전 진입의 늦은 도착)도
+       콜백 첫 줄에서 무력화 — reinit 세대 토큰(AUDIT-BATCH-1 ③)과 동일 기법. */
+  try { if (dbRef && typeof dbRef.off === 'function') dbRef.off('value'); } catch (e) { /* noop */ }
+  scenes = {};
+  try { if (typeof dirtyScenes !== 'undefined' && dirtyScenes && typeof dirtyScenes.clear === 'function') dirtyScenes.clear(); } catch (e) { /* noop */ }
+  try { if (typeof _titleDirty !== 'undefined' && _titleDirty && typeof _titleDirty.clear === 'function') _titleDirty.clear(); } catch (e) { /* noop */ }
+  try { if (typeof _bodyDirty !== 'undefined' && _bodyDirty && typeof _bodyDirty.clear === 'function') _bodyDirty.clear(); } catch (e) { /* noop */ }
+  window.__enterTeamSeq = (window.__enterTeamSeq || 0) + 1;
+  const _mySeq = window.__enterTeamSeq;
+
   teamName = val;
   document.getElementById('team-label').textContent = teamName;
   document.getElementById('join-screen').classList.add('hidden');
@@ -727,6 +753,9 @@ function _enterTeam(val, teamRef, opts) {
   });
 
   dbRef.on('value', snapshot => {
+    /* TEAM-SWITCH-RESET: 이전 진입 세대의 잔류 스냅샷(늦은 도착)은 무시 —
+       현재 세대의 리스너만 로컬 상태를 만진다. */
+    if (_mySeq !== window.__enterTeamSeq) return;
     isRemote = true;
     scenes   = snapshot.val() || {};
     /* BASE10-1: 첫 스냅샷(이후 모든 스냅샷)에서 true. 이 시점부터 scenes는 DB 실측값. */

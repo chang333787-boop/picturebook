@@ -2564,6 +2564,38 @@ function _storyDraftAnswersDigest(answers) {
   return lines.join('\n').slice(0, 1500);
 }
 
+/* ════ LEVELS-CONT-B: 위치 기반 씨앗 힌트 — 나침반 답으로 클라가 결정적 생성 ════
+   AI가 "다음 전개"를 예언하던 서버 hint를 폐기(아이가 다르게 쓰면 남은 힌트가 어긋나는
+   꼬임 원인) → 이야기 위치(어려움↑·마음·선택·그다음·마무리길·엔딩)별 고정 문구에
+   아이 자신의 나침반 답을 «»로 되비추기만 한다. 내용을 예언하지 않으니 어떻게 써도
+   안 꼬이고, '시키는 말'이 아니라 '네 계획 되짚기'가 된다(사용자 결정 2026-07-18).
+   · 대상 키: BASE10 5~9(빈 이야기 장면)+10(엔딩). AI 시작 3장면=키 2~4.
+   · 답이 유예/없음이면 인용 없이 위치 문구만(항상 안전). 순수 함수 — 하니스 검증용. */
+function _buildLinearSeedHints(answers) {
+  const at = (k) => {
+    const a = answers && typeof answers === 'object' ? answers[k] : null;
+    if (!a || typeof a !== 'object' || a.deferred === true) return '';
+    const t = String(a.answerText == null ? '' : a.answerText).replace(/\s+/g, ' ').trim();
+    return t;
+  };
+  const q = (k) => {
+    const t = at(k);
+    if (!t) return '';
+    return ' «' + (t.length > 36 ? t.slice(0, 36) + '…' : t) + '»';
+  };
+  const hints = {
+    '5': '이제 일이 점점 어려워질 차례야.' + (q('risingTrouble') ? ' 네가 정한 어려움:' + q('risingTrouble') : '') + ' 여기서 무슨 일이 생길까?',
+    '6': '어려움이 커질 때 주인공의 마음은 어떨까?' + (q('protagonist') ? ' 네 주인공:' + q('protagonist') : '') + ' 마음이 보이게 써 보자.',
+    '7': '중요한 선택의 순간이야!' + (q('keyChoice') ? ' 네가 정한 고민:' + q('keyChoice') : '') + ' 주인공은 어떻게 할까?',
+    '8': '선택한 다음, 무슨 일이 벌어질까? 일이 풀려도 좋고, 뜻밖의 일이 생겨도 좋아.',
+    '9': '마무리로 가는 길이야.' + (q('trueEnding') ? ' 네가 그린 끝:' + q('trueEnding') : '') + ' 그대로 가도, 다른 길로 가도 좋아.',
+    '10': '마지막 장면이야!' + (q('coreMessage') ? ' 네가 지키고 싶은 마음:' + q('coreMessage') : '') + ' 그 마음이 담기게 끝내 보자.',
+  };
+  Object.keys(hints).forEach((k) => { hints[k] = hints[k].slice(0, 140); });
+  return hints;
+}
+window._buildLinearSeedHints = _buildLinearSeedHints;   /* 하니스 검증용 노출 */
+
 /* 초안(JSON)을 BASE10 골격에 얹어 저장. 성공 시 true. */
 async function _applyStoryDraftStarter(draft, opts) {
   opts = opts || {};
@@ -2574,18 +2606,23 @@ async function _applyStoryDraftStarter(draft, opts) {
      LEVELS-FEEDBACK(2026-07-19): 장면 제목은 폐기된 기능 — 표지 책 제목만 쓰고
      일반/엔딩 장면 title은 비워 둔다(AI가 만든 제목이 다듬기 UI에 노출되던 것 제거). */
   if (skeleton['1']) skeleton['1'].title = String(draft.title || '').slice(0, 40);
-  /* LEVELS-CONT(2단계 이어쓰기): 서버가 body 대신 hint(씨앗 힌트 한 문장)를 준 장면은
-     scene.writingHint로 기록 — 메이커 카드/편집 placeholder 전용(감상/인쇄/AI는 body만 읽음). */
+  /* LEVELS-CONT-B: level 2 초안은 시작 3장면만 옴(구서버가 hint를 보내와도 무시 —
+     힌트는 아래에서 나침반 답으로 클라 생성). level 1은 전 장면 완성문 그대로. */
   for (let i = 0; i < sc; i++) {
     const key = String(i + 2);
     const s = draft.scenes && draft.scenes[i];
     if (!skeleton[key] || !s) continue;
     skeleton[key].body = String(s.body || '').slice(0, 600);
-    if (s.hint) skeleton[key].writingHint = String(s.hint).slice(0, 140);
   }
   if (skeleton[endingKey] && draft.ending) {
     skeleton[endingKey].body = String(draft.ending.body || '').slice(0, 600);
-    if (draft.ending.hint) skeleton[endingKey].writingHint = String(draft.ending.hint).slice(0, 140);
+  }
+  if (opts.level === 2) {
+    const hints = _buildLinearSeedHints(opts.answers);
+    Object.keys(hints).forEach((key) => {
+      const sk = skeleton[key];
+      if (sk && !(sk.body && sk.body.trim())) sk.writingHint = hints[key];
+    });
   }
   const res = await _writeBase10IfEmpty({
     source: 'desktop', markInitialized: true, ptype: 'picturebook',
@@ -2619,7 +2656,8 @@ async function requestStoryDraftStarter(opts) {
       if (data && data.refused) console.warn('[storyDraft] refused:', data.reason);
       return false;
     }
-    const applied = await _applyStoryDraftStarter(data.draft, { storyCount: data.storyCount || sc, level: data.level });
+    /* LEVELS-CONT-B: answers 동봉 — level 2 위치 기반 씨앗 힌트를 나침반 답으로 생성 */
+    const applied = await _applyStoryDraftStarter(data.draft, { storyCount: data.storyCount || sc, level: data.level, answers: opts.answers });
     /* PICTUREBOOK-LEVELS ④: 1단계 = 그림도 자동 — fire-and-forget(대기 없음·실패해도 글은 유효).
        서버(generateStoryImages)가 단계/토글/팀당 총량/이중 실행 lock을 재검증. 결과는
        aiVariants s2 슬롯에 쌓여 감상 진입 시 AI-DEFAULT-VIEW-1이 자동 표시. */

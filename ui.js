@@ -382,10 +382,16 @@ function showBodyQuickEditModal(num) {
 
   const ta = overlay.querySelector('.body-quickedit-ta');
   ta.value = String(s.body || '');   /* .value 대입 — 이스케이프 이슈 0 */
-  /* LEVELS-CONT(2단계 이어쓰기): AI 씨앗 힌트는 placeholder로만(속성 대입 — 이스케이프 이슈 0).
+  /* LEVELS-CONT(2단계 이어쓰기): 씨앗 힌트는 placeholder로만(속성 대입 — 이스케이프 이슈 0).
      글을 쓰면 자연히 사라지고, 지우면 다시 보임. */
   if (typeof s.writingHint === 'string' && s.writingHint.trim()) {
     ta.placeholder = '💡 ' + s.writingHint.trim();
+    /* LEVELS-CONT-B: 힌트가 '시키는 말'로 읽히지 않게 — 참고임을 그 자리에서 명시(사용자 결정).
+       글을 이미 쓴 장면은 기존 안내(원본 글 수정) 유지. */
+    if (!(s.body && String(s.body).trim())) {
+      const hintLine = overlay.querySelector('.body-quickedit-hint');
+      if (hintLine) hintLine.textContent = '💡 힌트는 참고만! 내 생각대로, 힌트와 다른 방향으로 써도 좋아요.';
+    }
   }
 
   /* 잠금은 모달을 먼저 열고 백그라운드 확보(스냅한 UX) — 실패 시 닫고 안내 */

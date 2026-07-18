@@ -3138,10 +3138,12 @@ function _validateScriptDraft(d) {
    · 단계·빈작품 게이트는 서버가 RTDB 직접 read(클라 위조 불가):
      viewer-meta/picturebookLevel ∈ {1,2} + scenes 비어있음(초안=새 작품 전용).
    · 팀당 총량 = STUDENT_STORY_DRAFT_TEAM_LIMIT (자동 1회+재시도 여유·§9 팀당 총량 결정).
-   · 출력 = {title, scenes[storyCount], ending} — 클라가 BASE10 스타터 골격에 얹음.
-     LEVELS-CONT: level 2는 앞 3장면만 body, 나머지 장면·엔딩은 hint(씨앗 힌트 한 문장)
-     — 클라가 scene.writingHint로 기록(메이커 placeholder 전용·감상/인쇄 미노출).
-     정본: docs/picturebook_levels_design_20260718.md §7.4
+   · 출력 = {title, scenes, ending} — 클라가 BASE10 스타터 골격에 얹음.
+     level 1 = scenes[storyCount]+ending 완성문 전체.
+     LEVELS-CONT-B: level 2 = 시작 3장면(scenes 정확히 3)·엔딩 빈 값 — 나머지는 아이가
+     이어 씀. 씨앗 힌트(scene.writingHint)는 클라가 나침반 답으로 위치 기반 결정적 생성
+     (서버 미관여·메이커 placeholder 전용·감상/인쇄 미노출).
+     정본: docs/picturebook_levels_design_20260718.md §7.4·§14
    ════════════════════════════════════════════════════════════════ */
 const STUDENT_STORY_DRAFT_TEAM_LIMIT = 3;
 
@@ -3234,58 +3236,38 @@ exports.studentStoryDraft = onCall(
 
 /* PICTUREBOOK-LEVELS ③: AI 출력 정리 — null 제거·문자열 강제·개수/번호 정규화.
    가벼운 슬립(초과 장면·번호 흐트러짐)은 살리고, 본질 결함만 _validateStudentStoryDraft가 거른다.
-   LEVELS-CONT(2단계 이어쓰기): level 2 = 앞 3장면 완성문 + 나머지 장면·엔딩 씨앗 힌트(hint).
-   결정적 강제 — 앞 3장면은 hint를 버리고, 4장면부터는 body를 버린다(AI가 둘 다 줘도
-   "AI는 시작만, 아이가 완성" 원칙 유지). level 1은 기존과 동일(전 장면 body). */
-const STORY_DRAFT_CONT_FULL_SCENES = 3;   /* 2단계에서 AI가 완성문으로 쓰는 앞 장면 수 */
+   LEVELS-CONT-B(2단계 이어쓰기): level 2 = 시작 3장면 완성문만(scenes 정확히 3개)·엔딩 빈 값.
+   결정적 강제 — AI가 4장면 이상이나 엔딩을 써도 잘라낸다("AI는 시작만, 아이가 완성").
+   씨앗 힌트는 서버 출력에 없음(클라가 나침반 답으로 위치 기반 생성). level 1은 기존 동일. */
+const STORY_DRAFT_CONT_FULL_SCENES = 3;   /* 2단계에서 AI가 완성문으로 쓰는 시작 장면 수 */
 
 function _sanitizeStudentStoryDraft(d, storyCount, level) {
   if (!d || typeof d !== 'object' || d.refused === true) return d;
   const str = (v, max) => String(v == null ? '' : v).trim().slice(0, max);
   const cont = (level === 2);
+  const keep = cont ? STORY_DRAFT_CONT_FULL_SCENES : storyCount;
   const scenes = (Array.isArray(d.scenes) ? d.scenes : [])
-    .filter((s) => s && typeof s === 'object' && (s.body || s.title || s.hint))
-    .slice(0, storyCount)
-    .map((s, i) => {
-      const out = { num: i + 1, title: str(s.title, 40), body: str(s.body, 600) };
-      if (cont && i >= STORY_DRAFT_CONT_FULL_SCENES) {
-        out.body = '';
-        const hint = str(s.hint, 140);
-        if (hint) out.hint = hint;
-      }
-      return out;
-    });
-  const ending = {
-    title: str(d.ending && d.ending.title, 40),
-    body:  str(d.ending && d.ending.body, 600),
-  };
-  if (cont) {
-    ending.body = '';
-    const eh = str(d.ending && d.ending.hint, 140);
-    if (eh) ending.hint = eh;
-  }
+    .filter((s) => s && typeof s === 'object' && (s.body || s.title))
+    .slice(0, keep)
+    .map((s, i) => ({ num: i + 1, title: str(s.title, 40), body: str(s.body, 600) }));
+  const ending = cont
+    ? { title: '', body: '' }   /* 엔딩은 아이 몫 — AI가 써도 버림 */
+    : { title: str(d.ending && d.ending.title, 40), body: str(d.ending && d.ending.body, 600) };
   return { title: str(d.title, 40), scenes, ending };
 }
 
 function _validateStudentStoryDraft(d, storyCount, level) {
   if (!d || typeof d !== 'object') return '객체 아님';
   if (!d.title) return 'title 없음';
-  if (!Array.isArray(d.scenes) || d.scenes.length !== storyCount) {
-    return `scenes ${storyCount}개 아님 (${Array.isArray(d.scenes) ? d.scenes.length : 0})`;
-  }
   const cont = (level === 2);
+  const want = cont ? STORY_DRAFT_CONT_FULL_SCENES : storyCount;
+  if (!Array.isArray(d.scenes) || d.scenes.length !== want) {
+    return `scenes ${want}개 아님 (${Array.isArray(d.scenes) ? d.scenes.length : 0})`;
+  }
   for (let i = 0; i < d.scenes.length; i++) {
-    if (cont && i >= STORY_DRAFT_CONT_FULL_SCENES) {
-      if (!d.scenes[i].hint) return `scenes[${i}] hint 없음`;
-    } else if (!d.scenes[i].body) {
-      return `scenes[${i}] body 없음`;
-    }
+    if (!d.scenes[i].body) return `scenes[${i}] body 없음`;
   }
-  if (cont) {
-    if (!d.ending || !d.ending.hint) return 'ending hint 없음';
-  } else if (!d.ending || !d.ending.body) {
-    return 'ending body 없음';
-  }
+  if (!cont && (!d.ending || !d.ending.body)) return 'ending body 없음';
   return null;
 }
 

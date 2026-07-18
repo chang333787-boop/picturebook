@@ -176,3 +176,12 @@ anchor: maker.html:2964 `#ptype-grid`(카드 text/picturebook/movie/experience(h
 - 브라우저 실측: linear 9문항 라이브·카드 💡 미리보기/placeholder/퀵에디트·본문 쓰면 힌트 소멸·HUD 매트릭스(1단계=없음·2단계=✅만·3단계=📔만)·lite 모달 카피·3단계 카피 회귀 0.
 - **실계정 e2e(연습반 신규 팀 '이어쓰기테스트'·PIN 4321·account 노드 CLI 생성)**: 2단계 선택(confirm 라벨) → linear 9문항 실답(AI 후속 '이름' 강제 실작동) → `studentStoryDraft` 실호출 → RTDB scenes = 표지 제목 '털볼이와 심술쟁이 까치' + 키2~4 body + **키5~9·10 writingHint**(body '') 실확인 · aiUsage.storyDraft=1 → 장면5·6·7 이어쓰기(퀵에디트 placeholder=힌트 전문) → [✅ 내 글 점검받기] 실 Haiku 3회(1차 lite 카피/2차 choices 미전송/3차 linearLocked 프롬프트 — 분기 소음 0·유용 지적 1건) → 환영 필터 fix 실측(2단계 슬라이드).
 - 배포: `studentStoryDraft`·`callWorkCheck`(asia-northeast3) 재배포. 기존 테스트 팀(이단계테스트·이단계테스트2)은 옛 방식 데이터 그대로(신규만 새 방식).
+
+### 14.4 LEVELS-CONT-B — 위치 기반 씨앗 힌트로 교체 (2026-07-18 사용자 결정 · 구현·배포·e2e 완료)
+
+사용자 문제 제기: 힌트가 초안 생성 시점에 고정된 "전개 예언"이라, 아이가 장면 6을 힌트와 다르게 쓰면 7~8 힌트가 어긋남(꼬임). → **B안 채택**: 힌트의 성격을 "전개 예언"에서 "이야기 위치 안내 + 아이 자신의 나침반 답 되비추기"로 교체. 내용을 예언하지 않으니 구조적으로 안 꼬이고, '시키는 말'이 아니라 '네 계획 되짚기'가 됨.
+
+- **서버 단순화**: `studentStoryDraft` level 2 = **시작 3장면만**(scenes 정확히 3·엔딩 빈 문자열·hint 출력 폐기). sanitize가 과잉 출력(4장면 이상·엔딩 완성문·hint 잔재)을 결정적으로 절단. level 1 불변. 시작 3장면 프롬프트에 "큰 사건의 해결로 나아가지 말고 여지를 넓게" 지시.
+- **클라 생성**: `_buildLinearSeedHints(answers)`(mobileTextBranch·순수 함수·window 노출) — 키 5(어려움↑·«risingTrouble»)·6(주인공 마음·«protagonist»)·7(중요한 선택·«keyChoice»)·8(선택 다음·인용 없음)·9(마무리 길·«trueEnding»·"다른 길로 가도 좋아")·10(마지막 장면·«coreMessage»). 답 유예/결측=인용 없이 위치 문구만. 인용 36자 절단·힌트 140자 상한. `_applyStoryDraftStarter`가 level 2 빈 장면에만 얹음(구서버가 hint를 보내와도 무시 — 전후방 호환).
+- **"힌트는 참고" 문구**: ①퀵에디트 모달(힌트 표시 상태)="💡 힌트는 참고만! 내 생각대로, 힌트와 다른 방향으로 써도 좋아요." ②환영 슬라이드(pbLevels 2)="힌트는 참고일 뿐 — 다른 방향으로 써도 좋아요." ③힌트 9 자체에 "그대로 가도, 다른 길로 가도 좋아" 내장.
+- **검증**: 서버 함수추출 하니스 5종(level1 불변·3장면 계약·과잉 절단·결함 검출·프롬프트)+나침반 240/240. 브라우저 스텁 3경로(신서버 3장면/구서버 8장면+hint 호환/level1 무힌트)+힌트 빌더(정상·유예·결측)+퀵에디트 문구 2상태. **실계정 e2e '이어쓰기테스트2'**: 나침반 9문항 → 신계약 초안(AI 3장면이 해결 전에 멈춤) → RTDB 키2~4 body·키5~9/10 위치 힌트+«아이 답 인용» 실확인·aiUsage.storyDraft=1. `studentStoryDraft` 재배포. 기존 팀(이어쓰기테스트)의 구식 AI 힌트 데이터는 그대로(렌더 동일).

@@ -3686,7 +3686,10 @@ body[data-page-orientation="portrait"] .terminal-screen--story .ending-page {
   margin: 0;
 }
 .terminal-screen--story .ending-user-body {
-  font-family: var(--font-ui, 'Jua', sans-serif);
+  /* LEVELS-FEEDBACK(2026-07-19): 엔딩 기본 글꼴 Jua(통통체)→장면 본문 기본과 통일.
+     (메모리에 '죽은 마크업'으로 기록돼 있었으나 실측 결과 이 경로가 실제 렌더에 매칭됨 — 정정.)
+     사용자가 고른 --pb-font-family는 그대로 우선. */
+  font-family: var(--pb-font-family, 'Gowun Batang', 'Nanum Gothic', serif);
   font-size: clamp(20px, 3vw, 32px);
   color: var(--text, #2b1f10);
   line-height: 1.4;

@@ -167,7 +167,28 @@ const FIXED_FOLLOWUPS = {
   trueEnding:  { decision: 'ASK_FOLLOW_UP', reasonCode: 'MISSING_DETAIL', acknowledgement: '', followUpQuestion: '마지막 장면에서 주인공은 어떤 모습인가요?', supportOptions: ['웃고 있어요', '무언가를 얻었어요', '누군가와 함께 있어요'] },
   keyChoice:   { decision: 'ASK_FOLLOW_UP', reasonCode: 'MISSING_DETAIL', acknowledgement: '', followUpQuestion: '그 선택이 왜 고민되는지 말해 줄래요?', supportOptions: ['둘 다 좋아 보여요', '둘 다 무서워요', '무엇을 잃을지 몰라요'] },
   incitingEvent:{ decision: 'ASK_FOLLOW_UP', reasonCode: 'MISSING_DETAIL', acknowledgement: '', followUpQuestion: '그 일은 어디에서 일어나나요?', supportOptions: ['학교나 집이에요', '낯선 곳이에요', '상상 속 세계예요'] },
+  /* LEVELS-FEEDBACK(2026-07-19): '누군가 방해해요'류 대상 미상 답의 결정적 후속(사용자 요구). */
+  heroTrouble: { decision: 'ASK_FOLLOW_UP', reasonCode: 'MISSING_DETAIL', acknowledgement: '', followUpQuestion: '그 누구는 누구이고, 어떻게 방해하나요?', supportOptions: ['심술쟁이 여우가 길을 막아요', '까마귀가 소중한 것을 물어 가요', '도깨비가 나타나 겁을 줘요'] },
+  obstacle:    { decision: 'ASK_FOLLOW_UP', reasonCode: 'MISSING_DETAIL', acknowledgement: '', followUpQuestion: '그 누구는 누구이고, 어떻게 방해하나요?', supportOptions: ['심술쟁이 친구가 놀려요', '이웃 아저씨가 길을 막아요', '동생이 자꾸 따라와요'] },
 };
+
+/* LEVELS-FEEDBACK(2026-07-19): AI가 NEXT라 해도 답에 정체 미상 대상('누군가/어떤 곳/무언가'류)이
+   남아 있고 첫 후속이면 고정 후속으로 강제 — "누군가 방해해요"가 그대로 통과하던 변동성 제거.
+   대상 질문: 방해/사건 계열만(이름·길이 등 무관 질문엔 미적용). 2번째 이후 후속은 강제 안 함(캐묻기 금지). */
+const VAGUE_ACTOR_RE = /(누군가|어떤\s*곳|어떤\s*사람|무언가|누가|어디선가)/;
+const VAGUE_ACTOR_QUESTIONS = ['heroTrouble', 'obstacle', 'risingTrouble', 'incitingEvent', 'heroEvent'];
+function enforceVagueActorFollowUp(input, decisionValue) {
+  try {
+    const d = decisionValue || {};
+    if (d.decision !== 'NEXT') return decisionValue;
+    if (!input || (input.followUpCount || 0) > 0) return decisionValue;
+    if (VAGUE_ACTOR_QUESTIONS.indexOf(input.coreQuestionId) < 0) return decisionValue;
+    if (!VAGUE_ACTOR_RE.test(String(input.currentAnswer || ''))) return decisionValue;
+    const fixed = FIXED_FOLLOWUPS[input.coreQuestionId];
+    if (!fixed) return decisionValue;
+    return Object.assign({}, fixed, { forcedVagueActor: true });
+  } catch (e) { return decisionValue; }
+}
 function followUpFallback(coreQuestionId) {
   if (FIXED_FOLLOWUPS[coreQuestionId]) return Object.assign({}, FIXED_FOLLOWUPS[coreQuestionId], { fallback: true });
   return { decision: 'NEXT', reasonCode: 'SUFFICIENT', acknowledgement: '', followUpQuestion: '', supportOptions: [], fallback: true };
@@ -215,5 +236,6 @@ module.exports = {
   MAX_FOLLOWUPS, MAX_TOTAL, MIN_TOTAL, MAX_ANSWER_LEN, MAX_FOLLOWUP_Q_LEN,
   BANNED_ACK_WORDS, BANNED_OUTPUT_KEYS, FORBIDDEN_INPUT_KEYS, QUESTION_BRIEF,
   validateFollowUpInput, shouldForceNext, validateFollowUpResponse, followUpFallback, buildFollowUpUserMessage,
+  enforceVagueActorFollowUp,
   _hangulRatio, _isSafeSeg,
 };

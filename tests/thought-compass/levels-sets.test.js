@@ -99,3 +99,18 @@ test('scenes: easy(targetLength 없음)=8 고정·linear targetLength 반영', (
   linAns.targetLength = { choiceId: 'targetlen_12' };
   assert.strictEqual(SC.resolveStoryCount(linAns), 12);
 });
+
+/* ── '누군가' 결정적 후속 강제(서버) ── */
+test('followup: 누군가 답 NEXT → 고정 후속 강제(첫 후속·해당 질문만)', () => {
+  const TCF = require('../../functions/thought-compass-followup.js');
+  const NEXT = { decision: 'NEXT', reasonCode: 'SUFFICIENT', acknowledgement: '', followUpQuestion: '', supportOptions: [] };
+  const forced = TCF.enforceVagueActorFollowUp({ coreQuestionId: 'heroTrouble', currentAnswer: '누군가 방해해요', followUpCount: 0 }, NEXT);
+  assert.strictEqual(forced.decision, 'ASK_FOLLOW_UP');
+  assert.ok(forced.forcedVagueActor);
+  /* 이미 후속 1회 했으면 강제 안 함(캐묻기 금지) */
+  assert.strictEqual(TCF.enforceVagueActorFollowUp({ coreQuestionId: 'heroTrouble', currentAnswer: '누군가 방해해요', followUpCount: 1 }, NEXT).decision, 'NEXT');
+  /* 대상이 분명하면 그대로 NEXT */
+  assert.strictEqual(TCF.enforceVagueActorFollowUp({ coreQuestionId: 'heroTrouble', currentAnswer: '심술쟁이 여우가 길을 막아요', followUpCount: 0 }, NEXT).decision, 'NEXT');
+  /* 무관 질문(이름)엔 미적용 */
+  assert.strictEqual(TCF.enforceVagueActorFollowUp({ coreQuestionId: 'heroName', currentAnswer: '누군가', followUpCount: 0 }, NEXT).decision, 'NEXT');
+});

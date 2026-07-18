@@ -3918,8 +3918,11 @@ exports.callThoughtCompassFollowUp = onCall(
         const parsed = _parseJsonStrict(ai.text);
         const rv = TCFollowUp.validateFollowUpResponse(parsed);
         if (!rv.ok) { lastErr = new Error('schema: ' + rv.error); continue; }
-        logger.info('[tc/followup] ok', { uid, classId: input.classId, decision: rv.value.decision, reasonCode: rv.value.reasonCode, attempt });
-        return Object.assign({}, rv.value, { cached: false });
+        /* LEVELS-FEEDBACK(2026-07-19): '누군가' 등 대상 미상 답이 NEXT로 새는 변동성 제거 —
+           첫 후속 한정 고정 후속 강제(방해/사건 계열 질문만·순수 함수). */
+        const enforced = TCFollowUp.enforceVagueActorFollowUp(input, rv.value);
+        logger.info('[tc/followup] ok', { uid, classId: input.classId, decision: enforced.decision, reasonCode: enforced.reasonCode, forced: enforced.forcedVagueActor === true, attempt });
+        return Object.assign({}, enforced, { cached: false });
       } catch (e) {
         lastErr = e;
         logger.warn('[tc/followup] 시도 실패', { attempt, error: e && e.message });

@@ -452,6 +452,14 @@ function _sceneHasOutgoingLink(s) {
 }
 
 async function updateType(num, type) {
+  /* LEVELS-AUDIT F7: 1·2단계는 장면 타입(일반↔엔딩) 전환 차단 — 라디오 숨김(CSS)의 2중 방어.
+     일직선 구조에서 타입 전환은 이야기 길이/끝 위치를 바꾸는 구조 변형. */
+  if (typeof isLinearPicturebookLock === 'function' && isLinearPicturebookLock()) {
+    const s0 = scenes[num];
+    if (s0 && typeof renderCard === 'function') renderCard(s0);   /* 라디오 시각 복원 */
+    alert(PB_LINEAR_LOCK_MSG);
+    return;
+  }
   /* ENDING-GUARD-1: 일반→엔딩 전환 시, 뒤로 이어지는 연결이 남아 있으면 차단.
      · normal → ending 전환만 막음. 이미 ending인 장면을 일반으로 되돌리는 건 허용.
      · 연결(buttons[].nextId)·뒤 장면을 자동으로 지우지 않음 — 먼저 연결을 지우라고 안내만.
@@ -639,6 +647,12 @@ async function deleteScene(num) {
 }
 
 function clearAll() {
+  /* LEVELS-AUDIT F3: 1·2단계는 전체 초기화 차단(버튼 숨김의 2중 방어) — 초기화하면
+     AI 초안을 다시 받을 트리거가 없어(총량이 남아도) 복구가 교사 나침반 리셋뿐. */
+  if (typeof isLinearPicturebookLock === 'function' && isLinearPicturebookLock()) {
+    alert('1·2단계 동화책은 전체 초기화를 쓸 수 없어요.\n처음부터 다시 만들고 싶으면 선생님께 말씀드려 주세요.');
+    return;
+  }
   /* 반드시 확인창 먼저 — 확인 전 아무 삭제 없음. Undo 제거됨 → 되돌릴 수 없음.
      BTN-CLEANUP-1(2026-07-10): confirm 1회 → 타이핑 확인으로 강화 — 팀 작품 전체가
      사라지는 파괴적 동작이라 "전체 초기화"를 직접 입력해야만 실행. */

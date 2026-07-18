@@ -2651,7 +2651,10 @@ function renderHUD() {
             const _pbLvl = (ViewerState.project && ViewerState.project.projectType === 'picturebook')
               ? ViewerState.project.picturebookLevel : null;
             if (_pbLvl === 1) return '';
-            if (_pbLvl === 2) return '<button class="maker-return-btn maker-return-btn--ai js-ai-check-lite" title="AI가 내 글에서 확인할 점을 찾아줘요. 글은 내가 직접 고쳐요" aria-label="내 글 점검받기 — AI가 확인할 점을 찾아주면 내가 직접 고치기">✅ 내 글 점검받기</button>';
+            /* LEVELS-AUDIT F1: 2단계는 작품 마무리 모달이 없어 'AI 그림책 마감' 유일 진입점이
+               함께 닫혀 있던 것 복구 — HUD 직접 진입(패널 자체가 교사 토글/게이트를 재검증). */
+            if (_pbLvl === 2) return '<button class="maker-return-btn maker-return-btn--ai js-ai-check-lite" title="AI가 내 글에서 확인할 점을 찾아줘요. 글은 내가 직접 고쳐요" aria-label="내 글 점검받기 — AI가 확인할 점을 찾아주면 내가 직접 고치기">✅ 내 글 점검받기</button>'
+              + '<button class="maker-return-btn maker-return-btn--ai js-ai-imgs2-open" title="내가 그린 그림을 AI가 더 완성된 느낌으로 다듬어요. AI 그림은 후보로만 저장되고 원본은 그대로 남아요" aria-label="AI 그림책 마감 — 그림을 완성된 느낌으로 다듬기">🖼️ AI 그림책 마감</button>';
             return '<button class="maker-return-btn maker-return-btn--ai js-ai-trigger" title="작품 마무리 — 질문·검사로 고칠 곳을 찾고, 직접 고친 뒤, 마지막 다듬기" aria-label="작품 마무리 — 질문·검사·직접 고치기·마지막 다듬기">📔 작품 마무리</button>';
           })()}
           <button class="maker-return-btn maker-return-btn--test js-edit-preview-test" title="실제 관람자 화면으로 확인">▶️ 감상해 보기</button>

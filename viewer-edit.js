@@ -2389,7 +2389,19 @@ function _attachDrag(wrap, choiceId, frame) {
    · 글자 수 카운터 (30자 권장 / 60자 한계)
    · 분기 연결(nextId)은 표시만, 이번 턴엔 변경 안 함 (구조 유지)
    ================================================================ */
+/* ════ LEVELS-AUDIT F2(2026-07-18): 그림책 1·2단계 = 일직선 구조 잠금의 다듬기 판 ════
+   maker(ui.js isLinearPicturebookLock)는 잠갔지만 다듬기(🔗 팝오버·우측 패널)에서
+   버튼 추가/삭제·연결(nextId) 변경이 열려 있어 우회 가능하던 것 차단.
+   라벨(글자) 편집은 허용 — "버튼 글자는 내 이야기에 맞게" 취지 유지. */
+function _isLinearLockedViewer() {
+  return !!(typeof ViewerState !== 'undefined' && ViewerState.project
+    && ViewerState.project.projectType === 'picturebook'
+    && (ViewerState.project.picturebookLevel === 1 || ViewerState.project.picturebookLevel === 2));
+}
+const _LINEAR_LOCK_MSG_VIEWER = '1·2단계 그림책은 버튼 개수와 길(연결)이 정해져 있어요.\n버튼의 글자만 바꿀 수 있어요.';
+
 function _buttonsEditHtml(choices) {
+  const _linLock = _isLinearLockedViewer();
   const rows = choices.map((c, i) => _buttonRowHtml(c, i, choices.length)).join('');
 
   /* 0개 상태 안내 + 추가 버튼 */
@@ -2398,6 +2410,15 @@ function _buttonsEditHtml(choices) {
          행동 버튼이 없어요. 최소 1개의 버튼이 필요합니다.
        </div>`
     : '';
+
+  /* LEVELS-AUDIT F2: 일직선 잠금이면 [+ 버튼 추가] 대신 잠금 안내 */
+  const actionsHtml = _linLock
+    ? `<div class="edit-field-hint">🔒 1·2단계는 버튼 개수와 연결이 잠겨 있어요. 글자만 바꿀 수 있어요.</div>`
+    : `<div class="edit-buttons-actions">
+        <button type="button" class="edit-btn-add js-edit-btn-add">
+          + 버튼 추가
+        </button>
+      </div>`;
 
   return `
     <div class="edit-row edit-buttons-row">
@@ -2409,11 +2430,7 @@ function _buttonsEditHtml(choices) {
       <div class="edit-buttons-list js-edit-buttons-list">
         ${rows}
       </div>
-      <div class="edit-buttons-actions">
-        <button type="button" class="edit-btn-add js-edit-btn-add">
-          + 버튼 추가
-        </button>
-      </div>
+      ${actionsHtml}
     </div>`;
 }
 
@@ -2448,14 +2465,16 @@ function _buttonRowHtml(choice, idx, total) {
     ? _buildLinkSelectOptionsHtml(_curScene, currentNext)
     : '';
 
+  /* LEVELS-AUDIT F2: 일직선 잠금이면 연결 select 비활성(보기 전용) */
+  const _linLockRow = _isLinearLockedViewer();
   const nextSelectHtml = `
-    <select class="edit-btn-next-select js-edit-btn-next" data-idx="${idx}">
+    <select class="edit-btn-next-select js-edit-btn-next" data-idx="${idx}"${_linLockRow ? ' disabled title="1·2단계는 연결이 잠겨 있어요"' : ''}>
       <option value=""${currentNext ? '' : ' selected'}>(미연결)</option>
       ${optionsHtml}
     </select>`;
 
-  /* 1개일 때는 삭제 버튼 숨김 (0개 방지) */
-  const removeBtn = total > 1
+  /* 1개일 때는 삭제 버튼 숨김 (0개 방지) · 일직선 잠금이면 삭제 자체 숨김 */
+  const removeBtn = (total > 1 && !_linLockRow)
     ? `<button type="button"
          class="edit-btn-remove js-edit-btn-remove"
          data-idx="${idx}"
@@ -2557,6 +2576,8 @@ function _bindButtonsEditEvents(panel, scene) {
     const removeBtn = e.target.closest('.js-edit-btn-remove');
     if (!removeBtn) return;
     if (!_editText.editable) return;
+    /* LEVELS-AUDIT F2: 일직선 잠금 — UI 숨김의 2중 방어 */
+    if (_isLinearLockedViewer()) { alert(_LINEAR_LOCK_MSG_VIEWER); return; }
 
     const idx = parseInt(removeBtn.dataset.idx, 10);
     if (isNaN(idx) || !scene.choices[idx]) return;
@@ -2578,6 +2599,8 @@ function _bindButtonsEditEvents(panel, scene) {
     const sel = e.target.closest('.js-edit-btn-next');
     if (!sel) return;
     if (!_editText.editable) return;
+    /* LEVELS-AUDIT F2: 일직선 잠금 — select disabled의 2중 방어 */
+    if (_isLinearLockedViewer()) return;
 
     const idx = parseInt(sel.dataset.idx, 10);
     if (isNaN(idx) || !scene.choices[idx]) return;
@@ -2603,6 +2626,8 @@ function _bindButtonsEditEvents(panel, scene) {
   if (addBtn) {
     addBtn.addEventListener('click', () => {
       if (!_editText.editable) return;
+      /* LEVELS-AUDIT F2: 일직선 잠금 — UI 숨김의 2중 방어 */
+      if (_isLinearLockedViewer()) { alert(_LINEAR_LOCK_MSG_VIEWER); return; }
 
       const newIdx = scene.choices.length;
       const newId  = (typeof _autoChoiceId === 'function')
@@ -3226,6 +3251,8 @@ function _pbThemeSectionHtml() {
 function _pbChoiceCountSectionHtml(scene) {
   if (!scene) return '';
   if (scene.type === 'ending' || scene.isEnding) return '';
+  /* LEVELS-AUDIT F2: 일직선 잠금이면 개수 섹션(추가/마지막 삭제) 자체를 숨김 */
+  if (_isLinearLockedViewer()) return '';
   const count = Array.isArray(scene.choices) ? scene.choices.length : 0;
   const removeDisabled = count <= 1;
   const removeAttrs = removeDisabled
@@ -3250,6 +3277,8 @@ function _pbChoiceCountSectionHtml(scene) {
    변경 없음 (회귀 방지). */
 function _pbAddChoiceForScene(scene) {
   if (!scene) return;
+  /* LEVELS-AUDIT F2: 일직선 잠금 — UI 숨김의 2중 방어 */
+  if (_isLinearLockedViewer()) { alert(_LINEAR_LOCK_MSG_VIEWER); return; }
   if (!Array.isArray(scene.choices)) scene.choices = [];
   /* CHOICE-COUNT-CAP(#65): 행동 버튼은 6개까지 — 감상 레이아웃 매트릭스가 1~6개까지만 정의돼
      7개+부터는 split이 overflow로 잘리고 imageCenter도 깨졌다. 상한 도달 시 안내 후 무시. */
@@ -3278,6 +3307,8 @@ function _pbAddChoiceForScene(scene) {
 
 function _pbRemoveLastChoiceForScene(scene) {
   if (!scene || !Array.isArray(scene.choices)) return;
+  /* LEVELS-AUDIT F2: 일직선 잠금 — UI 숨김의 2중 방어 */
+  if (_isLinearLockedViewer()) { alert(_LINEAR_LOCK_MSG_VIEWER); return; }
   if (scene.choices.length <= 1) return;  /* 최소 1개 유지 */
   scene.choices.pop();
   _queueSaveButtons(scene);
@@ -3291,6 +3322,8 @@ function _pbRemoveLastChoiceForScene(scene) {
    splice로 배열이 dense하게 유지돼 미리보기(원본 인덱스)/1단/2단 모두 정합. */
 function _pbRemoveChoiceAtForScene(scene, idx) {
   if (!scene || !Array.isArray(scene.choices)) return;
+  /* LEVELS-AUDIT F2: 일직선 잠금 — UI 숨김의 2중 방어 */
+  if (_isLinearLockedViewer()) { alert(_LINEAR_LOCK_MSG_VIEWER); return; }
   if (!Number.isFinite(idx) || idx < 0 || idx >= scene.choices.length) return;
   if (scene.choices.length <= 1) return;  /* 최소 1개 유지 (2단 삭제와 동일) */
   scene.choices.splice(idx, 1);
@@ -3348,7 +3381,8 @@ function _pbChoiceLinkSectionHtml(scene, rowDelete) {
 
   /* 2026-06-02: rowDelete=true면 행마다 개별 삭제(×) — 단 최소 1개 유지(2단 정책 동일)라
      버튼이 1개뿐이면 ×를 숨김. 현재 movie 1단에서만 켬(text/pb 1단은 옛 그대로). */
-  const allowRowDelete = !!rowDelete && choices.length > 1;
+  /* LEVELS-AUDIT F2: 일직선 잠금이면 행 삭제 금지(연결 select는 아래에서 비활성) */
+  const allowRowDelete = !!rowDelete && choices.length > 1 && !_isLinearLockedViewer();
 
   const rows = choices.map((c, i) => {
     const rawLabel = (c && typeof c.label === 'string') ? c.label.trim() : '';
@@ -3366,7 +3400,7 @@ function _pbChoiceLinkSectionHtml(scene, rowDelete) {
         <span class="edit-pb-choice-link-num">[${i + 1}]</span>
         <span class="edit-pb-choice-link-label${labelEmptyClass}">${escHtml(labelPreview)}</span>
         <span class="edit-pb-choice-link-arrow">→</span>
-        <select class="edit-pb-choice-link-select js-pb-choice-link" data-idx="${i}">
+        <select class="edit-pb-choice-link-select js-pb-choice-link" data-idx="${i}"${_isLinearLockedViewer() ? ' disabled title="1·2단계는 연결이 잠겨 있어요"' : ''}>
           <option value=""${currentNext ? '' : ' selected'}>(미연결)</option>
           ${optionsHtml}
         </select>
@@ -3374,9 +3408,14 @@ function _pbChoiceLinkSectionHtml(scene, rowDelete) {
       </div>`;
   }).join('');
 
+  /* LEVELS-AUDIT F2: 잠금 상태 안내 — 팝오버가 '보기 전용'이 된 이유를 그 자리에서 설명 */
+  const _linLockNote = _isLinearLockedViewer()
+    ? `<div class="edit-field-hint">🔒 1·2단계는 버튼 개수와 연결이 정해져 있어요. 버튼 글자는 감상 화면에서 눌러 바꿀 수 있어요.</div>`
+    : '';
   return `
     <div class="edit-row edit-row--pb-choice-link">
       <label class="edit-label">🔗 선택지 연결</label>
+      ${_linLockNote}
       <div class="edit-pb-choice-link-list">
         ${rows}
       </div>
@@ -4894,6 +4933,16 @@ function _bindHudEditActions() {
     }
   });
 
+  /* LEVELS-AUDIT F1: 2단계 [🖼️ AI 그림책 마감] — 작품 마무리 모달의 imageS2 카드와 동일 패널
+     재사용(중복 구현 0). 변환 가능 여부(교사 토글·killswitch·대상 그림 유무)는 패널 gate가 판정. */
+  document.querySelector('.js-ai-imgs2-open')?.addEventListener('click', () => {
+    if (window.imageS2BatchUi && typeof window.imageS2BatchUi.open === 'function') {
+      window.imageS2BatchUi.open();
+    } else {
+      alert('AI 그림책 마감을 불러오지 못했어요. 페이지를 새로고침해 주세요.');
+    }
+  });
+
   /* v123/v124b: 루트보기 — storyAnalyzer.js의 openRoutePanel 재사용.
      storyAnalyzer는 maker의 전역 scenes/projectMeta를 참조하고, scene 객체에서
      num/buttons/nextA/B를 읽음. viewer adaptScenes는 {id, choices}를 쓰는 다른 구조라
@@ -5105,6 +5154,8 @@ function _bindChoicePopover(pop) {
   pop.querySelectorAll('.js-pb-choice-link').forEach(sel => {
     sel.addEventListener('change', () => {
       if (!_editText.editable) return;
+      /* LEVELS-AUDIT F2: 일직선 잠금 — select disabled의 2중 방어 */
+      if (_isLinearLockedViewer()) return;
       const idx = parseInt(sel.dataset.idx, 10);
       const s = _curScene();
       if (isNaN(idx) || !s || !s.choices || !s.choices[idx]) return;

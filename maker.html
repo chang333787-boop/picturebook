@@ -425,6 +425,13 @@
     body.pb-linear-locked #btn-add-scene,
     body.pb-linear-locked #ss-add-btn,
     body.pb-linear-locked .port-dot{ display:none !important; }
+    /* LEVELS-AUDIT F3/F6/F7(2026-07-18): 1·2단계에서 구조·복구불가 UI 추가 숨김
+       — 🗑 전체 초기화(F3: 초기화하면 AI 초안 재생성 트리거가 없어 복구 불가),
+         ⚙️ 시작점(F6: 일직선에서 시작점 변경은 구조 변형),
+         카드 일반/엔딩 라디오(F7: 타입 전환 불필요·updateType 관문 가드와 이중 방어). */
+    body.pb-linear-locked #btn-clear,
+    body.pb-linear-locked #btn-project-settings,
+    body.pb-linear-locked .card-type-row{ display:none !important; }
 
     /* v40: 복사 코드 모달 (발급/받기 공용) */
     .copy-code-modal{
@@ -3435,12 +3442,12 @@
 <!-- ADMIN-REDESIGN Phase 3: 교사·학생 상세 설명서(화면형) -->
 <script src="admin-manual.js?v=1ece1a12f2"></script>
 <script src="projectSettings.js?v=5eb05c2079"></script>
-<script src="ui.js?v=24955b29f4"></script>
+<script src="ui.js?v=19f96b4e96"></script>
 <!-- v95: 모바일 텍스트형 브랜치 전용 (텍스트 작품 + 모바일에서만 활성) -->
 <script src="mobileTextBranch.js?v=5ab8e1230b"></script>
 <!-- TUTORIAL-PRD: 콘텐츠·삽화·데모(먼저) → 도움말/환영/인쇄 -->
 <script src="fullscreen-persist.js?v=ba97ed7f7e"></script>
-<script src="tutorial-content.js?v=cb5ae107fc"></script>
+<script src="tutorial-content.js?v=f04a3a2c3e"></script>
 <script src="tutorial-art.js?v=89f1207629"></script>
 <script src="tutorial-demo.js?v=b90d0f64b8"></script>
 <script src="tutorial-help.js?v=65a10e467b"></script>

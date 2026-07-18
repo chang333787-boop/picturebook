@@ -4884,6 +4884,16 @@ function _bindHudEditActions() {
     }
   });
 
+  /* LEVELS-CONT(2단계 이어쓰기): [✅ 내 글 점검받기] — 작품 검사 단독 라이트(viewer-ai.startCheckLite).
+     2단계 HUD 전용(viewer-render가 노출 게이트). 준비게이트/생각점검/마지막다듬기 없음. */
+  document.querySelector('.js-ai-check-lite')?.addEventListener('click', () => {
+    if (typeof window.viewerAi === 'object' && typeof window.viewerAi.startCheckLite === 'function') {
+      window.viewerAi.startCheckLite();
+    } else {
+      alert('AI 기능을 불러오지 못했어요. 페이지를 새로고침해 주세요.');
+    }
+  });
+
   /* v123/v124b: 루트보기 — storyAnalyzer.js의 openRoutePanel 재사용.
      storyAnalyzer는 maker의 전역 scenes/projectMeta를 참조하고, scene 객체에서
      num/buttons/nextA/B를 읽음. viewer adaptScenes는 {id, choices}를 쓰는 다른 구조라

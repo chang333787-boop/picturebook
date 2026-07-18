@@ -3703,7 +3703,11 @@
         body: s.body,
         isEnding: !!s.isEnding,
         submode: s.picturebookSubmode === 'imageCenter' ? 'imageCenter' : 'split',
-        choices: (s.choices || []).map(c => ({
+        /* LEVELS-CONT: 2단계(일직선 고정 길)는 선택지가 아이의 쓰기 과제가 아님 — base10
+           스키마(buttons 라벨 '다음으로 가기'·choiceA='')가 어댑터에서 빈 라벨로 읽혀
+           "선택지 텍스트가 비어있습니다" 지적이 장면마다 반복되던 소음 차단(검사=글에 집중).
+           3단계/텍스트는 기존 그대로(분기 흐름 검사 유지). */
+        choices: _isPbLevel2() ? [] : (s.choices || []).map(c => ({
           label: c && c.label ? c.label : '',
           nextId: c && c.nextId ? c.nextId : null,
         })),
@@ -4343,6 +4347,27 @@
     } catch (e) { /* 실패 시 false 유지(표시만 생략) */ }
   }
 
+  /* LEVELS-CONT(2단계 이어쓰기): 현재 작품이 그림책 2단계인지 — [✅ 내 글 점검받기] 라이트
+     문구/흐름 분기용(렌더 경로가 아니라 모달 카피만 바꾼다). */
+  function _isPbLevel2() {
+    return !!(typeof ViewerState !== 'undefined' && ViewerState.project
+      && ViewerState.project.projectType === 'picturebook'
+      && ViewerState.project.picturebookLevel === 2);
+  }
+
+  /* LEVELS-CONT: [✅ 내 글 점검받기] = 작품 검사 단독 라이트 진입점(2단계 HUD 전용).
+     작품 마무리 모달(준비게이트·온보딩·생각점검·마지막다듬기) 없이 검사만 바로 실행.
+     교사 토글(modes.workCheck)·본문 2개 이상 게이트는 기존 availability 그대로 존중. */
+  async function startCheckLite() {
+    try { await _loadClassAiSettings(); } catch (e) { /* fallback 허용(서버가 최종 차단) */ }
+    const a = _getModeAvailability().check;
+    if (!a.enabled) {
+      showAiNotice(a.reason || '지금은 내 글 점검을 쓸 수 없어요.', { title: '✅ 내 글 점검받기' });
+      return;
+    }
+    return _startWorkCheck();
+  }
+
   async function _startWorkCheck() {
     /* quota 검사 */
     if (_getRemaining('check') <= 0) {
@@ -4414,6 +4439,12 @@
   }
   function _returnToWriteAfterModal() {
     _hideWriteAfterReturnHint();
+    /* LEVELS-CONT: 2단계 라이트 흐름엔 작품 마무리 모달이 없음 — 최근 점검 결과로 복귀
+       (openModal은 1·2단계 안내 alert만 띄우므로 부적절). 실패 시 조용히 종료. */
+    if (_isPbLevel2()) {
+      Promise.resolve().then(_showLatestWorkCheck).catch(function () { /* noop */ });
+      return;
+    }
     try { if (typeof openModal === 'function') { openModal(); return; } } catch (e) { /* fallthrough */ }
     try { _showModeModal(); } catch (e2) { /* noop */ }
   }
@@ -4471,8 +4502,12 @@
     return true;
   }
 
-  /* 검사 결과 모달 — 수정 X. 진단만. "이 장면 고치기" 버튼(직접 편집 진입) 제공. */
+  /* 검사 결과 모달 — 수정 X. 진단만. "이 장면 고치기" 버튼(직접 편집 진입) 제공.
+     LEVELS-CONT: 그림책 2단계([✅ 내 글 점검받기])는 같은 결과를 쉬운 말 카피로 —
+     작품 마무리/생각 점검/마지막 다듬기 언급 제거·선택지 대신 이야기 마무리 라벨.
+     데이터/핸들러/schema key 무변경(최근 결과 다시 보기도 같은 모달이라 자동 적용). */
   function _showCheckResultModal(check) {
+    const lite = _isPbLevel2();
     const cats = check.categories || {};
     /* CHECK-UI-1: real 응답 카테고리 키는 character, 구버전 mock은 characterConsistency.
        존재하는 쪽을 읽어 누락·카운트 0 방지. (빈 배열도 truthy라 real character:[]가 우선) */
@@ -4482,7 +4517,7 @@
       { key: 'spelling',   icon: '📝', title: '글자와 문장 확인',   items: cats.spelling || [] },
       { key: 'coherence',  icon: '🔗', title: '장면 연결 확인',     items: cats.coherence || [] },
       { key: 'character',  icon: '👤', title: '인물과 이름 확인',   items: cats.character || cats.characterConsistency || [] },
-      { key: 'branchFlow', icon: '🌳', title: '선택지·마무리 확인', items: cats.branchFlow || [] },
+      { key: 'branchFlow', icon: '🌳', title: lite ? '이야기 마무리 확인' : '선택지·마무리 확인', items: cats.branchFlow || [] },
     ];
     const _totalFindings = sections.reduce((n, s) => n + s.items.length, 0);
 
@@ -4517,20 +4552,28 @@
       : '';
     /* 문제가 거의 없을 때(전 카테고리 0) — 부담 없는 안내. */
     const fewNote = (_totalFindings === 0)
-      ? '<div class="ai-check-few" style="margin:2px 0 10px;padding:8px 12px;background:#eef7ea;border:1px solid #cfe6c2;border-radius:10px;color:#4a6b3a;font-size:13px;">크게 고칠 부분이 많지 않아요. 그래도 한 번 더 읽으며 선택지와 마무리를 확인해 보세요.</div>'
+      ? ('<div class="ai-check-few" style="margin:2px 0 10px;padding:8px 12px;background:#eef7ea;border:1px solid #cfe6c2;border-radius:10px;color:#4a6b3a;font-size:13px;">'
+        + (lite
+          ? '크게 고칠 부분이 없어요. 잘 이어 썼어요! 한 번 더 읽으며 이야기가 매끄럽게 이어지는지 확인해 보세요.'
+          : '크게 고칠 부분이 많지 않아요. 그래도 한 번 더 읽으며 선택지와 마무리를 확인해 보세요.')
+        + '</div>')
       : '';
+    const _introHtml = lite
+      ? `AI가 내 글에서 <b>확인할 점</b>을 찾아줬어요. 글은 <b>내가 직접</b> 고쳐요.
+          아래에서 고쳐 볼 장면을 골라 <b>‘이 장면 고치기’</b>를 눌러요.`
+      : `AI가 작품에서 <b>확인할 점</b>을 찾아줬어요. 글은 <b>내가 직접</b> 고쳐요.
+          아래에서 고쳐 볼 장면을 골라 <b>‘이 장면 고치기’</b>를 눌러요.
+          <span style="display:block;margin-top:3px;color:#8a8f98;font-size:12px;">생각 점검 질문은 더 생각할 질문을, 작품 검사는 고쳐 볼 부분을 찾아줘요. 고친 뒤 작품 마무리로 돌아와 마지막 다듬기를 해요.</span>`;
     const html = `
       <div class="ai-modal__header">
-        <div class="ai-modal__title">🔍 작품 검사 — 고쳐 볼 점</div>
+        <div class="ai-modal__title">${lite ? '✅ 내 글 점검 — 확인할 점' : '🔍 작품 검사 — 고쳐 볼 점'}</div>
         <button class="ai-modal__close js-ai-modal-close" aria-label="닫기">✕</button>
       </div>
       <div class="ai-modal__body">
         ${cachedNote}
         ${latestNote}
         <div class="ai-check-intro ai-check-intro--student">
-          AI가 작품에서 <b>확인할 점</b>을 찾아줬어요. 글은 <b>내가 직접</b> 고쳐요.
-          아래에서 고쳐 볼 장면을 골라 <b>‘이 장면 고치기’</b>를 눌러요.
-          <span style="display:block;margin-top:3px;color:#8a8f98;font-size:12px;">생각 점검 질문은 더 생각할 질문을, 작품 검사는 고쳐 볼 부분을 찾아줘요. 고친 뒤 작품 마무리로 돌아와 마지막 다듬기를 해요.</span>
+          ${_introHtml}
         </div>
         ${fewNote}
         ${sectionsHtml}
@@ -4966,11 +5009,14 @@
      openModal — viewer 상단 [📔 작품 마무리] 진입점
      ════════════════════════════════════════════════════════════════ */
   async function openModal() {
-    /* PICTUREBOOK-LEVELS(§7.7+피드백): 1·2단계 = 고쳐쓰기(작품 마무리) 스킵 — HUD 숨김의 2중 방어. */
+    /* PICTUREBOOK-LEVELS(§7.7+피드백): 1·2단계 = 고쳐쓰기(작품 마무리) 스킵 — HUD 숨김의 2중 방어.
+       LEVELS-CONT: 2단계는 [✅ 내 글 점검받기](작품 검사 단독 라이트)가 대신함을 안내. */
     if (typeof ViewerState !== 'undefined' && ViewerState.project
         && ViewerState.project.projectType === 'picturebook'
         && (ViewerState.project.picturebookLevel === 1 || ViewerState.project.picturebookLevel === 2)) {
-      alert('1·2단계 동화책은 작품 마무리(고쳐쓰기) 단계가 없어요.\n글과 그림을 다듬고, 감상으로 자랑해 보세요!');
+      alert(ViewerState.project.picturebookLevel === 2
+        ? '2단계 동화책은 작품 마무리 대신 [✅ 내 글 점검받기]로 내 글을 점검해요.\n글을 이어서 완성하고 위쪽의 ✅ 버튼을 눌러 보세요!'
+        : '1·2단계 동화책은 작품 마무리(고쳐쓰기) 단계가 없어요.\n글과 그림을 다듬고, 감상으로 자랑해 보세요!');
       return;
     }
     /* Phase 1: 카드가 교사 권한을 반영하도록 모달 전에 aiSettings 로드 보장. */
@@ -5100,6 +5146,8 @@
       PHASE:      PHASE,
       MOCK_ONLY:  MOCK_ONLY,
       openModal:  openModal,
+      /* LEVELS-CONT(2단계 이어쓰기): [✅ 내 글 점검받기] = 작품 검사 단독 라이트(viewer-edit HUD 바인딩) */
+      startCheckLite: startCheckLite,
       /* IMAGE-S2-10 — 교사 UI 모듈(viewer-image-batch-ui.js)이 콜러블/앱에 접근하도록 노출(내부 함수 그대로). */
       _callPhaseAFunction: _callPhaseAFunction,
       _getViewerFirebaseApp: _getViewerFirebaseApp,

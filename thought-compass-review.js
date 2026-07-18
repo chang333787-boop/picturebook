@@ -372,8 +372,14 @@
     const _noteTa = document.querySelector('#' + OVERLAY_ID + ' .tc-note-input');
     if (_noteTa) { try { await _saveUserNotes(_noteTa.value); } catch (_) {} }
     const TC = _TC(), Store = _Store(), Flow = _Flow();
-    /* 완료 조건 — 핵심 전부 유효(유예 포함). V2: vm 질문 세트로 version 파생(10키 판정+완료 스탬프). */
-    const qVersion = (R.vm && Array.isArray(R.vm.questions) && R.vm.questions.some(function (q) { return q && q.id === 'targetLength'; })) ? 2 : 1;
+    /* 완료 조건 — 핵심 전부 유효(유예 포함). vm 질문 세트로 version 파생(완주 판정+완료 스탬프).
+       LEVELS-CONT: easy(heroWho)=3·linear(protagonistName)=4를 명시 파생 — 종전엔 1로 스탬프돼
+       resolve의 답 기반 자가복구에 기대던 것 정정(특히 linear는 targetLength 제거로 v2 오인 불가). */
+    const qVersion = (R.vm && Array.isArray(R.vm.questions))
+      ? (R.vm.questions.some(function (q) { return q && q.id === 'heroWho'; }) ? 3
+        : (R.vm.questions.some(function (q) { return q && q.id === 'protagonistName'; }) ? 4
+          : (R.vm.questions.some(function (q) { return q && q.id === 'targetLength'; }) ? 2 : 1)))
+      : 1;
     const state = { version: qVersion, status: 'inProgress', answers: R.vm.answers, followUps: R.followUps, completedAt: null };
     const v = TC ? TC.validateThoughtCompassCompletion(state) : { valid: Flow.allAnswered(R.vm) };
     if (!v.valid) {
@@ -405,6 +411,8 @@
     } catch (e) { /* noop — 장면 생성 실패는 maker에서 수동 생성 가능 */ }
 
     /* 게이트/검토 닫기 → maker 노출 */
+    /* LEVELS-CONT fix: 환영 필터용 projectType은 R 해제 전에 확보 */
+    var _ptypeForWelcome = (R && R.ctx && R.ctx.projectType) ? R.ctx.projectType : null;
     _remove();
     if (window.ThoughtCompassGate && typeof window.ThoughtCompassGate.closeGate === 'function') window.ThoughtCompassGate.closeGate();
     if (_UI() && typeof _UI().close === 'function') _UI().close();
@@ -416,7 +424,9 @@
       /* TUTORIAL-SCOPE-MAKER(#4): 나침반 완료 경로도 모둠 계정 스코프로(ui.js와 동일 헬퍼) —
          같은 기기 다른 모둠에 '다시 열지 않기'가 새지 않게. */
       var _scope = (typeof window.__makerTutorialScope === 'function') ? window.__makerTutorialScope() : null;
-      try { await window.TutorialWelcome.maybeShow({ scope: _scope }); } catch (e) { /* noop */ }
+      /* LEVELS-CONT fix: filterType 미전달로 유형/단계(pbLevels) 필터가 죽어 1·2단계 환영이
+         3단계 슬라이드로 나오던 것 정정. ctx는 위에서 R 해제 전에 확보한 projectType 사용. */
+      try { await window.TutorialWelcome.maybeShow({ scope: _scope, filterType: _ptypeForWelcome || null }); } catch (e) { /* noop */ }
     }
   }
 

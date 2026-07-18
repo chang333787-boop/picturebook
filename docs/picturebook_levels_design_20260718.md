@@ -153,3 +153,26 @@ anchor: maker.html:2964 `#ptype-grid`(카드 text/picturebook/movie/experience(h
 - 클라: 하니스(레벨 분기·일직선 잠금·easy 세트)+`node --check`+버스터 `--check`, 로컬 8000(picturebook-repo main) 실측.
 - 함수: focused 하니스(초안 스키마·게이트) → 배포 승인 → 연습반(학급코드 0000 아님 주의) 실계정 e2e.
 - 실기기: 크롬북 1단계 전 흐름 1회 + 인쇄 1회.
+
+## 14. LEVELS-CONT — 2단계 "이어쓰기" 개편 (2026-07-18 사용자 확정 · 구현 완료)
+
+고쳐쓰기 모델 폐기 → **AI가 시작 3장면만 쓰고 아이가 이어서 완성**. 사다리가 "AI 전부(1) → 시작만(2) → 아이 전부(3)"로 유기화.
+
+### 14.1 확정 사양 → 구현
+1. **8장면 고정**: linear 나침반 세트(v4)에서 targetLength 질문 제거 → **9문항**. `CORE_QUESTION_KEYS_LINEAR` 2곳 동기(thought-compass-questions.js·thought-compass.js — validator/완주는 키배열 기준 자동). `resolveStoryCount`는 targetLength 없으면 8이라 정합(함수 자체는 v2 공용이라 유지). 구 v4 세션(targetLength 답 잔존)도 9키만 채우면 완주(하위호환).
+2. **씨앗 힌트**: `studentStoryDraft` level 2 출력 = 장면 1~3(BASE10 키 2~4) 완성문 `body` + 장면 4~8(키 5~9)·엔딩(키 10) **`hint` 한 문장**(물음형). 서버 sanitize가 결정적 강제(앞 3장면 hint 버림·4장면부터 body 버림 — AI 슬립에도 "AI는 시작만" 유지). 클라 `_applyStoryDraftStarter`가 `scene.writingHint`(≤140자)로 기록.
+   - **writingHint = 메이커 전용 신규 필드**: 카드 미리보기(`💡 힌트`·empty 스타일)·카드 textarea placeholder·퀵에디트 placeholder로만 노출. 글을 쓰면 사라지고 지우면 다시 보임(placeholder 원칙). 감상/인쇄/AI 스냅샷은 body만 읽어 **뷰어 무변경 원칙 유지**. rules 변경 불요(scenes write auth 게이트만).
+3. **그림 현행 유지**: 2단계 자동 그림 없음(아이 그리기+AI 그림책 마감) — 글·그림 대칭.
+4. **[✅ 내 글 점검받기]** (2단계 다듬기 HUD·📔 자리): `viewerAi.startCheckLite()` = 작품검사 **단독** 실행(온보딩/준비게이트/생각점검/마지막다듬기 없음). 결과 모달은 2단계에서 쉬운 말 카피(제목 "✅ 내 글 점검"·branchFlow 라벨 "이야기 마무리 확인"·작품마무리 언급 제거) — `_showLatestWorkCheck` 재사용이라 최근 결과 보기도 동일. openModal은 2단계 안내 문구로 2중 방어.
+   - **일직선 검사 소음 2중 차단**: ①클라 스냅샷이 2단계에선 choices 미전송(base10 `choiceA=''`가 어댑터에서 빈 라벨로 읽혀 "선택지 텍스트 비어있음" ×장면수 나오던 것) ②서버 `callWorkCheck`가 `viewer-meta/picturebookLevel`을 직접 read(1·2단계=linearLocked)해 `buildUserMessage` 4번째 인자(opts.linearLocked·미전달=바이트 동일)로 "선택지/분기 추가 권고 금지·마무리만" 블록 삽입. e2e 3차 검사에서 분기 권고 0·실질 지적("결말 구체화")만 확인.
+5. **문구**: 진입 카드 desc "AI가 이야기를 시작해 주면 내가 이어서 완성해요 · 3~4학년" · 환영/다듬기 슬라이드 pbLevels:[2] 교체(+refineWelcome에 ✅ 슬라이드 신설·📔 슬라이드 pbLevels:[3]) · 초안 토스트 "AI가 이야기를 시작해 줬어요…".
+
+### 14.2 함께 잡은 기존 갭 2건
+- **튜토리얼 pbLevels 필터 무력화**: maker 환영 호출 2곳(ui.js `_enterMakerAfterPtypeSelected`·thought-compass-review.js `_complete`)이 `filterType` 미전달 → 유형/단계 필터가 항상 3단계로 평가(1·2단계에 갈림길 서사 환영 노출). filterType 전달로 정정. viewer에는 `getPicturebookLevel` shim 신설(viewer-data — ViewerState 기반·maker 정의 존중)로 다듬기 환영/코치도 단계 필터 동작.
+- **나침반 완료 version 스탬프**: review `_complete`의 qVersion 파생이 targetLength 유무 이분법(1|2)이라 easy/linear 완료가 version 1로 저장되고 답 기반 자가복구에 기대던 것 → heroWho=3·protagonistName=4 명시 파생으로 정정.
+
+### 14.3 검증 (2026-07-18)
+- 하니스: 나침반 240/240(9문항 계약 갱신)+write-after 29 · 서버 sanitize/validate 함수추출 하니스 5종(level1 불변·씨앗힌트·슬립 강제·결함 검출·프롬프트) · buildUserMessage 바이트동일 계약 3종.
+- 브라우저 실측: linear 9문항 라이브·카드 💡 미리보기/placeholder/퀵에디트·본문 쓰면 힌트 소멸·HUD 매트릭스(1단계=없음·2단계=✅만·3단계=📔만)·lite 모달 카피·3단계 카피 회귀 0.
+- **실계정 e2e(연습반 신규 팀 '이어쓰기테스트'·PIN 4321·account 노드 CLI 생성)**: 2단계 선택(confirm 라벨) → linear 9문항 실답(AI 후속 '이름' 강제 실작동) → `studentStoryDraft` 실호출 → RTDB scenes = 표지 제목 '털볼이와 심술쟁이 까치' + 키2~4 body + **키5~9·10 writingHint**(body '') 실확인 · aiUsage.storyDraft=1 → 장면5·6·7 이어쓰기(퀵에디트 placeholder=힌트 전문) → [✅ 내 글 점검받기] 실 Haiku 3회(1차 lite 카피/2차 choices 미전송/3차 linearLocked 프롬프트 — 분기 소음 0·유용 지적 1건) → 환영 필터 fix 실측(2단계 슬라이드).
+- 배포: `studentStoryDraft`·`callWorkCheck`(asia-northeast3) 재배포. 기존 테스트 팀(이단계테스트·이단계테스트2)은 옛 방식 데이터 그대로(신규만 새 방식).

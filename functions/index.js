@@ -1891,7 +1891,15 @@ exports.callWorkCheck = onCall(
     await _consumeQuota(ctx);
 
     try {
-      const userMsg = buildUserMessage(snapshot, 'check', _anchor);
+      /* LEVELS-CONT: 그림책 1·2단계=일직선 잠금 — 서버가 직접 read(클라 위조 불가).
+         읽기 실패 시 false=기존 프롬프트 그대로(페일세이프). */
+      let _linearLocked = false;
+      try {
+        const _lvl = Number((await admin.database()
+          .ref(`classes/${ctx.classId}/teams/${_enc}/viewer-meta/picturebookLevel`).once('value')).val());
+        _linearLocked = (_lvl === 1 || _lvl === 2);
+      } catch (e) { _linearLocked = false; }
+      const userMsg = buildUserMessage(snapshot, 'check', _anchor, { linearLocked: _linearLocked });
       const ai = await _callAnthropic(ANTHROPIC_API_KEY.value(), WORK_CHECK_SYSTEM_PROMPT, userMsg);
 
       logger.info('[ai/check] Anthropic 응답 박힘', {
@@ -3130,8 +3138,10 @@ function _validateScriptDraft(d) {
    · 단계·빈작품 게이트는 서버가 RTDB 직접 read(클라 위조 불가):
      viewer-meta/picturebookLevel ∈ {1,2} + scenes 비어있음(초안=새 작품 전용).
    · 팀당 총량 = STUDENT_STORY_DRAFT_TEAM_LIMIT (자동 1회+재시도 여유·§9 팀당 총량 결정).
-   · 출력 = {title, scenes[storyCount], ending} — 클라가 BASE10 스타터 골격에 얹음
-     (스키마 신설 없음). 정본: docs/picturebook_levels_design_20260718.md §7.4
+   · 출력 = {title, scenes[storyCount], ending} — 클라가 BASE10 스타터 골격에 얹음.
+     LEVELS-CONT: level 2는 앞 3장면만 body, 나머지 장면·엔딩은 hint(씨앗 힌트 한 문장)
+     — 클라가 scene.writingHint로 기록(메이커 placeholder 전용·감상/인쇄 미노출).
+     정본: docs/picturebook_levels_design_20260718.md §7.4
    ════════════════════════════════════════════════════════════════ */
 const STUDENT_STORY_DRAFT_TEAM_LIMIT = 3;
 
@@ -3195,12 +3205,12 @@ exports.studentStoryDraft = onCall(
         throw new HttpsError('internal', '이야기가 너무 길어져서 잘렸어요. 잠시 후 다시 시도해 주세요.');
       }
 
-      const draft = _sanitizeStudentStoryDraft(_parseJsonStrict(ai.text), storyCount);
+      const draft = _sanitizeStudentStoryDraft(_parseJsonStrict(ai.text), storyCount, level);
       if (draft && draft.refused === true) {
         await refund();   /* 소재 거절 = 횟수 미차감(대본도우미와 동일 정책) */
         return { ok: false, refused: true, reason: String(draft.reason || '').slice(0, 200) };
       }
-      const shapeErr = _validateStudentStoryDraft(draft, storyCount);
+      const shapeErr = _validateStudentStoryDraft(draft, storyCount, level);
       if (shapeErr) throw new Error('shape: ' + shapeErr);
 
       /* 감사로그 — 비치명(push 실패가 성공한 초안을 삼키지 않음) */
@@ -3223,34 +3233,59 @@ exports.studentStoryDraft = onCall(
 );
 
 /* PICTUREBOOK-LEVELS ③: AI 출력 정리 — null 제거·문자열 강제·개수/번호 정규화.
-   가벼운 슬립(초과 장면·번호 흐트러짐)은 살리고, 본질 결함만 _validateStudentStoryDraft가 거른다. */
-function _sanitizeStudentStoryDraft(d, storyCount) {
+   가벼운 슬립(초과 장면·번호 흐트러짐)은 살리고, 본질 결함만 _validateStudentStoryDraft가 거른다.
+   LEVELS-CONT(2단계 이어쓰기): level 2 = 앞 3장면 완성문 + 나머지 장면·엔딩 씨앗 힌트(hint).
+   결정적 강제 — 앞 3장면은 hint를 버리고, 4장면부터는 body를 버린다(AI가 둘 다 줘도
+   "AI는 시작만, 아이가 완성" 원칙 유지). level 1은 기존과 동일(전 장면 body). */
+const STORY_DRAFT_CONT_FULL_SCENES = 3;   /* 2단계에서 AI가 완성문으로 쓰는 앞 장면 수 */
+
+function _sanitizeStudentStoryDraft(d, storyCount, level) {
   if (!d || typeof d !== 'object' || d.refused === true) return d;
   const str = (v, max) => String(v == null ? '' : v).trim().slice(0, max);
+  const cont = (level === 2);
   const scenes = (Array.isArray(d.scenes) ? d.scenes : [])
-    .filter((s) => s && typeof s === 'object' && (s.body || s.title))
+    .filter((s) => s && typeof s === 'object' && (s.body || s.title || s.hint))
     .slice(0, storyCount)
-    .map((s, i) => ({ num: i + 1, title: str(s.title, 40), body: str(s.body, 600) }));
-  return {
-    title: str(d.title, 40),
-    scenes,
-    ending: {
-      title: str(d.ending && d.ending.title, 40),
-      body:  str(d.ending && d.ending.body, 600),
-    },
+    .map((s, i) => {
+      const out = { num: i + 1, title: str(s.title, 40), body: str(s.body, 600) };
+      if (cont && i >= STORY_DRAFT_CONT_FULL_SCENES) {
+        out.body = '';
+        const hint = str(s.hint, 140);
+        if (hint) out.hint = hint;
+      }
+      return out;
+    });
+  const ending = {
+    title: str(d.ending && d.ending.title, 40),
+    body:  str(d.ending && d.ending.body, 600),
   };
+  if (cont) {
+    ending.body = '';
+    const eh = str(d.ending && d.ending.hint, 140);
+    if (eh) ending.hint = eh;
+  }
+  return { title: str(d.title, 40), scenes, ending };
 }
 
-function _validateStudentStoryDraft(d, storyCount) {
+function _validateStudentStoryDraft(d, storyCount, level) {
   if (!d || typeof d !== 'object') return '객체 아님';
   if (!d.title) return 'title 없음';
   if (!Array.isArray(d.scenes) || d.scenes.length !== storyCount) {
     return `scenes ${storyCount}개 아님 (${Array.isArray(d.scenes) ? d.scenes.length : 0})`;
   }
+  const cont = (level === 2);
   for (let i = 0; i < d.scenes.length; i++) {
-    if (!d.scenes[i].body) return `scenes[${i}] body 없음`;
+    if (cont && i >= STORY_DRAFT_CONT_FULL_SCENES) {
+      if (!d.scenes[i].hint) return `scenes[${i}] hint 없음`;
+    } else if (!d.scenes[i].body) {
+      return `scenes[${i}] body 없음`;
+    }
   }
-  if (!d.ending || !d.ending.body) return 'ending body 없음';
+  if (cont) {
+    if (!d.ending || !d.ending.hint) return 'ending hint 없음';
+  } else if (!d.ending || !d.ending.body) {
+    return 'ending body 없음';
+  }
   return null;
 }
 

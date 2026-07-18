@@ -15,16 +15,18 @@ test('EASY: 정확히 8문항·키 일치·형태 검증 통과', () => {
   assert.deepStrictEqual(Q.getCoreQuestions(3).map(q => q.id), Q.CORE_QUESTION_KEYS_EASY.slice());
 });
 
-test('LINEAR: 정확히 10문항·키 일치·형태 검증 통과(targetLength 보기전용 허용)', () => {
+test('LINEAR: 정확히 9문항(LEVELS-CONT: targetLength 제거)·키 일치·형태 검증 통과', () => {
   const r = Q.validateCoreQuestionSet(null, 4);
   assert.deepStrictEqual(r.errors, []);
   assert.strictEqual(r.valid, true);
+  assert.strictEqual(Q.getCoreQuestions(4).length, 9);
   assert.deepStrictEqual(Q.getCoreQuestions(4).map(q => q.id), Q.CORE_QUESTION_KEYS_LINEAR.slice());
 });
 
-test('LINEAR: 진엔딩/다른선택 배제 + 이름 질문 포함 + 문구에 "진엔딩" 없음', () => {
+test('LINEAR: 진엔딩/다른선택/길이질문 배제 + 이름 질문 포함 + 문구에 "진엔딩" 없음', () => {
   const ids = Q.getCoreQuestions(4).map(q => q.id);
   assert.ok(!ids.includes('alternatePath'), 'alternatePath는 일직선에서 제외');
+  assert.ok(!ids.includes('targetLength'), 'targetLength는 이어쓰기 8장면 고정으로 제외');
   assert.ok(ids.includes('protagonistName'));
   for (const q of Q.getCoreQuestions(4)) {
     assert.ok(q.title.indexOf('진엔딩') === -1, q.id + ' title에 진엔딩 잔존');
@@ -70,8 +72,11 @@ test('completion: easy=8키 완주·linear=10키 완주(부족 시 missing)', ()
   assert.strictEqual(missEasy.valid, false);
   const okLin = TC.validateThoughtCompassCompletion({ version: 4, status: 'inProgress', answers: _fill(Q.CORE_QUESTION_KEYS_LINEAR) });
   assert.strictEqual(okLin.valid, true);
-  const missLin = TC.validateThoughtCompassCompletion({ version: 4, status: 'inProgress', answers: _fill(['targetLength']) });
+  const missLin = TC.validateThoughtCompassCompletion({ version: 4, status: 'inProgress', answers: _fill(['protagonist']) });
   assert.strictEqual(missLin.valid, false);
+  /* LEVELS-CONT 하위호환: targetLength를 이미 답한 구 v4 세션도 9키만 채우면 완주(추가 답 무시) */
+  const legacyLin = Object.assign(_fill(Q.CORE_QUESTION_KEYS_LINEAR), { targetLength: { choiceId: 'targetlen_8' } });
+  assert.strictEqual(TC.validateThoughtCompassCompletion({ version: 4, status: 'inProgress', answers: legacyLin }).valid, true);
 });
 
 /* ── 시작/저장 스탬프 ── */
@@ -92,12 +97,14 @@ test('planSaveProgress: easy/linear 세션 매 저장 재스탬프(멱등)', () 
 });
 
 /* ── 장면 수(초안 길이) 정합 ── */
-test('scenes: easy(targetLength 없음)=8 고정·linear targetLength 반영', () => {
+test('scenes: easy/linear(targetLength 없음)=8 고정·v2 targetLength 반영', () => {
   const SC = require('../../thought-compass-scenes.js');
   assert.strictEqual(SC.resolveStoryCount(_fill(Q.CORE_QUESTION_KEYS_EASY)), 8);
-  const linAns = _fill(Q.CORE_QUESTION_KEYS_LINEAR);
-  linAns.targetLength = { choiceId: 'targetlen_12' };
-  assert.strictEqual(SC.resolveStoryCount(linAns), 12);
+  /* LEVELS-CONT: linear는 targetLength 질문 자체가 없어 항상 8(이어쓰기 8장면 고정) */
+  assert.strictEqual(SC.resolveStoryCount(_fill(Q.CORE_QUESTION_KEYS_LINEAR)), 8);
+  const v2Ans = _fill(Q.CORE_QUESTION_KEYS_V2);
+  v2Ans.targetLength = { choiceId: 'targetlen_12' };
+  assert.strictEqual(SC.resolveStoryCount(v2Ans), 12);
 });
 
 /* ── '누군가' 결정적 후속 강제(서버) ── */

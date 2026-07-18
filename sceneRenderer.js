@@ -450,9 +450,13 @@ function _buildPicturebookCardContent(s) {
        .pb-edit-zone으로 묶어 기본 숨김 → 카드 선택(···) 시에만 노출.
      · 데이터·핸들러·포트(연결 dot) 구조 무변경. js-body-input 등 기존 셀렉터 유지. */
   const _bodyTrim = (typeof s.body === 'string') ? s.body.trim() : '';
+  /* LEVELS-CONT(2단계 이어쓰기): AI 씨앗 힌트(scene.writingHint) — 글이 비어 있을 때만
+     미리보기/placeholder로 노출(placeholder 원칙: 아이가 글을 쓰면 자연히 사라지고,
+     지우면 다시 보임). 감상/인쇄/AI는 이 필드를 읽지 않음. */
+  const _hintTrim = (typeof s.writingHint === 'string') ? s.writingHint.trim() : '';
   const _previewText = _bodyTrim
     ? _escapeHtml(_bodyTrim)
-    : '그림과 글을 채워 보세요.';
+    : (_hintTrim ? ('💡 ' + _escapeHtml(_hintTrim)) : '그림과 글을 채워 보세요.');
   const _emptyCls = _bodyTrim ? '' : ' pb-body-preview--empty';
   return `
     ${_buildImageAreaHtml(s)}
@@ -460,7 +464,7 @@ function _buildPicturebookCardContent(s) {
     <div class="pb-edit-zone">
       <div class="card-body card-body--picturebook">
         <textarea class="card-body-textarea js-body-input"
-          placeholder="장면 본문 (짧게)"
+          placeholder="${_hintTrim ? _escapeHtml(_hintTrim) : '장면 본문 (짧게)'}"
           rows="2"
           data-num="${s.num}">${_escapeHtml(s.body || '')}</textarea>
         ${_buildTypeRowHtml(s)}
@@ -624,7 +628,17 @@ function _pbSyncPreviewFromTextarea(cardEl) {
   if (!ta || !pv) return;
   const v = (ta.value || '').trim();
   if (v) { pv.textContent = v; pv.classList.remove('pb-body-preview--empty'); }
-  else   { pv.textContent = '그림과 글을 채워 보세요.'; pv.classList.add('pb-body-preview--empty'); }
+  else {
+    /* LEVELS-CONT: 빈 글 폴백도 씨앗 힌트 우선(카드 최초 렌더와 동일 규칙) */
+    let hint = '';
+    try {
+      const num = ta.getAttribute('data-num');
+      const sc = (typeof scenes === 'object' && scenes) ? scenes[num] : null;
+      if (sc && typeof sc.writingHint === 'string') hint = sc.writingHint.trim();
+    } catch (e) { /* noop */ }
+    pv.textContent = hint ? ('💡 ' + hint) : '그림과 글을 채워 보세요.';
+    pv.classList.add('pb-body-preview--empty');
+  }
 }
 
 /* ── 모드 배지 (모드 시스템 뼈대 1차) ──

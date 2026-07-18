@@ -327,11 +327,23 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
       ViewerState.project.pbTheme = meta.pbTheme;
     }
     /* PICTUREBOOK-LEVELS ④: 그림책 단계 — 1·2·3만 인정(그 외 null=레거시 3단계 취급).
-       소비자: viewer-ai(고쳐쓰기 스킵)·viewer-edit(1단계 이미지 UI). 렌더/인쇄는 안 읽음(원칙). */
+       소비자: viewer-ai(고쳐쓰기 스킵/점검 라이트)·viewer-edit(1단계 이미지 UI). 렌더/인쇄는 안 읽음(원칙). */
     {
       const _pbl = Number(meta.picturebookLevel);
       if (_pbl === 1 || _pbl === 2 || _pbl === 3) ViewerState.project.picturebookLevel = _pbl;
     }
+    /* LEVELS-CONT: viewer에는 maker(ui.js)의 getPicturebookLevel이 없어 튜토리얼 pbLevels
+       필터가 항상 3단계 취급되던 것 보정 — ViewerState 기반 shim(다듬기 환영/코치에서 사용).
+       maker(ui.js)가 이미 정의한 문맥에선 덮지 않음. */
+    try {
+      if (typeof window !== 'undefined' && typeof window.getPicturebookLevel !== 'function') {
+        window.getPicturebookLevel = function () {
+          const p = (typeof ViewerState !== 'undefined' && ViewerState) ? ViewerState.project : null;
+          const v = p ? Number(p.picturebookLevel) : NaN;
+          return (v === 1 || v === 2 || v === 3) ? v : null;
+        };
+      }
+    } catch (e) { /* noop */ }
     /* LEVELS-FEEDBACK(2026-07-19): 1·2단계=일직선 — 엔딩의 '↺ 다른 결말 찾기'류 분기 크롬을
        CSS로 일괄 숨기기 위한 신호 클래스(viewer.css .pb-level-linear). 책 내용 렌더는 불변. */
     try {

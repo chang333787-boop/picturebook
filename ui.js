@@ -382,6 +382,11 @@ function showBodyQuickEditModal(num) {
 
   const ta = overlay.querySelector('.body-quickedit-ta');
   ta.value = String(s.body || '');   /* .value 대입 — 이스케이프 이슈 0 */
+  /* LEVELS-CONT(2단계 이어쓰기): AI 씨앗 힌트는 placeholder로만(속성 대입 — 이스케이프 이슈 0).
+     글을 쓰면 자연히 사라지고, 지우면 다시 보임. */
+  if (typeof s.writingHint === 'string' && s.writingHint.trim()) {
+    ta.placeholder = '💡 ' + s.writingHint.trim();
+  }
 
   /* 잠금은 모달을 먼저 열고 백그라운드 확보(스냅한 UX) — 실패 시 닫고 안내 */
   let lockOk = null;
@@ -1065,8 +1070,10 @@ async function _enterMakerAfterPtypeSelected(ptype, pbLevel) {
   if (_compassGatedExisting) { _armMakerCoach(ptype); return; }   /* COACH-GATE-FIX: 게이트 위 환영 방지 — 완료 후 review.js 환영→시퀄이 코치 처리 */
   if (typeof window !== 'undefined' && window.TutorialWelcome && typeof window.TutorialWelcome.maybeShow === 'function') {
     _armMakerCoach(ptype);   /* 환영 종료 시 시퀄이 코치 표시/억제 결정(무비/체험/v1/기존재진입 경로) */
-    /* #4: 모둠 계정 스코프로 dismiss 확인 → 같은 기기 다른 모둠엔 '다시 열지 않기'가 안 샘. */
-    try { await window.TutorialWelcome.maybeShow({ scope: _makerTutorialScope() }); } catch (e) { /* noop */ }
+    /* #4: 모둠 계정 스코프로 dismiss 확인 → 같은 기기 다른 모둠엔 '다시 열지 않기'가 안 샘.
+       LEVELS-CONT fix: filterType 미전달로 유형/단계(pbLevels) 필터가 죽어 있던 것 정정 —
+       1·2단계 환영이 3단계 슬라이드(갈림길 서사)로 나오던 원인(코치 run은 원래 전달). */
+    try { await window.TutorialWelcome.maybeShow({ scope: _makerTutorialScope(), filterType: ptype || null }); } catch (e) { /* noop */ }
   }
 }
 

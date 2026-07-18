@@ -162,7 +162,9 @@
   const EASY_ONLY_ANSWER_KEYS = ['heroWho', 'heroName', 'storyStart', 'heroEvent', 'heroWant', 'heroTry', 'heroTrouble', 'heroOvercome'];
   /* LEVELS-LINEAR: 2단계 세트(version 4) 전용 키(자가복구) + 완주 판정 키 목록. */
   const LINEAR_ONLY_ANSWER_KEYS = ['protagonistName'];
-  const CORE_QUESTION_KEYS_LINEAR = ['targetLength', 'protagonist', 'protagonistName', 'goal', 'mainlineStart', 'incitingEvent', 'risingTrouble', 'keyChoice', 'trueEnding', 'coreMessage'];
+  /* LEVELS-CONT(2026-07-18): 2단계 이어쓰기 = 8장면 고정 — targetLength 질문 제거(9키).
+     구 v4 세션(targetLength 답 잔존)도 나머지 9키만 채우면 완주(추가 답은 무시라 하위호환). */
+  const CORE_QUESTION_KEYS_LINEAR = ['protagonist', 'protagonistName', 'goal', 'mainlineStart', 'incitingEvent', 'risingTrouble', 'keyChoice', 'trueEnding', 'coreMessage'];
   const MINIMAL_ANSWER = '이야기를 만들면서 정할래요';
 
   /* 세션이 사용할 질문 세트 버전 판별(raw preWriting 기준):

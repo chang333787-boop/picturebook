@@ -47,10 +47,10 @@
   const welcome = [
     { title: '가지에 온 걸 환영해요', line: '고르는 대로 이야기가 갈라지는 나만의 작품을 만드는 곳이에요.', art: 'welcomeHero', pbLevels: [3] },
     { title: '가지에 온 걸 환영해요', line: '나침반에 답하면 <b>나만의 동화책</b>이 만들어져요. 글과 그림을 예쁘게 다듬어 보아요.', art: 'welcomeHero', pbLevels: [1] },
-    { title: '가지에 온 걸 환영해요', line: 'AI가 만들어 준 <b>이야기 초안</b>을 내 글로 고쳐 쓰는 곳이에요. 그림도 직접 그려요.', art: 'welcomeHero', pbLevels: [2] },
+    { title: '가지에 온 걸 환영해요', line: 'AI가 <b>이야기를 시작</b>해 주면 내가 이어서 완성하는 곳이에요. 그림도 직접 그려요.', art: 'welcomeHero', pbLevels: [2] },
     { title: '먼저 한 줄기, 그다음 갈림길', line: '이야기를 끝까지 만든 뒤, “다르게 했다면?” 하고 갈래를 더해요. 아래에서 직접 해볼까요?', demo: true, pbLevels: [3] },
     { title: '장면을 만들고 이어요',   line: '글과 그림으로 장면을 만든 뒤, 장면 카드의 <b>⋯</b>를 펼쳐 행동 버튼으로 다음 장면을 이어 줘요.', art: 'branch', pbLevels: [3] },
-    { title: '초안을 내 글로 고쳐요',  line: '장면 카드의 글을 눌러 <b>내 말로 바꿔</b> 보세요. 그림은 다듬기에서 그리거나 붙일 수 있어요.', art: 'branch', pbLevels: [2] },
+    { title: '이야기를 이어서 완성해요', line: 'AI가 쓴 앞 장면을 읽고, 다음 장면 카드의 <b>💡 힌트</b>를 보며 이어 써 보세요. 카드의 글을 누르면 쓸 수 있어요.', art: 'branch', pbLevels: [2] },
     { title: '다 만들면 꾸며 봐요',    line: '오른쪽 위 “🎨 감상 화면 다듬기”를 누르면 글상자와 그림을 예쁘게 마감할 수 있어요. 헷갈리면 ❓를 눌러요.', art: 'play' },
   ];
 
@@ -77,9 +77,14 @@
       art: 'movie', types: ['movie'] },
     { title: '⚙️ 작품 설정',
       line: '장면이 바뀔 때 효과(전환)와 스킨 같은 작품 전체 설정을 정해요.', art: 'settings' },
+    /* LEVELS-CONT: 1·2단계는 📔 작품 마무리 버튼이 없음(1단계=없음·2단계=[✅ 내 글 점검받기] 대체).
+       pbLevels 판별은 viewer에도 getPicturebookLevel 심(viewer-data shim)이 있어 동작. */
     { title: '📔 작품 마무리',
       line: '다 만들면 [작품 마무리]로 점검 질문에 답하고, 검사 결과를 보며 고쳐 완성해요.',
-      art: 'ai', types: ['text', 'picturebook'] },
+      art: 'ai', types: ['text', 'picturebook'], pbLevels: [3] },
+    { title: '✅ 내 글 점검받기',
+      line: '이야기를 이어서 다 쓰면 [✅ 내 글 점검받기]를 눌러요. AI가 확인할 점을 찾아 주면 <b>내가 직접</b> 고쳐요.',
+      art: 'ai', types: ['picturebook'], pbLevels: [2] },
     { title: '저장은 자동, 나갈 땐 뒤로',
       line: '바꾼 건 자동 저장돼요. ▶️ 감상해 보기로 확인하고, ← 로 브랜치 화면으로 나가요.', art: 'save' },
   ];

@@ -284,9 +284,10 @@
   /* ════ LEVELS-LINEAR(2026-07-19): 그림책 2단계(3~4학년·일직선) 전용 세트 — version 4 ════
      사용자 결정: 갈래 없는 2단계에 v2의 '진엔딩'·'다른 선택을 하면'(alternatePath)은 부적절.
      · v2에서 alternatePath 제거 + trueEnding 문구를 '이야기는 어떻게 끝나나요?'로.
-     · targetLength 문구에서 '진엔딩' 제거(일직선 기본 길이).
-     · protagonistName 신규(주인공 이름을 아이가 정함 — AI 초안이 임의 이름을 짓지 않게). 10문항 유지. */
-  const CORE_QUESTION_KEYS_LINEAR = ['targetLength', 'protagonist', 'protagonistName', 'goal', 'mainlineStart', 'incitingEvent', 'risingTrouble', 'keyChoice', 'trueEnding', 'coreMessage'];
+     · protagonistName 신규(주인공 이름을 아이가 정함 — AI 초안이 임의 이름을 짓지 않게).
+     · LEVELS-CONT(2026-07-18 사용자 확정): 2단계 이어쓰기 = 8장면 고정 — targetLength 질문
+       제거(9문항). resolveStoryCount는 targetLength 없으면 8이라 정합(scenes 참조). */
+  const CORE_QUESTION_KEYS_LINEAR = ['protagonist', 'protagonistName', 'goal', 'mainlineStart', 'incitingEvent', 'risingTrouble', 'keyChoice', 'trueEnding', 'coreMessage'];
   const CORE_QUESTIONS_LINEAR = (function () {
     const byId = {};
     for (const q of CORE_QUESTIONS_V2) byId[q.id] = q;
@@ -299,14 +300,9 @@
       return q;
     }
     return [
-      _cl('targetLength', 1, {
-        g: 'L-1',
-        title: '이야기를 몇 장면 정도로 만들고 싶나요?',
-        help: '처음부터 끝까지 한 길로 이어지는 이야기의 길이에요.',
-      }),
-      _cl('protagonist', 2, { g: 'L-2' }),
+      _cl('protagonist', 1, { g: 'L-1' }),
       {
-        id: 'protagonistName', order: 3, g: 'L-3',
+        id: 'protagonistName', order: 2, g: 'L-2',
         title: '주인공 이름은 무엇인가요?',
         help: '내가 정한 이름이 이야기에 그대로 나와요. 나중에 바꿔도 괜찮아요.',
         choices: [_choice('linname_haneul', '하늘이'), _choice('linname_bomi', '보미'), _choice('linname_dohyun', '도현이')],
@@ -314,17 +310,17 @@
         sufficientWhen: '이름 1개(무엇이든 충분)',
         followUpTrigger: '없음(이름은 무엇이든 충분)',
       },
-      _cl('goal', 4, { g: 'L-4' }),
-      _cl('mainlineStart', 5, { g: 'L-5' }),
-      _cl('incitingEvent', 6, { g: 'L-6' }),
-      _cl('risingTrouble', 7, { g: 'L-7' }),
-      _cl('keyChoice', 8, { g: 'L-8' }),
-      _cl('trueEnding', 9, {
-        g: 'L-9',
+      _cl('goal', 3, { g: 'L-3' }),
+      _cl('mainlineStart', 4, { g: 'L-4' }),
+      _cl('incitingEvent', 5, { g: 'L-5' }),
+      _cl('risingTrouble', 6, { g: 'L-6' }),
+      _cl('keyChoice', 7, { g: 'L-7' }),
+      _cl('trueEnding', 8, {
+        g: 'L-8',
         title: '이야기는 어떻게 끝나나요?',
         help: '이야기의 마지막 장면을 떠올려 보세요.',
       }),
-      _cl('coreMessage', 10, { g: 'L-10' }),
+      _cl('coreMessage', 9, { g: 'L-9' }),
     ];
   })();
 
@@ -387,7 +383,7 @@
   function validateCoreQuestionSet(arr, version) {
     const v2 = version === 2;
     const easy = version === 3;      /* LEVELS-EASY: 그림책 1단계 세트(정확히 8개) */
-    const linear = version === 4;    /* LEVELS-LINEAR: 그림책 2단계 세트(정확히 10개) */
+    const linear = version === 4;    /* LEVELS-LINEAR: 그림책 2단계 세트(정확히 9개 — LEVELS-CONT에서 targetLength 제거) */
     const list = arr || (easy ? CORE_QUESTIONS_EASY : (linear ? CORE_QUESTIONS_LINEAR : (v2 ? CORE_QUESTIONS_V2 : CORE_QUESTIONS)));
     const KEYS = easy ? CORE_QUESTION_KEYS_EASY : (linear ? CORE_QUESTION_KEYS_LINEAR : (v2 ? CORE_QUESTION_KEYS_V2 : CORE_QUESTION_KEYS));
     const COUNT = KEYS.length;
@@ -396,7 +392,7 @@
     if (list.length !== COUNT) errors.push('핵심 질문은 정확히 ' + COUNT + '개여야 함 (현재 ' + list.length + ')');
     const ids = {}, orders = {};
     for (const q of list) {
-      const r = validateQuestionDefinition(q, { allowNoCustom: (v2 || linear) && q && q.id === 'targetLength' });
+      const r = validateQuestionDefinition(q, { allowNoCustom: v2 && q && q.id === 'targetLength' });
       if (!r.valid) errors.push((q && q.id ? q.id : '?') + ': ' + r.errors.join(', '));
       if (q && q.id) { if (ids[q.id]) errors.push('id 중복: ' + q.id); ids[q.id] = true; }
       if (q && Number.isInteger(q.order)) { if (orders[q.order]) errors.push('order 중복: ' + q.order); orders[q.order] = true; }

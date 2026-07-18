@@ -2574,14 +2574,18 @@ async function _applyStoryDraftStarter(draft, opts) {
      LEVELS-FEEDBACK(2026-07-19): 장면 제목은 폐기된 기능 — 표지 책 제목만 쓰고
      일반/엔딩 장면 title은 비워 둔다(AI가 만든 제목이 다듬기 UI에 노출되던 것 제거). */
   if (skeleton['1']) skeleton['1'].title = String(draft.title || '').slice(0, 40);
+  /* LEVELS-CONT(2단계 이어쓰기): 서버가 body 대신 hint(씨앗 힌트 한 문장)를 준 장면은
+     scene.writingHint로 기록 — 메이커 카드/편집 placeholder 전용(감상/인쇄/AI는 body만 읽음). */
   for (let i = 0; i < sc; i++) {
     const key = String(i + 2);
     const s = draft.scenes && draft.scenes[i];
     if (!skeleton[key] || !s) continue;
     skeleton[key].body = String(s.body || '').slice(0, 600);
+    if (s.hint) skeleton[key].writingHint = String(s.hint).slice(0, 140);
   }
   if (skeleton[endingKey] && draft.ending) {
     skeleton[endingKey].body = String(draft.ending.body || '').slice(0, 600);
+    if (draft.ending.hint) skeleton[endingKey].writingHint = String(draft.ending.hint).slice(0, 140);
   }
   const res = await _writeBase10IfEmpty({
     source: 'desktop', markInitialized: true, ptype: 'picturebook',
@@ -2590,7 +2594,7 @@ async function _applyStoryDraftStarter(draft, opts) {
   if (res.ok) {
     _mtbToast(opts.level === 1
       ? '동화책 이야기가 준비됐어요!'
-      : 'AI 이야기 초안이 준비됐어요. 내 글로 고쳐 보세요!');
+      : 'AI가 이야기를 시작해 줬어요. 힌트를 보며 이어서 완성해 보세요!');
   }
   return !!res.ok;
 }

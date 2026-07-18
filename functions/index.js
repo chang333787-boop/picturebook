@@ -2943,6 +2943,76 @@ exports.adminResetAiUsage = onCall(
 );
 
 /* ════════════════════════════════════════════════════════════════
+   LEVELS-ADMIN A1+A2(2026-07-18): 1·2단계 작품 "처음부터 다시" — 담당 교사/총괄 전용.
+   ──────────────────────────────────────────────────────────────
+   배경: 1·2단계는 학생 전체 초기화가 숨겨져 있고(LEVELS-AUDIT F3), AI 초안은
+   나침반 완료 훅에서만 생성되며, 팀당 총량(teams/{팀}/aiUsage)은 adminResetAiUsage의
+   대상(ai-usage 노드)이 아니라 — 제품 안에 재시작 경로가 없었다.
+   · 권한: super_admin 또는 해당 학급 담당 교사(meta/teacher_uid).
+   · 대상: picturebookLevel ∈ {1,2}만 (3단계는 브랜치 화면의 전체 초기화 사용).
+   · 원자 multi-path null: scenes·팀 aiUsage(초안/그림 총량)·aiVariants·imageSelections·
+     aiChecks·나침반(writingGuide/preWriting)·presentation·starterTemplateInitialized·
+     표지/시작점 메타·isPublic(+학급 책장 노드) — 계정(PIN)/멤버/단계/유형은 유지.
+     ai-usage/{cid}/{팀}(작품검사 등 per-작품 quota)도 함께 리셋.
+   · 학생 재진입 → 나침반 게이트부터 재주행 → 완료 시 AI 초안 재생성(총량 리셋됨).
+   ════════════════════════════════════════════════════════════════ */
+exports.adminResetPicturebookWork = onCall(
+  { enforceAppCheck: false },
+  async (req) => {
+    if (!req.auth) throw new HttpsError('unauthenticated', '로그인이 필요해요.');
+    const classId  = String((req.data && req.data.classId) || '').trim();
+    const teamName = String((req.data && req.data.teamName) || '').trim();
+    if (!classId || /[.#$\[\]\/]/.test(classId)) {
+      throw new HttpsError('invalid-argument', 'classId가 올바르지 않아요.');
+    }
+    if (!teamName || /[.#$\[\]\/]/.test(teamName)) {
+      throw new HttpsError('invalid-argument', 'teamName이 올바르지 않아요.');
+    }
+    /* 권한 — super_admin 또는 담당 교사 */
+    const role = req.auth.token && req.auth.token.role;
+    if (role !== 'super_admin') {
+      const tSnap = await admin.database().ref(`classes/${classId}/meta/teacher_uid`).once('value');
+      if (tSnap.val() !== req.auth.uid) {
+        throw new HttpsError('permission-denied', '이 학급의 담당 선생님만 사용할 수 있어요.');
+      }
+    }
+    const enc = encodeURIComponent(teamName);
+    const base = `classes/${classId}/teams/${enc}`;
+    /* 단계 게이트 — 서버 직접 read(1·2단계 전용) */
+    const lvl = Number((await admin.database().ref(`${base}/viewer-meta/picturebookLevel`).once('value')).val());
+    if (lvl !== 1 && lvl !== 2) {
+      throw new HttpsError('failed-precondition',
+        '이 기능은 그림책 1·2단계 작품 전용이에요. (3단계는 브랜치 화면의 전체 초기화를 사용해요)');
+    }
+    const updates = {};
+    [
+      `${base}/scenes`,
+      `${base}/aiUsage`,                                  /* 초안 3회·그림 24회 총량 */
+      `${base}/aiVariants`,                               /* AI 그림/글 변형(이전 이야기 그림 자동표시 방지) */
+      `${base}/imageSelections`,
+      `${base}/aiChecks`,                                 /* 점검/질문 latest(이전 이야기 기준) */
+      `${base}/writingGuide/preWriting`,                  /* 나침반 → 미시작(재진입 시 게이트 재주행) */
+      `${base}/viewer-meta/presentation`,                 /* 장면별 글상자 좌표(이전 이야기 기준) */
+      `${base}/viewer-meta/starterTemplateInitialized`,   /* 없애야 폴백 기본 틀도 다시 가능 */
+      `${base}/viewer-meta/coverTitle`,
+      `${base}/viewer-meta/coverImageData`,
+      `${base}/viewer-meta/entrySceneId`,
+      `${base}/viewer-meta/replaySceneId`,
+      `${base}/viewer-meta/isPublic`,                     /* 빈 책이 책장에 남지 않게 */
+      `classes/${classId}/shelf/${enc}`,                  /* 학급 책장 카드 정리 */
+      `ai-usage/${classId}/${teamName}`,                  /* 작품검사 등 per-작품 quota */
+    ].forEach((p) => { updates[p] = null; });
+    await admin.database().ref().update(updates);
+    await admin.database().ref('ai-stats/resets').push({
+      type: 'picturebookWork', by: req.auth.uid, classId, teamName, level: lvl,
+      at: admin.database.ServerValue.TIMESTAMP,
+    });
+    logger.info('[adminResetPicturebookWork]', { by: req.auth.uid, classId, teamName, level: lvl });
+    return { ok: true, level: lvl };
+  }
+);
+
+/* ════════════════════════════════════════════════════════════════
    SCRIPT-DRAFT-1(2026-07-12): 교사 무비형 대본 도우미 — 초안 생성.
    ──────────────────────────────────────────────────────────────
    · 교사 전용(담당교사 or super_admin) — 학생 ai-usage/quota 체계와 완전 분리.

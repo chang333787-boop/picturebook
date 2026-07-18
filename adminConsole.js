@@ -72,6 +72,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const regBtn      = e.target.closest('.js-admin-register'); // ADMIN-1E: 기존 팀 관리팀 등록
     const acctDelBtn  = e.target.closest('.js-admin-account-del'); // DELETE-SAFETY-2: 계정만 삭제
     const commentsBtn = e.target.closest('.js-admin-comments');    // COMMENT-1: 팀 댓글 보기·삭제
+    const lvlResetBtn = e.target.closest('.js-admin-level-reset'); // LEVELS-ADMIN A1+A2: 1·2단계 처음부터 다시
 
     if (makerBtn)  _openMaker(makerBtn.dataset.name);
     if (viewerBtn) _openViewer(viewerBtn.dataset.name);
@@ -91,6 +92,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (regBtn)    _registerExistingTeam(regBtn.dataset.encoded, regBtn.dataset.name);
     if (acctDelBtn) _deleteAccountOnly(acctDelBtn.dataset.encoded, acctDelBtn.dataset.name);
     if (commentsBtn) _openCommentsManage(commentsBtn.dataset.encoded, commentsBtn.dataset.name);
+    if (lvlResetBtn) _resetPicturebookWorkFlow(lvlResetBtn.dataset.name);
   });
 
   /* 2026-06: 수동 새로고침 — 캐시 무효화 후 강제 재읽기. summary bar는 정적 요소라
@@ -535,7 +537,10 @@ const AI_MODE_DEFS = [
   { key: 'writeAfterQuestions', label: '생각 점검 질문', soon: false, badge: '새 기능' },
   { key: 'workCheck',label: '작품 검사',      soon: false },
   { key: 'textS2',   label: 'AI 장면발전',    soon: false },
-  { key: 'imageS2',  label: 'AI 그림책 마감', soon: false, badge: '교사용' },
+  /* LEVELS-ADMIN A3: imageS2는 이제 세 역할을 게이트 — ①1단계 자동 그림 생성
+     ②2단계 [🖼️ AI 그림책 마감](학생 HUD) ③3단계 작품 마무리의 마감 카드.
+     1단계 반은 이 토글이 꺼져 있으면 그림이 아예 생성되지 않음 — 뱃지로 명시. */
+  { key: 'imageS2',  label: 'AI 그림책 마감', soon: false, badge: '그림 생성·1단계 자동그림 포함' },
   /* PICTUREBOOK-LEVELS ③: 나침반 완료 → AI 이야기 초안(그림책 1·2단계 전용).
      서버 studentStoryDraft가 modes.storyDraft===true 요구 — OFF면 기본 틀로 폴백. */
   { key: 'storyDraft', label: 'AI 이야기 초안', soon: false, badge: '그림책 1·2단계' },
@@ -1405,6 +1410,12 @@ function _analyzeTeam(encodedName, scenes, isPublic = false, meta = {}, account 
   const modeLabel      = projectType
     ? MODE_LABEL[projectType]
     : (rawProjectType ? '알 수 없음' : '미선택');
+  /* LEVELS-ADMIN A4: 그림책 단계(1|2|3·레거시/미기록=3 취급) — 카드 뱃지·⋯메뉴 분기용.
+     viewer-data 인제스트와 동일 화이트리스트. 그림책이 아니면 null. */
+  const _pblRaw = Number(meta.picturebookLevel);
+  const pbLevel = (projectType === 'picturebook')
+    ? ((_pblRaw === 1 || _pblRaw === 2) ? _pblRaw : 3)
+    : null;
 
   return {
     encodedName, name, total,
@@ -1414,6 +1425,7 @@ function _analyzeTeam(encodedName, scenes, isPublic = false, meta = {}, account 
     hasImage, connectivity, noTitle, isolated, status, interpretation, problems,
     isPublic,
     projectType, modeLabel,
+    pbLevel,   /* LEVELS-ADMIN A4: 그림책 단계(1|2|3·비그림책 null) */
     /* 2026-05-29 admin 3차: 미연결 버튼 수 — 카드 배지 + problems 표시에 사용 */
     unconnectedButtons,
     /* ADMIN-1B: 교사 사전 등록(account) 여부/상태 — 카드 배지 표시용 */
@@ -1795,6 +1807,8 @@ function _teamCardHtml(t) {
   /* 2026-05-29 admin 1차: 작품 모드 배지 — 카드 첫 자리에 표시 (가장 자주 확인하는 정보).
      모드가 설정돼 있을 때만 표시 — 미선택은 생략 (시각 잡음 차단). */
   if (t.projectType) badges.push(`<span class="admin-badge admin-badge--mode">📚 ${_escHtml(t.modeLabel)}</span>`);
+  /* LEVELS-ADMIN A4: 그림책 단계 뱃지 — 교사가 카드에서 단계를 바로 식별(1·2단계 지원/복구 판단). */
+  if (t.pbLevel) badges.push(`<span class="admin-badge admin-badge--mode" title="${t.pbLevel === 1 ? '나의 동화책을 만들어줘요 (1~2학년)' : t.pbLevel === 2 ? '도움을 받아 만들어봐요 (3~4학년)' : '갈림길이 있는 이야기를 스스로의 힘으로 (4~6학년)'}">${t.pbLevel === 1 ? '🌱 1단계' : t.pbLevel === 2 ? '🌿 2단계' : '🌳 3단계'}</span>`);
   /* ADMIN-1B: 교사 사전 등록 팀 배지 (account 존재 시). 상태 locked면 잠김 표시. */
   if (t.registered) badges.push(t.accountStatus === 'locked'
     ? '<span class="admin-badge admin-badge--locked">🔒 잠김</span>'
@@ -1847,8 +1861,13 @@ function _teamCardHtml(t) {
       ${t.total > 0
         ? `<button class="admin-more-item js-admin-print" data-name="${nm}" title="장면 무대 그대로 그림책처럼 인쇄해요 (그림책 작품용)">🖨 그림책 인쇄</button>`
         : `<button class="admin-more-item" disabled style="opacity:0.45;cursor:default;" title="아직 장면이 없어서 인쇄할 수 없어요">🖨 그림책 인쇄</button>`}
-      <button class="admin-more-item js-admin-print-wa" data-name="${nm}" title="이 모둠의 생각 점검 질문·작품 검사 결과를 인쇄해요 (학생 태블릿엔 프린터가 없어 교사가 대신 인쇄)">🖨 고쳐쓰기 자료 인쇄</button>
+      ${t.pbLevel === 1
+        ? `<button class="admin-more-item" disabled style="opacity:0.45;cursor:default;" title="1단계 동화책은 고쳐쓰기(질문·검사) 단계가 없어요">🖨 고쳐쓰기 자료 인쇄</button>`
+        : `<button class="admin-more-item js-admin-print-wa" data-name="${nm}" title="이 모둠의 생각 점검 질문·작품 검사 결과를 인쇄해요 (학생 태블릿엔 프린터가 없어 교사가 대신 인쇄)">🖨 고쳐쓰기 자료 인쇄</button>`}
       <button class="admin-more-item js-admin-print-tc" data-name="${nm}" title="이 모둠의 생각 나침반 설계도를 열어 인쇄해요 (카드형/나침반형)">🖨 생각 나침반 인쇄</button>
+      ${(t.pbLevel === 1 || t.pbLevel === 2)
+        ? `<button class="admin-more-item js-admin-level-reset" data-encoded="${t.encodedName}" data-name="${nm}" title="장면·그림·AI 결과·나침반·AI 횟수를 모두 지우고 처음부터 다시 시작해요. 계정(PIN)과 단계는 유지돼요.">🔄 처음부터 다시 (1·2단계)</button>`
+        : ''}
       <button class="admin-more-item js-admin-issue-code" data-encoded="${t.encodedName}" data-name="${nm}">📤 복사 코드 발급</button>
       <button class="admin-more-item js-admin-comments" data-encoded="${t.encodedName}" data-name="${nm}" title="이 작품에 달린 댓글을 보고 지울 수 있어요">💬 댓글 관리</button>
       <button class="admin-more-item admin-more-item--danger js-admin-delete" data-encoded="${t.encodedName}" data-name="${nm}" title="작품(장면·그림)까지 영구 삭제해요. 되돌릴 수 없어요.">🗑 모둠 전체 삭제 (작품까지)</button>
@@ -2460,6 +2479,38 @@ function _memberSectionHtml(team) {
 /* ================================================================
    팀 삭제 — 경로도 v1/v2 분기
    ================================================================ */
+/* ════ LEVELS-ADMIN A1+A2(2026-07-18): 1·2단계 "처음부터 다시" ════
+   서버 콜러블 adminResetPicturebookWork가 장면·AI 결과/변형·나침반·팀당 AI 총량·
+   작품 quota를 원자적으로 리셋(계정/PIN/단계 유지). 담당 교사/총괄만(서버 재검증).
+   삭제(_deleteTeam)와 동일한 타이핑 확인. 성공 시 캐시 무효화 후 목록 재로딩. */
+function _resetPicturebookWorkFlow(displayName) {
+  if (!adminState.verified) return;
+  const cid = adminState.adminClassId;
+  if (!cid) { alert('학급 정보를 확인하지 못했어요. 새로고침 후 다시 시도해 주세요.'); return; }
+  const typed = prompt(
+    `🔄 [${displayName}] 모둠의 동화책을 처음부터 다시 시작해요.\n\n` +
+    `- 모든 장면·그림·AI 결과가 삭제돼요 (되돌릴 수 없어요)\n` +
+    `- 생각 나침반도 처음으로 돌아가요 — 학생이 다시 답하면 AI가 새 초안을 만들어 줘요\n` +
+    `- AI 사용 횟수(초안·그림)도 초기화돼요\n` +
+    `- 모둠 계정(PIN)과 단계는 그대로 유지돼요\n\n` +
+    `계속하려면 모둠 이름을 정확히 입력해 주세요:\n"${displayName}"`
+  );
+  if (typed === null) return;
+  if (typed.trim() !== displayName) {
+    alert('모둠 이름이 일치하지 않아 취소했어요. (작품은 그대로예요)');
+    return;
+  }
+  firebase.app().functions('asia-northeast3').httpsCallable('adminResetPicturebookWork')({ classId: cid, teamName: displayName })
+    .then(() => {
+      alert(`✅ [${displayName}] 모둠을 처음 상태로 되돌렸어요.\n학생이 다시 들어오면 생각 나침반부터 시작해요.`);
+      _invalidateAdminCache('level-reset');
+      loadAdminData();
+    })
+    .catch((e) => {
+      alert('되돌리지 못했어요: ' + ((e && e.message) || '알 수 없는 오류'));
+    });
+}
+
 function _deleteTeam(encodedName, displayName) {
   if (!adminState.verified) return;
   if (!confirm(`"${displayName}" 팀의 모든 데이터를 삭제할까요?\n이 작업은 되돌릴 수 없어요!`)) return;

@@ -197,3 +197,12 @@ anchor: maker.html:2964 `#ptype-grid`(카드 text/picturebook/movie/experience(h
 - **F6** ⚙️ 시작점 1·2단계 숨김(CSS·코치는 가시성 가드로 자동 스킵).
 - **F7** 카드 일반/엔딩 라디오 1·2단계 숨김(CSS)+updateType 관문 가드.
 - 검증: 합성 매트릭스(lv2 숨김/가드·lv3 전부 복원)+이어쓰기테스트2 라이브(HUD ✅+🖼️·패널 게이트 문구·팝오버 잠금+select disabled+value 유지·글 토글 소멸·그림 토글 유지)·테스트 269/269·버스터. PASS 항목·잔여 관찰(choiceA 라벨 불일치=3단계 공통)은 메모리 levels 토픽 참조.
+
+### 14.6 LEVELS-ADMIN — 감상·교사관리 단계 정합 조사와 A1~A4 (2026-07-18)
+
+감상(뷰어)·교사 관리를 단계 렌즈로 재조사. **감상 쪽 신규 발견 0**(1단계 토글=감상 포함 무조건 숨김·2단계 글 토글 F5·감상은 s2 없으면 viewer-ai 미로드·엔딩 back 라벨 동적 폴백·↺/writingHint 기존 처리 확인). 교사 관리 쪽 5건 중 4건 수정:
+- **A1+A2 `adminResetPicturebookWork` 콜러블 신설·배포**: 1·2단계 [🔄 처음부터 다시] — 담당 교사/총괄 전용(서버 재검증)·1·2단계만(3단계는 기존 전체 초기화). 원자 multi-path null: scenes·팀 aiUsage(초안3/그림24 총량)·aiVariants·imageSelections·aiChecks·나침반(preWriting)·presentation·starterTemplateInitialized·표지/시작점 메타·isPublic·학급 shelf 노드·ai-usage/{cid}/{팀}. 계정(PIN)/멤버/단계/유형 유지. 감사로그 ai-stats/resets(type:picturebookWork). 배경: 학생 전체 초기화 숨김(F3)+초안은 나침반 완료 훅 전용+팀 총량은 adminResetAiUsage 대상 밖 → 제품 내 재시작 경로 부재였음.
+- **클라 흐름**: 팀 카드 ⋯ [🔄 처음부터 다시 (1·2단계)] — 삭제와 동일한 팀명 타이핑 확인·성공 시 캐시 무효화+재로딩.
+- **A3**: AI 토글 'AI 그림책 마감' 뱃지 '교사용'→'그림 생성·1단계 자동그림 포함'(이 토글이 1단계 자동그림·2단계 학생 마감·3단계 마감 카드 3역할 게이트임을 명시).
+- **A4**: 팀 카드 단계 뱃지(🌱1/🌿2/🌳3·레거시=3·비그림책 없음·title=단계 이름) + 1단계 팀 '고쳐쓰기 자료 인쇄' 비활성(자료가 생길 수 없음).
+- 검증: _analyzeTeam 파생(1/2/3/레거시3/텍스트null)·카드 HTML 매트릭스(뱃지/인쇄/리셋 항목 lv별)·**배포 콜러블 권한 게이트 실증**(익명→permission-denied·데이터 무접촉). **NOT_VERIFIED=실교사 성공 경로**(교사 로그인 필요 — 사용자 1클릭 확인 권장: 연습반 이어쓰기테스트 팀에 실행→학생 재진입 시 나침반부터). A5(팀별 AI 사용량 표시)=후순위(감사 #60와 묶음).

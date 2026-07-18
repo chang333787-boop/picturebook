@@ -10,8 +10,14 @@ const REASON_CODES = ['SUFFICIENT', 'TOO_VAGUE', 'MISSING_DETAIL', 'CONTRADICTIO
    v1 세션 회귀 0(기존 7키 전부 유지) · v2 세션 후속 허용. 정본 세트: thought-compass-questions.js. */
 const CORE_QUESTION_KEYS_V1 = ['audience', 'purpose', 'protagonist', 'goal', 'obstacle', 'branchChoice', 'protectedCore'];
 const CORE_QUESTION_KEYS_V2 = ['targetLength', 'protagonist', 'goal', 'mainlineStart', 'incitingEvent', 'risingTrouble', 'keyChoice', 'trueEnding', 'alternatePath', 'coreMessage'];
-const CORE_QUESTION_KEYS = CORE_QUESTION_KEYS_V1.concat(
-  CORE_QUESTION_KEYS_V2.filter(k => CORE_QUESTION_KEYS_V1.indexOf(k) < 0));
+/* LEVELS-EASY(2026-07-19): 그림책 1단계 easy 세트(version 3·8키). 정본: thought-compass-questions.js */
+const CORE_QUESTION_KEYS_EASY = ['heroWho', 'heroName', 'storyStart', 'heroEvent', 'heroWant', 'heroTry', 'heroTrouble', 'heroOvercome'];
+/* LEVELS-LINEAR(2026-07-19): 그림책 2단계 linear 세트(version 4) 신규 키(나머지는 v2와 공유). */
+const CORE_QUESTION_KEYS_LINEAR_NEW = ['protagonistName'];
+const CORE_QUESTION_KEYS = CORE_QUESTION_KEYS_V1
+  .concat(CORE_QUESTION_KEYS_V2.filter(k => CORE_QUESTION_KEYS_V1.indexOf(k) < 0))
+  .concat(CORE_QUESTION_KEYS_EASY)
+  .concat(CORE_QUESTION_KEYS_LINEAR_NEW);
 const PROJECT_TYPES = ['picturebook', 'text'];   /* movie/experience 거부(D-01) */
 
 const MAX_FOLLOWUPS = 5;        /* 세션 후속질문 상한(D-05 연동) */
@@ -48,10 +54,21 @@ const QUESTION_BRIEF = {
   mainlineStart:{ label: '이야기의 시작 장면', sufficientWhen: '첫 장면 그림 1개 분명' },
   incitingEvent:{ label: '주인공에게 생기는 일', sufficientWhen: '이야기를 움직이는 사건 1개 분명' },
   risingTrouble:{ label: '점점 어려워지는 일', sufficientWhen: '커지는 어려움 1개 분명' },
-  keyChoice:    { label: '중요한 선택', sufficientWhen: '고민하는 선택 순간 1개 분명' },
+  keyChoice:    { label: '중요한 선택', sufficientWhen: '어떤 두 갈래 사이인지 + 왜 고민되는지까지 있어야 충분(보기만 고른 답은 후속으로 구체화)' },
   trueEnding:   { label: '진엔딩(기본 이야기의 끝)', sufficientWhen: '마지막 장면 방향 분명' },
   alternatePath:{ label: '다른 선택을 하면 생기는 일', sufficientWhen: '다른 길 방향 1개 분명' },
   coreMessage:  { label: '끝까지 지키고 싶은 중심', sufficientWhen: '지키고 싶은 중심 1개 분명' },
+  /* LEVELS-EASY(그림책 1단계·1~2학년) — 후속질문도 아주 쉽고 짧게 판정하도록 brief 명시 */
+  heroWho:      { label: '주인공이 누구인지', sufficientWhen: '주인공이 누구인지 분명(예: 강아지, 로봇)' },
+  heroName:     { label: '주인공 이름', sufficientWhen: '이름 1개(무엇이든 충분·후속 불필요)' },
+  storyStart:   { label: '이야기가 시작되는 곳', sufficientWhen: '장소 1개 분명' },
+  heroEvent:    { label: '주인공에게 생기는 일', sufficientWhen: '일어나는 일 1개 분명' },
+  heroWant:     { label: '주인공이 원하는 것', sufficientWhen: '원하는 것 1개 분명' },
+  heroTry:      { label: '주인공의 노력', sufficientWhen: '해 보는 행동 1개 분명' },
+  heroTrouble:  { label: '가는 길의 어려움', sufficientWhen: '어려움 1개 + 누가/무엇이 분명' },
+  heroOvercome: { label: '어려움을 이겨내는 방법', sufficientWhen: '이겨내는 방법 1개 분명' },
+  /* LEVELS-LINEAR(그림책 2단계) */
+  protagonistName: { label: '주인공 이름', sufficientWhen: '이름 1개(무엇이든 충분·후속 불필요)' },
 };
 
 function _isSafeSeg(v, maxLen) {
@@ -144,7 +161,7 @@ function validateFollowUpResponse(parsed) {
    전부 "한 단계 더 생각하게 하는 질문"만 — 답을 대신 쓰는 문구·평가어 없음(D-11·1.2). */
 const FIXED_FOLLOWUPS = {
   /* v1 (기존 유지 — 회귀 0) */
-  protagonist: { decision: 'ASK_FOLLOW_UP', reasonCode: 'MISSING_DETAIL', acknowledgement: '', followUpQuestion: '그 주인공만의 특별한 점은 무엇인가요?', supportOptions: ['특별한 능력이 있어요', '성격이 남달라요', '어려워하는 것이 있어요'] },
+  protagonist: { decision: 'ASK_FOLLOW_UP', reasonCode: 'MISSING_DETAIL', acknowledgement: '', followUpQuestion: '그 주인공만의 특별한 점은 무엇인가요?', supportOptions: ['하늘을 나는 능력이 있어요', '겁이 많지만 마음은 따뜻해요', '만들기를 아주 잘해요'] },
   goal:        { decision: 'ASK_FOLLOW_UP', reasonCode: 'MISSING_DETAIL', acknowledgement: '', followUpQuestion: '무엇을 가장 이루고 싶은지 조금 더 말해 줄래요?', supportOptions: ['무언가를 찾고 싶어요', '누군가를 돕고 싶어요', '어딘가에 가고 싶어요'] },
   /* v2 */
   trueEnding:  { decision: 'ASK_FOLLOW_UP', reasonCode: 'MISSING_DETAIL', acknowledgement: '', followUpQuestion: '마지막 장면에서 주인공은 어떤 모습인가요?', supportOptions: ['웃고 있어요', '무언가를 얻었어요', '누군가와 함께 있어요'] },
@@ -192,7 +209,8 @@ function stubDecision(input) {
 }
 
 module.exports = {
-  DECISIONS, REASON_CODES, CORE_QUESTION_KEYS, CORE_QUESTION_KEYS_V1, CORE_QUESTION_KEYS_V2, PROJECT_TYPES,
+  DECISIONS, REASON_CODES, CORE_QUESTION_KEYS, CORE_QUESTION_KEYS_V1, CORE_QUESTION_KEYS_V2,
+  CORE_QUESTION_KEYS_EASY, CORE_QUESTION_KEYS_LINEAR_NEW, PROJECT_TYPES,
   stubDecision,
   MAX_FOLLOWUPS, MAX_TOTAL, MIN_TOTAL, MAX_ANSWER_LEN, MAX_FOLLOWUP_Q_LEN,
   BANNED_ACK_WORDS, BANNED_OUTPUT_KEYS, FORBIDDEN_INPUT_KEYS, QUESTION_BRIEF,

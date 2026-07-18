@@ -1681,7 +1681,9 @@ body[data-stage-aspect="pb-landscape"] #stage-wrap.letterbox-v #viewer-frame {
 /* v77: textStyle CSS 변수(--pb-*) fallback 적용 — 사용자가 엔딩 인스펙터에서
    글자 스타일 지정하면 그것 우선, 지정하지 않으면 기존 default (Jua 등) 유지. */
 .pb-text--ending .ending-user-body {
-  font-family: var(--pb-font-family, var(--font-ui, 'Jua', sans-serif));
+  /* LEVELS-FEEDBACK(2026-07-19): 엔딩 기본 글꼴이 'Jua'(통통체)라 "엔딩만 굵은 기본"으로 보임 —
+     일반 장면 본문 기본(Gowun Batang)과 동일하게. 사용자가 고른 --pb-font-family는 그대로 우선. */
+  font-family: var(--pb-font-family, 'Gowun Batang', 'Nanum Gothic', serif);
   font-size: var(--pb-fs-body, clamp(16px, 2.4vw, 24px));
   /* D9-7C: 엔딩 기본 color 미방출(viewer-data) 후에도 split/legacy/movie/explore 엔딩은
      기존 #2b1f10 그대로(무회귀) — --text 단계 제거로 fairybook/explore의 밝은 --text로 새지 않게 고정.
@@ -6743,9 +6745,11 @@ body[data-page-orientation="portrait"] .terminal-screen--story .ending-page {
   margin-left: 12px;
   flex-shrink: 0;
 }
+/* LEVELS-FEEDBACK(2026-07-19): 빈 라벨 기본 문구('다음 장면으로' 등)를 흐림/기울임 없이
+   실제 입력한 글처럼 표시 — 감상·편집 모두(사용자 결정: 회색 placeholder가 어색함). */
 .choice-v03--empty {
-  color: var(--v03-fg-muted);
-  font-style: italic;
+  color: inherit;
+  font-style: normal;
 }
 
 /* ╭─────────────────────────────────────────╮
@@ -8225,3 +8229,8 @@ body.pb-is-scene-switching .choice-preset--ghost {
    '요' 한 글자만 다음 줄로 떨어지는 미관 문제 해소. keep-all=공백 단위로만 줄바꿈,
    overflow-wrap=극단적으로 긴 문자열(URL 등) 넘침 안전판. 개별 요소의 기존 선언이 우선. */
 body { word-break: keep-all; overflow-wrap: break-word; }
+
+/* ── LEVELS-FEEDBACK(2026-07-19): 1·2단계(일직선) — 갈래가 없어 '다른 결말 찾기'가 무의미.
+   엔딩의 ↺ 버튼을 전 모드 템플릿에서 일괄 숨김('← 직전 장면으로'는 유지=페이지 뒤로 넘기기).
+   body 클래스는 viewer-data가 meta.picturebookLevel로 토글. ── */
+body.pb-level-linear .js-restart { display: none !important; }

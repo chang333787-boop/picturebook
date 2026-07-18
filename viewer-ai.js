@@ -2663,6 +2663,9 @@
   function _showAiToggleBar() {
     /* Phase 4-A: text/picturebook 작품에서만. movie/experience엔 절대 표시 X. */
     if (!_aiToggleProjectTypeAllowed()) { _hideAiToggleBar(); return; }
+    /* LEVELS-FEEDBACK(2026-07-19): 1단계는 글도 전부 AI 초안(원본=그 글 자체)이라 글 토글 무의미 — 숨김. */
+    if (ViewerState && ViewerState.project && ViewerState.project.projectType === 'picturebook'
+        && ViewerState.project.picturebookLevel === 1) { _hideAiToggleBar(); return; }
     /* UI-REBUILD-1: 글 보기 = 원본 | AI 장면발전(s2)만. 텍스트 1단계(s1) 토글 폐기.
        s2 후보 없으면 바 미표시(s1만 있는 구작품도 바 숨김 → 본문은 원본 표시). */
     const hasS2 = _isS2Finalized();
@@ -2761,6 +2764,10 @@
 
   function _showAiImageToggleBar() {
     if (!_aiToggleProjectTypeAllowed()) { _hideAiImageToggleBar(); return; }
+    /* LEVELS-FEEDBACK(2026-07-19): 1단계는 원본 그림이 없어(전부 AI 자동) '원본' 토글이
+       빈 화면만 보여줌 — 그림/글 토글 바 자체를 숨긴다(감상·다듬기 공통). AI-DEFAULT가 표시 담당. */
+    if (ViewerState && ViewerState.project && ViewerState.project.projectType === 'picturebook'
+        && ViewerState.project.picturebookLevel === 1) { _hideAiImageToggleBar(); return; }
     /* imageS1(AI 그림 정돈)은 폐기 — 'AI 그림책 마감'(s2)만. */
     const hasS2 = _hasImageVariantS2();
     /* CONTEST-FIX-1: 텍스트 토글과 동일 — 영영 켤 수 없는 disabled 토글 비노출. */
@@ -4959,11 +4966,11 @@
      openModal — viewer 상단 [📔 작품 마무리] 진입점
      ════════════════════════════════════════════════════════════════ */
   async function openModal() {
-    /* PICTUREBOOK-LEVELS ④(§7.7): 1단계 = 고쳐쓰기(작품 마무리) 스킵 — HUD 버튼 숨김의 2중 방어. */
+    /* PICTUREBOOK-LEVELS(§7.7+피드백): 1·2단계 = 고쳐쓰기(작품 마무리) 스킵 — HUD 숨김의 2중 방어. */
     if (typeof ViewerState !== 'undefined' && ViewerState.project
         && ViewerState.project.projectType === 'picturebook'
-        && ViewerState.project.picturebookLevel === 1) {
-      alert('1단계 동화책은 작품 마무리(고쳐쓰기) 단계가 없어요.\n글자 위치와 그림을 다듬고, 감상으로 자랑해 보세요!');
+        && (ViewerState.project.picturebookLevel === 1 || ViewerState.project.picturebookLevel === 2)) {
+      alert('1·2단계 동화책은 작품 마무리(고쳐쓰기) 단계가 없어요.\n글과 그림을 다듬고, 감상으로 자랑해 보세요!');
       return;
     }
     /* Phase 1: 카드가 교사 권한을 반영하도록 모달 전에 aiSettings 로드 보장. */

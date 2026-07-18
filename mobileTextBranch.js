@@ -2570,18 +2570,18 @@ async function _applyStoryDraftStarter(draft, opts) {
   const sc = (opts.storyCount === 12 || opts.storyCount === 15) ? opts.storyCount : 8;
   const skeleton = _mtbBuildBase10Scenes({ source: 'desktop', ptype: 'picturebook', storyCount: sc });
   const endingKey = String(sc + 2);
-  /* 표지(1) = 책 제목 · 장면(2..sc+1) = 초안 순서대로 · 엔딩(sc+2) */
+  /* 표지(1) = 책 제목 · 장면(2..sc+1) = 초안 순서대로 · 엔딩(sc+2).
+     LEVELS-FEEDBACK(2026-07-19): 장면 제목은 폐기된 기능 — 표지 책 제목만 쓰고
+     일반/엔딩 장면 title은 비워 둔다(AI가 만든 제목이 다듬기 UI에 노출되던 것 제거). */
   if (skeleton['1']) skeleton['1'].title = String(draft.title || '').slice(0, 40);
   for (let i = 0; i < sc; i++) {
     const key = String(i + 2);
     const s = draft.scenes && draft.scenes[i];
     if (!skeleton[key] || !s) continue;
-    skeleton[key].title = String(s.title || '').slice(0, 40);
-    skeleton[key].body  = String(s.body  || '').slice(0, 600);
+    skeleton[key].body = String(s.body || '').slice(0, 600);
   }
   if (skeleton[endingKey] && draft.ending) {
-    skeleton[endingKey].title = String(draft.ending.title || '').slice(0, 40);
-    skeleton[endingKey].body  = String(draft.ending.body  || '').slice(0, 600);
+    skeleton[endingKey].body = String(draft.ending.body || '').slice(0, 600);
   }
   const res = await _writeBase10IfEmpty({
     source: 'desktop', markInitialized: true, ptype: 'picturebook',

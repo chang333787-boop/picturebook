@@ -96,11 +96,18 @@
     return parts.join(' ');
   }
 
-  /* v2 결과인지(설계도 노출 여부) — 질문 세트에 targetLength 존재로 판별(review vm 기준). */
+  /* v2 결과인지(설계도 노출 여부) — 질문 세트에 targetLength 존재로 판별(review vm 기준).
+     LEVELS-LINEAR(2026-07-19): 2단계 linear 세트도 targetLength를 가지므로 protagonistName이
+     있으면 제외 — v2 설계도 템플릿(진엔딩/다른 선택 문구)이 일직선에 맞지 않음. 일직선 전용
+     설계도는 후속(그때까지 결과지는 질문·답 카드 목록으로 충분). */
   function isV2Questions(questions) {
     if (!Array.isArray(questions)) return false;
-    for (const q of questions) if (q && q.id === 'targetLength') return true;
-    return false;
+    let hasTargetLength = false;
+    for (const q of questions) {
+      if (q && q.id === 'protagonistName') return false;
+      if (q && q.id === 'targetLength') hasTargetLength = true;
+    }
+    return hasTargetLength;
   }
 
   return { FIELD_DEFS, TARGETLEN_LABELS, DEFERRED_LABEL, MINIMAL_ANSWER, buildStoryMapV2, buildSummaryText, isV2Questions };

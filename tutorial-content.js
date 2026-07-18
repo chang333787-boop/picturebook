@@ -41,10 +41,16 @@
 
   /* S2 환영 모달 — art=삽화, demo=true면 인터랙티브 미니 데모 삽입.
      이미 로그인/입장한 뒤(나침반 완료 후) 뜨므로 '들어가기' 슬라이드는 뺌. */
+  /* LEVELS-FEEDBACK(2026-07-19): pbLevels = 그림책 단계 맞춤 슬라이드 필터.
+     · 그림책이면 현재 단계(레거시=3)와 일치하는 슬라이드만, 텍스트/무비는 3단계와 동일 취급.
+     · 1·2단계는 갈림길/행동버튼 슬라이드 제외(일직선 잠금과 정합). 필터는 tutorial-welcome.js. */
   const welcome = [
-    { title: '가지에 온 걸 환영해요', line: '고르는 대로 이야기가 갈라지는 나만의 작품을 만드는 곳이에요.', art: 'welcomeHero' },
-    { title: '먼저 한 줄기, 그다음 갈림길', line: '이야기를 끝까지 만든 뒤, “다르게 했다면?” 하고 갈래를 더해요. 아래에서 직접 해볼까요?', demo: true },
-    { title: '장면을 만들고 이어요',   line: '글과 그림으로 장면을 만든 뒤, 장면 카드의 <b>⋯</b>를 펼쳐 행동 버튼으로 다음 장면을 이어 줘요.', art: 'branch' },
+    { title: '가지에 온 걸 환영해요', line: '고르는 대로 이야기가 갈라지는 나만의 작품을 만드는 곳이에요.', art: 'welcomeHero', pbLevels: [3] },
+    { title: '가지에 온 걸 환영해요', line: '나침반에 답하면 <b>나만의 동화책</b>이 만들어져요. 글과 그림을 예쁘게 다듬어 보아요.', art: 'welcomeHero', pbLevels: [1] },
+    { title: '가지에 온 걸 환영해요', line: 'AI가 만들어 준 <b>이야기 초안</b>을 내 글로 고쳐 쓰는 곳이에요. 그림도 직접 그려요.', art: 'welcomeHero', pbLevels: [2] },
+    { title: '먼저 한 줄기, 그다음 갈림길', line: '이야기를 끝까지 만든 뒤, “다르게 했다면?” 하고 갈래를 더해요. 아래에서 직접 해볼까요?', demo: true, pbLevels: [3] },
+    { title: '장면을 만들고 이어요',   line: '글과 그림으로 장면을 만든 뒤, 장면 카드의 <b>⋯</b>를 펼쳐 행동 버튼으로 다음 장면을 이어 줘요.', art: 'branch', pbLevels: [3] },
+    { title: '초안을 내 글로 고쳐요',  line: '장면 카드의 글을 눌러 <b>내 말로 바꿔</b> 보세요. 그림은 다듬기에서 그리거나 붙일 수 있어요.', art: 'branch', pbLevels: [2] },
     { title: '다 만들면 꾸며 봐요',    line: '오른쪽 위 “🎨 감상 화면 다듬기”를 누르면 글상자와 그림을 예쁘게 마감할 수 있어요. 헷갈리면 ❓를 눌러요.', art: 'play' },
   ];
 
@@ -122,10 +128,12 @@
      types 있으면 해당 유형만(엔진 run(filterType)에서 스킵). 대상 없거나 숨김이면 자동 스킵(가시성 가드).
      같은 클래스가 여러 카드에 있어도 querySelector가 첫 요소 — 표지 카드엔 이 클래스들이 없어
      자연히 '첫 비표지 카드'가 대상이 됨(#1 이미지·#2 글씨칸·#3 ⋯더보기). */
+  /* LEVELS-FEEDBACK(2026-07-19): pbLevels = 그림책 단계 필터(환영 슬라이드와 동일 규칙 —
+     그림책이면 현재 단계·그 외 3 취급). 1단계=그림 자동(업로드 코치 제외)·1·2단계=연결 잠금(⋯ 코치 제외). */
   const makerCoach = [
     { sel: '.card-image-area',
       text: '여기에 사진을 올릴 수 있어요. 다듬기 화면에서는 직접 그릴 수도 있어요.',
-      types: ['picturebook', 'experience'] },
+      types: ['picturebook', 'experience'], pbLevels: [2, 3] },
     { sel: '.pb-body-preview',
       text: '저걸 누르면 여기서 글을 쓸 수 있어요.',
       types: ['picturebook'] },
@@ -137,7 +145,7 @@
       types: ['text'] },
     { sel: '.card-more.js-card-more',
       text: '여기서 행동 버튼을 추가하고 다른 장면과 이을 수 있어요.',
-      types: ['picturebook'] },
+      types: ['picturebook'], pbLevels: [3] },
     { sel: '#btn-compass-result',
       text: '방금 만든 생각 나침반을 보면서 만들 수 있어요.',
       types: ['text', 'picturebook'] },

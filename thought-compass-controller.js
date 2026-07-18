@@ -103,7 +103,16 @@
   function _defaultGateCallbacks(ctx, normalizedState) {
     const Store = _Store(), Gate = _Gate(), UI = _UI();
     async function _begin(action) {
-      try { if (Store) await Store.markThoughtCompassStarted(ctx, normalizedState); } catch (e) { /* 진행은 UI에서 재시도 */ }
+      /* LEVELS(2026-07-19): 그림책 1단계 신규=easy(3)·2단계 신규=linear(4)로 시작.
+         진행/완료 데이터는 planMarkStarted가 저장 버전을 유지(신규 스탬프에만 반영). */
+      let _qv;
+      if (ctx && ctx.projectType === 'picturebook'
+          && typeof window !== 'undefined' && typeof window.getPicturebookLevel === 'function') {
+        const _lv = window.getPicturebookLevel();
+        if (_lv === 1) _qv = 3;
+        else if (_lv === 2) _qv = 4;
+      }
+      try { if (Store) await Store.markThoughtCompassStarted(ctx, normalizedState, _qv); } catch (e) { /* 진행은 UI에서 재시도 */ }
       if (UI && typeof UI.open === 'function') {
         if (Gate) Gate.closeGate();
         UI.open(ctx, { action: action });

@@ -64,7 +64,19 @@
     /* V2: 질문 세트 버전 판별(fresh/v2 데이터→2, v1 진행·완료 데이터→1). 저장 시 재스탬프용으로 S에 보존. */
     /* MODE-REGRESS-GUARD(2026-07-16): foundation(thought-compass.js) 미로드 시 폴백을 옛 모드(1)가
        아니라 최신(2)으로 — 스테일/부분 로드가 "옛 모드 회귀"로 굳는 것을 방지. 정상 로드 시엔 무영향. */
-    const qVersion = (typeof TC.resolveQuestionSetVersion === 'function') ? TC.resolveQuestionSetVersion(state) : 2;
+    let qVersion = (typeof TC.resolveQuestionSetVersion === 'function') ? TC.resolveQuestionSetVersion(state) : 2;
+    /* LEVELS(2026-07-19): 그림책 1단계(easy=3)·2단계(linear=4) — 아직 버전/답이 없는 신규 세션만.
+       markStarted(컨트롤러)가 스탬프하지만, 스탬프 전에 읽은 state로 열리는 레이스를 여기서 보정.
+       진행·완료 데이터(v1/v2)는 저장 버전 그대로(위 resolve가 이김). */
+    const _freshNoVersion = !state || (!state.version
+      && !(state.answers && typeof state.answers === 'object' && Object.keys(state.answers).length > 0));
+    if (qVersion === 2 && _freshNoVersion
+        && ctx && ctx.projectType === 'picturebook'
+        && typeof window.getPicturebookLevel === 'function') {
+      const _lv = window.getPicturebookLevel();
+      if (_lv === 1) qVersion = 3;
+      else if (_lv === 2) qVersion = 4;
+    }
     const vm = Flow.createFlow({ version: qVersion, resume: { index: rp.questionIndex, answers: rp.answers } });
     const followUps = Array.isArray(rp.followUps) ? rp.followUps.slice() : [];
     S = { ctx: ctx, vm: vm, busy: false, draftTimer: null, error: null, version: qVersion,
@@ -76,8 +88,10 @@
   /* 검토 화면 '고치기' — 특정 핵심 질문 1개만 수정 후 검토로 복귀(Phase I, D-09). 다른 답변 보존. */
   function openForEdit(ctx, vm, index, onComplete) {
     const Flow = _Flow();
-    /* V2: vm 질문 세트로 버전 파생(검토 화면 '고치기' 경유 — 저장 재스탬프용). */
-    const qVersion = (vm && Array.isArray(vm.questions) && vm.questions.some(function (q) { return q && q.id === 'targetLength'; })) ? 2 : 1;
+    /* V2: vm 질문 세트로 버전 파생(검토 화면 '고치기' 경유 — 저장 재스탬프용).
+       LEVELS: heroWho=easy(3)·protagonistName=linear(4)·targetLength=2·그 외 1. */
+    const _hasQ = function (id) { return !!(vm && Array.isArray(vm.questions) && vm.questions.some(function (q) { return q && q.id === id; })); };
+    const qVersion = _hasQ('heroWho') ? 3 : (_hasQ('protagonistName') ? 4 : (_hasQ('targetLength') ? 2 : 1));
     S = { ctx: ctx, vm: Flow.goToIndex(vm, index), busy: false, draftTimer: null, error: null, version: qVersion,
           followUps: [], followUpsUsed: 0, followUp: null, aiBusy: false,
           editMode: true, onEditComplete: (typeof onComplete === 'function') ? onComplete : null, customMode: null };

@@ -12,6 +12,11 @@
   const VERSION = 1;
   /* STORY-COMPASS-V2: 신규 세션 질문 세트 버전. v1 데이터(version 1/누락 + 진행·완료)는 v1 유지. */
   const QUESTION_VERSION_LATEST = 2;
+  /* LEVELS-EASY(2026-07-19): 그림책 1단계(1~2학년) easy 세트. 신규 기본은 여전히 LATEST(2) —
+     3은 컨트롤러/UI가 1단계 신규 세션에 한해 명시 지정(진행·완료 데이터는 저장 버전 유지). */
+  const QUESTION_VERSION_EASY = 3;
+  /* LEVELS-LINEAR(2026-07-19): 그림책 2단계(3~4학년·일직선) 세트 — 진엔딩/다른선택 없음+이름 질문. */
+  const QUESTION_VERSION_LINEAR = 4;
   const STATUS = { NOT_STARTED: 'notStarted', IN_PROGRESS: 'inProgress', COMPLETED: 'completed' };
   const MODES = { REQUIRED: 'required', OPTIONAL: 'optional', NONE: 'none' };
   /* 생각 나침반 적용 대상 = 그림책·텍스트만. movie/experience 제외(PRD D-01). */
@@ -61,8 +66,10 @@
     if (idx < 0) idx = 0;
 
     const out = {
-      /* V2: 저장된 version 2는 보존(질문 세트 판별). 그 외(1/누락/이상값)는 1로 정규화. */
-      version: (raw.version === QUESTION_VERSION_LATEST) ? QUESTION_VERSION_LATEST : VERSION,
+      /* V2: 저장된 version 2는 보존(질문 세트 판별). LEVELS: 3(easy)·4(linear)도 보존.
+         그 외(1/누락/이상값)는 1로 정규화. */
+      version: (raw.version === QUESTION_VERSION_LATEST || raw.version === QUESTION_VERSION_EASY
+        || raw.version === QUESTION_VERSION_LINEAR) ? raw.version : VERSION,
       status: status,
       mode: (raw.mode === MODES.REQUIRED || raw.mode === MODES.OPTIONAL || raw.mode === MODES.NONE) ? raw.mode : MODES.OPTIONAL,
       projectType: _isType(raw.projectType) ? raw.projectType : null,
@@ -150,6 +157,12 @@
   const CORE_QUESTION_KEYS_V2 = ['targetLength', 'protagonist', 'goal', 'mainlineStart', 'incitingEvent', 'risingTrouble', 'keyChoice', 'trueEnding', 'alternatePath', 'coreMessage'];
   /* V2 전용 answer 키(v1 세트에 없는 키) — version 필드 유실 시 자가복구 판별용. */
   const V2_ONLY_ANSWER_KEYS = ['targetLength', 'mainlineStart', 'incitingEvent', 'risingTrouble', 'keyChoice', 'trueEnding', 'alternatePath', 'coreMessage'];
+  /* LEVELS-EASY(2026-07-19): 그림책 1단계 easy 세트(version 3) 전용 키 — 자가복구 판별용.
+     정본 정의: thought-compass-questions.js CORE_QUESTION_KEYS_EASY. */
+  const EASY_ONLY_ANSWER_KEYS = ['heroWho', 'heroName', 'storyStart', 'heroEvent', 'heroWant', 'heroTry', 'heroTrouble', 'heroOvercome'];
+  /* LEVELS-LINEAR: 2단계 세트(version 4) 전용 키(자가복구) + 완주 판정 키 목록. */
+  const LINEAR_ONLY_ANSWER_KEYS = ['protagonistName'];
+  const CORE_QUESTION_KEYS_LINEAR = ['targetLength', 'protagonist', 'protagonistName', 'goal', 'mainlineStart', 'incitingEvent', 'risingTrouble', 'keyChoice', 'trueEnding', 'coreMessage'];
   const MINIMAL_ANSWER = '이야기를 만들면서 정할래요';
 
   /* 세션이 사용할 질문 세트 버전 판별(raw preWriting 기준):
@@ -159,6 +172,13 @@
      · 그 외(v1 진행/완료 데이터) → 1 (기존 세션은 v1으로 완주 — 하위호환) */
   function resolveQuestionSetVersion(raw) {
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return QUESTION_VERSION_LATEST;
+    /* LEVELS: 저장 버전 3/4 또는 전용 답 존재(버전 필드 유실 자가복구) → 해당 버전 */
+    if (raw.version === QUESTION_VERSION_EASY) return QUESTION_VERSION_EASY;
+    if (raw.version === QUESTION_VERSION_LINEAR) return QUESTION_VERSION_LINEAR;
+    if (raw.answers && typeof raw.answers === 'object' && !Array.isArray(raw.answers)) {
+      for (const k of EASY_ONLY_ANSWER_KEYS) if (raw.answers[k]) return QUESTION_VERSION_EASY;
+      for (const k of LINEAR_ONLY_ANSWER_KEYS) if (raw.answers[k]) return QUESTION_VERSION_LINEAR;
+    }
     if (raw.version === QUESTION_VERSION_LATEST) return QUESTION_VERSION_LATEST;
     if (raw.answers && typeof raw.answers === 'object' && !Array.isArray(raw.answers)) {
       for (const k of V2_ONLY_ANSWER_KEYS) if (raw.answers[k]) return QUESTION_VERSION_LATEST;
@@ -187,9 +207,14 @@
   function validateThoughtCompassCompletion(state) {
     const s = normalizeThoughtCompassState(state);
     const answers = s.answers || {};
-    /* V2 세션은 10키 완주 필요 — version===2(normalize 보존) 또는 v2 전용 답 존재(자가복구). */
-    const keys = (s.version === QUESTION_VERSION_LATEST || _hasV2Answers(answers))
-      ? CORE_QUESTION_KEYS_V2 : CORE_QUESTION_KEYS;
+    /* V2 세션은 10키 완주 필요 — version===2(normalize 보존) 또는 v2 전용 답 존재(자가복구).
+       LEVELS: version===3(easy)=8키, version===4(linear)=10키 완주. */
+    const keys = (s.version === QUESTION_VERSION_EASY || _hasEasyAnswers(answers))
+      ? EASY_ONLY_ANSWER_KEYS
+      : ((s.version === QUESTION_VERSION_LINEAR || _hasLinearAnswers(answers))
+        ? CORE_QUESTION_KEYS_LINEAR
+        : ((s.version === QUESTION_VERSION_LATEST || _hasV2Answers(answers))
+          ? CORE_QUESTION_KEYS_V2 : CORE_QUESTION_KEYS));
     const missing = [];
     for (const k of keys) if (!_answerPresent(answers[k])) missing.push(k);
     return { valid: missing.length === 0, missing: missing };
@@ -197,6 +222,16 @@
   function _hasV2Answers(answers) {
     if (!answers || typeof answers !== 'object') return false;
     for (const k of V2_ONLY_ANSWER_KEYS) if (answers[k]) return true;
+    return false;
+  }
+  function _hasEasyAnswers(answers) {
+    if (!answers || typeof answers !== 'object') return false;
+    for (const k of EASY_ONLY_ANSWER_KEYS) if (answers[k]) return true;
+    return false;
+  }
+  function _hasLinearAnswers(answers) {
+    if (!answers || typeof answers !== 'object') return false;
+    for (const k of LINEAR_ONLY_ANSWER_KEYS) if (answers[k]) return true;
     return false;
   }
 
@@ -302,7 +337,7 @@
      SERVER 토큰은 adapter가 ServerValue.TIMESTAMP로 치환하도록 sentinel '@serverTimestamp' 사용. */
   const SERVER_TS = '@serverTimestamp';
 
-  function planMarkStarted(ctx, state) {
+  function planMarkStarted(ctx, state, qVersion) {
     const paths = buildThoughtCompassPaths(ctx);
     if (!paths) return null;
     const s = normalizeThoughtCompassState(state);
@@ -312,9 +347,12 @@
       update.status = STATUS.IN_PROGRESS;
       update.startedAt = SERVER_TS;
       update.currentQuestionIndex = 0;
-      update.version = QUESTION_VERSION_LATEST;   /* V2: 신규 시작 세션은 v2 */
-    } else if (s.version === QUESTION_VERSION_LATEST) {
-      update.version = QUESTION_VERSION_LATEST;   /* v2 세션 재개 — version 필드 유실 대비 재스탬프(멱등) */
+      /* V2: 신규 시작 세션은 v2. LEVELS: 호출자(컨트롤러=1·2단계)가 3/4를 명시하면 그 버전. */
+      update.version = (qVersion === QUESTION_VERSION_EASY || qVersion === QUESTION_VERSION_LINEAR)
+        ? qVersion : QUESTION_VERSION_LATEST;
+    } else if (s.version === QUESTION_VERSION_LATEST || s.version === QUESTION_VERSION_EASY
+        || s.version === QUESTION_VERSION_LINEAR) {
+      update.version = s.version;   /* v2/easy/linear 세션 재개 — version 필드 유실 대비 재스탬프(멱등) */
     }
     return { path: paths.preWriting, update: update };
   }
@@ -338,7 +376,8 @@
     /* 진행 저장은 status를 완료→진행으로 되돌리지 않음(완료 보호) */
     const s = normalizeThoughtCompassState(state);
     if (s.status === STATUS.NOT_STARTED) { update.status = STATUS.IN_PROGRESS; update.version = QUESTION_VERSION_LATEST; }
-    else if (s.version === QUESTION_VERSION_LATEST) update.version = QUESTION_VERSION_LATEST;   /* V2 세션 매 저장 재스탬프(멱등·자가복구) */
+    else if (s.version === QUESTION_VERSION_LATEST || s.version === QUESTION_VERSION_EASY
+        || s.version === QUESTION_VERSION_LINEAR) update.version = s.version;   /* V2/easy/linear 세션 매 저장 재스탬프(멱등·자가복구) */
     return { path: paths.preWriting, update: update };
   }
 
@@ -383,7 +422,7 @@
   }
 
   return {
-    VERSION, QUESTION_VERSION_LATEST, STATUS, MODES, COMPASS_TYPES, SERVER_TS, ACCESS,
+    VERSION, QUESTION_VERSION_LATEST, QUESTION_VERSION_EASY, QUESTION_VERSION_LINEAR, STATUS, MODES, COMPASS_TYPES, SERVER_TS, ACCESS,
     CORE_QUESTION_KEYS, CORE_QUESTION_KEYS_V2, MINIMAL_ANSWER,
     resolveQuestionSetVersion,
     resolveProjectAccessState, describeGate, resolveResumePoint, describeOptionalEntryButton,

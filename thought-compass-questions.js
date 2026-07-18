@@ -198,11 +198,147 @@
     }
     return o;
   }
+  /* ════ LEVELS-EASY(2026-07-19): 그림책 1단계(1~2학년) 전용 세트 — version 3 ════
+     사용자 결정: v2(10문항)가 저학년에게 추상적 → 구체·짧은 8문항으로 교체.
+     (주인공 누구→이름 / 어디서 시작 / 무슨 일 / 원하는 것 / 노력 / 어려움 / 이겨내기)
+     · targetLength 없음 → 장면 수는 8 고정(scenes resolveStoryCount 기본값과 일치).
+     · 심화(후속)는 기존 AI 판정(callThoughtCompassFollowUp)이 담당 — 서버 brief에 EASY 키 등록.
+     · 소비자: studentStoryDraft(디지스트=키+답 제네릭)·결과지 카드 목록(제네릭).
+       v2 설계도/나침반형 시트는 isV2Questions 게이트로 자동 미노출(하위호환). */
+  const CORE_QUESTION_KEYS_EASY = ['heroWho', 'heroName', 'storyStart', 'heroEvent', 'heroWant', 'heroTry', 'heroTrouble', 'heroOvercome'];
+  const CORE_QUESTIONS_EASY = [
+    {
+      id: 'heroWho', order: 1, g: 'E-1',
+      title: '주인공은 누구인가요?',
+      help: '이야기의 주인공을 골라 보세요. 사람이 아니어도 괜찮아요.',
+      choices: [_choice('easywho_person', '사람 어린이'), _choice('easywho_animal', '동물 친구'), _choice('easywho_robot', '로봇이나 장난감'), _choice('easywho_magic', '상상 속 존재')],
+      allowCustom: true, customLabel: '직접 적을래요', allowUnsure: true, maxLength: MAX_CORE_LEN,
+      sufficientWhen: '주인공이 누구인지 분명',
+      followUpTrigger: '너무 넓거나(예: 그냥 동물) 특징이 없을 때',
+    },
+    {
+      id: 'heroName', order: 2, g: 'E-2',
+      title: '주인공 이름은 무엇인가요?',
+      help: '이름을 지어 주면 이야기가 살아나요. 생각나는 대로 지어도 좋아요.',
+      choices: [_choice('easyname_byeol', '별이'), _choice('easyname_choco', '초코'), _choice('easyname_kong', '콩이')],
+      allowCustom: true, customLabel: '내가 지을래요', allowUnsure: true, maxLength: MAX_CORE_LEN,
+      sufficientWhen: '이름 1개',
+      followUpTrigger: '없음(이름은 무엇이든 충분)',
+    },
+    {
+      id: 'storyStart', order: 3, g: 'E-3',
+      title: '이야기는 어디에서 시작되나요?',
+      help: '주인공이 처음에 있는 곳을 떠올려 보세요.',
+      choices: [_choice('easystart_home', '우리 집'), _choice('easystart_school', '학교나 마을'), _choice('easystart_forest', '숲속이나 바닷가'), _choice('easystart_space', '우주나 신기한 나라')],
+      allowCustom: true, customLabel: '직접 적을래요', allowUnsure: true, maxLength: MAX_CORE_LEN,
+      sufficientWhen: '장소 1개 분명',
+      followUpTrigger: '장소가 없거나 아주 모호할 때',
+    },
+    {
+      id: 'heroEvent', order: 4, g: 'E-4',
+      title: '주인공에게 무슨 일이 생기나요?',
+      help: '이야기가 시작되는 일을 골라 보세요.',
+      choices: [_choice('easyevent_find', '신기한 것을 발견해요'), _choice('easyevent_meet', '누군가를 만나요'), _choice('easyevent_problem', '갑자기 문제가 생겨요')],
+      allowCustom: true, customLabel: '직접 적을래요', allowUnsure: true, maxLength: MAX_CORE_LEN,
+      sufficientWhen: '일어나는 일 1개 분명',
+      followUpTrigger: '무엇이 생기는지 안 보일 때(예: 그냥 놀아요)',
+    },
+    {
+      id: 'heroWant', order: 5, g: 'E-5',
+      title: '주인공이 가장 원하는 것은 무엇인가요?',
+      help: '주인공이 바라는 것을 떠올려 보세요.',
+      choices: [_choice('easywant_find', '소중한 것을 찾고 싶어요'), _choice('easywant_friend', '친구를 사귀고 싶어요'), _choice('easywant_go', '멋진 곳에 가 보고 싶어요')],
+      allowCustom: true, customLabel: '직접 적을래요', allowUnsure: true, maxLength: MAX_CORE_LEN,
+      sufficientWhen: '원하는 것 1개 분명',
+      followUpTrigger: '원하는 대상이 안 보일 때',
+    },
+    {
+      id: 'heroTry', order: 6, g: 'E-6',
+      title: '그걸 위해 주인공은 어떤 노력을 하나요?',
+      help: '주인공이 해 보는 일을 골라 보세요.',
+      choices: [_choice('easytry_brave', '용기를 내서 떠나요'), _choice('easytry_practice', '열심히 연습해요'), _choice('easytry_help', '친구에게 도움을 구해요')],
+      allowCustom: true, customLabel: '직접 적을래요', allowUnsure: true, maxLength: MAX_CORE_LEN,
+      sufficientWhen: '해 보는 행동 1개 분명',
+      followUpTrigger: '행동이 안 보일 때',
+    },
+    {
+      id: 'heroTrouble', order: 7, g: 'E-7',
+      title: '가는 길에 어떤 어려움이 있을까요?',
+      help: '주인공을 힘들게 하는 일을 떠올려 보세요.',
+      choices: [_choice('easytrouble_block', '누군가 방해해요'), _choice('easytrouble_lost', '길을 잃어요'), _choice('easytrouble_scare', '무섭고 겁이 나요')],
+      allowCustom: true, customLabel: '직접 적을래요', allowUnsure: true, maxLength: MAX_CORE_LEN,
+      sufficientWhen: '어려움 1개 + 누가/무엇이 분명',
+      followUpTrigger: "'누군가 방해해요'처럼 대상이 비어 있을 때(그 누구는 누구인지, 어떻게 방해하는지)",
+    },
+    {
+      id: 'heroOvercome', order: 8, g: 'E-8',
+      title: '어려움을 어떻게 이겨내나요?',
+      help: '주인공이 어려움을 이겨내는 모습을 골라 보세요.',
+      choices: [_choice('easyovercome_brave', '용기를 내요'), _choice('easyovercome_together', '친구와 힘을 합쳐요'), _choice('easyovercome_idea', '좋은 생각이 떠올라요')],
+      allowCustom: true, customLabel: '직접 적을래요', allowUnsure: true, maxLength: MAX_CORE_LEN,
+      sufficientWhen: '이겨내는 방법 1개 분명',
+      followUpTrigger: '방법이 안 보일 때',
+    },
+  ];
+
+  /* ════ LEVELS-LINEAR(2026-07-19): 그림책 2단계(3~4학년·일직선) 전용 세트 — version 4 ════
+     사용자 결정: 갈래 없는 2단계에 v2의 '진엔딩'·'다른 선택을 하면'(alternatePath)은 부적절.
+     · v2에서 alternatePath 제거 + trueEnding 문구를 '이야기는 어떻게 끝나나요?'로.
+     · targetLength 문구에서 '진엔딩' 제거(일직선 기본 길이).
+     · protagonistName 신규(주인공 이름을 아이가 정함 — AI 초안이 임의 이름을 짓지 않게). 10문항 유지. */
+  const CORE_QUESTION_KEYS_LINEAR = ['targetLength', 'protagonist', 'protagonistName', 'goal', 'mainlineStart', 'incitingEvent', 'risingTrouble', 'keyChoice', 'trueEnding', 'coreMessage'];
+  const CORE_QUESTIONS_LINEAR = (function () {
+    const byId = {};
+    for (const q of CORE_QUESTIONS_V2) byId[q.id] = q;
+    function _cl(id, order, patch) {
+      const base = byId[id];
+      const q = {};
+      for (const k of Object.keys(base)) q[k] = base[k];
+      q.order = order;
+      if (patch) for (const k of Object.keys(patch)) q[k] = patch[k];
+      return q;
+    }
+    return [
+      _cl('targetLength', 1, {
+        g: 'L-1',
+        title: '이야기를 몇 장면 정도로 만들고 싶나요?',
+        help: '처음부터 끝까지 한 길로 이어지는 이야기의 길이에요.',
+      }),
+      _cl('protagonist', 2, { g: 'L-2' }),
+      {
+        id: 'protagonistName', order: 3, g: 'L-3',
+        title: '주인공 이름은 무엇인가요?',
+        help: '내가 정한 이름이 이야기에 그대로 나와요. 나중에 바꿔도 괜찮아요.',
+        choices: [_choice('linname_haneul', '하늘이'), _choice('linname_bomi', '보미'), _choice('linname_dohyun', '도현이')],
+        allowCustom: true, customLabel: '내가 지을래요', allowUnsure: true, maxLength: MAX_CORE_LEN,
+        sufficientWhen: '이름 1개(무엇이든 충분)',
+        followUpTrigger: '없음(이름은 무엇이든 충분)',
+      },
+      _cl('goal', 4, { g: 'L-4' }),
+      _cl('mainlineStart', 5, { g: 'L-5' }),
+      _cl('incitingEvent', 6, { g: 'L-6' }),
+      _cl('risingTrouble', 7, { g: 'L-7' }),
+      _cl('keyChoice', 8, { g: 'L-8' }),
+      _cl('trueEnding', 9, {
+        g: 'L-9',
+        title: '이야기는 어떻게 끝나나요?',
+        help: '이야기의 마지막 장면을 떠올려 보세요.',
+      }),
+      _cl('coreMessage', 10, { g: 'L-10' }),
+    ];
+  })();
+
   _deepFreeze(CORE_QUESTIONS);
   _deepFreeze(CORE_QUESTIONS_V2);
+  _deepFreeze(CORE_QUESTIONS_EASY);
+  _deepFreeze(CORE_QUESTIONS_LINEAR);
 
-  /* version 미지정/1 = v1(기존 데이터 하위호환), 2 = v2. */
-  function getCoreQuestions(version) { return version === 2 ? CORE_QUESTIONS_V2 : CORE_QUESTIONS; }
+  /* version 미지정/1 = v1(기존 데이터 하위호환), 2 = v2, 3 = 그림책 1단계 easy, 4 = 그림책 2단계 linear. */
+  function getCoreQuestions(version) {
+    if (version === 3) return CORE_QUESTIONS_EASY;
+    if (version === 4) return CORE_QUESTIONS_LINEAR;
+    return version === 2 ? CORE_QUESTIONS_V2 : CORE_QUESTIONS;
+  }
   function getQuestionById(id, version) {
     for (const q of getCoreQuestions(version)) if (q.id === id) return q;
     return null;
@@ -250,15 +386,17 @@
      version===2: 정확히 10개·CORE_QUESTION_KEYS_V2 일치·order 1~10·targetLength만 보기 전용 허용. */
   function validateCoreQuestionSet(arr, version) {
     const v2 = version === 2;
-    const list = arr || (v2 ? CORE_QUESTIONS_V2 : CORE_QUESTIONS);
-    const KEYS = v2 ? CORE_QUESTION_KEYS_V2 : CORE_QUESTION_KEYS;
+    const easy = version === 3;      /* LEVELS-EASY: 그림책 1단계 세트(정확히 8개) */
+    const linear = version === 4;    /* LEVELS-LINEAR: 그림책 2단계 세트(정확히 10개) */
+    const list = arr || (easy ? CORE_QUESTIONS_EASY : (linear ? CORE_QUESTIONS_LINEAR : (v2 ? CORE_QUESTIONS_V2 : CORE_QUESTIONS)));
+    const KEYS = easy ? CORE_QUESTION_KEYS_EASY : (linear ? CORE_QUESTION_KEYS_LINEAR : (v2 ? CORE_QUESTION_KEYS_V2 : CORE_QUESTION_KEYS));
     const COUNT = KEYS.length;
     const errors = [];
     if (!Array.isArray(list)) return { valid: false, errors: ['배열 아님'] };
     if (list.length !== COUNT) errors.push('핵심 질문은 정확히 ' + COUNT + '개여야 함 (현재 ' + list.length + ')');
     const ids = {}, orders = {};
     for (const q of list) {
-      const r = validateQuestionDefinition(q, { allowNoCustom: v2 && q && q.id === 'targetLength' });
+      const r = validateQuestionDefinition(q, { allowNoCustom: (v2 || linear) && q && q.id === 'targetLength' });
       if (!r.valid) errors.push((q && q.id ? q.id : '?') + ': ' + r.errors.join(', '));
       if (q && q.id) { if (ids[q.id]) errors.push('id 중복: ' + q.id); ids[q.id] = true; }
       if (q && Number.isInteger(q.order)) { if (orders[q.order]) errors.push('order 중복: ' + q.order); orders[q.order] = true; }
@@ -331,7 +469,7 @@
   }
 
   return {
-    CORE_QUESTION_KEYS, CORE_QUESTION_KEYS_V2, MINIMAL_ANSWER, MAX_CORE_LEN, ANSWER_STATUS, ASSISTANCE_PROMPTS,
+    CORE_QUESTION_KEYS, CORE_QUESTION_KEYS_V2, CORE_QUESTION_KEYS_EASY, CORE_QUESTION_KEYS_LINEAR, MINIMAL_ANSWER, MAX_CORE_LEN, ANSWER_STATUS, ASSISTANCE_PROMPTS,
     getCoreQuestions, getQuestionById, getQuestionByOrder,
     validateQuestionDefinition, validateCoreQuestionSet,
     normalizeAnswerValue, isMinimumDeferredAnswer, isAnswerPresent,

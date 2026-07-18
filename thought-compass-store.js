@@ -87,7 +87,7 @@
     return true;
   }
 
-  async function markThoughtCompassStarted(ctx, state) { return _applyPlan(_TC().planMarkStarted(ctx, state)); }
+  async function markThoughtCompassStarted(ctx, state, qVersion) { return _applyPlan(_TC().planMarkStarted(ctx, state, qVersion)); }
   async function saveThoughtCompassProgress(ctx, state, patch) { return _applyPlan(_TC().planSaveProgress(ctx, state, patch)); }
   async function markThoughtCompassCompleted(ctx, state) { return _applyPlan(_TC().planMarkCompleted(ctx, state)); }
   async function resetThoughtCompassOnly(ctx) { return _applyPlan(_TC().planResetCompassOnly(ctx)); }

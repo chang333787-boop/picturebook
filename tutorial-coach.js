@@ -108,6 +108,14 @@
       const key = opts.stepsKey || 'refineCoach';
       let steps = (C && Array.isArray(C[key])) ? C[key] : [];
       if (opts.filterType) steps = steps.filter(s => !s.types || s.types.indexOf(opts.filterType) !== -1);
+      /* LEVELS-FEEDBACK(2026-07-19): pbLevels 단계 필터 — 환영(tutorial-welcome)과 동일 규칙.
+         그림책이면 현재 단계(레거시=3), 그 외 유형은 3 취급. pbLevels 없으면 전체 노출. */
+      {
+        const _pbLvl = (opts.filterType === 'picturebook'
+          && typeof window !== 'undefined' && typeof window.getPicturebookLevel === 'function')
+          ? (window.getPicturebookLevel() || 3) : 3;
+        steps = steps.filter(s => !s.pbLevels || s.pbLevels.indexOf(_pbLvl) !== -1);
+      }
       _prefix = opts.keyPrefix || 'tutorial_coach';
       _version = (C && C.version) ? C.version : 1;
       /* 매 진입 표시. 단 환영 모달을 '다시 열지 않기'로 끈 경우 코치도 억제(단일 제어).

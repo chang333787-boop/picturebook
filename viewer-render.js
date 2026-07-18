@@ -2626,24 +2626,28 @@ function renderHUD() {
   const _isMovieToolHudScene = !!(_hudScene
     && ViewerState.project && ViewerState.project.projectType === 'movie'
     && _hudScene.type !== 'cover' && !_hudScene.isCover);
+  /* LEVELS-FEEDBACK(2026-07-19): 1단계는 버튼(연결)·그림(업로드/그리기) 편집을 쓸 일이 없어
+     HUD에서 제거(사용자 결정) — 아이 화면 최소화. 그림 재생성은 운영/교사 경로 후속. */
+  const _pbHudLv1 = !!(ViewerState.project && ViewerState.project.projectType === 'picturebook'
+    && ViewerState.project.picturebookLevel === 1);
   const makerBarHtml = fromMaker ? `
     <div class="maker-return-bar ${isEdit ? 'maker-return-bar--editing' : ''}">
       <span class="maker-return-label">${isEdit ? '🎨 다듬는 중' : '✏️ 제작자 테스트 중'}</span>
       <div class="maker-return-actions">
         ${isEdit ? `
           <button class="maker-return-btn maker-return-btn--tool js-refine-help" title="다듬기 사용법을 다시 봐요" aria-label="다듬기 사용법 다시 보기">❓ 사용법</button>
-          ${_isNormalHudScene ? '<button class="maker-return-btn maker-return-btn--tool js-edit-choice-popover" title="행동 버튼과 연결 장면을 편집합니다" aria-label="행동 버튼과 연결 장면을 편집합니다">🔗 버튼</button>' : ''}
+          ${(_isNormalHudScene && !_pbHudLv1) ? '<button class="maker-return-btn maker-return-btn--tool js-edit-choice-popover" title="행동 버튼과 연결 장면을 편집합니다" aria-label="행동 버튼과 연결 장면을 편집합니다">🔗 버튼</button>' : ''}
           ${_isCoverHudScene ? '<button class="maker-return-btn maker-return-btn--tool js-edit-cover-popover" title="표지 색과 표지 느낌을 편집합니다" aria-label="표지 색과 표지 느낌을 편집합니다">🎨 표지</button>' : ''}
-          ${_isPbImageHudScene ? '<button class="maker-return-btn maker-return-btn--tool js-edit-image-popover" title="장면 그림을 편집해요 — 업로드·직접 그리기" aria-label="장면 그림을 편집합니다">🖼️ 그림</button>' : ''}
+          ${(_isPbImageHudScene && !_pbHudLv1) ? '<button class="maker-return-btn maker-return-btn--tool js-edit-image-popover" title="장면 그림을 편집해요 — 업로드·직접 그리기" aria-label="장면 그림을 편집합니다">🖼️ 그림</button>' : ''}
           ${_isSceneStyleHudScene ? ((ViewerState.project && ViewerState.project.projectType === 'text')
             ? '<button class="maker-return-btn maker-return-btn--tool js-edit-scene-style-popover" title="이야기 전체 기본값과 이 장면만 다르게 꾸미기" aria-label="꾸미기 — 이야기 전체 / 이 장면만">🎨 꾸미기</button>'
             : '<button class="maker-return-btn maker-return-btn--tool js-edit-scene-style-popover" title="현재 장면의 글과 화면을 꾸며요. 같은 스타일을 모든 장면에 복사할 수 있어요" aria-label="장면 꾸미기 — 현재 장면의 글과 화면">🎨 장면 꾸미기</button>') : ''}
           ${_isMovieToolHudScene ? '<button class="maker-return-btn maker-return-btn--tool js-edit-movie-tool-modal" title="이 장면의 영상과 본문 표시를 설정합니다" aria-label="이 장면의 영상과 본문 표시를 설정합니다">🎬 무비</button>' : ''}
           ${(_aiAllowed
-            /* PICTUREBOOK-LEVELS ④(§7.7): 1단계는 고쳐쓰기(작품 마무리) 스킵 — HUD 진입 숨김.
-               책 렌더(그림/글 표시) 경로는 무변경 — HUD 크롬 게이트만. */
+            /* PICTUREBOOK-LEVELS(§7.7+피드백 2026-07-19): 1·2단계는 고쳐쓰기(작품 마무리) 스킵 —
+               AI 초안 기반이라 맞춤법/흐름 검사의 의미가 얇음(사용자 결정). HUD 크롬 게이트만. */
             && !(ViewerState.project && ViewerState.project.projectType === 'picturebook'
-                 && ViewerState.project.picturebookLevel === 1))
+                 && (ViewerState.project.picturebookLevel === 1 || ViewerState.project.picturebookLevel === 2)))
             ? '<button class="maker-return-btn maker-return-btn--ai js-ai-trigger" title="작품 마무리 — 질문·검사로 고칠 곳을 찾고, 직접 고친 뒤, 마지막 다듬기" aria-label="작품 마무리 — 질문·검사·직접 고치기·마지막 다듬기">📔 작품 마무리</button>' : ''}
           <button class="maker-return-btn maker-return-btn--test js-edit-preview-test" title="실제 관람자 화면으로 확인">▶️ 감상해 보기</button>
           <button class="maker-return-btn maker-return-btn--save js-edit-save" title="자동으로 저장돼요 — 지금 바로 저장하고 싶을 때 눌러요">💾 저장</button>

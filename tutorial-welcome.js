@@ -67,6 +67,14 @@
       let slides = (C && Array.isArray(C[deck])) ? C[deck] : [];
       /* 유형 맞춤: slide.types가 있으면 현재 유형이 포함될 때만. types 없으면 전체 노출. */
       if (filterType) slides = slides.filter(s => !s.types || s.types.indexOf(filterType) !== -1);
+      /* LEVELS-FEEDBACK(2026-07-19): 그림책 단계 맞춤(pbLevels) — 그림책이면 현재 단계(레거시=3),
+         텍스트/무비/기타는 3단계와 동일 취급(기존 브랜칭 서사 유지). pbLevels 없으면 전체 노출. */
+      {
+        const _pbLvl = (filterType === 'picturebook'
+          && typeof window !== 'undefined' && typeof window.getPicturebookLevel === 'function')
+          ? (window.getPicturebookLevel() || 3) : 3;
+        slides = slides.filter(s => !s.pbLevels || s.pbLevels.indexOf(_pbLvl) !== -1);
+      }
       const version = (C && C.version) ? C.version : 1;
       if (!slides.length || (!force && _isDismissed(prefix, version, scope))) {
         const _res = { shown: false, dontShow: false, skipped: false };

@@ -14,14 +14,17 @@ function baseInput(over) {
   }, over || {});
 }
 
-/* ── allowlist: v1+v2 합집합 15키 ── */
-test('V2FU: allowlist = v1 7키 + v2 10키 합집합 15키(공통 protagonist/goal)', () => {
-  assert.strictEqual(TC.CORE_QUESTION_KEYS.length, 15);
+/* ── allowlist: v1+v2 합집합 15키 + LEVELS(easy 8키·linear 신규 1키) = 24키 ── */
+test('V2FU: allowlist = v1 7키 + v2 10키 합집합 15키 + easy 8 + linear 신규 1 = 24키', () => {
+  assert.strictEqual(TC.CORE_QUESTION_KEYS.length, 24);
   for (const k of TC.CORE_QUESTION_KEYS_V1) assert.ok(TC.CORE_QUESTION_KEYS.includes(k), 'v1 누락: ' + k);
   for (const k of TC.CORE_QUESTION_KEYS_V2) assert.ok(TC.CORE_QUESTION_KEYS.includes(k), 'v2 누락: ' + k);
+  for (const k of TC.CORE_QUESTION_KEYS_EASY) assert.ok(TC.CORE_QUESTION_KEYS.includes(k), 'easy 누락: ' + k);
+  assert.ok(TC.CORE_QUESTION_KEYS.includes('protagonistName'), 'linear 신규 누락: protagonistName');
   /* 클라 정본과 교차검증 */
   assert.deepStrictEqual(TC.CORE_QUESTION_KEYS_V1.slice(), Q.CORE_QUESTION_KEYS.slice());
   assert.deepStrictEqual(TC.CORE_QUESTION_KEYS_V2.slice(), Q.CORE_QUESTION_KEYS_V2.slice());
+  assert.deepStrictEqual(TC.CORE_QUESTION_KEYS_EASY.slice(), Q.CORE_QUESTION_KEYS_EASY.slice());
 });
 
 test('V2FU: v1 키 전부 입력 통과(회귀 0)', () => {

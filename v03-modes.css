@@ -6095,3 +6095,15 @@ body[data-page-orientation="portrait"] .scene-screen--movie[data-movie-deco="pan
   border-color: #9a6b3f;
   transform: translateY(-1px);
 }
+
+/* ── LEVELS-FEEDBACK(2026-07-19): 행동버튼 라벨의 기본 문구('다음 장면으로' 등)는
+   실제 입력한 글처럼 표시(흐림·기울임 제거) — 사용자 결정. 본문/제목 placeholder는
+   진짜 빈칸임을 알려야 하므로 위 일반 규칙(흐림) 유지. 감상 쪽은 viewer.css
+   .choice-v03--empty 동일 정책. ── */
+.scene-screen--pb .pb-choice-label.is-empty::before,
+.scene-screen--text .text-choice-label.is-empty::before,
+.scene-screen--movie .text-choice-label.is-empty::before {
+  color: currentColor;
+  opacity: 1;
+  font-style: normal;
+}

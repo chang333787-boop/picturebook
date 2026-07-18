@@ -332,6 +332,13 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
       const _pbl = Number(meta.picturebookLevel);
       if (_pbl === 1 || _pbl === 2 || _pbl === 3) ViewerState.project.picturebookLevel = _pbl;
     }
+    /* LEVELS-FEEDBACK(2026-07-19): 1·2단계=일직선 — 엔딩의 '↺ 다른 결말 찾기'류 분기 크롬을
+       CSS로 일괄 숨기기 위한 신호 클래스(viewer.css .pb-level-linear). 책 내용 렌더는 불변. */
+    try {
+      const _lin = ViewerState.project.projectType === 'picturebook'
+        && (ViewerState.project.picturebookLevel === 1 || ViewerState.project.picturebookLevel === 2);
+      document.body.classList.toggle('pb-level-linear', !!_lin);
+    } catch (e) { /* noop */ }
 
     /* v138: 그림책형 본문 카드 톤 시스템 (작품 단위)
        장면 1에서 설정한 값이 작품 전체 일반 분할형·엔딩 분할형에 적용됨.

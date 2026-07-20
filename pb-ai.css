@@ -1365,7 +1365,9 @@
    뷰포트 1페이지로 잘라(그림책 인쇄가 표지+지도+장면 한 장·1/1) 다중 페이지 인쇄를 막았다.
    각 인쇄 open()이 <html>에 print-doc-unclip을 부여/제거(afterprint 포함) — 게이트 인쇄에만 적용.
    tc-print(1장짜리)는 기존 동작 유지라 무변경. */
-@media print {
+/* PRINT-HELPER(2026-07-20): screen 추가 — 인쇄 도우미 미리보기 동안 페이지 스크롤 허용.
+   클래스(print-doc-unclip)가 게이트라 평상시 화면 영향 0. */
+@media print, screen {
   html.print-doc-unclip, html.print-doc-unclip body {
     height: auto !important;
     overflow: visible !important;
@@ -1407,7 +1409,11 @@
    vh는 페이지 박스 기준이라 여백 축소 시 콘텐츠(96vh)가 자동으로 커짐. ⚠️너무 줄이면 프린터 하드웨어
    여백에서 가장자리 잘림 → 6mm는 안전선(실프린터 1회 확인). */
 @page pbprint { margin: 6mm; }
-@media print {
+/* PRINT-HELPER(2026-07-20): @media print → print, screen — 블록 전체가 body.print-picturebook
+   클래스로 게이트돼 있어(전 셀렉터 검증) 평상시 화면 영향 0. 클래스는 인쇄 직전/도우미
+   미리보기 동안만 부여 → 같은 레이아웃을 화면에서도 계산·표시(도우미 실측·WYSIWYG 기반).
+   @page/break-after는 screen에서 자연 무시. */
+@media print, screen {
   body.print-picturebook > *:not(.pb-print-root) { display: none !important; }
   body.print-picturebook .pb-print-root {
     display: block; width: auto; max-width: 100%; margin: 0; color: #111;
@@ -1681,4 +1687,58 @@
     color: #4a3a22; letter-spacing: .06em;
     -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
+}
+
+/* ══ PRINT-HELPER(2026-07-20): 인쇄 도우미 — 화면 미리보기 + 장면별 조절 UI ══
+   위 print,screen 블록이 인쇄 레이아웃을 화면에도 그대로 계산해 주고, 여기는
+   화면 전용 표시 품질(용지 폭 고정=인쇄와 동일 줄바꿈·책상 배경·페이지 그림자)과
+   도우미 컨트롤(바/칩/뱃지)만 담당. 인쇄물에는 컨트롤 전부 미출력(@media print 숨김). */
+@media screen {
+  /* 용지 폭 재현: A4 210mm − @page 여백 6mm×2 = 198mm — 화면 실측·미리보기 줄바꿈이
+     실제 인쇄와 일치하는 근거. 좁은 기기(태블릿 세로)는 96vw로 양보(근사 미리보기). */
+  body.print-picturebook .pb-print-root {
+    width: 198mm; max-width: 96vw; margin: 0 auto; background: transparent;
+  }
+  body.print-picturebook { background: #675f53; }
+  body.print-picturebook .pbp-page { margin: 16px 0; box-shadow: 0 5px 20px rgba(0,0,0,.38); }
+  /* 도우미 모드(root.pbp-helper-on)에서만: 상단 바 공간 + 말풍선 드래그 어포던스 */
+  body.print-picturebook .pbp-helper-on { padding-top: 62px; padding-bottom: 46px; }
+  body.print-picturebook .pbp-helper-on .pbp-stage2-bubble { cursor: grab; touch-action: none; }
+  body.print-picturebook .pbp-helper-on .pbp-stage2-bubble.pbp-dragging { cursor: grabbing; outline: 2px dashed rgba(74,144,217,.85); }
+
+  body.print-picturebook .pbp-helper-bar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 9px 14px; background: rgba(43,37,30,.96); color: #f3ecdc;
+    font-family: 'Jua', sans-serif; font-size: 14px; box-shadow: 0 2px 10px rgba(0,0,0,.4);
+  }
+  body.print-picturebook .pbp-helper-bar__txt b { color: #ffd98a; }
+  body.print-picturebook .pbp-helper-bar__btns { display: flex; gap: 8px; flex-shrink: 0; }
+  body.print-picturebook .pbp-helper-btn {
+    font-family: 'Jua', sans-serif; font-size: 14px; padding: 7px 14px; border-radius: 10px;
+    border: 1.5px solid #c66f4a; background: #c66f4a; color: #fff; cursor: pointer;
+  }
+  body.print-picturebook .pbp-helper-btn--ghost { background: transparent; color: #e8ddc6; border-color: #8a7c66; }
+
+  body.print-picturebook .pbp-helper-chip {
+    position: absolute; top: 6px; right: 6px; z-index: 6;
+    display: flex; align-items: center; gap: 4px;
+    background: rgba(255,253,246,.95); border: 1px solid #c9b98f; border-radius: 999px;
+    padding: 3px 7px; font-family: 'Jua', sans-serif; font-size: 12.5px; color: #5b4a2e;
+    box-shadow: 0 1px 5px rgba(0,0,0,.18);
+  }
+  body.print-picturebook .pbp-helper-chip button {
+    font-family: inherit; font-size: 13px; line-height: 1; padding: 4px 8px;
+    border: 1px solid #c9b98f; border-radius: 999px; background: #fff; color: #5b4a2e; cursor: pointer;
+  }
+  body.print-picturebook .pbp-helper-chip .pbp-helper-chip__val { min-width: 40px; text-align: center; }
+  body.print-picturebook .pbp-helper-badge {
+    position: absolute; top: 6px; left: 6px; z-index: 6;
+    background: rgba(192,57,43,.94); color: #fff; border-radius: 8px;
+    padding: 4px 9px; font-family: 'Jua', sans-serif; font-size: 12.5px;
+    box-shadow: 0 1px 5px rgba(0,0,0,.25);
+  }
+}
+@media print {
+  .pbp-helper-ui, .pbp-helper-chip, .pbp-helper-badge { display: none !important; }
 }

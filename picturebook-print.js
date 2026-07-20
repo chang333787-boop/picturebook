@@ -206,6 +206,24 @@
       } catch (e) { /* noop — 실패 시 인쇄 CSS 기본값 */ }
     };
 
+    /* ── PRINT-HELPER(2026-07-20): 인쇄 전용 조절값 — 장면키→{x(%),y(%),fontScale}.
+       작품 데이터(scenes) 무접촉: 인쇄 DOM에만 적용. 저장/로드는 호출부(viewer-ai)가
+       viewer-meta.printOverrides로 담당(getS2* 콜백과 동일하게 이 모듈은 DB를 모름).
+       opts.helper=true면 인쇄 대신 화면 미리보기+조절 UI(도우미)로 연다. */
+    const _helper = !!opts.helper;
+    const _overrides = {};
+    if (opts.printOverrides && typeof opts.printOverrides === 'object') {
+      Object.keys(opts.printOverrides).forEach((k) => {
+        const o = opts.printOverrides[k];
+        if (!o || typeof o !== 'object') return;
+        const out = {};
+        if (Number.isFinite(Number(o.x))) out.x = Math.max(0, Math.min(94, Number(o.x)));
+        if (Number.isFinite(Number(o.y))) out.y = Math.max(0, Math.min(94, Number(o.y)));
+        if (Number.isFinite(Number(o.fontScale))) out.fontScale = Math.max(0.5, Math.min(1.4, Number(o.fontScale)));
+        if (Object.keys(out).length) _overrides[String(k)] = out;
+      });
+    }
+
     const old = document.getElementById('pb-print-root');
     if (old) old.remove();
     const rootEl = _el('div', 'pb-print-root');
@@ -305,13 +323,22 @@
           const bb = layoutOf(s);
           const op = (typeof bb.backdropOpacity === 'number') ? bb.backdropOpacity : 0.85;
           const bub = _el('div', 'pbp-stage2-bubble');
+          /* PRINT-HELPER: 저장된 조절값(x/y)이 있으면 인쇄 좌표만 교체(원본 layout 불변).
+             원좌표는 dataset에 보존 — 도우미 ↺(되돌리기)의 복귀 기준. */
+          const ovr = _overrides[String(k)] || null;
+          const bx = (ovr && ovr.x != null) ? ovr.x : bb.x;
+          const by = (ovr && ovr.y != null) ? ovr.y : bb.y;
           /* PAPER-BUBBLE(2026-07-09): 흰색 인라인 대신 진하기만 변수로 넘기고 배경색은 인쇄 CSS(paper 베이지)가 적용.
              화면 paper-storybook 말풍선(v03-modes.css)과 톤 일치. */
-          bub.style.cssText = 'left:' + bb.x + '%;top:' + bb.y + '%;width:' + bb.width + '%;'
+          bub.style.cssText = 'left:' + bx + '%;top:' + by + '%;width:' + bb.width + '%;'
             + (typeof bb.height === 'number' ? 'min-height:' + bb.height + '%;' : '')
             + '--pb-box-opacity:' + op + ';'
             + 'box-shadow:0 2px 6px rgba(0,0,0,' + (0.08 * op).toFixed(3) + ');';
+          bub.dataset.pbpKey = String(k);
+          bub.dataset.pbpOrigX = String(bb.x);
+          bub.dataset.pbpOrigY = String(bb.y);
           const p = _el('p', 'pbp-stage2-bubble-p', body);
+          p.dataset.pbpFsKey = String(k);   /* 글자 크기 조절 대상(도우미/자동맞춤 공용) */
           bub.appendChild(p);
           st.appendChild(bub);
         }
@@ -319,7 +346,9 @@
         page.appendChild(wrap);
         if (body && !isImageCenter) {
           /* 분할형: 말풍선 좌표가 없으므로 본문을 무대 아래 인쇄용 박스로 */
-          page.appendChild(_el('div', 'pbp-scenepub-body', body));
+          const bodyEl = _el('div', 'pbp-scenepub-body', body);
+          bodyEl.dataset.pbpFsKey = String(k);   /* PRINT-HELPER: 글자 크기 조절 대상 */
+          page.appendChild(bodyEl);
         }
         page.appendChild(_choicesBoxOf(s, k));
         page.appendChild(_el('div', 'pbp-num-foot', numText));
@@ -330,7 +359,9 @@
         _applyPrintStyle(page, s);   /* PRINT-STYLE(#63): 글씨체+크기+굵기+색 */
         const card = _el('div', 'pbp-scene pbp-scene--full pbp-scene--noimg');
         if ((s.title || '').trim()) card.appendChild(_el('div', 'pbp-scene-caption', s.title.trim()));
-        card.appendChild(_el('div', 'pbp-scene-body' + (body ? '' : ' pbp-scene-body--empty'), body || '(글 없음)'));
+        const noimgBody = _el('div', 'pbp-scene-body' + (body ? '' : ' pbp-scene-body--empty'), body || '(글 없음)');
+        if (body) noimgBody.dataset.pbpFsKey = String(k);   /* PRINT-HELPER: 글자 크기 조절 대상 */
+        card.appendChild(noimgBody);
         card.appendChild(_choicesBoxOf(s, k));
         /* PB-NUM-FOOT(2026-07-09): 번호를 카드 상단 배지 대신 선택지 아래로 이동. */
         card.appendChild(_el('div', 'pbp-num-foot', numText));
@@ -342,14 +373,22 @@
 
     /* DESIGN-3: 인쇄 전 그림 로드 대기(원격 Storage 그림 누락 방지·최대 4초) */
     try { await _waitForImages(rootEl); } catch (e) { /* 대기 실패해도 인쇄는 진행 */ }
+    /* PRINT-NOCLIP: 본문 웹폰트(Gowun Batang 등) 로드까지 대기 — 줄바꿈 확정 후 실측(PB-FIT 선례) */
+    try { if (document.fonts && document.fonts.ready) await document.fonts.ready; } catch (e) { /* noop */ }
 
     /* gate — 버튼 경유 인쇄 동안만(취소 포함 afterprint+2s 정리).
        FIELD-REGRESSION-FIX-2: <html>에도 print-doc-unclip 부여 — viewer.css의 화면용
        html,body{height:100%;overflow:hidden}이 인쇄 fragmentation을 1페이지로 잘라
-       표지/지도/장면이 한 장에 뭉치던(1/1) 실환경 문제 해제. CSS는 pb-ai.css @media print. */
+       표지/지도/장면이 한 장에 뭉치던(1/1) 실환경 문제 해제. CSS는 pb-ai.css @media print.
+       PRINT-HELPER: pb-ai.css가 print,screen이 되어 클래스만으로 인쇄 레이아웃이 화면에도
+       계산됨 → 클래스 부여 직후 동기 실측(자동 맞춤)이 가능. 일반 인쇄는 실측 직후 바로
+       print()를 부르므로 사용자에게 보이는 변화 없음. */
     try {
       document.body.classList.add('print-picturebook');
       document.documentElement.classList.add('print-doc-unclip');
+      /* PRINT-NOCLIP: 저장된 글자 조절 적용(계산 폰트 기준) → 말풍선 자동 맞춤 */
+      _applyFontOverrides(rootEl, _overrides);
+      _autoFitBubbles(rootEl, _overrides);
       const cleanup = function () {
         document.body.classList.remove('print-picturebook');
         document.documentElement.classList.remove('print-doc-unclip');
@@ -357,6 +396,11 @@
         if (r) r.remove();
         window.removeEventListener('afterprint', cleanup);
       };
+      if (_helper) {
+        /* 도우미: 인쇄 대신 화면 미리보기+조절 UI — 정리는 [닫기]가 담당(인쇄 후에도 유지). */
+        _buildHelperUi(rootEl, _overrides, opts, cleanup);
+        return true;
+      }
       window.addEventListener('afterprint', cleanup);
       window.print();
       setTimeout(cleanup, 2000);
@@ -369,5 +413,187 @@
     return true;
   }
 
-  return { buildPrintOrder, resolveStartKey, describeChoice, open };
+  /* ══════════════ PRINT-NOCLIP + PRINT-HELPER (2026-07-20) ══════════════ */
+
+  /* 글자 크기 조절 공통 — 요소의 '계산 폰트'를 기준(px)으로 곱해 인라인 지정.
+     CSS 출처(var/고정 pt) 무관하게 동작. 기준값은 dataset에 1회 보존(재적용 안정).
+     print,screen 레이아웃 활성(body.print-picturebook) 후에만 호출해야 기준이 정확. */
+  function _fsBaseOf(el) {
+    if (!el.dataset.pbpFsBase) {
+      const prev = el.style.fontSize;
+      el.style.fontSize = '';
+      const base = parseFloat(getComputedStyle(el).fontSize) || 19;
+      el.dataset.pbpFsBase = String(base);
+      el.style.fontSize = prev;
+    }
+    return parseFloat(el.dataset.pbpFsBase);
+  }
+  function _applyFsScale(el, scale) {
+    const base = _fsBaseOf(el);
+    if (!Number.isFinite(scale) || Math.abs(scale - 1) < 0.001) el.style.fontSize = '';
+    else el.style.fontSize = (Math.round(base * scale * 10) / 10) + 'px';
+  }
+  function _applyFontOverrides(rootEl, overrides) {
+    rootEl.querySelectorAll('[data-pbp-fs-key]').forEach((el) => {
+      const o = overrides[el.dataset.pbpFsKey];
+      if (o && Number.isFinite(o.fontScale)) _applyFsScale(el, o.fontScale);
+    });
+  }
+
+  /* 말풍선 자동 맞춤(PRINT-NOCLIP): 무대(3:2·overflow hidden) 아래로 넘친 말풍선만
+     글자 단계 축소(-5%p씩·하한 60%) → 그래도 넘치면 위로 끌어올림(y≥2%) = 잘림 0.
+     교사가 도우미에서 손댄 장면(override 존재)은 자동 개입 없이 존중.
+     인쇄 DOM에만 적용·저장 0. 말풍선은 무대 폭 기준이라 화면 실측=인쇄와 일치
+     (미리보기 root 폭 198mm 고정). 분할형/글만 페이지는 96vh(매체별 상이) 게이트라
+     자동 제외 — 도우미 수동 조절+뱃지로 커버. */
+  function _autoFitBubbles(rootEl, overrides) {
+    rootEl.querySelectorAll('.pbp-stage2-bubble').forEach((bub) => {
+      const key = bub.dataset.pbpKey || '';
+      if (overrides && overrides[key]) return;
+      const st = bub.closest('.pbp-stage2');
+      const p = bub.querySelector('.pbp-stage2-bubble-p');
+      if (!st || !p) return;
+      const fits = () => bub.getBoundingClientRect().bottom <= st.getBoundingClientRect().bottom - 2;
+      if (fits()) return;
+      let scale = 1;
+      while (!fits() && scale > 0.6) {
+        scale = Math.round((scale - 0.05) * 100) / 100;
+        _applyFsScale(p, scale);
+        void bub.offsetHeight;
+      }
+      if (!fits()) {
+        const sr = st.getBoundingClientRect();
+        const overPx = bub.getBoundingClientRect().bottom - (sr.bottom - 2);
+        const curTop = parseFloat(bub.style.top) || 0;
+        bub.style.top = Math.max(2, curTop - (overPx / sr.height) * 100).toFixed(1) + '%';
+      }
+      if (scale < 1) bub.dataset.pbpAutoScale = String(scale);
+    });
+  }
+
+  /* 인쇄 도우미 본체 — 미리보기 위 조절 UI. 조절 결과는 overrides(참조 공유)에 기록,
+     [인쇄]/[닫기] 시 opts.onSaveOverrides(overrides)로 호출부에 전달(viewer-meta 저장).
+     작품 데이터 무접촉 — 좌표/글자 조절은 인쇄 DOM + printOverrides에만 존재. */
+  function _buildHelperUi(rootEl, overrides, opts, cleanup) {
+    rootEl.classList.add('pbp-helper-on');
+    const save = function () {
+      try { if (typeof opts.onSaveOverrides === 'function') opts.onSaveOverrides(overrides); } catch (e) { /* noop */ }
+    };
+
+    const bar = _el('div', 'pbp-helper-ui pbp-helper-bar');
+    const txt = _el('div', 'pbp-helper-bar__txt');
+    txt.innerHTML = '<b>🖨 인쇄 도우미</b> — 말풍선을 끌어 옮기고 A−/A+로 글자 크기를 바꿔 보세요. <b>인쇄에만</b> 반영되고 작품은 그대로예요.';
+    const btns = _el('div', 'pbp-helper-bar__btns');
+    const printBtn = _el('button', 'pbp-helper-btn', '🖨 인쇄하기'); printBtn.type = 'button';
+    const closeBtn = _el('button', 'pbp-helper-btn pbp-helper-btn--ghost', '✕ 닫기'); closeBtn.type = 'button';
+    btns.appendChild(printBtn); btns.appendChild(closeBtn);
+    bar.appendChild(txt); bar.appendChild(btns);
+    rootEl.appendChild(bar);
+    printBtn.addEventListener('click', function () { save(); try { window.print(); } catch (e) { /* noop */ } });
+    closeBtn.addEventListener('click', function () { save(); cleanup(); });
+
+    const ent = function (key) { return overrides[key] || (overrides[key] = {}); };
+
+    rootEl.querySelectorAll('.pbp-page').forEach((page) => {
+      const bub = page.querySelector('.pbp-stage2-bubble');
+      const fsEl = page.querySelector('[data-pbp-fs-key]');
+      if (!bub && !fsEl) return;   /* 표지 등 조절 대상 없음 */
+      const key = (bub && bub.dataset.pbpKey) || (fsEl && fsEl.dataset.pbpFsKey);
+      const st = bub ? bub.closest('.pbp-stage2') : null;
+
+      /* ⚠️ 잘림 뱃지 — 말풍선: 무대 실측(정확) / 본문: 페이지 96vh 근사 안내 */
+      const badge = _el('div', 'pbp-helper-ui pbp-helper-badge', '');
+      badge.style.display = 'none';
+      (st || page).appendChild(badge);
+      const refreshBadge = function () {
+        let clipped = false;
+        if (bub && st) {
+          clipped = bub.getBoundingClientRect().bottom > st.getBoundingClientRect().bottom - 1;
+          badge.textContent = '⚠️ 말풍선 글이 그림 밖으로 잘려요';
+        } else if (fsEl) {
+          clipped = page.scrollHeight > page.clientHeight + 2;
+          badge.textContent = '⚠️ 글이 페이지를 넘칠 수 있어요';
+        }
+        badge.style.display = clipped ? '' : 'none';
+      };
+
+      /* 글자 크기 칩 (A− ·%· A+ · ↺) */
+      const target = bub ? bub.querySelector('.pbp-stage2-bubble-p') : fsEl;
+      if (target) {
+        const chip = _el('div', 'pbp-helper-ui pbp-helper-chip');
+        const minus = _el('button', '', 'A−'); minus.type = 'button';
+        const val = _el('span', 'pbp-helper-chip__val', '');
+        const plus = _el('button', '', 'A+'); plus.type = 'button';
+        const reset = _el('button', '', '↺'); reset.type = 'button';
+        chip.appendChild(minus); chip.appendChild(val); chip.appendChild(plus); chip.appendChild(reset);
+        (st || page).appendChild(chip);
+        const curScale = function () {
+          const o = overrides[key];
+          if (o && Number.isFinite(o.fontScale)) return o.fontScale;
+          if (bub && bub.dataset.pbpAutoScale) return parseFloat(bub.dataset.pbpAutoScale);
+          return 1;
+        };
+        const show = function () { val.textContent = Math.round(curScale() * 100) + '%'; };
+        const stepTo = function (s) {
+          s = Math.round(Math.max(0.6, Math.min(1.2, s)) * 100) / 100;
+          ent(key).fontScale = s;
+          _applyFsScale(target, s);
+          show(); refreshBadge();
+        };
+        minus.addEventListener('click', function () { stepTo(curScale() - 0.05); });
+        plus.addEventListener('click', function () { stepTo(curScale() + 0.05); });
+        reset.addEventListener('click', function () {
+          delete overrides[key];
+          _applyFsScale(target, 1);
+          if (bub) {
+            delete bub.dataset.pbpAutoScale;
+            bub.style.left = bub.dataset.pbpOrigX + '%';
+            bub.style.top = bub.dataset.pbpOrigY + '%';
+            _autoFitBubbles(rootEl, overrides);   /* override 삭제됐으니 이 장면만 다시 자동 맞춤 */
+          }
+          show(); refreshBadge();
+        });
+        show();
+      }
+
+      /* 말풍선 드래그 → 인쇄 좌표만 이동(원본 layout 무접촉) */
+      if (bub && st) {
+        let dragging = false, sx = 0, sy = 0, ox = 0, oy = 0;
+        bub.addEventListener('pointerdown', function (e) {
+          dragging = true; sx = e.clientX; sy = e.clientY;
+          ox = parseFloat(bub.style.left) || 0; oy = parseFloat(bub.style.top) || 0;
+          bub.classList.add('pbp-dragging');
+          try { bub.setPointerCapture(e.pointerId); } catch (er) { /* noop */ }
+          e.preventDefault();
+        });
+        bub.addEventListener('pointermove', function (e) {
+          if (!dragging) return;
+          const sr = st.getBoundingClientRect();
+          if (!sr.width || !sr.height) return;
+          const w = parseFloat(bub.style.width) || 55;
+          const nx = Math.max(0, Math.min(100 - w, ox + ((e.clientX - sx) / sr.width) * 100));
+          const ny = Math.max(0, Math.min(94, oy + ((e.clientY - sy) / sr.height) * 100));
+          bub.style.left = nx.toFixed(1) + '%';
+          bub.style.top = ny.toFixed(1) + '%';
+        });
+        const endDrag = function () {
+          if (!dragging) return;
+          dragging = false;
+          bub.classList.remove('pbp-dragging');
+          const o = ent(key);
+          o.x = Math.round((parseFloat(bub.style.left) || 0) * 10) / 10;
+          o.y = Math.round((parseFloat(bub.style.top) || 0) * 10) / 10;
+          refreshBadge();
+        };
+        bub.addEventListener('pointerup', endDrag);
+        bub.addEventListener('pointercancel', endDrag);
+      }
+
+      refreshBadge();
+    });
+
+    try { window.scrollTo(0, 0); } catch (e) { /* noop */ }
+  }
+
+  return { buildPrintOrder, resolveStartKey, describeChoice, open, _autoFitBubbles };
 });

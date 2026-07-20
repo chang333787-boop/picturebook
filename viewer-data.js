@@ -293,6 +293,8 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
   ViewerState.project.picturebookLevel = null;
   /* AUTHOR-PRINT: 인쇄 표지 지은이(저장값) — 책 전환 상속 차단(SHELF-META-RESET 원칙) */
   ViewerState.project.authorName = null;
+  /* PRINT-HELPER: 인쇄 도우미 조절값(viewer-meta.printOverrides) — 책 전환 상속 차단 */
+  ViewerState.project.printOverrides = null;
 
   if (meta) {
     if (meta.mode)     ViewerState.project.mode     = meta.mode;
@@ -338,6 +340,12 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
        소비자: picturebook-print(표지 '지은이:')·인쇄 옵션 모달(입력 초기값). 렌더/책장은 안 읽음. */
     if (typeof meta.authorName === 'string' && meta.authorName.trim()) {
       ViewerState.project.authorName = meta.authorName.trim().slice(0, 40);
+    }
+    /* PRINT-HELPER(2026-07-20): 인쇄 도우미 조절값 — 장면키→{x,y,fontScale}. 소비자는
+       인쇄(picturebook-print)뿐 — 렌더/감상/다듬기는 안 읽음(작품 원본 무접촉 원칙).
+       정밀 sanitize는 인쇄/저장 쪽(print.js·viewer-ai)이 담당, 여기선 형태만 확인. */
+    if (meta.printOverrides && typeof meta.printOverrides === 'object') {
+      ViewerState.project.printOverrides = meta.printOverrides;
     }
     /* LEVELS-CONT: viewer에는 maker(ui.js)의 getPicturebookLevel이 없어 튜토리얼 pbLevels
        필터가 항상 3단계 취급되던 것 보정 — ViewerState 기반 shim(다듬기 환영/코치에서 사용).

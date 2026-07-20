@@ -3401,6 +3401,38 @@
     } catch (e) { /* 저장 실패 무해 — 이번 인쇄에는 반영됨 */ }
   }
 
+  /* PRINT-HELPER(2026-07-20): 인쇄 도우미 조절값 저장 — viewer-meta.printOverrides 통째 교체
+     (↺ 초기화·삭제 반영 위해 merge 아닌 교체). 원본 scenes 무접촉. 경로/원칙은
+     _savePrintAuthorName과 동일(best-effort — 저장 실패해도 이번 인쇄에는 반영됨). */
+  function _savePrintOverrides(obj) {
+    let clean = null;
+    try {
+      if (obj && typeof obj === 'object') {
+        clean = {};
+        Object.keys(obj).slice(0, 120).forEach(function (k) {
+          const o = obj[k];
+          if (!o || typeof o !== 'object') return;
+          const out = {};
+          if (Number.isFinite(Number(o.x))) out.x = Math.round(Math.max(0, Math.min(94, Number(o.x))) * 10) / 10;
+          if (Number.isFinite(Number(o.y))) out.y = Math.round(Math.max(0, Math.min(94, Number(o.y))) * 10) / 10;
+          if (Number.isFinite(Number(o.fontScale)) && Math.abs(Number(o.fontScale) - 1) > 0.001) {
+            out.fontScale = Math.round(Math.max(0.5, Math.min(1.4, Number(o.fontScale))) * 100) / 100;
+          }
+          if (Object.keys(out).length) clean[String(k)] = out;
+        });
+        if (!Object.keys(clean).length) clean = null;
+      }
+    } catch (e) { clean = null; }
+    try { if (typeof ViewerState !== 'undefined' && ViewerState.project) ViewerState.project.printOverrides = clean; } catch (e) { /* noop */ }
+    try {
+      const { classId, teamName } = _getCurrentClassIdTeamName();
+      const app = _getViewerFirebaseApp();
+      if (!classId || !teamName || !app || !app.database) return;
+      app.database().ref('classes/' + classId + '/teams/' + encodeURIComponent(teamName) + '/viewer-meta')
+        .update({ printOverrides: clean });
+    } catch (e) { /* 저장 실패 무해 — 이번 인쇄에는 반영됨 */ }
+  }
+
   async function _showPbPrintOptionsModal() {
     /* FOLLOWUP-1: AI 후보 존재 판정은 FB 캐시 기반(_isS2Finalized/_hasImageVariantS2)인데,
        모달이 비동기 캐시 로드보다 먼저 열리면 실제 결과가 있어도 '아직 없음'으로 비활성되던
@@ -3442,12 +3474,16 @@
       +   '<div style="padding:8px 11px;background:#fff7e8;border:1px solid #e8d3a0;border-radius:8px;font-size:12px;color:#6b5a3a;">'
       +     '⚠️ <b>중요:</b> 인쇄 창에서 <b>설정 더보기 → 머리글과 바닥글</b>을 꼭 꺼 주세요. 켜져 있으면 날짜와 주소가 그림책에 함께 찍혀요.'
       +   '</div>'
+      /* PRINT-HELPER(2026-07-20): '다듬기로 돌아가 고치라'는 안내 → 도우미 안내로 교체.
+         넘친 글은 인쇄가 자동으로 살짝 줄여 담고, 위치/크기를 더 만지고 싶으면 도우미에서
+         인쇄에만 반영되게 조절(작품 원본 무접촉) — 다듬기 회귀 루프 제거. */
       +   '<div style="margin-top:8px;padding:8px 11px;background:#f4f6f2;border:1px solid #dfe6d8;border-radius:8px;font-size:12px;color:#5f6b57;">'
-      +     '💬 말풍선은 <b>기기 해상도에 따라 위치·크기가 조금 달라 보일 수 있어요.</b> 인쇄 미리보기에서 말풍선이 작거나 그림에 가려 잘 안 보이면, 다듬기에서 <b>말풍선을 옮기거나 키운 뒤</b> 다시 인쇄해 주세요.'
+      +     '💬 글이 말풍선에 넘치면 <b>인쇄가 자동으로 글자를 살짝 줄여</b> 잘리지 않게 담아요. 말풍선 위치나 글자 크기를 직접 다듬고 싶으면 <b>[🛠 인쇄 도우미]</b>를 눌러 보세요 — <b>인쇄에만 반영</b>되고 작품은 그대로예요.'
       +   '</div>'
       + '</div>'
       + '<div class="ai-modal__footer">'
       +   '<button type="button" class="ai-btn ai-btn--ghost js-pbprint-cancel">취소</button>'
+      +   '<button type="button" class="ai-btn ai-btn--ghost js-pbprint-helper">🛠 인쇄 도우미</button>'
       +   '<button type="button" class="ai-btn ai-btn--primary js-pbprint-go">🖨 그림책 인쇄하기</button>'
       + '</div>';
     const root = _createModalRoot('ai-pbprint-modal', html);
@@ -3456,20 +3492,20 @@
     if (closeBtn) closeBtn.addEventListener('click', closeAll);
     const cancelBtn = root.querySelector('.js-pbprint-cancel');
     if (cancelBtn) cancelBtn.addEventListener('click', closeAll);
-    const goBtn = root.querySelector('.js-pbprint-go');
-    if (goBtn) goBtn.addEventListener('click', function () {
+    /* PRINT-HELPER: 인쇄/도우미 공용 opts — 옵션 수집·지은이 저장까지 동일, helper 플래그만 분기. */
+    const _buildPrintOpts = function () {
       const pick = (name) => { const el = root.querySelector('input[name="' + name + '"]:checked'); return el ? el.value : 'original'; };
-      const textMode = pick('pbprint-text');
-      const imageMode = pick('pbprint-image');
       /* AUTHOR-PRINT: 입력값(≤40자) — 이번 인쇄에 반영 + 저장(다음 인쇄 재사용). 비우면 팀명 폴백. */
       const authorEl = root.querySelector('.js-pbprint-author');
       const authorName = authorEl ? String(authorEl.value || '').trim().slice(0, 40) : '';
       _savePrintAuthorName(authorName);
-      closeAll();
-      window.PicturebookPrint.open({
-        textMode: textMode,
-        imageMode: imageMode,
+      return {
+        textMode: pick('pbprint-text'),
+        imageMode: pick('pbprint-image'),
         authorName: authorName || null,
+        /* PRINT-HELPER: 저장된 조절값 주입 + 도우미 저장 콜백(모듈은 DB 모름 원칙 유지) */
+        printOverrides: (typeof ViewerState !== 'undefined' && ViewerState.project && ViewerState.project.printOverrides) || null,
+        onSaveOverrides: _savePrintOverrides,
         /* 감상 토글과 동일한 s2 소스 — 후보 없으면 null 반환 → print가 장면 단위 원본 fallback */
         getS2Body: function (sid) {
           /* _getDisplayBody와 동일 순서: FB 캐시 → localStorage finalized fallback */
@@ -3487,7 +3523,20 @@
         getS2Layout: function (sid) {
           return _getFbVariantLayout('s2', String(sid)) || _getLocalVariantLayout('s2', String(sid)) || null;
         },
-      });
+      };
+    };
+    const goBtn = root.querySelector('.js-pbprint-go');
+    if (goBtn) goBtn.addEventListener('click', function () {
+      const o = _buildPrintOpts();
+      closeAll();
+      window.PicturebookPrint.open(o);
+    });
+    const helperBtn = root.querySelector('.js-pbprint-helper');
+    if (helperBtn) helperBtn.addEventListener('click', function () {
+      const o = _buildPrintOpts();
+      o.helper = true;
+      closeAll();
+      window.PicturebookPrint.open(o);
     });
   }
 

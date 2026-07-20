@@ -3375,6 +3375,32 @@
     } catch (e) { return false; }
   }
 
+  /* ════ AUTHOR-PRINT(2026-07-18): 인쇄 표지 '지은이' — 팀 아이디 대신 실제 이름 ════
+     입력 초기값 = 저장값(viewer-meta.authorName) → 팀명. 저장은 best-effort(실패해도
+     이번 인쇄에는 opts.authorName으로 반영). viewer-meta write 규칙(auth) 안에서 merge update. */
+  function _printAuthorInitial() {
+    try {
+      if (typeof ViewerState !== 'undefined' && ViewerState.project && ViewerState.project.authorName) {
+        return String(ViewerState.project.authorName);
+      }
+    } catch (e) { /* noop */ }
+    const { teamName } = _getCurrentClassIdTeamName();
+    return teamName || '';
+  }
+  function _savePrintAuthorName(v) {
+    const val = (v && String(v).trim().slice(0, 40)) || null;
+    try {
+      if (typeof ViewerState !== 'undefined' && ViewerState.project) ViewerState.project.authorName = val;
+    } catch (e) { /* noop */ }
+    try {
+      const { classId, teamName } = _getCurrentClassIdTeamName();
+      const app = _getViewerFirebaseApp();
+      if (!classId || !teamName || !app || !app.database) return;
+      app.database().ref('classes/' + classId + '/teams/' + encodeURIComponent(teamName) + '/viewer-meta')
+        .update({ authorName: val });
+    } catch (e) { /* 저장 실패 무해 — 이번 인쇄에는 반영됨 */ }
+  }
+
   async function _showPbPrintOptionsModal() {
     /* FOLLOWUP-1: AI 후보 존재 판정은 FB 캐시 기반(_isS2Finalized/_hasImageVariantS2)인데,
        모달이 비동기 캐시 로드보다 먼저 열리면 실제 결과가 있어도 '아직 없음'으로 비활성되던
@@ -3406,6 +3432,13 @@
       +     row('pbprint-image', 'original', '원본 그림', true, false, '')
       +     row('pbprint-image', 's2', 'AI 그림책 마감 그림', false, !hasImageS2, hasImageS2 ? '' : '(아직 만든 결과가 없어요)')
       +   '</div>'
+      +   '<div style="' + T + '">✍️ 지은이</div>'
+      /* AUTHOR-PRINT(2026-07-18): 표지에 찍히는 이름 — 팀 아이디(0000·1번 등) 대신 실제 이름을
+         적을 수 있게. 저장(viewer-meta.authorName)돼 다음 인쇄에도 재사용. 비우면 팀명으로 인쇄. */
+      +   '<input type="text" class="js-pbprint-author" maxlength="40" value="' + _escapeHtmlText(_printAuthorInitial()) + '"'
+      +     ' placeholder="표지에 찍힐 이름 (예: 김하늘, 박서준)"'
+      +     ' style="width:100%;box-sizing:border-box;margin-bottom:4px;padding:9px 12px;border:1.5px solid #d8c7a6;border-radius:10px;font-size:13.5px;background:#fff;color:#3a2c14;">'
+      +   '<div style="font-size:11.5px;color:#a4977c;margin-bottom:14px;">표지에 “지은이: …”로 인쇄돼요. 바꾸면 저장돼서 다음 인쇄에도 그대로 쓰여요. (비우면 모둠 이름)</div>'
       +   '<div style="padding:8px 11px;background:#fff7e8;border:1px solid #e8d3a0;border-radius:8px;font-size:12px;color:#6b5a3a;">'
       +     '⚠️ <b>중요:</b> 인쇄 창에서 <b>설정 더보기 → 머리글과 바닥글</b>을 꼭 꺼 주세요. 켜져 있으면 날짜와 주소가 그림책에 함께 찍혀요.'
       +   '</div>'
@@ -3428,10 +3461,15 @@
       const pick = (name) => { const el = root.querySelector('input[name="' + name + '"]:checked'); return el ? el.value : 'original'; };
       const textMode = pick('pbprint-text');
       const imageMode = pick('pbprint-image');
+      /* AUTHOR-PRINT: 입력값(≤40자) — 이번 인쇄에 반영 + 저장(다음 인쇄 재사용). 비우면 팀명 폴백. */
+      const authorEl = root.querySelector('.js-pbprint-author');
+      const authorName = authorEl ? String(authorEl.value || '').trim().slice(0, 40) : '';
+      _savePrintAuthorName(authorName);
       closeAll();
       window.PicturebookPrint.open({
         textMode: textMode,
         imageMode: imageMode,
+        authorName: authorName || null,
         /* 감상 토글과 동일한 s2 소스 — 후보 없으면 null 반환 → print가 장면 단위 원본 fallback */
         getS2Body: function (sid) {
           /* _getDisplayBody와 동일 순서: FB 캐시 → localStorage finalized fallback */
@@ -5152,6 +5190,8 @@
       openModal:  openModal,
       /* LEVELS-CONT(2단계 이어쓰기): [✅ 내 글 점검받기] = 작품 검사 단독 라이트(viewer-edit HUD 바인딩) */
       startCheckLite: startCheckLite,
+      /* AUTHOR-PRINT: 인쇄 옵션 모달 — 하니스/외부 진입용 노출 */
+      _showPbPrintOptionsModal: _showPbPrintOptionsModal,
       /* IMAGE-S2-10 — 교사 UI 모듈(viewer-image-batch-ui.js)이 콜러블/앱에 접근하도록 노출(내부 함수 그대로). */
       _callPhaseAFunction: _callPhaseAFunction,
       _getViewerFirebaseApp: _getViewerFirebaseApp,

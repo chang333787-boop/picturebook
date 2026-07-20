@@ -291,6 +291,8 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
   ViewerState.project.textTheme = null;
   /* PICTUREBOOK-LEVELS ④: 단계(1|2|3·없으면 null=3단계 취급) — 책 전환 시 이전 책 값 상속 차단 */
   ViewerState.project.picturebookLevel = null;
+  /* AUTHOR-PRINT: 인쇄 표지 지은이(저장값) — 책 전환 상속 차단(SHELF-META-RESET 원칙) */
+  ViewerState.project.authorName = null;
 
   if (meta) {
     if (meta.mode)     ViewerState.project.mode     = meta.mode;
@@ -331,6 +333,11 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
     {
       const _pbl = Number(meta.picturebookLevel);
       if (_pbl === 1 || _pbl === 2 || _pbl === 3) ViewerState.project.picturebookLevel = _pbl;
+    }
+    /* AUTHOR-PRINT: 인쇄 표지 지은이 저장값(viewer-meta.authorName) — 40자 상한·공백만이면 무시.
+       소비자: picturebook-print(표지 '지은이:')·인쇄 옵션 모달(입력 초기값). 렌더/책장은 안 읽음. */
+    if (typeof meta.authorName === 'string' && meta.authorName.trim()) {
+      ViewerState.project.authorName = meta.authorName.trim().slice(0, 40);
     }
     /* LEVELS-CONT: viewer에는 maker(ui.js)의 getPicturebookLevel이 없어 튜토리얼 pbLevels
        필터가 항상 3단계 취급되던 것 보정 — ViewerState 기반 shim(다듬기 환영/코치에서 사용).

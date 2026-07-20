@@ -226,7 +226,13 @@
     if (coverImg) { const im = document.createElement('img'); im.className = 'pbp-cover-img'; im.src = coverImg; coverInner.appendChild(im); }
     /* FOLLOWUP-3: 그림 없는 표지 장식 글리프(⸙) 제거 — 일부 폰트에서 투피(☒)로 찍혀 깨진 이미지처럼 보임. 여백이 자연스러움. */
     const coverFoot = _el('div', 'pbp-cover-foot');
-    coverFoot.appendChild(_el('div', 'pbp-cover-team', '만든 모둠: ' + title));
+    /* AUTHOR-PRINT(2026-07-18 사용자 결정): '만든 모둠' → '지은이' — 작품이 모둠 단위가 아닐 수
+       있음. 이름 우선순위: 인쇄 모달 입력(opts.authorName) → 저장값(viewer-meta.authorName —
+       ViewerState 인제스트) → 팀명(기존 표기). */
+    const _authorName = (opts.authorName && String(opts.authorName).trim())
+      || (typeof window !== 'undefined' && window.ViewerState && window.ViewerState.project
+          && window.ViewerState.project.authorName) || title;
+    coverFoot.appendChild(_el('div', 'pbp-cover-team', '지은이: ' + _authorName));
     const _d = new Date();
     coverFoot.appendChild(_el('div', 'pbp-cover-date', _d.getFullYear() + '년 ' + (_d.getMonth() + 1) + '월 ' + _d.getDate() + '일'));
     coverInner.appendChild(coverFoot);

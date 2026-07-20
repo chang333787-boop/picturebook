@@ -190,3 +190,15 @@ test('EASY2 스탬프: planMarkStarted(qVersion 5)=신규 5·재개 재스탬프
   const save = TC.planSaveProgress(ctx, { version: 5, status: 'inProgress' }, { currentQuestionIndex: 3 });
   assert.strictEqual(save.update.version, 5);
 });
+
+test('EASY2 openForEdit 파생: mustInclude 세트=5 (heroWho보다 먼저·감사 발견 회귀 방지)', () => {
+  /* thought-compass-ui.js openForEdit와 review.js _complete가 쓰는 파생 순서 계약을 세트 차원에서 고정:
+     easy2 세트에는 heroWho와 mustInclude가 공존 — 파생은 반드시 mustInclude 우선. */
+  const ids5 = Q.getCoreQuestions(5).map(q => q.id);
+  assert.ok(ids5.includes('heroWho') && ids5.includes('mustInclude'), 'easy2=easy 포함 + mustInclude');
+  const derive = (ids) => ids.includes('mustInclude') ? 5 : (ids.includes('heroWho') ? 3 : (ids.includes('protagonistName') ? 4 : (ids.includes('targetLength') ? 2 : 1)));
+  assert.strictEqual(derive(Q.getCoreQuestions(5).map(q => q.id)), 5);
+  assert.strictEqual(derive(Q.getCoreQuestions(3).map(q => q.id)), 3);
+  assert.strictEqual(derive(Q.getCoreQuestions(4).map(q => q.id)), 4);
+  assert.strictEqual(derive(Q.getCoreQuestions(2).map(q => q.id)), 2);
+});

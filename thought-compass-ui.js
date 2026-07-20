@@ -92,7 +92,10 @@
     /* V2: vm 질문 세트로 버전 파생(검토 화면 '고치기' 경유 — 저장 재스탬프용).
        LEVELS: heroWho=easy(3)·protagonistName=linear(4)·targetLength=2·그 외 1. */
     const _hasQ = function (id) { return !!(vm && Array.isArray(vm.questions) && vm.questions.some(function (q) { return q && q.id === id; })); };
-    const qVersion = _hasQ('heroWho') ? 3 : (_hasQ('protagonistName') ? 4 : (_hasQ('targetLength') ? 2 : 1));
+    /* EASY-MUSTINC 배선 보강(2026-07-20 감사 발견): easy2(mustInclude)=5를 heroWho(easy)보다
+       먼저 — easy2 세트엔 heroWho도 있어 순서가 바뀌면 3으로 오파생 → 고치기 저장 시 DB version
+       5→3 강등, 이탈 후 재개가 8문항 easy로 열려 9번 질문·답이 사라짐. review.js _complete와 동일 순서. */
+    const qVersion = _hasQ('mustInclude') ? 5 : (_hasQ('heroWho') ? 3 : (_hasQ('protagonistName') ? 4 : (_hasQ('targetLength') ? 2 : 1)));
     S = { ctx: ctx, vm: Flow.goToIndex(vm, index), busy: false, draftTimer: null, error: null, version: qVersion,
           followUps: [], followUpsUsed: 0, followUp: null, aiBusy: false,
           editMode: true, onEditComplete: (typeof onComplete === 'function') ? onComplete : null, customMode: null };

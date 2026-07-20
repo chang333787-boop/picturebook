@@ -2636,9 +2636,48 @@ async function _applyStoryDraftStarter(draft, opts) {
   return !!res.ok;
 }
 
+/* ════ DRAFT-UX(2026-07-20 사용자 피드백): 초안 생성 진행 표시 + 실패 사유 안내 ════
+   1·2단계는 경험 전체가 초안에 달려 있는데, 종전엔 ①생성 중(15~30초) 아무 표시가 없고
+   ②실패 시 사유 없이 조용히 기본 틀 폴백이라 "고장난 것 같다"로 보였음(교사 실보고 —
+   실제 원인은 학급 'AI 이야기 초안' 토글 OFF). 폴백 자체는 유지(수업 계속). */
+function _showStoryDraftOverlay(level) {
+  _hideStoryDraftOverlay();
+  const ov = document.createElement('div');
+  ov.id = 'story-draft-progress-overlay';
+  ov.setAttribute('role', 'status');
+  ov.style.cssText = 'position:fixed;inset:0;z-index:100002;display:flex;align-items:center;justify-content:center;background:rgba(40,32,20,.55);';
+  ov.innerHTML = '<div style="max-width:420px;width:calc(100% - 48px);background:#fffdf8;border-radius:16px;padding:30px 24px;text-align:center;box-shadow:0 12px 40px rgba(60,40,10,.25);font-family:inherit;">'
+    + '<div style="font-size:34px;margin-bottom:10px;" aria-hidden="true">🌱</div>'
+    + '<div style="font-size:19px;font-weight:800;color:#3a2c14;margin-bottom:8px;">AI가 이야기를 만들고 있어요…</div>'
+    + '<div style="font-size:14px;color:#6b5638;line-height:1.6;">' + (level === 1
+      ? '나침반에 답한 내용으로 동화책 글을 쓰고 있어요.<br/>글이 먼저 오고, 그림은 뒤이어 만들어져요. (30초 정도)'
+      : '나침반에 답한 내용으로 이야기의 시작을 쓰고 있어요.<br/>조금만 기다려 주세요. (30초 정도)')
+    + '</div></div>';
+  document.body.appendChild(ov);
+}
+function _hideStoryDraftOverlay() {
+  const ov = document.getElementById('story-draft-progress-overlay');
+  if (ov && ov.parentNode) ov.parentNode.removeChild(ov);
+}
+/* 실패 사유 → 아이/교사가 알아들을 안내(alert 1회). 폴백(기본 틀)은 호출자가 계속 진행. */
+function _notifyStoryDraftFail(kind, detail) {
+  let msg;
+  if (kind === 'mode-off') {
+    msg = 'AI 이야기 만들기가 아직 열려 있지 않아요.\n선생님께 "AI 이야기 초안 켜 주세요"라고 말씀드려 주세요.\n\n(선생님: 관리 화면 → 학급 AI 설정 → [AI 이야기 초안] 켜기.\n켠 뒤에는 모둠 카드의 [🔄 처음부터 다시]로 다시 시작할 수 있어요.)';
+  } else if (kind === 'quota') {
+    msg = (detail || '이 모둠의 이야기 만들기 횟수를 다 썼어요.') + '\n\n(선생님: 모둠 카드의 [🔄 처음부터 다시]로 초기화할 수 있어요.)';
+  } else if (kind === 'refused') {
+    msg = 'AI가 이 이야기 소재로는 동화책을 만들기 어렵다고 해요.\n' + (detail ? '이유: ' + detail + '\n' : '') + '\n선생님과 함께 나침반 내용을 바꿔서 다시 해 보세요.';
+  } else {
+    msg = 'AI 이야기를 만들지 못했어요. 잠시 후 다시 시도해 주세요.\n\n(선생님: 다시 시도는 모둠 카드의 [🔄 처음부터 다시]를 사용해요.)';
+  }
+  try { alert('🌱 ' + msg + '\n\n지금은 빈 이야기 틀로 시작해요.'); } catch (e) { /* noop */ }
+}
+
 /* 콜러블 호출 + 적용. 모든 실패 = false(호출자 폴백). */
 async function requestStoryDraftStarter(opts) {
   opts = opts || {};
+  let _overlayShown = false;
   try {
     if (typeof firebase === 'undefined' || !firebase.app) return false;
     const classId = String(opts.classId || '').trim();
@@ -2648,14 +2687,26 @@ async function requestStoryDraftStarter(opts) {
     if (!answersText) return false;   /* 답이 하나도 없으면 초안 불가 → 기본 틀 */
     const sc = (opts.storyCount === 12 || opts.storyCount === 15) ? opts.storyCount : 8;
 
+    /* DRAFT-UX: 생성 중 표시(레벨은 호출 전제상 1|2 — 표시 문구용) */
+    const _lvl = (typeof window.getPicturebookLevel === 'function') ? window.getPicturebookLevel() : null;
+    _showStoryDraftOverlay(_lvl);
+    _overlayShown = true;
+
     const res = await firebase.app().functions('asia-northeast3')
       .httpsCallable('studentStoryDraft')({ classId, teamName, storyCount: sc, answersText });
     const data = res && res.data;
     if (!data || data.ok !== true || !data.draft) {
-      /* refused 등 — 사유는 조용히 로그만(수업 흐름 방해 금지), 기본 틀 폴백 */
-      if (data && data.refused) console.warn('[storyDraft] refused:', data.reason);
+      /* DRAFT-UX: refused = 사유 안내 후 기본 틀 폴백(종전 조용한 로그 → 명시 안내) */
+      _hideStoryDraftOverlay(); _overlayShown = false;
+      if (data && data.refused) {
+        console.warn('[storyDraft] refused:', data.reason);
+        _notifyStoryDraftFail('refused', data.reason);
+      } else {
+        _notifyStoryDraftFail('etc');
+      }
       return false;
     }
+    _hideStoryDraftOverlay(); _overlayShown = false;
     /* LEVELS-CONT-B: answers 동봉 — level 2 위치 기반 씨앗 힌트를 나침반 답으로 생성 */
     const applied = await _applyStoryDraftStarter(data.draft, { storyCount: data.storyCount || sc, level: data.level, answers: opts.answers });
     /* PICTUREBOOK-LEVELS ④: 1단계 = 그림도 자동 — fire-and-forget(대기 없음·실패해도 글은 유효).
@@ -2677,8 +2728,19 @@ async function requestStoryDraftStarter(opts) {
     }
     return applied;
   } catch (e) {
-    /* 미배포(NOT_FOUND)·권한(MODE_NOT_ENABLED)·총량 초과 등 전부 폴백 — fail-open */
-    console.warn('[storyDraft] fallback to base10:', (e && (e.code || e.message)) || e);
+    /* 미배포(NOT_FOUND)·권한(MODE_NOT_ENABLED)·총량 초과 등 전부 폴백 — fail-open.
+       DRAFT-UX: 조용한 폴백 → 사유 안내 후 폴백(1·2단계는 경험 전체가 초안이라 침묵=고장으로 보임). */
+    if (_overlayShown) _hideStoryDraftOverlay();
+    const code = String((e && e.code) || '');
+    const emsg = String((e && e.message) || '');
+    console.warn('[storyDraft] fallback to base10:', code || emsg || e);
+    if (/MODE_NOT_ENABLED|AI_NOT_ENABLED/.test(emsg)) {
+      _notifyStoryDraftFail('mode-off');
+    } else if (/resource-exhausted/.test(code) || /횟수/.test(emsg)) {
+      _notifyStoryDraftFail('quota', /[가-힣]/.test(emsg) ? emsg : '');
+    } else {
+      _notifyStoryDraftFail('etc');
+    }
     return false;
   }
 }

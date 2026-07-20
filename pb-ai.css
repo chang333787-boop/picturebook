@@ -1757,3 +1757,12 @@
 @media print {
   .pbp-helper-ui, .pbp-helper-chip, .pbp-helper-badge { display: none !important; }
 }
+
+/* ── ROTATE-BADGE-PRINT-LEAK(2026-07-20 사용자 보고): D7-3 "📱 가로로 보면…" 배지가
+   body::before(가상요소)라 인쇄의 'body 자식 숨김' 규칙을 뚫고, position:fixed라 인쇄
+   전 페이지에 반복 인쇄되던 leak. body 직접 가상요소 오버레이는 이 배지뿐(전수 확인)이라
+   인쇄 매체 전체 + 그림책 미리보기(screen 클래스 게이트)에서 일괄 차단. ── */
+@media print {
+  body::before { content: none !important; }
+}
+body.print-picturebook::before { content: none !important; }

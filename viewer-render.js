@@ -1984,9 +1984,15 @@ function _renderStoryEnding(stage, scene) {
     : '';
 
   /* SCENE-BRANCH-BACK(2026-07-16): 되돌리기 버튼 라벨 — 경로에 진짜 갈림길이 있으면 '직전 갈림길로',
-     없으면(외길) 기존 '직전 장면으로'로 폴백. 클릭은 navigateToLastBranch가 폴백까지 처리. */
-  const _backLabel = ((typeof findLastBranchSceneId === 'function') && findLastBranchSceneId())
-    ? '← 직전 갈림길로' : '← 직전 장면으로';
+     없으면(외길) 기존 '직전 장면으로'로 폴백. 클릭은 navigateToLastBranch가 폴백까지 처리.
+     LINEAR-END-RESTART(2026-07-20 사용자 결정): 1·2단계(일직선)는 '직전 장면'이 의미 없음 —
+     엔딩의 되돌리기 = 표지부터 다시 보기(restartFromCover). ↺ 다른 결말 찾기는 이미 숨김. */
+  const _isLinearBook = !!(ViewerState.project && ViewerState.project.projectType === 'picturebook'
+    && (ViewerState.project.picturebookLevel === 1 || ViewerState.project.picturebookLevel === 2));
+  const _backLabel = _isLinearBook
+    ? '⏮ 처음부터 다시 보기'
+    : (((typeof findLastBranchSceneId === 'function') && findLastBranchSceneId())
+      ? '← 직전 갈림길로' : '← 직전 장면으로');
 
   /* 텍스트 영역 — 작품 제목(작게) + 엔딩 본문(메인) + 이야기 끝 스탬프 + 경로 요약 + 버튼
      v133: 각 요소에 terminal-step + 종류별 modifier. CSS animation-delay 변수로 순차. */
@@ -2185,6 +2191,8 @@ function _renderStoryEnding(stage, scene) {
     if (_backBtn.disabled) { e.preventDefault(); return; }
     if (_backFired) return;
     _backFired = true;
+    /* LINEAR-END-RESTART: 일직선(1·2단계)은 처음(표지)부터 다시 */
+    if (_isLinearBook && typeof restartFromCover === 'function') { restartFromCover(); return; }
     navigateToLastBranch();
   });
 }

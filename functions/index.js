@@ -1908,25 +1908,42 @@ exports.callWorkCheck = onCall(
         inputTokens: ai.inputTokens, outputTokens: ai.outputTokens, stopReason: ai.stopReason,
       });
 
+      /* CHECK-JSON-RETRY(2026-07-20): 대사 따옴표 많은 아이 글에서 모델 JSON이 확률적으로 깨짐
+         (2단계 4팀 실주행 팀4 실측 — T2-JSON-RETRY와 동일 원인) → 엄격 JSON 리마인더를 붙여
+         1회 재호출. 재시도도 실패하면 기존처럼 환불+throw. 성공 시 토큰은 두 호출 합산 계상. */
       let parsed;
+      let aiFinal = ai;
       try {
         parsed = _parseJsonStrict(ai.text);
         _validateWorkCheckResponse(parsed);
       } catch (parseErr) {
-        await _refundQuota(ctx);
-        logger.error('[ai/check] schema 위반 — 환불 박음', { error: parseErr.message, text: ai.text.slice(0, 500) });
-        throw new HttpsError('internal', 'AI 응답 검증 실패: ' + parseErr.message);
+        logger.warn('[ai/check] JSON/schema 실패 — 1회 재시도', { error: parseErr.message });
+        try {
+          const ai2 = await _callAnthropic(ANTHROPIC_API_KEY.value(), WORK_CHECK_SYSTEM_PROMPT,
+            userMsg + JSON_STRICT_RETRY_REMINDER);
+          parsed = _parseJsonStrict(ai2.text);
+          _validateWorkCheckResponse(parsed);
+          aiFinal = {
+            inputTokens: (ai.inputTokens || 0) + (ai2.inputTokens || 0),
+            outputTokens: (ai.outputTokens || 0) + (ai2.outputTokens || 0),
+            stopReason: ai2.stopReason,
+          };
+        } catch (retryErr) {
+          await _refundQuota(ctx);
+          logger.error('[ai/check] schema 위반(재시도 후) — 환불 박음', { error: retryErr.message, text: ai.text.slice(0, 500) });
+          throw new HttpsError('internal', 'AI 응답 검증 실패: ' + retryErr.message);
+        }
       }
 
-      const cost = _estimateCostUsd(ai.inputTokens, ai.outputTokens);
-      _logUsageStats(ctx, ai, cost).catch(e => logger.warn('stats 박지 X', e));
+      const cost = _estimateCostUsd(aiFinal.inputTokens, aiFinal.outputTokens);
+      _logUsageStats(ctx, aiFinal, cost).catch(e => logger.warn('stats 박지 X', e));
 
       const result = {
         ...parsed,
         meta: {
           model: HAIKU_MODEL,
-          inputTokens: ai.inputTokens,
-          outputTokens: ai.outputTokens,
+          inputTokens: aiFinal.inputTokens,
+          outputTokens: aiFinal.outputTokens,
           estimatedCostUsd: cost,
           phase: 'phase-a',
         },

@@ -117,9 +117,12 @@
   margin-left: 12px;
   flex-shrink: 0;
 }
+/* LEVELS-FEEDBACK-2(2026-07-20): 빈 라벨 기본 문구('다음 장면으로' 등)는 실제 입력한 글처럼.
+   viewer.css의 동일 셀렉터 수정(2026-07-19)이 로드 순서(viewer.css → v03-modes.css)상
+   여기 흐림 규칙에 덮여 무력했음 — 이 파일 쪽을 정본으로 동기. */
 .choice-v03--empty {
-  color: var(--v03-fg-muted);
-  font-style: italic;
+  color: inherit;
+  font-style: normal;
 }
 
 /* ╭─────────────────────────────────────────╮
@@ -1389,13 +1392,12 @@ body[data-page-orientation="portrait"] .scene-screen--pb.pb--split .pb-text__act
   }
 }
 
-/* ── 빈 버튼 (라벨 없음) — 색 약화 ── */
-.choice-v03--picturebook.choice-v03--empty {
-  opacity: 0.5;
-}
-.choice-v03--picturebook.choice-v03--empty .pb-choice-label {
-  font-style: italic;
-}
+/* ── 빈 버튼 (라벨 없음) — 색 약화 폐지 ──
+   LEVELS-FEEDBACK-2(2026-07-20): opacity 0.5 + italic이 그림책 빈 라벨을 감상·다듬기
+   양쪽에서 흐리게 만들던 실제 원인(1·2단계 base10 버튼은 choiceA=''라 상시 empty).
+   기본 문구도 입력한 글과 똑같이 보이게 — 흐림 규칙 제거(사용자 결정).
+   입력 중에도 버튼의 choice-v03--empty가 재렌더까지 남아 타이핑한 글까지 흐려지던
+   문제도 이 제거로 함께 해소(클래스가 남아도 시각 효과 0). */
 
 /* ╭─────────────────────────────────────────╮
    │  모드 3: 무비형 (movie)                 │

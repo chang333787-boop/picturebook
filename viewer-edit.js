@@ -2051,6 +2051,7 @@ function _attachPbBodyBoxInteractions(overlay, frame) {
     let startX, startY, startBox, corner;
     let rafPending = false;
     let lastEvt = null;
+    let naturalHPct = null;   /* BUBBLE-MIN-NATURAL: 드래그 시작 시점의 내용(auto) 높이 % */
 
     handle.addEventListener('pointerdown', e => {
       if (!ViewerState.editMode) return;
@@ -2064,11 +2065,28 @@ function _attachPbBodyBoxInteractions(overlay, frame) {
       startY = e.clientY;
       startBox = getBox();
       corner = handle.dataset.corner;  // 'nw' / 'ne' / 'sw' / 'se'
+      const stageRect = stage.getBoundingClientRect();
+      /* BUBBLE-MIN-NATURAL(2026-07-20): 내용(auto) 높이 실측 — 축소 하한으로 사용.
+         명시 height를 잠시 걷고 재면 '처음 한 줄 상태'와 같은 높이가 나온다.
+         transition off→측정→원복→reflow는 _fitOnePbBodyOverlay와 동일 패턴(흔들림 방지). */
+      naturalHPct = null;
+      if (stageRect.height) {
+        const prevH = overlay.style.height, prevTr = overlay.style.transition, prevOv = overlay.style.overflow;
+        overlay.style.transition = 'none';
+        overlay.style.overflow = 'hidden';
+        overlay.style.height = 'auto';
+        const naturalPx = overlay.getBoundingClientRect().height;
+        overlay.style.overflow = prevOv;
+        overlay.style.height = prevH;
+        void overlay.offsetHeight;
+        overlay.style.transition = prevTr;
+        const pct = (naturalPx / stageRect.height) * 100;
+        if (Number.isFinite(pct) && pct > 1) naturalHPct = pct;
+      }
       /* height를 명시값으로 채움 — null이면 현재 보이는 높이를 % 추정해서 시작값으로 */
       if (typeof startBox.height !== 'number') {
-        const stageRect = stage.getBoundingClientRect();
         const overlayRect = overlay.getBoundingClientRect();
-        startBox.height = (overlayRect.height / stageRect.height) * 100;
+        startBox.height = stageRect.height ? (overlayRect.height / stageRect.height) * 100 : 25;
       }
     });
 
@@ -2111,14 +2129,21 @@ function _attachPbBodyBoxInteractions(overlay, frame) {
 
         /* clamp — 최소/최대 + stage 안 보장 */
         box.width  = Math.max(20, Math.min(95, box.width));
-        /* BUBBLE-MINH-1LINE(2026-07-09): 말풍선 최소 높이 12%→8% — 기존 12%는 ~2줄이 최소였음. 한 줄까지 줄일 수 있게(사용자 요청). */
-        box.height = Math.max(8, Math.min(90, box.height));
+        /* BUBBLE-MINH-1LINE(2026-07-09): 최소 높이 12%→8%.
+           BUBBLE-MIN-NATURAL(2026-07-20): 고정 8%는 큰 무대에선 한 줄보다 커서
+           "늘렸다 줄이면 처음 한 줄로 못 돌아감" — 하한 = 내용(auto) 실측 높이.
+           내용보다 작게는 못 줄임(글 가둠 방지) · 한 줄이 8%보다 작으면 거기까지 축소 허용. */
+        const _minH = Number.isFinite(naturalHPct) ? Math.min(naturalHPct, 90) : 8;
+        box.height = Math.max(_minH, Math.min(90, box.height));
         box.x      = Math.max(0,  Math.min(100 - box.width,  box.x));
         box.y      = Math.max(0,  Math.min(100 - box.height, box.y));
         box.x      = Math.round(box.x * 10) / 10;
         box.y      = Math.round(box.y * 10) / 10;
         box.width  = Math.round(box.width * 10) / 10;
         box.height = Math.round(box.height * 10) / 10;
+        /* BUBBLE-MIN-NATURAL: 하한(내용 높이)까지 줄였으면 height:null(auto)로 스냅 —
+           저장도 auto라 '내용에 꼭 맞는' 초기 상태로 완전 복귀(이후 글이 늘면 같이 늘어남). */
+        if (Number.isFinite(naturalHPct) && box.height <= _minH + 0.3) box.height = null;
         applyBox(box);
       });
     });

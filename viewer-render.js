@@ -1054,12 +1054,14 @@ function _fitOnePbBodyOverlay(overlay) {
   const contentPct = (needPx / stageH) * 100;
 
   let targetPct;
+  let scrollRemains = false;
   if (contentPct <= baseHpct + _PB_FIT_OVERFLOW_TOL_PCT) {
     targetPct = baseHpct;                            /* 저자 박스에 다 들어감 → 저자값 유지(floor) */
   } else if (contentPct <= maxPct) {
     targetPct = Math.ceil(contentPct * 100) / 100;   /* 딱 맞게 확장(올림=1px 잔여 스크롤바 방지) */
   } else {
     targetPct = baseHpct;                            /* 무대 이탈 → 확장 안 함(저자값·스크롤 유지) */
+    scrollRemains = true;                            /* PB-BODY-AUTOSCROLL-1: 이 경우만 자동 스크롤 */
   }
 
   /* idempotent — 직전 적용 높이와 근사하면 DOM 미변경(transition 미재생). baseline은 prevHeight로
@@ -1067,6 +1069,44 @@ function _fitOnePbBodyOverlay(overlay) {
   const prevPct = parseFloat(prevHeight);
   const changed = !Number.isFinite(prevPct) || Math.abs(targetPct - prevPct) > _PB_FIT_WRITE_TOL_PCT;
   if (changed) overlay.style.height = targetPct + '%';
+  if (scrollRemains) _autoScrollPbOverlay(overlay);
+}
+
+/* ── PB-BODY-AUTOSCROLL-1 (2026-07-20): 넘친 본문 자동 슬로우 스크롤 (감상 전용) ─────
+   확장이 무대 캡(top+height>95%)에 막혀 내부 스크롤로 남는 유일한 경우(고해상도 기기로
+   만든 명시 height 작품을 작은 태블릿·크롬북에서 볼 때), 초등생이 내부 스크롤을 인지
+   못 해 "글이 잘렸다"고 느끼는 문제 — 잠시 후 천천히 끝까지 자동으로 내려 보여준다.
+   · 시작 지연 1.6s(첫 줄 읽을 여유) 후 ~14px/s(rAF·소수 누적으로 프레임당 반올림 유실 방지)
+   · 독자가 오버레이를 터치/휠/포인터로 만지면 즉시 중단(수동 우선)
+   · 장면 전환/재렌더로 DOM이 떨어지면 종료(isConnected) · 편집 전환 시 종료
+   · 오버레이당 1회(dataset 가드 — fit 재측정이 재호출해도 중복 시작 없음) · 끝 도달 시 종료
+   · 저장/데이터 무접촉 — scrollTop만 움직임. */
+function _autoScrollPbOverlay(overlay) {
+  if (!overlay || !overlay.dataset || overlay.dataset.pbAutoScroll) return;
+  overlay.dataset.pbAutoScroll = '1';
+  let stopped = false;
+  const stop = function () { stopped = true; };
+  ['pointerdown', 'wheel', 'touchstart'].forEach(function (ev) {
+    overlay.addEventListener(ev, stop, { passive: true, once: true });
+  });
+  setTimeout(function () {
+    if (stopped || !overlay.isConnected) return;
+    let pos = overlay.scrollTop;
+    let last = null;
+    const SPEED_PX_S = 14;
+    const step = function (ts) {
+      if (stopped || !overlay.isConnected) return;
+      if (typeof ViewerState !== 'undefined' && ViewerState.editMode) return;
+      if (last != null) {
+        pos += ((ts - last) / 1000) * SPEED_PX_S;
+        overlay.scrollTop = pos;
+        if (overlay.scrollTop + overlay.clientHeight >= overlay.scrollHeight - 1) return;
+      }
+      last = ts;
+      requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }, 1600);
 }
 
 /* 현재 무대의 imageCenter 본문 글상자 전부 맞춤(감상 전용·leaving 화면 제외). */

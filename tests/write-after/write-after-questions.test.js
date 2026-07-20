@@ -4,11 +4,12 @@ const test = require('node:test');
 const assert = require('node:assert');
 const W = require('../../functions/write-after-questions.js');
 
-test('sanitizeSnapshotForQuestions: 장면 ≤25 + body 500자 + 선택지 100자 + imageData 제거', () => {
+test('sanitizeSnapshotForQuestions: 장면 ≤MAX_SCENES(30·S2-CAP-30) + body 500자 + 선택지 100자 + imageData 제거', () => {
   const snap = {};
-  for (let i = 1; i <= 30; i++) snap[String(i)] = { id: i, title: 't', body: 'a'.repeat(700), imageData: 'data:image/png;base64,XXXX', imageUrl: 'http://x', choices: ['c'.repeat(200)] };
+  for (let i = 1; i <= W.MAX_SCENES + 5; i++) snap[String(i)] = { id: i, title: 't', body: 'a'.repeat(700), imageData: 'data:image/png;base64,XXXX', imageUrl: 'http://x', choices: ['c'.repeat(200)] };
   const out = W.sanitizeSnapshotForQuestions(snap);
-  assert.equal(Object.keys(out).length, 25, '장면 25개로 제한');
+  assert.equal(W.MAX_SCENES, 30, 'S2-CAP-30 상한 정합');
+  assert.equal(Object.keys(out).length, W.MAX_SCENES, '장면 MAX_SCENES개로 제한');
   const s = out['1'];
   assert.equal(s.body.length, 500, 'body 500자 클램프');
   assert.equal(s.choices[0].label.length, 100, '선택지 100자 클램프');

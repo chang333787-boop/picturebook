@@ -281,6 +281,24 @@
     },
   ];
 
+  /* ════ EASY-MUSTINC(2026-07-20): easy + 마지막 자유 질문 — version 5 ════
+     사용자 요청: "가장 마지막 질문으로 이야기에 꼭 들어갔으면 좋을 내용 있나요?" →
+     답이 AI 초안(studentStoryDraft 디지스트=키+답 제네릭)에 그대로 흘러 반영.
+     1~8번은 easy(v3) 질문 객체 그대로 재사용(순번 동일) + 9번 신규.
+     '모르겠어요'/유예 = 없음으로 취급(디지스트가 유예 스킵·최소답은 모델이 무시). */
+  const CORE_QUESTION_KEYS_EASY2 = CORE_QUESTION_KEYS_EASY.concat(['mustInclude']);
+  const CORE_QUESTIONS_EASY2 = CORE_QUESTIONS_EASY.concat([
+    {
+      id: 'mustInclude', order: 9, g: 'E-9',
+      title: '이야기에 꼭 넣고 싶은 것이 있나요?',
+      help: '꼭 나왔으면 하는 인물, 물건, 장면… 무엇이든 좋아요. 없으면 모르겠어요를 눌러도 돼요.',
+      choices: [_choice('easymust_magic', '신기한 마법이 나와요'), _choice('easymust_friend', '멋진 친구가 나와요'), _choice('easymust_funny', '웃음이 나는 장면이 있어요')],
+      allowCustom: true, customLabel: '직접 적을래요', allowUnsure: true, maxLength: MAX_CORE_LEN,
+      sufficientWhen: '무엇이든(없어도) 충분',
+      followUpTrigger: '없음(자유 희망 — 어떤 답이든 그대로 반영)',
+    },
+  ]);
+
   /* ════ LEVELS-LINEAR(2026-07-19): 그림책 2단계(3~4학년·일직선) 전용 세트 — version 4 ════
      사용자 결정: 갈래 없는 2단계에 v2의 '진엔딩'·'다른 선택을 하면'(alternatePath)은 부적절.
      · v2에서 alternatePath 제거 + trueEnding 문구를 '이야기는 어떻게 끝나나요?'로.
@@ -328,11 +346,14 @@
   _deepFreeze(CORE_QUESTIONS_V2);
   _deepFreeze(CORE_QUESTIONS_EASY);
   _deepFreeze(CORE_QUESTIONS_LINEAR);
+  _deepFreeze(CORE_QUESTIONS_EASY2);
 
-  /* version 미지정/1 = v1(기존 데이터 하위호환), 2 = v2, 3 = 그림책 1단계 easy, 4 = 그림책 2단계 linear. */
+  /* version 미지정/1 = v1(기존 데이터 하위호환), 2 = v2, 3 = 그림책 1단계 easy,
+     4 = 그림책 2단계 linear, 5 = 1단계 easy2(easy+꼭넣기 — EASY-MUSTINC). */
   function getCoreQuestions(version) {
     if (version === 3) return CORE_QUESTIONS_EASY;
     if (version === 4) return CORE_QUESTIONS_LINEAR;
+    if (version === 5) return CORE_QUESTIONS_EASY2;
     return version === 2 ? CORE_QUESTIONS_V2 : CORE_QUESTIONS;
   }
   function getQuestionById(id, version) {
@@ -384,8 +405,9 @@
     const v2 = version === 2;
     const easy = version === 3;      /* LEVELS-EASY: 그림책 1단계 세트(정확히 8개) */
     const linear = version === 4;    /* LEVELS-LINEAR: 그림책 2단계 세트(정확히 9개 — LEVELS-CONT에서 targetLength 제거) */
-    const list = arr || (easy ? CORE_QUESTIONS_EASY : (linear ? CORE_QUESTIONS_LINEAR : (v2 ? CORE_QUESTIONS_V2 : CORE_QUESTIONS)));
-    const KEYS = easy ? CORE_QUESTION_KEYS_EASY : (linear ? CORE_QUESTION_KEYS_LINEAR : (v2 ? CORE_QUESTION_KEYS_V2 : CORE_QUESTION_KEYS));
+    const easy2 = version === 5;     /* EASY-MUSTINC: 1단계 easy2 세트(정확히 9개 = easy 8 + 꼭넣기) */
+    const list = arr || (easy ? CORE_QUESTIONS_EASY : (easy2 ? CORE_QUESTIONS_EASY2 : (linear ? CORE_QUESTIONS_LINEAR : (v2 ? CORE_QUESTIONS_V2 : CORE_QUESTIONS))));
+    const KEYS = easy ? CORE_QUESTION_KEYS_EASY : (easy2 ? CORE_QUESTION_KEYS_EASY2 : (linear ? CORE_QUESTION_KEYS_LINEAR : (v2 ? CORE_QUESTION_KEYS_V2 : CORE_QUESTION_KEYS)));
     const COUNT = KEYS.length;
     const errors = [];
     if (!Array.isArray(list)) return { valid: false, errors: ['배열 아님'] };
@@ -465,7 +487,7 @@
   }
 
   return {
-    CORE_QUESTION_KEYS, CORE_QUESTION_KEYS_V2, CORE_QUESTION_KEYS_EASY, CORE_QUESTION_KEYS_LINEAR, MINIMAL_ANSWER, MAX_CORE_LEN, ANSWER_STATUS, ASSISTANCE_PROMPTS,
+    CORE_QUESTION_KEYS, CORE_QUESTION_KEYS_V2, CORE_QUESTION_KEYS_EASY, CORE_QUESTION_KEYS_LINEAR, CORE_QUESTION_KEYS_EASY2, MINIMAL_ANSWER, MAX_CORE_LEN, ANSWER_STATUS, ASSISTANCE_PROMPTS,
     getCoreQuestions, getQuestionById, getQuestionByOrder,
     validateQuestionDefinition, validateCoreQuestionSet,
     normalizeAnswerValue, isMinimumDeferredAnswer, isAnswerPresent,

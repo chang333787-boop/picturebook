@@ -121,3 +121,72 @@ test('followup: 누군가 답 NEXT → 고정 후속 강제(첫 후속·해당 �
   /* 무관 질문(이름)엔 미적용 */
   assert.strictEqual(TCF.enforceVagueActorFollowUp({ coreQuestionId: 'heroName', currentAnswer: '누군가', followUpCount: 0 }, NEXT).decision, 'NEXT');
 });
+
+/* ══ EASY-MUSTINC(2026-07-20) — easy2(v5)=easy 8 + '꼭 넣고 싶은 것' 계약 ══ */
+test('EASY2: 정확히 9문항·키 일치·형태 검증 통과·앞 8문항=easy 동일', () => {
+  const r = Q.validateCoreQuestionSet(null, 5);
+  assert.deepStrictEqual(r.errors, []);
+  assert.strictEqual(r.valid, true);
+  const list = Q.getCoreQuestions(5);
+  assert.strictEqual(list.length, 9);
+  assert.deepStrictEqual(list.map(q => q.id), Q.CORE_QUESTION_KEYS_EASY2.slice());
+  /* 앞 8문항은 easy(v3) 정본 객체 그대로(순번 포함) */
+  const easy = Q.getCoreQuestions(3);
+  for (let i = 0; i < 8; i++) assert.strictEqual(list[i], easy[i]);
+  const q9 = list[8];
+  assert.strictEqual(q9.id, 'mustInclude');
+  assert.strictEqual(q9.order, 9);
+  assert.strictEqual(q9.allowUnsure, true);
+  assert.strictEqual(q9.allowCustom, true);
+});
+
+test('EASY2: mustInclude는 v1/v2/easy/linear와 키 충돌 없음(자가복구 안전)', () => {
+  assert.ok(!Q.CORE_QUESTION_KEYS.includes('mustInclude'));
+  assert.ok(!Q.CORE_QUESTION_KEYS_V2.includes('mustInclude'));
+  assert.ok(!Q.CORE_QUESTION_KEYS_EASY.includes('mustInclude'));
+  assert.ok(!Q.CORE_QUESTION_KEYS_LINEAR.includes('mustInclude'));
+});
+
+test('EASY2 버전 배선: normalize 보존·resolve 스탬프/자가복구·easy 오판 없음', () => {
+  assert.strictEqual(TC.QUESTION_VERSION_EASY2, 5);
+  /* normalize: 저장 version 5 보존 */
+  const s5 = TC.normalizeThoughtCompassState({ version: 5, status: 'inProgress' });
+  assert.strictEqual(s5.version, 5);
+  /* resolve: 스탬프 우선 */
+  assert.strictEqual(TC.resolveQuestionSetVersion({ version: 5, status: 'inProgress' }), 5);
+  /* 자가복구: mustInclude 답 존재 → 5 (easy 키 함께 있어도 5 — 순서 검증) */
+  const ansEasy2 = { heroWho: { answerText: '토끼' }, mustInclude: { answerText: '무지개 다리' } };
+  assert.strictEqual(TC.resolveQuestionSetVersion({ status: 'inProgress', answers: ansEasy2 }), 5);
+  /* easy 키만 → 3 유지(구 세션 오판 없음) */
+  const ansEasy = { heroWho: { answerText: '토끼' }, heroName: { answerText: '별이' } };
+  assert.strictEqual(TC.resolveQuestionSetVersion({ status: 'inProgress', answers: ansEasy }), 3);
+});
+
+test('EASY2 완주: 9키 필요·8키=미완(missing=mustInclude)·구 v3 8키 완주는 회귀 0', () => {
+  const eight = {};
+  for (const k of Q.CORE_QUESTION_KEYS_EASY) eight[k] = { answerText: '답 ' + k };
+  /* v5 세션: 8키만 = 미완 */
+  const r8 = TC.validateThoughtCompassCompletion({ version: 5, status: 'inProgress', answers: eight });
+  assert.strictEqual(r8.valid, false);
+  assert.deepStrictEqual(r8.missing, ['mustInclude']);
+  /* v5 세션: 9키 = 완주 */
+  const nine = Object.assign({}, eight, { mustInclude: { answerText: '용이 나왔으면 좋겠어요' } });
+  const r9 = TC.validateThoughtCompassCompletion({ version: 5, status: 'inProgress', answers: nine });
+  assert.strictEqual(r9.valid, true);
+  /* 구 v3 세션: 8키 완주 그대로(하위호환) */
+  const r3 = TC.validateThoughtCompassCompletion({ version: 3, status: 'inProgress', answers: eight });
+  assert.strictEqual(r3.valid, true);
+  /* 모르겠어요(최소답)도 답으로 인정 — 아이가 '없어요'면 바로 완주 가능 */
+  const nineMin = Object.assign({}, eight, { mustInclude: { answerStatus: 'minimal' } });
+  assert.strictEqual(TC.validateThoughtCompassCompletion({ version: 5, status: 'inProgress', answers: nineMin }).valid, true);
+});
+
+test('EASY2 스탬프: planMarkStarted(qVersion 5)=신규 5·재개 재스탬프 5', () => {
+  const ctx = { classId: 'c1', teamName: 't1', projectType: 'picturebook' };
+  const fresh = TC.planMarkStarted(ctx, { status: 'notStarted' }, 5);
+  assert.strictEqual(fresh.update.version, 5);
+  const resume = TC.planMarkStarted(ctx, { version: 5, status: 'inProgress' }, undefined);
+  assert.strictEqual(resume.update.version, 5);
+  const save = TC.planSaveProgress(ctx, { version: 5, status: 'inProgress' }, { currentQuestionIndex: 3 });
+  assert.strictEqual(save.update.version, 5);
+});

@@ -103,13 +103,14 @@
   function _defaultGateCallbacks(ctx, normalizedState) {
     const Store = _Store(), Gate = _Gate(), UI = _UI();
     async function _begin(action) {
-      /* LEVELS(2026-07-19): 그림책 1단계 신규=easy(3)·2단계 신규=linear(4)로 시작.
-         진행/완료 데이터는 planMarkStarted가 저장 버전을 유지(신규 스탬프에만 반영). */
+      /* LEVELS(2026-07-19): 그림책 1단계 신규=easy·2단계 신규=linear(4)로 시작.
+         EASY-MUSTINC(2026-07-20): 1단계 신규는 easy2(5 = easy 8문항 + '꼭 넣고 싶은 것').
+         진행/완료 데이터는 planMarkStarted가 저장 버전을 유지(구 v3 진행 세션은 v3 그대로). */
       let _qv;
       if (ctx && ctx.projectType === 'picturebook'
           && typeof window !== 'undefined' && typeof window.getPicturebookLevel === 'function') {
         const _lv = window.getPicturebookLevel();
-        if (_lv === 1) _qv = 3;
+        if (_lv === 1) _qv = 5;
         else if (_lv === 2) _qv = 4;
       }
       try { if (Store) await Store.markThoughtCompassStarted(ctx, normalizedState, _qv); } catch (e) { /* 진행은 UI에서 재시도 */ }

@@ -2553,6 +2553,7 @@ window.createStarterTemplateForNewProject = createStarterTemplateForNewProject;
 function _storyDraftAnswersDigest(answers) {
   if (!answers || typeof answers !== 'object') return '';
   const lines = [];
+  let mustIncludeText = '';
   Object.keys(answers).forEach((k) => {
     const a = answers[k];
     if (!a || typeof a !== 'object') return;
@@ -2560,7 +2561,12 @@ function _storyDraftAnswersDigest(answers) {
     const t = String(a.answerText == null ? '' : a.answerText).replace(/\s+/g, ' ').trim();
     if (!t) return;
     lines.push(k + ': ' + t.slice(0, 200));
+    /* EASY-MUSTINC: '꼭 넣고 싶은 것'(easy2 9번) — 유예/최소답("이야기를 만들면서…")이 아니면 강조 대상 */
+    if (k === 'mustInclude' && t.indexOf('만들면서 정할래요') < 0) mustIncludeText = t.slice(0, 200);
   });
+  /* EASY-MUSTINC: 아이의 '꼭 넣고 싶은 것'은 반드시 등장하도록 디지스트 끝에 명시 지시
+     (서버 프롬프트 무변경 — answersText 안 지시라 배포 불요·1500자 상한 내). */
+  if (mustIncludeText) lines.push('(중요: mustInclude에 적힌 "' + mustIncludeText + '"은(는) 이야기에 꼭 등장시켜 주세요)');
   return lines.join('\n').slice(0, 1500);
 }
 

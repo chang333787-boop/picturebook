@@ -74,7 +74,8 @@
         && ctx && ctx.projectType === 'picturebook'
         && typeof window.getPicturebookLevel === 'function') {
       const _lv = window.getPicturebookLevel();
-      if (_lv === 1) qVersion = 3;
+      /* EASY-MUSTINC(2026-07-20): 1단계 신규=easy2(5). 컨트롤러 _begin 매핑과 동기. */
+      if (_lv === 1) qVersion = 5;
       else if (_lv === 2) qVersion = 4;
     }
     const vm = Flow.createFlow({ version: qVersion, resume: { index: rp.questionIndex, answers: rp.answers } });
@@ -369,10 +370,12 @@
     /* COMPASS-V2-FOLLOWUP: v2 가드 해제 — 서버 allowlist가 v1+v2 합집합으로 확장됨(15키).
        coreTotal은 vm 기반(v1=7·v2=10) — 상한도 세트별(12/15, flow.followUpBudgetLeft).
        targetLength(보기 전용)는 판정 가치가 없어 후속 요청 자체를 생략(비용·시간 절약).
+       EASY-MUSTINC: mustInclude(easy2 9번·자유 희망)도 생략 — 어떤 답이든 그대로 초안에
+       반영이 목적이라 판정 무의미 + 서버 followup allowlist 미등록(배포 불요) 정합.
        ※ 서버 deploy 전까지는 v2 요청이 거부→null→NEXT 안전 진행(현행과 동일 체감). */
     const meta = { followUpsUsed: S.followUpsUsed, coreTotal: S.vm.total };
     let decision = null;
-    if (!_alreadyJudged && q.id !== 'targetLength' && Flow.followUpBudgetLeft(meta) && window.ThoughtCompassAI && typeof window.ThoughtCompassAI.requestFollowUp === 'function') {
+    if (!_alreadyJudged && q.id !== 'targetLength' && q.id !== 'mustInclude' && Flow.followUpBudgetLeft(meta) && window.ThoughtCompassAI && typeof window.ThoughtCompassAI.requestFollowUp === 'function') {
       S.aiBusy = true; _render();
       try {
         decision = await window.ThoughtCompassAI.requestFollowUp({

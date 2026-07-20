@@ -374,11 +374,14 @@
     const TC = _TC(), Store = _Store(), Flow = _Flow();
     /* 완료 조건 — 핵심 전부 유효(유예 포함). vm 질문 세트로 version 파생(완주 판정+완료 스탬프).
        LEVELS-CONT: easy(heroWho)=3·linear(protagonistName)=4를 명시 파생 — 종전엔 1로 스탬프돼
-       resolve의 답 기반 자가복구에 기대던 것 정정(특히 linear는 targetLength 제거로 v2 오인 불가). */
+       resolve의 답 기반 자가복구에 기대던 것 정정(특히 linear는 targetLength 제거로 v2 오인 불가).
+       EASY-MUSTINC: easy2(mustInclude)=5를 heroWho(easy)보다 먼저 — easy2 세트엔 heroWho도
+       있어서 순서가 바뀌면 3으로 오파생(완료 스탬프·재편집 세트가 8문항으로 회귀). */
     const qVersion = (R.vm && Array.isArray(R.vm.questions))
-      ? (R.vm.questions.some(function (q) { return q && q.id === 'heroWho'; }) ? 3
-        : (R.vm.questions.some(function (q) { return q && q.id === 'protagonistName'; }) ? 4
-          : (R.vm.questions.some(function (q) { return q && q.id === 'targetLength'; }) ? 2 : 1)))
+      ? (R.vm.questions.some(function (q) { return q && q.id === 'mustInclude'; }) ? 5
+        : (R.vm.questions.some(function (q) { return q && q.id === 'heroWho'; }) ? 3
+          : (R.vm.questions.some(function (q) { return q && q.id === 'protagonistName'; }) ? 4
+            : (R.vm.questions.some(function (q) { return q && q.id === 'targetLength'; }) ? 2 : 1))))
       : 1;
     const state = { version: qVersion, status: 'inProgress', answers: R.vm.answers, followUps: R.followUps, completedAt: null };
     const v = TC ? TC.validateThoughtCompassCompletion(state) : { valid: Flow.allAnswered(R.vm) };

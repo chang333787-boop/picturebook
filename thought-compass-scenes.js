@@ -49,10 +49,14 @@
     ctx = ctx || {};
     if (TYPES.indexOf(ctx.projectType) < 0) return false;
     if (typeof window === 'undefined' || typeof window.createStarterTemplateForNewProject !== 'function') return false;
-    const storyCount = resolveStoryCount(ctx.answers);
+    const lvl = (ctx.projectType === 'picturebook' && typeof window.getPicturebookLevel === 'function')
+      ? window.getPicturebookLevel() : null;
+    /* EASY-MUSTINC(2026-07-20 사용자 결정): 1단계=12장면 — AI가 전부 만들어 주니 기승전결이
+       살게 길이 확대(표지+12+엔딩=14노드·그림 13장·총량 24 내). 서버/빌더는 12를 이미 지원
+       (COMPASS-LENGTH-BASE 8/12/15). 2단계(8)·기타 경로는 기존 그대로. 초안 실패 폴백
+       기본 틀도 12 — 총량 소진 후 재시도 흐름과 골격 일치. */
+    const storyCount = (lvl === 1) ? 12 : resolveStoryCount(ctx.answers);
     try {
-      const lvl = (ctx.projectType === 'picturebook' && typeof window.getPicturebookLevel === 'function')
-        ? window.getPicturebookLevel() : null;
       if ((lvl === 1 || lvl === 2) && typeof window.requestStoryDraftStarter === 'function') {
         const applied = await window.requestStoryDraftStarter({
           classId: ctx.classId, teamName: ctx.teamName,

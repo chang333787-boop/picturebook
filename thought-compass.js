@@ -17,6 +17,10 @@
   const QUESTION_VERSION_EASY = 3;
   /* LEVELS-LINEAR(2026-07-19): 그림책 2단계(3~4학년·일직선) 세트 — 진엔딩/다른선택 없음+이름 질문. */
   const QUESTION_VERSION_LINEAR = 4;
+  /* EASY-MUSTINC(2026-07-20 사용자 요청): easy + 마지막 자유 질문(mustInclude·"이야기에 꼭
+     넣고 싶은 것") = version 5. 질문 추가는 구(8키 완주) 세션 재판정 리스크가 있어 별도
+     버전으로 분리(v3/v4 선례). 신규 1단계 세션만 5, 기존 v3 진행/완료는 v3 그대로. */
+  const QUESTION_VERSION_EASY2 = 5;
   const STATUS = { NOT_STARTED: 'notStarted', IN_PROGRESS: 'inProgress', COMPLETED: 'completed' };
   const MODES = { REQUIRED: 'required', OPTIONAL: 'optional', NONE: 'none' };
   /* 생각 나침반 적용 대상 = 그림책·텍스트만. movie/experience 제외(PRD D-01). */
@@ -66,10 +70,10 @@
     if (idx < 0) idx = 0;
 
     const out = {
-      /* V2: 저장된 version 2는 보존(질문 세트 판별). LEVELS: 3(easy)·4(linear)도 보존.
+      /* V2: 저장된 version 2는 보존(질문 세트 판별). LEVELS: 3(easy)·4(linear)·5(easy2)도 보존.
          그 외(1/누락/이상값)는 1로 정규화. */
       version: (raw.version === QUESTION_VERSION_LATEST || raw.version === QUESTION_VERSION_EASY
-        || raw.version === QUESTION_VERSION_LINEAR) ? raw.version : VERSION,
+        || raw.version === QUESTION_VERSION_LINEAR || raw.version === QUESTION_VERSION_EASY2) ? raw.version : VERSION,
       status: status,
       mode: (raw.mode === MODES.REQUIRED || raw.mode === MODES.OPTIONAL || raw.mode === MODES.NONE) ? raw.mode : MODES.OPTIONAL,
       projectType: _isType(raw.projectType) ? raw.projectType : null,
@@ -160,6 +164,10 @@
   /* LEVELS-EASY(2026-07-19): 그림책 1단계 easy 세트(version 3) 전용 키 — 자가복구 판별용.
      정본 정의: thought-compass-questions.js CORE_QUESTION_KEYS_EASY. */
   const EASY_ONLY_ANSWER_KEYS = ['heroWho', 'heroName', 'storyStart', 'heroEvent', 'heroWant', 'heroTry', 'heroTrouble', 'heroOvercome'];
+  /* EASY-MUSTINC: easy2 세트(version 5) 전용 키 — 자가복구 판별 + 완주 9키 목록.
+     정본 정의: thought-compass-questions.js CORE_QUESTION_KEYS_EASY2. */
+  const EASY2_ONLY_ANSWER_KEYS = ['mustInclude'];
+  const CORE_QUESTION_KEYS_EASY2 = EASY_ONLY_ANSWER_KEYS.concat(EASY2_ONLY_ANSWER_KEYS);
   /* LEVELS-LINEAR: 2단계 세트(version 4) 전용 키(자가복구) + 완주 판정 키 목록. */
   const LINEAR_ONLY_ANSWER_KEYS = ['protagonistName'];
   /* LEVELS-CONT(2026-07-18): 2단계 이어쓰기 = 8장면 고정 — targetLength 질문 제거(9키).
@@ -174,10 +182,14 @@
      · 그 외(v1 진행/완료 데이터) → 1 (기존 세션은 v1으로 완주 — 하위호환) */
   function resolveQuestionSetVersion(raw) {
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return QUESTION_VERSION_LATEST;
-    /* LEVELS: 저장 버전 3/4 또는 전용 답 존재(버전 필드 유실 자가복구) → 해당 버전 */
+    /* LEVELS: 저장 버전 3/4/5 또는 전용 답 존재(버전 필드 유실 자가복구) → 해당 버전.
+       ★자가복구 순서: mustInclude(easy2 전용)를 easy 키보다 먼저 — easy2 세션 답에는
+       easy 키도 전부 있어서 easy를 먼저 보면 v3으로 오판. */
     if (raw.version === QUESTION_VERSION_EASY) return QUESTION_VERSION_EASY;
     if (raw.version === QUESTION_VERSION_LINEAR) return QUESTION_VERSION_LINEAR;
+    if (raw.version === QUESTION_VERSION_EASY2) return QUESTION_VERSION_EASY2;
     if (raw.answers && typeof raw.answers === 'object' && !Array.isArray(raw.answers)) {
+      for (const k of EASY2_ONLY_ANSWER_KEYS) if (raw.answers[k]) return QUESTION_VERSION_EASY2;
       for (const k of EASY_ONLY_ANSWER_KEYS) if (raw.answers[k]) return QUESTION_VERSION_EASY;
       for (const k of LINEAR_ONLY_ANSWER_KEYS) if (raw.answers[k]) return QUESTION_VERSION_LINEAR;
     }
@@ -210,13 +222,16 @@
     const s = normalizeThoughtCompassState(state);
     const answers = s.answers || {};
     /* V2 세션은 10키 완주 필요 — version===2(normalize 보존) 또는 v2 전용 답 존재(자가복구).
-       LEVELS: version===3(easy)=8키, version===4(linear)=10키 완주. */
-    const keys = (s.version === QUESTION_VERSION_EASY || _hasEasyAnswers(answers))
-      ? EASY_ONLY_ANSWER_KEYS
-      : ((s.version === QUESTION_VERSION_LINEAR || _hasLinearAnswers(answers))
-        ? CORE_QUESTION_KEYS_LINEAR
-        : ((s.version === QUESTION_VERSION_LATEST || _hasV2Answers(answers))
-          ? CORE_QUESTION_KEYS_V2 : CORE_QUESTION_KEYS));
+       LEVELS: version===3(easy)=8키, version===4(linear)=9키, version===5(easy2)=9키 완주.
+       ★easy2 분기를 easy보다 먼저(easy2 답은 easy 키 포함 — 순서 바뀌면 8키로 조기 완주). */
+    const keys = (s.version === QUESTION_VERSION_EASY2 || _hasEasy2Answers(answers))
+      ? CORE_QUESTION_KEYS_EASY2
+      : ((s.version === QUESTION_VERSION_EASY || _hasEasyAnswers(answers))
+        ? EASY_ONLY_ANSWER_KEYS
+        : ((s.version === QUESTION_VERSION_LINEAR || _hasLinearAnswers(answers))
+          ? CORE_QUESTION_KEYS_LINEAR
+          : ((s.version === QUESTION_VERSION_LATEST || _hasV2Answers(answers))
+            ? CORE_QUESTION_KEYS_V2 : CORE_QUESTION_KEYS)));
     const missing = [];
     for (const k of keys) if (!_answerPresent(answers[k])) missing.push(k);
     return { valid: missing.length === 0, missing: missing };
@@ -224,6 +239,11 @@
   function _hasV2Answers(answers) {
     if (!answers || typeof answers !== 'object') return false;
     for (const k of V2_ONLY_ANSWER_KEYS) if (answers[k]) return true;
+    return false;
+  }
+  function _hasEasy2Answers(answers) {
+    if (!answers || typeof answers !== 'object') return false;
+    for (const k of EASY2_ONLY_ANSWER_KEYS) if (answers[k]) return true;
     return false;
   }
   function _hasEasyAnswers(answers) {
@@ -349,12 +369,13 @@
       update.status = STATUS.IN_PROGRESS;
       update.startedAt = SERVER_TS;
       update.currentQuestionIndex = 0;
-      /* V2: 신규 시작 세션은 v2. LEVELS: 호출자(컨트롤러=1·2단계)가 3/4를 명시하면 그 버전. */
-      update.version = (qVersion === QUESTION_VERSION_EASY || qVersion === QUESTION_VERSION_LINEAR)
+      /* V2: 신규 시작 세션은 v2. LEVELS: 호출자(컨트롤러=1·2단계)가 3/4/5를 명시하면 그 버전. */
+      update.version = (qVersion === QUESTION_VERSION_EASY || qVersion === QUESTION_VERSION_LINEAR
+        || qVersion === QUESTION_VERSION_EASY2)
         ? qVersion : QUESTION_VERSION_LATEST;
     } else if (s.version === QUESTION_VERSION_LATEST || s.version === QUESTION_VERSION_EASY
-        || s.version === QUESTION_VERSION_LINEAR) {
-      update.version = s.version;   /* v2/easy/linear 세션 재개 — version 필드 유실 대비 재스탬프(멱등) */
+        || s.version === QUESTION_VERSION_LINEAR || s.version === QUESTION_VERSION_EASY2) {
+      update.version = s.version;   /* v2/easy/linear/easy2 세션 재개 — version 필드 유실 대비 재스탬프(멱등) */
     }
     return { path: paths.preWriting, update: update };
   }
@@ -379,7 +400,7 @@
     const s = normalizeThoughtCompassState(state);
     if (s.status === STATUS.NOT_STARTED) { update.status = STATUS.IN_PROGRESS; update.version = QUESTION_VERSION_LATEST; }
     else if (s.version === QUESTION_VERSION_LATEST || s.version === QUESTION_VERSION_EASY
-        || s.version === QUESTION_VERSION_LINEAR) update.version = s.version;   /* V2/easy/linear 세션 매 저장 재스탬프(멱등·자가복구) */
+        || s.version === QUESTION_VERSION_LINEAR || s.version === QUESTION_VERSION_EASY2) update.version = s.version;   /* V2/easy/linear/easy2 세션 매 저장 재스탬프(멱등·자가복구) */
     return { path: paths.preWriting, update: update };
   }
 
@@ -424,7 +445,7 @@
   }
 
   return {
-    VERSION, QUESTION_VERSION_LATEST, QUESTION_VERSION_EASY, QUESTION_VERSION_LINEAR, STATUS, MODES, COMPASS_TYPES, SERVER_TS, ACCESS,
+    VERSION, QUESTION_VERSION_LATEST, QUESTION_VERSION_EASY, QUESTION_VERSION_LINEAR, QUESTION_VERSION_EASY2, STATUS, MODES, COMPASS_TYPES, SERVER_TS, ACCESS,
     CORE_QUESTION_KEYS, CORE_QUESTION_KEYS_V2, MINIMAL_ANSWER,
     resolveQuestionSetVersion,
     resolveProjectAccessState, describeGate, resolveResumePoint, describeOptionalEntryButton,

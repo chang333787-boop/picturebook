@@ -3287,6 +3287,14 @@ exports.studentStoryDraft = onCall(
       const shapeErr = _validateStudentStoryDraft(draft, storyCount, level);
       if (shapeErr) throw new Error('shape: ' + shapeErr);
 
+      /* CHAR-CONSIST-1: 인물 외형 시트 저장(level 1) — generateStoryImages가 전 장면에 주입.
+         비치명(실패해도 초안 유효 — 그림은 whole-story 일관성 프레임으로 폴백). */
+      if (level === 1 && Array.isArray(draft.characters) && draft.characters.length) {
+        const sheet = draft.characters.map((c) => c.name + ': ' + c.look).join('\n').slice(0, 500);
+        await admin.database().ref(`${teamBase}/aiVariants/characterSheet`).set(sheet)
+          .catch((e) => logger.warn('[studentStoryDraft] characterSheet 저장 실패', { message: e && e.message }));
+      }
+
       /* 감사로그 — 비치명(push 실패가 성공한 초안을 삼키지 않음) */
       await admin.database().ref('ai-stats/storyDraft').push({
         by: ctx.uid, classId, level, storyCount,
@@ -3325,7 +3333,18 @@ function _sanitizeStudentStoryDraft(d, storyCount, level) {
   const ending = cont
     ? { title: '', body: '' }   /* 엔딩은 아이 몫 — AI가 써도 버림 */
     : { title: str(d.ending && d.ending.title, 40), body: str(d.ending && d.ending.body, 600) };
-  return { title: str(d.title, 40), scenes, ending };
+  /* CHAR-CONSIST-1: level 1 = 인물 외형 고정 시트(characters) — 그림 9장 프롬프트에 동일 주입용.
+     선택 필드(없어도 초안 유효 — 시트 없으면 그림은 whole-story 일관성만). 최대 3명·look 160자. */
+  const out = { title: str(d.title, 40), scenes, ending };
+  if (level === 1 && Array.isArray(d.characters)) {
+    const chars = d.characters
+      .filter((c) => c && typeof c === 'object' && (c.name || c.look))
+      .slice(0, 3)
+      .map((c) => ({ name: str(c.name, 20), look: str(c.look, 160) }))
+      .filter((c) => c.name && c.look);
+    if (chars.length) out.characters = chars;
+  }
+  return out;
 }
 
 function _validateStudentStoryDraft(d, storyCount, level) {
@@ -3429,6 +3448,13 @@ exports.generateStoryImages = onCall(
         throw new HttpsError('failed-precondition', '이미지 AI가 아직 준비되지 않았어요. 선생님께 말씀드려 주세요.');
       }
       const wholeStoryText = await _buildWholeStoryText(baseRef);
+      /* CHAR-CONSIST-1: 초안이 저장한 인물 외형 고정 시트 — 전 장면 프롬프트에 동일 주입
+         (없으면 null = 기존 whole-story 일관성 프레임만·페일세이프). */
+      let characterSheet = null;
+      try {
+        const _cs = (await baseRef.child('aiVariants/characterSheet').once('value')).val();
+        if (typeof _cs === 'string' && _cs.trim()) characterSheet = _cs.trim().slice(0, 500);
+      } catch (e) { characterSheet = null; }
       const limitRef = baseRef.child('aiUsage/imageGen');
       const PV = ImageS2OpenAi.STORY_IMAGE_PROMPT_VERSION;
 
@@ -3454,7 +3480,7 @@ exports.generateStoryImages = onCall(
         const refund = () => limitRef.transaction((cur) => Math.max(0, (cur || 0) - 1)).catch(() => {});
 
         try {
-          const gen = await adapter.generate({ storyText: body, wholeStoryText });
+          const gen = await adapter.generate({ storyText: body, wholeStoryText, characterSheet });
           if (!gen || gen.ok !== true) { await refund(); failed.push({ sceneId: sid, code: (gen && gen.code) || 'IMAGE_AI_PROVIDER_ERROR' }); return; }
           const outv = ImageS2Gen.validateModelOutput({ bytes: gen.bytes, mimeType: gen.mimeType });
           if (!outv.ok) { await refund(); failed.push({ sceneId: sid, code: outv.code }); return; }

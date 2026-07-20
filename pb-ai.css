@@ -1408,7 +1408,12 @@
    named @page라 그림책 페이지(.pbp-page)에만 적용 → 고쳐쓰기/나침반 등 다른 인쇄물 여백엔 영향 없음.
    vh는 페이지 박스 기준이라 여백 축소 시 콘텐츠(96vh)가 자동으로 커짐. ⚠️너무 줄이면 프린터 하드웨어
    여백에서 가장자리 잘림 → 6mm는 안전선(실프린터 1회 확인). */
-@page pbprint { margin: 6mm; }
+/* PRINT-LANDSCAPE(2026-07-20 사용자 결정): 그림책 인쇄=가로 고정 — 무대가 3:2 가로라
+   가로 용지가 기본. size 지정으로 인쇄 다이얼로그 방향 선택과 무관하게 잠금(named page라
+   나침반/고쳐쓰기 등 다른 인쇄물엔 무영향). 콘텐츠 박스=297−12×210−12mm=285×198mm.
+   페이지 높이도 vh→mm 고정으로 전환(아래) — 화면 미리보기와 인쇄가 같은 mm 기하를 계산
+   = 도우미 실측·줄바꿈·세로 넘침 판정까지 전부 인쇄와 동일해짐. */
+@page pbprint { size: A4 landscape; margin: 6mm; }
 /* PRINT-HELPER(2026-07-20): @media print → print, screen — 블록 전체가 body.print-picturebook
    클래스로 게이트돼 있어(전 셀렉터 검증) 평상시 화면 영향 0. 클래스는 인쇄 직전/도우미
    미리보기 동안만 부여 → 같은 레이아웃을 화면에서도 계산·표시(도우미 실측·WYSIWYG 기반).
@@ -1427,7 +1432,9 @@
   /* FOLLOWUP-3: 950px 고정은 A4 '세로' 가정 — 사용자가 가로 모드로 인쇄하면(콘텐츠 ~700px)
      페이지마다 넘쳐 분할되던 문제. 96vh = 인쇄 페이지 박스 기준 → 용지 방향 자동 대응.
      (이전 vh 문제는 min-height+avoid 부재 조합이 원인 — 지금은 height 고정+hidden+avoid라 초과 불가) */
-  body.print-picturebook .pbp-cover { height: 96vh; min-height: 0; display: flex; box-sizing: border-box; overflow: hidden; break-inside: avoid; page-break-inside: avoid; }
+  /* PRINT-LANDSCAPE: 96vh→196mm — 가로 A4 콘텐츠 높이(198mm)−2mm 안전(브라우저 반올림로
+     빈 페이지 끼는 고전 함정 방지). mm는 매체 무관이라 화면 미리보기=인쇄 동일. */
+  body.print-picturebook .pbp-cover { height: 196mm; min-height: 0; display: flex; box-sizing: border-box; overflow: hidden; break-inside: avoid; page-break-inside: avoid; }
   /* PAPER-PRINT-THEME(2026-07-09): 표지·글페이지도 장면과 같은 누런 종이+좌측 스프링 제본으로 통일(책 일관성·사용자 승인). */
   body.print-picturebook .pbp-cover,
   body.print-picturebook .pbp-publish {
@@ -1495,7 +1502,7 @@
      A4 세로·교사 PC Chrome 기준. 흑백 출력도 읽히도록 무채색 유지. */
   /* FOLLOWUP-2: 고정 950px 예산 — 한 장면=한 페이지 구조 보장(vh 폐기) */
   body.print-picturebook .pbp-publish {
-    height: 96vh; min-height: 0; display: flex; flex-direction: column;
+    height: 196mm; min-height: 0; display: flex; flex-direction: column;   /* PRINT-LANDSCAPE: vh→mm */
     break-inside: avoid; page-break-inside: avoid; overflow: hidden; box-sizing: border-box;
   }
   body.print-picturebook .pbp-publish .pbp-scene--full {
@@ -1570,7 +1577,7 @@
      stage와 선택지 사이에 page break가 구조적으로 불가능(overflow:hidden = 초과 시에도 분할 대신
      내부 수납·선택지 공간 우선 보장). 무대는 남은 높이 안에서 3:2 유지 fit. */
   body.print-picturebook .pbp-scenepub {
-    height: 96vh; min-height: 0; box-sizing: border-box;
+    height: 196mm; min-height: 0; box-sizing: border-box;   /* PRINT-LANDSCAPE: vh→mm */
     display: grid; grid-template-rows: minmax(0, 1fr) auto auto auto;   /* 무대 | (split 본문) | 선택지 | 번호 */
     break-inside: avoid; page-break-inside: avoid; overflow: hidden;
     /* PAPER-PRINT-THEME(2026-07-09): 인쇄 = paper-storybook 테마 고정 반영(작품별 추종 X·사용자 결정).
@@ -1597,7 +1604,10 @@
     min-height: 0; display: flex; align-items: center; justify-content: center;
   }
   body.print-picturebook .pbp-stage2 {
-    position: relative; width: 100%; aspect-ratio: 3 / 2; max-height: 100%;
+    /* PRINT-LANDSCAPE: width:100%+max-height → height:100%+max-width — 가로 용지에선 세로가
+       빠듯해 width 기준이면 max-height 캡으로 3:2가 깨짐(말풍선 % 좌표 왜곡). 세로 기준이면
+       row 높이×1.5 폭으로 항상 참 3:2, stagewrap flex-center가 가로 중앙 정렬. */
+    position: relative; height: 100%; aspect-ratio: 3 / 2; max-width: 100%;
     border: 1.5px solid rgba(120,90,50,0.45); border-radius: 12px; overflow: hidden;
     /* PRINT-STAGE-NOWHITE(2026-07-09): 흰 배경 제거 — 3:2 아닌 그림의 contain 레터박스 여백에 흰색이 드러나던 문제.
        투명으로 두어 종이 배경(paper 그라디언트)이 비치게 = 흰 박스 사라짐. 무대는 3:2 유지(말풍선 % 좌표 정합).
@@ -1694,10 +1704,10 @@
    화면 전용 표시 품질(용지 폭 고정=인쇄와 동일 줄바꿈·책상 배경·페이지 그림자)과
    도우미 컨트롤(바/칩/뱃지)만 담당. 인쇄물에는 컨트롤 전부 미출력(@media print 숨김). */
 @media screen {
-  /* 용지 폭 재현: A4 210mm − @page 여백 6mm×2 = 198mm — 화면 실측·미리보기 줄바꿈이
-     실제 인쇄와 일치하는 근거. 좁은 기기(태블릿 세로)는 96vw로 양보(근사 미리보기). */
+  /* 용지 폭 재현: 가로 A4 297mm − @page 여백 6mm×2 = 285mm(PRINT-LANDSCAPE) — 페이지 높이도
+     mm 고정이라 화면 실측·줄바꿈·세로 넘침 판정이 인쇄와 완전 동일. 좁은 기기는 96vw 양보(근사). */
   body.print-picturebook .pb-print-root {
-    width: 198mm; max-width: 96vw; margin: 0 auto; background: transparent;
+    width: 285mm; max-width: 96vw; margin: 0 auto; background: transparent;
   }
   body.print-picturebook { background: #675f53; }
   body.print-picturebook .pbp-page { margin: 16px 0; box-shadow: 0 5px 20px rgba(0,0,0,.38); }

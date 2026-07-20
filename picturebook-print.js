@@ -386,9 +386,10 @@
     try {
       document.body.classList.add('print-picturebook');
       document.documentElement.classList.add('print-doc-unclip');
-      /* PRINT-NOCLIP: 저장된 글자 조절 적용(계산 폰트 기준) → 말풍선 자동 맞춤 */
+      /* PRINT-NOCLIP: 저장된 글자 조절 적용(계산 폰트 기준) → 말풍선·페이지 자동 맞춤 */
       _applyFontOverrides(rootEl, _overrides);
       _autoFitBubbles(rootEl, _overrides);
+      _autoFitPageBodies(rootEl, _overrides);
       const cleanup = function () {
         document.body.classList.remove('print-picturebook');
         document.documentElement.classList.remove('print-doc-unclip');
@@ -467,7 +468,29 @@
         const curTop = parseFloat(bub.style.top) || 0;
         bub.style.top = Math.max(2, curTop - (overPx / sr.height) * 100).toFixed(1) + '%';
       }
-      if (scale < 1) bub.dataset.pbpAutoScale = String(scale);
+      /* autoScale 기록은 글자 요소에 — 도우미 칩(curScale)·분할형 경로와 통일 */
+      if (scale < 1) p.dataset.pbpAutoScale = String(scale);
+    });
+  }
+
+  /* 분할형/글만 페이지 본문 자동 맞춤(PRINT-LANDSCAPE 후속): 페이지 높이가 mm 고정이라
+     화면 실측=인쇄와 동일해짐 → 페이지(overflow hidden) 세로 넘침 시 본문 글자만 단계
+     축소(하한 60%). 말풍선(전용 로직)과 교사 override 장면은 제외. */
+  function _autoFitPageBodies(rootEl, overrides) {
+    rootEl.querySelectorAll('.pbp-page').forEach((page) => {
+      const el = page.querySelector('[data-pbp-fs-key]');
+      if (!el || el.classList.contains('pbp-stage2-bubble-p')) return;
+      const key = el.dataset.pbpFsKey;
+      if (overrides && overrides[key] && Number.isFinite(overrides[key].fontScale)) return;
+      const fits = () => page.scrollHeight <= page.clientHeight + 1;
+      if (fits()) return;
+      let scale = 1;
+      while (!fits() && scale > 0.6) {
+        scale = Math.round((scale - 0.05) * 100) / 100;
+        _applyFsScale(el, scale);
+        void page.offsetHeight;
+      }
+      if (scale < 1) el.dataset.pbpAutoScale = String(scale);
     });
   }
 
@@ -530,7 +553,7 @@
         const curScale = function () {
           const o = overrides[key];
           if (o && Number.isFinite(o.fontScale)) return o.fontScale;
-          if (bub && bub.dataset.pbpAutoScale) return parseFloat(bub.dataset.pbpAutoScale);
+          if (target.dataset.pbpAutoScale) return parseFloat(target.dataset.pbpAutoScale);
           return 1;
         };
         const show = function () { val.textContent = Math.round(curScale() * 100) + '%'; };
@@ -544,12 +567,14 @@
         plus.addEventListener('click', function () { stepTo(curScale() + 0.05); });
         reset.addEventListener('click', function () {
           delete overrides[key];
+          delete target.dataset.pbpAutoScale;
           _applyFsScale(target, 1);
           if (bub) {
-            delete bub.dataset.pbpAutoScale;
             bub.style.left = bub.dataset.pbpOrigX + '%';
             bub.style.top = bub.dataset.pbpOrigY + '%';
-            _autoFitBubbles(rootEl, overrides);   /* override 삭제됐으니 이 장면만 다시 자동 맞춤 */
+            _autoFitBubbles(rootEl, overrides);   /* override 삭제됐으니 다시 자동 맞춤 */
+          } else {
+            _autoFitPageBodies(rootEl, overrides);
           }
           show(); refreshBadge();
         });
@@ -595,5 +620,5 @@
     try { window.scrollTo(0, 0); } catch (e) { /* noop */ }
   }
 
-  return { buildPrintOrder, resolveStartKey, describeChoice, open, _autoFitBubbles };
+  return { buildPrintOrder, resolveStartKey, describeChoice, open, _autoFitBubbles, _autoFitPageBodies };
 });

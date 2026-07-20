@@ -14,7 +14,7 @@
 
 const MIN_QUESTIONS = 3;
 const MAX_QUESTIONS = 6;
-const MAX_SCENES = 25;
+const MAX_SCENES = 30;   /* S2-CAP-30(2026-07-20): 25→30 — s2 상한과 정합(초과분은 기존대로 앞에서 절단) */
 const MAX_BODY_CHARS = 500;
 const MAX_CHOICE_CHARS = 100;
 const MAX_TEXT = 200;       /* question/reason/studentAction 표시 상한 */

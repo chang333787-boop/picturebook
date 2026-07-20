@@ -358,6 +358,9 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
         && (ViewerState.project.picturebookLevel === 1 || ViewerState.project.picturebookLevel === 2);
       document.body.classList.toggle('pb-level-linear', !!_lin);
     } catch (e) { /* noop */ }
+    /* DRAFT-UX-2(2026-07-20): 1단계 그림 생성 진행 배지 — 생성 완료 전에 감상/다듬기에 들어와도
+       "만드는 중 n/N"이 보이고, 완료되면 자동으로 AI 그림 표시까지 갱신. */
+    try { setTimeout(_maybeStartLv1ImageBadge, 400); } catch (e) { /* noop */ }
 
     /* v138: 그림책형 본문 카드 톤 시스템 (작품 단위)
        장면 1에서 설정한 값이 작품 전체 일반 분할형·엔딩 분할형에 적용됨.
@@ -1466,6 +1469,75 @@ function _normalizeTextEffect(raw) {
 /* TEXT-FONT-MAP-VIEWER(2026-07-09): textStyle.fontFamily ID → CSS font-family 매핑을 편집 번들(viewer-edit.js)에서
    여기(감상에 항상 로드되는 viewer-data.js)로 이동 — 순수 감상(첫화면 진입)·인쇄에서도 폰트가 적용되도록.
    이전엔 편집 번들 미로드 감상 모드에서 미정의라 fontMap이 비어 기본 폰트로 떨어졌음. ID는 maker/viewer 일관. */
+/* ════ DRAFT-UX-2(2026-07-20): 1단계 그림 생성 진행 배지(viewer판) ════
+   maker(mobileTextBranch)와 동일 UX — aiVariants/image 도착 수 8초 폴링.
+   완료 시 ensureAiViewBundle→viewerAi.reinitForCurrentTeam으로 새로고침 없이 AI 그림 표시.
+   read-only·책(팀) 전환 시 자동 종료·12분 상한. */
+let _lv1ImgBadgeTimer = null;
+function _stopLv1ImageBadge() {
+  if (_lv1ImgBadgeTimer) { clearInterval(_lv1ImgBadgeTimer); _lv1ImgBadgeTimer = null; }
+}
+function _maybeStartLv1ImageBadge() {
+  _stopLv1ImageBadge();
+  document.getElementById('story-image-progress-badge')?.remove();
+  const p = ViewerState.project || {};
+  if (!(p.projectType === 'picturebook' && p.picturebookLevel === 1)) return;
+  const classId = p.classId, tName = p.teamName;
+  if (!classId || !tName) return;
+  /* 그림 대상 = 본문 있는 비표지 장면(서버 대상 산정과 동일 기준) */
+  const expected = Object.values(ViewerState.scenes || {})
+    .filter(s => s && s.type !== 'cover' && !s.isCover && String(s.body || '').trim()).length;
+  if (!expected) return;
+  const db = getViewerDb();
+  if (!db) return;
+  const enc = encodeURIComponent(tName);
+  let started = false;
+  let ticks = 0;
+  const poll = async () => {
+    ticks++;
+    /* 책장 등으로 다른 책으로 넘어갔으면 종료 */
+    if (!ViewerState.project || ViewerState.project.teamName !== tName) {
+      document.getElementById('story-image-progress-badge')?.remove(); _stopLv1ImageBadge(); return;
+    }
+    let n = 0;
+    try {
+      const snap = await db.ref('classes/' + classId + '/teams/' + enc + '/aiVariants/image').once('value');
+      n = Object.keys(snap.val() || {}).length;
+    } catch (e) { /* noop */ }
+    if (n >= expected) {
+      const badge = document.getElementById('story-image-progress-badge');
+      _stopLv1ImageBadge();
+      if (started && badge) {   /* 진행을 보여준 적이 있을 때만 완료 안내+자동 갱신 */
+        badge.textContent = '✅ AI 그림 ' + n + '장 완성!';
+        setTimeout(() => { try { badge.remove(); } catch (e) {} }, 6000);
+        try {
+          if (typeof window.ensureAiViewBundle === 'function') {
+            window.ensureAiViewBundle().then(() => {
+              try { if (window.viewerAi && typeof window.viewerAi.reinitForCurrentTeam === 'function') window.viewerAi.reinitForCurrentTeam(); } catch (e) {}
+            });
+          }
+        } catch (e) { /* 자동 갱신 실패 = 새로고침으로 보임 */ }
+      } else if (badge) { badge.remove(); }
+      return;
+    }
+    /* 진행 중 — 배지 표시/갱신 */
+    let badge = document.getElementById('story-image-progress-badge');
+    if (!badge) {
+      badge = document.createElement('div');
+      badge.id = 'story-image-progress-badge';
+      badge.setAttribute('role', 'status');
+      badge.style.cssText = 'position:fixed;left:14px;bottom:14px;z-index:99990;padding:10px 16px;background:#fffdf8;border:1.5px solid #d8c7a6;border-radius:12px;box-shadow:0 4px 16px rgba(80,60,20,.18);font-size:13.5px;color:#5b4a2e;font-weight:700;max-width:80vw;';
+      document.body.appendChild(badge);
+    }
+    started = true;
+    badge.textContent = '🎨 AI 그림 만드는 중 ' + n + '/' + expected + '… (장당 1분 정도)';
+    if (ticks > 90) { badge.remove(); _stopLv1ImageBadge(); }
+  };
+  _lv1ImgBadgeTimer = setInterval(poll, 8000);
+  poll();
+}
+if (typeof window !== 'undefined') window._maybeStartLv1ImageBadge = _maybeStartLv1ImageBadge;   /* 하니스용 */
+
 const TEXT_FONT_FAMILIES = {
   gothic:     "'Nanum Gothic', sans-serif",
   batang:     "'Gowun Batang', 'Nanum Myeongjo', serif",

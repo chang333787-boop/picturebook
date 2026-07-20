@@ -899,7 +899,9 @@ const ANTHROPIC_TIMEOUT_MS = 50000;  /* Functions timeout 60s 기준 — 여유 
    ════════════════════════════════════════════════════════════════ */
 const S2_CHUNK_SIZE = 4;     /* chunk당 발전 대상 장면 수 — 출력 토큰 폭주/timeout 회피 */
 const S2_CONCURRENCY = 4;    /* 동시 Anthropic 호출 상한(wave). 초대형 작품 안정성 위해 제한 */
-const S2_MAX_SCENES = 24;    /* 본문 있는 장면 수 상한. 초과 시 호출 前 차단(quota 차감 X) */
+const S2_MAX_SCENES = 30;    /* 본문 있는 장면 수 상한. 초과 시 호출 前 차단(quota 차감 X).
+                                S2-CAP-30(2026-07-20 사용자 결정): 24→30 — 실작품(25장면+)이 걸림.
+                                s2는 청크 처리(T2-INFRA-1)라 30장면도 토큰 예산 안전. */
 /* T2-JSON-RETRY(2026-07-16): 청크 JSON 파싱 실패 시 재호출에 덧붙이는 엄격 JSON 리마인더.
    원인=모델이 문자열 값 안 따옴표/줄바꿈을 이스케이프 안 함(대사 많은 아이 글). */
 const JSON_STRICT_RETRY_REMINDER = '\n\n[매우 중요] 앞선 응답의 JSON이 깨졌습니다. 반드시 유효한 JSON 하나만 출력하세요. 문자열 값 안의 큰따옴표(")는 반드시 \\" 로, 줄바꿈은 \\n 으로 이스케이프하세요. JSON 앞뒤에 설명·마크다운·코드펜스를 붙이지 마세요.';

@@ -2674,6 +2674,50 @@ function _notifyStoryDraftFail(kind, detail) {
   try { alert('🌱 ' + msg + '\n\n지금은 빈 이야기 틀로 시작해요.'); } catch (e) { /* noop */ }
 }
 
+/* ════ DRAFT-UX-2(2026-07-20): 1단계 그림 생성 진행 배지 ════
+   그림은 장당 50~70초 백그라운드(9장≈3~5분) — 토스트 한 줄로는 "안 만들어진다"로
+   보임(교사 실보고 2회). aiVariants/image 도착 수를 8초 폴링해 좌하단 배지로 표시,
+   완료 시 ✅ 안내 후 제거. read-only·팀 전환 시 자동 종료. viewer 쪽은 viewer-data가 담당. */
+let _storyImgBadgeTimer = null;
+function _stopStoryImageBadge() {
+  if (_storyImgBadgeTimer) { clearInterval(_storyImgBadgeTimer); _storyImgBadgeTimer = null; }
+}
+function _startStoryImageBadge(classId, tName, expected) {
+  try { _stopStoryImageBadge(); document.getElementById('story-image-progress-badge')?.remove(); } catch (e) {}
+  if (!classId || !tName || !expected) return;
+  const enc = encodeURIComponent(tName);
+  const el = document.createElement('div');
+  el.id = 'story-image-progress-badge';
+  el.setAttribute('role', 'status');
+  el.style.cssText = 'position:fixed;left:14px;bottom:14px;z-index:99990;padding:10px 16px;background:#fffdf8;border:1.5px solid #d8c7a6;border-radius:12px;box-shadow:0 4px 16px rgba(80,60,20,.18);font-size:13.5px;color:#5b4a2e;font-weight:700;max-width:80vw;';
+  el.textContent = '🎨 AI 그림 만드는 중 0/' + expected + '… (장당 1분 정도)';
+  document.body.appendChild(el);
+  let ticks = 0;
+  const poll = async () => {
+    ticks++;
+    const badge = document.getElementById('story-image-progress-badge');
+    if (!badge) { _stopStoryImageBadge(); return; }
+    /* 팀을 바꿨으면 이 배지는 남의 것 — 종료 */
+    try { if (typeof teamName === 'string' && teamName && teamName !== tName) { badge.remove(); _stopStoryImageBadge(); return; } } catch (e) {}
+    let n = 0;
+    try {
+      const snap = await firebase.database().ref('classes/' + classId + '/teams/' + enc + '/aiVariants/image').once('value');
+      n = Object.keys(snap.val() || {}).length;
+    } catch (e) { /* 읽기 실패 = 표시만 유지 */ }
+    if (n >= expected) {
+      badge.textContent = '✅ AI 그림 ' + n + '장 완성! [▶️ 감상해 보기]에서 확인해 보세요.';
+      _stopStoryImageBadge();
+      setTimeout(() => { try { badge.remove(); } catch (e) {} }, 10000);
+      return;
+    }
+    badge.textContent = '🎨 AI 그림 만드는 중 ' + n + '/' + expected + '… (장당 1분 정도)';
+    if (ticks > 90) { badge.remove(); _stopStoryImageBadge(); }   /* 12분 상한 — 조용히 종료 */
+  };
+  _storyImgBadgeTimer = setInterval(poll, 8000);
+  poll();
+}
+window._startStoryImageBadge = _startStoryImageBadge;   /* 하니스 검증용 */
+
 /* 콜러블 호출 + 적용. 모든 실패 = false(호출자 폴백). */
 async function requestStoryDraftStarter(opts) {
   opts = opts || {};
@@ -2724,6 +2768,8 @@ async function requestStoryDraftStarter(opts) {
           })
           .catch((e) => console.warn('[storyImages] fail:', (e && (e.code || e.message)) || e));
         _mtbToast('그림도 만들고 있어요! 조금 뒤 [감상해 보기]에서 볼 수 있어요. 🎨');
+        /* DRAFT-UX-2: 진행 배지 — 이야기 장면 sc개 + 엔딩 1 = 그림 대상 수 */
+        _startStoryImageBadge(classId, teamName, sc + 1);
       } catch (e) { /* 그림 실패는 비치명 */ }
     }
     return applied;

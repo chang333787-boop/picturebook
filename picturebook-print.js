@@ -219,6 +219,8 @@
         const out = {};
         if (Number.isFinite(Number(o.x))) out.x = Math.max(0, Math.min(94, Number(o.x)));
         if (Number.isFinite(Number(o.y))) out.y = Math.max(0, Math.min(94, Number(o.y)));
+        if (Number.isFinite(Number(o.w))) out.w = Math.max(20, Math.min(94, Number(o.w)));
+        if (Number.isFinite(Number(o.h))) out.h = Math.max(4, Math.min(92, Number(o.h)));
         if (Number.isFinite(Number(o.fontScale))) out.fontScale = Math.max(0.5, Math.min(1.4, Number(o.fontScale)));
         if (Object.keys(out).length) _overrides[String(k)] = out;
       });
@@ -328,15 +330,23 @@
           const ovr = _overrides[String(k)] || null;
           const bx = (ovr && ovr.x != null) ? ovr.x : bb.x;
           const by = (ovr && ovr.y != null) ? ovr.y : bb.y;
+          /* PRINT-HELPER-RESIZE: 상자 크기(w/h)도 인쇄 전용 조절 — 원본 layout 무접촉 */
+          const bw = (ovr && ovr.w != null) ? ovr.w : bb.width;
+          const bh = (ovr && ovr.h != null) ? ovr.h : bb.height;
           /* PAPER-BUBBLE(2026-07-09): 흰색 인라인 대신 진하기만 변수로 넘기고 배경색은 인쇄 CSS(paper 베이지)가 적용.
              화면 paper-storybook 말풍선(v03-modes.css)과 톤 일치. */
-          bub.style.cssText = 'left:' + bx + '%;top:' + by + '%;width:' + bb.width + '%;'
-            + (typeof bb.height === 'number' ? 'min-height:' + bb.height + '%;' : '')
+          bub.style.cssText = 'left:' + bx + '%;top:' + by + '%;width:' + bw + '%;'
+            + (typeof bh === 'number' ? 'min-height:' + bh + '%;' : '')
             + '--pb-box-opacity:' + op + ';'
             + 'box-shadow:0 2px 6px rgba(0,0,0,' + (0.08 * op).toFixed(3) + ');';
           bub.dataset.pbpKey = String(k);
           bub.dataset.pbpOrigX = String(bb.x);
           bub.dataset.pbpOrigY = String(bb.y);
+          bub.dataset.pbpOrigW = String(bb.width);
+          bub.dataset.pbpOrigH = (typeof bb.height === 'number') ? String(bb.height) : '';
+          if (typeof bh === 'number') bub.dataset.pbpBaseH = String(bh);
+          /* 교사가 상자 크기를 직접 정한 장면 = 글자-상자 자동 연동 제외(교사 값 존중) */
+          if (ovr && (ovr.w != null || ovr.h != null)) bub.dataset.pbpUserH = '1';
           const p = _el('p', 'pbp-stage2-bubble-p', body);
           p.dataset.pbpFsKey = String(k);   /* 글자 크기 조절 대상(도우미/자동맞춤 공용) */
           bub.appendChild(p);
@@ -434,10 +444,23 @@
     if (!Number.isFinite(scale) || Math.abs(scale - 1) < 0.001) el.style.fontSize = '';
     else el.style.fontSize = (Math.round(base * scale * 10) / 10) + 'px';
   }
+  /* PRINT-HELPER-RESIZE: 글자 크기에 상자(min-height)도 비례 연동 — 글자만 줄면 저장된
+     명시 높이 때문에 반 빈 상자가 남는 문제(사용자 보고). 교사가 상자를 직접 조절한
+     장면(pbpUserH)은 제외. min-height는 바닥일 뿐이라 축소해도 글 잘림 0(내용만큼 늘어남). */
+  function _syncBubbleMinHeight(bub, scale) {
+    if (!bub || bub.dataset.pbpUserH === '1') return;
+    const baseH = parseFloat(bub.dataset.pbpBaseH);
+    if (!Number.isFinite(baseH)) return;
+    const s = Math.min(1, Number.isFinite(scale) ? scale : 1);
+    bub.style.minHeight = (Math.round(baseH * s * 10) / 10) + '%';
+  }
   function _applyFontOverrides(rootEl, overrides) {
     rootEl.querySelectorAll('[data-pbp-fs-key]').forEach((el) => {
       const o = overrides[el.dataset.pbpFsKey];
-      if (o && Number.isFinite(o.fontScale)) _applyFsScale(el, o.fontScale);
+      if (o && Number.isFinite(o.fontScale)) {
+        _applyFsScale(el, o.fontScale);
+        _syncBubbleMinHeight(el.closest('.pbp-stage2-bubble'), o.fontScale);
+      }
     });
   }
 
@@ -460,6 +483,7 @@
       while (!fits() && scale > 0.6) {
         scale = Math.round((scale - 0.05) * 100) / 100;
         _applyFsScale(p, scale);
+        _syncBubbleMinHeight(bub, scale);   /* 상자도 비례 축소 → 더 일찍 수납 */
         void bub.offsetHeight;
       }
       if (!fits()) {
@@ -505,7 +529,7 @@
 
     const bar = _el('div', 'pbp-helper-ui pbp-helper-bar');
     const txt = _el('div', 'pbp-helper-bar__txt');
-    txt.innerHTML = '<b>🖨 인쇄 도우미</b> — 말풍선을 끌어 옮기고 A−/A+로 글자 크기를 바꿔 보세요. <b>인쇄에만</b> 반영되고 작품은 그대로예요.';
+    txt.innerHTML = '<b>🖨 인쇄 도우미</b> — 말풍선은 끌어 옮기고, 오른쪽 아래 ○로 크기를, A−/A+로 글자를 조절해요. <b>인쇄에만</b> 반영되고 작품은 그대로예요.';
     const btns = _el('div', 'pbp-helper-bar__btns');
     const printBtn = _el('button', 'pbp-helper-btn', '🖨 인쇄하기'); printBtn.type = 'button';
     const closeBtn = _el('button', 'pbp-helper-btn pbp-helper-btn--ghost', '✕ 닫기'); closeBtn.type = 'button';
@@ -561,6 +585,7 @@
           s = Math.round(Math.max(0.6, Math.min(1.2, s)) * 100) / 100;
           ent(key).fontScale = s;
           _applyFsScale(target, s);
+          if (bub) _syncBubbleMinHeight(bub, s);   /* 글자 따라 상자도(교사 직접 크기 지정 전까지) */
           show(); refreshBadge();
         };
         minus.addEventListener('click', function () { stepTo(curScale() - 0.05); });
@@ -570,8 +595,13 @@
           delete target.dataset.pbpAutoScale;
           _applyFsScale(target, 1);
           if (bub) {
+            delete bub.dataset.pbpUserH;
             bub.style.left = bub.dataset.pbpOrigX + '%';
             bub.style.top = bub.dataset.pbpOrigY + '%';
+            bub.style.width = bub.dataset.pbpOrigW + '%';
+            bub.style.minHeight = bub.dataset.pbpOrigH ? bub.dataset.pbpOrigH + '%' : '';
+            if (bub.dataset.pbpOrigH) bub.dataset.pbpBaseH = bub.dataset.pbpOrigH;
+            else delete bub.dataset.pbpBaseH;
             _autoFitBubbles(rootEl, overrides);   /* override 삭제됐으니 다시 자동 맞춤 */
           } else {
             _autoFitPageBodies(rootEl, overrides);
@@ -579,6 +609,47 @@
           show(); refreshBadge();
         });
         show();
+      }
+
+      /* 말풍선 크기 조절 ↘ 핸들(PRINT-HELPER-RESIZE) — 다듬기의 모서리 리사이즈 UX를
+         인쇄 전용으로: w/h는 printOverrides에만 저장(원본 layout 무접촉). min-height 방식이라
+         내용보다 작게 줄여도 글 잘림 0(상자가 내용만큼은 유지). */
+      if (bub && st) {
+        const rz = _el('div', 'pbp-helper-ui pbp-helper-resize', '');
+        bub.appendChild(rz);
+        let rzOn = false, rsx = 0, rsy = 0, rw0 = 0, rh0 = 0;
+        rz.addEventListener('pointerdown', function (e) {
+          rzOn = true; rsx = e.clientX; rsy = e.clientY;
+          const sr = st.getBoundingClientRect();
+          const br = bub.getBoundingClientRect();
+          rw0 = sr.width ? (br.width / sr.width) * 100 : 55;
+          rh0 = sr.height ? (br.height / sr.height) * 100 : 20;
+          try { rz.setPointerCapture(e.pointerId); } catch (er) { /* noop */ }
+          e.preventDefault(); e.stopPropagation();
+        });
+        rz.addEventListener('pointermove', function (e) {
+          if (!rzOn) return;
+          const sr = st.getBoundingClientRect();
+          if (!sr.width || !sr.height) return;
+          const curX = parseFloat(bub.style.left) || 0;
+          const nw = Math.max(20, Math.min(Math.min(94, 100 - curX), rw0 + ((e.clientX - rsx) / sr.width) * 100));
+          const nh = Math.max(4, Math.min(92, rh0 + ((e.clientY - rsy) / sr.height) * 100));
+          bub.style.width = nw.toFixed(1) + '%';
+          bub.style.minHeight = nh.toFixed(1) + '%';
+          e.stopPropagation();
+        });
+        const rzEnd = function (e) {
+          if (!rzOn) return;
+          rzOn = false;
+          bub.dataset.pbpUserH = '1';   /* 이후 글자-상자 자동 연동 중지(교사 값 존중) */
+          const o = ent(key);
+          o.w = Math.round((parseFloat(bub.style.width) || 55) * 10) / 10;
+          o.h = Math.round((parseFloat(bub.style.minHeight) || 20) * 10) / 10;
+          refreshBadge();
+          if (e && e.stopPropagation) e.stopPropagation();
+        };
+        rz.addEventListener('pointerup', rzEnd);
+        rz.addEventListener('pointercancel', rzEnd);
       }
 
       /* 말풍선 드래그 → 인쇄 좌표만 이동(원본 layout 무접촉) */

@@ -1742,6 +1742,11 @@
     border: 1px solid #c9b98f; border-radius: 999px; background: #fff; color: #5b4a2e; cursor: pointer;
   }
   body.print-picturebook .pbp-helper-chip .pbp-helper-chip__val { min-width: 40px; text-align: center; }
+  body.print-picturebook .pbp-helper-resize {
+    position: absolute; right: -8px; bottom: -8px; width: 18px; height: 18px; z-index: 7;
+    background: #fff; border: 2px solid #4a90d9; border-radius: 50%;
+    cursor: nwse-resize; touch-action: none; box-shadow: 0 1px 4px rgba(0,0,0,.28);
+  }
   body.print-picturebook .pbp-helper-badge {
     position: absolute; top: 6px; left: 6px; z-index: 6;
     background: rgba(192,57,43,.94); color: #fff; border-radius: 8px;

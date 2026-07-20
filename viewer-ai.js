@@ -3415,6 +3415,8 @@
           const out = {};
           if (Number.isFinite(Number(o.x))) out.x = Math.round(Math.max(0, Math.min(94, Number(o.x))) * 10) / 10;
           if (Number.isFinite(Number(o.y))) out.y = Math.round(Math.max(0, Math.min(94, Number(o.y))) * 10) / 10;
+          if (Number.isFinite(Number(o.w))) out.w = Math.round(Math.max(20, Math.min(94, Number(o.w))) * 10) / 10;
+          if (Number.isFinite(Number(o.h))) out.h = Math.round(Math.max(4, Math.min(92, Number(o.h))) * 10) / 10;
           if (Number.isFinite(Number(o.fontScale)) && Math.abs(Number(o.fontScale) - 1) > 0.001) {
             out.fontScale = Math.round(Math.max(0.5, Math.min(1.4, Number(o.fontScale))) * 100) / 100;
           }

@@ -1918,9 +1918,15 @@ function getPublishedImageDisplaySrc(scene, originalSrc) {
     const sel = _pubImageSelBySid ? _pubImageSelBySid[key] : null;
     const s2 = _pubImageS2BySid ? _pubImageS2BySid[key] : null;
     if (!sel) {
-      /* AI-DEFAULT-VIEW-1: 선택 없음 → s2 자동 기본(감상 전용·편집 제외) */
+      /* AI-DEFAULT-VIEW-1: 선택 없음 → s2 자동 기본(감상 전용·편집 제외).
+         DRAFT-UX-3(2026-07-20 사용자 결정): 그림책 1단계는 편집(다듬기)에서도 s2 자동 —
+         1단계 원본 슬롯은 설계상 비어 있고(업로드/그리기 없음) 아이의 다듬기 과제가
+         "AI 그림 위에서 말풍선 옮기기"라, 무대에 그림이 없으면 작업 자체가 불가했음.
+         원본 편집 충돌 없음(1단계는 원본 이미지 편집 UI 자체가 숨김·🔁 재생성만). */
       const editing = (typeof ViewerState !== 'undefined' && ViewerState && ViewerState.editMode === true);
-      if (editing || !s2) return originalSrc;
+      const lv1 = (typeof ViewerState !== 'undefined' && ViewerState && ViewerState.project
+        && ViewerState.project.projectType === 'picturebook' && ViewerState.project.picturebookLevel === 1);
+      if ((editing && !lv1) || !s2) return originalSrc;
       const auto = resolveSceneImageSource(scene, null, s2, 's2');   /* previewMode 's2' = usable하면 s2 */
       return (auto && auto.kind === 's2' && typeof auto.src === 'string' && auto.src) ? auto.src : originalSrc;
     }

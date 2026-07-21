@@ -6090,10 +6090,21 @@ async function _saveProtagonistRef(url) {
   const clean = (url && /^https?:\/\//.test(String(url).trim())) ? String(url).trim() : null;
   if (!clean) throw new Error('bad url');
   try { if (ViewerState && ViewerState.project) ViewerState.project.protagonistRef = clean; } catch (e) { /* noop */ }
-  const cid = ViewerState && ViewerState.classId;
-  const tn = ViewerState && ViewerState.teamName;
+  /* classId/teamName 소스는 검증된 저장(authorName)과 동일 — 진실은 ViewerState.project.*
+     (loadTeamData가 채움). ViewerState.*·URL 파라미터는 fallback. 직접 ViewerState.classId만
+     쓰면 init 시점 공백에 "team not ready"로 저장 실패(사용자 보고). */
+  let cid = '', tn = '';
+  try {
+    const proj = (ViewerState && ViewerState.project) || {};
+    cid = String(proj.classId || (ViewerState && ViewerState.classId) || '');
+    tn = String(proj.teamName || (ViewerState && ViewerState.teamName) || '');
+    const p = new URLSearchParams(location.search);
+    if (!cid && p.get('classId')) cid = p.get('classId');
+    if (!tn && p.get('team')) tn = p.get('team');
+  } catch (e) { /* noop */ }
   if (!cid || !tn) throw new Error('team not ready');
   const app = (typeof getViewerApp === 'function') ? getViewerApp() : firebase.app('viewer');
+  if (!app || typeof app.database !== 'function') throw new Error('db not ready');
   await app.database().ref('classes/' + cid + '/teams/' + encodeURIComponent(tn) + '/viewer-meta')
     .update({ protagonistRef: clean });
 }

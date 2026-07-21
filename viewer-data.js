@@ -1365,18 +1365,22 @@ const TEXT_STYLE_DEFAULTS = {
   color:      '',        /* 빈 문자열이면 테마 기본 색 사용 */
   weight:     'normal',  /* normal | bold */
 };
-/* v77: 엔딩 scene 전용 default — 지금 CSS에 하드코딩된 룰을 그대로 모델로 옮김.
-   엔딩 인스펙터에서 사용자가 설정하면 scene.textStyle이 저장되고 override.
-   장면 1 "모든 장면 적용" 버튼은 엔딩 제외 정책 유지(v75) — 엔딩 독립. */
+/* v77: 엔딩 scene 전용 default — 엔딩 인스펙터에서 사용자가 설정하면 scene.textStyle이
+   저장되고 override. 장면 1 "모든 장면 적용" 버튼은 엔딩 제외 정책 유지(v75) — 엔딩 독립.
+   ═══ ENDING-STYLE-UNIFY(2026-07-21 사용자 결정) ═══
+   "엔딩만 굵게가 기본이라 일반 장면과 안 맞아 거슬린다 — 일반 장면과 똑같이" →
+   기본값을 TEXT_STYLE_DEFAULTS와 완전 동일(테마 기본 글씨체·18px·테마 색·보통 굵기)로 통일.
+   ⚠️이전 CSS 수정 2회(07-16 ENDING-WEIGHT-DEFAULT·07-19 LEVELS-FEEDBACK 글꼴)가 안 먹힌 이유:
+   여기 있던 jua/20/bold 'JS 렌더 기본값'이 엔딩에만 --pb-font-family(Jua)·--pb-fw-body(700)를
+   인라인 CSS 변수로 주입 → var() fallback(Gowun Batang·400)이 영원히 죽은 코드였음.
+   근본 원인이 CSS가 아니라 이 객체라서, 여기를 고쳐야 화면·인쇄(getTextStyle 공유)가 함께 통일됨.
+   D9-7C(색 빈 값=스킨 fallback) 정책은 그대로. DB 저장 안 되는 렌더 전용 default라 마이그레이션 불필요.
+   사용자가 꾸미기에서 명시 저장한 scene.textStyle(굵게 포함)은 종전대로 우선. */
 const ENDING_TEXT_STYLE_DEFAULTS = {
-  fontFamily: 'jua',
-  fontSize:   20,        /* CSS clamp 16~24의 중간 — 일반 화면에서 비슷 */
-  /* D9-7C 근본수정: 색 미선택 엔딩은 빈 값 → 스킨 fallback이 결정(night=밝은 크림 등).
-     기존 '#2b1f10'은 night 남색 글상자 위에서 검정으로 보였음. 이 값은 DB 저장 안 됨(렌더 전용 default)
-     → 마이그레이션 불필요. 사용자가 엔딩 색을 명시 선택하면 scene.textStyle.color로 저장되어 그대로 우선.
-     split/legacy/movie/explore 엔딩은 .ending-user-body fallback(#2b1f10 고정)으로 무변경. */
+  fontFamily: null,      /* null = 테마 기본 글씨체(일반 본문과 동일) */
+  fontSize:   18,
   color:      '',
-  weight:     'bold',
+  weight:     'normal',
 };
 const VALID_TEXT_EFFECTS = {
   entrance: ['none', 'fade', 'slide'],

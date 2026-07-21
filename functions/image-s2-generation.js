@@ -317,6 +317,8 @@ async function runImageS2Generation(input, deps) {
          미지정(3단계·기본)=P8 원본 보존(어댑터 byte 동일). characterSheet 있으면 캐릭터 고정. */
       transformMode: (i.transformMode === 'strong') ? 'strong' : undefined,
       characterSheet: (typeof i.characterSheet === 'string') ? i.characterSheet : '',
+      /* LEVEL2-CHAR(2026-07-21): 2단계 주인공 레퍼런스 URL(있으면 2번째 이미지). 어댑터가 SSRF 가드로 다운로드. */
+      protagonistRefSrc: (typeof i.protagonistRefSrc === 'string') ? i.protagonistRefSrc : '',
     });
   } catch (e) {
     return refundAnd({ ok: false, status: 'failed', code: 'IMAGE_AI_PROVIDER_ERROR', sceneId });

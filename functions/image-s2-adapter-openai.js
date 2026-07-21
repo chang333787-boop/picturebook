@@ -125,11 +125,20 @@ const OPENAI_S2_STRONG_WHOLE_FRAME = [
   'This never lets you add new characters or objects the child did not sketch, and never changes the sketched composition, count, or positions — only how each figure is finished and the world around it.',
 ].join('\n');
 
-function buildS2StrongPrompt(storyText, wholeStoryText, characterSheet) {
+/* LEVEL2-CHAR(2026-07-21): 주인공 레퍼런스 이미지(2번째 이미지) 있을 때의 캐릭터 고정 절.
+   PoC v3 8/8 방식 — 스케치의 주인공 = 레퍼런스 캐릭터. 조연은 그리지 않으니 whole-story로. */
+const OPENAI_S2_STRONG_PROTAGONIST_FRAME = [
+  'A SECOND reference image is provided: it is the child\'s drawing of the MAIN CHARACTER of this story.',
+  'Every main character in the sketch IS this same character. On this page, draw that main character to clearly match the reference: keep the same species/kind, colors, face, and distinctive features, rendered nicely in the storybook style, so the hero looks the same on every page.',
+  'The reference only defines how the MAIN CHARACTER looks — it does not change the scene\'s composition, count, positions, background, or any other figure. Follow the first sketch for what happens and where; follow the reference only for the hero\'s appearance.',
+].join('\n');
+
+function buildS2StrongPrompt(storyText, wholeStoryText, characterSheet, hasProtagonistRef) {
   const s = _sanitizeStoryText(storyText);
   const w = _sanitizeWholeStory(wholeStoryText);
   const c = _sanitizeWholeStory(characterSheet).slice(0, 500);
   let out = OPENAI_S2_STRONG_PROMPT;
+  if (hasProtagonistRef) out += '\n' + OPENAI_S2_STRONG_PROTAGONIST_FRAME;
   if (c) out += '\n' + OPENAI_STORY_CHARACTER_FRAME + '\nCharacter sheet: «' + c + '»';
   if (w) out += '\n' + OPENAI_S2_STRONG_WHOLE_FRAME + '\nThe whole story: «' + w + '»';
   if (s) out += '\n' + OPENAI_S2_STRONG_HINT_FRAME + '\nThis scene\'s own story text: «' + s + '»';
@@ -274,16 +283,29 @@ function createOpenAiImageS2Adapter(opts) {
       if (!input || !input.bytes || !inMime || ALLOWED_OUTPUT_MIME.indexOf(inMime) === -1) return { ok: false, code: CODES.SOURCE_FETCH_FAILED };
       if (input.bytes.length > MAX_SOURCE_BYTES) return { ok: false, code: CODES.SOURCE_FETCH_FAILED };
 
-      /* 2) /v1/images/edits 호출(고정 P3 프롬프트) */
+      const _strong = req && req.transformMode === 'strong';
+      /* LEVEL2-CHAR(2026-07-21): 강변환 + 주인공 레퍼런스 URL 있으면 2번째 이미지로 동봉(SSRF 가드
+         동일). 다운로드/검증 실패 시 레퍼런스 없이 진행(강변환 자체는 유효·페일세이프). */
+      let protInput = null;
+      if (_strong && req && req.protagonistRefSrc && isAllowedSourceUrl(req.protagonistRefSrc)) {
+        try {
+          const pin = await downloadImpl(req.protagonistRefSrc);
+          const pMime = pin && (pin.mime || sniffMime(pin.bytes));
+          if (pin && pin.bytes && pMime && ALLOWED_OUTPUT_MIME.indexOf(pMime) !== -1 && pin.bytes.length <= MAX_SOURCE_BYTES) {
+            protInput = { bytes: pin.bytes, mime: pMime };
+          }
+        } catch (e) { protInput = null; }
+      }
+
+      /* 2) /v1/images/edits 호출 */
       const ext = inMime === 'image/jpeg' ? 'jpg' : (inMime === 'image/webp' ? 'webp' : 'png');
       const form = new FormDataImpl();
       form.append('model', model);
       /* IMG-HINT-2/P7: 본문=해석·무대 힌트, MOOD-P8: 전체 이야기=책 단위 무대/분위기 일관성(W-A).
          LEVEL2-DRAW STRONG: req.transformMode==='strong'(2단계)면 구도만 지키고 강변환 프롬프트.
          그 외(3단계·기본)는 P8 그대로 — byte 동일(회귀 0). */
-      const _strong = req && req.transformMode === 'strong';
       form.append('prompt', _strong
-        ? buildS2StrongPrompt(req && req.storyText, req && req.wholeStoryText, req && req.characterSheet)
+        ? buildS2StrongPrompt(req && req.storyText, req && req.wholeStoryText, req && req.characterSheet, !!protInput)
         : buildS2Prompt(req && req.storyText, req && req.wholeStoryText));
       form.append('size', SIZE);
       form.append('quality', QUALITY);
@@ -291,7 +313,14 @@ function createOpenAiImageS2Adapter(opts) {
       form.append('output_format', OUTPUT_FORMAT);
       form.append('output_compression', OUTPUT_COMPRESSION);
       form.append('n', '1');
-      form.append('image', new BlobImpl([input.bytes], { type: inMime }), 'input.' + ext);
+      if (protInput) {
+        /* 2장(장면 스케치 + 주인공 레퍼런스) → image[] 배열. 3단계·레퍼런스 없음은 단일 image(불변). */
+        const pExt = protInput.mime === 'image/jpeg' ? 'jpg' : (protInput.mime === 'image/webp' ? 'webp' : 'png');
+        form.append('image[]', new BlobImpl([input.bytes], { type: inMime }), 'input.' + ext);
+        form.append('image[]', new BlobImpl([protInput.bytes], { type: protInput.mime }), 'character.' + pExt);
+      } else {
+        form.append('image', new BlobImpl([input.bytes], { type: inMime }), 'input.' + ext);
+      }
 
       const controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
       const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;

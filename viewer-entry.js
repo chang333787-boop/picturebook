@@ -159,19 +159,25 @@ window.__maybeRunRefineTutorial = function (ptype, opts) {
         /* TUTORIAL-SKIP-SUPPRESS-1 + AUDIT-B2 SKIP-SCOPE(2026-07-16): 코치 생략은 둘 다,
            영구 dismiss는 '다시 보지 않기'만. '넘어가기'는 이번 진입만 생략(기록 없음 — 다음에 다시 안내).
            maker 쪽(_makerCoachAfterWelcome)과 동일 정책. */
+        /* LEVEL2-CHAR(2026-07-21): 튜토리얼(환영/코치)이 어떻게 끝나든 마지막에 2단계 주인공
+           필수 게이트 시도(게이트 내부에서 2단계·미보유·편집·maker만 통과). 코치 있으면 코치 뒤. */
+        var _charGate = function () { try { if (typeof window.__maybeShowLevel2CharGate === 'function') window.__maybeShowLevel2CharGate(); } catch (e) { /* noop */ } };
         if (dontShow) {
           if (typeof window.TutorialWelcome.markDismissed === 'function') {
             try { window.TutorialWelcome.markDismissed('tutorial_refine', scope); } catch (e) { /* noop */ }
           }
+          _charGate();
           return;
         }
-        if (skipped) return;   /* 이번 진입만 코치 생략 */
+        if (skipped) { _charGate(); return; }   /* 이번 진입만 코치 생략 */
         /* 진행(시작하기) → 지금처럼 코치 표시. 진행 시엔 dismiss 미기록(정책: 매 진입 표시). */
         try {
           if (window.TutorialCoach && typeof window.TutorialCoach.run === 'function') {
-            window.TutorialCoach.run({ stepsKey: 'refineCoach', keyPrefix: 'tutorial_refine_coach', dismissKeyPrefix: 'tutorial_refine', filterType: ptype || null, scope: scope, force: force });
-          }
-        } catch (e) { /* noop */ }
+            var _cp = window.TutorialCoach.run({ stepsKey: 'refineCoach', keyPrefix: 'tutorial_refine_coach', dismissKeyPrefix: 'tutorial_refine', filterType: ptype || null, scope: scope, force: force });
+            if (_cp && typeof _cp.then === 'function') _cp.then(_charGate).catch(_charGate);
+            else _charGate();
+          } else { _charGate(); }
+        } catch (e) { _charGate(); }
       })
       .catch(function () { /* noop */ });
   } catch (e) { /* noop */ }

@@ -295,6 +295,8 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
   ViewerState.project.authorName = null;
   /* PRINT-HELPER: 인쇄 도우미 조절값(viewer-meta.printOverrides) — 책 전환 상속 차단 */
   ViewerState.project.printOverrides = null;
+  /* LEVEL2-CHAR(2026-07-21): 2단계 '우리 주인공' 레퍼런스 이미지 URL — 책 전환 상속 차단 */
+  ViewerState.project.protagonistRef = null;
 
   if (meta) {
     if (meta.mode)     ViewerState.project.mode     = meta.mode;
@@ -346,6 +348,11 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
        정밀 sanitize는 인쇄/저장 쪽(print.js·viewer-ai)이 담당, 여기선 형태만 확인. */
     if (meta.printOverrides && typeof meta.printOverrides === 'object') {
       ViewerState.project.printOverrides = meta.printOverrides;
+    }
+    /* LEVEL2-CHAR(2026-07-21): 2단계 주인공 레퍼런스 URL(viewer-meta.protagonistRef). 소비자=
+       다듬기 첫 진입 필수 게이트(있으면 스킵)·callImageAiS2(2단계 마감 2번째 이미지). https URL만. */
+    if (typeof meta.protagonistRef === 'string' && /^https?:\/\//.test(meta.protagonistRef.trim())) {
+      ViewerState.project.protagonistRef = meta.protagonistRef.trim();
     }
     /* LEVELS-CONT: viewer에는 maker(ui.js)의 getPicturebookLevel이 없어 튜토리얼 pbLevels
        필터가 항상 3단계 취급되던 것 보정 — ViewerState 기반 shim(다듬기 환영/코치에서 사용).

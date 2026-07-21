@@ -3480,7 +3480,7 @@ function _pbImageActionsHtml(scene) {
     <div class="edit-row">
       <label class="edit-label">🖼️ 장면 그림 ${_hasImg2 ? '<span class="edit-label-note">(있음)</span>' : '<span class="edit-label-note">(없음)</span>'}</label>
       <div class="edit-pb-image-actions">
-        <span class="edit-label-note" style="display:block;margin-bottom:6px;word-break:keep-all;">잘 그리지 않아도 괜찮아요! 😊 <b>누가 어디 있는지만</b> 졸라맨처럼 쓱쓱 그려요. <b>AI 그림책 마감</b>을 누르면 예쁜 그림으로 짠! 바뀌어요.</span>
+        <span class="edit-label-note" style="display:block;margin-bottom:6px;word-break:keep-all;">잘 그리지 않아도 괜찮아요! 😊 <b>누가 어디 있는지만</b> 쓱쓱 그려요. <b>AI 그림책 마감</b>을 누르면 예쁜 그림으로 짠! 바뀌어요.</span>
         <button type="button" class="edit-toggle js-pb-image-draw"${_hasImg2 ? ' disabled style="opacity:0.4;" title="이미 그린 그림이 있어요. 지우고 다시 그릴 수 있어요."' : ''}>✏️ 구도 그리기</button>
         ${_hasImg2 ? '<button type="button" class="edit-toggle js-pb-image-remove" style="color:#c66f4a;">🗑 지우고 다시</button>' : ''}
         <button type="button" class="edit-toggle js-pb-lvl2-example" style="color:#4a7ab0;">🎨 어떻게 바뀌어요?</button>
@@ -6050,7 +6050,7 @@ function _openLvl2ExampleModal() {
   root.innerHTML =
     '<div class="viewer-confirm-card" role="dialog" aria-modal="true" style="max-width:560px;">'
     +   '<div class="viewer-confirm-title">🎨 이렇게 그리면 돼요</div>'
-    +   '<div class="viewer-confirm-message" style="margin-bottom:12px;">그림을 잘 그리지 않아도 괜찮아요. <b>누가 어디에 있는지 구도만</b> 졸라맨처럼 간단히 그리면, <b>AI 그림책 마감</b>이 예쁜 그림책 그림으로 바꿔 줘요.</div>'
+    +   '<div class="viewer-confirm-message" style="margin-bottom:12px;">그림을 잘 그리지 않아도 괜찮아요. <b>누가 어디에 있는지만</b> 쓱쓱 간단히 그리면, <b>AI 그림책 마감</b>이 예쁜 그림책 그림으로 바꿔 줘요.</div>'
     +   '<div style="display:flex;align-items:center;gap:10px;justify-content:center;flex-wrap:wrap;">'
     +     '<div style="flex:1;min-width:150px;max-width:230px;">' + stickSvg + '</div>'
     +     '<div style="font-size:28px;color:#c66f4a;flex:0 0 auto;">→</div>'
@@ -6067,6 +6067,79 @@ function _openLvl2ExampleModal() {
   const close = () => { root.remove(); };
   root.querySelector('.js-lvl2-ex-close').addEventListener('click', close);
   root.addEventListener('click', (e) => { if (e.target === root) close(); });
+}
+
+/* ════════════════════════════════════════════════════════════════
+   LEVEL2-CHAR(2026-07-21): 2단계 '우리 주인공 그리기' 필수 게이트 + 저장.
+   ─────────────────────────────────────────────────────────────
+   · 2단계 다듬기 첫 진입(튜토리얼 끝난 뒤) → 주인공이 아직 없으면 못 닫는 모달 강제.
+     주인공을 한 번 그려야 진행 가능 → 그 그림이 모든 장면 마감의 캐릭터 레퍼런스(일관성).
+   · 저장 = viewer-meta/protagonistRef(클라 쓰기 가능·authorName/printOverrides 패턴).
+     서버 callImageAiS2가 2단계면 이 URL을 마감 2번째 이미지로 주입.
+   ════════════════════════════════════════════════════════════════ */
+function _level2NeedsCharacter() {
+  try {
+    if (!ViewerState || !ViewerState.editMode || !ViewerState.fromMaker) return false;
+    if (!ViewerState.project || ViewerState.project.picturebookLevel !== 2) return false;
+    const ref = ViewerState.project.protagonistRef;
+    return !(typeof ref === 'string' && /^https?:\/\//.test(ref));
+  } catch (e) { return false; }
+}
+
+async function _saveProtagonistRef(url) {
+  const clean = (url && /^https?:\/\//.test(String(url).trim())) ? String(url).trim() : null;
+  if (!clean) throw new Error('bad url');
+  try { if (ViewerState && ViewerState.project) ViewerState.project.protagonistRef = clean; } catch (e) { /* noop */ }
+  const cid = ViewerState && ViewerState.classId;
+  const tn = ViewerState && ViewerState.teamName;
+  if (!cid || !tn) throw new Error('team not ready');
+  const app = (typeof getViewerApp === 'function') ? getViewerApp() : firebase.app('viewer');
+  await app.database().ref('classes/' + cid + '/teams/' + encodeURIComponent(tn) + '/viewer-meta')
+    .update({ protagonistRef: clean });
+}
+
+/* 못 닫는 필수 게이트 모달 — [주인공 그리기 시작]만. 배경/ESC 닫힘 없음. */
+function _openLevel2CharGate() {
+  if (document.getElementById('lvl2-char-gate')) return;
+  if (!_level2NeedsCharacter()) return;
+  const root = document.createElement('div');
+  root.id = 'lvl2-char-gate';
+  root.className = 'viewer-confirm-backdrop';
+  root.innerHTML =
+    '<div class="viewer-confirm-card" role="dialog" aria-modal="true" style="max-width:440px;text-align:center;">'
+    +   '<div style="font-size:40px;line-height:1;margin-bottom:6px;">🎨</div>'
+    +   '<div class="viewer-confirm-title">우리 이야기의 주인공을 먼저 그려요</div>'
+    +   '<div class="viewer-confirm-message" style="margin-bottom:14px;">주인공을 한 번만 그려 두면, AI가 모든 장면에서 <b>똑같은 주인공</b>으로 예쁘게 그려 줘요. 잘 그리지 않아도 괜찮아요 — <b>누구인지 알아볼 수 있게</b>만 그려 주세요.</div>'
+    +   '<div class="viewer-confirm-actions" style="justify-content:center;">'
+    +     '<button type="button" class="viewer-confirm-ok js-lvl2-char-start" style="font-size:15px;padding:11px 22px;">✏️ 주인공 그리기 시작</button>'
+    +   '</div>'
+    + '</div>';
+  document.body.appendChild(root);
+  /* 못 닫게: 배경 클릭 무시. ESC 차단(캡처). */
+  root.addEventListener('click', (e) => { if (e.target === root) e.stopPropagation(); });
+  const _escBlock = (e) => { if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); } };
+  document.addEventListener('keydown', _escBlock, true);
+  const _cleanup = () => { document.removeEventListener('keydown', _escBlock, true); root.remove(); };
+  root.querySelector('.js-lvl2-char-start').addEventListener('click', () => {
+    /* 그리기 스튜디오(작품 단위 저장 오버라이드). 껍데기 scene=캔버스 비율/배경용. */
+    const shell = {
+      id: '__protagonist__', num: '__protagonist__',
+      picturebookSubmode: 'imageCenter',
+      imageData: (ViewerState.project && ViewerState.project.protagonistRef) || null,
+    };
+    _openPbDrawModal(shell, {
+      title: '🎨 우리 주인공 그리기',
+      saveOverride: async (url) => {
+        await _saveProtagonistRef(url);
+        _cleanup();   /* 주인공 저장 성공 → 게이트 해제, 진행 가능 */
+      },
+    });
+  });
+}
+
+/* viewer-entry(튜토리얼 완료 훅)에서 호출 — 2단계 첫 진입 필수 게이트. */
+if (typeof window !== 'undefined') {
+  window.__maybeShowLevel2CharGate = function () { try { _openLevel2CharGate(); } catch (e) { /* noop */ } };
 }
 
 function _positionImagePopover(pop) {
@@ -7503,9 +7576,12 @@ function _patchPbStyle() {
    비율: A4 가로 (1600 × 1200) 기본. 충분한 해상도.
    여백·색 팔레트는 시안 따뜻한 톤.
    ════════════════════════════════════════════════════ */
-function _openPbDrawModal(scene) {
+function _openPbDrawModal(scene, opts) {
   /* 이미 열려있으면 무시 */
   if (document.getElementById('pb-draw-modal')) return;
+  /* LEVEL2-CHAR(2026-07-21): opts.saveOverride(url) 있으면 장면 저장 흐름 대신 작품 단위 저장
+     (우리 주인공 그리기). opts.title로 헤더 문구 교체. scene은 캔버스 비율/배경용 껍데기 허용. */
+  opts = opts || {};
 
   /* v36: 캔버스 비율을 활성 scene의 실제 그림 영역(.pb-illust)에서 측정.
      4가지 모드(가로/세로 × 분할/그림중심) 모두 자동 일치.
@@ -7582,7 +7658,7 @@ function _openPbDrawModal(scene) {
     <div class="pb-draw-backdrop"></div>
     <div class="pb-draw-dialog" data-submode="${submode}">
       <div class="pb-draw-header">
-        <h3 class="pb-draw-title">✏️ 바로 그리기 <span class="pb-draw-submode-hint">${submode === 'imageCenter' ? '(그림 중심형)' : '(분할형)'}</span></h3>
+        <h3 class="pb-draw-title">${opts.title ? escHtml(opts.title) : '✏️ 바로 그리기'} ${opts.title ? '' : `<span class="pb-draw-submode-hint">${submode === 'imageCenter' ? '(그림 중심형)' : '(분할형)'}</span>`}</h3>
         <button type="button" class="pb-draw-close js-pb-draw-cancel" title="취소">✕</button>
       </div>
 
@@ -8404,6 +8480,31 @@ function _openPbDrawModal(scene) {
     }
     try {
       const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      /* LEVEL2-CHAR: 작품 단위 주인공 저장 — 장면 소스모드 게이트/lock/scene write 모두 우회
+         (주인공은 장면 이미지가 아님). 업로드는 공용 헬퍼('char' 키)로 고유 경로. */
+      if (typeof opts.saveOverride === 'function') {
+        let _u;
+        try {
+          const r = await viewerUploadImageToStorage(dataUrl, 'char');
+          _u = r.downloadURL;
+        } catch (e) {
+          console.error('[viewer-edit] 주인공 그림 업로드 실패:', e);
+          alert('❌ 그림을 올리지 못했어요. 잠시 후 다시 시도해 주세요.');
+          _restoreSaveBtn();
+          return;
+        }
+        try {
+          await opts.saveOverride(_u);
+        } catch (e) {
+          console.error('[viewer-edit] 주인공 저장 실패:', e);
+          alert('❌ 저장하지 못했어요. 잠시 후 다시 시도해 주세요.');
+          _restoreSaveBtn();
+          return;
+        }
+        _close();
+        _drawSavedToast();
+        return;
+      }
       const _sid = scene.num || scene.id;
       /* S2-2A-FIX1 ① 사전 게이트(업로드 전): 반대 모드/corrupt면 차단(scene·Storage 무변경). */
       const _gate = (typeof window !== 'undefined' && window.viewerAi && typeof window.viewerAi._preCheckSourceMode === 'function')

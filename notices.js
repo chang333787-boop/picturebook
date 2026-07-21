@@ -59,7 +59,10 @@
     _shown = true;
     const el = document.createElement('div');
     el.id = 'branch-notice-banner';
-    el.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:100000;'
+    /* 감사 M15(2026-07-20): z 100000 → 100070 — 나침반 게이트(100000~100001)·튜토리얼
+       (100005~100020)·CSV/로딩(100050)·그리기 confirm(100060)에 가려지던 것 상향.
+       교사 긴급 주의는 상단 띠라 무엇이 떠 있어도 보여야 함(전면 차단 아님·조작 방해 없음). */
+    el.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:100070;'
       + 'background:#fff7df;border-bottom:3px solid #c96f4a;padding:12px 16px;'
       + 'display:flex;gap:12px;align-items:flex-start;box-shadow:0 4px 14px rgba(0,0,0,.14);';
     el.innerHTML = ''

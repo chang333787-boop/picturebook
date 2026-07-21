@@ -468,11 +468,13 @@ async function updateType(num, type) {
   if (s && type === 'ending' && s.type !== 'ending' && _sceneHasOutgoingLink(s)) {
     if (typeof renderCard === 'function') renderCard(s);
     const title = '아직 뒤로 이어져 있어요';
-    /* ENDING-GUARD-COPY(#13): '연결을 지우라'만으로는 방법을 몰라 막막해하던 것 → 구체 경로 안내. */
+    /* ENDING-GUARD-COPY(#13): '연결을 지우라'만으로는 방법을 몰라 막막해하던 것 → 구체 경로 안내.
+       감사 L14(2026-07-20): '연결선(●)을 끌어서 떼기'는 실제 불가능한 조작(빈 곳 드롭=무동작)
+       — 실제 가능한 경로(✎ 다듬기의 행동 버튼 편집)만 안내. */
     const message = '이 장면은 다음 장면으로 이어지는 길(행동 버튼 연결)이 남아 있어요.\n\n'
       + '엔딩으로 바꾸려면 먼저 그 연결을 지워 주세요.\n'
-      + '· 카드끼리 이어진 연결선(●)을 끌어서 떼거나,\n'
-      + '· 카드의 행동 버튼을 편집해 ‘다음 장면’ 연결을 없애면 돼요.';
+      + '카드의 ✎(이 장면 다듬기)를 눌러 행동 버튼에서\n'
+      + '‘다음 장면’ 연결을 비우거나, 그 버튼(×)을 지우면 돼요.';
     if (window.showMakerConfirm) {
       try { await window.showMakerConfirm({ title, message, confirmText: '알겠어요', cancelText: '닫기' }); }
       catch (_) {}
@@ -558,6 +560,12 @@ async function updateChoiceLabel(num, port, val) {
 /* ── 구조 mutation — ensureEditable + 복잡한 참조 처리 후 _afterMutation ── */
 
 async function renameScene(num) {
+  /* 감사 H7(2026-07-20): 1·2단계 일직선 잠금 — 번호 바꾸기도 구조 변형.
+     번호 배지가 잠금 CSS 밖이라 이 관문 없이는 우회 가능했다(addScene과 동일 패턴). */
+  if (typeof isLinearPicturebookLock === 'function' && isLinearPicturebookLock()) {
+    alert(PB_LINEAR_LOCK_MSG);
+    return;
+  }
   const newNum = parseInt(prompt(`장면 번호를 바꿀까요?\n현재: ${num}\n새 번호:`, num));
   if (!newNum || newNum === num) return;
   if (scenes[newNum]) { alert(`장면 ${newNum}은 이미 있어요!`); return; }
@@ -588,6 +596,26 @@ async function renameScene(num) {
     if (String(projectMeta.entrySceneId)  === numStr) projectMeta.entrySceneId  = newNumStr;
     if (String(projectMeta.replaySceneId) === numStr) projectMeta.replaySceneId = newNumStr;
   }
+  /* 감사 H7(2026-07-20): aiVariants(AI 그림/글 후보·교사 선택)도 장면번호 키 —
+     재매핑 없이는 번호를 맞바꾼 뒤 옛 장면의 AI 그림이 새 번호의 글에 붙는다.
+     팀 경로 4노드를 원자 update로 이동(없으면 no-op). scenes 저장과 별개 경로라
+     실패해도 rename 자체는 유지(현상 유지일 뿐 악화 없음). */
+  try {
+    const _teamRef = (typeof dbRef !== 'undefined' && dbRef && dbRef.parent) ? dbRef.parent : null;
+    if (_teamRef) {
+      const _av = (await _teamRef.child('aiVariants').once('value')).val();
+      if (_av) {
+        const _upd = {};
+        ['image', 'imageSelections', 'text', 'textSelections'].forEach(k => {
+          if (_av[k] && Object.prototype.hasOwnProperty.call(_av[k], numStr)) {
+            _upd[`aiVariants/${k}/${newNumStr}`] = _av[k][numStr];
+            _upd[`aiVariants/${k}/${numStr}`]    = null;
+          }
+        });
+        if (Object.keys(_upd).length) await _teamRef.update(_upd);
+      }
+    }
+  } catch (e) { console.warn('[renameScene] aiVariants 재매핑 실패:', e); }
   releaseLock(num);
   _afterMutation();
 }

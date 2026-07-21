@@ -1066,8 +1066,11 @@ async function _flushPendingSave() {
     return { ok: true };                                    /* S2-2A-FIX2: 결과 반환(기존 호출처는 무시 → 무영향) */
   } catch (err) {
     _showSaveStatus('❌ 저장 실패', 2000);
-    /* 실패한 변경은 재시도 가능하도록 다시 큐에 병합 */
-    Object.assign(_editText.pendingFields, fields);
+    /* 실패한 변경은 재시도 가능하도록 다시 큐에 병합.
+       감사 L12(2026-07-20): 방향 교정 — 저장 대기(await) 중 새로 입력된 pendingFields가
+       더 최신이므로, 실패분(fields)을 바닥에 깔고 최신 입력이 이기게 병합한다.
+       (기존 Object.assign(pending, fields)는 옛 값이 최신 타이핑을 되덮었다.) */
+    _editText.pendingFields = Object.assign({}, fields, _editText.pendingFields);
     return { ok: false, code: 'SAVE_FAILED' };              /* 민감 오류 원문은 노출하지 않음 */
   }
 }

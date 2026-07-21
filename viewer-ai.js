@@ -661,7 +661,9 @@
       return;
     }
     _showCallingModal(sceneCount);
-    _currentAbort = { cancelled: false };
+    /* 감사 M1(2026-07-20): 취소 플래그 필드 통일 — 취소 버튼(.aborted 세팅)과 다른
+       .cancelled를 검사해 s2 취소가 사실상 무효였다(수십 초 뒤 결과 모달 재등장). */
+    _currentAbort = { aborted: false };
     let apiResult;
     try {
       if (useRealApi) {
@@ -677,7 +679,7 @@
       return;
     }
     _hideCallingModal();
-    if (_currentAbort && _currentAbort.cancelled) return;
+    if (_currentAbort && _currentAbort.aborted) return;
     /* Phase 2 — 서버 사전 검사 차단 응답이면 모달 안내 후 종료 (AI 발전 없음) */
     if (apiResult && apiResult.blocked) {
       _showAiPrecheckBlockedModal(apiResult, 's2');
@@ -977,7 +979,8 @@
       return;
     }
     _showCallingModal(sceneCount);
-    _currentAbort = { cancelled: false };
+    /* 감사 M1(2026-07-20): 취소 플래그 필드 통일(.cancelled→.aborted) */
+    _currentAbort = { aborted: false };
 
     let candidate;
     const useRealApi = _shouldUseRealApi();
@@ -996,7 +999,7 @@
           _showAiPrecheckBlockedModal(apiResult, 's1');
           return;
         }
-        if (_currentAbort && _currentAbort.cancelled) {
+        if (_currentAbort && _currentAbort.aborted) {
           /* 호출 도중 취소 — Functions quota는 차감 그대로 (환불 X) */
           _hideCallingModal();
           _setAiTextS1Status(count > 0 ? 'candidate_ready' : 'none');
@@ -1017,7 +1020,7 @@
       } else {
         /* TEST MODE 또는 fallback — mock 사용 */
         candidate = await _mockGenerateCandidate(snapshot, attemptN);
-        if (_currentAbort && _currentAbort.cancelled) {
+        if (_currentAbort && _currentAbort.aborted) {
           _hideCallingModal();
           _setAiTextS1Status(count > 0 ? 'candidate_ready' : 'none');
           return;
@@ -4513,6 +4516,9 @@
     if (result && result.cached) {
       _refundQuota('check');
     }
+    /* 감사 M1(2026-07-20): 실API 경로 취소 검사 누락 — 취소 뒤 도착한 응답이
+       결과 모달을 불쑥 띄우던 것 차단(쿼터는 정책대로 차감 유지·캐시 환불은 위에서 완료). */
+    if (_currentAbort && _currentAbort.aborted) return;
     /* Phase 2 — 서버 사전 검사 차단 응답이면 모달 안내 후 종료 (진단 없음) */
     if (result && result.blocked) {
       _showAiPrecheckBlockedModal(result, 'check');
@@ -4827,6 +4833,8 @@
     }
     _hideCallingModal();
     if (result && result.cached) _refundQuota('writeAfterQuestions');
+    /* 감사 M1(2026-07-20): 실API 경로 취소 검사 누락 — 검사 흐름과 동일 처리 */
+    if (_currentAbort && _currentAbort.aborted) return;
     if (result && result.blocked) { _showAiPrecheckBlockedModal(result, 'writeAfterQuestions'); return; }
     _showWriteAfterQuestionsResultModal(result);
   }

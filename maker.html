@@ -432,6 +432,11 @@
     body.pb-linear-locked #btn-clear,
     body.pb-linear-locked #btn-project-settings,
     body.pb-linear-locked .card-type-row{ display:none !important; }
+    /* 감사 H7·M10(2026-07-20): 잠금 밖에 남아 있던 구조 진입점 2곳 —
+       번호 배지(번호 바꾸기)는 번호 표시는 유지한 채 클릭만 차단,
+       [+ 버튼 추가]는 숨김. 함수 관문(renameScene/addButton)과 이중 방어. */
+    body.pb-linear-locked .card-num-badge{ pointer-events:none; cursor:default; }
+    body.pb-linear-locked .card-add-button{ display:none !important; }
 
     /* v40: 복사 코드 모달 (발급/받기 공용) */
     .copy-code-modal{
@@ -3432,17 +3437,17 @@
 <script src="thought-compass-review.js?v=640b84ea5a"></script>
 <script src="thought-compass-scenes.js?v=d990d78c5d"></script>
 <script src="firebase.js?v=9dae3da157"></script>
-<script src="notices.js?v=4357ff14b7"></script>
+<script src="notices.js?v=3d93b71532"></script>
 <script src="session.js?v=14b8513855"></script>
 <script src="canvasInteraction.js?v=42257f700f"></script>
-<script src="sceneRenderer.js?v=17852fa298"></script>
+<script src="sceneRenderer.js?v=4eaceb9dd9"></script>
 <script src="storyAnalyzer.js?v=4799502ff8"></script>
 <script src="mediaManager.js?v=2b05836f58"></script>
-<script src="adminConsole.js?v=035d562c31"></script>
+<script src="adminConsole.js?v=784a4ba5fb"></script>
 <!-- ADMIN-REDESIGN Phase 3: 교사·학생 상세 설명서(화면형) -->
 <script src="admin-manual.js?v=1ece1a12f2"></script>
 <script src="projectSettings.js?v=5eb05c2079"></script>
-<script src="ui.js?v=19f96b4e96"></script>
+<script src="ui.js?v=e3ed0bc560"></script>
 <!-- v95: 모바일 텍스트형 브랜치 전용 (텍스트 작품 + 모바일에서만 활성) -->
 <script src="mobileTextBranch.js?v=183da5ddf1"></script>
 <!-- TUTORIAL-PRD: 콘텐츠·삽화·데모(먼저) → 도움말/환영/인쇄 -->

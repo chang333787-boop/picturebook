@@ -1418,6 +1418,13 @@
    클래스로 게이트돼 있어(전 셀렉터 검증) 평상시 화면 영향 0. 클래스는 인쇄 직전/도우미
    미리보기 동안만 부여 → 같은 레이아웃을 화면에서도 계산·표시(도우미 실측·WYSIWYG 기반).
    @page/break-after는 screen에서 자연 무시. */
+/* 감사 M15(2026-07-20): 아래 게이트가 긴급 공지(📢)·확인창(maker-confirm)까지 통째로
+   숨겨 도우미 미리보기 중 교사 주의·선택 요구가 안 보이던 것 — 화면에서만 예외 복원.
+   인쇄 매체(print)는 기존대로 전부 숨김(인쇄물 오염 0). id 셀렉터라 게이트보다 우선. */
+@media screen {
+  body.print-picturebook > #branch-notice-banner,
+  body.print-picturebook > #maker-confirm-root { display: flex !important; }
+}
 @media print, screen {
   body.print-picturebook > *:not(.pb-print-root) { display: none !important; }
   body.print-picturebook .pb-print-root {

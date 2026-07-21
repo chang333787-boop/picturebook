@@ -2089,6 +2089,12 @@ async function _toggleIsPublic(encodedName, teamName, currentIsPublic) {
   const newIsPublic = !currentIsPublic;
   const label       = newIsPublic ? '공개' : '비공개';
 
+  /* 1클릭 오조작 방지 — 공개 전환은 학급 전체에 노출되는 변경이라 확인 1회 */
+  const _msg = newIsPublic
+    ? `"${teamName}" 작품을 학급에 공개할까요?\n(우리 반 모두가 책장에서 볼 수 있게 돼요)`
+    : `"${teamName}" 작품을 비공개로 바꿀까요?\n(책장에서 내려가요)`;
+  if (!confirm(_msg)) return;
+
   const metaPath = (DATA_PATH_VERSION === 'v2' && adminState.adminClassId)
     ? `classes/${adminState.adminClassId}/teams/${encodedName}/viewer-meta/isPublic`
     : `teams/${encodedName}/viewer-meta/isPublic`;
@@ -2425,10 +2431,12 @@ function _toggleDetail(encodedName) {
                  isEntry  ? '<span class="chip-role" style="background:#eaf3df;color:#5a8a4a;border:1px solid #b8d1a8;padding:1px 6px;border-radius:8px;font-size:10px;margin-left:3px;">첫 감상</span>' : '',
                  isReplay ? '<span class="chip-role" style="background:#eef3f9;color:#3a6ab0;border:1px solid #b8cde0;padding:1px 6px;border-radius:8px;font-size:10px;margin-left:3px;">다시</span>' : '',
                ].join('');
+               /* XSS 방어: scenes는 학생 기기가 쓰는 노드라 num/title/nextId 전부
+                  신뢰 불가 — innerHTML 삽입 전 반드시 이스케이프 */
                return `<div class="admin-scene-chip" style="border-color:${color};">
-                 <span class="chip-type" style="color:${color};">${isEnding ? '엔딩' : '일반'} ${s.num}</span>${roleBadgeHtml}
-                 <span class="chip-title">${s.title ? s.title.slice(0,18) : '(내용 없음)'}</span>
-                 ${nexts.length ? `<span class="chip-next">${nexts.join(' ')}</span>` : ''}
+                 <span class="chip-type" style="color:${color};">${isEnding ? '엔딩' : '일반'} ${_escHtml(String(s.num))}</span>${roleBadgeHtml}
+                 <span class="chip-title">${_escHtml(s.title ? String(s.title).slice(0,18) : '(내용 없음)')}</span>
+                 ${nexts.length ? `<span class="chip-next">${_escHtml(nexts.join(' '))}</span>` : ''}
                </div>`;
              }).join('')}
            </div>

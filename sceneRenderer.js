@@ -101,6 +101,13 @@ function addScene(type) {
    · legacy 작품 (buttons[] 없음)이면 choiceA/B를 buttons[0/1]로 옮긴 후 새 항목 추가
    · renderCard 후 pushToFirebase로 즉시 저장 */
 function addButton(num) {
+  /* 감사 M10(2026-07-20): 1·2단계 일직선 잠금 — 선택 버튼 추가도 구조 변형이라 차단
+     (addScene과 동일 관문·잠금 CSS 숨김과 이중 방어) */
+  if (typeof window !== 'undefined' && typeof window.isLinearPicturebookLock === 'function'
+      && window.isLinearPicturebookLock()) {
+    alert(window.PB_LINEAR_LOCK_MSG || '1·2단계 그림책은 선택 버튼을 더할 수 없어요.');
+    return;
+  }
   const s = scenes[num];
   if (!s) return;
 

@@ -294,7 +294,7 @@ function renderCover() {
           <div class="pb-frame">
             <div class="pb-illust" data-pb-illust="1">
               <div class="pb-illust__photo" data-pb-photo="1">
-                <img class="pb-illust__inner" src="${imageData}" draggable="false" alt="" decoding="async" fetchpriority="high">
+                <img class="pb-illust__inner" src="${safeUrlAttr(imageData)}" draggable="false" alt="" decoding="async" fetchpriority="high">
               </div>
             </div>
             <div class="pb-text pb-text--cover">
@@ -502,7 +502,7 @@ function _renderSceneText(stage, scene) {
 
   /* 배경 — 이미지 있으면 분위기 배경, 없으면 단색 (분위기 슬롯 자리) */
   const bgHtml = bgImage
-    ? `<div class="scene-bg" style="background-image:url('${bgImage}')"></div>
+    ? `<div class="scene-bg" style="background-image:url('${safeCssUrl(bgImage)}')"></div>
        <div class="scene-bg-overlay"></div>`
     : `<div class="scene-bg-solid"></div>`;
 
@@ -529,10 +529,11 @@ function _renderSceneText(stage, scene) {
   const cssVars = [];
   if (style) {
     /* T-THEME-1: 명시 폰트일 때만 --text-ff 세팅. null/'auto'(테마 기본)면 미세팅 → CSS 테마별 기본폰트 적용. */
-    if (style.fontFamily && style.fontFamily !== 'auto') cssVars.push(`--text-ff: var(--font-${style.fontFamily})`);
-    if (style.fontSize)   cssVars.push(`--text-fs-body: ${style.fontSize}px`);
-    if (style.color)      cssVars.push(`--text-color-override: ${style.color}`);
-    if (style.weight)     cssVars.push(`--text-weight: ${style.weight}`);
+    /* 감사 H2: variant textStyle(aiVariants 경유) 포함 — 값 새니타이즈 */
+    if (style.fontFamily && style.fontFamily !== 'auto') cssVars.push(`--text-ff: var(--font-${safeCssVal(style.fontFamily)})`);
+    if (style.fontSize)   cssVars.push(`--text-fs-body: ${safeNum(style.fontSize, 16)}px`);
+    if (style.color)      cssVars.push(`--text-color-override: ${safeCssVal(style.color)}`);
+    if (style.weight)     cssVars.push(`--text-weight: ${safeCssVal(style.weight)}`);
   }
   const styleAttr = cssVars.length > 0 ? ` style="${cssVars.join(';')}"` : '';
 
@@ -540,7 +541,7 @@ function _renderSceneText(stage, scene) {
      사용자: "지금 맥북·태블릿에서 다 다르게 나옴. 비율 아예 고정해야". */
   _stageReplaceScene(stage, `
     <div class="scene-screen scene-screen--text scene-surface scene-screen--text-paged"
-      data-display="${scene.displayType}"
+      data-display="${escHtml(scene.displayType)}"
       data-scene-num="${escHtml(String(scene.id))}"
       data-presentation-mode="text"
       data-text-theme="${escHtml(theme)}"
@@ -698,8 +699,9 @@ function _renderScenePicturebook(stage, scene, submode) {
   const cssVars = [];
   if (style) {
     if (style.fontFamily && fontMap[style.fontFamily]) cssVars.push(`--pb-font-family: ${fontMap[style.fontFamily]}`);
-    if (style.fontSize)   cssVars.push(`--pb-fs-body: ${style.fontSize}px`);
-    if (style.color)      cssVars.push(`--pb-color-override: ${style.color}`);
+    /* 감사 H2: 값 새니타이즈(폰트는 map 통과라 안전) */
+    if (style.fontSize)   cssVars.push(`--pb-fs-body: ${safeNum(style.fontSize, 16)}px`);
+    if (style.color)      cssVars.push(`--pb-color-override: ${safeCssVal(style.color)}`);
     if (style.weight === 'bold') cssVars.push(`--pb-fw-body: 700`);
     else if (style.weight) cssVars.push(`--pb-fw-body: 400`);
   }
@@ -719,10 +721,11 @@ function _renderScenePicturebook(stage, scene, submode) {
   /* crop 적용:
      · 사진 비율은 (cropW/cropH) * naturalRatio로 변경 → JS에서 처리
      · img는 wrapper 100% 채우되 background-position(또는 transform translate)로 잘린 부분 offset */
-  const cropX = cr ? cr.x : 0;
-  const cropY = cr ? cr.y : 0;
-  const cropW = cr ? cr.w : 100;
-  const cropH = cr ? cr.h : 100;
+  /* 감사 H2: crop 값은 산술을 안 거쳐 문자열이 그대로 style로 나가던 유일 경로 — 숫자 강제 */
+  const cropX = cr ? safeNum(cr.x, 0)   : 0;
+  const cropY = cr ? safeNum(cr.y, 0)   : 0;
+  const cropW = cr ? safeNum(cr.w, 100) : 100;
+  const cropH = cr ? safeNum(cr.h, 100) : 100;
   const photoVars =
     `--pb-img-x:${trX}%; --pb-img-y:${trY}%; ` +
     `--pb-img-sx:${trSX}; --pb-img-sy:${trSY}; ` +
@@ -777,7 +780,7 @@ function _renderScenePicturebook(stage, scene, submode) {
   const illustHtml = bgImage
     ? `<div class="pb-illust scene-media-frame" data-pb-illust="1">
          <div class="pb-illust__photo" style="${photoVars}" data-pb-photo="1">
-           <img class="pb-illust__inner" src="${bgImage}" draggable="false" alt="" decoding="async" fetchpriority="high">
+           <img class="pb-illust__inner" src="${safeUrlAttr(bgImage)}" draggable="false" alt="" decoding="async" fetchpriority="high">
          </div>
          ${titleOverlayInIllustHtml}
        </div>`
@@ -828,14 +831,16 @@ function _renderScenePicturebook(stage, scene, submode) {
        원본과 다름) 그 height 그대로. 원본 보기·scene.picturebookBodyBox 저장값은 완전 불변. */
     const _pbShowsVariantBody = (_aiViewModePb === 'aiS1' || _aiViewModePb === 'aiS2') && body !== _orig;
     const heightStyle = (typeof bodyBox.height === 'number' && !(_pbShowsVariantBody && bodyBox === _origBodyBox))
-      ? ` height: ${bodyBox.height}%;` : '';
+      ? ` height: ${safeNum(bodyBox.height, 0)}%;` : '';
+    /* 감사 H2: 좌표·불투명도 숫자 강제 — variant layout(aiVariants 경유)까지 포함해
+       문자열이 style 속성으로 그대로 나가던 것 차단 */
     const bodyOverlayStyle = body
-      ? `left: ${bodyBox.x}%; top: ${bodyBox.y}%; width: ${bodyBox.width}%;${heightStyle}`
+      ? `left: ${safeNum(bodyBox.x, 15)}%; top: ${safeNum(bodyBox.y, 25)}%; width: ${safeNum(bodyBox.width, 55)}%;${heightStyle}`
         /* D8-CLEAN-1B: 글상자 진하기 = --pb-box-opacity. 신규 5스킨 imageCenter는 v03-modes.css가
            스킨 색조 + 이 alpha로 합성. background는 legacy/split fallback로 유지. */
-        + ` --pb-box-opacity: ${bodyBox.backdropOpacity};`
-        + ` background: rgba(255, 255, 255, ${bodyBox.backdropOpacity});`
-        + ` box-shadow: 0 2px 6px rgba(0,0,0,${0.08 * bodyBox.backdropOpacity});`
+        + ` --pb-box-opacity: ${safeNum(bodyBox.backdropOpacity, 0.85)};`
+        + ` background: rgba(255, 255, 255, ${safeNum(bodyBox.backdropOpacity, 0.85)});`
+        + ` box-shadow: 0 2px 6px rgba(0,0,0,${0.08 * safeNum(bodyBox.backdropOpacity, 0.85)});`
       : '';
 
     /* 다듬기 모드 — 드래그 핸들(가운데 ✥) + 리사이즈 핸들(4 모서리).
@@ -864,7 +869,7 @@ function _renderScenePicturebook(stage, scene, submode) {
       ? scene.pbStoryStage : '';
     _stageReplaceScene(stage, `
       <div class="scene-screen scene-screen--pb scene-surface ${layoutClass}"
-        data-display="${scene.displayType}"
+        data-display="${escHtml(scene.displayType)}"
         data-scene-num="${escHtml(String(scene.id))}"
         data-presentation-mode="picturebook"
         data-presentation-submode="imageCenter"
@@ -899,7 +904,7 @@ function _renderScenePicturebook(stage, scene, submode) {
   const _pbToneCls = _pbToneClasses(scene, 'scene');
   _stageReplaceScene(stage, `
     <div class="scene-screen scene-screen--pb scene-surface ${layoutClass}"
-      data-display="${scene.displayType}"
+      data-display="${escHtml(scene.displayType)}"
       data-scene-num="${escHtml(String(scene.id))}"
       data-presentation-mode="picturebook"
       data-presentation-submode="split"
@@ -1210,12 +1215,12 @@ function _renderSceneMovie(stage, scene) {
   let mediaInner;
   if (hasVideo) {
     /* poster가 있으면 video의 poster 속성으로, 없으면 검은 배경 */
-    const posterAttr = poster ? ` poster="${poster}"` : '';
+    const posterAttr = poster ? ` poster="${safeUrlAttr(poster)}"` : '';
     mediaInner = `<video class="movie-video js-movie-video" controls playsinline
       preload="metadata"${posterAttr}
-      src="${md.videoUrl}"></video>`;
+      src="${safeUrlAttr(md.videoUrl, { video: true })}"></video>`;
   } else if (poster) {
-    mediaInner = `<div class="movie-poster" style="background-image:url('${poster}')"></div>`;
+    mediaInner = `<div class="movie-poster" style="background-image:url('${safeCssUrl(poster)}')"></div>`;
   } else {
     /* MOVIE-EMPTY-GUIDE(2026-07-12): 대본 도우미 P2로 "구조만 있고 영상 없는" 상태가
        정식 워크플로가 됨 — 아이콘만 있던 placeholder에 상황 안내 한 줄.
@@ -1301,7 +1306,7 @@ function _renderSceneMovie(stage, scene) {
      영상·decision은 stage 안에서만 배치 → 공유 프레임 안 건드리고 잘림/넘침 차단. */
   _stageReplaceScene(stage, `
     <div class="scene-screen scene-screen--movie"
-      data-display="${scene.displayType}"
+      data-display="${escHtml(scene.displayType)}"
       data-scene-num="${escHtml(String(scene.id))}"
       data-presentation-mode="movie"${movieAttrs}>
       <div class="movie-stage">
@@ -1356,7 +1361,7 @@ function _renderSceneExperience(stage, scene) {
     ? `<div class="exp-body-panel"><p>${escHtml(body)}</p></div>` : '';
 
   const bgInner = bgImage
-    ? `<div class="exp-bg" style="background-image:url('${bgImage}')"></div>`
+    ? `<div class="exp-bg" style="background-image:url('${safeCssUrl(bgImage)}')"></div>`
     : `<div class="exp-bg exp-bg--empty">
          <div class="exp-empty-mark">🗺</div>
          <div class="exp-empty-hint">배경 이미지 없음</div>
@@ -1379,7 +1384,7 @@ function _renderSceneExperience(stage, scene) {
 
   _stageReplaceScene(stage, `
     <div class="scene-screen scene-screen--experience"
-      data-display="${scene.displayType}"
+      data-display="${escHtml(scene.displayType)}"
       data-scene-num="${escHtml(String(scene.id))}"
       data-presentation-mode="experience"
       ${isEdit ? 'data-edit-mode="true"' : ''}>
@@ -1399,7 +1404,8 @@ function _renderConnectObjectHtml(co, isEdit) {
   if (!co || !co.type) return '';
   const id    = escHtml(co.id || '');
   const label = escHtml(co.label || '');
-  const styleStr = `left:${co.x}%;top:${co.y}%;width:${co.w}%;height:${co.h}%;`;
+  /* 감사 H2: 좌표·크기 숫자 강제(문자열 style 탈출 차단) */
+  const styleStr = `left:${safeNum(co.x, 0)}%;top:${safeNum(co.y, 0)}%;width:${safeNum(co.w, 10)}%;height:${safeNum(co.h, 10)}%;`;
 
   /* 다듬기 모드 핸들 (W4 패턴 차용) */
   const editHandlesHtml = isEdit ? `
@@ -1440,9 +1446,9 @@ function _renderConnectObjectHtml(co, isEdit) {
   }
 
   return `
-    <div class="connect-object connect-object--${co.type} js-connect-object"
+    <div class="connect-object connect-object--${escHtml(co.type)} js-connect-object"
       data-co-id="${id}"
-      data-co-type="${co.type}"
+      data-co-type="${escHtml(co.type)}"
       style="${styleStr}">
       ${innerHtml}
       ${editHandlesHtml}
@@ -1459,7 +1465,7 @@ function _renderSceneLegacy(stage, scene, presentationMode, presentationSubmode)
     ? resolveMoviePoster(scene)
     : scene.imageData;
   const bgHtml = effectiveBgImage
-    ? `<div class="scene-bg" style="background-image:url('${effectiveBgImage}')"></div>
+    ? `<div class="scene-bg" style="background-image:url('${safeCssUrl(effectiveBgImage)}')"></div>
        <div class="scene-bg-overlay"></div>`
     : `<div class="scene-bg-solid"></div>`;
 
@@ -1484,10 +1490,10 @@ function _renderSceneLegacy(stage, scene, presentationMode, presentationSubmode)
 
   _stageReplaceScene(stage, `
     <div class="scene-screen"
-      data-display="${scene.displayType}"
+      data-display="${escHtml(scene.displayType)}"
       data-text-len="${scene.textLength}"
       data-scene-num="${escHtml(String(scene.id))}"
-      data-presentation-mode="${presentationMode}"${presentationSubmode ? ` data-presentation-submode="${presentationSubmode}"` : ''}${movieAttrs}${scene.textAnchor ? ` data-text-anchor="${scene.textAnchor}"` : ''}>
+      data-presentation-mode="${escHtml(presentationMode)}"${presentationSubmode ? ` data-presentation-submode="${escHtml(presentationSubmode)}"` : ''}${movieAttrs}${scene.textAnchor ? ` data-text-anchor="${escHtml(scene.textAnchor)}"` : ''}>
       ${bgHtml}
       <div class="scene-content">
         ${textHtml}
@@ -1725,13 +1731,14 @@ function renderBottomChoices(scene, choices) {
 function renderOverlayChoices(scene, choices) {
   return choices.map(c => {
     const p   = c.presentation;
+    /* 감사 H2: 좌표·크기·불투명도 숫자 강제 */
     const pos = (p.x != null && p.y != null)
-      ? `left:${p.x}%;top:${p.y}%;`
+      ? `left:${safeNum(p.x, 0)}%;top:${safeNum(p.y, 0)}%;`
       : '';
     const size = (p.w != null && p.h != null)
-      ? `width:${p.w}px;height:${p.h}px;`
+      ? `width:${safeNum(p.w, 0)}px;height:${safeNum(p.h, 0)}px;`
       : '';
-    return `<div class="choice-overlay-wrap" style="${pos}${size}opacity:${p.opacity ?? 1}">
+    return `<div class="choice-overlay-wrap" style="${pos}${size}opacity:${safeNum(p.opacity ?? 1, 1)}">
       ${_choiceButtonHtml(scene, c, 'overlay')}
     </div>`;
   }).join('');
@@ -1749,12 +1756,13 @@ function _choiceButtonHtml(scene, choice, type = 'bottom') {
   /* fontSize / padding / minW가 presentation에 있으면 inline style로 적용
      없으면 CSS 기본값 사용 */
   const styleArr = [];
-  if (p.fontSize) styleArr.push(`font-size:${p.fontSize}`);
-  if (p.padding)  styleArr.push(`padding:${p.padding}`);
-  if (p.minW)     styleArr.push(`min-width:${p.minW}px`);
+  /* 감사 H2: 단위 문자열은 탈출 문자 제거, 숫자는 강제 */
+  if (p.fontSize) styleArr.push(`font-size:${safeCssVal(p.fontSize)}`);
+  if (p.padding)  styleArr.push(`padding:${safeCssVal(p.padding)}`);
+  if (p.minW)     styleArr.push(`min-width:${safeNum(p.minW, 0)}px`);
   const inlineStyle = styleArr.length ? ` style="${styleArr.join(';')}"` : '';
 
-  return `<button class="choice-btn choice-btn--${type} choice-preset--${preset} js-choice"
+  return `<button class="choice-btn choice-btn--${type} choice-preset--${escHtml(preset)} js-choice"
     data-choice-id="${escHtml(choice.id)}" ${disabled}${unlinkedAttr}${inlineStyle}>
     ${escHtml(choice.label)}
   </button>`;
@@ -1886,7 +1894,7 @@ function _renderStoryEnding(stage, scene) {
   const steps     = ViewerState.historyStack.length + 1;  // 지나온 장면 수
 
   const bgHtml = scene.imageData
-    ? `<div class="scene-bg" style="background-image:url('${scene.imageData}')"></div>
+    ? `<div class="scene-bg" style="background-image:url('${safeCssUrl(scene.imageData)}')"></div>
        <div class="scene-bg-overlay scene-bg-overlay--dark"></div>`
     : `<div class="scene-bg-solid scene-bg-solid--ending"></div>`;
 
@@ -1948,7 +1956,7 @@ function _renderStoryEnding(stage, scene) {
   const endingIllustHtml = endingImage
     ? `<div class="pb-illust" data-pb-illust="1">
          <div class="pb-illust__photo" data-pb-photo="1">
-           <img class="pb-illust__inner" src="${endingImage}" draggable="false" alt="" decoding="async" fetchpriority="high">
+           <img class="pb-illust__inner" src="${safeUrlAttr(endingImage)}" draggable="false" alt="" decoding="async" fetchpriority="high">
          </div>
        </div>`
     : `<div class="pb-illust pb-illust--empty">
@@ -2068,8 +2076,9 @@ function _renderStoryEnding(stage, scene) {
   const endCssVars = [];
   if (endStyle) {
     if (endStyle.fontFamily && endFontMap[endStyle.fontFamily]) endCssVars.push(`--pb-font-family: ${endFontMap[endStyle.fontFamily]}`);
-    if (endStyle.fontSize) endCssVars.push(`--pb-fs-body: ${endStyle.fontSize}px`);
-    if (endStyle.color)    endCssVars.push(`--pb-color-override: ${endStyle.color}`);
+    /* 감사 H2: 값 새니타이즈(폰트는 map 통과라 안전) */
+    if (endStyle.fontSize) endCssVars.push(`--pb-fs-body: ${safeNum(endStyle.fontSize, 16)}px`);
+    if (endStyle.color)    endCssVars.push(`--pb-color-override: ${safeCssVal(endStyle.color)}`);
     if (endStyle.weight === 'bold') endCssVars.push(`--pb-fw-body: 700`);
     else if (endStyle.weight) endCssVars.push(`--pb-fw-body: 400`);
   }
@@ -2090,7 +2099,7 @@ function _renderStoryEnding(stage, scene) {
   if (_endIsIC) {
     const _endHasBack = ViewerState.historyStack.length > 0;
     const _endIcIllust = endingImage
-      ? `<div class="pb-illust scene-media-frame" data-pb-illust="1" style="background-image:url('${endingImage}'); background-size:contain; background-position:center; background-repeat:no-repeat;"></div>`
+      ? `<div class="pb-illust scene-media-frame" data-pb-illust="1" style="background-image:url('${safeCssUrl(endingImage)}'); background-size:contain; background-position:center; background-repeat:no-repeat;"></div>`
       : `<div class="pb-illust pb-illust--empty"><div class="pb-empty-mark">${systemIcon}</div></div>`;
     /* D7-7 정합: 엔딩 본문 말풍선 = 일반 imageCenter와 동일 구조 — picturebookBodyBox 좌표 +
        js-pb-body-overlay + 드래그/리사이즈 핸들 + contenteditable. fixed 좌표/전용 박스 금지.
@@ -2108,12 +2117,13 @@ function _renderStoryEnding(stage, scene) {
     const _endVariantLayoutKey = (typeof window !== 'undefined' && window.viewerAi
                                   && typeof window.viewerAi._aiVariantLayoutEditAllowed === 'function')
       ? window.viewerAi._aiVariantLayoutEditAllowed(scene.id) : null;
-    const _endBoxH = (typeof _endBox.height === 'number') ? ` height: ${_endBox.height}%;` : '';
-    const _endBoxStyle = `left: ${_endBox.x}%; top: ${_endBox.y}%; width: ${_endBox.width}%;${_endBoxH}`
+    /* 감사 H2: 좌표·불투명도 숫자 강제(일반 장면 bodyOverlayStyle과 동일) */
+    const _endBoxH = (typeof _endBox.height === 'number') ? ` height: ${safeNum(_endBox.height, 0)}%;` : '';
+    const _endBoxStyle = `left: ${safeNum(_endBox.x, 15)}%; top: ${safeNum(_endBox.y, 25)}%; width: ${safeNum(_endBox.width, 55)}%;${_endBoxH}`
       /* D8-CLEAN-1B: 엔딩도 일반 imageCenter와 동일 — 글상자 진하기 = --pb-box-opacity. */
-      + ` --pb-box-opacity: ${_endBox.backdropOpacity};`
-      + ` background: rgba(255, 255, 255, ${_endBox.backdropOpacity});`
-      + ` box-shadow: 0 2px 6px rgba(0,0,0,${0.08 * _endBox.backdropOpacity});`;
+      + ` --pb-box-opacity: ${safeNum(_endBox.backdropOpacity, 0.85)};`
+      + ` background: rgba(255, 255, 255, ${safeNum(_endBox.backdropOpacity, 0.85)});`
+      + ` box-shadow: 0 2px 6px rgba(0,0,0,${0.08 * safeNum(_endBox.backdropOpacity, 0.85)});`;
     const _endShowHandles = _allowInlineEdit || !!_endVariantLayoutKey;
     const _endHandlesHtml = _endShowHandles ? `
       <div class="pb-body-handle pb-body-handle--move js-pb-body-move" title="드래그하여 위치 이동">✥</div>
@@ -2274,10 +2284,11 @@ function _renderTextEnding(stage, scene) {
   const cssVars = [];
   if (style) {
     /* T-THEME-1: 명시 폰트일 때만 --text-ff 세팅. null/'auto'(테마 기본)면 미세팅 → CSS 테마별 기본폰트 적용. */
-    if (style.fontFamily && style.fontFamily !== 'auto') cssVars.push(`--text-ff: var(--font-${style.fontFamily})`);
-    if (style.fontSize)   cssVars.push(`--text-fs-body: ${style.fontSize}px`);
-    if (style.color)      cssVars.push(`--text-color-override: ${style.color}`);
-    if (style.weight)     cssVars.push(`--text-weight: ${style.weight}`);
+    /* 감사 H2: variant textStyle(aiVariants 경유) 포함 — 값 새니타이즈 */
+    if (style.fontFamily && style.fontFamily !== 'auto') cssVars.push(`--text-ff: var(--font-${safeCssVal(style.fontFamily)})`);
+    if (style.fontSize)   cssVars.push(`--text-fs-body: ${safeNum(style.fontSize, 16)}px`);
+    if (style.color)      cssVars.push(`--text-color-override: ${safeCssVal(style.color)}`);
+    if (style.weight)     cssVars.push(`--text-weight: ${safeCssVal(style.weight)}`);
   }
   const styleAttr = cssVars.length > 0 ? ` style="${cssVars.join(';')}"` : '';
 
@@ -2410,12 +2421,12 @@ function _renderMovieEnding(stage, scene) {
   /* 미디어 — _renderSceneMovie와 동일(영상/포스터/placeholder). 엔딩 placeholder는 마감 아이콘. */
   let mediaInner;
   if (hasVideo) {
-    const posterAttr = poster ? ` poster="${poster}"` : '';
+    const posterAttr = poster ? ` poster="${safeUrlAttr(poster)}"` : '';
     mediaInner = `<video class="movie-video js-movie-video" controls playsinline
       preload="metadata"${posterAttr}
-      src="${md.videoUrl}"></video>`;
+      src="${safeUrlAttr(md.videoUrl, { video: true })}"></video>`;
   } else if (poster) {
-    mediaInner = `<div class="movie-poster" style="background-image:url('${poster}')"></div>`;
+    mediaInner = `<div class="movie-poster" style="background-image:url('${safeCssUrl(poster)}')"></div>`;
   } else {
     /* MOVIE-EMPTY-GUIDE: 엔딩 마감 아이콘(🏆/🏁)은 감상에선 그대로(의도된 디자인) —
        편집(다듬기)에서만 업로드 안내 한 줄 추가. */
@@ -2461,7 +2472,7 @@ function _renderMovieEnding(stage, scene) {
 
   _stageReplaceScene(stage, `
     <div class="scene-screen scene-screen--movie movie-ending-screen"
-      data-display="${scene.displayType}"
+      data-display="${escHtml(scene.displayType)}"
       data-scene-num="${escHtml(String(scene.id))}"
       data-presentation-mode="movie"
       data-ending="true"
@@ -2533,7 +2544,7 @@ function _renderExploreCompletion(stage, scene) {
   const stats = getExploreStats();
 
   const bgHtml = scene.imageData
-    ? `<div class="scene-bg" style="background-image:url('${scene.imageData}')"></div>
+    ? `<div class="scene-bg" style="background-image:url('${safeCssUrl(scene.imageData)}')"></div>
        <div class="scene-bg-overlay scene-bg-overlay--dark"></div>`
     : `<div class="scene-bg-solid scene-bg-solid--explore"></div>`;
 
@@ -2837,6 +2848,40 @@ function renderHUD() {
        로드 중복/연타 방지(_goEditLoading), 실패 시 안내 후 감상 유지. */
     if (window.__goEditLoading) return;
     const _goEdit = () => {
+      /* 감사 H3(2026-07-20): 완성본 보기→[감상 화면 다듬기]도 편집 진입이므로
+         edit=1 진입(viewer-entry)과 동일하게 잠금 리스너+단일 세션을 잡는다 —
+         이 경로가 둘 다 우회해 2기기 동시 편집·무음 되덮음이 가능했다.
+         initViewerLocks는 중복 초기화 방지 내장, claim은 같은 기기면 무경고 이어받음. */
+      const _tn = (ViewerState.project && ViewerState.project.teamName) || '';
+      const _cid = (ViewerState.project && ViewerState.project.classId) || '';
+      if (_tn) {
+        const _basePath = _cid
+          ? `classes/${_cid}/teams/${encodeURIComponent(_tn)}`
+          : `teams/${encodeURIComponent(_tn)}`;
+        if (typeof initViewerLocks === 'function') initViewerLocks(_basePath);
+        if (window.BranchSession) {
+          window.BranchSession.claim(getViewerDb(), _basePath, {
+            kind: 'student',
+            confirmTakeover: () => Promise.resolve(confirm(
+              '지금 다른 기기에서 이 모둠을 편집하고 있어요.\n계속 들어가면 그 기기의 접속은 종료돼요. 들어갈까요?')),
+            onKicked: async (v) => {
+              try { if (typeof _flushPendingSave === 'function') await _flushPendingSave(); } catch (e) {}
+              const _msg = window.BranchSession.kickMessage(v);
+              if (window.BranchSession.kickAllowsReload && window.BranchSession.kickAllowsReload(v)) {
+                if (confirm(_msg)) { location.reload(); return; }
+              } else {
+                alert(_msg);
+              }
+              location.replace('index.html');
+            },
+          }).then(res => {
+            /* 다른 기기 인수 거절 → 편집 진입 취소, 감상 화면 유지 */
+            if (res && res.denied && ViewerState.editMode) {
+              ViewerState.editMode = false; renderCurrentScene();
+            }
+          }).catch(() => { /* fail-open */ });
+        }
+      }
       ViewerState.editMode = true; ViewerState.selectedChoiceId = null; renderCurrentScene();
       /* COACH-FIX(2026-07-09): 인앱 '감상 화면 다듬기' 진입에도 튜토리얼(환영+코치) 호출 —
          기존엔 전체화면 진입(_enterViewer)만 호출해 이 경로로 들어오면 코치마크가 안 떴다. maker 세션만. */
@@ -3035,6 +3080,48 @@ function escHtml(str) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+/* ── 감사 H2(2026-07-20): URL·style 삽입점 새니타이즈 헬퍼 ──
+   텍스트는 전부 escHtml인데 이미지/비디오 URL과 style 숫자만 원문 삽입이라,
+   scenes/viewer-meta 쓰기 개방(H5)과 결합하면 imageData 등에 `x" onerror="…`를
+   심어 그 작품을 여는 모든 감상자·교사 세션에서 스크립트 실행이 가능했다.
+   원칙: 허용 스킴만 통과(https/http/blob/data:image·비디오는 data:video 추가),
+   나머지는 ''(깨진 그림 — 실행 불가). 통과분도 문맥별 이스케이프. */
+/* src/poster 등 HTML 속성용 URL — 속성 탈출은 escHtml이 차단 */
+function safeUrlAttr(u, opts) {
+  if (typeof u !== 'string') return '';
+  const s = u.trim();
+  if (!s) return '';
+  const low = s.toLowerCase();
+  const ok = low.startsWith('https://') || low.startsWith('http://')
+    || low.startsWith('data:image/') || low.startsWith('blob:')
+    || (!!(opts && opts.video) && low.startsWith('data:video/'));
+  return ok ? escHtml(s) : '';
+}
+/* style="background-image:url('…')" 안의 URL — CSS 문자열 탈출('·괄호)과
+   HTML 속성 탈출(")을 모두 %-인코딩으로 무력화(정상 URL 의미는 보존) */
+function safeCssUrl(u) {
+  if (typeof u !== 'string') return '';
+  const s = u.trim();
+  if (!s) return '';
+  const low = s.toLowerCase();
+  const ok = low.startsWith('https://') || low.startsWith('http://')
+    || low.startsWith('data:image/') || low.startsWith('blob:');
+  if (!ok) return '';
+  /* ⚠️ encodeURIComponent는 ' ( ) 를 안 바꾼다(고전 함정) — 명시 %인코딩 */
+  return s.replace(/[()'"<>\\ ]/g,
+    ch => '%' + ch.charCodeAt(0).toString(16).toUpperCase().padStart(2, '0'));
+}
+/* style 숫자 값(좌표·크기·불투명도) — 숫자 강제, 비수치는 fallback */
+function safeNum(v, fb) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : (fb !== undefined ? fb : 0);
+}
+/* style 단위/토큰 문자열 값("18px"·"#a33"·폰트키 등) — CSS/속성 탈출 문자 제거.
+   #은 hex 색상용 허용. 따옴표·세미콜론·괄호·역슬래시·꺾쇠는 전부 제거. */
+function safeCssVal(v) {
+  return String(v == null ? '' : v).replace(/[^#0-9a-zA-Z.,%\- ]/g, '');
 }
 
 function modeBadgeLabel(mode) {

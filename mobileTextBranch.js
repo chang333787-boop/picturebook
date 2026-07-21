@@ -2556,7 +2556,7 @@ function _storyDraftAnswersDigest(answers, storyValue) {
   /* COMPASS-VALUE-1(2026-07-21): 1단계 마지막 질문에서 고른 가치 — 맨 앞에 강조(1500자
      컷에 잘리지 않게·mustInclude 강조와 동일하게 answersText 안 지시라 초안 서버 무변경). */
   const _sv = String(storyValue == null ? '' : storyValue).replace(/\s+/g, ' ').trim().slice(0, 12);
-  if (_sv) lines.push('(중요: 이 이야기가 전하고 싶은 가치는 "' + _sv + '"예요 — 이야기 전체에 이 가치가 자연스럽게 드러나게 써 주세요)');
+  if (_sv) lines.push('(중요: 이 이야기가 전하고 싶은 가치는 "' + _sv + '"예요 — 인물의 행동과 마음, 결말의 느낌으로 은근히 드러내되, 교훈처럼 설명하지 마세요)');
   let mustIncludeText = '';
   Object.keys(answers).forEach((k) => {
     const a = answers[k];

@@ -279,8 +279,22 @@
         }
       });
     });
+    /* PRINT-LINEAR-CLEAN(2026-07-21 사용자 결정): 1·2단계는 일직선 구조라 인쇄물에
+       '▸ 버튼 - 장면 N로' 이동 안내가 무의미(다음 페이지가 곧 다음 장면) — 장면만 인쇄.
+       엔딩(선택지 없는 장면)만 '— 이야기 끝 —' 마감 표기 유지('돌아가 다른 길' 안내도
+       일직선엔 오안내라 함께 소거). 3단계(분기)는 기존 그대로. */
+    const _pbLinear = (() => {
+      try {
+        const p = (typeof window !== 'undefined' && window.ViewerState && window.ViewerState.project) || null;
+        return !!(p && p.projectType === 'picturebook'
+          && (p.picturebookLevel === 1 || p.picturebookLevel === 2));
+      } catch (e) { return false; }
+    })();
     const _choicesBoxOf = (sc, key) => {
       const chs = _choices(sc);
+      if (_pbLinear) {
+        return chs.length ? null : _el('div', 'pbp-end-mark', '— 이야기 끝 —');
+      }
       if (!chs.length) {
         /* 엔딩: 진엔딩=결말 표시 / 그 외=전 장면으로 돌아가 다른 길 읽기 안내(부모 없으면 기존 '이야기 끝'). */
         if (sc && (sc.trueEnding || sc.isTrueEnd)) return _el('div', 'pbp-end-mark', '⭐ 진짜 결말 —');
@@ -360,7 +374,8 @@
           bodyEl.dataset.pbpFsKey = String(k);   /* PRINT-HELPER: 글자 크기 조절 대상 */
           page.appendChild(bodyEl);
         }
-        page.appendChild(_choicesBoxOf(s, k));
+        const _cbImg = _choicesBoxOf(s, k);
+        if (_cbImg) page.appendChild(_cbImg);   /* PRINT-LINEAR-CLEAN: 1·2단계=null(생략) */
         page.appendChild(_el('div', 'pbp-num-foot', numText));
         rootEl.appendChild(page);
       } else {
@@ -372,7 +387,8 @@
         const noimgBody = _el('div', 'pbp-scene-body' + (body ? '' : ' pbp-scene-body--empty'), body || '(글 없음)');
         if (body) noimgBody.dataset.pbpFsKey = String(k);   /* PRINT-HELPER: 글자 크기 조절 대상 */
         card.appendChild(noimgBody);
-        card.appendChild(_choicesBoxOf(s, k));
+        const _cbTxt = _choicesBoxOf(s, k);
+        if (_cbTxt) card.appendChild(_cbTxt);   /* PRINT-LINEAR-CLEAN: 1·2단계=null(생략) */
         /* PB-NUM-FOOT(2026-07-09): 번호를 카드 상단 배지 대신 선택지 아래로 이동. */
         card.appendChild(_el('div', 'pbp-num-foot', numText));
         page.appendChild(card);

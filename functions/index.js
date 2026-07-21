@@ -455,7 +455,12 @@ async function _validateRequest(req, mode, opts) {
 
   /* 5. testMode 거부 — v140 핵심. client가 testMode를 보내도 실 API 호출 금지 */
   if (req.data && req.data.testMode === true) {
-    logger.warn('[ai] testMode 우회 시도 박힘', { uid: req.auth.uid, data: req.data });
+    /* 감사 L5(2026-07-21): req.data 전체(작품 본문 포함)를 로그에 남기지 않음 — 식별 최소만 */
+    logger.warn('[ai] testMode 우회 시도 차단', {
+      uid: req.auth.uid,
+      classId: req.data ? String(req.data.classId || '') : '',
+      teamName: req.data ? String(req.data.teamName || '') : '',
+    });
     throw new HttpsError('permission-denied', 'testMode로는 실제 AI를 사용할 수 없어요.');
   }
 
@@ -3409,6 +3414,11 @@ function _validateStudentStoryDraft(d, storyCount, level) {
    정본: docs/picturebook_levels_design_20260718.md §7.5·§7.6·§9
    ════════════════════════════════════════════════════════════════ */
 const STORY_IMAGE_TEAM_LIMIT = 24;
+/* 감사 H6(2026-07-21): 이미지 생성 전역 일일 hard cap — 텍스트 전역(GLOBAL_DAILY_LIMIT)과
+   별도 카운터(ai-usage-global/{ymd}/imageGenCalls). meta 쓰기 개방으로 가짜 학급·팀을
+   자가생성해 팀당 24를 무한 반복하는 비용 체인의 전체 상한. 정상 사용(학급당 1단계
+   9~12장×팀수)에는 여유. */
+const STORY_IMAGE_GLOBAL_DAILY_LIMIT = 500;
 const STORY_IMAGE_LOCK_STALE_MS = 10 * 60 * 1000;
 const STORY_IMAGE_BODYBOX_PRESET = { x: 6, y: 5, width: 88, backdropOpacity: 0.85 };
 
@@ -3425,6 +3435,12 @@ exports.generateStoryImages = onCall(
   async (req) => {
     /* 권한/설정/멤버십/killswitch — 교사 토글은 기존 'AI 그림책 마감'(modes.imageS2) 재사용 */
     const ctx = await _validateRequest(req, 'imageS2', { skipUsageLimits: true });
+    /* 감사 H6(2026-07-21): 실행 자격 — callImageAiS2와 동일한 actor 판정(교사 또는 그 팀
+       active 멤버). 익명 uid가 남의/가짜 팀 경로로 유료 생성을 트리거하는 진입로 차단. */
+    const actor = await _resolveImageS2Actor(ctx, req);
+    if (!actor.ok) {
+      throw new HttpsError('permission-denied', '자기 모둠 작품에서만 그림을 만들 수 있어요.');
+    }
     const enc = encodeURIComponent(ctx.teamName);
     const baseRef = admin.database().ref(`classes/${ctx.classId}/teams/${enc}`);
 
@@ -3488,9 +3504,11 @@ exports.generateStoryImages = onCall(
         if (typeof _cs === 'string' && _cs.trim()) characterSheet = _cs.trim().slice(0, 500);
       } catch (e) { characterSheet = null; }
       const limitRef = baseRef.child('aiUsage/imageGen');
+      /* 감사 H6: 전역 일일 카운터 — 팀 총량과 같은 transaction 강제(검사-차감 원자) */
+      const globalImgRef = admin.database().ref(`ai-usage-global/${_todayYmd()}/imageGenCalls`);
       const PV = ImageS2OpenAi.STORY_IMAGE_PROMPT_VERSION;
 
-      let generated = 0, skipped = 0, limitReached = false;
+      let generated = 0, skipped = 0, limitReached = false, globalLimitReached = false;
       const failed = [];
       const queue = [...targetIds].sort((a, b) => (Number(a) || 0) - (Number(b) || 0));
 
@@ -3509,7 +3527,22 @@ exports.generateStoryImages = onCall(
           return n + 1;
         });
         if (!tx.committed) { limitReached = true; return; }
-        const refund = () => limitRef.transaction((cur) => Math.max(0, (cur || 0) - 1)).catch(() => {});
+        /* 감사 H6: 전역 일일 캡 — 도달 시 팀 카운터 즉시 반납 후 중단 */
+        const gTx = await globalImgRef.transaction((cur) => {
+          const n = (typeof cur === 'number' && cur >= 0) ? cur : 0;
+          if (n >= STORY_IMAGE_GLOBAL_DAILY_LIMIT) return;
+          return n + 1;
+        });
+        if (!gTx.committed) {
+          globalLimitReached = true;
+          await limitRef.transaction((cur) => Math.max(0, (cur || 0) - 1)).catch(() => {});
+          return;
+        }
+        /* 실패 환불 = 팀·전역 동시(성공분만 카운트 유지) */
+        const refund = () => Promise.allSettled([
+          limitRef.transaction((cur) => Math.max(0, (cur || 0) - 1)),
+          globalImgRef.transaction((cur) => Math.max(0, (cur || 0) - 1)),
+        ]);
 
         try {
           const gen = await adapter.generate({ storyText: body, wholeStoryText, characterSheet });
@@ -3550,7 +3583,7 @@ exports.generateStoryImages = onCall(
 
       /* 동시성 3 워커 풀 */
       const workers = Array.from({ length: 3 }, async () => {
-        while (queue.length > 0 && !limitReached) {
+        while (queue.length > 0 && !limitReached && !globalLimitReached) {
           const sid = queue.shift();
           if (sid == null) break;
           await workOne(sid);
@@ -3560,13 +3593,13 @@ exports.generateStoryImages = onCall(
 
       await admin.database().ref('ai-stats/imageGen').push({
         by: ctx.uid, classId: ctx.classId, generated, skipped, failedCount: failed.length,
-        limitReached, at: admin.database.ServerValue.TIMESTAMP,
+        limitReached, globalLimitReached, at: admin.database.ServerValue.TIMESTAMP,
       }).catch(() => {});
       logger.info('[generateStoryImages]', {
         by: ctx.uid, classId: ctx.classId, teamName: ctx.teamName,
-        generated, skipped, failedCount: failed.length, limitReached, single: !!singleSceneId,
+        generated, skipped, failedCount: failed.length, limitReached, globalLimitReached, single: !!singleSceneId,
       });
-      return { ok: true, generated, skipped, failed, limitReached, total: targetIds.length };
+      return { ok: true, generated, skipped, failed, limitReached, globalLimitReached, total: targetIds.length };
     } finally {
       await releaseLock();
     }
@@ -3719,11 +3752,16 @@ exports.postWorkComment = onCall(
   { enforceAppCheck: false },
   async (req) => {
     const d = req.data || {};
+    /* 감사 L6(2026-07-21): 서버측 정제 — 제어문자·제로폭/양방향 제어문자 제거(렌더 이스케이프에만
+       의존하던 것 보강). 줄바꿈은 text에서만 유지. 한글·이모지 등 정상 내용은 무손상. */
+    const _cleanComment = (s, keepNewline) => String(s || '')
+      .replace(keepNewline ? /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g : /[\u0000-\u001F\u007F]/g, '')
+      .replace(/[\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/g, '');
     const classId = String(d.classId || '').trim();
     const enc = String(d.team || '').trim();
     const code = String(d.code || '').trim();
-    const name = String(d.name || '').trim().slice(0, 12);
-    const text = String(d.text || '').trim().slice(0, 200);
+    const name = _cleanComment(d.name, false).trim().slice(0, 12);
+    const text = _cleanComment(d.text, true).trim().slice(0, 200);
     if (!classId || /[.#$\[\]\/]/.test(classId) || !enc || /[.#$\[\]\/]/.test(enc)) {
       throw new HttpsError('invalid-argument', '요청이 올바르지 않아요.');
     }

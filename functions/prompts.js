@@ -651,13 +651,23 @@ exports.buildUserMessage = function (snapshot, mode, anchor, opts) {
     ? `\n[작품 구조 — 중요]\n이 작품은 갈림길(선택지) 없이 한 길로 이어지는 "일직선 그림책"입니다. 구조가 잠겨 있어 학생이 선택지나 분기를 추가할 수 없습니다.\n- "선택지가 없다"는 지적이나 선택지·분기·인터랙티브 구조를 추가하라는 제안은 절대 하지 마세요.\n- branchFlow 카테고리에서는 분기 대신 "이야기 마무리"만 봅니다: 이야기가 자연스럽게 끝나는지, 엔딩이 앞 내용과 잘 이어지는지.\n`
     : '';
 
-  return `${intro}${structureBlock}\n${anchorBlock}\n<student_text>\n${sceneBlocks}\n</student_text>\n${note}`;
+  /* 감사 L1: 학생 데이터(sceneBlocks)의 구분자 태그 무력화 후 정본 태그로 감싼다 */
+  return `${intro}${structureBlock}\n${anchorBlock}\n<student_text>\n${neutralizeDelimiters(sceneBlocks)}\n</student_text>\n${note}`;
 };
+
+/* 감사 L1(2026-07-21): 학생 데이터 안의 구분자 태그 무력화 — 본문에 </student_text>를
+   적어 가드 블록을 조기 종료시키는 인젝션 차단(이미지 경로의 구분자 방어와 대칭).
+   여는/닫는 태그 모두 시각 유사 문자(‹)로 치환해 내용 의미는 보존. 정상 작품(태그를
+   안 쓴 글)은 바이트 동일. */
+function neutralizeDelimiters(s) {
+  return String(s == null ? '' : s).replace(/<(\/?)\s*(student_text|student_anchor)\b/gi, '‹$1$2');
+}
+exports.neutralizeDelimiters = neutralizeDelimiters;
 
 /* COMPASS-ANCHOR-1: anchor 블록 — 없으면 빈 문자열(기존 프롬프트 불변).
    anchor도 학생 데이터이므로 인젝션 가드 문구 포함. */
 function buildAnchorBlock(anchor, mode) {
-  const a = String(anchor == null ? '' : anchor).trim();
+  const a = neutralizeDelimiters(String(anchor == null ? '' : anchor).trim());
   if (!a) return '';
   const hint = mode === 'check'
     ? '이야기 속에서 이 다짐이 살아 있는 부분이 보이면 진단 요약에 자연스럽게 반영하세요(별도 항목 추가 없이 기존 진단 안에서만).'
@@ -717,7 +727,8 @@ exports.buildUserMessageS2Chunk = function (snapshot, targetIds, anchor) {
   /* COMPASS-ANCHOR-1: 나침반 다짐 — 없으면 출력 기존과 바이트 동일 */
   const anchorBlock = buildAnchorBlock(anchor, 's2');
 
-  return `${intro}\n${anchorBlock}\n<student_text>\n${sceneBlocks}\n</student_text>\n${note}`;
+  /* 감사 L1: 학생 데이터(sceneBlocks)의 구분자 태그 무력화 후 정본 태그로 감싼다 */
+  return `${intro}\n${anchorBlock}\n<student_text>\n${neutralizeDelimiters(sceneBlocks)}\n</student_text>\n${note}`;
 };
 
 /* ════════════════════════════════════════════════════════════════

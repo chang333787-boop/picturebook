@@ -730,6 +730,12 @@ const SAFETY_PATTERNS = {
   gore: [
     /목을?\s*(잘라|베어|베고|썰어)|사지를?\s*찢|내장을?\s*꺼내|눈알을?\s*(파|뽑)|살점을?\s*도려|피가\s*솟구|피분수/,
   ],
+  /* STORYDRAFT-SAFETY-1(2026-07-21): 극단 폭력 — 초등 저학년 동화에 절대 부적합한 대량살상어만
+     좁게. ⚠️'죽다·싸우다·총싸움 놀이·칼싸움' 같은 정상 서사는 절대 잡지 않도록 고정밀 유지
+     (사용자 연습5 '학살' 대응·과차단 실측 0). */
+  violence_extreme: [
+    /학살|몰살|대량\s*살상|무차별\s*(총격|살해|난사)|기관총\s*난사|집단\s*(학살|살해)/,
+  ],
   /* prompt injection */
   injection: [
     /이전\s*(지시|명령|프롬프트)\S*\s*(무시|잊)|지금부터\s*너는|너는\s*이제|시스템\s*프롬프트|역할을?\s*(무시|벗어)|ignore\s+(all\s+)?previous|system\s+prompt|disregard\s+(the\s+)?above|you\s+are\s+now/i,
@@ -3292,6 +3298,22 @@ exports.studentStoryDraft = onCall(
       throw new HttpsError('invalid-argument', '생각 나침반 답이 없어요.');
     }
 
+    /* STORYDRAFT-SAFETY-1(2026-07-21): 초안 입력(나침반 답)에 키워드 스캐너를 먼저 건다 —
+       s1/s2/check를 지키는 _scanSafety가 정작 첫 관문(초안)엔 없어, 명시적 소재조차 LLM 판단에만
+       기대던 것 보강. 여기서 결정적으로 잡고(섹스·자해·개인정보 등 사전 등록어), LLM 거부·순화는
+       그 뒤 2차 방어로 유지. 쿼터 차감(아래 transaction) 전이라 환불 불요. 원문은 로그 미기록(카테고리만). */
+    const _inSafety = _scanSafety({ a: { body: answersText } });
+    if (_inSafety.blocked) {
+      logger.warn('[studentStoryDraft] 입력 안전 차단', {
+        by: ctx.uid, classId, level, categories: _inSafety.categories,
+      });
+      await admin.database().ref('ai-stats/storyDraftBlocked').push({
+        by: ctx.uid, classId, level, phase: 'input', categories: _inSafety.categories,
+        at: admin.database.ServerValue.TIMESTAMP,
+      }).catch(() => {});
+      return { ok: false, refused: true, reason: '이 소재는 초등학교 그림책으로 쓰기 어려워요. 다른 이야기로 바꿔 볼까요?' };
+    }
+
     /* 팀당 총량 — transaction 증가(초과 시 롤백). 정본 §9 */
     const limitRef = admin.database().ref(`${teamBase}/aiUsage/storyDraft`);
     const tx = await limitRef.transaction((cur) => {
@@ -3319,6 +3341,12 @@ exports.studentStoryDraft = onCall(
       const draft = _sanitizeStudentStoryDraft(_parseJsonStrict(ai.text), storyCount, level);
       if (draft && draft.refused === true) {
         await refund();   /* 소재 거절 = 횟수 미차감(대본도우미와 동일 정책) */
+        /* STORYDRAFT-SAFETY-1(2026-07-21): LLM 거부도 교사 오버사이트용으로 기록(원문 미기록). */
+        logger.warn('[studentStoryDraft] LLM 소재 거부', { by: ctx.uid, classId, level });
+        await admin.database().ref('ai-stats/storyDraftBlocked').push({
+          by: ctx.uid, classId, level, phase: 'llm_refused',
+          at: admin.database.ServerValue.TIMESTAMP,
+        }).catch(() => {});
         return { ok: false, refused: true, reason: String(draft.reason || '').slice(0, 200) };
       }
       const shapeErr = _validateStudentStoryDraft(draft, storyCount, level);
@@ -3516,6 +3544,17 @@ exports.generateStoryImages = onCall(
 
       const workOne = async (sid) => {
         const body = String(scenes[sid].body || '').trim();
+        /* STORYDRAFT-SAFETY-1(2026-07-21): 그림화 전 본문 키워드 스캔 — 아이가 장면을 수동으로
+           폭력/성적 텍스트로 고쳐 재생성해도 그림 생성을 건너뛴다(OpenAI 모더레이션 앞단 결정적 차단).
+           안전한 초안 본문은 무영향(빈도 0). 차단 장면은 실패로 집계·차감 없음. */
+        if (body) {
+          const _bs = _scanSafety({ [sid]: { body } });
+          if (_bs.blocked) {
+            logger.warn('[generateStoryImages] 본문 안전 차단 — 그림 생략', { classId: ctx.classId, sid, categories: _bs.categories });
+            failed.push({ sceneId: sid, code: 'SAFETY_BLOCKED' });
+            return;
+          }
+        }
         /* dedup — 이미 이 버전 결과가 있으면 스킵(차감 0). force(🔁)는 재생성 */
         let existing = null;
         try { existing = (await baseRef.child(`aiVariants/image/${sid}/s2`).once('value')).val(); } catch (e) { existing = null; }

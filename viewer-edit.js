@@ -6121,6 +6121,9 @@ function _openLevel2CharGate() {
   document.addEventListener('keydown', _escBlock, true);
   const _cleanup = () => { document.removeEventListener('keydown', _escBlock, true); root.remove(); };
   root.querySelector('.js-lvl2-char-start').addEventListener('click', () => {
+    /* 그리기 모달(z 9999)이 게이트(z 100060) 뒤에 열리므로, 그리기 동안 게이트를 숨긴다.
+       저장 없이 닫으면(onClose·주인공 여전히 없음) 게이트 재노출 → 필수 유지. */
+    root.style.display = 'none';
     /* 그리기 스튜디오(작품 단위 저장 오버라이드). 껍데기 scene=캔버스 비율/배경용. */
     const shell = {
       id: '__protagonist__', num: '__protagonist__',
@@ -6132,6 +6135,10 @@ function _openLevel2CharGate() {
       saveOverride: async (url) => {
         await _saveProtagonistRef(url);
         _cleanup();   /* 주인공 저장 성공 → 게이트 해제, 진행 가능 */
+      },
+      onClose: () => {
+        /* 저장 성공이면 _cleanup으로 root 제거됨(재노출 안 함). 취소면 주인공 여전히 없음 → 다시 띄움. */
+        if (_level2NeedsCharacter() && root.isConnected) root.style.display = '';
       },
     });
   });
@@ -8400,6 +8407,8 @@ function _openPbDrawModal(scene, opts) {
        modal.remove()만으론 클로저가 잡은 배열이 늦게 해제될 수 있음. */
     try { if (state) { state.history = []; state.future = []; if (state.shapeBaseImage) state.shapeBaseImage = null; } } catch (e) {}
     modal.remove();
+    /* LEVEL2-CHAR: 닫힘 훅(저장/취소 공통) — 주인공 게이트가 재노출 판단에 사용. */
+    if (typeof opts.onClose === 'function') { try { opts.onClose(); } catch (e) { /* noop */ } }
   }
   /* DRAW-CLOSE(2026-07-09): 닫기 확인(변경분 있으면) 공통화 — 취소/배경/ESC가 재사용. */
   async function _requestClose() {

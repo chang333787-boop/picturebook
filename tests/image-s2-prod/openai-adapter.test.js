@@ -123,7 +123,13 @@ test('LEVEL2-DRAW STRONG — 강변환 프롬프트 계약(구도 유지·강변
   assert.ok(p.indexOf('no stick figures') !== -1, '졸라맨 흔적 0');
   assert.ok(p.indexOf('sketch always wins') !== -1, '글-스케치 불일치 시 스케치 우선(PoC v3)');
   assert.ok(p.indexOf('render no text') !== -1, 'NO-TEXT 가드');
-  assert.ok(p.indexOf('recognizably the same') !== -1, '주인공/조연 페이지 일관성(whole-story)');
+  assert.ok(p.indexOf('look the same as on other pages') !== -1, '주인공/조연 페이지 일관성(whole-story)');
+  /* LEVEL2-CTX(2026-07-21 실결과 판단): 안 그린 인물(주인공 포함) 추가 금지·동작/감정 반영 강화 */
+  assert.ok(p.indexOf('the sketch alone decides which characters') !== -1, '스케치=등장인물 유일 권위(안 그린 주인공 추가 금지)');
+  assert.ok(p.indexOf('show the action and feeling') !== -1, '장면 텍스트의 동작/감정 반영');
+  /* 레퍼런스 프레임(4번째 인자 true일 때만)은 "주인공 추가 안 함" 명시 */
+  const pProt = A.buildS2StrongPrompt('테스트', '', '', true).toLowerCase();
+  assert.ok(pProt.indexOf('this reference never adds the hero') !== -1, '레퍼런스가 주인공을 추가하지 않음');
   assert.ok(p.indexOf('character sheet') !== -1 && p.indexOf('루루: 주황 고양이') !== -1, 'characterSheet 주입');
   assert.ok(p.indexOf('3:2') !== -1, '가로 3:2');
 });

@@ -6158,15 +6158,88 @@ function _openLevel2CharGate() {
   });
 }
 
-/* LV1-PROTAG-REMOVED(2026-07-21 사용자 결정): 1단계 주인공 직접 그리기 게이트는 제거.
-   아이 손그림을 edits 레퍼런스로 쓰면 얼굴이 뒤틀린 괴물·장면 간 불일치가 나고 실사용
-   성공률도 낮아, 1단계는 순수 자체생성(자동)으로 되돌렸다. 인물 일관성은 초안이 뽑는
-   텍스트 characterSheet가 담당. 2단계 주인공 게이트(_openLevel2CharGate)는 별개로 유지. */
+/* ════════════════════════════════════════════════════════════════
+   LV1-PROTAG-VISION(2026-07-22 부활): 1단계 주인공 그리기 — 선택 게이트.
+   ─────────────────────────────────────────────────────────────
+   · maker(초안 직후)에서 [내 주인공 그리기]를 고르면 pending 플래그+다듬기 이동→이 게이트.
+     2단계 필수 게이트와 달리 [건너뛰기] 있음(선택).
+   · 저장 = viewer-meta/protagonistRef → 서버가 "그림 그대로"가 아니라 비전으로 설명해
+     순수 생성에 반영(화풍 안정·edits 아님). 건너뛰기 = 무레퍼런스 순수 생성.
+   · 어느 쪽이든 플래그 소거·배치 1회 시작(그림 없는 고아 방지). ⚠️2단계 그림(edits+스케치)과 무관.
+   ════════════════════════════════════════════════════════════════ */
+function _lv1PendingDrawInfo() {
+  try {
+    const raw = sessionStorage.getItem('pbLv1ProtagDraw');
+    if (!raw) return null;
+    const v = JSON.parse(raw);
+    if (!v || !v.classId || !v.teamName) return null;
+    const p = (ViewerState && ViewerState.project) || {};
+    if (String(p.classId || '') !== String(v.classId)) return null;
+    if (String(p.teamName || '') !== String(v.teamName)) return null;
+    if (p.projectType !== 'picturebook' || p.picturebookLevel !== 1) return null;
+    if (typeof v.at === 'number' && (Date.now() - v.at) > 2 * 60 * 60 * 1000) return null;   /* 2h 신선도 */
+    return v;
+  } catch (e) { return null; }
+}
+function _clearLv1PendingDraw() { try { sessionStorage.removeItem('pbLv1ProtagDraw'); } catch (e) { /* noop */ } }
+function _fireLv1ImagesFromViewer(cid, tn) {
+  try {
+    firebase.app().functions('asia-northeast3')
+      .httpsCallable('generateStoryImages', { timeout: 570000 })({ classId: cid, teamName: tn })
+      .then((r) => { const g = r && r.data; console.info('[storyImages] done:', g && g.generated, 'skipped:', g && g.skipped); })
+      .catch((e) => console.warn('[storyImages] fail:', (e && (e.code || e.message)) || e));
+  } catch (e) { /* 비치명 — 장면별 🔁로 수동 생성 가능 */ }
+}
 
-/* viewer-entry(튜토리얼 완료 훅)에서 호출 — 2단계 필수 게이트 전용. */
+function _openLevel1ProtagGate() {
+  const info = _lv1PendingDrawInfo();
+  if (!info) return;
+  if (document.getElementById('lvl1-protag-gate')) return;
+  const root = document.createElement('div');
+  root.id = 'lvl1-protag-gate';
+  root.className = 'viewer-confirm-backdrop';
+  root.innerHTML =
+    '<div class="viewer-confirm-card" role="dialog" aria-modal="true" style="max-width:440px;text-align:center;">'
+    +   '<div style="font-size:40px;line-height:1;margin-bottom:6px;">🎨</div>'
+    +   '<div class="viewer-confirm-title">우리 이야기의 주인공을 그려요</div>'
+    +   '<div class="viewer-confirm-message" style="margin-bottom:14px;">주인공을 한 번만 그려 두면, AI가 그 모습(모자·색·소품)을 살려서 모든 장면을 그려 줘요. 잘 그리지 않아도 괜찮아요 — <b>누구인지 알아볼 수 있게</b>만 그려 주세요.</div>'
+    +   '<div class="viewer-confirm-actions" style="justify-content:center;flex-wrap:wrap;gap:8px;">'
+    +     '<button type="button" class="viewer-confirm-ok js-lvl1-protag-start" style="font-size:15px;padding:11px 22px;">✏️ 주인공 그리기 시작</button>'
+    +     '<button type="button" class="viewer-confirm-cancel js-lvl1-protag-skip" style="font-size:13px;">건너뛰기 — AI가 알아서 그려요</button>'
+    +   '</div>'
+    + '</div>';
+  document.body.appendChild(root);
+  const _finish = (fire) => {
+    _clearLv1PendingDraw();
+    root.remove();
+    if (fire) _fireLv1ImagesFromViewer(info.classId, info.teamName);
+  };
+  root.querySelector('.js-lvl1-protag-skip').addEventListener('click', () => _finish(true));
+  root.querySelector('.js-lvl1-protag-start').addEventListener('click', () => {
+    root.style.display = 'none';
+    const shell = {
+      id: '__protagonist__', num: '__protagonist__',
+      picturebookSubmode: 'imageCenter',
+      imageData: (ViewerState.project && ViewerState.project.protagonistRef) || null,
+    };
+    _openPbDrawModal(shell, {
+      title: '🎨 우리 주인공 그리기',
+      saveOverride: async (url) => {
+        await _saveProtagonistRef(url);
+        _finish(true);   /* 저장 성공 → 비전 설명 반영된 배치 시작 */
+      },
+      onClose: () => {
+        if (root.isConnected && document.getElementById('lvl1-protag-gate')) root.style.display = '';
+      },
+    });
+  });
+}
+
+/* viewer-entry(튜토리얼 완료 훅)에서 호출 — 2단계 필수 게이트 + 1단계 선택 게이트(pending 시). */
 if (typeof window !== 'undefined') {
   window.__maybeShowLevel2CharGate = function () {
     try { _openLevel2CharGate(); } catch (e) { /* noop */ }
+    try { _openLevel1ProtagGate(); } catch (e) { /* noop */ }
   };
 }
 

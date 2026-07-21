@@ -2769,13 +2769,16 @@ async function requestStoryDraftStarter(opts) {
        서버(generateStoryImages)가 단계/토글/팀당 총량/이중 실행 lock을 재검증. 결과는
        aiVariants s2 슬롯에 쌓여 감상 진입 시 AI-DEFAULT-VIEW-1이 자동 표시. */
     if (applied && data.level === 1) {
-      /* PICTUREBOOK-LEVELS ④: 1단계 = 그림도 자동 — 초안 직후 fire-and-forget 즉시 시작.
-         브랜치 화면에 '생성 중' 배지가 바로 떠서 직관적(사용자 피드백). 결과는 aiVariants s2
-         슬롯에 쌓여 감상 진입 시 AI-DEFAULT-VIEW-1이 자동 표시.
-         LV1-PROTAG-REMOVED(2026-07-21): 주인공 직접 그리기(edits 레퍼런스)는 아이 손그림을
-         변형해 얼굴이 뒤틀린 결과·장면 간 불일치를 내고 실사용 성공률도 낮아 전면 제거.
-         일관성은 텍스트 characterSheet(초안이 뽑는 인물 외형 시트)가 담당. */
-      _fireLv1StoryImageBatch(classId, teamName, sc);
+      /* LV1-PROTAG-VISION(2026-07-22 부활): 그림 생성 전 "내 주인공 그릴래요?" 선택.
+         그리면 서버가 비전으로 설명→순수 생성에 반영(edits 아님·화풍 안정). 아니면 즉시 자동 생성.
+         ⚠️선택창(showMakerConfirm z10000)은 나침반 완료 오버레이(z100000) 뒤에 가려지므로,
+         여기선 pending 플래그만 남기고 오버레이 닫힌 뒤 브랜치 화면에서 띄운다(멈춤 버그 방지). */
+      try {
+        sessionStorage.setItem('pbLv1NeedsProtagChoice', JSON.stringify({ classId, teamName, sc, at: Date.now() }));
+      } catch (e) {
+        /* sessionStorage 불가 → 선택 못 띄우므로 즉시 자동 생성(그림은 나옴) */
+        _fireLv1StoryImageBatch(classId, teamName, sc);
+      }
     }
     return applied;
   } catch (e) {
@@ -2815,6 +2818,45 @@ function _fireLv1StoryImageBatch(classId, teamName, sc) {
   } catch (e) { /* 그림 실패는 비치명 */ }
 }
 window._fireLv1StoryImageBatch = _fireLv1StoryImageBatch;
+
+/* LV1-PROTAG-VISION: 나침반 오버레이가 닫힌 뒤 브랜치 화면에서 호출 — pending 플래그가 있으면
+   주인공 선택을 띄운다. 없으면 no-op. thought-compass-review _complete가 오버레이 close 직후 호출. */
+async function _runPendingLv1ProtagChoice() {
+  let info = null;
+  try { const raw = sessionStorage.getItem('pbLv1NeedsProtagChoice'); if (raw) info = JSON.parse(raw); } catch (e) { info = null; }
+  if (!info || !info.classId || !info.teamName) return;
+  try { sessionStorage.removeItem('pbLv1NeedsProtagChoice'); } catch (e) { /* noop */ }
+  try { await _promptLv1ProtagonistChoice(info.classId, info.teamName, info.sc || 12); }
+  catch (e) { /* 실패해도 배치는 _promptLv1... 내부 폴백이 담당 */ }
+}
+window.__runPendingLv1ProtagChoice = _runPendingLv1ProtagChoice;
+
+async function _promptLv1ProtagonistChoice(classId, teamName, sc) {
+  let draw = false;
+  try {
+    if (typeof window.showMakerConfirm === 'function') {
+      draw = await window.showMakerConfirm({
+        title: '🎨 그림을 만들기 전에 — 주인공을 직접 그릴래요?',
+        message: '주인공을 한 번 그려 두면, AI가 그 모습(모자·색·소품)을 살려서 모든 장면을 그려 줘요.\n그리지 않아도 AI가 알아서 예쁘게 그려 줘요.',
+        confirmText: '✏️ 내 주인공 그리기',
+        cancelText: '아니요, AI가 그려주세요',
+      });
+    }
+  } catch (e) { draw = false; }
+  if (!draw) { _fireLv1StoryImageBatch(classId, teamName, sc); return; }
+  /* 그리기 선택 → 다듬기(그리기 스튜디오)로 이동. 도착하면 주인공 게이트가 열리고
+     저장/건너뛰기 시 그쪽에서 배치 시작(pending 플래그·2h 신선도). */
+  try {
+    sessionStorage.setItem('pbLv1ProtagDraw', JSON.stringify({ classId, teamName, sc, at: Date.now() }));
+  } catch (e) { _fireLv1StoryImageBatch(classId, teamName, sc); return; }
+  try { if (typeof flushTitleSaves === 'function') flushTitleSaves(); } catch (e) {}
+  try { if (typeof flushBodySaves === 'function') flushBodySaves(); } catch (e) {}
+  try { if (typeof _saveReturnContext === 'function') _saveReturnContext('maker'); } catch (e) {}
+  const params = ['team=' + encodeURIComponent(teamName), 'edit=1', 'from=maker', 'scene=1', 'classId=' + encodeURIComponent(classId)];
+  const _vurl = 'viewer.html?' + params.join('&');
+  if (typeof _openInternalUrl === 'function') _openInternalUrl(_vurl);
+  else window.location.href = _vurl;
+}
 
 /* 모바일 텍스트 브랜치 빈 화면(#mtb-start-template) 핸들러 */
 async function _mtbCreateBase10Template() {

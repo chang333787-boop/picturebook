@@ -3457,9 +3457,45 @@ function _selectStoryImageAdapter() {
   return ImageS2Adapter.createNotConfiguredAdapter();
 }
 
+/* ════════════════════════════════════════════════════════════════
+   LV1-PROTAG-VISION(2026-07-22): 아이가 그린 주인공을 "그림 그대로(edits)"가 아니라
+   AI 비전이 글로 설명 → 그 글을 순수 생성 프롬프트에 병합. 손그림의 거친 선/뒤틀린 얼굴이
+   결과에 새어들지 않으면서(화풍 안정) 아이가 그린 캐릭터 특징(모자·색·소품)만 반영.
+   PoC 검증: 배드민턴 소년 손그림→"빨간 리본 모자+라켓 든 아이"→전 장면 정교·일관.
+   ══ 옛 edits 레퍼런스(+prot1·괴물/불일치)를 대체 ══
+   · 이야기당 1회만 설명(aiVariants/protagonistDesc 캐시)·재실행 재사용.
+   · 실패(다운로드/비전/비허용호스트) = 설명 없이 순수 생성(=두드림 품질·페일세이프).
+   ════════════════════════════════════════════════════════════════ */
+const PROTAG_VISION_SYSTEM = '아이가 그린 그림책 주인공 스케치를 보고, 그림 AI가 참고할 "인물 외형 설명"을 한국어 한 문장(40자 이내)으로 만드세요. 아이가 의도적으로 그린 특징(모자·머리색·소품·복장·색)만 담고, 그림이 거칠거나 서툰 점·선의 모양·낙서는 절대 언급하지 마세요. 예: "빨간 챙 모자를 쓰고 배드민턴 라켓을 든 남자아이".';
+
+async function _describeProtagonist(imageUrl, anthropicKey) {
+  try {
+    if (!imageUrl || !ImageS2OpenAi.isAllowedSourceUrl(imageUrl)) return null;
+    const res = await fetch(imageUrl);
+    if (!res || !res.ok) return null;
+    const ct = (res.headers && res.headers.get ? (res.headers.get('content-type') || '') : '').toLowerCase();
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (!buf || !buf.length || buf.length > 8 * 1024 * 1024) return null;
+    let media = ct.indexOf('png') !== -1 ? 'image/png'
+      : ct.indexOf('webp') !== -1 ? 'image/webp'
+      : ct.indexOf('gif') !== -1 ? 'image/gif' : 'image/jpeg';
+    const content = [
+      { type: 'image', source: { type: 'base64', media_type: media, data: buf.toString('base64') } },
+      { type: 'text', text: '이 그림 속 주인공의 외형을 한 문장으로 설명해줘.' },
+    ];
+    const ai = await _callAnthropic(anthropicKey, PROTAG_VISION_SYSTEM, content, null, { maxTokens: 200, timeoutMs: 30000 });
+    const desc = String(ai && ai.text ? ai.text : '').replace(/[«»"]/g, '').replace(/\s+/g, ' ').trim().slice(0, 120);
+    return desc || null;
+  } catch (e) {
+    logger.warn('[generateStoryImages] 주인공 비전 설명 실패(무레퍼런스 진행)', { message: e && e.message });
+    return null;
+  }
+}
+
 exports.generateStoryImages = onCall(
-  /* 9장 × 15~40s, 동시성 3 → 여유 있게 540s. 시간 초과로 일부만 되면 재호출이 dedup으로 이어서 채움. */
-  { enforceAppCheck: false, secrets: [IMAGE_OPENAI_API_KEY], timeoutSeconds: 540 },
+  /* 9장 × 15~40s, 동시성 3 → 여유 있게 540s. 시간 초과로 일부만 되면 재호출이 dedup으로 이어서 채움.
+     ANTHROPIC_API_KEY: LV1-PROTAG-VISION — 주인공 손그림 1회 설명용(Claude 비전). */
+  { enforceAppCheck: false, secrets: [IMAGE_OPENAI_API_KEY, ANTHROPIC_API_KEY], timeoutSeconds: 540 },
   async (req) => {
     /* 권한/설정/멤버십/killswitch — 교사 토글은 기존 'AI 그림책 마감'(modes.imageS2) 재사용 */
     const ctx = await _validateRequest(req, 'imageS2', { skipUsageLimits: true });
@@ -3531,12 +3567,40 @@ exports.generateStoryImages = onCall(
         const _cs = (await baseRef.child('aiVariants/characterSheet').once('value')).val();
         if (typeof _cs === 'string' && _cs.trim()) characterSheet = _cs.trim().slice(0, 500);
       } catch (e) { characterSheet = null; }
-      /* LV1-PROTAG-REMOVED(2026-07-21): 1단계는 순수 자체생성(레퍼런스 없음)으로 되돌림 —
-         아이 손그림 edits 레퍼런스가 얼굴 뒤틀림·장면 불일치를 내 제거. 일관성=characterSheet. */
+      /* LV1-PROTAG-VISION(2026-07-22): 아이가 그린 주인공(viewer-meta/protagonistRef·선택) —
+         있으면 비전으로 1회 설명(캐시)→characterSheet에 병합. 순수 생성 그대로라 화풍 안정.
+         설명 실패/없음 = characterSheet만(=레퍼런스 없는 순수 생성·페일세이프). */
+      let usedProtagDesc = false;
+      try {
+        const _prRef = (await baseRef.child('viewer-meta/protagonistRef').once('value')).val();
+        if (typeof _prRef === 'string' && ImageS2OpenAi.isAllowedSourceUrl(_prRef.trim())) {
+          const _prUrl = _prRef.trim();
+          /* 캐시: 같은 그림이면 재설명 안 함(url+desc 저장). 다른 그림이면 갱신. */
+          let desc = null;
+          try {
+            const cache = (await baseRef.child('aiVariants/protagonistDesc').once('value')).val();
+            if (cache && cache.url === _prUrl && typeof cache.desc === 'string' && cache.desc.trim()) desc = cache.desc.trim();
+          } catch (e) { /* 캐시 무시 */ }
+          if (!desc) {
+            desc = await _describeProtagonist(_prUrl, ANTHROPIC_API_KEY.value());
+            if (desc) {
+              await baseRef.child('aiVariants/protagonistDesc').set({ url: _prUrl, desc, at: admin.database.ServerValue.TIMESTAMP }).catch(() => {});
+            }
+          }
+          if (desc) {
+            /* 캐릭터 시트 앞에 "아이가 그린 주인공" 우선 명시 — 순수 생성 프롬프트에 글로만 반영 */
+            const _protLine = '주인공(아이가 직접 그림): ' + desc;
+            characterSheet = characterSheet ? (_protLine + '\n' + characterSheet).slice(0, 500) : _protLine.slice(0, 500);
+            usedProtagDesc = true;
+          }
+        }
+      } catch (e) { logger.warn('[generateStoryImages] protagonistDesc 병합 실패(무레퍼런스)', { message: e && e.message }); }
       const limitRef = baseRef.child('aiUsage/imageGen');
       /* 감사 H6: 전역 일일 카운터 — 팀 총량과 같은 transaction 강제(검사-차감 원자) */
       const globalImgRef = admin.database().ref(`ai-usage-global/${_todayYmd()}/imageGenCalls`);
-      const PV = ImageS2OpenAi.STORY_IMAGE_PROMPT_VERSION;
+      /* LV1-PROTAG-VISION: 주인공 설명 반영본은 dedup 버전 분리(+vis1) — 옛 +prot1(edits)·
+         무레퍼런스 버전과 안 섞이고, 아이가 나중에 그리면 그때 재생성되게. */
+      const PV = ImageS2OpenAi.STORY_IMAGE_PROMPT_VERSION + (usedProtagDesc ? '+vis1' : '');
 
       let generated = 0, skipped = 0, limitReached = false, globalLimitReached = false;
       const failed = [];

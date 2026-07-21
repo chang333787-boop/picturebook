@@ -2769,10 +2769,17 @@ async function requestStoryDraftStarter(opts) {
        서버(generateStoryImages)가 단계/토글/팀당 총량/이중 실행 lock을 재검증. 결과는
        aiVariants s2 슬롯에 쌓여 감상 진입 시 AI-DEFAULT-VIEW-1이 자동 표시. */
     if (applied && data.level === 1) {
-      /* LV1-PROTAG-CHOICE(2026-07-21 사용자 결정): 그림 생성 전 주인공 직접 그리기 선택
-         (필수 아님). 그리기=다듬기로 이동해 그리기 게이트(저장/건너뛰기 후 그쪽에서 배치 시작),
-         아니요=기존처럼 즉시 배치. */
-      await _promptLv1ProtagonistChoice(classId, teamName, sc);
+      /* LV1-PROTAG-CHOICE(2026-07-21 사용자 결정): 그림 생성 전 주인공 직접 그리기 선택(필수 아님).
+         ⚠️FIX(2026-07-21): 여기서 바로 showMakerConfirm(z10000)을 띄우면 아직 열려 있는
+         나침반 완료 오버레이(z~100000) 뒤에 가려져 클릭 불가 → await 미해소로 완료가 멈췄다.
+         사용자 요구("브랜치 화면에서 나오는 것")대로, 선택은 나침반 오버레이가 닫힌 뒤
+         브랜치 화면에서 띄운다 — 여기선 pending 플래그만 남기고 배치는 그 선택이 결정. */
+      try {
+        sessionStorage.setItem('pbLv1NeedsProtagChoice', JSON.stringify({ classId, teamName, sc, at: Date.now() }));
+      } catch (e) {
+        /* sessionStorage 불가 → 선택을 못 띄우므로 기존처럼 즉시 배치(그림은 나옴) */
+        _fireLv1StoryImageBatch(classId, teamName, sc);
+      }
     }
     return applied;
   } catch (e) {
@@ -2812,6 +2819,19 @@ function _fireLv1StoryImageBatch(classId, teamName, sc) {
   } catch (e) { /* 그림 실패는 비치명 */ }
 }
 window._fireLv1StoryImageBatch = _fireLv1StoryImageBatch;
+
+/* LV1-PROTAG-CHOICE FIX: 나침반 오버레이가 닫힌 뒤 브랜치 화면에서 호출 —
+   pending 플래그(pbLv1NeedsProtagChoice)가 있으면 주인공 선택을 띄운다. 없으면 no-op.
+   thought-compass-review _complete가 오버레이 close 직후 호출. */
+async function _runPendingLv1ProtagChoice() {
+  let info = null;
+  try { const raw = sessionStorage.getItem('pbLv1NeedsProtagChoice'); if (raw) info = JSON.parse(raw); } catch (e) { info = null; }
+  if (!info || !info.classId || !info.teamName) return;
+  try { sessionStorage.removeItem('pbLv1NeedsProtagChoice'); } catch (e) { /* noop */ }
+  try { await _promptLv1ProtagonistChoice(info.classId, info.teamName, info.sc || 12); }
+  catch (e) { /* 실패해도 배치는 _promptLv1... 내부 폴백이 담당 */ }
+}
+window.__runPendingLv1ProtagChoice = _runPendingLv1ProtagChoice;
 
 async function _promptLv1ProtagonistChoice(classId, teamName, sc) {
   let draw = false;

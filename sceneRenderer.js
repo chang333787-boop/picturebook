@@ -387,12 +387,27 @@ function _buildCoverCardContent(s) {
 
 /* ─── 카드 공통 부품: 이미지 영역 / 라디오+모드배지 ───────────── */
 function _buildImageAreaHtml(s) {
-  /* LEVEL2-DRAW(2026-07-21 사용자 결정): 2단계는 그림=그리기 전용 → 브랜치 카드의 업로드
-     우회를 차단(그림이 없을 때만·이미 그린/올린 건 표시·다듬기에서 그리기로 유도).
-     1단계는 AI 자동이라 카드 업로드가 무의미하나 기존 동작 보존(범위 최소·2단계만). */
-  const _lvl2 = (typeof window !== 'undefined' && typeof window.getPicturebookLevel === 'function'
-    && window.getPicturebookLevel() === 2);
-  if (_lvl2) {
+  /* LEVEL2-DRAW(2026-07-21): 2단계는 그림=그리기 전용 → 카드 업로드 우회 차단.
+     LV1-NO-UPLOAD(2026-07-21 사용자 지적): 1단계는 그림이 100% AI 자동이라, 카드에
+     업로드/바꾸기가 살아 있으면 AI 그림과 꼬인다(수동 업로드가 AI 결과를 덮거나 혼동).
+     → 1·2단계 모두 브랜치 카드 업로드 제거. 1단계=썸네일만(AI가 그림)·2단계=그리기 안내. */
+  const _lvl = (typeof window !== 'undefined' && typeof window.getPicturebookLevel === 'function')
+    ? window.getPicturebookLevel() : null;
+  if (_lvl === 1) {
+    /* 1단계: 그림은 AI 자동. 업로드/바꾸기/삭제 없음(썸네일만·다듬기에서 🔁 재생성). */
+    return s.imageData
+      ? `<div class="card-image-area">
+          <img src="${s.imageData}" class="card-thumb js-img-thumb"
+            loading="lazy" decoding="async" data-num="${s.num}" title="클릭하면 크게 보기"/>
+          <div style="margin-top:4px;text-align:center;color:var(--muted);font-size:9px;line-height:1.3;">🎨 AI가 그린 그림</div>
+        </div>`
+      : `<div class="card-image-area">
+          <div class="card-img-btn" style="cursor:default;background:#f4f8ff;color:var(--muted);font-size:10px;line-height:1.4;text-align:center;padding:6px 4px;">
+            🎨 AI가 그림을<br>그려 줄 거예요
+          </div>
+        </div>`;
+  }
+  if (_lvl === 2) {
     /* 그림 없음 = 그리기 안내(업로드 진입 없음). 그림 있음 = 썸네일+삭제만(바꾸기 업로드 차단). */
     return s.imageData
       ? `<div class="card-image-area">

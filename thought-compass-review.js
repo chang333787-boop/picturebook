@@ -532,13 +532,6 @@
          3단계 슬라이드로 나오던 것 정정. ctx는 위에서 R 해제 전에 확보한 projectType 사용. */
       try { await window.TutorialWelcome.maybeShow({ scope: _scope, filterType: _ptypeForWelcome || null }); } catch (e) { /* noop */ }
     }
-
-    /* LV1-PROTAG-CHOICE FIX(2026-07-21): 나침반 오버레이가 완전히 닫힌 '브랜치 화면'에서
-       1단계 주인공 그리기 선택을 띄운다(오버레이 뒤에 가려져 완료가 멈추던 것 수정).
-       pending 플래그(requestStoryDraftStarter가 남김) 없으면 no-op. 환영 튜토리얼 뒤 순서. */
-    if (typeof window !== 'undefined' && typeof window.__runPendingLv1ProtagChoice === 'function') {
-      try { await window.__runPendingLv1ProtagChoice(); } catch (e) { /* noop */ }
-    }
   }
 
   function close() { _remove(); R = null; }

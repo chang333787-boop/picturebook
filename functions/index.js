@@ -3503,19 +3503,12 @@ exports.generateStoryImages = onCall(
         const _cs = (await baseRef.child('aiVariants/characterSheet').once('value')).val();
         if (typeof _cs === 'string' && _cs.trim()) characterSheet = _cs.trim().slice(0, 500);
       } catch (e) { characterSheet = null; }
-      /* LV1-PROTAG(2026-07-21): 아이가 직접 그린 주인공(viewer-meta/protagonistRef·선택) —
-         있으면 어댑터가 edits+레퍼런스로 전 장면 생성(정체성 유지). 검증은 어댑터가 재수행. */
-      let protagonistRefSrc = null;
-      try {
-        const _pr = (await baseRef.child('viewer-meta/protagonistRef').once('value')).val();
-        if (typeof _pr === 'string' && ImageS2OpenAi.isAllowedSourceUrl(_pr.trim())) protagonistRefSrc = _pr.trim();
-      } catch (e) { protagonistRefSrc = null; }
+      /* LV1-PROTAG-REMOVED(2026-07-21): 1단계는 순수 자체생성(레퍼런스 없음)으로 되돌림 —
+         아이 손그림 edits 레퍼런스가 얼굴 뒤틀림·장면 불일치를 내 제거. 일관성=characterSheet. */
       const limitRef = baseRef.child('aiUsage/imageGen');
       /* 감사 H6: 전역 일일 카운터 — 팀 총량과 같은 transaction 강제(검사-차감 원자) */
       const globalImgRef = admin.database().ref(`ai-usage-global/${_todayYmd()}/imageGenCalls`);
-      /* LV1-PROTAG: 레퍼런스 유무가 결과를 바꾸므로 dedup 버전 분리(+prot1) — 주인공은
-         배치 전에 정해지는 흐름이라 기존 팀 재생성 유발 없음. */
-      const PV = ImageS2OpenAi.STORY_IMAGE_PROMPT_VERSION + (protagonistRefSrc ? '+prot1' : '');
+      const PV = ImageS2OpenAi.STORY_IMAGE_PROMPT_VERSION;
 
       let generated = 0, skipped = 0, limitReached = false, globalLimitReached = false;
       const failed = [];
@@ -3554,7 +3547,7 @@ exports.generateStoryImages = onCall(
         ]);
 
         try {
-          const gen = await adapter.generate({ storyText: body, wholeStoryText, characterSheet, protagonistRefSrc });
+          const gen = await adapter.generate({ storyText: body, wholeStoryText, characterSheet });
           if (!gen || gen.ok !== true) { await refund(); failed.push({ sceneId: sid, code: (gen && gen.code) || 'IMAGE_AI_PROVIDER_ERROR' }); return; }
           const outv = ImageS2Gen.validateModelOutput({ bytes: gen.bytes, mimeType: gen.mimeType });
           if (!outv.ok) { await refund(); failed.push({ sceneId: sid, code: outv.code }); return; }

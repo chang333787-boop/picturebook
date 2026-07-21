@@ -3471,6 +3471,22 @@ function _pbImageActionsHtml(scene) {
       </div>
     </div>`;
   }
+  const _hasImg2 = !!(scene && (scene.imageData || scene.imageUrl));
+  if (_pbLvl === 2) {
+    /* LEVEL2-DRAW(2026-07-21 사용자 결정): 2단계 그림 = 그리기 전용(업로드/삭제 숨김).
+       힘 빼고 인물 구도만 간단히(졸라맨처럼) 그리면 [AI 그림책 마감]이 예쁘게 강변환.
+       ⚠️ 실제 강변환은 서버 level2 프롬프트 분기 배포 후 작동(그 전엔 3단계식 원본 보존). */
+    return `
+    <div class="edit-row">
+      <label class="edit-label">🖼️ 장면 그림 ${_hasImg2 ? '<span class="edit-label-note">(있음)</span>' : '<span class="edit-label-note">(없음)</span>'}</label>
+      <div class="edit-pb-image-actions">
+        <span class="edit-label-note" style="display:block;margin-bottom:6px;word-break:keep-all;">잘 그리지 않아도 괜찮아요! 😊 <b>누가 어디 있는지만</b> 졸라맨처럼 쓱쓱 그려요. <b>AI 그림책 마감</b>을 누르면 예쁜 그림으로 짠! 바뀌어요.</span>
+        <button type="button" class="edit-toggle js-pb-image-draw"${_hasImg2 ? ' disabled style="opacity:0.4;" title="이미 그린 그림이 있어요. 지우고 다시 그릴 수 있어요."' : ''}>✏️ 구도 그리기</button>
+        ${_hasImg2 ? '<button type="button" class="edit-toggle js-pb-image-remove" style="color:#c66f4a;">🗑 지우고 다시</button>' : ''}
+        <button type="button" class="edit-toggle js-pb-lvl2-example" style="color:#4a7ab0;">🎨 어떻게 바뀌어요?</button>
+      </div>
+    </div>`;
+  }
   const hasImage = !!(scene && (scene.imageData || scene.imageUrl));
   return `
     <div class="edit-row">
@@ -5984,6 +6000,11 @@ function _bindPbImageActions(root, scene) {
     });
   });
 
+  /* LEVEL2-DRAW: '어떻게 바뀌어요?' — 졸라맨 구도 → AI 변환 예시 팝업(안내 전용·저장 무접촉). */
+  root.querySelectorAll('.js-pb-lvl2-example').forEach(btn => {
+    btn.addEventListener('click', () => { _closeIfPopover(); _openLvl2ExampleModal(); });
+  });
+
   root.querySelectorAll('.js-pb-image-transform').forEach(btn => {
     btn.addEventListener('click', () => {
       if (!_editText.editable) return;
@@ -6001,6 +6022,51 @@ function _bindPbImageActions(root, scene) {
       if (typeof enterImageCropEdit === 'function') enterImageCropEdit();
     });
   });
+}
+
+/* LEVEL2-DRAW(2026-07-21): 2단계 '어떻게 바뀌어요?' 예시 팝업.
+   왼쪽=인라인 SVG 졸라맨 구도(용량 0), 오른쪽=실제 AI 변환 예시(assets/level2-draw-example.jpg).
+   순수 안내 — 저장/데이터 무접촉. viewer-confirm-backdrop 스타일 재사용. */
+function _openLvl2ExampleModal() {
+  const OLD = document.getElementById('lvl2-example-modal');
+  if (OLD) OLD.remove();
+  const stickSvg = ''
+    + '<svg viewBox="0 0 200 150" width="100%" style="background:#fdfdfb;border-radius:8px;display:block;">'
+    +   '<g stroke="#666" stroke-width="4" stroke-linecap="round" fill="none">'
+    +     '<circle cx="80" cy="55" r="15"/>'                             /* 머리 */
+    +     '<line x1="80" y1="70" x2="80" y2="105"/>'                     /* 몸 */
+    +     '<line x1="80" y1="80" x2="58" y2="70"/><line x1="80" y1="80" x2="102" y2="70"/>' /* 팔(우산 든) */
+    +     '<line x1="80" y1="105" x2="66" y2="130"/><line x1="80" y1="105" x2="94" y2="130"/>' /* 다리 */
+    +     '<line x1="80" y1="62" x2="80" y2="42"/><path d="M55 42 Q80 26 105 42"/>'  /* 우산 */
+    +   '</g>'
+    +   '<g stroke="#8ab4d8" stroke-width="3" stroke-linecap="round">'
+    +     '<line x1="20" y1="15" x2="15" y2="28"/><line x1="55" y1="12" x2="50" y2="25"/><line x1="130" y1="14" x2="125" y2="27"/><line x1="170" y1="16" x2="165" y2="29"/>' /* 비 */
+    +   '</g>'
+    +   '<text x="80" y="148" font-size="11" fill="#999" text-anchor="middle" font-family="sans-serif">이렇게 대충 그려도 OK</text>'
+    + '</svg>';
+  const root = document.createElement('div');
+  root.id = 'lvl2-example-modal';
+  root.className = 'viewer-confirm-backdrop';
+  root.innerHTML =
+    '<div class="viewer-confirm-card" role="dialog" aria-modal="true" style="max-width:560px;">'
+    +   '<div class="viewer-confirm-title">🎨 이렇게 그리면 돼요</div>'
+    +   '<div class="viewer-confirm-message" style="margin-bottom:12px;">그림을 잘 그리지 않아도 괜찮아요. <b>누가 어디에 있는지 구도만</b> 졸라맨처럼 간단히 그리면, <b>AI 그림책 마감</b>이 예쁜 그림책 그림으로 바꿔 줘요.</div>'
+    +   '<div style="display:flex;align-items:center;gap:10px;justify-content:center;flex-wrap:wrap;">'
+    +     '<div style="flex:1;min-width:150px;max-width:230px;">' + stickSvg + '</div>'
+    +     '<div style="font-size:28px;color:#c66f4a;flex:0 0 auto;">→</div>'
+    +     '<div style="flex:1;min-width:150px;max-width:230px;">'
+    +       '<img src="assets/level2-draw-example.jpg" alt="AI가 바꾼 그림 예시" style="width:100%;border-radius:8px;display:block;">'
+    +       '<div style="font-size:11px;color:#999;text-align:center;margin-top:2px;">AI가 이렇게 바꿔 줘요 (예시)</div>'
+    +     '</div>'
+    +   '</div>'
+    +   '<div class="viewer-confirm-actions" style="margin-top:14px;">'
+    +     '<button type="button" class="viewer-confirm-ok js-lvl2-ex-close">알겠어요</button>'
+    +   '</div>'
+    + '</div>';
+  document.body.appendChild(root);
+  const close = () => { root.remove(); };
+  root.querySelector('.js-lvl2-ex-close').addEventListener('click', close);
+  root.addEventListener('click', (e) => { if (e.target === root) close(); });
 }
 
 function _positionImagePopover(pop) {

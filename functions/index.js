@@ -2526,9 +2526,21 @@ exports.callImageAiS2 = onCall(
     const adapter = _selectImageS2Adapter();
     /* MOOD-P8: 책 전체 이야기(무대/분위기 일관성). read-only·실패 시 '' → P7 페일세이프. */
     const wholeStoryText = await _buildWholeStoryText(baseRef);
+    /* LEVEL2-DRAW STRONG(2026-07-21): 2단계=졸라맨 구도만 지키고 강변환. 서버 직접 read(위조 불가).
+       3단계·레거시는 transformMode 미주입 → 어댑터 P8 원본 보존(byte 동일·회귀 0).
+       characterSheet: 있으면(초안/추후 추출) 캐릭터 고정 주입 — 없어도 whole-story로 일관성. */
+    let _s2TransformMode; let _s2CharSheet = '';
+    try {
+      const _lvl = Number((await baseRef.child('viewer-meta/picturebookLevel').once('value')).val());
+      if (_lvl === 2) {
+        _s2TransformMode = 'strong';
+        const _cs = (await baseRef.child('aiVariants/characterSheet').once('value')).val();
+        if (typeof _cs === 'string' && _cs.trim()) _s2CharSheet = _cs.trim().slice(0, 500);
+      }
+    } catch (e) { _s2TransformMode = undefined; }   /* read 실패 = 기존 P8 페일세이프 */
 
     const result = await ImageS2Gen.runImageS2Generation(
-      { classId: ctx.classId, enc, sceneId: sid, forceRegenerate: norm.value.forceRegenerate, isTeacher: genAuthorized, wholeStoryText },
+      { classId: ctx.classId, enc, sceneId: sid, forceRegenerate: norm.value.forceRegenerate, isTeacher: genAuthorized, wholeStoryText, transformMode: _s2TransformMode, characterSheet: _s2CharSheet },
       {
         readScene: async (s) => { const snap = await baseRef.child(`scenes/${s}`).once('value'); return snap.val(); },
         readPolicy: async () => { const snap = await baseRef.child('viewer-meta/imagePolicy').once('value'); return snap.val(); },

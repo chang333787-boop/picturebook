@@ -313,6 +313,10 @@ async function runImageS2Generation(input, deps) {
       /* MOOD-P8(2026-07-14): 책 전체 이야기 = 책 단위 무대/분위기 일관성(W-A). 콜러블이 주입.
          전체 이야기도 dedup/캐시 키에 미포함(그림 기준) — 글 수정≠재변환. 없으면 P7 동작. */
       wholeStoryText: (typeof i.wholeStoryText === 'string') ? i.wholeStoryText : '',
+      /* LEVEL2-DRAW STRONG(2026-07-21): 2단계=구도만 지키고 강변환. 콜러블이 picturebookLevel로 주입.
+         미지정(3단계·기본)=P8 원본 보존(어댑터 byte 동일). characterSheet 있으면 캐릭터 고정. */
+      transformMode: (i.transformMode === 'strong') ? 'strong' : undefined,
+      characterSheet: (typeof i.characterSheet === 'string') ? i.characterSheet : '',
     });
   } catch (e) {
     return refundAnd({ ok: false, status: 'failed', code: 'IMAGE_AI_PROVIDER_ERROR', sceneId });

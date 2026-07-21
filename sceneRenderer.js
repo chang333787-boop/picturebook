@@ -380,6 +380,31 @@ function _buildCoverCardContent(s) {
 
 /* ─── 카드 공통 부품: 이미지 영역 / 라디오+모드배지 ───────────── */
 function _buildImageAreaHtml(s) {
+  /* LEVEL2-DRAW(2026-07-21 사용자 결정): 2단계는 그림=그리기 전용 → 브랜치 카드의 업로드
+     우회를 차단(그림이 없을 때만·이미 그린/올린 건 표시·다듬기에서 그리기로 유도).
+     1단계는 AI 자동이라 카드 업로드가 무의미하나 기존 동작 보존(범위 최소·2단계만). */
+  const _lvl2 = (typeof window !== 'undefined' && typeof window.getPicturebookLevel === 'function'
+    && window.getPicturebookLevel() === 2);
+  if (_lvl2) {
+    /* 그림 없음 = 그리기 안내(업로드 진입 없음). 그림 있음 = 썸네일+삭제만(바꾸기 업로드 차단). */
+    return s.imageData
+      ? `<div class="card-image-area">
+          <img src="${s.imageData}" class="card-thumb js-img-thumb"
+            loading="lazy" decoding="async" data-num="${s.num}" title="클릭하면 크게 보기"/>
+          <div style="display:flex;gap:4px;margin-top:4px;">
+            <button class="js-img-remove" data-num="${s.num}"
+              style="flex:1;padding:3px 0;border:1.5px solid #ffc0c0;border-radius:6px;
+              background:#fff0f0;color:#c00;font-size:10px;cursor:pointer;font-family:var(--font-b);">
+              🗑 지우고 다시 그리기
+            </button>
+          </div>
+        </div>`
+      : `<div class="card-image-area">
+          <div class="card-img-btn" style="cursor:default;background:#f4f8ff;color:var(--muted);font-size:10px;line-height:1.4;text-align:center;padding:6px 4px;">
+            ✏️ 그림은 <b>다듬기</b>에서<br>간단히 그려요
+          </div>
+        </div>`;
+  }
   return s.imageData
     ? `<div class="card-image-area">
         <img src="${s.imageData}" class="card-thumb js-img-thumb"

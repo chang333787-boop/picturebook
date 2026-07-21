@@ -3588,9 +3588,11 @@ exports.generateStoryImages = onCall(
             }
           }
           if (desc) {
-            /* 캐릭터 시트 앞에 "아이가 그린 주인공" 우선 명시 — 순수 생성 프롬프트에 글로만 반영 */
-            const _protLine = '주인공(아이가 직접 그림): ' + desc;
-            characterSheet = characterSheet ? (_protLine + '\n' + characterSheet).slice(0, 500) : _protLine.slice(0, 500);
+            /* 캐릭터 시트 맨 앞에 주인공 실제 모습을 "최우선"으로 명시 — 아이가 직접 그린 것이므로
+               초안 시트의 주인공 묘사와 충돌하면 이 그림 설명을 따르게(모자·색·소품이 옆 인물로
+               새지 않게). ★강조로 중심 인물 고정. */
+            const _protLine = '★가장 중요: 이 이야기의 중심 주인공(메인 캐릭터)의 실제 모습은 아이가 직접 그린 다음과 같습니다 — 반드시 "주인공 본인"을 이 모습 그대로(모자·머리색·소품 포함) 그리고, 이 특징을 다른 조연에게 주지 마세요: ' + desc;
+            characterSheet = characterSheet ? (_protLine + '\n(참고 — 나머지 인물 외형)\n' + characterSheet).slice(0, 600) : _protLine.slice(0, 600);
             usedProtagDesc = true;
           }
         }

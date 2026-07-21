@@ -46,7 +46,7 @@
   <link rel="stylesheet" href="v03-modes.css?v=9bc2453bcc"/>
   <link rel="stylesheet" href="pb-tone.css?v=567c692f8d"/>
   <!-- Phase 0.5 mock — AI 기능 UI (step1: 진입 버튼만) -->
-  <link rel="stylesheet" href="pb-ai.css?v=5c7ee6324f"/>
+  <link rel="stylesheet" href="pb-ai.css?v=4a29055057"/>
   <!-- W8: 자동 진입(?team= 있을 때) 깜빡임 차단.
        maker → "감상 테스트" / "다듬기" 진입 시 entry 화면이 잠깐 보였다가 사라지는 현상 제거.
        JS 로드 전에 inline으로 처리 — CSS의 #entry-screen{display:flex} 효과 무력화. -->
@@ -242,7 +242,7 @@
      · 중복 로드 방지(Promise 1개), 실패 시 promise reset(재시도 가능). -->
 <script>
 (function () {
-  var EDIT_SRC = 'viewer-edit.js?v=35b5a91ed8';
+  var EDIT_SRC = 'viewer-edit.js?v=a5aaa7018a';
   var AI_SRC   = 'viewer-ai.js?v=26b35133b8';
   /* WRITE-AFTER-VIEWER-HTML-CACHE-HARDENED: 디버그 마커 — 로드된 진입 HTML이 어떤 번들 cachebuster를
      들고 있는지 콘솔로 확인(옛 viewer.html 캐시 의심 시 한눈에 비교). 동작 영향 없음. */

@@ -61,6 +61,8 @@
         const applied = await window.requestStoryDraftStarter({
           classId: ctx.classId, teamName: ctx.teamName,
           storyCount: storyCount, answers: ctx.answers,
+          /* COMPASS-VALUE-1: 1단계 마지막 질문에서 고른 가치 — 초안 digest에 강조 반영 */
+          storyValue: (typeof ctx.storyValue === 'string' && ctx.storyValue) ? ctx.storyValue : null,
         });
         if (applied) return true;
       }

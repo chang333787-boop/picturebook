@@ -2550,9 +2550,13 @@ window.createStarterTemplateForNewProject = createStarterTemplateForNewProject;
    정본: docs/picturebook_levels_design_20260718.md §7.4 ════════ */
 
 /* 나침반 답 {key:{answerText,deferred,...}} → "key: 답" 디지스트(맥락 전용·1500자 상한) */
-function _storyDraftAnswersDigest(answers) {
+function _storyDraftAnswersDigest(answers, storyValue) {
   if (!answers || typeof answers !== 'object') return '';
   const lines = [];
+  /* COMPASS-VALUE-1(2026-07-21): 1단계 마지막 질문에서 고른 가치 — 맨 앞에 강조(1500자
+     컷에 잘리지 않게·mustInclude 강조와 동일하게 answersText 안 지시라 초안 서버 무변경). */
+  const _sv = String(storyValue == null ? '' : storyValue).replace(/\s+/g, ' ').trim().slice(0, 12);
+  if (_sv) lines.push('(중요: 이 이야기가 전하고 싶은 가치는 "' + _sv + '"예요 — 이야기 전체에 이 가치가 자연스럽게 드러나게 써 주세요)');
   let mustIncludeText = '';
   Object.keys(answers).forEach((k) => {
     const a = answers[k];
@@ -2735,7 +2739,7 @@ async function requestStoryDraftStarter(opts) {
     const classId = String(opts.classId || '').trim();
     const teamName = String(opts.teamName || '').trim();
     if (!classId || !teamName) return false;
-    const answersText = _storyDraftAnswersDigest(opts.answers);
+    const answersText = _storyDraftAnswersDigest(opts.answers, opts.storyValue);
     if (!answersText) return false;   /* 답이 하나도 없으면 초안 불가 → 기본 틀 */
     const sc = (opts.storyCount === 12 || opts.storyCount === 15) ? opts.storyCount : 8;
 
@@ -2765,20 +2769,10 @@ async function requestStoryDraftStarter(opts) {
        서버(generateStoryImages)가 단계/토글/팀당 총량/이중 실행 lock을 재검증. 결과는
        aiVariants s2 슬롯에 쌓여 감상 진입 시 AI-DEFAULT-VIEW-1이 자동 표시. */
     if (applied && data.level === 1) {
-      try {
-        /* timeout: 서버 540s 배치 — 클라 기본 70s로는 완주 전에 deadline-exceeded가 찍힘(무해하지만
-           로그 오해 소지·1단계 e2e에서 실측). 서버값+여유(#56 _FN_TIMEOUT_MS와 동일 원칙). */
-        firebase.app().functions('asia-northeast3')
-          .httpsCallable('generateStoryImages', { timeout: 570000 })({ classId, teamName })
-          .then((r) => {
-            const g = r && r.data;
-            console.info('[storyImages] done:', g && g.generated, 'skipped:', g && g.skipped);
-          })
-          .catch((e) => console.warn('[storyImages] fail:', (e && (e.code || e.message)) || e));
-        _mtbToast('그림도 만들고 있어요! 조금 뒤 [감상해 보기]에서 볼 수 있어요. 🎨');
-        /* DRAFT-UX-2: 진행 배지 — 이야기 장면 sc개 + 엔딩 1 = 그림 대상 수 */
-        _startStoryImageBadge(classId, teamName, sc + 1);
-      } catch (e) { /* 그림 실패는 비치명 */ }
+      /* LV1-PROTAG-CHOICE(2026-07-21 사용자 결정): 그림 생성 전 주인공 직접 그리기 선택
+         (필수 아님). 그리기=다듬기로 이동해 그리기 게이트(저장/건너뛰기 후 그쪽에서 배치 시작),
+         아니요=기존처럼 즉시 배치. */
+      await _promptLv1ProtagonistChoice(classId, teamName, sc);
     }
     return applied;
   } catch (e) {
@@ -2799,6 +2793,58 @@ async function requestStoryDraftStarter(opts) {
   }
 }
 window.requestStoryDraftStarter = requestStoryDraftStarter;
+
+/* ════ LV1-PROTAG-CHOICE(2026-07-21): 1단계 그림 배치 시작 헬퍼 + 주인공 선택 ════ */
+function _fireLv1StoryImageBatch(classId, teamName, sc) {
+  try {
+    /* timeout: 서버 540s 배치 — 클라 기본 70s로는 완주 전에 deadline-exceeded가 찍힘(무해하지만
+       로그 오해 소지·1단계 e2e에서 실측). 서버값+여유(#56 _FN_TIMEOUT_MS와 동일 원칙). */
+    firebase.app().functions('asia-northeast3')
+      .httpsCallable('generateStoryImages', { timeout: 570000 })({ classId, teamName })
+      .then((r) => {
+        const g = r && r.data;
+        console.info('[storyImages] done:', g && g.generated, 'skipped:', g && g.skipped);
+      })
+      .catch((e) => console.warn('[storyImages] fail:', (e && (e.code || e.message)) || e));
+    _mtbToast('그림도 만들고 있어요! 조금 뒤 [감상해 보기]에서 볼 수 있어요. 🎨');
+    /* DRAFT-UX-2: 진행 배지 — 이야기 장면 sc개 + 엔딩 1 = 그림 대상 수 */
+    _startStoryImageBadge(classId, teamName, sc + 1);
+  } catch (e) { /* 그림 실패는 비치명 */ }
+}
+window._fireLv1StoryImageBatch = _fireLv1StoryImageBatch;
+
+async function _promptLv1ProtagonistChoice(classId, teamName, sc) {
+  let draw = false;
+  try {
+    if (typeof window.showMakerConfirm === 'function') {
+      draw = await window.showMakerConfirm({
+        title: '🎨 그림을 만들기 전에 — 주인공을 직접 그릴래요?',
+        message: '주인공을 한 번 그려 두면, AI가 모든 장면을 그 주인공 모습으로 그려 줘요.\n그리지 않아도 AI가 알아서 예쁘게 그려 줘요.',
+        confirmText: '✏️ 내 주인공 그리기',
+        cancelText: '아니요, AI가 그려주세요',
+      });
+    }
+  } catch (e) { draw = false; }
+  if (!draw) { _fireLv1StoryImageBatch(classId, teamName, sc); return; }
+  /* 그리기 선택 → 다듬기(그리기 스튜디오가 있는 화면)로 이동. 도착하면 주인공 게이트가 열리고
+     저장/건너뛰기 시 그쪽에서 배치를 시작한다(pending 플래그·2h 신선도). */
+  try {
+    sessionStorage.setItem('pbLv1ProtagDraw', JSON.stringify({ classId, teamName, sc, at: Date.now() }));
+  } catch (e) { /* sessionStorage 불가 → 이동 후 게이트 없이 배치 시작이 안 되므로 즉시 배치로 폴백 */
+    _fireLv1StoryImageBatch(classId, teamName, sc); return;
+  }
+  try { if (typeof flushTitleSaves === 'function') flushTitleSaves(); } catch (e) {}
+  try { if (typeof flushBodySaves === 'function') flushBodySaves(); } catch (e) {}
+  try { if (typeof _saveReturnContext === 'function') _saveReturnContext('maker'); } catch (e) {}
+  const params = [
+    'team=' + encodeURIComponent(teamName),
+    'edit=1', 'from=maker', 'scene=1',
+    'classId=' + encodeURIComponent(classId),
+  ];
+  const _vurl = 'viewer.html?' + params.join('&');
+  if (typeof _openInternalUrl === 'function') _openInternalUrl(_vurl);
+  else window.location.href = _vurl;
+}
 
 /* 모바일 텍스트 브랜치 빈 화면(#mtb-start-template) 핸들러 */
 async function _mtbCreateBase10Template() {

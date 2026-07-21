@@ -366,6 +366,98 @@
     });
   }
 
+  /* ════ COMPASS-VALUE-1(2026-07-21 사용자 결정): 1단계 마지막 질문 — 가치 3택1 ════
+     · 대상: picturebook 1단계만. AI(compassValueCandidates)가 나침반 답을 분석해 후보 3개
+       제안(매번 다름·고정 보기 아님) → 아이가 1개 선택.
+     · 실패/미배포/권한 = null 반환(단계 생략·완료 차단 금지 — fail-open).
+     · 결과는 R._storyValue 캐시(완료 재시도 시 재호출/재질문 방지) + preWriting/storyValue 저장. */
+  function _needsStoryValueStep() {
+    try {
+      if (!R || !R.ctx || R.ctx.projectType !== 'picturebook') return false;
+      const lvl = (typeof window.getPicturebookLevel === 'function') ? window.getPicturebookLevel() : null;
+      return lvl === 1;
+    } catch (e) { return false; }
+  }
+  async function _runStoryValueStep() {
+    if (R._storyValue) return R._storyValue;
+    var digestFn = (typeof window._storyDraftAnswersDigest === 'function') ? window._storyDraftAnswersDigest
+      : (typeof _storyDraftAnswersDigest === 'function' ? _storyDraftAnswersDigest : null);
+    var answersText = '';
+    try { answersText = digestFn ? digestFn(R.vm.answers) : ''; } catch (e) { answersText = ''; }
+    if (!answersText) return null;
+
+    /* 로딩 오버레이 */
+    var ov = document.createElement('div');
+    ov.id = 'tc-value-step';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:100040;display:flex;align-items:center;justify-content:center;background:rgba(40,32,20,.55);padding:16px;';
+    ov.innerHTML = '<div style="background:#fffaee;border-radius:18px;max-width:460px;width:100%;padding:26px 24px;box-shadow:0 18px 50px rgba(43,31,16,.28);font-family:\'Jua\',\'Nanum Gothic\',sans-serif;color:#3a2a1a;text-align:center;">'
+      + '<div style="font-size:34px;line-height:1;">🧭</div>'
+      + '<div style="font-size:17px;font-weight:700;margin:8px 0 6px;">마지막 질문이에요</div>'
+      + '<div class="tcv-body" style="font-size:14px;color:#6b5638;line-height:1.6;">나침반 답을 읽고 어울리는 가치를 고르고 있어요…</div>'
+      + '</div>';
+    document.body.appendChild(ov);
+
+    var values = null;
+    try {
+      var res = await firebase.app().functions('asia-northeast3')
+        .httpsCallable('compassValueCandidates', { timeout: 30000 })({
+          classId: R.ctx.classId, teamName: R.ctx.teamName, answersText: answersText,
+        });
+      if (res && res.data && res.data.ok === true && Array.isArray(res.data.values) && res.data.values.length === 3) {
+        values = res.data.values;
+      }
+    } catch (e) { values = null; }
+    if (!values) { ov.remove(); return null; }   /* 후보 실패 → 단계 생략 */
+
+    /* 선택 UI — 3 후보 카드 + 확정 버튼 */
+    var picked = await new Promise(function (resolve) {
+      var esc = function (s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); };
+      var cards = values.map(function (v, i) {
+        return '<button type="button" class="tcv-card" data-i="' + i + '" style="display:block;width:100%;text-align:left;'
+          + 'background:#fdf6e6;border:2px solid #e8dcc4;border-radius:14px;padding:12px 14px;margin:8px 0;cursor:pointer;font-family:inherit;">'
+          + '<div style="font-size:17px;font-weight:700;color:#4a3a22;">' + esc(v.word) + '</div>'
+          + (v.hint ? '<div style="font-size:12.5px;color:#8a7a5e;margin-top:3px;line-height:1.5;">' + esc(v.hint) + '</div>' : '')
+          + '</button>';
+      }).join('');
+      ov.firstElementChild.innerHTML = ''
+        + '<div style="font-size:34px;line-height:1;">🧭</div>'
+        + '<div style="font-size:17px;font-weight:700;margin:8px 0 2px;">마지막 질문이에요</div>'
+        + '<div style="font-size:15px;color:#4a3a22;margin-bottom:4px;">이 이야기를 통해 말하고 싶은 가치는 무엇인가요?</div>'
+        + '<div style="font-size:12px;color:#8a7a5e;margin-bottom:8px;">AI가 내 나침반 답을 읽고 어울리는 가치를 골라 봤어요. 하나를 골라 주세요.</div>'
+        + cards
+        + '<button type="button" class="tcv-ok" disabled style="margin-top:10px;min-width:160px;padding:11px 20px;border:none;border-radius:12px;'
+        +   'background:#e5d9c2;color:#9a8a6e;font-family:inherit;font-size:15px;font-weight:700;cursor:default;">이걸로 정했어요</button>';
+      var sel = -1;
+      var okBtn = ov.querySelector('.tcv-ok');
+      ov.querySelectorAll('.tcv-card').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          sel = parseInt(btn.dataset.i, 10);
+          ov.querySelectorAll('.tcv-card').forEach(function (b) {
+            b.style.borderColor = '#e8dcc4'; b.style.background = '#fdf6e6';
+          });
+          btn.style.borderColor = '#c66f4a'; btn.style.background = '#fff3e2';
+          okBtn.disabled = false;
+          okBtn.style.background = '#c66f4a'; okBtn.style.color = '#fffaee'; okBtn.style.cursor = 'pointer';
+        });
+      });
+      okBtn.addEventListener('click', function () {
+        if (okBtn.disabled || sel < 0) return;
+        resolve(values[sel]);
+      });
+    });
+    ov.remove();
+    var out = { picked: picked.word, candidates: values };
+    R._storyValue = out;
+    /* 나침반 기록에 저장(별도 필드·실패해도 진행) */
+    try {
+      var Store = _Store();
+      if (Store && typeof Store.saveThoughtCompassStoryValue === 'function') {
+        await Store.saveThoughtCompassStoryValue(R.ctx, out.picked, out.candidates);
+      }
+    } catch (e) { /* noop */ }
+    return out;
+  }
+
   async function _complete() {
     if (R.busy) return;
     /* FREE-NOTE: 완료 전 현재 메모 입력값 저장(busy 재렌더로 textarea 사라지기 전). 별도 필드라 완료/진행률과 무관. */
@@ -390,6 +482,11 @@
       _render();
       return;
     }
+    /* COMPASS-VALUE-1: 1단계 마지막 질문(가치 3택1) — 유효성 통과 후·완료 저장 전.
+       실패=단계 생략(fail-open)·선택 결과는 R._storyValue 캐시(재시도 시 재질문 없음). */
+    if (_needsStoryValueStep() && !R._storyValue) {
+      try { await _runStoryValueStep(); } catch (e) { /* 생략 */ }
+    }
     R.busy = true; R.error = null; _render();
 
     let ok = true;
@@ -409,7 +506,11 @@
     try {
       if (typeof window.ThoughtCompassComplete !== 'undefined' && window.ThoughtCompassComplete
           && typeof window.ThoughtCompassComplete.afterComplete === 'function') {
-        await window.ThoughtCompassComplete.afterComplete(Object.assign({}, R.ctx, { answers: R.vm.answers }));
+        /* COMPASS-VALUE-1: 고른 가치를 초안 생성에 전달(answers 스키마 무접촉·별도 필드) */
+        await window.ThoughtCompassComplete.afterComplete(Object.assign({}, R.ctx, {
+          answers: R.vm.answers,
+          storyValue: (R._storyValue && R._storyValue.picked) || null,
+        }));
       }
     } catch (e) { /* noop — 장면 생성 실패는 maker에서 수동 생성 가능 */ }
 

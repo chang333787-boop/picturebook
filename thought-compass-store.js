@@ -96,6 +96,26 @@
      · deep-path update(preWriting/userNotes)만 → answers/followUps/completedAt/status 보존(전체 set 금지).
      · 진행률·완료 판정·BASE10·AI payload와 무관(별도 필드). 빈 문자열도 허용(빈값 표시).
      · writingGuide write 권한(member active / 담당 교사 / super_admin) 안에서 동작 — Rules 변경 없음. */
+  /* COMPASS-VALUE-1(2026-07-21): 마지막 가치 질문 결과 저장 — userNotes와 동일 패턴
+     (preWriting/storyValue deep-path update만 → answers/followUps/status 무접촉·Rules 무변경).
+     answers 스키마(질문 키 3곳 동기화 지뢰)를 건드리지 않는 별도 필드가 핵심. */
+  async function saveThoughtCompassStoryValue(ctx, picked, candidates) {
+    const TC = _TC();
+    const paths = TC.buildThoughtCompassPaths(ctx);
+    if (!paths) return { ok: false };
+    const word = String(picked == null ? '' : picked).trim().slice(0, 12);
+    if (!word) return { ok: false };
+    const cands = (Array.isArray(candidates) ? candidates : [])
+      .map(function (c) { return String((c && c.word) || '').trim().slice(0, 12); })
+      .filter(Boolean).slice(0, 3);
+    try {
+      await db.ref(paths.preWriting + '/storyValue').update({
+        picked: word, candidates: cands, updatedAt: _serverTs(),
+      });
+      return { ok: true };
+    } catch (e) { return { ok: false, error: e }; }
+  }
+
   async function saveThoughtCompassUserNotes(ctx, text) {
     const TC = _TC();
     const paths = TC.buildThoughtCompassPaths(ctx);
@@ -133,5 +153,6 @@
     resetThoughtCompassOnly,
     saveThoughtCompassUserNotes,
     loadThoughtCompassUserNotes,
+    saveThoughtCompassStoryValue,
   };
 })();

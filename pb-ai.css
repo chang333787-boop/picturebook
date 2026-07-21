@@ -1126,12 +1126,15 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 8px 14px;
+  gap: 4px 18px;
   flex-wrap: wrap;
-  padding: 4px 8px;
+  padding: 2px 8px;
   flex-shrink: 0;
 }
 .ai-view-toggle-slot:empty { display: none; }
+/* TOGGLE-SEG-1(2026-07-21 사용자 지적 "너무 넓고 어색함"): 슬롯 안 토글을
+   조용한 세그먼트로 재설계 — 바깥 pill 상자(배경·테두리·패딩) 제거, 라벨 축소,
+   버튼 두 개를 한 덩어리(붙은 세그먼트)로. 감상 화면의 부유(fixed) 바는 기존 그대로. */
 .ai-view-toggle-slot .ai-view-toggle-bar {
   position: static;
   transform: none;
@@ -1139,7 +1142,32 @@
   left: auto;
   z-index: auto;
   box-shadow: none;
+  background: transparent;
+  border: none;
+  padding: 0;
+  gap: 0;
 }
+.ai-view-toggle-slot .ai-view-toggle-bar__label {
+  font-size: 11px;
+  margin-right: 6px;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+.ai-view-toggle-slot .ai-view-toggle-btn {
+  margin: 0;
+  /* 단일 줄 고정 — 긴 라벨('AI 그림책 마감')이 줄바꿈되며 두 버튼 높이가 어긋나던 것 차단 */
+  white-space: nowrap;
+  line-height: 1.4;
+  padding: 3px 11px;
+  font-size: 11.5px;
+  border-radius: 0;
+  background: #f8f1de;
+  border: 1px solid #e4d6b8;
+}
+.ai-view-toggle-slot .ai-view-toggle-btn + .ai-view-toggle-btn { border-left: none; }
+.ai-view-toggle-slot .ai-view-toggle-btn:first-of-type { border-radius: 999px 0 0 999px; padding-left: 13px; }
+.ai-view-toggle-slot .ai-view-toggle-btn:last-of-type { border-radius: 0 999px 999px 0; padding-right: 13px; }
+.ai-view-toggle-slot .ai-view-toggle-btn.is-active { border-color: #b85a3a; }
 /* 글 보기(기본 order 0) → 그림 보기(order 2): 삽입 순서와 무관하게 항상 왼쪽=글, 오른쪽=그림. */
 .ai-view-toggle-slot .ai-view-toggle-bar--image { order: 2; }
 

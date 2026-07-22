@@ -148,8 +148,39 @@ function addButton(num) {
   pushToFirebase();
 }
 
+/* ════ LINEAR-GRID(2026-07-22 사용자 결정): 1·2단계(일직선)는 가지 그래프가 아니라
+   읽기 순서 그리드로 한눈에 — 표지→이야기(num순)→엔딩을 4열로 줄바꿈 배치.
+   · 가지 "구조"(연결/buttons/nextId)는 무변경 — 화면 좌표(x/y)만 그리드로 정렬.
+   · drawArrows도 s.x/s.y를 읽으므로 화살표가 줄 따라 자연스럽게 흐름을 보여줌.
+   · 멱등(매 renderAll 재적용·같은 결과)·비선형(3단계/텍스트/무비)엔 미적용. ════ */
+const _LINEAR_GRID = { perRow: 4, cardW: 200, gapX: 48, rowH: 210, startX: 100, startY: 80 };
+function _linearReadingOrder() {
+  const all = Object.values(scenes).filter(Boolean);
+  const _num = (s) => { const n = parseInt(s && s.num, 10); return Number.isFinite(n) ? n : 9999; };
+  const cover  = all.filter(s => s.type === 'cover').sort((a, b) => _num(a) - _num(b));
+  const ending = all.filter(s => s.type === 'ending').sort((a, b) => _num(a) - _num(b));
+  const mid    = all.filter(s => s.type !== 'cover' && s.type !== 'ending').sort((a, b) => _num(a) - _num(b));
+  return [...cover, ...mid, ...ending];
+}
+function _applyLinearGridLayout() {
+  if (typeof window === 'undefined' || typeof window.isLinearPicturebookLock !== 'function'
+      || !window.isLinearPicturebookLock()) return false;
+  const G = _LINEAR_GRID;
+  _linearReadingOrder().forEach((s, i) => {
+    const col = i % G.perRow, row = Math.floor(i / G.perRow);
+    s.x = G.startX + col * (G.cardW + G.gapX);
+    s.y = G.startY + row * G.rowH;
+  });
+  return true;
+}
+window.isLinearGridActive = function () {
+  try { return !!(typeof window.isLinearPicturebookLock === 'function' && window.isLinearPicturebookLock()); }
+  catch (e) { return false; }
+};
+
 /* ── 전체 렌더 ── */
 function renderAll() {
+  _applyLinearGridLayout();   /* LINEAR-GRID: 카드/화살표 렌더 전에 좌표 정렬(선형만) */
   document.querySelectorAll('.scene-card').forEach(el => el.remove());
   Object.values(scenes).forEach(s => renderCard(s));
   drawArrows();
@@ -402,8 +433,8 @@ function _buildImageAreaHtml(s) {
           <div style="margin-top:4px;text-align:center;color:var(--muted);font-size:9px;line-height:1.3;">🎨 AI가 그린 그림</div>
         </div>`
       : `<div class="card-image-area">
-          <div class="card-img-btn" style="cursor:default;background:#f4f8ff;color:var(--muted);font-size:10px;line-height:1.4;text-align:center;padding:6px 4px;">
-            🎨 AI가 그림을<br>그려 줄 거예요
+          <div class="card-img-btn card-img-note" style="cursor:default;background:#f4f8ff;color:var(--muted);">
+            <span>🎨 AI가 그림을<br>그려 줄 거예요</span>
           </div>
         </div>`;
   }
@@ -422,8 +453,8 @@ function _buildImageAreaHtml(s) {
           </div>
         </div>`
       : `<div class="card-image-area">
-          <div class="card-img-btn" style="cursor:default;background:#f4f8ff;color:var(--muted);font-size:10px;line-height:1.4;text-align:center;padding:6px 4px;">
-            ✏️ 그림은 <b>다듬기</b>에서<br>간단히 그려요
+          <div class="card-img-btn card-img-note" style="cursor:default;background:#f4f8ff;color:var(--muted);">
+            <span>✏️ 그림은 <b>다듬기</b>에서<br>간단히 그려요</span>
           </div>
         </div>`;
   }
@@ -993,6 +1024,9 @@ function bindCardEvents(el, s) {
     if (e.button !== 0) return; /* CROSS-A: 우클릭/중클릭이 드래그·편집잠금 유발 방지(터치/펜=0이라 안전) */
     if (['INPUT','BUTTON','LABEL','TEXTAREA','IMG'].includes(e.target.tagName)) return;
     if (e.target.classList.contains('port-dot')) return;
+    /* LINEAR-GRID: 1·2단계는 그리드 자동 정렬이라 카드 드래그 비활성(움직여도 재렌더 시 스냅백 →
+       혼란 방지). 카드 클릭(펼치기·다듬기)은 각 버튼 핸들러가 그대로 처리. */
+    if (typeof window !== 'undefined' && typeof window.isLinearGridActive === 'function' && window.isLinearGridActive()) return;
 
     const cv = toCanvas(e.clientX, e.clientY);
 

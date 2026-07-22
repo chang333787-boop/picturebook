@@ -1594,14 +1594,20 @@
     .pb-mapcard .card-image-area{padding:6px 8px 4px;}
     .pb-mapcard .card-thumb{max-height:124px;height:124px;border-radius:12px;}
     .pb-mapcard .card-img-btn{height:92px;border-radius:12px;}
-    /* 본문 읽기전용 미리보기 — 최대 2줄 */
+    /* CARD-TEXT-BIGGER(2026-07-22 사용자 결정): 브랜치 카드 본문 미리보기를 표지 비율에 맞게
+       크게 — 2줄 → 5줄·글자 12→12.5px로, 장면 글이 브랜치에서도 어느 정도 보이게.
+       (다듬기/감상/인쇄엔 무영향 — 브랜치 미리보기 전용) */
     .pb-mapcard .pb-body-preview{
-      font-family:var(--font-b);font-size:12px;color:#6b5638;line-height:1.45;
-      padding:2px 11px 6px;
-      display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+      font-family:var(--font-b);font-size:12.5px;color:#5f5030;line-height:1.5;
+      padding:4px 12px 8px;min-height:2.4em;
+      display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden;
       white-space:pre-wrap;word-break:keep-all;overflow-wrap:anywhere;
     }
     .pb-mapcard .pb-body-preview--empty{color:#b6a079;font-style:italic;}
+    /* CARD-IMG-NOTE: 그림 안내(업로드 대체) — .card-img-btn의 flex+gap이 '다듬기' 등 단어를
+       벌려 줄이 깨지던 것 수정. 텍스트를 span 한 덩어리로 감싸 정상 줄바꿈. */
+    .pb-mapcard .card-img-note{ padding:6px 8px; }
+    .pb-mapcard .card-img-note span{ font-size:11px; line-height:1.5; text-align:center; word-break:keep-all; }
     /* 펼침 편집영역 */
     .pb-mapcard .pb-edit-zone{padding:4px 8px 2px;margin-top:4px;border-top:1px dashed #ecdec3;}
     .pb-mapcard.is-expanded{box-shadow:0 0 0 3px rgba(198,111,74,0.20),0 10px 26px rgba(120,90,40,0.18);border-color:#e6c39f;}
@@ -1634,14 +1640,15 @@
     .pb-mapcard .card-image-area{ padding:1px 9px 5px; }
     .pb-mapcard .card-thumb{ height:144px; max-height:144px; border-radius:13px; border-color:#e3d3b2; }
     .pb-mapcard .card-img-btn{ height:110px; border-radius:13px; }
-    /* 본문 — 정확히 최대 3줄 클램프(말줄임 …). 표준 line-clamp는 flow-root 유발로 미사용,
-       -webkit-box + -webkit-line-clamp만 사용. 카드별 높이 균일(min-height 3줄), 본문 길이로 카드 안 늘어남. */
+    /* CARD-TEXT-BIGGER(2026-07-22 사용자 결정): 본문 미리보기 3줄→5줄로 확대(표지 비율에 맞춰
+       장면 글이 브랜치에서도 어느 정도 보이게). ⚠️이 규칙이 위 1600줄 사본보다 뒤라 실제 적용(둘 다 5줄로 정합).
+       -webkit-box + -webkit-line-clamp. 카드별 높이 균일(min/max 5줄), 본문 길어도 카드 안 늘어남. */
     .pb-mapcard .pb-body-preview{
       font-size:12.5px; line-height:1.5; color:#5e4a33;
       padding:5px 11px 0; margin-bottom:8px;
-      display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3;
+      display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:5;
       overflow:hidden;
-      min-height:calc(1.5em * 3); max-height:calc(1.5em * 3); box-sizing:content-box;
+      min-height:calc(1.5em * 5); max-height:calc(1.5em * 5); box-sizing:content-box;
       white-space:normal; word-break:keep-all; overflow-wrap:anywhere;
     }
     /* 펼침 시: 미리보기 숨김(편집은 textarea로) → stale/중복 방지. 접으면 동기화되어 다시 표시. */
@@ -3440,7 +3447,7 @@
 <script src="notices.js?v=3d93b71532"></script>
 <script src="session.js?v=14b8513855"></script>
 <script src="canvasInteraction.js?v=42257f700f"></script>
-<script src="sceneRenderer.js?v=06b7f8a7fa"></script>
+<script src="sceneRenderer.js?v=ccd7979e79"></script>
 <script src="storyAnalyzer.js?v=4799502ff8"></script>
 <script src="mediaManager.js?v=2b05836f58"></script>
 <script src="adminConsole.js?v=784a4ba5fb"></script>

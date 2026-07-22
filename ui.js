@@ -354,13 +354,17 @@ window.addEventListener('pagehide',    _unloadFlush);
    · 저장 = 기존 updateBody + flushBodySaves 재사용(잠금·debounce·_hasBody 정책 동일).
    · 취소/ESC/배경 클릭 = 변경 없음. 저장 시 카드 미리보기·숨은 textarea 동기.
    ================================================================ */
-function showBodyQuickEditModal(num) {
+function showBodyQuickEditModal(num, opts) {
+  opts = opts || {};
+  num = String(num);
   const s = scenes[num];
   if (!s || s.type === 'cover') return;
   if (typeof isLockedByOther === 'function' && isLockedByOther(num)) {
     alert('다른 사람이 이 장면을 편집하고 있어요.');
     return;
   }
+  /* SCENE-EDIT-NAV: 카드에서 새로 연 경우(viaNav 아님) 이동 기록 초기화. */
+  if (!opts.viaNav) _qeNavStack = [];
   document.querySelector('.body-quickedit-overlay')?.remove();
 
   const overlay = document.createElement('div');
@@ -377,6 +381,7 @@ function showBodyQuickEditModal(num) {
         <button type="button" class="body-quickedit-cancel">취소</button>
         <button type="button" class="body-quickedit-save">저장</button>
       </div>
+      <div class="body-quickedit-nav"></div>
     </div>`;
   document.body.appendChild(overlay);
 
@@ -429,6 +434,63 @@ function showBodyQuickEditModal(num) {
   });
   overlay.querySelector('.body-quickedit-cancel').addEventListener('click', () => close(false));
   overlay.querySelector('.body-quickedit-close').addEventListener('click', () => close(false));
+
+  /* ════ SCENE-EDIT-NAV: 이전/다음 장면 이동 편집 ════ */
+  function _saveCurrentBody() {
+    const val = ta.value;
+    updateBody(num, val);
+    flushBodySaves(num);
+    const cardEl = document.getElementById('card-' + num);
+    if (cardEl) {
+      const hiddenTa = cardEl.querySelector('.js-body-input');
+      if (hiddenTa) hiddenTa.value = val;
+      if (typeof _pbSyncPreviewFromTextarea === 'function') _pbSyncPreviewFromTextarea(cardEl);
+    }
+  }
+  /* 대상 장면으로 이동 — 현재 글 저장 후 모달을 그 장면으로 다시 연다(닫지 않고 이어서). */
+  function _navTo(targetNum, isBack) {
+    if (targetNum == null || !scenes[String(targetNum)]) return;
+    if (isBack) { _qeNavStack.pop(); }
+    else { _qeNavStack.push(num); }
+    _saveCurrentBody();
+    document.removeEventListener('keydown', onKey);
+    overlay.remove();
+    showBodyQuickEditModal(String(targetNum), { viaNav: true });
+  }
+  (function _buildNav() {
+    const navEl = overlay.querySelector('.body-quickedit-nav');
+    if (!navEl) return;
+    /* 이전: 이동 기록('온 길') 우선, 없으면 구조상 부모(최소 번호). */
+    const backFromStack = _qeNavStack.length ? _qeNavStack[_qeNavStack.length - 1] : null;
+    const parents = _qeParents(num);
+    const prevNum = (backFromStack != null && scenes[String(backFromStack)]) ? backFromStack
+      : (parents.length ? parents[0] : null);
+    /* 다음: 나가는 링크(1개=직행·여럿=갈래 목록·0개=없음). */
+    const targets = _qeOutgoingTargets(num);
+
+    const prevHtml = prevNum != null
+      ? `<button type="button" class="qe-nav-btn qe-nav-prev" data-to="${_escapeHtml(String(prevNum))}">◀ 이전 장면 ${_escapeHtml(String(prevNum))}</button>`
+      : `<span class="qe-nav-empty">◀ 처음 장면</span>`;
+
+    let nextHtml;
+    if (targets.length === 0) {
+      nextHtml = `<span class="qe-nav-empty">이야기 끝 ▶</span>`;
+    } else if (targets.length === 1) {
+      nextHtml = `<button type="button" class="qe-nav-btn qe-nav-next" data-to="${_escapeHtml(targets[0].num)}">다음 장면 ${_escapeHtml(targets[0].num)} ▶</button>`;
+    } else {
+      /* 3단계 분기 — 갈래 목록: "장면 N · [버튼 라벨]" */
+      const chips = targets.map(t =>
+        `<button type="button" class="qe-nav-btn qe-nav-branch" data-to="${_escapeHtml(t.num)}">장면 ${_escapeHtml(t.num)}${t.label ? ' · ' + _escapeHtml(t.label) : ''} ▶</button>`
+      ).join('');
+      nextHtml = `<div class="qe-nav-branch-label">어느 길로 갈까요?</div><div class="qe-nav-branch-list">${chips}</div>`;
+    }
+    navEl.innerHTML = `<div class="qe-nav-row"><div class="qe-nav-left">${prevHtml}</div><div class="qe-nav-right">${nextHtml}</div></div>`;
+    navEl.querySelectorAll('[data-to]').forEach(btn => {
+      const isPrev = btn.classList.contains('qe-nav-prev');
+      btn.addEventListener('click', () => _navTo(btn.getAttribute('data-to'), isPrev));
+    });
+  })();
+
   overlay.addEventListener('pointerdown', e => e.stopPropagation());   /* 캔버스 팬/줌으로 전파 차단 */
   /* CARD-QUICKEDIT-NOBACKDROP(2026-07-09): 바깥(백드롭) 클릭으로 닫지 않음 — 글 입력 중 여백 오탭으로
      입력이 유실되던 문제. 닫기는 취소/✕/저장/ESC로만. (pointerdown stopPropagation은 유지) */
@@ -450,6 +512,43 @@ function _sceneHasOutgoingLink(s) {
   if (s.nextB && (s.choiceCount || 2) > 1) return true;
   return false;
 }
+
+/* ════ SCENE-EDIT-NAV(2026-07-22 사용자 결정): 빠른편집 모달에서 장면 이동 편집 ════
+   장면 N 고치기 → 다음/이전으로 옆 장면 편집을 이어감. 1·2단계=직선 1개, 3단계=분기 갈래 목록.
+   나가는 링크(행동버튼) — _sceneHasOutgoingLink와 동일 우선순위(buttons→legacy nextA/B).
+   반환: [{num, label}] (유효 대상 장면만·중복 제거·최대 6). */
+function _qeOutgoingTargets(num) {
+  const s = scenes[num];
+  if (!s) return [];
+  const out = [];
+  const seen = new Set();
+  const push = (nid, label) => {
+    const key = String(nid == null ? '' : nid);
+    if (!key || seen.has(key) || !scenes[key]) return;
+    seen.add(key);
+    out.push({ num: key, label: String(label || '').trim() });
+  };
+  const buttons = Array.isArray(s.buttons) ? s.buttons : [];
+  if (buttons.length > 0) {
+    buttons.slice(0, 6).forEach(b => { if (b && b.nextId) push(b.nextId, b.label); });
+  } else {
+    if (s.nextA) push(s.nextA, s.choiceA);
+    if (s.nextB && (s.choiceCount || 2) > 1) push(s.nextB, s.choiceB);
+  }
+  return out;
+}
+/* 이 장면을 가리키는 부모 장면 번호들(구조상 '이전'). 여럿이면 오름차순. */
+function _qeParents(num) {
+  const target = String(num);
+  const parents = [];
+  Object.keys(scenes).forEach(k => {
+    const links = _qeOutgoingTargets(k);
+    if (links.some(l => String(l.num) === target)) parents.push(k);
+  });
+  return parents.sort((a, b) => (parseInt(a, 10) || 0) - (parseInt(b, 10) || 0));
+}
+/* 이동 기록 — '방금 온 길'. 다음/이전으로 이동할 때 쌓임. fresh open(카드 클릭) 시 초기화. */
+let _qeNavStack = [];
 
 async function updateType(num, type) {
   /* LEVELS-AUDIT F7: 1·2단계는 장면 타입(일반↔엔딩) 전환 차단 — 라디오 숨김(CSS)의 2중 방어.

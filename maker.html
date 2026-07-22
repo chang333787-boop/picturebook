@@ -1689,6 +1689,21 @@
     .body-quickedit-cancel:hover{ background:rgba(80,50,20,0.06); }
     .body-quickedit-save{ background:var(--primary); color:#fff; border-color:var(--primary); }
     .body-quickedit-save:hover{ filter:brightness(0.95); }
+    /* SCENE-EDIT-NAV(2026-07-22): 이전/다음 장면 이동 편집 — 저장 아래 별도 줄. */
+    .body-quickedit-nav{ margin-top:10px; padding-top:10px; border-top:1px dashed #ecdec3; }
+    .qe-nav-row{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+    .qe-nav-left,.qe-nav-right{ display:flex; flex-direction:column; gap:6px; }
+    .qe-nav-right{ align-items:flex-end; }
+    .qe-nav-btn{
+      padding:7px 14px; border-radius:9px; font-family:var(--font-b); font-size:12.5px; cursor:pointer;
+      border:1.5px solid #e2d3b4; background:#fdf8ec; color:#6b5638; white-space:nowrap;
+    }
+    .qe-nav-btn:hover{ border-color:var(--primary); color:var(--primary); background:#fdf3e8; }
+    .qe-nav-next{ background:#fbeee0; border-color:#e6c39f; color:#b06a3e; font-family:var(--font-h); }
+    .qe-nav-empty{ font-size:12px; color:#b6a079; padding:7px 4px; }
+    .qe-nav-branch-label{ font-size:11.5px; color:#8a7a5e; text-align:right; margin-bottom:1px; }
+    .qe-nav-branch-list{ display:flex; flex-direction:column; gap:5px; align-items:flex-end; }
+    .qe-nav-branch{ background:#fbeee0; border-color:#e6c39f; color:#b06a3e; }
 
     /* 미리보기 선택지 버튼 */
     .preview-choice-btn{width:100%;padding:14px 18px;border-radius:14px;border:2px solid;font-family:var(--font-h);font-size:16px;cursor:pointer;text-align:left;transition:transform .1s,filter .1s;backdrop-filter:blur(4px);}
@@ -3454,7 +3469,7 @@
 <!-- ADMIN-REDESIGN Phase 3: 교사·학생 상세 설명서(화면형) -->
 <script src="admin-manual.js?v=1ece1a12f2"></script>
 <script src="projectSettings.js?v=5eb05c2079"></script>
-<script src="ui.js?v=e3ed0bc560"></script>
+<script src="ui.js?v=305c722b38"></script>
 <!-- v95: 모바일 텍스트형 브랜치 전용 (텍스트 작품 + 모바일에서만 활성) -->
 <script src="mobileTextBranch.js?v=d579c1b687"></script>
 <!-- TUTORIAL-PRD: 콘텐츠·삽화·데모(먼저) → 도움말/환영/인쇄 -->

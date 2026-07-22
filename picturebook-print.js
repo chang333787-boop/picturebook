@@ -222,6 +222,7 @@
         if (Number.isFinite(Number(o.w))) out.w = Math.max(20, Math.min(94, Number(o.w)));
         if (Number.isFinite(Number(o.h))) out.h = Math.max(4, Math.min(92, Number(o.h)));
         if (Number.isFinite(Number(o.fontScale))) out.fontScale = Math.max(0.5, Math.min(1.4, Number(o.fontScale)));
+        if (Number.isFinite(Number(o.opacity))) out.opacity = Math.max(0.2, Math.min(1, Number(o.opacity)));   /* PRINT-HELPER-OPACITY */
         if (Object.keys(out).length) _overrides[String(k)] = out;
       });
     }
@@ -347,16 +348,20 @@
           /* PRINT-HELPER-RESIZE: 상자 크기(w/h)도 인쇄 전용 조절 — 원본 layout 무접촉 */
           const bw = (ovr && ovr.w != null) ? ovr.w : bb.width;
           const bh = (ovr && ovr.h != null) ? ovr.h : bb.height;
+          /* PRINT-HELPER-OPACITY(2026-07-22 사용자 요청): 말풍선 진하기도 인쇄 전용 조절 —
+             override.opacity 있으면 그 값, 없으면 원본 진하기(op). 원본은 dataset에 보존(↺ 복귀). */
+          const bop = (ovr && Number.isFinite(ovr.opacity)) ? ovr.opacity : op;
           /* PAPER-BUBBLE(2026-07-09): 흰색 인라인 대신 진하기만 변수로 넘기고 배경색은 인쇄 CSS(paper 베이지)가 적용.
              화면 paper-storybook 말풍선(v03-modes.css)과 톤 일치. */
           bub.style.cssText = 'left:' + bx + '%;top:' + by + '%;width:' + bw + '%;'
             + (typeof bh === 'number' ? 'min-height:' + bh + '%;' : '')
-            + '--pb-box-opacity:' + op + ';'
-            + 'box-shadow:0 2px 6px rgba(0,0,0,' + (0.08 * op).toFixed(3) + ');';
+            + '--pb-box-opacity:' + bop + ';'
+            + 'box-shadow:0 2px 6px rgba(0,0,0,' + (0.08 * bop).toFixed(3) + ');';
           bub.dataset.pbpKey = String(k);
           bub.dataset.pbpOrigX = String(bb.x);
           bub.dataset.pbpOrigY = String(bb.y);
           bub.dataset.pbpOrigW = String(bb.width);
+          bub.dataset.pbpOrigOp = String(op);   /* PRINT-HELPER-OPACITY: 원본 진하기(↺ 복귀 기준) */
           bub.dataset.pbpOrigH = (typeof bb.height === 'number') ? String(bb.height) : '';
           if (typeof bh === 'number') bub.dataset.pbpBaseH = String(bh);
           /* 교사가 상자 크기를 직접 정한 장면 = 글자-상자 자동 연동 제외(교사 값 존중) */
@@ -460,6 +465,14 @@
     if (!Number.isFinite(scale) || Math.abs(scale - 1) < 0.001) el.style.fontSize = '';
     else el.style.fontSize = (Math.round(base * scale * 10) / 10) + 'px';
   }
+  /* PRINT-HELPER-OPACITY(2026-07-22): 말풍선 진하기 인쇄 전용 적용 — --pb-box-opacity 변수와
+     그림자만 갱신(배경색은 인쇄 CSS가 이 변수로 합성·PAPER-BUBBLE). 원본 layout 무접촉. */
+  function _applyBubbleOpacity(bub, op) {
+    if (!bub) return;
+    const v = Math.max(0.2, Math.min(1, Number(op)));
+    bub.style.setProperty('--pb-box-opacity', String(v));
+    bub.style.boxShadow = '0 2px 6px rgba(0,0,0,' + (0.08 * v).toFixed(3) + ')';
+  }
   /* PRINT-HELPER-RESIZE: 글자 크기에 상자(min-height)도 비례 연동 — 글자만 줄면 저장된
      명시 높이 때문에 반 빈 상자가 남는 문제(사용자 보고). 교사가 상자를 직접 조절한
      장면(pbpUserH)은 제외. min-height는 바닥일 뿐이라 축소해도 글 잘림 0(내용만큼 늘어남). */
@@ -545,7 +558,7 @@
 
     const bar = _el('div', 'pbp-helper-ui pbp-helper-bar');
     const txt = _el('div', 'pbp-helper-bar__txt');
-    txt.innerHTML = '<b>🖨 인쇄 도우미</b> — 말풍선은 끌어 옮기고, 오른쪽 아래 ○로 크기를, A−/A+로 글자를 조절해요. <b>인쇄에만</b> 반영되고 작품은 그대로예요.';
+    txt.innerHTML = '<b>🖨 인쇄 도우미</b> — 말풍선은 끌어 옮기고, 오른쪽 아래 ○로 크기를, A−/A+로 글자를, 진하기 ─/＋로 배경 진하기를 조절해요. <b>인쇄에만</b> 반영되고 작품은 그대로예요.';
     const btns = _el('div', 'pbp-helper-bar__btns');
     const printBtn = _el('button', 'pbp-helper-btn', '🖨 인쇄하기'); printBtn.type = 'button';
     const closeBtn = _el('button', 'pbp-helper-btn pbp-helper-btn--ghost', '✕ 닫기'); closeBtn.type = 'button';
@@ -618,6 +631,11 @@
             bub.style.minHeight = bub.dataset.pbpOrigH ? bub.dataset.pbpOrigH + '%' : '';
             if (bub.dataset.pbpOrigH) bub.dataset.pbpBaseH = bub.dataset.pbpOrigH;
             else delete bub.dataset.pbpBaseH;
+            /* PRINT-HELPER-OPACITY: 진하기도 원본으로 복원 + 진하기 칩 표시 갱신(↺=전체 복귀) */
+            const _origOp = parseFloat(bub.dataset.pbpOrigOp);
+            _applyBubbleOpacity(bub, Number.isFinite(_origOp) ? _origOp : 0.85);
+            const _opVal = (st || page).querySelector('.pbp-helper-chip--op .pbp-helper-chip__val');
+            if (_opVal) _opVal.textContent = Math.round((Number.isFinite(_origOp) ? _origOp : 0.85) * 100) + '%';
             _autoFitBubbles(rootEl, overrides);   /* override 삭제됐으니 다시 자동 맞춤 */
           } else {
             _autoFitPageBodies(rootEl, overrides);
@@ -625,6 +643,34 @@
           show(); refreshBadge();
         });
         show();
+      }
+
+      /* 진하기 칩 (연하게 ─ ·%· ＋ 진하게) — 말풍선 전용(PRINT-HELPER-OPACITY 2026-07-22 사용자 요청).
+         글자 그림 위 흰 배경이 너무 진하거나 연할 때 인쇄 전용으로 조절. 0.2~1.0·10%씩. */
+      if (bub && st) {
+        const ochip = _el('div', 'pbp-helper-ui pbp-helper-chip pbp-helper-chip--op');
+        const olabel = _el('span', 'pbp-helper-chip__lab', '진하기');
+        const odown = _el('button', '', '─'); odown.type = 'button'; odown.title = '연하게';
+        const oval = _el('span', 'pbp-helper-chip__val', '');
+        const oup = _el('button', '', '＋'); oup.type = 'button'; oup.title = '진하게';
+        ochip.appendChild(olabel); ochip.appendChild(odown); ochip.appendChild(oval); ochip.appendChild(oup);
+        st.appendChild(ochip);
+        const curOp = function () {
+          const o = overrides[key];
+          if (o && Number.isFinite(o.opacity)) return o.opacity;
+          const d = parseFloat(bub.dataset.pbpOrigOp);
+          return Number.isFinite(d) ? d : 0.85;
+        };
+        const showOp = function () { oval.textContent = Math.round(curOp() * 100) + '%'; };
+        const stepOp = function (v) {
+          v = Math.round(Math.max(0.2, Math.min(1, v)) * 100) / 100;
+          ent(key).opacity = v;
+          _applyBubbleOpacity(bub, v);
+          showOp();
+        };
+        odown.addEventListener('click', function () { stepOp(curOp() - 0.1); });
+        oup.addEventListener('click', function () { stepOp(curOp() + 0.1); });
+        showOp();
       }
 
       /* 말풍선 크기 조절 ↘ 핸들(PRINT-HELPER-RESIZE) — 다듬기의 모서리 리사이즈 UX를

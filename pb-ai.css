@@ -1167,7 +1167,10 @@
 .ai-view-toggle-slot .ai-view-toggle-btn + .ai-view-toggle-btn { border-left: none; }
 .ai-view-toggle-slot .ai-view-toggle-btn:first-of-type { border-radius: 999px 0 0 999px; padding-left: 13px; }
 .ai-view-toggle-slot .ai-view-toggle-btn:last-of-type { border-radius: 0 999px 999px 0; padding-right: 13px; }
-.ai-view-toggle-slot .ai-view-toggle-btn.is-active { border-color: #b85a3a; }
+/* TOGGLE-ACTIVE-FIX(2026-07-23): 슬롯 기본 배경(#f8f1de·위 1164)이 활성 배경(#c66f4a)을 같은
+   특이도·후순위로 덮어써, 활성 버튼이 '밝은글자+연한크림'이라 거의 안 보였음(흐릿한 선택 상태).
+   슬롯 스코프 is-active(특이도 0,3,0)에서 배경·글자색도 명시해 활성=테라코타 채움으로 복원. */
+.ai-view-toggle-slot .ai-view-toggle-btn.is-active { background: #c66f4a; border-color: #b85a3a; color: #fffaee; }
 /* 글 보기(기본 order 0) → 그림 보기(order 2): 삽입 순서와 무관하게 항상 왼쪽=글, 오른쪽=그림. */
 .ai-view-toggle-slot .ai-view-toggle-bar--image { order: 2; }
 

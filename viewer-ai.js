@@ -1496,9 +1496,25 @@
   }
 
   /* 이미지 보기 모드 — 텍스트(_getAiViewMode)와 독립. 별도 localStorage 키. */
+  /* LV3-DEFAULT-AI(2026-07-23 사용자 요청): 3단계 감상에서 학생이 토글을 아직 안 고른 경우(localStorage
+     없음) 기본을 AI로 — 단 AI 결과가 실제로 있을 때만(없으면 원본 폴백). 명시 선택(원본 포함)은 존중.
+     3단계만 적용(1단계=자동그림·토글숨김 / 2단계=이어쓰기라 기존 유지). */
+  function _lv3DefaultViewMode(kind) {
+    try {
+      const proj = (typeof ViewerState !== 'undefined') ? ViewerState.project : null;
+      if (!proj || proj.projectType !== 'picturebook') return 'original';   /* 그림책만 */
+      const lv = proj.picturebookLevel;
+      if (lv === 1 || lv === 2) return 'original';   /* 1·2단계 제외 = 3단계(explicit 3 또는 레거시 null)만 통과 */
+      const has = (kind === 'image')
+        ? (typeof _hasImageVariantS2 === 'function' && _hasImageVariantS2())
+        : (typeof _isS2Finalized === 'function' && _isS2Finalized());
+      return has ? 'aiS2' : 'original';
+    } catch (e) { return 'original'; }
+  }
   function _getAiImageViewMode() {
     try {
       const v = localStorage.getItem(_getMockImageViewModeKey());
+      if (v === null) return _lv3DefaultViewMode('image');   /* 미선택 → 3단계 기본 AI */
       return (v === 'aiS1' || v === 'aiS2') ? v : 'original';
     } catch (e) { return 'original'; }
   }
@@ -2436,9 +2452,11 @@
   }
 
   function _getAiViewMode() {
-    /* v140 fix 2026-05-21: 팀별 namespace 키 사용. 2026-06: aiS2 추가. UI-REBUILD-1: aiS1 정규화. */
+    /* v140 fix 2026-05-21: 팀별 namespace 키 사용. 2026-06: aiS2 추가. UI-REBUILD-1: aiS1 정규화.
+       LV3-DEFAULT-AI: 미선택(null)이면 3단계 기본 AI(있을 때). 명시값(원본 포함)은 그대로. */
     try {
       const v = localStorage.getItem(_getMockViewModeKey());
+      if (v === null) return _lv3DefaultViewMode('text');
       return _normalizeTextAiViewMode(v);
     } catch (e) { return 'original'; }
   }
@@ -2621,7 +2639,7 @@
     try { _flushVariantStyleSave(); } catch (e) { /* noop */ }
     try {
       if (mode === 'aiS1' || mode === 'aiS2') localStorage.setItem(_getMockViewModeKey(), mode);
-      else localStorage.removeItem(_getMockViewModeKey());
+      else localStorage.setItem(_getMockViewModeKey(), 'original');   /* LV3-DEFAULT-AI: 원본 선택도 저장(기본 AI로 안 되돌아가게) */
     } catch (e) { /* noop */ }
     _updateAiToggleBar();
     _applyVariantEditPanelLock();

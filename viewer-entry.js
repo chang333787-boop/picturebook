@@ -60,18 +60,29 @@ function _bindEntryEvents() {
     });
 }
 
-/* ── query param 처리: ?team=2모둠&edit=1&from=maker&classId=abc&scene=N&ptype=movie ── */
-function _processQueryParam() {
+/* ── query param 처리: ?team=2모둠&edit=1&from=maker&classId=abc&scene=N&ptype=movie ──
+   VIEW-LINK-2(2026-07-23): 친화 코드 링크 지원 — ?code=JL26A&team=0000 / ?code=JL26A&shelf=1.
+   code만 있으면 classCodes/$code → classId 해석 후 기존 경로 그대로(게이트 불변:
+   작품별=isPublic, 책장=shelfPublic 링크모드). ?classId= 기존 링크도 계속 동작(하위호환). */
+async function _processQueryParam() {
   const params    = new URLSearchParams(location.search);
   const teamName  = params.get('team');
   const editMode  = params.get('edit') === '1';
   const fromMaker = params.get('from') === 'maker';
-  const classId   = params.get('classId') || null;  // v2 경로용
+  let   classId   = params.get('classId') || null;  // v2 경로용
+  const code      = (params.get('code') || '').trim().toUpperCase();  // 친화 코드(?code=)
   const sceneNum  = params.get('scene') || null;    // C-2: 특정 장면 자동 선택
   const ptypeHint = params.get('ptype') || null;    // W7: maker가 보낸 모드 hint (lock 보강)
 
+  /* code만 온 링크 → classId 해석(작품별·책장 공통). 실패 시 안내. */
+  if (!classId && code) {
+    try { classId = await _withEntryTimeout(lookupClassIdForViewer(code), 15000); }
+    catch (e) { classId = null; }
+    if (!classId) { _revealEntryWithError('클래스 코드가 올바르지 않아요. 선생님께 확인해주세요.'); return; }
+  }
+
   if (!teamName) {
-    /* SHELF-1: 책장 공개 링크(?shelf=1&classId=...) — 서버가 shelfPublic 검증 */
+    /* SHELF-1: 책장 공개 링크(?shelf=1&classId=... 또는 ?shelf=1&code=...) — 서버가 shelfPublic 검증 */
     if (params.get('shelf') === '1' && classId && window.BranchShelf) {
       window.BranchShelf.openShelf({ classId }).catch(err => {
         _setEntryError((err && err.message && /[가-힣]/.test(err.message))
@@ -82,6 +93,16 @@ function _processQueryParam() {
   }
 
   _enterViewer(teamName, editMode, fromMaker, classId, sceneNum, ptypeHint);
+}
+
+/* VIEW-LINK-2: ?team=/?code= 자동진입 중 코드 해석 실패 시 — head 인라인이 숨긴 entry 화면을
+   되살리고(로딩 제거) 안내를 띄운다(_enterViewer catch와 동일 복구). */
+function _revealEntryWithError(msg) {
+  _setEntryError(msg);
+  if (typeof window.__hideAutoEnterLoading === 'function') window.__hideAutoEnterLoading();
+  const entryEl = document.getElementById('entry-screen');
+  if (entryEl) entryEl.style.cssText = 'display:flex !important;';
+  _setEntryLoading(false);
 }
 
 /* ── entry 화면 직접 제출 — v2 classCodes lookup ── */

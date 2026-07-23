@@ -1983,7 +1983,12 @@ async function _renderShelfCommentPanel(classId) {
   const rowStyle = 'display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:13.5px;color:#3a2c14;flex-wrap:wrap;';
   const btnStyle = 'min-height:32px;padding:4px 12px;border:1px solid #c9a96a;background:#fffaf0;color:#8a5a2a;border-radius:8px;font-size:12.5px;cursor:pointer;';
   host.style.cssText = 'background:#fff;border:1.5px solid #e8d9bf;border-radius:12px;padding:14px 16px;margin:0 0 12px;';
-  const shelfUrl = location.origin + location.pathname.replace(/maker\.html.*$/, '') + `viewer.html?shelf=1&classId=${encodeURIComponent(classId)}`;
+  /* VIEW-LINK-2: 친화 코드(?code=JL26A&shelf=1) 우선, 없으면 classId 폴백. 둘 다 링크모드=shelfPublic 게이트 유지. */
+  const _shelfBase = location.origin + location.pathname.replace(/maker\.html.*$/, '');
+  const _shelfCode = adminState.adminClassCode || '';
+  const shelfUrl = _shelfCode
+    ? _shelfBase + `viewer.html?code=${encodeURIComponent(_shelfCode)}&shelf=1`
+    : _shelfBase + `viewer.html?shelf=1&classId=${encodeURIComponent(classId)}`;
   host.innerHTML = `
     <div style="font-weight:700;color:#a4592f;font-size:14px;margin-bottom:10px;">📚 우리 반 책장 · 💬 댓글</div>
     <div style="${rowStyle}">
@@ -2152,14 +2157,17 @@ async function _applyIsPublic(encodedName, newIsPublic) {
   _invalidateAdminCache('toggle-public');   // 상태 변경 — 다음 재진입 때 fresh 읽기
 }
 
-/* VIEW-LINK-1: 작품별 공개 감상 링크(복사용·절대 URL).
-   viewer.html?team=..&classId=..  — from=maker 없음 → 방문자는 isPublic 강제(공개 작품만 열림).
+/* VIEW-LINK-1/2: 작품별 공개 감상 링크(복사용·절대 URL).
+   viewer.html?code=<코드>&team=..  — from=maker 없음 → 방문자는 isPublic 강제(공개 작품만 열림).
+   VIEW-LINK-2: 사람이 읽는 친화 코드(?code=JL26A) 우선, 코드 없는 옛 학급은 classId 폴백.
    baseUrl은 shelf 링크(_renderShelfCommentPanel)와 동일 방식. */
 function _teamViewShareUrl(teamName) {
   const baseUrl = location.origin + location.pathname.replace(/maker\.html.*$/, '');
-  const cid = adminState.adminClassId
-    ? `&classId=${encodeURIComponent(adminState.adminClassId)}` : '';
-  return `${baseUrl}viewer.html?team=${encodeURIComponent(teamName)}${cid}`;
+  const t = `team=${encodeURIComponent(teamName)}`;
+  const code = adminState.adminClassCode || '';
+  if (code) return `${baseUrl}viewer.html?code=${encodeURIComponent(code)}&${t}`;
+  if (adminState.adminClassId) return `${baseUrl}viewer.html?classId=${encodeURIComponent(adminState.adminClassId)}&${t}`;
+  return `${baseUrl}viewer.html?${t}`;
 }
 
 /* VIEW-LINK-1: ⋯메뉴 [🔗 감상 링크 복사] — 비공개면 공개(확인) 후 복사, 공개면 바로 복사.

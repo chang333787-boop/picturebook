@@ -1851,31 +1851,38 @@ function _teamCardHtml(t) {
       기존 자율 생성 팀을 삭제 없이 관리팀으로 편입할 수 있게 함.) */
   /* DELETE-SAFETY-2: 삭제 위험도 3단 — ①🔒잠금(일상·되돌리기 쉬움) ②🧹계정만 삭제(작품 보존·
      입장만 차단·되돌리기 = 같은 이름 재등록) ③🗑모둠 전체 삭제(작품까지 소멸·위험 톤·재입력 강확인). */
-  const accountMenuItems = t.registered
-    ? `<button class="admin-more-item js-admin-pin" data-encoded="${t.encodedName}" data-name="${nm}">🔑 PIN 변경</button>
-      ${t.accountStatus === 'locked'
-        ? `<button class="admin-more-item js-admin-lock" data-encoded="${t.encodedName}" data-name="${nm}" data-status="locked">🔓 잠금 해제</button>`
-        : `<button class="admin-more-item js-admin-lock" data-encoded="${t.encodedName}" data-name="${nm}" data-status="active">🔒 잠금</button>`}
-      <button class="admin-more-item js-admin-account-del" data-encoded="${t.encodedName}" data-name="${nm}" title="입장 계정(이름·PIN)만 지워요. 작품(장면·그림)은 그대로 남아요.">🧹 계정만 삭제 (작품 보존)</button>`
-    : `<button class="admin-more-item js-admin-register" data-encoded="${t.encodedName}" data-name="${nm}">🧩 관리팀으로 등록</button>`;
+  /* ADMIN-CARD-SURFACE(2026-07-23 사용자 요청): 넓은 줄을 살려 자주 쓰는 액션을 ⋯ 밖으로 꺼냄.
+     위험(계정만삭제·처음부터다시·모둠삭제)만 ⋯에 유지(오클릭 방지). 라벨은 짧게(전체 설명=title).
+     js-* 핸들러 클래스는 그대로 — 위치만 이동. */
+  const _accountRow = t.registered
+    ? `<button class="admin-action-btn js-admin-pin" data-encoded="${t.encodedName}" data-name="${nm}" title="입장 PIN 변경">🔑 PIN</button>`
+      + (t.accountStatus === 'locked'
+          ? `<button class="admin-action-btn js-admin-lock" data-encoded="${t.encodedName}" data-name="${nm}" data-status="locked" title="입장 잠금 해제">🔓 해제</button>`
+          : `<button class="admin-action-btn js-admin-lock" data-encoded="${t.encodedName}" data-name="${nm}" data-status="active" title="입장 잠금 — 학생 입장 차단(작품 보존)">🔒 잠금</button>`)
+    : `<button class="admin-action-btn js-admin-register" data-encoded="${t.encodedName}" data-name="${nm}" title="관리팀으로 등록">🧩 등록</button>`;
 
-  const moreBtn   = `<button class="admin-action-btn admin-action-btn--more js-admin-more" title="더 보기">⋯</button>
+  const _printRow =
+    (t.total > 0
+      ? `<button class="admin-action-btn js-admin-print" data-name="${nm}" title="장면 무대 그대로 그림책처럼 인쇄">🖨 그림책</button>`
+      : `<button class="admin-action-btn admin-action-btn--disabled" disabled title="아직 장면이 없어서 인쇄할 수 없어요">🖨 그림책</button>`)
+    + (t.pbLevel === 1
+      ? `<button class="admin-action-btn admin-action-btn--disabled" disabled title="1단계 동화책은 고쳐쓰기(질문·검사) 단계가 없어요">🖨 고쳐쓰기</button>`
+      : `<button class="admin-action-btn js-admin-print-wa" data-name="${nm}" title="생각 점검 질문·작품 검사 결과 인쇄(교사 대신 인쇄)">🖨 고쳐쓰기</button>`)
+    + `<button class="admin-action-btn js-admin-print-tc" data-name="${nm}" title="생각 나침반 설계도 인쇄(카드형/나침반형)">🖨 나침반</button>`;
+
+  const _manageRow =
+    `<button class="admin-action-btn js-admin-nickname" data-encoded="${t.encodedName}" data-name="${nm}" title="책장·작품에 보일 표시 이름(닉네임). 로그인 아이디는 그대로(데이터 안전).">✏️ 표시이름</button>`
+    + `<button class="admin-action-btn js-admin-viewlink" data-encoded="${t.encodedName}" data-name="${nm}" data-public="${t.isPublic}" title="이 작품을 링크로 바로 감상(공개 필요·링크 있으면 로그인 없이 누구나).">🔗 링크${t.isPublic ? '' : ' (공개필요)'}</button>`
+    + `<button class="admin-action-btn js-admin-issue-code" data-encoded="${t.encodedName}" data-name="${nm}" title="다른 학급으로 복사하는 코드 발급">📤 복사코드</button>`
+    + `<button class="admin-action-btn js-admin-comments" data-encoded="${t.encodedName}" data-name="${nm}" title="이 작품에 달린 댓글 보기·삭제">💬 댓글</button>`;
+
+  /* ⋯ = 위험 액션만: 계정만 삭제(등록팀)·처음부터 다시(1·2단계)·모둠 전체 삭제. */
+  const moreBtn   = `<button class="admin-action-btn admin-action-btn--more js-admin-more" title="위험한 작업 더 보기">⋯</button>
     <div class="admin-more-menu" style="display:none;">
-      ${accountMenuItems}
-      ${t.total > 0
-        ? `<button class="admin-more-item js-admin-print" data-name="${nm}" title="장면 무대 그대로 그림책처럼 인쇄해요 (그림책 작품용)">🖨 그림책 인쇄</button>`
-        : `<button class="admin-more-item" disabled style="opacity:0.45;cursor:default;" title="아직 장면이 없어서 인쇄할 수 없어요">🖨 그림책 인쇄</button>`}
-      ${t.pbLevel === 1
-        ? `<button class="admin-more-item" disabled style="opacity:0.45;cursor:default;" title="1단계 동화책은 고쳐쓰기(질문·검사) 단계가 없어요">🖨 고쳐쓰기 자료 인쇄</button>`
-        : `<button class="admin-more-item js-admin-print-wa" data-name="${nm}" title="이 모둠의 생각 점검 질문·작품 검사 결과를 인쇄해요 (학생 태블릿엔 프린터가 없어 교사가 대신 인쇄)">🖨 고쳐쓰기 자료 인쇄</button>`}
-      <button class="admin-more-item js-admin-print-tc" data-name="${nm}" title="이 모둠의 생각 나침반 설계도를 열어 인쇄해요 (카드형/나침반형)">🖨 생각 나침반 인쇄</button>
+      ${t.registered ? `<button class="admin-more-item js-admin-account-del" data-encoded="${t.encodedName}" data-name="${nm}" title="입장 계정(이름·PIN)만 지워요. 작품(장면·그림)은 그대로 남아요.">🧹 계정만 삭제 (작품 보존)</button>` : ''}
       ${(t.pbLevel === 1 || t.pbLevel === 2)
-        ? `<button class="admin-more-item js-admin-level-reset" data-encoded="${t.encodedName}" data-name="${nm}" title="장면·그림·AI 결과·나침반·AI 횟수를 모두 지우고 처음부터 다시 시작해요. 계정(PIN)과 단계는 유지돼요.">🔄 처음부터 다시 (1·2단계)</button>`
+        ? `<button class="admin-more-item js-admin-level-reset" data-encoded="${t.encodedName}" data-name="${nm}" title="장면·그림·AI 결과·나침반·AI 횟수를 모두 지우고 처음부터 다시. 계정(PIN)·단계는 유지.">🔄 처음부터 다시 (1·2단계)</button>`
         : ''}
-      <button class="admin-more-item js-admin-nickname" data-encoded="${t.encodedName}" data-name="${nm}" title="책장·작품에 보일 표시 이름(닉네임)을 정해요. 로그인 아이디는 그대로예요(데이터 안전).">✏️ 표시 이름(닉네임)</button>
-      <button class="admin-more-item js-admin-viewlink" data-encoded="${t.encodedName}" data-name="${nm}" data-public="${t.isPublic}" title="이 작품을 링크로 바로 볼 수 있어요. 링크가 있으면 로그인 없이 누구나 볼 수 있어요(공개 필요).">🔗 감상 링크 복사${t.isPublic ? '' : ' (공개 필요)'}</button>
-      <button class="admin-more-item js-admin-issue-code" data-encoded="${t.encodedName}" data-name="${nm}">📤 복사 코드 발급</button>
-      <button class="admin-more-item js-admin-comments" data-encoded="${t.encodedName}" data-name="${nm}" title="이 작품에 달린 댓글을 보고 지울 수 있어요">💬 댓글 관리</button>
       <button class="admin-more-item admin-more-item--danger js-admin-delete" data-encoded="${t.encodedName}" data-name="${nm}" title="작품(장면·그림)까지 영구 삭제해요. 되돌릴 수 없어요.">🗑 모둠 전체 삭제 (작품까지)</button>
     </div>`;
 
@@ -1889,7 +1896,7 @@ function _teamCardHtml(t) {
         ${badges.join('')}
       </div>
       <div class="admin-card-actions">
-        ${makerBtn}${viewerBtn}${publicBtn}${detailBtn}
+        ${makerBtn}${viewerBtn}${publicBtn}${detailBtn}${_accountRow}${_printRow}${_manageRow}
         <div class="admin-more-wrap">${moreBtn}</div>
       </div>
     </div>

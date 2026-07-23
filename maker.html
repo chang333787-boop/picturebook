@@ -2006,14 +2006,17 @@
     .admin-badge--true { color:#a07020;background:#fdf3df; }
     .admin-badge--img  { color:#6b4a8a;background:#f3eef9; }
     .admin-badge--conn { color:#3a6ab0;background:#eef3f9; }
-    .admin-card-actions { display:flex;align-items:center;gap:6px;flex-shrink:0; }
+    /* ADMIN-CARD-SURFACE(2026-07-23): 넓은 줄에 액션을 여러 개 꺼냄 → 줄바꿈 허용·우측 정렬. */
+    .admin-card-actions { display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end; }
     .admin-action-btn {
-      padding:5px 12px;border-radius:50px;border:none;
+      padding:5px 12px;border-radius:50px;
+      background:#f4ecd8;color:#6b5638;border:1px solid rgba(80,50,20,0.14);   /* 기본 중립 pill(변형 클래스가 덮음) */
       font-family:var(--font-h);font-size:12px;cursor:pointer;
       transition:filter .12s,transform .12s;white-space:nowrap;
     }
     .admin-action-btn:hover  { filter:brightness(1.05); }
     .admin-action-btn:active { transform:translateY(1px); }
+    .admin-action-btn--disabled { opacity:.4;cursor:not-allowed; }   /* 인쇄 등 비활성(줄로 꺼낸 것 포함) */
     .admin-action-btn--maker  { background:#f3eedb;color:#c79550;border:1px solid rgba(199,149,80,0.32); }
     .admin-action-btn--viewer { background:#eaf3df;color:#5a8a4a;border:1px solid rgba(90,138,74,0.32); }
     .admin-action-btn--viewer.admin-action-btn--disabled { opacity:.4;cursor:not-allowed; }
@@ -3465,7 +3468,7 @@
 <script src="sceneRenderer.js?v=da55756cd3"></script>
 <script src="storyAnalyzer.js?v=4799502ff8"></script>
 <script src="mediaManager.js?v=2b05836f58"></script>
-<script src="adminConsole.js?v=e1929a10aa"></script>
+<script src="adminConsole.js?v=7b24a54061"></script>
 <!-- ADMIN-REDESIGN Phase 3: 교사·학생 상세 설명서(화면형) -->
 <script src="admin-manual.js?v=1ece1a12f2"></script>
 <script src="projectSettings.js?v=5eb05c2079"></script>

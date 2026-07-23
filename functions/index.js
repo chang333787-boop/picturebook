@@ -3839,8 +3839,17 @@ exports.getClassShelf = onCall(
         const cSnap = await admin.database().ref(`classes/${classId}/teams/${enc}/comments`).once('value');
         cc = cSnap.numChildren();
       } catch (e) { cc = 0; }
+      /* NICKNAME-1(2026-07-23): 표시 이름(닉네임)은 로그인 키(팀명)와 분리 — viewer-meta/nickname에서 읽어
+         카드 라벨용으로만 반환(team=키는 그대로·열기 식별자 유지). 없으면 undefined→클라가 team으로 폴백. */
+      let nick = '';
+      try {
+        const nSnap = await admin.database().ref(`classes/${classId}/teams/${enc}/viewer-meta/nickname`).once('value');
+        const nv = nSnap.val();
+        if (typeof nv === 'string' && nv.trim()) nick = nv.trim().slice(0, 30);
+      } catch (e) { nick = ''; }
       works.push({
         team: decodeURIComponent(enc), enc,
+        nick,
         t: (typeof w.t === 'string') ? w.t.slice(0, 60) : '',
         s: (typeof w.s === 'string') ? w.s.slice(0, 80) : '',
         ty: (typeof w.ty === 'string') ? w.ty : '',

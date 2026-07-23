@@ -79,13 +79,13 @@
       const [bg, fg] = _coverColor(w);
       return `
         <div class="shelf-book" data-team="${esc(w.team)}" role="button" tabindex="0"
-          aria-label="${esc(w.t || '제목 없는 책')} — ${esc(w.team)}">
+          aria-label="${esc(w.t || '제목 없는 책')} — ${esc(w.nick || w.team)}">
           <div class="shelf-cover" style="background:${bg};color:${fg};">
             <span class="shelf-badge">💬 ${w.cc || 0}</span>
             <div class="shelf-cover-t">${esc(w.t || '(제목이 아직 없어요)')}</div>
             ${w.s ? `<div class="shelf-cover-s">${esc(w.s)}</div>` : ''}
           </div>
-          <div class="shelf-team">${esc(w.team)}</div>
+          <div class="shelf-team">${esc(w.nick || w.team)}</div>
         </div>`;
     }).join('') : `
       <div class="shelf-empty">아직 공개된 작품이 없어요.<br>선생님이 관리 화면에서 작품을 공개하면 여기에 나타나요.</div>`;

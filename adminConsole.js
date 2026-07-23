@@ -65,6 +65,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const publicBtn   = e.target.closest('.js-admin-toggle-public');
     const issueBtn    = e.target.closest('.js-admin-issue-code');
     const viewLinkBtn = e.target.closest('.js-admin-viewlink');   // VIEW-LINK-1: 작품별 공개 감상 링크 복사
+    const nickBtn     = e.target.closest('.js-admin-nickname');   // NICKNAME-1: 표시 이름(닉네임) — 로그인 ID와 분리
     const printBtn    = e.target.closest('.js-admin-print');    /* SCENE-PUBLISH-PRINT-1 */
     const printWaBtn  = e.target.closest('.js-admin-print-wa'); /* TEACHER-PRINT-ROUTE-1: 고쳐쓰기 자료 */
     const printTcBtn  = e.target.closest('.js-admin-print-tc'); /* TEACHER-PRINT-ROUTE-1: 생각 나침반 */
@@ -89,6 +90,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (publicBtn) _toggleIsPublic(publicBtn.dataset.encoded, publicBtn.dataset.name, publicBtn.dataset.public === 'true');
     if (issueBtn)  _issueCopyCodeFlow(issueBtn.dataset.encoded, issueBtn.dataset.name);
     if (viewLinkBtn) _copyTeamViewLink(viewLinkBtn.dataset.encoded, viewLinkBtn.dataset.name, viewLinkBtn.dataset.public === 'true');
+    if (nickBtn)   _changeTeamNickname(nickBtn.dataset.encoded, nickBtn.dataset.name);
     if (pinBtn)    _changeTeamPin(pinBtn.dataset.encoded, pinBtn.dataset.name);
     if (lockBtn)   _toggleTeamLock(lockBtn.dataset.encoded, lockBtn.dataset.name, lockBtn.dataset.status);
     if (regBtn)    _registerExistingTeam(regBtn.dataset.encoded, regBtn.dataset.name);
@@ -1870,6 +1872,7 @@ function _teamCardHtml(t) {
       ${(t.pbLevel === 1 || t.pbLevel === 2)
         ? `<button class="admin-more-item js-admin-level-reset" data-encoded="${t.encodedName}" data-name="${nm}" title="장면·그림·AI 결과·나침반·AI 횟수를 모두 지우고 처음부터 다시 시작해요. 계정(PIN)과 단계는 유지돼요.">🔄 처음부터 다시 (1·2단계)</button>`
         : ''}
+      <button class="admin-more-item js-admin-nickname" data-encoded="${t.encodedName}" data-name="${nm}" title="책장·작품에 보일 표시 이름(닉네임)을 정해요. 로그인 아이디는 그대로예요(데이터 안전).">✏️ 표시 이름(닉네임)</button>
       <button class="admin-more-item js-admin-viewlink" data-encoded="${t.encodedName}" data-name="${nm}" data-public="${t.isPublic}" title="이 작품을 링크로 바로 볼 수 있어요. 링크가 있으면 로그인 없이 누구나 볼 수 있어요(공개 필요).">🔗 감상 링크 복사${t.isPublic ? '' : ' (공개 필요)'}</button>
       <button class="admin-more-item js-admin-issue-code" data-encoded="${t.encodedName}" data-name="${nm}">📤 복사 코드 발급</button>
       <button class="admin-more-item js-admin-comments" data-encoded="${t.encodedName}" data-name="${nm}" title="이 작품에 달린 댓글을 보고 지울 수 있어요">💬 댓글 관리</button>
@@ -2220,6 +2223,32 @@ function _adminAccountErr(err, fallbackLabel) {
     alert('권한이 없어 ' + fallbackLabel + '을(를) 처리하지 못했어요. 관리자에게 문의해 주세요.');
   } else {
     alert('❌ ' + fallbackLabel + '을(를) 처리하지 못했어요. 잠시 후 다시 시도해 주세요.');
+  }
+}
+
+/* NICKNAME-1(2026-07-23): 책장 표시 이름(닉네임) — 로그인 ID(팀 키)는 안 건드리고 viewer-meta/nickname만
+   설정(데이터 이동 0·안전). 비우면 ID 폴백. 책장 반영은 getClassShelf 재배포 후. */
+async function _changeTeamNickname(encodedName, teamName) {
+  if (!adminState.verified) return;
+  const nickPath = (DATA_PATH_VERSION === 'v2' && adminState.adminClassId)
+    ? `classes/${adminState.adminClassId}/teams/${encodedName}/viewer-meta/nickname`
+    : `teams/${encodedName}/viewer-meta/nickname`;
+  let cur = '';
+  try { cur = (await db.ref(nickPath).once('value')).val() || ''; } catch (e) { cur = ''; }
+  const input = prompt(
+    `"${teamName}" 의 책장 표시 이름(닉네임)을 정해요.\n` +
+    `· 로그인 아이디("${teamName}")는 그대로예요 — 데이터 안 날아가요.\n` +
+    `· 비우고 확인하면 아이디가 그대로 표시돼요. (최대 30자)`,
+    cur);
+  if (input === null) return;
+  const nick = String(input).trim().slice(0, 30);
+  try {
+    if (!nick) { await db.ref(nickPath).remove(); alert('표시 이름을 지웠어요. 책장엔 아이디가 그대로 보여요.'); }
+    else { await db.ref(nickPath).set(nick); alert(`✅ 표시 이름을 "${nick}"(으)로 정했어요.\n책장 카드에 이 이름이 보여요(아이디는 로그인용으로 유지).`); }
+    _invalidateAdminCache('nickname');
+  } catch (err) {
+    console.error('[admin] 닉네임 변경 실패:', err);
+    alert('표시 이름을 저장하지 못했어요. 잠시 후 다시 시도해 주세요.');
   }
 }
 

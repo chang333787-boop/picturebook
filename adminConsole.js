@@ -1491,16 +1491,71 @@ function _knownAccountPins() {
    전용 root + @media print 주입 스타일, afterprint 정리). PIN은 담당 교사만 read되는 값이라
    화면 카드엔 안 나오고 이 인쇄물에만 나온다. */
 function _printEntryCards(classId) {
-  const code = adminState.adminClassCode || '';
-  const className = adminState.adminClassName || '';
-  const teams = (adminState.allTeams || []).filter(t => t && t.registered && t.accountPin);
-  if (!teams.length) {
+  const allTeams = (adminState.allTeams || []).filter(t => t && t.registered && t.accountPin);
+  if (!allTeams.length) {
     alert('인쇄할 등록 팀이 없어요. 먼저 "학생/팀 계정 미리 만들기"로 모둠을 등록해 주세요.');
     return;
   }
-  /* 정렬 — 화면 목록과 무관하게 이름 오름차순(교사 배부 편의). */
-  teams.sort((a, b) => String(a.accountName || a.name || '').localeCompare(String(b.accountName || b.name || ''), 'ko'));
+  /* 정렬 — 이름 오름차순(교사 배부 편의). */
+  allTeams.sort((a, b) => String(a.accountName || a.name || '').localeCompare(String(b.accountName || b.name || ''), 'ko'));
+  /* ENTRY-CARD-SELECT(2026-07-23 사용자 요청): 전체가 아니라 '뽑을 모둠'을 체크박스로 골라 인쇄. */
+  _showEntryCardPicker(allTeams, (selected) => {
+    if (!selected.length) { alert('인쇄할 모둠을 하나 이상 선택해 주세요.'); return; }
+    _doPrintEntryCards(adminState.adminClassCode || '', adminState.adminClassName || '', selected);
+  });
+}
 
+/* ENTRY-CARD-SELECT: 뽑을 모둠 선택 모달(체크박스·기본 전체 선택). onConfirm(selectedTeams). */
+function _showEntryCardPicker(teams, onConfirm) {
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const prev = document.getElementById('aec-picker'); if (prev) prev.remove();
+  const bs = 'font-family:inherit;font-size:13px;padding:6px 12px;border-radius:8px;border:1px solid #c9b98f;background:#fffaf0;color:#6b5638;cursor:pointer;';
+  const ov = document.createElement('div');
+  ov.id = 'aec-picker';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:100070;background:rgba(30,20,10,.45);display:flex;align-items:center;justify-content:center;padding:20px;';
+  const rows = teams.map((t, i) => `
+    <label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid #eee4d0;cursor:pointer;font-size:14px;">
+      <input type="checkbox" class="aec-pick" data-i="${i}" checked style="width:18px;height:18px;flex:none;"/>
+      <span style="font-weight:700;color:#3a2c14;">${esc(t.accountName || t.name)}</span>
+      <span style="margin-left:auto;color:#9a8868;font-size:12px;letter-spacing:1px;">PIN ${esc(t.accountPin)}</span>
+    </label>`).join('');
+  ov.innerHTML = `
+    <div style="background:#fffdf8;border-radius:14px;max-width:460px;width:100%;max-height:82vh;display:flex;flex-direction:column;box-shadow:0 10px 40px rgba(0,0,0,.3);font-family:'Jua',sans-serif;overflow:hidden;">
+      <div style="padding:16px 18px 10px;">
+        <div style="font-size:16px;font-weight:700;color:#a4592f;">🖨 입장 카드 — 뽑을 모둠 선택</div>
+        <div style="font-size:12.5px;color:#8a7c5e;margin-top:4px;">체크한 모둠의 카드만 인쇄돼요.</div>
+        <div style="margin-top:10px;display:flex;gap:8px;align-items:center;">
+          <button type="button" id="aec-all" style="${bs}">전체 선택</button>
+          <button type="button" id="aec-none" style="${bs}">전체 해제</button>
+          <span id="aec-count" style="margin-left:auto;font-size:12.5px;color:#6b5638;"></span>
+        </div>
+      </div>
+      <div style="overflow-y:auto;padding:0 10px;flex:1;">${rows}</div>
+      <div style="padding:12px 18px;display:flex;gap:8px;justify-content:flex-end;border-top:1px solid #eee4d0;">
+        <button type="button" id="aec-cancel" style="${bs}">취소</button>
+        <button type="button" id="aec-print" style="${bs}background:#c66f4a;color:#fffaee;border-color:#b85a3a;font-weight:700;">선택 인쇄 →</button>
+      </div>
+    </div>`;
+  document.body.appendChild(ov);
+  const boxes = () => Array.from(ov.querySelectorAll('.aec-pick'));
+  const updateCount = () => { const c = ov.querySelector('#aec-count'); if (c) c.textContent = boxes().filter(b => b.checked).length + ' / ' + teams.length + ' 선택'; };
+  updateCount();
+  boxes().forEach(b => b.addEventListener('change', updateCount));
+  ov.querySelector('#aec-all').addEventListener('click', () => { boxes().forEach(b => b.checked = true); updateCount(); });
+  ov.querySelector('#aec-none').addEventListener('click', () => { boxes().forEach(b => b.checked = false); updateCount(); });
+  const close = () => ov.remove();
+  ov.querySelector('#aec-cancel').addEventListener('click', close);
+  ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
+  ov.querySelector('#aec-print').addEventListener('click', () => {
+    const sel = boxes().filter(b => b.checked).map(b => teams[parseInt(b.dataset.i, 10)]);
+    close();
+    onConfirm(sel);
+  });
+}
+
+/* 실제 인쇄 — 선택된 teams만(기존 로직·DB write 0·인쇄 게이트 패턴). */
+function _doPrintEntryCards(code, className, teams) {
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => (
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 

@@ -124,10 +124,10 @@ const ALLOWED_ORIGINS = [
   /* 운영 — GitHub Pages (location.origin = 경로/슬래시 없는 scheme+host) */
   'https://chang333787-boop.github.io',
 
-  /* 이전 예정 — branchstory.co.kr 커스텀 도메인. 도메인 구입+DNS 후 아래 2줄 주석 해제 + functions 재배포.
-     github.io는 유지(리다이렉트/롤백 안전). 상세=docs/domain_migration_branchstory_plan.md */
-  /* 'https://branchstory.co.kr', */
-  /* 'https://www.branchstory.co.kr', */
+  /* 이전 — branchstory.co.kr 커스텀 도메인(2026-07-23 활성화). github.io는 유지(리다이렉트/롤백 안전).
+     상세=docs/domain_migration_branchstory_plan.md */
+  'https://branchstory.co.kr',
+  'https://www.branchstory.co.kr',
 
   /* 로컬 개발 */
   'http://localhost:8765',

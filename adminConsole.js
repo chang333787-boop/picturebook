@@ -2992,6 +2992,8 @@ function _loadSavedDraft(classId, id) {
 
 async function _deleteSavedDraft(classId, id) {
   if (!classId || !id) return;
+  /* 테스트 모드(?test=1)에서는 실제 저장된 대본을 지우지 못하게 막음(생성 저장이 test에서 스킵되는 것과 대칭) */
+  if (/[?&]test=1/.test(location.search)) { alert('테스트 모드에서는 저장된 대본을 삭제할 수 없어요.'); return; }
   if (!confirm('이 저장된 대본을 삭제할까요? (되돌릴 수 없어요)')) return;
   try {
     await db.ref(`classes/${classId}/scriptDrafts/${id}`).remove();

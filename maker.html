@@ -1924,26 +1924,7 @@
     .admin-badge--locked { background:#fbf0ec;color:#c8503c; }
     /* LEGACY-MEMBERSHIP-UX-1: 입장 기록 오래된 팀 배지(경고 아닌 안내 톤) */
     .admin-badge--legacy { background:#f6eede;color:#96703a; }
-    /* ADMIN-1C: 학생 팀 생성 방식 설정 패널 */
-    .admin-tm-head { display:flex;flex-direction:column;gap:3px;margin-bottom:8px; }
-    .admin-tm-title { font-size:14px;font-weight:bold;color:#5a4326; }
-    .admin-tm-desc { font-size:12px;color:#8a7350;line-height:1.5; }
-    .admin-tm-options { display:flex;flex-direction:column;gap:8px; }
-    .admin-tm-opt {
-      display:flex;align-items:flex-start;gap:9px;padding:9px 11px;
-      border:1px solid #e6d8bf;border-radius:9px;background:#fffdf8;cursor:pointer;
-    }
-    .admin-tm-opt:hover { border-color:#d9bf90; }
-    .admin-tm-opt input { margin-top:3px;flex:0 0 auto; }
-    .admin-tm-opt-body { display:flex;flex-direction:column;gap:2px; }
-    .admin-tm-opt-title { font-size:13px;font-weight:bold;color:#5a4326; }
-    .admin-tm-opt-text { font-size:12px;color:#8a7350;line-height:1.5; }
-    .admin-tm-locked { margin-top:8px;font-size:12px;color:#c8503c;line-height:1.5; }
-    /* ACCOUNT-MODE-DEFAULT-1: 현재 입장 방식 상태 배지 */
-    .admin-tm-badge { margin:0 0 10px;padding:8px 11px;border-radius:8px;font-size:12px;line-height:1.55; }
-    .admin-tm-badge--managed { background:#eef6ec;border:1px solid #bcd9b0;color:#3f6b32; }
-    .admin-tm-badge--open { background:#fff4e2;border:1px solid #e8cf9a;color:#8a5a1f; }
-    .admin-tm-foot { display:flex;align-items:center;gap:10px;margin-top:10px; }
+    /* ADMIN-1C 폐기(#26): 팀 생성 방식 설정칸 제거 — .admin-tm-* 스타일도 함께 삭제(죽은 CSS 정리) */
     /* v94: 빈 상태 — 작품 없을 때 학생 안내 */
     .admin-empty-guide {
       padding:40px 24px;text-align:center;color:#6b5638;background:#fffaee;
@@ -3479,7 +3460,7 @@
 <script src="sceneRenderer.js?v=da55756cd3"></script>
 <script src="storyAnalyzer.js?v=4799502ff8"></script>
 <script src="mediaManager.js?v=2b05836f58"></script>
-<script src="adminConsole.js?v=ac7c0b1813"></script>
+<script src="adminConsole.js?v=48bc4974eb"></script>
 <!-- ADMIN-REDESIGN Phase 3: 교사·학생 상세 설명서(화면형) -->
 <script src="admin-manual.js?v=1ece1a12f2"></script>
 <script src="projectSettings.js?v=5eb05c2079"></script>

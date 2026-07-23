@@ -1,9 +1,9 @@
 /* admin-manual.js — 교사·학생 상세 설명서(화면형) (ADMIN-REDESIGN Phase 3, 2026-07-09).
    window.AdminManual.open(which): 관리 화면에서 여는 전체화면 설명서 오버레이.
    · 교사: 계정 만들기 → 로그인 → AI 권한 부여 → 모둠 만들기 → 작품 관리 → 인쇄 → 마무리 활동.
-   · 학생: 입장 → 이야기 만들기 → 가지(브랜치) → 그림 → AI → 마무리 → 감상.
+   · 학생: 그림책 1·2·3단계로 구분(1=AI완성·그림자동 / 2=이어쓰기·직접그리기 / 3=갈래·완전형).
    · 프로그램에 뜨는 짧은 튜토리얼과 별개로, '처음 하는 사람'이 순서대로 따라 할 수 있는 매뉴얼.
-   · 저장 0·DB 0. 인쇄는 브라우저 인쇄(오버레이 자체를 @media print로 정리). */
+   · 저장 0·DB 0. 인쇄는 브라우저 인쇄(현재 보이는 덱만 @media print로 정리). */
 ;(function () {
   'use strict';
   var OVERLAY_ID = 'admin-manual-overlay';
@@ -79,47 +79,105 @@
     ],
   };
 
-  var STUDENT = {
-    icon: '🧒', title: '학생 설명서 — 이야기 만들기',
-    intro: '선생님이 준 카드(클래스 코드·모둠·PIN)를 준비해요.',
+  /* 학생 설명서 — 그림책 단계별(1·2·3). 텍스트·무비·체험은 3단계처럼 자유롭게 만들어요. */
+  var STUDENT_L1 = {
+    icon: '🌱', title: '학생 설명서 · 1단계 — 나만의 동화책',
+    intro: '생각 나침반에 답하면 AI가 이야기를 만들어 줘요. 글과 그림을 예쁘게 다듬어요. (초등 저학년)',
     sections: [
-      { n: 1, h: '입장하기', steps: [
-        '클래스 코드, 모둠 이름, PIN을 차례로 입력해요.',
-        'PIN은 선생님이 준 카드에 적혀 있어요. 같은 모둠 친구는 같은 정보로 함께 이어서 만들어요.',
+      { n: 1, h: '들어가기', steps: [
+        '클래스 코드, 모둠 이름, 비밀번호(PIN)를 차례로 넣어요.',
+        'PIN은 선생님이 준 카드에 적혀 있어요.',
       ] },
-      { n: 2, h: '작품 고르기', steps: [
-        '📖 텍스트 · 🖼️ 그림책 · 🎬 무비 · ✋ 체험 중에서 우리 모둠에 맞는 걸 골라요.',
-        '한 번 고르면 그 모둠은 계속 같은 방식으로 만들어요.',
+      { n: 2, h: '생각 나침반에 답하기', steps: [
+        '“누가 나오지? 어디에서? 무슨 일이 생기지?” 질문에 답해요.',
+        '답을 마치면 AI가 그 내용으로 이야기를 만들어 줘요.',
       ] },
-      { n: 3, h: '생각 나침반 (쓰기 전 준비)', steps: [
+      { n: 3, h: '이야기 읽고 다듬기', steps: [
+        'AI가 만든 이야기를 처음부터 읽어요.',
+        '고치고 싶은 글자를 손가락으로 눌러 그 자리에서 바꿀 수 있어요.',
+      ] },
+      { n: 4, h: '그림 보기', steps: [
+        '장면마다 어울리는 그림이 함께 들어가요(그림은 자동으로 만들어져요).',
+      ] },
+      { n: 5, h: '꾸미기', steps: [
+        '글자 모양·크기·색을 바꾸고, 테마와 분위기를 골라 예쁘게 꾸며요.',
+      ] },
+      { n: 6, h: '감상하기', steps: [
+        '완성한 동화책을 처음부터 넘겨 읽어요.',
+      ] },
+    ],
+  };
+
+  var STUDENT_L2 = {
+    icon: '🌿', title: '학생 설명서 · 2단계 — 이어서 완성하기',
+    intro: 'AI가 이야기의 앞부분을 시작해 주면, 내가 뒤를 이어서 완성해요. 그림도 직접 그려요. (초등 중학년)',
+    sections: [
+      { n: 1, h: '들어가기', steps: [
+        '클래스 코드, 모둠 이름, 비밀번호(PIN)를 차례로 넣어요.',
+        'PIN은 선생님이 준 카드에 적혀 있어요.',
+      ] },
+      { n: 2, h: '생각 나침반에 답하기', steps: [
+        '어떤 이야기를 만들지 질문에 답해요.',
+        '답을 바탕으로 AI가 이야기의 앞 장면을 시작해 줘요.',
+      ] },
+      { n: 3, h: '이야기 이어 쓰기', steps: [
+        'AI가 쓴 앞 장면을 읽고, 다음 장면 카드의 💡 힌트를 보며 내가 이어서 써요.',
+        '힌트는 참고일 뿐이에요 — 다른 방향으로 써도 좋아요.',
+      ] },
+      { n: 4, h: '그림 그리기·올리기', steps: [
+        '장면마다 직접 그리거나 사진을 올려요. 그림은 3:2 화면에 맞춰져요.',
+      ] },
+      { n: 5, h: '버튼 글자 바꾸기', steps: [
+        '행동 버튼의 글자를 내 이야기에 어울리게 바꿀 수 있어요.',
+        '버튼 개수와 연결(다음 장면)은 정해져 있어요.',
+      ] },
+      { n: 6, h: '내 글 점검받기', steps: [
+        '이야기를 다 이어 쓰면 [✅ 내 글 점검받기]를 눌러요.',
+        'AI가 확인할 점을 찾아 주면 내가 직접 고쳐요.',
+      ] },
+      { n: 7, h: '감상하기', steps: [
+        '완성한 이야기를 처음부터 넘겨 읽어요.',
+      ] },
+    ],
+  };
+
+  var STUDENT_L3 = {
+    icon: '🌳', title: '학생 설명서 · 3단계 — 갈래가 있는 이야기',
+    intro: '내가 장면을 만들고, 선택에 따라 이야기가 여러 갈래로 갈라지게 만들어요. (초등 고학년 · 텍스트·무비도 이렇게 만들어요)',
+    sections: [
+      { n: 1, h: '들어가기', steps: [
+        '클래스 코드, 모둠 이름, 비밀번호(PIN)를 차례로 넣어요.',
+        '같은 모둠 친구는 같은 정보로 함께 이어서 만들어요.',
+      ] },
+      { n: 2, h: '생각 나침반', steps: [
         '글을 쓰기 전에, 어떤 이야기를 만들지 생각을 짧게 정리해요.',
-        '“누가 나오지? 무슨 일이 생기지? 어떻게 끝나지?”를 먼저 떠올려 봐요.',
       ] },
-      { n: 4, h: '이야기 만들기', steps: [
-        '“+ 장면 추가”로 장면을 만들고, 글상자에 이야기를 써요.',
-        '장면 그림·글자 크기·꾸미기도 바꿀 수 있어요. 따로 저장을 안 눌러도 자동으로 저장돼요.',
+      { n: 3, h: '이야기 만들기', steps: [
+        '[+ 장면 추가]로 장면을 만들고, 글상자에 이야기를 써요.',
+        '따로 저장을 안 눌러도 자동으로 저장돼요.',
       ] },
-      { n: 5, h: '가지(갈래) 만들기', steps: [
+      { n: 4, h: '가지(갈래) 만들기', steps: [
         '먼저 이야기를 한 줄기로 끝까지 만들어 봐요.',
-        '그다음 “다르게 했다면?” 싶은 장면 카드의 ⋯를 펼쳐 [+ 버튼 추가]로 행동 버튼(선택지)을 만들고, 버튼마다 다음 장면을 이어 줘요.',
+        '그다음 “다르게 했다면?” 싶은 장면 카드의 ⋯를 펼쳐 [+ 버튼 추가]로 행동 버튼을 만들고, 버튼마다 다음 장면을 이어 줘요.',
       ] },
-      { n: 6, h: '그림 넣기', steps: [
-        '“직접 그리기”(그림판)로 그리거나, 사진·그림을 올려요.',
-        '그림은 3:2 화면에 맞춰져요.',
+      { n: 5, h: '그림 넣기', steps: [
+        '“직접 그리기”(그림판)로 그리거나, 사진·그림을 올려요. 그림은 3:2 화면에 맞춰져요.',
       ] },
-      { n: 7, h: 'AI 기능 (선생님이 켠 것만)', steps: [
-        '글 다듬기·작품 검사·AI 그림책 마감 같은 도움을 받을 수 있어요.',
+      { n: 6, h: 'AI 도움받기 (선생님이 켠 것만)', steps: [
+        '글 다듬기·작품 검사 같은 도움을 받을 수 있어요.',
         '내가 쓴 원본·그린 그림은 항상 그대로 남아요.',
       ] },
-      { n: 8, h: '작품 마무리', steps: [
-        '“📔 작품 마무리”에서 질문에 답하고, 검사 결과로 고칠 곳을 찾아 직접 고쳐요.',
+      { n: 7, h: '작품 마무리', steps: [
+        '[📔 작품 마무리]에서 질문에 답하고, 검사 결과로 고칠 곳을 찾아 직접 고쳐요.',
       ] },
-      { n: 9, h: '감상하기', steps: [
+      { n: 8, h: '감상하기', steps: [
         '완성한 이야기를 처음부터 선택지를 따라가며 읽어요.',
         '무엇을 고르느냐에 따라 이야기의 끝이 달라져요.',
       ] },
     ],
   };
+
+  var STUDENT_LEVELS = { '1': STUDENT_L1, '2': STUDENT_L2, '3': STUDENT_L3 };
 
   function _esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -138,7 +196,7 @@
   }
 
   function _deckHtml(deck) {
-    return '<div class="am-deck">'
+    return '<div class="am-deck-inner">'
       + '<div class="am-deck-head"><span class="am-deck-icon">' + deck.icon + '</span>'
       + '<div><div class="am-deck-title">' + _esc(deck.title) + '</div>'
       + '<div class="am-deck-intro">' + _esc(deck.intro) + '</div></div></div>'
@@ -157,6 +215,12 @@
       + '#' + OVERLAY_ID + ' .am-tab.is-active{background:#c66f4a;color:#fffaee;border-color:#c66f4a;}'
       + '#' + OVERLAY_ID + ' .am-btn{padding:8px 14px;border-radius:10px;border:none;background:#6a8a5b;color:#fff;font-size:14px;font-weight:700;cursor:pointer;}'
       + '#' + OVERLAY_ID + ' .am-btn--ghost{background:transparent;border:1px solid #d9c39a;color:#8a6a30;}'
+      /* 그림책 단계 선택 바 — 학생 모드에서만 노출 */
+      + '#' + OVERLAY_ID + ' .am-levels{display:none;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 0 2px;}'
+      + '#' + OVERLAY_ID + '.show-student .am-levels{display:flex;}'
+      + '#' + OVERLAY_ID + ' .am-levels-label{font-size:12.5px;color:#8a6a30;font-weight:700;}'
+      + '#' + OVERLAY_ID + ' .am-lv{padding:6px 13px;border-radius:16px;border:1px solid #cdb58a;background:#fffdf7;color:#6b5638;font-size:13px;font-weight:700;cursor:pointer;}'
+      + '#' + OVERLAY_ID + ' .am-lv.is-active{background:#6a8a5b;color:#fff;border-color:#6a8a5b;}'
       + '#' + OVERLAY_ID + ' .am-deck-head{display:flex;gap:12px;align-items:flex-start;margin:16px 0 6px;}'
       + '#' + OVERLAY_ID + ' .am-deck-icon{font-size:30px;line-height:1;}'
       + '#' + OVERLAY_ID + ' .am-deck-title{font-size:17px;font-weight:800;color:#3a2c14;}'
@@ -168,21 +232,19 @@
       + '#' + OVERLAY_ID + ' .am-sec--warn .am-sec-n{background:#e0940c;}'
       + '#' + OVERLAY_ID + ' .am-steps{margin:0;padding-left:22px;}'
       + '#' + OVERLAY_ID + ' .am-step{font-size:14px;line-height:1.7;color:#4a3a22;margin:3px 0;}'
-      + '#' + OVERLAY_ID + ' .am-deck[data-which="teacher"]{display:none;}'
-      + '#' + OVERLAY_ID + '.show-student .am-deck[data-which="teacher"]{display:none;}'
-      + '#' + OVERLAY_ID + '.show-student .am-deck[data-which="student"]{display:block;}'
+      /* 덱 표시 규칙 — 교사 1개, 학생은 선택한 단계 1개만 */
+      + '#' + OVERLAY_ID + ' .am-deck{display:none;}'
       + '#' + OVERLAY_ID + '.show-teacher .am-deck[data-which="teacher"]{display:block;}'
-      + '#' + OVERLAY_ID + '.show-teacher .am-deck[data-which="student"]{display:none;}'
+      + '#' + OVERLAY_ID + '.show-student[data-level="1"] .am-deck[data-which="student"][data-level="1"]{display:block;}'
+      + '#' + OVERLAY_ID + '.show-student[data-level="2"] .am-deck[data-which="student"][data-level="2"]{display:block;}'
+      + '#' + OVERLAY_ID + '.show-student[data-level="3"] .am-deck[data-which="student"][data-level="3"]{display:block;}'
       + '@media print{'
       + '  @page{size:A4 portrait;margin:12mm;}'   /* 세로(portrait) 기준 고정 */
       + '  body > *:not(#' + OVERLAY_ID + '){display:none !important;}'
       + '  #' + OVERLAY_ID + '{position:static;background:#fff;overflow:visible;}'
       + '  #' + OVERLAY_ID + ' .am-top{position:static;border:none;}'
-      + '  #' + OVERLAY_ID + ' .am-tabs,#' + OVERLAY_ID + ' .am-btn{display:none !important;}'
-      + '  #' + OVERLAY_ID + ' .am-deck{display:block !important;}'
-      /* 교사용·학생용을 페이지로 구분 — 학생 덱은 항상 새 페이지에서 시작. */
-      + '  #' + OVERLAY_ID + ' .am-deck[data-which="student"]{break-before:page;page-break-before:always;}'
-      /* 덱 제목이 페이지 끝에 홀로 남지 않게. */
+      + '  #' + OVERLAY_ID + ' .am-tabs,#' + OVERLAY_ID + ' .am-btn,#' + OVERLAY_ID + ' .am-levels{display:none !important;}'
+      /* 현재 보이는 덱만 인쇄(교사 또는 선택한 학생 단계). */
       + '  #' + OVERLAY_ID + ' .am-deck-head{break-after:avoid;page-break-after:avoid;}'
       + '  #' + OVERLAY_ID + ' .am-sec{break-inside:avoid;box-shadow:none;}'
       + '  #' + OVERLAY_ID + ' .am-sec--warn,#' + OVERLAY_ID + ' .am-sec-n{-webkit-print-color-adjust:exact;print-color-adjust:exact;}'
@@ -196,7 +258,7 @@
     if (old) old.remove();
     var el = document.createElement('div');
     el.id = OVERLAY_ID;
-    el.className = (which === 'student') ? 'show-student' : 'show-teacher';
+    var curLevel = '1';
     el.innerHTML = _styleTag()
       + '<div class="am-wrap">'
       + '  <div class="am-top">'
@@ -208,22 +270,46 @@
       + '      <button type="button" class="am-btn" data-act="close">닫기</button>'
       + '    </div>'
       + '  </div>'
+      + '  <div class="am-levels">'
+      + '    <span class="am-levels-label">그림책 단계</span>'
+      + '    <button type="button" class="am-lv" data-level="1">🌱 1단계</button>'
+      + '    <button type="button" class="am-lv" data-level="2">🌿 2단계</button>'
+      + '    <button type="button" class="am-lv" data-level="3">🌳 3단계</button>'
+      + '  </div>'
       + '  <div class="am-deck" data-which="teacher">' + _deckHtml(TEACHER) + '</div>'
-      + '  <div class="am-deck" data-which="student">' + _deckHtml(STUDENT) + '</div>'
+      + '  <div class="am-deck" data-which="student" data-level="1">' + _deckHtml(STUDENT_L1) + '</div>'
+      + '  <div class="am-deck" data-which="student" data-level="2">' + _deckHtml(STUDENT_L2) + '</div>'
+      + '  <div class="am-deck" data-which="student" data-level="3">' + _deckHtml(STUDENT_L3) + '</div>'
       + '</div>';
     document.body.appendChild(el);
 
-    function setTab(w) {
+    function applyClass(w) {
       el.className = (w === 'student') ? 'show-student' : 'show-teacher';
+      el.setAttribute('data-level', curLevel);
+    }
+    function setTab(w) {
+      applyClass(w);
       el.querySelectorAll('.am-tab').forEach(function (t) {
         t.classList.toggle('is-active', t.getAttribute('data-tab') === w);
       });
       el.scrollTop = 0;
     }
+    function setLevel(l) {
+      curLevel = (l === '2' || l === '3') ? l : '1';
+      el.setAttribute('data-level', curLevel);
+      el.querySelectorAll('.am-lv').forEach(function (b) {
+        b.classList.toggle('is-active', b.getAttribute('data-level') === curLevel);
+      });
+      el.scrollTop = 0;
+    }
+    setLevel('1');
     setTab(which === 'student' ? 'student' : 'teacher');
 
     el.querySelectorAll('.am-tab').forEach(function (t) {
       t.addEventListener('click', function () { setTab(t.getAttribute('data-tab')); });
+    });
+    el.querySelectorAll('.am-lv').forEach(function (b) {
+      b.addEventListener('click', function () { setLevel(b.getAttribute('data-level')); });
     });
     el.querySelector('[data-act="close"]').addEventListener('click', function () { el.remove(); });
     el.querySelector('[data-act="print"]').addEventListener('click', function () {

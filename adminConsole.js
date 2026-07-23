@@ -424,6 +424,9 @@ async function _loadAdminDataV2() {
   /* adminState에 보관 — _openMaker/_openViewer에서 재사용 */
   adminState.adminClassId = resolvedClassId;
 
+  /* SCRIPT-DRAFT-SAVE(#(b)): 클래스 확정 시 저장된 대본 목록 갱신(대본 탭 정적 렌더는 classId 전이라 비어 있음) */
+  _renderSavedDrafts(resolvedClassId);
+
   /* 2026-06 캐시 hit: 같은 classId를 60초 이내에 이미 성공 로드했으면
      클래스 전체 teams+scenes 재읽기를 생략하고 메모리 목록으로만 재렌더.
      class bar/team-list DOM은 closeAdmin이 display:none만 하므로 유지됨 → classBar 재읽기도 생략. */
@@ -2802,7 +2805,17 @@ function _renderScriptTab() {
         <button id="asd-copy" class="admin-tc-btn admin-tc-btn--ghost" type="button">📋 복사</button>
         <button id="asd-print" class="admin-tc-btn admin-tc-btn--ghost" type="button">🖨 인쇄</button>
       </div>
+    </div>
+    <div class="admin-tc" id="asd-saved-card" style="display:none;">
+      <div class="admin-tc-head">
+        <div class="admin-tc-title">📚 저장된 대본</div>
+        <div class="admin-tc-desc">만든 대본이 이 학급에 저장돼요. 불러와서 인쇄하거나 무비형 작품으로 가져올 수 있어요.</div>
+      </div>
+      <div id="asd-saved-list" class="asd-saved-list"></div>
     </div>`;
+
+  /* SCRIPT-DRAFT-SAVE(#(b)): 이 학급의 저장된 대본 목록을 곧바로 그려 둠(로그인/클래스 확정 시 갱신). */
+  _renderSavedDrafts(adminState.adminClassId);
 
   const $ = (id) => document.getElementById(id);
   const statusEl = $('asd-status');
@@ -2867,6 +2880,8 @@ function _renderScriptTab() {
         localStorage.setItem('branchScriptDraftLast',
           JSON.stringify({ v: 1, at: Date.now(), classId: payload.classId, draft }));
       } catch (e) { /* 저장 실패해도 대본 표시는 유효 */ }
+      /* SCRIPT-DRAFT-SAVE(#(b)): 교사 계정(학급)에 누적 저장 — 테스트 모드는 서버에 안 씀 */
+      if (!/[?&]test=1/.test(location.search)) _saveScriptDraftToServer(payload.classId, draft);
       $('asd-result-card').style.display = '';
       $('asd-result-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch (e) {
@@ -2897,6 +2912,93 @@ function _renderScriptTab() {
 let _asdLastDraft = null;
 
 /* 대본 JSON → 카드형 HTML (화면·인쇄 공용. 모든 값 escape·null 안전 — 리뷰 #1) */
+/* ════════════════════════════════════════════════════════════════
+   SCRIPT-DRAFT-SAVE (#(b)) — 대본 학급별 누적 저장
+   ──────────────────────────────────────────────────────────────
+   · classes/{classId}/scriptDrafts/{pushId} = { title, topic, draft, createdBy, createdAt }
+   · rules 게이트: 담당 교사 ∥ super_admin 만 read/write. 학생 비공개.
+   · [불러오기]는 localStorage 슬롯도 채워 기존 P2 '가져오기' 배너와 그대로 연동.
+   ════════════════════════════════════════════════════════════════ */
+let _asdSavedCache = {};
+
+async function _saveScriptDraftToServer(classId, draft) {
+  if (!classId || !draft || typeof draft !== 'object') return;
+  try {
+    const uid = (typeof auth !== 'undefined' && auth.currentUser) ? auth.currentUser.uid : null;
+    await db.ref(`classes/${classId}/scriptDrafts`).push({
+      title:     String(draft.title || '제목 없음').slice(0, 120),
+      topic:     String((draft.cover && draft.cover.intro) || '').slice(0, 200),
+      draft,
+      createdBy: uid || '',
+      createdAt: firebase.database.ServerValue.TIMESTAMP,
+    });
+    _renderSavedDrafts(classId);
+  } catch (e) { /* 저장 실패해도 대본 표시/복사/인쇄는 유효 */ }
+}
+
+async function _renderSavedDrafts(classId) {
+  const host = document.getElementById('asd-saved-list');
+  const card = document.getElementById('asd-saved-card');
+  if (!host || !classId) return;
+  let items = [];
+  try {
+    const snap = await db.ref(`classes/${classId}/scriptDrafts`).once('value');
+    const val = snap.val() || {};
+    items = Object.keys(val).map(k => Object.assign({ id: k }, val[k]))
+      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  } catch (e) {
+    if (card) card.style.display = 'none';
+    return;   /* 권한/네트워크 실패 시 목록 숨김(대본 생성 자체엔 영향 없음) */
+  }
+  _asdSavedCache = {};
+  items.forEach(it => { _asdSavedCache[it.id] = it.draft; });
+  if (!items.length) { if (card) card.style.display = 'none'; return; }
+  if (card) card.style.display = '';
+  host.innerHTML = items.map(it => {
+    const dt = new Date(it.createdAt || 0);
+    const dateStr = isNaN(dt.getTime()) ? '' :
+      `${dt.getMonth() + 1}/${dt.getDate()} ${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`;
+    return `<div class="asd-saved-item">
+      <div class="asd-saved-meta">
+        <span class="asd-saved-title">${_escHtml(String(it.title || '제목 없음'))}</span>
+        <span class="asd-saved-date">${_escHtml(dateStr)}</span>
+      </div>
+      <div class="asd-saved-btns">
+        <button class="admin-tc-btn admin-tc-btn--ghost js-asd-load" data-id="${_escHtml(it.id)}" type="button">불러오기</button>
+        <button class="admin-tc-btn admin-tc-btn--ghost js-asd-del" data-id="${_escHtml(it.id)}" type="button">🗑 삭제</button>
+      </div>
+    </div>`;
+  }).join('');
+  host.querySelectorAll('.js-asd-load').forEach(b =>
+    b.addEventListener('click', () => _loadSavedDraft(classId, b.dataset.id)));
+  host.querySelectorAll('.js-asd-del').forEach(b =>
+    b.addEventListener('click', () => _deleteSavedDraft(classId, b.dataset.id)));
+}
+
+function _loadSavedDraft(classId, id) {
+  const draft = _asdSavedCache && _asdSavedCache[id];
+  if (!draft) return;
+  const resultEl = document.getElementById('asd-result');
+  if (resultEl) resultEl.innerHTML = _scriptDraftHtml(draft);
+  _asdLastDraft = draft;
+  /* P2 '가져오기' 배너가 읽는 슬롯도 채움 → 빈 무비형 작품에서 이 대본으로 장면 자동생성 가능 */
+  try {
+    localStorage.setItem('branchScriptDraftLast',
+      JSON.stringify({ v: 1, at: Date.now(), classId, draft }));
+  } catch (e) { /* noop */ }
+  const rc = document.getElementById('asd-result-card');
+  if (rc) { rc.style.display = ''; rc.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+}
+
+async function _deleteSavedDraft(classId, id) {
+  if (!classId || !id) return;
+  if (!confirm('이 저장된 대본을 삭제할까요? (되돌릴 수 없어요)')) return;
+  try {
+    await db.ref(`classes/${classId}/scriptDrafts/${id}`).remove();
+    _renderSavedDrafts(classId);
+  } catch (e) { alert('삭제하지 못했어요. 잠시 후 다시 시도해 주세요.'); }
+}
+
 function _scriptDraftHtml(d) {
   const esc = (v) => _escHtml(v == null ? '' : v);
   const chars = (d.characters || []).filter(c => c && typeof c === 'object').map(c =>

@@ -43,6 +43,17 @@
           ".read": false,
           ".write": "auth != null && (root.child('classes/' + $classId + '/meta/teacher_uid').val() === auth.uid || auth.token.role === 'super_admin')"
         },
+        "scriptDrafts": {
+          ".read": "auth != null && (root.child('classes/' + $classId + '/meta/teacher_uid').val() === auth.uid || auth.token.role === 'super_admin')",
+          ".write": "auth != null && (root.child('classes/' + $classId + '/meta/teacher_uid').val() === auth.uid || auth.token.role === 'super_admin')",
+          "$draftId": {
+            ".validate": "!newData.exists() || (newData.hasChild('createdAt') && newData.hasChild('draft'))",
+            "title":     { ".validate": "newData.isString() && newData.val().length <= 120" },
+            "topic":     { ".validate": "newData.isString() && newData.val().length <= 200" },
+            "createdBy": { ".validate": "newData.isString()" },
+            "createdAt": { ".validate": "newData.isNumber()" }
+          }
+        },
         "commentAuth": {
           ".read": "auth != null && (root.child('classes/' + $classId + '/meta/teacher_uid').val() === auth.uid || auth.token.role === 'super_admin')",
           ".write": "auth != null && (root.child('classes/' + $classId + '/meta/teacher_uid').val() === auth.uid || auth.token.role === 'super_admin')"

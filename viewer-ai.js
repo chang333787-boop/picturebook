@@ -3423,6 +3423,10 @@
           if (Number.isFinite(Number(o.fontScale)) && Math.abs(Number(o.fontScale) - 1) > 0.001) {
             out.fontScale = Math.round(Math.max(0.5, Math.min(1.4, Number(o.fontScale))) * 100) / 100;
           }
+          /* PRINT-HELPER-OPACITY/FONT(2026-07-23): 진하기·글씨체·글씨색도 저장(전엔 누락돼 리로드 시 사라짐). */
+          if (Number.isFinite(Number(o.opacity))) out.opacity = Math.round(Math.max(0.2, Math.min(1, Number(o.opacity))) * 100) / 100;
+          if (typeof o.fontFamily === 'string' && o.fontFamily) out.fontFamily = o.fontFamily.slice(0, 24);
+          if (typeof o.fontColor === 'string' && /^#[0-9a-fA-F]{6}$/.test(o.fontColor)) out.fontColor = o.fontColor;
           if (Object.keys(out).length) clean[String(k)] = out;
         });
         if (!Object.keys(clean).length) clean = null;

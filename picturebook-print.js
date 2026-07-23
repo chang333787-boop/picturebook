@@ -17,6 +17,23 @@
   function _num(s) { const n = parseInt((s && (s.num != null ? s.num : s.id)), 10); return Number.isFinite(n) ? n : Infinity; }
   function _choices(s) { return (s && Array.isArray(s.choices)) ? s.choices : []; }
 
+  /* PRINT-HELPER-FONT(2026-07-23): 인쇄 도우미 글씨체 선택 목록(키→라벨). CSS 스택은 전역
+     TEXT_FONT_FAMILIES(viewer-data)로 조회. VALID_TEXT_FONTS와 키 동기(레거시 제외). */
+  const _PBP_FONT_LABELS = {
+    gothic: '고딕(기본)', batang: '명조', pen: '손글씨', gaegu: '동글 손글씨',
+    hanna: '굵은 제목체', jua: '친근한', galmuri: '픽셀', cormorant: '영문 명조',
+    hahmlet: '세련 명조', diphylleia: '우아한 명조',
+  };
+  /* 오버라이드(글씨체 키·글씨색 hex)를 페이지 CSS 변수로 — _applyPrintStyle(원본 스타일) 뒤에 덮어씀. */
+  function _applyStyleOverride(page, ovr) {
+    if (!page || !ovr) return;
+    try {
+      const fm = (typeof TEXT_FONT_FAMILIES === 'object') ? TEXT_FONT_FAMILIES : {};
+      if (ovr.fontFamily && fm[ovr.fontFamily]) page.style.setProperty('--pb-font-family', fm[ovr.fontFamily]);
+      if (ovr.fontColor && /^#[0-9a-fA-F]{6}$/.test(ovr.fontColor)) page.style.setProperty('--pb-color-override', ovr.fontColor);
+    } catch (e) { /* noop */ }
+  }
+
   /* 시작 장면 결정: 표지 choices[0].nextId(유효 키) → 없으면 표지 아닌 장면 중 num 최소. */
   function resolveStartKey(scenes) {
     const keys = Object.keys(scenes || {});
@@ -196,8 +213,10 @@
     const _applyPrintStyle = (page, s) => {
       try {
         const ff = _fontOf(s);
+        page.dataset.pbpBaseFf = ff || '';                 /* PRINT-HELPER-FONT: 원본 글씨체 스택(↺ 복귀 기준) */
         if (ff) page.style.setProperty('--pb-font-family', ff);
         const st = (typeof getTextStyle === 'function') ? getTextStyle(s) : null;
+        page.dataset.pbpBaseColor = (st && st.color) ? st.color : '';   /* 원본 색(없으면 테마 기본) */
         if (!st) return;
         if (Number.isFinite(st.fontSize)) page.style.setProperty('--pb-fs-body', st.fontSize + 'px');
         if (st.weight === 'bold') page.style.setProperty('--pb-fw-body', '700');
@@ -223,6 +242,9 @@
         if (Number.isFinite(Number(o.h))) out.h = Math.max(4, Math.min(92, Number(o.h)));
         if (Number.isFinite(Number(o.fontScale))) out.fontScale = Math.max(0.5, Math.min(1.4, Number(o.fontScale)));
         if (Number.isFinite(Number(o.opacity))) out.opacity = Math.max(0.2, Math.min(1, Number(o.opacity)));   /* PRINT-HELPER-OPACITY */
+        /* PRINT-HELPER-FONT(2026-07-23): 인쇄 전용 글씨체(키)·글씨색(hex). 원본 무접촉. */
+        if (typeof o.fontFamily === 'string' && o.fontFamily && _PBP_FONT_LABELS[o.fontFamily]) out.fontFamily = o.fontFamily;
+        if (typeof o.fontColor === 'string' && /^#[0-9a-fA-F]{6}$/.test(o.fontColor)) out.fontColor = o.fontColor;
         if (Object.keys(out).length) _overrides[String(k)] = out;
       });
     }
@@ -327,6 +349,7 @@
         /* 장면 그대로: 고정 3:2 무대 — 인쇄 페이지 폭은 A4에서 일정하므로 % 좌표+px 폰트 = 기기 무관 결정적 */
         const page = _el('div', 'pbp-page pbp-scenepub');
         _applyPrintStyle(page, s);   /* PRINT-STYLE(#63): 글씨체+크기+굵기+색 */
+        _applyStyleOverride(page, _overrides[String(k)]);   /* PRINT-HELPER-FONT: 인쇄 전용 글씨체·색 덮어쓰기 */
         const wrap = _el('div', 'pbp-stagewrap');
         const st = _el('div', 'pbp-stage2');
         const im = document.createElement('img'); im.className = 'pbp-stage2-img'; im.src = img;
@@ -387,6 +410,7 @@
         /* 무그림 — text-only 출판 페이지(LAYOUT-4 유지) */
         const page = _el('div', 'pbp-page pbp-publish');
         _applyPrintStyle(page, s);   /* PRINT-STYLE(#63): 글씨체+크기+굵기+색 */
+        _applyStyleOverride(page, _overrides[String(k)]);   /* PRINT-HELPER-FONT: 인쇄 전용 글씨체·색 덮어쓰기 */
         const card = _el('div', 'pbp-scene pbp-scene--full pbp-scene--noimg');
         if ((s.title || '').trim()) card.appendChild(_el('div', 'pbp-scene-caption', s.title.trim()));
         const noimgBody = _el('div', 'pbp-scene-body' + (body ? '' : ' pbp-scene-body--empty'), body || '(글 없음)');
@@ -558,7 +582,7 @@
 
     const bar = _el('div', 'pbp-helper-ui pbp-helper-bar');
     const txt = _el('div', 'pbp-helper-bar__txt');
-    txt.innerHTML = '<b>🖨 인쇄 도우미</b> — 말풍선은 끌어 옮기고, 오른쪽 아래 ○로 크기를, A−/A+로 글자를, 진하기 ─/＋로 배경 진하기를 조절해요. <b>인쇄에만</b> 반영되고 작품은 그대로예요.';
+    txt.innerHTML = '<b>🖨 인쇄 도우미</b> — 말풍선은 끌어 옮기고, 오른쪽 아래 ○로 크기를, A−/A+로 글자를, 진하기 ─/＋로 배경을, <b>글씨 칸</b>에서 글씨체·색을 바꿔요. <b>인쇄에만</b> 반영되고 작품은 그대로예요.';
     const btns = _el('div', 'pbp-helper-bar__btns');
     const printBtn = _el('button', 'pbp-helper-btn', '🖨 인쇄하기'); printBtn.type = 'button';
     const closeBtn = _el('button', 'pbp-helper-btn pbp-helper-btn--ghost', '✕ 닫기'); closeBtn.type = 'button';
@@ -671,6 +695,35 @@
         odown.addEventListener('click', function () { stepOp(curOp() - 0.1); });
         oup.addEventListener('click', function () { stepOp(curOp() + 0.1); });
         showOp();
+      }
+
+      /* PRINT-HELPER-FONT(2026-07-23 사용자 요청): 글씨체·글씨색 인쇄 전용 조절 — 원본 무접촉.
+         페이지(장면) 단위로 --pb-font-family / --pb-color-override 덮어씀. '그대로'=원본 복귀. */
+      if (key) {
+        const _pruneOvr = function () { if (overrides[key] && !Object.keys(overrides[key]).length) delete overrides[key]; };
+        const _dfltCol = function () { const c = page.dataset.pbpBaseColor; return (c && /^#[0-9a-fA-F]{6}$/.test(c)) ? c : '#3a2c14'; };
+        const restoreFont = function () { if (page.dataset.pbpBaseFf) page.style.setProperty('--pb-font-family', page.dataset.pbpBaseFf); else page.style.removeProperty('--pb-font-family'); };
+        const restoreColor = function () { if (page.dataset.pbpBaseColor) page.style.setProperty('--pb-color-override', page.dataset.pbpBaseColor); else page.style.removeProperty('--pb-color-override'); };
+        const fchip = _el('div', 'pbp-helper-ui pbp-helper-chip pbp-helper-chip--font');
+        const flab = _el('span', 'pbp-helper-chip__lab', '글씨');
+        const sel = document.createElement('select'); sel.className = 'pbp-helper-font-sel'; sel.title = '글씨체';
+        const od = document.createElement('option'); od.value = ''; od.textContent = '그대로'; sel.appendChild(od);
+        Object.keys(_PBP_FONT_LABELS).forEach(function (fk) { const op = document.createElement('option'); op.value = fk; op.textContent = _PBP_FONT_LABELS[fk]; sel.appendChild(op); });
+        sel.value = (overrides[key] && overrides[key].fontFamily) || '';
+        const col = document.createElement('input'); col.type = 'color'; col.className = 'pbp-helper-color'; col.title = '글씨 색';
+        col.value = (overrides[key] && overrides[key].fontColor) || _dfltCol();
+        const fr = _el('button', '', '↺'); fr.type = 'button'; fr.title = '글씨체·색 되돌리기';
+        fchip.appendChild(flab); fchip.appendChild(sel); fchip.appendChild(col); fchip.appendChild(fr);
+        (st || page).appendChild(fchip);
+        sel.addEventListener('change', function () {
+          if (sel.value) { ent(key).fontFamily = sel.value; _applyStyleOverride(page, { fontFamily: sel.value }); }
+          else { if (overrides[key]) delete overrides[key].fontFamily; restoreFont(); _pruneOvr(); }
+        });
+        col.addEventListener('input', function () { ent(key).fontColor = col.value; page.style.setProperty('--pb-color-override', col.value); });
+        fr.addEventListener('click', function () {
+          if (overrides[key]) { delete overrides[key].fontFamily; delete overrides[key].fontColor; _pruneOvr(); }
+          restoreFont(); restoreColor(); sel.value = ''; col.value = _dfltCol();
+        });
       }
 
       /* 말풍선 크기 조절 ↘ 핸들(PRINT-HELPER-RESIZE) — 다듬기의 모서리 리사이즈 UX를

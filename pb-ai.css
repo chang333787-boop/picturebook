@@ -1783,6 +1783,15 @@
   /* PRINT-HELPER-OPACITY(2026-07-22): 진하기 칩 — 글자 칩(top:6) 아래로 겹치지 않게. */
   body.print-picturebook .pbp-helper-chip--op { top: 44px; }
   body.print-picturebook .pbp-helper-chip .pbp-helper-chip__lab { font-size: 11.5px; color: #8a7c5e; padding: 0 2px 0 1px; }
+  /* PRINT-HELPER-FONT(2026-07-23): 글씨체·색 칩 — 크기(6)·진하기(44) 아래(82)로 겹치지 않게. */
+  body.print-picturebook .pbp-helper-chip--font { top: 82px; }
+  body.print-picturebook .pbp-helper-chip .pbp-helper-font-sel {
+    font-family: inherit; font-size: 12px; padding: 3px 5px; max-width: 104px;
+    border: 1px solid #c9b98f; border-radius: 8px; background: #fff; color: #5b4a2e; cursor: pointer;
+  }
+  body.print-picturebook .pbp-helper-chip .pbp-helper-color {
+    width: 26px; height: 24px; padding: 0; border: 1px solid #c9b98f; border-radius: 6px; background: #fff; cursor: pointer;
+  }
   body.print-picturebook .pbp-helper-resize {
     position: absolute; right: -8px; bottom: -8px; width: 18px; height: 18px; z-index: 7;
     background: #fff; border: 2px solid #4a90d9; border-radius: 50%;

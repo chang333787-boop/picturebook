@@ -374,8 +374,11 @@
   function _needsStoryValueStep() {
     try {
       if (!R || !R.ctx || R.ctx.projectType !== 'picturebook') return false;
+      /* COMPASS-VALUE-ALL-LEVELS(2026-07-22 사용자 결정): 1단계뿐 아니라 2·3단계도 마지막에
+         '이 이야기로 말하고 싶은 가치' 3택1. 1·2단계는 값이 초안 digest로 흘러가고, 3단계는
+         AI 초안이 없어 preWriting/storyValue에 저장(반영·회고). 모든 그림책 단계 공통. */
       const lvl = (typeof window.getPicturebookLevel === 'function') ? window.getPicturebookLevel() : null;
-      return lvl === 1;
+      return lvl === 1 || lvl === 2 || lvl === 3;
     } catch (e) { return false; }
   }
   async function _runStoryValueStep() {

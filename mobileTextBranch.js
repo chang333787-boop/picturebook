@@ -1868,8 +1868,11 @@ function showMakerConfirm(opts) {
     const st = document.createElement('style');
     st.id = 'maker-confirm-style';
     st.textContent =
+      /* CONFIRM-Z-FIX(2026-07-22): z 10000 → 100066 — 확인 대화상자는 항상 최상위여야 하는데,
+         maker의 환영 튜토리얼(100005)·나침반(100001)·그리기 confirm(100060) 등 z-100000대 오버레이
+         뒤에 가려지던 것 수정(1단계 주인공 선택이 환영 튜토리얼 뒤에 숨던 사용자 보고). */
       '.maker-confirm-backdrop{position:fixed;inset:0;background:rgba(43,31,16,0.42);'
-      + '-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);z-index:10000;'
+      + '-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);z-index:100066;'
       + 'display:flex;align-items:center;justify-content:center;padding:20px;}'
       + '.maker-confirm-card{background:#fffaee;border-radius:18px;width:100%;max-width:400px;'
       + 'padding:24px 24px 20px;box-shadow:0 18px 50px rgba(43,31,16,0.28);'

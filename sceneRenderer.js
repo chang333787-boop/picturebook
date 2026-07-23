@@ -162,14 +162,23 @@ function _linearReadingOrder() {
   const mid    = all.filter(s => s.type !== 'cover' && s.type !== 'ending').sort((a, b) => _num(a) - _num(b));
   return [...cover, ...mid, ...ending];
 }
+/* 특정 장면의 그리드 좌표(읽기 순서 기준) — renderAll·renderCard 공용.
+   ⚠️renderCard도 이걸 써야 개별 재렌더(에코·2탭·부분 갱신)에서도 그리드 유지(깨짐 방지). */
+function _linearGridPosFor(s) {
+  if (!s) return null;
+  const order = _linearReadingOrder();
+  const idx = order.findIndex(x => String(x.num) === String(s.num));
+  if (idx < 0) return null;
+  const G = _LINEAR_GRID;
+  const col = idx % G.perRow, row = Math.floor(idx / G.perRow);
+  return { x: G.startX + col * (G.cardW + G.gapX), y: G.startY + row * G.rowH };
+}
 function _applyLinearGridLayout() {
   if (typeof window === 'undefined' || typeof window.isLinearPicturebookLock !== 'function'
       || !window.isLinearPicturebookLock()) return false;
-  const G = _LINEAR_GRID;
-  _linearReadingOrder().forEach((s, i) => {
-    const col = i % G.perRow, row = Math.floor(i / G.perRow);
-    s.x = G.startX + col * (G.cardW + G.gapX);
-    s.y = G.startY + row * G.rowH;
+  _linearReadingOrder().forEach((s) => {
+    const p = _linearGridPosFor(s);
+    if (p) { s.x = p.x; s.y = p.y; }
   });
   return true;
 }
@@ -1278,7 +1287,14 @@ function renderCard(s) {
                 : '';
   el.className   = `scene-card type-${s.type}${_mapCls}${roleClass ? ' ' + roleClass : ''}`;
   el.id          = `card-${s.num}`;
-  el.style.cssText = `position:absolute;left:${s.x}px;top:${s.y}px;`;
+  /* LINEAR-GRID-FIX(2026-07-22): 선형(1·2단계)은 개별 렌더에서도 그리드 좌표로 배치.
+     s.x/s.y가 에코·2탭·부분갱신으로 옛 값이어도 화면은 항상 읽기순서 그리드 유지(깨짐 방지). */
+  let _cx = s.x, _cy = s.y;
+  if (typeof window !== 'undefined' && typeof window.isLinearGridActive === 'function' && window.isLinearGridActive()) {
+    const _gp = _linearGridPosFor(s);
+    if (_gp) { _cx = _gp.x; _cy = _gp.y; s.x = _gp.x; s.y = _gp.y; }
+  }
+  el.style.cssText = `position:absolute;left:${_cx}px;top:${_cy}px;`;
 
   el.innerHTML = buildCardHTML(s);
   /* CARD-EXPAND-PERSIST(2026-07-09): 펼침 상태 복원 — 재렌더(Firebase 에코 renderAll·connect·잠금변경 등)로

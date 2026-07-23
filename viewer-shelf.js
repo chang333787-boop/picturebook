@@ -62,6 +62,9 @@
     if (e) { e.style.removeProperty('display'); e.classList.add('hidden'); }
     document.getElementById('player-screen')?.classList.add('hidden');
     _screenEl().classList.remove('hidden');
+    /* LINK-LOADING-1: 책장 링크 자동진입 로딩('책장으로 들어가는 중…')을 책장 표시 시점에 확실히 제거
+       (openShelf 프로미스 타이밍에 의존하지 않음). */
+    try { if (typeof window.__hideAutoEnterLoading === 'function') window.__hideAutoEnterLoading(); } catch (e2) {}
     closeComments();
     try { if (typeof ViewerState !== 'undefined' && ViewerState.resetPlayback) ViewerState.resetPlayback(); } catch (e) {}
   }

@@ -1161,15 +1161,16 @@
   padding: 3px 11px;
   font-size: 11.5px;
   border-radius: 0;
-  background: #ffffff;
-  border: 1px solid #d8ccb6;
+  background: #f8f1de;
+  border: 1px solid #e4d6b8;
 }
 .ai-view-toggle-slot .ai-view-toggle-btn + .ai-view-toggle-btn { border-left: none; }
 .ai-view-toggle-slot .ai-view-toggle-btn:first-of-type { border-radius: 999px 0 0 999px; padding-left: 13px; }
 .ai-view-toggle-slot .ai-view-toggle-btn:last-of-type { border-radius: 0 999px 999px 0; padding-right: 13px; }
-/* TOGGLE-BW(2026-07-23): 세그먼트 토글 = 선택=진한 차콜 채움+흰 글자 / 비선택=흰 배경+진한 글자.
-   슬롯 기본(위 1164)이 활성 배경을 동일 특이도·후순위로 덮던 문제를 슬롯 스코프 is-active(0,3,0)로 확정. */
-.ai-view-toggle-slot .ai-view-toggle-btn.is-active { background: #2b2620; border-color: #2b2620; color: #ffffff; }
+/* TOGGLE-ACTIVE-FIX(2026-07-23): 활성=브랜드 테라코타 채움+크림 글자, 비선택=연한 크림+진한 글자.
+   슬롯 기본(위 1164)이 활성 배경을 동일 특이도·후순위로 덮던 버그를 슬롯 스코프 is-active(0,3,0)로 확정.
+   (검정/흰색 시안은 너무 강해 사용자 피드백으로 철회 — 따뜻한 그림책 톤 유지) */
+.ai-view-toggle-slot .ai-view-toggle-btn.is-active { background: #c66f4a; border-color: #b85a3a; color: #fffaee; }
 /* 글 보기(기본 order 0) → 그림 보기(order 2): 삽입 순서와 무관하게 항상 왼쪽=글, 오른쪽=그림. */
 .ai-view-toggle-slot .ai-view-toggle-bar--image { order: 2; }
 

@@ -82,12 +82,18 @@ async function _processQueryParam() {
   }
 
   if (!teamName) {
-    /* SHELF-1: 책장 공개 링크(?shelf=1&classId=... 또는 ?shelf=1&code=...) — 서버가 shelfPublic 검증 */
+    /* SHELF-1: 책장 공개 링크(?shelf=1&classId=... 또는 ?shelf=1&code=...) — 서버가 shelfPublic 검증.
+       LINK-LOADING-1: 책장 렌더 완료 시 자동진입 로딩('책장으로 들어가는 중…') 제거, 실패 시 진입 폼 복구. */
     if (params.get('shelf') === '1' && classId && window.BranchShelf) {
-      window.BranchShelf.openShelf({ classId }).catch(err => {
-        _setEntryError((err && err.message && /[가-힣]/.test(err.message))
-          ? err.message : '책장을 불러오지 못했어요.');
-      });
+      window.BranchShelf.openShelf({ classId })
+        .then(() => { if (typeof window.__hideAutoEnterLoading === 'function') window.__hideAutoEnterLoading(); })
+        .catch(err => {
+          _revealEntryWithError((err && err.message && /[가-힣]/.test(err.message))
+            ? err.message : '책장을 불러오지 못했어요.');
+        });
+    } else if (params.get('shelf') === '1') {
+      /* code/classId 없거나 BranchShelf 미로드 — 로딩만 걸려 있으면 진입 폼 복구 */
+      _revealEntryWithError('책장 링크가 올바르지 않아요.');
     }
     return;
   }

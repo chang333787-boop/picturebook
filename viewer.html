@@ -46,7 +46,7 @@
   <link rel="stylesheet" href="v03-modes.css?v=9bc2453bcc"/>
   <link rel="stylesheet" href="pb-tone.css?v=567c692f8d"/>
   <!-- Phase 0.5 mock — AI 기능 UI (step1: 진입 버튼만) -->
-  <link rel="stylesheet" href="pb-ai.css?v=fd702201a8"/>
+  <link rel="stylesheet" href="pb-ai.css?v=0d9af57495"/>
   <!-- W8: 자동 진입(?team= 있을 때) 깜빡임 차단.
        maker → "감상 테스트" / "다듬기" 진입 시 entry 화면이 잠깐 보였다가 사라지는 현상 제거.
        JS 로드 전에 inline으로 처리 — CSS의 #entry-screen{display:flex} 효과 무력화. -->
@@ -54,7 +54,11 @@
     (function () {
       try {
         var p = new URLSearchParams(location.search);
-        if (p.get('team')) {
+        /* W8 + LINK-LOADING-1(2026-07-23): 자동 진입(?team= 작품 / ?shelf=1 책장) 깜빡임 차단.
+           책장 링크(?shelf=1·?code=..&shelf=1)도 진입 폼이 잠깐 보이던 것 → 전용 로딩으로 덮고 문구 구분. */
+        var _wantTeam = !!p.get('team');
+        var _wantShelf = p.get('shelf') === '1';
+        if (_wantTeam || _wantShelf) {
           var s = document.createElement('style');
           s.textContent = ''
             + '#entry-screen{display:none !important;}'
@@ -62,12 +66,12 @@
             + 'background:#fbf6ea;font-family:\'Jua\',sans-serif;color:#6b5638;font-size:14px;letter-spacing:0.02em;z-index:200;}'
             + '#auto-enter-loading.fade-out{opacity:0;transition:opacity 0.25s ease-out;pointer-events:none;}';
           document.head.appendChild(s);
-          /* 로딩 표시 — body 첫 자식으로 박기 (DOMContentLoaded 후 추가) */
+          /* 로딩 표시 — body 첫 자식으로 박기 (DOMContentLoaded 후 추가). 문구=진입 종류별. */
           document.addEventListener('DOMContentLoaded', function () {
             if (document.getElementById('auto-enter-loading')) return;
             var el = document.createElement('div');
             el.id = 'auto-enter-loading';
-            el.textContent = '작품을 불러오는 중…';
+            el.textContent = _wantTeam ? '작품 속으로 들어가는 중…' : '📚 우리 반 책장으로 들어가는 중…';
             document.body.appendChild(el);
           });
           /* viewer-entry.js가 _enterViewer 완료 후 player 렌더 끝나면 이 함수가 로딩 제거 */
@@ -99,7 +103,7 @@
       id="entry-code-input"
       class="entry-input entry-input--code"
       type="text"
-      placeholder="클래스 코드 (예: JL26A)"
+      placeholder="클래스 코드 (예: ABC12)"
       maxlength="10"
       autocomplete="off"
       style="text-transform:uppercase;letter-spacing:2px;"
@@ -229,7 +233,7 @@
 <script src="notices.js?v=3d93b71532"></script>
 <script src="session.js?v=14b8513855"></script>
 <!-- SHELF-1/COMMENT-1: 학급 책장 + 작품 댓글 (viewer-entry보다 먼저 로드 — openShelf 참조) -->
-<script src="viewer-shelf.js?v=7244189c9a"></script>
+<script src="viewer-shelf.js?v=ebe1c58d71"></script>
 <!-- IMAGE-S2-10 교사 UI: 순수 로직 + 독립 패널(교사 from=maker 세션에서만 자가활성·학생 미노출). 기존 렌더 무변경. -->
 <script src="viewer-image-batch.js?v=09fd33ba0b"></script>
 <script src="viewer-image-batch-ui.js?v=5589c373fe"></script>
@@ -286,7 +290,7 @@
 <script src="tutorial-art.js?v=89f1207629"></script>
 <script src="tutorial-welcome.js?v=95d12d35f7"></script>
 <script src="tutorial-coach.js?v=79387535ec"></script>
-<script src="viewer-entry.js?v=fd40cb4687"></script>
+<script src="viewer-entry.js?v=3b2ca49b08"></script>
 
 </body>
 </html>

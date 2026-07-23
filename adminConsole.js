@@ -64,6 +64,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const moreBtn     = e.target.closest('.js-admin-more');
     const publicBtn   = e.target.closest('.js-admin-toggle-public');
     const issueBtn    = e.target.closest('.js-admin-issue-code');
+    const viewLinkBtn = e.target.closest('.js-admin-viewlink');   // VIEW-LINK-1: 작품별 공개 감상 링크 복사
     const printBtn    = e.target.closest('.js-admin-print');    /* SCENE-PUBLISH-PRINT-1 */
     const printWaBtn  = e.target.closest('.js-admin-print-wa'); /* TEACHER-PRINT-ROUTE-1: 고쳐쓰기 자료 */
     const printTcBtn  = e.target.closest('.js-admin-print-tc'); /* TEACHER-PRINT-ROUTE-1: 생각 나침반 */
@@ -87,6 +88,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (moreBtn)   _toggleMoreMenu(moreBtn);
     if (publicBtn) _toggleIsPublic(publicBtn.dataset.encoded, publicBtn.dataset.name, publicBtn.dataset.public === 'true');
     if (issueBtn)  _issueCopyCodeFlow(issueBtn.dataset.encoded, issueBtn.dataset.name);
+    if (viewLinkBtn) _copyTeamViewLink(viewLinkBtn.dataset.encoded, viewLinkBtn.dataset.name, viewLinkBtn.dataset.public === 'true');
     if (pinBtn)    _changeTeamPin(pinBtn.dataset.encoded, pinBtn.dataset.name);
     if (lockBtn)   _toggleTeamLock(lockBtn.dataset.encoded, lockBtn.dataset.name, lockBtn.dataset.status);
     if (regBtn)    _registerExistingTeam(regBtn.dataset.encoded, regBtn.dataset.name);
@@ -1868,6 +1870,7 @@ function _teamCardHtml(t) {
       ${(t.pbLevel === 1 || t.pbLevel === 2)
         ? `<button class="admin-more-item js-admin-level-reset" data-encoded="${t.encodedName}" data-name="${nm}" title="장면·그림·AI 결과·나침반·AI 횟수를 모두 지우고 처음부터 다시 시작해요. 계정(PIN)과 단계는 유지돼요.">🔄 처음부터 다시 (1·2단계)</button>`
         : ''}
+      <button class="admin-more-item js-admin-viewlink" data-encoded="${t.encodedName}" data-name="${nm}" data-public="${t.isPublic}" title="이 작품을 링크로 바로 볼 수 있어요. 링크가 있으면 로그인 없이 누구나 볼 수 있어요(공개 필요).">🔗 감상 링크 복사${t.isPublic ? '' : ' (공개 필요)'}</button>
       <button class="admin-more-item js-admin-issue-code" data-encoded="${t.encodedName}" data-name="${nm}">📤 복사 코드 발급</button>
       <button class="admin-more-item js-admin-comments" data-encoded="${t.encodedName}" data-name="${nm}" title="이 작품에 달린 댓글을 보고 지울 수 있어요">💬 댓글 관리</button>
       <button class="admin-more-item admin-more-item--danger js-admin-delete" data-encoded="${t.encodedName}" data-name="${nm}" title="작품(장면·그림)까지 영구 삭제해요. 되돌릴 수 없어요.">🗑 모둠 전체 삭제 (작품까지)</button>
@@ -1986,7 +1989,7 @@ async function _renderShelfCommentPanel(classId) {
     <div style="${rowStyle}">
       <span>책장 링크 공개</span>
       <button type="button" id="asc-shelf-toggle" style="${btnStyle}${shelfPublic ? 'background:#6a9a5a;color:#fff;border-color:#6a9a5a;' : ''}">${shelfPublic ? 'ON — 링크로 누구나' : 'OFF — 클래스 코드 필요'}</button>
-      ${shelfPublic ? `<button type="button" id="asc-shelf-copy" style="${btnStyle}">📋 책장 링크 복사</button>` : ''}
+      <button type="button" id="asc-shelf-copy" style="${btnStyle}">📋 책장 링크 복사${shelfPublic ? '' : ' (공개 필요)'}</button>
     </div>
     <div style="font-size:11.5px;color:#9a8868;margin:-4px 0 10px;">학생은 작품 보기에서 클래스 코드만 입력하면 책장이 열려요. 공개된 작품만 책장에 나와요.</div>
     <div style="${rowStyle}">
@@ -2005,8 +2008,20 @@ async function _renderShelfCommentPanel(classId) {
     } catch (e) { alert('설정을 저장하지 못했어요.'); }
   });
   host.querySelector('#asc-shelf-copy')?.addEventListener('click', async () => {
-    try { await navigator.clipboard.writeText(shelfUrl); alert('책장 링크를 복사했어요:\n' + shelfUrl); }
-    catch (e) { alert('복사 실패. 직접 적어주세요:\n' + shelfUrl); }
+    /* VIEW-LINK-1: 책장 링크는 shelfPublic ON일 때만 서버(getClassShelf)가 링크 모드를 허용.
+       OFF면 켜고 복사(정직 고지) → 켰으면 패널 리렌더로 ON 반영. */
+    try {
+      if (!shelfPublic) {
+        const ok = confirm('우리 반 책장을 링크로 공개할까요?\n\n이 링크가 있으면 클래스 코드 없이 누구나 책장(공개된 작품들)을 볼 수 있어요.');
+        if (!ok) return;
+        await db.ref(`classes/${classId}/settings/shelfPublic`).set(true);
+      }
+      await navigator.clipboard.writeText(shelfUrl);
+      alert('책장 링크를 복사했어요:\n' + shelfUrl + '\n\n이 링크가 있으면 누구나 우리 반 책장을 볼 수 있어요.');
+    } catch (e) {
+      alert('복사하지 못했어요. 아래 링크를 직접 복사해 주세요:\n' + shelfUrl);
+    }
+    if (!shelfPublic) { try { _renderShelfCommentPanel(classId); } catch (_) { /* noop */ } }
   });
   host.querySelector('#asc-cmt-toggle')?.addEventListener('click', async () => {
     try {
@@ -2091,43 +2106,86 @@ async function _toggleIsPublic(encodedName, teamName, currentIsPublic) {
 
   /* 1클릭 오조작 방지 — 공개 전환은 학급 전체에 노출되는 변경이라 확인 1회 */
   const _msg = newIsPublic
-    ? `"${teamName}" 작품을 학급에 공개할까요?\n(우리 반 모두가 책장에서 볼 수 있게 돼요)`
-    : `"${teamName}" 작품을 비공개로 바꿀까요?\n(책장에서 내려가요)`;
+    ? `"${teamName}" 작품을 공개할까요?\n· 우리 반 책장에 올라가요.\n· 감상 링크가 있으면 로그인 없이 누구나 볼 수 있어요.`
+    : `"${teamName}" 작품을 비공개로 바꿀까요?\n(책장에서 내려가고, 링크로도 볼 수 없게 돼요)`;
   if (!confirm(_msg)) return;
 
-  const metaPath = (DATA_PATH_VERSION === 'v2' && adminState.adminClassId)
-    ? `classes/${adminState.adminClassId}/teams/${encodedName}/viewer-meta/isPublic`
-    : `teams/${encodedName}/viewer-meta/isPublic`;
-
   try {
-    await db.ref(metaPath).set(newIsPublic);
-
-    /* allTeams 상태 즉시 업데이트 후 카드 리렌더 */
-    const team = adminState.allTeams.find(t => t.encodedName === encodedName);
-    if (team) team.isPublic = newIsPublic;
-
-    /* SHELF-1: 학급 책장 노드 동기화 — 공개=표지 정보 등재 / 비공개=제거.
-       isPublic의 유일한 쓰기 지점이 여기라 이 훅 하나로 책장이 항상 정합.
-       실패해도 공개 전환 자체는 유지(책장 등재만 다음 토글에서 재시도). */
-    if (DATA_PATH_VERSION === 'v2' && adminState.adminClassId) {
-      const shelfRef = db.ref(`classes/${adminState.adminClassId}/shelf/${encodedName}`);
-      const p = newIsPublic
-        ? shelfRef.set({
-            t:  (team && team.shelfTitle) || '',
-            s:  (team && team.shelfSubtitle) || '',
-            ty: (team && team.projectType) || '',
-            th: (team && team.shelfTheme) || '',
-            at: firebase.database.ServerValue.TIMESTAMP,
-          })
-        : shelfRef.remove();
-      p.catch(err => console.warn('[SHELF-1] 책장 동기화 실패:', err));
-    }
-
-    _invalidateAdminCache('toggle-public');   // 상태 변경 — 다음 재진입 때 fresh 읽기
+    await _applyIsPublic(encodedName, newIsPublic);
     _renderTeamList();
   } catch (err) {
     console.error('[admin] ' + label + ' 전환 실패:', err);
     alert(`❌ ${label} 전환을 처리하지 못했어요. 잠시 후 다시 시도해 주세요.`);
+  }
+}
+
+/* VIEW-LINK-1(2026-07-23): 공개/비공개 쓰기 + 책장 동기화 코어(확인창 없음).
+   isPublic의 유일한 쓰기·동기화 지점 — 공개 토글과 '감상 링크 복사'(비공개→공개) 둘 다 여기로.
+   호출 전 확인창은 각 호출부가 책임. 리렌더도 호출부가(연속 작업 시 중복 렌더 방지). */
+async function _applyIsPublic(encodedName, newIsPublic) {
+  const metaPath = (DATA_PATH_VERSION === 'v2' && adminState.adminClassId)
+    ? `classes/${adminState.adminClassId}/teams/${encodedName}/viewer-meta/isPublic`
+    : `teams/${encodedName}/viewer-meta/isPublic`;
+
+  await db.ref(metaPath).set(newIsPublic);
+
+  /* allTeams 상태 즉시 업데이트 */
+  const team = adminState.allTeams.find(t => t.encodedName === encodedName);
+  if (team) team.isPublic = newIsPublic;
+
+  /* SHELF-1: 학급 책장 노드 동기화 — 공개=표지 정보 등재 / 비공개=제거.
+     실패해도 공개 전환 자체는 유지(책장 등재만 다음 토글에서 재시도). */
+  if (DATA_PATH_VERSION === 'v2' && adminState.adminClassId) {
+    const shelfRef = db.ref(`classes/${adminState.adminClassId}/shelf/${encodedName}`);
+    const p = newIsPublic
+      ? shelfRef.set({
+          t:  (team && team.shelfTitle) || '',
+          s:  (team && team.shelfSubtitle) || '',
+          ty: (team && team.projectType) || '',
+          th: (team && team.shelfTheme) || '',
+          at: firebase.database.ServerValue.TIMESTAMP,
+        })
+      : shelfRef.remove();
+    p.catch(err => console.warn('[SHELF-1] 책장 동기화 실패:', err));
+  }
+
+  _invalidateAdminCache('toggle-public');   // 상태 변경 — 다음 재진입 때 fresh 읽기
+}
+
+/* VIEW-LINK-1: 작품별 공개 감상 링크(복사용·절대 URL).
+   viewer.html?team=..&classId=..  — from=maker 없음 → 방문자는 isPublic 강제(공개 작품만 열림).
+   baseUrl은 shelf 링크(_renderShelfCommentPanel)와 동일 방식. */
+function _teamViewShareUrl(teamName) {
+  const baseUrl = location.origin + location.pathname.replace(/maker\.html.*$/, '');
+  const cid = adminState.adminClassId
+    ? `&classId=${encodeURIComponent(adminState.adminClassId)}` : '';
+  return `${baseUrl}viewer.html?team=${encodeURIComponent(teamName)}${cid}`;
+}
+
+/* VIEW-LINK-1: ⋯메뉴 [🔗 감상 링크 복사] — 비공개면 공개(확인) 후 복사, 공개면 바로 복사.
+   공개 전환은 _applyIsPublic로 책장 동기화 단일 지점 유지. */
+async function _copyTeamViewLink(encodedName, teamName, isPublic) {
+  if (!adminState.verified) return;
+  const url = _teamViewShareUrl(teamName);
+
+  if (!isPublic) {
+    const ok = confirm(`"${teamName}" 작품의 감상 링크를 만들까요?\n\n먼저 이 작품을 공개해요.\n감상 링크가 있으면 로그인 없이 누구나 볼 수 있어요.`);
+    if (!ok) return;
+    try {
+      await _applyIsPublic(encodedName, true);
+      _renderTeamList();
+    } catch (err) {
+      console.error('[admin] 링크용 공개 전환 실패:', err);
+      alert('❌ 공개 전환을 처리하지 못했어요. 잠시 후 다시 시도해 주세요.');
+      return;
+    }
+  }
+
+  try {
+    await navigator.clipboard.writeText(url);
+    alert('감상 링크를 복사했어요:\n' + url + '\n\n이 링크가 있으면 로그인 없이 누구나 이 작품을 볼 수 있어요.');
+  } catch (e) {
+    alert('복사하지 못했어요. 아래 링크를 직접 복사해 주세요:\n' + url);
   }
 }
 

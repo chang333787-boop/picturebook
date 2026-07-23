@@ -3112,6 +3112,7 @@ exports.teacherScriptDraft = onCall(
     const input = {
       topic:       field('topic', 400),
       characters:  field('characters', 300),
+      lead:        field('lead', 200),
       place:       field('place', 120),
       structure:   field('structure', 120),
       endingStyle: field('endingStyle', 100),

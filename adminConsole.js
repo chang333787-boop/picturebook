@@ -2750,9 +2750,12 @@ function _renderScriptTab() {
       <div class="asd-form">
         <div class="asd-label">주제/상황 (필수)</div>
         <textarea id="asd-topic" maxlength="400" placeholder="예: 학교에서 없어진 물건 때문에 생긴 오해와 갈등, 그리고 해결 과정"></textarea>
-        <div class="asd-label">주인공 구성 (필수) — 인원·성별·이름(있으면)</div>
+        <div class="asd-label">등장인물 구성 (필수) — 인원·성별·이름(있으면)</div>
         <input id="asd-characters" class="admin-tc-input" type="text" maxlength="300"
           placeholder="예: 6명 (남 2, 여 4)" autocomplete="off"/>
+        <div class="asd-label">주연 · 중심 인물 (선택) — 비우면 AI가 정함</div>
+        <input id="asd-lead" class="admin-tc-input" type="text" maxlength="200"
+          placeholder="예: 하은 — 키링을 잃어버린 아이 (이 인물 중심으로 비중 크게)" autocomplete="off"/>
         <div class="asd-label">배경 장소 (비우면 학교)</div>
         <input id="asd-place" class="admin-tc-input" type="text" maxlength="120"
           placeholder="예: 교실, 복도, 운동장" autocomplete="off"/>
@@ -2816,6 +2819,7 @@ function _renderScriptTab() {
       classId: adminState.adminClassId,
       topic,
       characters,
+      lead:        $('asd-lead').value.trim(),
       place:       $('asd-place').value.trim(),
       structure:   $('asd-structure').value,
       endingStyle: $('asd-ending').value,

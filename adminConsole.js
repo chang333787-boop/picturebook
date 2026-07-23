@@ -1428,6 +1428,8 @@ function _analyzeTeam(encodedName, scenes, isPublic = false, meta = {}, account 
     entryNum, replayNum, entryValid, replayValid, entryBroken, replayBroken,
     hasImage, connectivity, noTitle, isolated, status, interpretation, problems,
     isPublic,
+    /* NICKNAME-1: 표시 이름(닉네임) — viewer-meta.nickname(meta=viewer-meta). 카드 헤더 표시용. */
+    nickname: (meta && typeof meta.nickname === 'string' && meta.nickname.trim()) ? meta.nickname.trim().slice(0, 30) : '',
     projectType, modeLabel,
     pbLevel,   /* LEVELS-ADMIN A4: 그림책 단계(1|2|3·비그림책 null) */
     /* 2026-05-29 admin 3차: 미연결 버튼 수 — 카드 배지 + problems 표시에 사용 */
@@ -1890,6 +1892,7 @@ function _teamCardHtml(t) {
     <div class="admin-card-head">
       <div class="admin-card-identity">
         <span class="admin-card-name">👥 ${nm}</span>
+        ${t.nickname ? `<span class="admin-card-nick" title="책장 표시 이름(닉네임) · 로그인 아이디는 ${nm}">✏️ ${_escHtml(t.nickname)}</span>` : ''}
         <span class="admin-status-badge" style="background:${meta.bg};color:${meta.color};">
           ${meta.icon} ${meta.label}
         </span>

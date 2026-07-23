@@ -440,8 +440,8 @@ async function _loadAdminDataV2() {
   _renderClassBar(resolvedClassId);
   /* Phase 1: 학급 AI 설정 패널 */
   _renderAiSettingsPanel(resolvedClassId);
-  /* ADMIN-1C: 학생 팀 생성 방식 설정 패널 (계정 생성 카드 위) */
-  _renderTeamModePanel(resolvedClassId);
+  /* ADMIN-1C 폐기(#26): 팀 생성 방식 설정칸 제거. 신규 학급=teacher_managed 기본,
+     서버(joinTeamMembership)/폴백은 불변. 교사가 legacy_open을 새로 고를 UI를 없앰. */
   /* SHELF-1/COMMENT-1: 책장·댓글 설정 패널 */
   _renderShelfCommentPanel(resolvedClassId);
   /* ADMIN-1B: 교사 팀/학생 계정 사전 생성 패널 */
@@ -708,110 +708,14 @@ async function _saveAiSettings(classId, state, panel, saveBtn, statusEl) {
 }
 
 /* ════════════════════════════════════════════════════════════════
-   ADMIN-1C: 학생 팀 생성 방식 설정 패널
+   ADMIN-1C 폐기(#26): 학생 팀 생성 방식 설정칸 제거
    ──────────────────────────────────────────────────────────────
-   · classes/{classId}/settings/teamCreationMode 만 set (settings 전체 set 금지)
-   · 옵션: legacy_open(기존 방식) / teacher_managed(교사 등록 팀만)
-   · locked는 이번 단계 UI 비노출(준비 중) — 학생 입장 코드엔 방어 존재
-   · 설정 없으면 legacy_open으로 표시. 기존 학급에 기본값 일괄 쓰지 않음.
+   · 교사가 legacy_open을 새로 선택할 수 있던 라디오 UI를 없앰
+     (오타·장난 팀 무한 생성 방지 — 신규 학급은 teacher_managed 기본).
+   · 서버 검증(joinTeamMembership 3모드)·전역 폴백(legacy_open)은 불변.
+     → 기존 legacy_open 학급/account 없는 옛 팀은 그대로 동작(무영향).
+   · account 없는 옛 팀을 관리팀으로 전환하려면 _registerExistingTeam 사용.
    ════════════════════════════════════════════════════════════════ */
-async function _renderTeamModePanel(classId) {
-  const panel = document.getElementById('admin-team-mode');
-  if (!panel || !classId) return;
-
-  /* 현재 저장값 로드 — 없으면 legacy_open 기본 */
-  let mode = 'legacy_open';
-  try {
-    const snap = await db.ref(`classes/${classId}/settings/teamCreationMode`).once('value');
-    const m = snap.val();
-    if (m === 'teacher_managed' || m === 'locked' || m === 'legacy_open') mode = m;
-  } catch (e) { /* 읽기 실패 시 기본값 유지 */ }
-
-  /* locked가 저장돼 있으면 라디오는 일단 teacher_managed로 표시하되 안내 문구 노출 */
-  const lockedNote = (mode === 'locked')
-    ? '<div class="admin-tm-locked">현재 입장이 잠겨 있어요. 아래에서 방식을 바꾸면 잠금이 풀려요.</div>'
-    : '';
-  const sel = (mode === 'locked') ? 'teacher_managed' : mode;
-
-  /* ACCOUNT-MODE-DEFAULT-1: 현재 입장 방식 상태 배지.
-     · teacher_managed(신규 학급 기본) → 교사 등록 모둠만 입장.
-     · legacy_open(기존 학급 fallback) → 자유 입장 + 전환 가능 안내. 자동 전환하지 않음(교사 선택). */
-  const modeBadge = (mode === 'teacher_managed')
-    ? '<div class="admin-tm-badge admin-tm-badge--managed">🔒 <b>교사 등록 모둠만 입장</b> — 선생님이 만든 모둠만 들어올 수 있어요.</div>'
-    : '<div class="admin-tm-badge admin-tm-badge--open">🚪 <b>자유 입장 상태</b> — 지금은 학생이 새 모둠을 직접 만들 수 있어요. 아래에서 <b>교사 등록 모둠만 입장</b>으로 바꾸면 오타·장난 모둠 생성을 막을 수 있어요.</div>';
-
-  panel.style.display = 'block';
-  panel.innerHTML = `
-    <div class="admin-tm-head">
-      <div class="admin-tm-title">🚪 학생 팀 생성 방식</div>
-      <div class="admin-tm-desc">학생이 입장할 때 팀을 직접 만들 수 있게 할지, 선생님이 등록한 팀만 들어오게 할지 정해요.</div>
-    </div>
-    ${modeBadge}
-    <div class="admin-tm-options">
-      <label class="admin-tm-opt">
-        <input type="radio" name="admin-tm" value="legacy_open" ${sel === 'legacy_open' ? 'checked' : ''}>
-        <span class="admin-tm-opt-body">
-          <span class="admin-tm-opt-title">기존 방식</span>
-          <span class="admin-tm-opt-text">학생이 팀 이름과 PIN을 입력하면 새 팀을 만들 수 있습니다.</span>
-        </span>
-      </label>
-      <label class="admin-tm-opt">
-        <input type="radio" name="admin-tm" value="teacher_managed" ${sel === 'teacher_managed' ? 'checked' : ''}>
-        <span class="admin-tm-opt-body">
-          <span class="admin-tm-opt-title">교사 등록 팀만</span>
-          <span class="admin-tm-opt-text">교사가 미리 만든 팀만 입장할 수 있어요. 오타나 장난 팀 생성을 막을 수 있습니다.</span>
-        </span>
-      </label>
-    </div>
-    ${lockedNote}
-    <div class="admin-tm-foot">
-      <span id="admin-tm-status" class="admin-tc-status"></span>
-      <button id="admin-tm-save" class="admin-tc-btn" style="margin-left:auto;">저장</button>
-    </div>
-  `;
-
-  const saveBtn  = panel.querySelector('#admin-tm-save');
-  const statusEl = panel.querySelector('#admin-tm-status');
-  if (saveBtn) saveBtn.addEventListener('click', () => {
-    const picked = panel.querySelector('input[name="admin-tm"]:checked');
-    const value  = picked ? picked.value : 'legacy_open';
-    _saveTeamCreationMode(classId, value, saveBtn, statusEl);
-  });
-}
-
-async function _saveTeamCreationMode(classId, value, btn, statusEl) {
-  if (!adminState.verified || !classId) return;
-  /* 화이트리스트 — UI에서 노출하는 2개만 저장 허용 */
-  if (value !== 'legacy_open' && value !== 'teacher_managed') {
-    _tcSetStatus(statusEl, 'err', '알 수 없는 설정이에요.');
-    return;
-  }
-
-  btn.disabled = true;
-  const prev = btn.textContent;
-  btn.textContent = '저장 중...';
-  try {
-    /* ⚠️ teamCreationMode child만 set — settings 전체/aiSettings 미접근 */
-    await db.ref(`classes/${classId}/settings/teamCreationMode`).set(value);
-    const msg = (value === 'teacher_managed')
-      ? '✓ 저장됨 — 이제 선생님이 등록한 팀만 입장할 수 있어요.'
-      : '✓ 저장됨 — 학생이 직접 팀을 만들 수 있어요.';
-    _tcSetStatus(statusEl, 'ok', msg);
-    _invalidateAdminCache('team-mode-save');
-    btn.disabled = false;
-    btn.textContent = prev;
-  } catch (err) {
-    console.error('[admin] 계정 저장 실패:', err);
-    const errMsg = (err && (err.code || err.message)) ? String(err.code || err.message) : '';
-    if (/PERMISSION_DENIED|permission[_ ]?denied/i.test(errMsg)) {
-      _tcSetStatus(statusEl, 'err', '저장 권한이 없어요. 관리자에게 문의해 주세요.');
-    } else {
-      _tcSetStatus(statusEl, 'err', '저장하지 못했어요. 잠시 후 다시 시도해 주세요.');
-    }
-    btn.disabled = false;
-    btn.textContent = prev;
-  }
-}
 
 /* ════════════════════════════════════════════════════════════════
    ADMIN-1B: 교사 팀/학생 계정 사전 생성 패널

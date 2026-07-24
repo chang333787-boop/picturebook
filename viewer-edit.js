@@ -5513,6 +5513,44 @@ function _movieDecisionSectionHtml() {
     <div class="edit-divider"></div>`;
 }
 
+/* PUBLISH-VERSION(2026-07-24): ⚙️ 작품 설정 — '친구들에게 보일 것'(감상 표시 버전 잠금).
+   글/그림 각각 원본 | AI | 둘 다. '둘 다'=감상 토글 유지, 하나만=그 버전 고정+감상 토글 숨김.
+   원본·AI 데이터는 불변(무엇을 보여줄지만 정함). movie/experience·1단계는 미노출. */
+function _publishVersionSectionHtml() {
+  const ptype = (typeof _resolveViewerProjectType === 'function') ? _resolveViewerProjectType() : null;
+  if (ptype !== 'text' && ptype !== 'picturebook') return '';
+  const lv = ViewerState.project && ViewerState.project.picturebookLevel;
+  if (ptype === 'picturebook' && lv === 1) return '';   /* 1단계=전부 AI 자동, 선택 무의미 */
+  const t  = (ViewerState.project && ViewerState.project.viewerShowText)  || 'both';
+  const im = (ViewerState.project && ViewerState.project.viewerShowImage) || 'both';
+  const seg = (cls, cur, val, label) =>
+    `<button type="button" class="edit-toggle ${cls} ${cur === val ? 'active' : ''}" data-val="${val}">${label}</button>`;
+  const textRow = `
+    <div class="edit-row edit-row--compact">
+      <label class="edit-label">📝 글 보기</label>
+      <div class="edit-toggle-group">
+        ${seg('js-publish-text', t, 'original', '원본')}
+        ${seg('js-publish-text', t, 'aiS2', 'AI 장면발전')}
+        ${seg('js-publish-text', t, 'both', '둘 다')}
+      </div>
+    </div>`;
+  const imageRow = (ptype === 'picturebook') ? `
+    <div class="edit-row edit-row--compact">
+      <label class="edit-label">🖼️ 그림 보기</label>
+      <div class="edit-toggle-group">
+        ${seg('js-publish-image', im, 'original', '원본')}
+        ${seg('js-publish-image', im, 'aiS2', 'AI 그림책 마감')}
+        ${seg('js-publish-image', im, 'both', '둘 다')}
+      </div>
+    </div>` : '';
+  return `
+    <div class="edit-row edit-row--compact">
+      <label class="edit-label">👀 친구들에게 보일 것 <span class="edit-label-note">(감상 화면)</span></label>
+    </div>
+    ${textRow}${imageRow}
+    <div class="edit-section-hint">‘둘 다’면 친구가 감상에서 토글로 바꿔 볼 수 있어요. 하나만 고르면 그 버전으로 고정돼요. (원본·AI는 그대로 저장돼요.)</div>`;
+}
+
 function _renderProjectPopoverBody() {
   /* REFINE-IA-1: 텍스트는 "감상 설정"(재생 방식만), 그림책은 시각 테마/레이아웃도 포함이라 "작품 설정" 유지. */
   const _pp_isText = (typeof _resolveViewerProjectType === 'function') && _resolveViewerProjectType() === 'text';
@@ -5551,9 +5589,36 @@ function _renderProjectPopoverBody() {
         return _mv ? `<div class="edit-divider"></div>${_mv}` : '';
       })()}
       ${_pbSettingsBlock ? `<div class="edit-divider"></div>${_pbSettingsBlock}` : ''}
+      ${(() => { const _pv = _publishVersionSectionHtml(); return _pv ? `<div class="edit-divider"></div>${_pv}` : ''; })()}
       <div class="edit-divider"></div>
       ${_workSettingsSectionHtml()}
     </div>`;
+}
+
+/* PUBLISH-VERSION: '친구들에게 보일 것' 토글 → viewer-meta 저장 + 감상 토글바 재평가 + 프레임 재렌더.
+   pageOrientation 핸들러와 동일 저장 경로. 우측 패널·발행 로직 무수정. */
+async function _onPublishVersionChange(kind, rawVal, pop) {
+  if (!_editText.editable) return;
+  const val = (rawVal === 'original' || rawVal === 'aiS2') ? rawVal : 'both';
+  const field = (kind === 'image') ? 'viewerShowImage' : 'viewerShowText';
+  if ((ViewerState.project[field] || 'both') === val) return;   /* no-op */
+  ViewerState.project[field] = val;
+  _refreshProjectPopover();
+  /* 감상 토글바 재평가(잠금이면 숨김·해제면 재노출) + 표시 버전 반영 */
+  try {
+    if (window.viewerAi && typeof window.viewerAi._showAiToggleBar === 'function') window.viewerAi._showAiToggleBar();
+    if (window.viewerAi && typeof window.viewerAi._showAiImageToggleBar === 'function') window.viewerAi._showAiImageToggleBar();
+  } catch (e) { /* noop */ }
+  if (typeof _scheduleViewerFrameReRender === 'function') _scheduleViewerFrameReRender();
+  try {
+    const teamName = ViewerState.project.teamName;
+    const classId  = ViewerState.project.classId;
+    if (teamName && typeof getViewerDb === 'function') {
+      const encodedName = encodeURIComponent(teamName);
+      const basePath = classId ? `classes/${classId}/teams/${encodedName}` : `teams/${encodedName}`;
+      await getViewerDb().ref(`${basePath}/viewer-meta`).update({ [field]: val });
+    }
+  } catch (e) { console.error('[publishVersion] 저장 실패:', e); }
 }
 
 function _refreshProjectPopover() {
@@ -5603,6 +5668,14 @@ function _bindProjectPopover(pop) {
         console.error('[pageOrientation] 저장 실패:', e);
       }
     });
+  });
+
+  /* PUBLISH-VERSION: '친구들에게 보일 것'(글/그림 감상 표시 버전 잠금) 토글 바인딩. */
+  pop.querySelectorAll('.js-publish-text').forEach(btn => {
+    btn.addEventListener('click', () => _onPublishVersionChange('text', btn.dataset.val, pop));
+  });
+  pop.querySelectorAll('.js-publish-image').forEach(btn => {
+    btn.addEventListener('click', () => _onPublishVersionChange('image', btn.dataset.val, pop));
   });
 
   /* PB-LAYOUT-1B: picturebook 하위 모드 — 우측 .js-pb-submode 핸들러(전 장면 picturebookSubmode

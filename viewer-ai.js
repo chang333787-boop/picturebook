@@ -1511,8 +1511,24 @@
       return has ? 'aiS2' : 'original';
     } catch (e) { return 'original'; }
   }
+  /* PUBLISH-VERSION(2026-07-24): 감상(비편집)에서 '친구에게 보일 것'이 원본/AI로 잠겼으면 그 모드 반환
+     → 독자 토글 무시하고 작품 설정대로 고정. 편집(다듬기)·미설정('both'/null)은 잠금 없음(null).
+     원본/AI 데이터는 불변 — 이건 '무엇을 보여줄지'만 정함. kind='text'|'image'. */
+  function _publishLockMode(kind) {
+    try {
+      if (typeof ViewerState === 'undefined' || !ViewerState || ViewerState.editMode === true) return null;
+      const p = ViewerState.project || {};
+      const v = (kind === 'image') ? p.viewerShowImage : p.viewerShowText;
+      if (v === 'original') return 'original';
+      if (v === 'aiS2') return 'aiS2';
+      return null;   /* 'both'/null → 잠금 없음(기존 토글 동작 그대로) */
+    } catch (e) { return null; }
+  }
+
   function _getAiImageViewMode() {
     try {
+      const _lock = _publishLockMode('image');
+      if (_lock) return _lock;   /* PUBLISH-VERSION: 잠금이면 설정 버전 강제 */
       const v = localStorage.getItem(_getMockImageViewModeKey());
       if (v === null) return _lv3DefaultViewMode('image');   /* 미선택 → 3단계 기본 AI */
       return (v === 'aiS1' || v === 'aiS2') ? v : 'original';
@@ -2455,6 +2471,8 @@
     /* v140 fix 2026-05-21: 팀별 namespace 키 사용. 2026-06: aiS2 추가. UI-REBUILD-1: aiS1 정규화.
        LV3-DEFAULT-AI: 미선택(null)이면 3단계 기본 AI(있을 때). 명시값(원본 포함)은 그대로. */
     try {
+      const _lock = _publishLockMode('text');
+      if (_lock) return _lock;   /* PUBLISH-VERSION: 감상 잠금이면 설정 버전 강제 */
       const v = localStorage.getItem(_getMockViewModeKey());
       if (v === null) return _lv3DefaultViewMode('text');
       return _normalizeTextAiViewMode(v);
@@ -2684,6 +2702,8 @@
   function _showAiToggleBar() {
     /* Phase 4-A: text/picturebook 작품에서만. movie/experience엔 절대 표시 X. */
     if (!_aiToggleProjectTypeAllowed()) { _hideAiToggleBar(); return; }
+    /* PUBLISH-VERSION: 감상에서 '친구에게 보일 글'이 원본/AI로 잠겼으면 토글 숨김(친구 못 바꿈). */
+    if (_publishLockMode('text')) { _hideAiToggleBar(); return; }
     /* LEVELS-FEEDBACK(2026-07-19): 1단계는 글도 전부 AI 초안(원본=그 글 자체)이라 글 토글 무의미 — 숨김. */
     if (ViewerState && ViewerState.project && ViewerState.project.projectType === 'picturebook'
         && ViewerState.project.picturebookLevel === 1) { _hideAiToggleBar(); return; }
@@ -2789,6 +2809,8 @@
 
   function _showAiImageToggleBar() {
     if (!_aiToggleProjectTypeAllowed()) { _hideAiImageToggleBar(); return; }
+    /* PUBLISH-VERSION: 감상에서 '친구에게 보일 그림'이 원본/AI로 잠겼으면 토글 숨김. */
+    if (_publishLockMode('image')) { _hideAiImageToggleBar(); return; }
     /* LEVELS-FEEDBACK(2026-07-19): 1단계는 원본 그림이 없어(전부 AI 자동) '원본' 토글이
        빈 화면만 보여줌 — 그림/글 토글 바 자체를 숨긴다(감상·다듬기 공통). AI-DEFAULT가 표시 담당. */
     if (ViewerState && ViewerState.project && ViewerState.project.projectType === 'picturebook'

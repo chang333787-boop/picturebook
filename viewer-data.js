@@ -297,6 +297,10 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
   ViewerState.project.printOverrides = null;
   /* LEVEL2-CHAR(2026-07-21): 2단계 '우리 주인공' 레퍼런스 이미지 URL — 책 전환 상속 차단 */
   ViewerState.project.protagonistRef = null;
+  /* PUBLISH-VERSION(2026-07-24): 감상 화면에서 친구에게 보일 버전 잠금(작품 설정).
+     'both'/null=토글 그대로 · 'original'=원본 고정+토글숨김 · 'aiS2'=AI 고정+토글숨김. 책 전환 상속 차단 */
+  ViewerState.project.viewerShowText = null;
+  ViewerState.project.viewerShowImage = null;
 
   if (meta) {
     if (meta.mode)     ViewerState.project.mode     = meta.mode;
@@ -323,6 +327,13 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
        사용자 보고: "다듬기에서 설정한 모드가 브랜치 화면 돌아오면 리셋됨". */
     if (typeof meta.pageOrientation === 'string') {
       ViewerState.project.pageOrientation = meta.pageOrientation;
+    }
+    /* PUBLISH-VERSION(2026-07-24): 감상 표시 버전 잠금 로드(화이트리스트·새 필드 2개, 저장 구조 변경 없음). */
+    if (meta.viewerShowText === 'original' || meta.viewerShowText === 'aiS2' || meta.viewerShowText === 'both') {
+      ViewerState.project.viewerShowText = meta.viewerShowText;
+    }
+    if (meta.viewerShowImage === 'original' || meta.viewerShowImage === 'aiS2' || meta.viewerShowImage === 'both') {
+      ViewerState.project.viewerShowImage = meta.viewerShowImage;
     }
     /* 2026-06-01 Movie-H: 무비형 선택지 표시 방식(작품 단위). panel(기본) | card.
        pageOrientation과 동일 화이트리스트 읽기 — 새 필드 1개, 저장 구조 변경 없음. */

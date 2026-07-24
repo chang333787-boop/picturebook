@@ -29,7 +29,14 @@
   <!-- W7 Step 1: tokens-warm.css 먼저, warm-screens.css 다음. 기존 home.css는 보존하지 않음(이 화면은 전면 교체) -->
   <link rel="stylesheet" href="tokens-warm.css"/>
   <link rel="stylesheet" href="warm-screens.css?v=b0d26528dc"/>
-<style>/* KO-WRAP-1: 한국어 어절 단위 줄바꿈(전역) */ body{word-break:keep-all;overflow-wrap:break-word;}</style>
+<style>/* KO-WRAP-1: 한국어 어절 단위 줄바꿈(전역) */ body{word-break:keep-all;overflow-wrap:break-word;}
+/* CONTEST-FOOTER(2026-07-24): 연구대회 출품 표기 — 블라인드 심사 규정상 학교명·출품자명·시도명 미표기.
+   회색 톤·작은 글씨·하단 항상 노출·모바일 줄바꿈(잘림 없음). */
+.wh__contest-footer{max-width:580px;margin:20px auto 6px;padding:13px 18px 2px;border-top:1px solid rgba(90,75,55,.12);text-align:center;color:#8d857a;font-size:11.5px;line-height:1.6;word-break:keep-all;overflow-wrap:break-word;}
+.wh__contest-footer .wh__cf-line{display:block;}
+.wh__contest-footer .wh__cf-line--title{font-weight:700;color:#7b7367;letter-spacing:.01em;}
+.wh__contest-footer .wh__cf-line--desc{margin:2px auto 0;max-width:520px;color:#948c80;}
+@media(max-width:480px){.wh__contest-footer{font-size:11px;padding-left:16px;padding-right:16px;}}</style>
 </head>
 <body>
 
@@ -134,6 +141,13 @@
         <a href="./privacy.html" target="_blank" rel="noopener"
            style="color:rgba(90,75,55,0.6);text-decoration:none;border-bottom:1px dashed rgba(90,75,55,0.3);padding-bottom:1px;">개인정보 처리방침</a>
       </p>
+
+      <!-- 연구대회 출품 표기 (블라인드 심사: 학교명·출품자명·시도명 미표기) -->
+      <footer class="wh__contest-footer" role="contentinfo">
+        <span class="wh__cf-line wh__cf-line--title">제20회 디지털교육연구대회 출품작</span>
+        <span class="wh__cf-line wh__cf-line--desc">초등학생의 선택 중심 서사 구성을 지원하는 상호작용형 분기 스토리 제작 SW 설계 및 적용</span>
+        <span class="wh__cf-line">초등학교 4학년 · 국어·미술</span>
+      </footer>
 
     </div><!-- /wh__main -->
 

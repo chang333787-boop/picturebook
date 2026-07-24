@@ -377,6 +377,11 @@
     .ptype-group-label--sub{
       font-size:13px;color:rgba(74,56,32,0.62);margin-bottom:8px;
     }
+    /* 단계=학년 상한 오해 방지 안내(사용자 요청 2026-07-24) */
+    .ptype-group-note{
+      font-size:12.5px;color:rgba(74,56,32,0.6);line-height:1.5;
+      text-align:left;margin:-4px 0 12px;max-width:640px;
+    }
     .ptype-pb-levels{
       display:grid;grid-template-columns:repeat(3,1fr);gap:14px;
     }
@@ -3056,6 +3061,7 @@
     <div class="ptype-grid" id="ptype-grid">
       <div class="ptype-pb-group">
         <p class="ptype-group-label">🎨 그림책 만들기</p>
+        <p class="ptype-group-note">학년은 추천일 뿐이에요 — 도움을 받으면 위 단계도, 스스로 하면 아래 단계도 자유롭게 만들 수 있어요.</p>
         <div class="ptype-pb-levels">
           <button class="ptype-card ptype-card--picturebook ptype-card--level" data-ptype="picturebook" data-pblevel="1">
             <span class="ptype-level-chip">1단계</span>
@@ -3063,7 +3069,7 @@
             <span class="ptype-card-prev-badge">✓ 이전 선택</span>
             <div class="ptype-card-body">
               <h2 class="ptype-card-name">나의 동화책을 만들어줘요</h2>
-              <p class="ptype-card-desc">나침반에 답하면 AI가 글과 그림을 만들어 줘요 · 1~2학년</p>
+              <p class="ptype-card-desc">나침반에 답하면 AI가 글과 그림을 만들어 줘요 · 저학년 추천</p>
             </div>
           </button>
           <button class="ptype-card ptype-card--picturebook ptype-card--level" data-ptype="picturebook" data-pblevel="2">
@@ -3072,7 +3078,7 @@
             <span class="ptype-card-prev-badge">✓ 이전 선택</span>
             <div class="ptype-card-body">
               <h2 class="ptype-card-name">도움을 받아 만들어봐요</h2>
-              <p class="ptype-card-desc">AI가 이야기를 시작해 주면 내가 이어서 완성해요 · 3~4학년</p>
+              <p class="ptype-card-desc">AI가 이야기를 시작해 주면 내가 이어서 완성해요 · 중학년 추천</p>
             </div>
           </button>
           <button class="ptype-card ptype-card--picturebook ptype-card--level" data-ptype="picturebook" data-pblevel="3">
@@ -3081,7 +3087,7 @@
             <span class="ptype-card-prev-badge">✓ 이전 선택</span>
             <div class="ptype-card-body">
               <h2 class="ptype-card-name">갈림길이 있는 이야기를 스스로의 힘으로</h2>
-              <p class="ptype-card-desc">선택에 따라 갈라지는 이야기를 스스로 만들어요 · 4~6학년</p>
+              <p class="ptype-card-desc">선택에 따라 갈라지는 이야기를 스스로 만들어요 · 고학년 추천</p>
             </div>
           </button>
         </div>

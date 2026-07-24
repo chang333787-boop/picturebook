@@ -184,6 +184,7 @@
         _choicesToRender = q.choices || [];
       } else if (!isCustom && !isDeferred) {
         _adaptiveLoading = true;
+        _choicesToRender = [];   /* 로딩 중엔 고정 보기를 보여주지 않음 — 번쩍임 방지(스켈레톤만) */
         if (_adaptive == null) _fetchAdaptive(q);
       }
     }
@@ -202,6 +203,23 @@
       b.addEventListener('click', function () { _isAdaptiveSet ? _onAdaptiveChoice(c.id, c.value) : _onChoice(c.id); });
       opts.appendChild(b);
     });
+    /* ADAPTIVE-CHOICES: 로딩 중 스켈레톤 자리표시(고정 보기 번쩍임 대체·레이아웃 유지) */
+    if (_adaptiveLoading) {
+      if (!document.getElementById('tc-skeleton-style')) {
+        const st = document.createElement('style');
+        st.id = 'tc-skeleton-style';
+        st.textContent = '@keyframes tcSkel{0%{background-position:200% 0}100%{background-position:-200% 0}}'
+          + '.tc-flow-choice--skeleton{height:46px;border-radius:12px;pointer-events:none;'
+          + 'background:linear-gradient(90deg,#f1ead9 25%,#f8f2e4 37%,#f1ead9 63%);'
+          + 'background-size:400% 100%;animation:tcSkel 1.3s ease-in-out infinite;}';
+        document.head.appendChild(st);
+      }
+      for (let _si = 0; _si < 3; _si++) {
+        const sk = _el('div', 'tc-flow-choice tc-flow-choice--skeleton');
+        sk.setAttribute('aria-hidden', 'true');
+        opts.appendChild(sk);
+      }
+    }
     /* 직접 적기 카드 — V2 targetLength(allowCustom:false)는 보기 전용이라 미노출. */
     if (q.allowCustom !== false) {
       const customWrap = _el('div', 'tc-flow-custom' + (isCustom ? ' is-active' : ''));

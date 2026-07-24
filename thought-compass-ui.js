@@ -168,13 +168,38 @@
       card.appendChild(_el('p', 'tc-flow-defer', '“' + ans.answerText + '”로 정했어요. 이야기를 만들면서 더 떠올려도 좋아요.'));
     }
 
+    /* ADAPTIVE-CHOICES(2026-07-24): 앞 답 의존 질문(q.adaptive)이면 맥락 맞춤 보기로 교체.
+       성공=AI 보기 / 미조회=고정 보기 자리표시 + 조회 시작 / 실패·지연=고정 보기 폴백.
+       재로드 후 이미 답한 맞춤 보기는 저장된 답 1칸으로 표시(재호출 안 함). */
+    let _choicesToRender = q.choices || [];
+    let _adaptive = null, _adaptiveLoading = false;
+    if (q.adaptive) {
+      if (!S.adaptiveChoices) S.adaptiveChoices = {};
+      _adaptive = S.adaptiveChoices[q.id];
+      if (Array.isArray(_adaptive)) {
+        _choicesToRender = _adaptive;
+      } else if (ans && ans.answerText && selectedChoiceId) {
+        _choicesToRender = [{ id: selectedChoiceId, label: ans.answerText, value: ans.answerText }];
+      } else if (_adaptive === 'failed') {
+        _choicesToRender = q.choices || [];
+      } else if (!isCustom && !isDeferred) {
+        _adaptiveLoading = true;
+        if (_adaptive == null) _fetchAdaptive(q);
+      }
+    }
+    if (_adaptiveLoading) {
+      const ld = _el('p', 'tc-flow-help', '✨ 내 이야기에 맞는 보기를 고르는 중…');
+      ld.style.cssText = 'margin:2px 0 6px;font-size:12.5px;color:#7a8a5b;';
+      card.appendChild(ld);
+    }
     /* 선택지 3개 + 직접 적기(동등 카드, WIRE-02) */
     const opts = _el('div', 'tc-flow-options');
-    (q.choices || []).forEach(c => {
+    const _isAdaptiveSet = Array.isArray(_adaptive) && _choicesToRender === _adaptive;
+    _choicesToRender.forEach(c => {
       const b = _el('button', 'tc-flow-choice' + (selectedChoiceId === c.id ? ' is-selected' : ''), c.label);
       b.type = 'button';
       b.setAttribute('aria-pressed', selectedChoiceId === c.id ? 'true' : 'false');
-      b.addEventListener('click', function () { _onChoice(c.id); });
+      b.addEventListener('click', function () { _isAdaptiveSet ? _onAdaptiveChoice(c.id, c.value) : _onChoice(c.id); });
       opts.appendChild(b);
     });
     /* 직접 적기 카드 — V2 targetLength(allowCustom:false)는 보기 전용이라 미노출. */
@@ -254,6 +279,45 @@
     S.customMode = null;     /* 선택지 고르면 직접 적기 모드 해제 */
     S.vm = _Flow().setChoiceAnswer(S.vm, choiceId);
     _render();
+  }
+  /* ADAPTIVE-CHOICES: 맞춤 보기 선택 — q.choices에 없는 런타임 보기라 값을 직접 전달. */
+  function _onAdaptiveChoice(choiceId, value) {
+    S.error = null;
+    S.customMode = null;
+    S.vm = _Flow().setResolvedChoiceAnswer(S.vm, choiceId, value);
+    _render();
+  }
+  /* 앞 답 기반 맞춤 보기 1회 요청. 실패/앞답없음/미배포 → 'failed'(고정 보기 폴백). */
+  function _fetchAdaptive(q) {
+    if (!S) return;
+    if (!S.adaptiveChoices) S.adaptiveChoices = {};
+    if (S.adaptiveChoices[q.id] != null) return;   /* 이미 진행/완료 */
+    S.adaptiveChoices[q.id] = 'loading';
+    const AI = window.ThoughtCompassAI;
+    if (!AI || typeof AI.requestAdaptiveChoices !== 'function') { S.adaptiveChoices[q.id] = 'failed'; return; }
+    const prior = (typeof _priorSummaries === 'function' ? _priorSummaries() : [])
+      .filter(function (s) { return s && s.key !== q.id && s.key !== 'targetLength' && s.text; });
+    if (!prior.length) { S.adaptiveChoices[q.id] = 'failed'; return; }   /* 앞 답 없으면 폴백 */
+    const priorText = prior.map(function (s) { return String(s.text || '').trim(); }).join(' / ').slice(0, 1500);
+    const ctx = S.ctx || {};
+    const capturedId = q.id;
+    const capturedIndex = (S.vm && typeof S.vm.index === 'number') ? S.vm.index : null;
+    AI.requestAdaptiveChoices({
+      classId: ctx.classId, teamName: ctx.teamName, projectType: ctx.projectType,
+      questionId: q.id, questionTitle: q.title, priorAnswersText: priorText,
+      staticChoices: (q.choices || []).map(function (c) { return c.label; }),
+    }).then(function (res) {
+      if (!S || !S.adaptiveChoices) return;
+      if (res && res.ok && Array.isArray(res.choices) && res.choices.length === 3) {
+        S.adaptiveChoices[capturedId] = res.choices.map(function (c, i) {
+          return { id: 'adaptive_' + i, label: String(c.label || ''), value: String(c.value || c.label || '') };
+        });
+      } else {
+        S.adaptiveChoices[capturedId] = 'failed';
+      }
+      /* 아직 같은 질문 화면이면 다시 그림(다른 질문으로 이동했으면 무시) */
+      if (S.vm && S.vm.index === capturedIndex && !S.followUp) _render();
+    });
   }
   function _onCustomActivate() {
     S.error = null;

@@ -342,6 +342,21 @@
     ];
   })();
 
+  /* ════ ADAPTIVE-CHOICES(2026-07-24): 맥락 맞춤 보기 적용 질문 화이트리스트 ════
+     앞 답(주인공·목표·사건 등)에 의존해 보기가 맥락상 달라져야 하는 질문에만 adaptive:true.
+     앞 질문(대상·느낌·주인공·이름·시작장소·장면수·꼭넣기·지키고싶은것)은 정적 유지 —
+     앞 답이 거의 없어 UI가 자동 폴백(무해)하므로 굳이 켜지 않음.
+     compassAdaptiveChoices 성공 시 보기 교체, 실패/AI OFF/지연 시 고정 보기 폴백.
+     freeze 전에 적용(런타임 변조 아님). LINEAR/EASY2는 각자 배열을 순회하므로 복제본도 반영. */
+  const ADAPTIVE_QIDS = new Set([
+    'goal', 'obstacle', 'branchChoice',                                              /* v1 */
+    'mainlineStart', 'incitingEvent', 'risingTrouble', 'keyChoice', 'trueEnding', 'alternatePath', /* v2/linear */
+    'heroEvent', 'heroWant', 'heroTry', 'heroTrouble', 'heroOvercome',               /* easy/easy2 */
+  ]);
+  [CORE_QUESTIONS, CORE_QUESTIONS_V2, CORE_QUESTIONS_EASY, CORE_QUESTIONS_LINEAR, CORE_QUESTIONS_EASY2].forEach(function (set) {
+    set.forEach(function (q) { if (q && ADAPTIVE_QIDS.has(q.id)) q.adaptive = true; });
+  });
+
   _deepFreeze(CORE_QUESTIONS);
   _deepFreeze(CORE_QUESTIONS_V2);
   _deepFreeze(CORE_QUESTIONS_EASY);

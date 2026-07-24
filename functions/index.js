@@ -36,7 +36,7 @@ const { setGlobalOptions } = require('firebase-functions/v2');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
 const Anthropic = require('@anthropic-ai/sdk');
-const { TEXT_S1_SYSTEM_PROMPT, TEXT_S2_SYSTEM_PROMPT, WORK_CHECK_SYSTEM_PROMPT, WRITE_AFTER_QUESTIONS_SYSTEM_PROMPT, THOUGHT_COMPASS_FOLLOWUP_SYSTEM_PROMPT, SCRIPT_DRAFT_SYSTEM_PROMPT, STUDENT_STORY_DRAFT_SYSTEM_PROMPT, buildUserMessage, buildUserMessageS2Chunk, buildScriptDraftUserMessage, buildStudentStoryDraftUserMessage, COMPASS_VALUE_SYSTEM_PROMPT, buildCompassValueUserMessage, validateCompassValueResponse } = require('./prompts');
+const { TEXT_S1_SYSTEM_PROMPT, TEXT_S2_SYSTEM_PROMPT, WORK_CHECK_SYSTEM_PROMPT, WRITE_AFTER_QUESTIONS_SYSTEM_PROMPT, THOUGHT_COMPASS_FOLLOWUP_SYSTEM_PROMPT, SCRIPT_DRAFT_SYSTEM_PROMPT, STUDENT_STORY_DRAFT_SYSTEM_PROMPT, buildUserMessage, buildUserMessageS2Chunk, buildScriptDraftUserMessage, buildStudentStoryDraftUserMessage, COMPASS_VALUE_SYSTEM_PROMPT, buildCompassValueUserMessage, validateCompassValueResponse, COMPASS_CHOICES_SYSTEM_PROMPT, buildCompassChoicesUserMessage, validateCompassChoicesResponse } = require('./prompts');
 /* WRITE-AFTER Phase 3 — 생각 점검 질문 순수 로직(검증/정규화/snapshot 제한). firebase 비의존. */
 const WAQ = require('./write-after-questions');
 /* WRITE-AFTER H1/H2 — 팀 AI 접근 권한 순수 결정(super_admin/teacher/active member). RTDB read는 _checkTeamAiMembership. */
@@ -4319,6 +4319,84 @@ exports.compassValueCandidates = onCall(
     }
     /* fail-open — 클라는 이 단계를 건너뛰고 완료 진행 */
     logger.warn('[tc/value] 후보 생성 실패 → 단계 생략', { uid, classId });
+    return { ok: false };
+  }
+);
+
+/* ADAPTIVE-CHOICES(2026-07-24): 생각 나침반 맥락 맞춤 보기 — compassValueCandidates 판박이.
+   앞 답과 모순되지 않는 짧은 보기 3개 반환. 실패=fail-open({ok:false})→클라가 고정 보기 폴백. */
+exports.compassAdaptiveChoices = onCall(
+  { secrets: [ANTHROPIC_API_KEY], enforceAppCheck: false },
+  async (req) => {
+    if (!req.auth || !req.auth.uid) throw new HttpsError('unauthenticated', '로그인이 필요해요.');
+    const uid = req.auth.uid;
+    if (req.data && req.data.testMode === true) {
+      throw new HttpsError('permission-denied', 'testMode로는 실제 AI를 사용할 수 없어요.');
+    }
+    const origin = (req.rawRequest && req.rawRequest.headers && req.rawRequest.headers.origin) || '';
+    if (!isOriginAllowed(origin)) {
+      logger.warn('[tc/choices] origin 거부', { uid, origin });
+      throw new HttpsError('permission-denied', '허용되지 않은 요청이에요.');
+    }
+    /* 입력 — 필드 강제 */
+    const d = req.data || {};
+    const classId = String(d.classId || '').trim();
+    const teamName = String(d.teamName || '').trim();
+    const questionTitle = String(d.questionTitle || '').trim().slice(0, 200);
+    const priorAnswersText = String(d.priorAnswersText || '').trim().slice(0, 1500);
+    const staticChoices = Array.isArray(d.staticChoices)
+      ? d.staticChoices.filter((s) => typeof s === 'string').slice(0, 6) : [];
+    if (!classId || /[.#$\[\]\/]/.test(classId) || !teamName || teamName.length > 40 || !questionTitle || !priorAnswersText) {
+      throw new HttpsError('invalid-argument', '요청 형식이 올바르지 않아요.');
+    }
+    const killSnap = await admin.database().ref('ai-kill-switch/enabled').once('value');
+    if (killSnap.val() === true) {
+      throw new HttpsError('unavailable', 'AI 기능을 잠시 사용할 수 없어요. 운영자에게 문의해 주세요.');
+    }
+    const enc = encodeURIComponent(teamName);
+    let allowed = false;
+    try {
+      const memSnap = await admin.database().ref(`classes/${classId}/teams/${enc}/members/${uid}/status`).once('value');
+      if (memSnap.val() === 'active') allowed = true;
+    } catch (e) { /* 아래 교사 확인 */ }
+    if (!allowed) {
+      try {
+        const teacherSnap = await admin.database().ref(`classes/${classId}/meta/teacher_uid`).once('value');
+        const role = req.auth.token && req.auth.token.role;
+        if (teacherSnap.val() === uid || role === 'teacher' || role === 'super_admin') allowed = true;
+      } catch (e) { /* noop */ }
+    }
+    if (!allowed) throw new HttpsError('permission-denied', '이 모둠의 생각 나침반을 사용할 수 없어요.');
+    try {
+      const aiSnap = await admin.database().ref(`classes/${classId}/aiSettings`).once('value');
+      const aiSettings = aiSnap.val();
+      if (aiSettings && aiSettings.enabled !== true) {
+        throw new HttpsError('permission-denied', 'AI_NOT_ENABLED_CLASS (선생님이 AI를 아직 열어주지 않았어요)');
+      }
+    } catch (e) { if (e instanceof HttpsError) throw e; }
+    try {
+      const today = _todayYmd();
+      const globalSnap = await admin.database().ref(`ai-usage-global/${today}/calls`).once('value');
+      if ((globalSnap.val() || 0) >= GLOBAL_DAILY_LIMIT) {
+        throw new HttpsError('resource-exhausted', '오늘 전체 사용 한도에 도달했어요. 내일 다시 시도해 주세요.');
+      }
+    } catch (e) { if (e instanceof HttpsError) throw e; }
+
+    const userMsg = buildCompassChoicesUserMessage({ questionTitle, priorAnswersText, staticChoices });
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const ai = await _callAnthropic(ANTHROPIC_API_KEY.value(), COMPASS_CHOICES_SYSTEM_PROMPT, userMsg);
+        const parsed = _parseJsonStrict(ai.text);
+        const rv = validateCompassChoicesResponse(parsed);
+        if (!rv.ok) { continue; }
+        logger.info('[tc/choices] ok', { uid, classId, labels: rv.value.choices.map((x) => x.label).join('/'), attempt });
+        return { ok: true, choices: rv.value.choices };
+      } catch (e) {
+        logger.warn('[tc/choices] 시도 실패', { attempt, error: e && e.message });
+      }
+    }
+    /* fail-open — 클라는 고정 보기로 폴백 */
+    logger.warn('[tc/choices] 보기 생성 실패 → 고정 보기 폴백', { uid, classId });
     return { ok: false };
   }
 );

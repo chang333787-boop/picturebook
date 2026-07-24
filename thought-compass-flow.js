@@ -62,6 +62,19 @@
     return next;
   }
 
+  /* ADAPTIVE-CHOICES(2026-07-24): 맞춤 보기(런타임 생성)는 q.choices에 없으므로 값 직접 전달.
+     선택지 선택과 동일하게 {choiceId, value} 저장(직접입력 아님). */
+  function setResolvedChoiceAnswer(vm, choiceId, value) {
+    const q = currentQuestion(vm); if (!q) return vm;
+    const Q = _Q();
+    const v = String(value == null ? '' : value).trim();
+    if (!v) return vm;
+    const next = _clone(vm);
+    next.answers[q.id] = Q ? Q.normalizeAnswerValue({ choiceId: choiceId, value: v }, { maxLength: q.maxLength })
+      : { answerText: v, answerStatus: 'confirmed', choiceId: choiceId };
+    return next;
+  }
+
   /* 직접 적기 입력 → 현재 질문 답변(선택지 선택 해제). opts.draft=true면 임시(진행중). */
   function setCustomAnswer(vm, text, opts) {
     const q = currentQuestion(vm); if (!q) return vm;
@@ -191,7 +204,7 @@
   return {
     createFlow, currentQuestion, currentAnswer, answerFor,
     isFirst, isLast, progress,
-    setChoiceAnswer, setCustomAnswer, setDeferredAnswer, clearAnswer,
+    setChoiceAnswer, setResolvedChoiceAnswer, setCustomAnswer, setDeferredAnswer, clearAnswer,
     hasValidAnswer, canNext, canPrev, buildSavePatch,
     goPrev, commitNext, goToIndex, goToQuestionId, allAnswered,
     assistanceLevel, setAssistanceLevel, assistancePrompt, handleUnsure,

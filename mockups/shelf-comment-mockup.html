@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>학급 책장 + 댓글 목업 (SHELF-1 / COMMENT-1)</title>
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  body { font-family: 'Jua', 'Apple SD Gothic Neo', sans-serif; background: #efe6d2; min-height: 100vh; }
+
+  /* 데모 탭 */
+  .demo-nav { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); z-index: 50;
+    display: flex; gap: 6px; background: #3a2c14; padding: 8px 10px; border-radius: 40px; box-shadow: 0 6px 20px rgba(0,0,0,.3); }
+  .demo-nav button { border: none; border-radius: 30px; padding: 8px 14px; font-family: inherit; font-size: 13px;
+    background: transparent; color: #d8c49a; cursor: pointer; }
+  .demo-nav button.on { background: #c96f4a; color: #fff; }
+
+  .screen { display: none; min-height: 100vh; }
+  .screen.on { display: block; }
+
+  /* ── ① 입장 ── */
+  #s-entry { display: none; align-items: center; justify-content: center; background: #fbf6ea; }
+  #s-entry.on { display: flex; }
+  .entry-card { text-align: center; padding: 40px 30px; }
+  .entry-card .leaf { font-size: 40px; }
+  .entry-card h1 { font-size: 26px; color: #3a2c14; margin: 10px 0 6px; }
+  .entry-card p { color: #8a6a30; font-size: 14px; margin-bottom: 22px; }
+  .entry-card input { width: 260px; padding: 13px 16px; font-size: 18px; text-align: center; letter-spacing: 4px;
+    border: 2px solid #d8c49a; border-radius: 12px; background: #fff; font-family: inherit; }
+  .entry-card .go { display: block; margin: 14px auto 0; padding: 13px 42px; font-size: 17px; border: none;
+    border-radius: 40px; background: #c96f4a; color: #fff; cursor: pointer; font-family: inherit; }
+  .entry-hint { margin-top: 18px; font-size: 12.5px; color: #b09a6f; }
+
+  /* ── ② 책장 ── */
+  #s-shelf { background: #f6ecd8; padding: 26px 20px 90px; }
+  /* 넓은 화면에서도 책장 '가구' 느낌 — 가운데 정렬 + 최대 폭 제한(한 줄에 최대 ~5권) */
+  .shelf-inner { max-width: 980px; margin: 0 auto; }
+  .shelf-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+  .shelf-head h1 { font-size: 24px; color: #3a2c14; }
+  .shelf-head .cnt { color: #a4592f; font-size: 14px; }
+  .shelf-sort { margin: 8px 0 22px; display: flex; gap: 8px; }
+  .shelf-sort button { border: 1.5px solid #c9a96a; background: #fffaf0; color: #8a5a2a; border-radius: 30px;
+    padding: 6px 14px; font-family: inherit; font-size: 12.5px; cursor: pointer; }
+  .shelf-sort button.on { background: #c96f4a; border-color: #c96f4a; color: #fff; }
+  .shelf-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 20px 16px;
+    padding-bottom: 16px; border-bottom: 10px solid #b98d5a; border-radius: 2px; margin-bottom: 30px; }
+  .book { cursor: pointer; transition: transform .15s; }
+  .book:hover { transform: translateY(-5px); }
+  .cover { aspect-ratio: 2/3; border-radius: 8px 14px 14px 8px; padding: 16px 12px; position: relative;
+    display: flex; flex-direction: column; justify-content: center; text-align: center;
+    box-shadow: -4px 0 0 rgba(0,0,0,.12) inset, 0 6px 14px rgba(90,70,30,.25); }
+  .cover .t { font-size: 16.5px; line-height: 1.3; }
+  .cover .s { font-size: 10.5px; opacity: .75; margin-top: 6px; }
+  .cover .badge { position: absolute; top: 8px; right: 8px; background: rgba(255,255,255,.88); color: #a4592f;
+    font-size: 11px; padding: 2px 8px; border-radius: 20px; }
+  .cover .badge.zero { background: #ffe9b0; color: #8a5a2a; }
+  .book .team { text-align: center; font-size: 12px; color: #7a6a4f; margin-top: 8px; }
+
+  /* ── ③ 작품 + 댓글 ── */
+  #s-work { background: #d9cdb4; padding: 0; }
+  .chrome { display: flex; align-items: center; gap: 8px; padding: 10px 16px; background: #fbf6ea; }
+  .chrome .chip { border: 1.5px solid #c9a96a; background: #fffaf0; color: #8a5a2a; border-radius: 30px;
+    padding: 7px 14px; font-family: inherit; font-size: 13px; cursor: pointer; }
+  .chrome .chip.hot { border-color: #c96f4a; color: #c96f4a; font-weight: 700; }
+  .chrome .sp { flex: 1; }
+  .chrome .ic { width: 36px; height: 36px; border-radius: 50%; border: none; cursor: pointer; font-size: 15px; }
+  .chrome .ic.fs { background: #efe3c8; color: #6b4a24; }
+  .chrome .ic.x { background: #e2735a; color: #fff; }
+  .workwrap { display: flex; gap: 0; min-height: calc(100vh - 56px); }
+  .stage { flex: 1; display: flex; align-items: center; justify-content: center; padding: 30px; }
+  .cover-big { background: #f7edd8; border-radius: 14px; width: min(680px, 90%); aspect-ratio: 3/2;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+    box-shadow: 0 10px 30px rgba(90,70,30,.25); }
+  .cover-big h2 { font-size: 34px; color: #3a2c14; }
+  .cover-big .sub { color: #8a6a30; font-size: 14px; font-style: italic; }
+  .cover-big .start { margin-top: 14px; padding: 12px 36px; border: none; border-radius: 40px;
+    background: #c96f4a; color: #fff; font-size: 16px; font-family: inherit; cursor: pointer; }
+
+  /* 댓글 패널 */
+  .cpanel { width: 320px; background: #fffaf0; border-left: 2px solid #e2d3b0; padding: 16px;
+    display: none; flex-direction: column; }
+  .cpanel.on { display: flex; }
+  .cpanel h3 { color: #a4592f; font-size: 16px; margin-bottom: 4px; }
+  .cpanel .note { font-size: 11.5px; color: #b09a6f; margin-bottom: 12px; }
+  .cgate { background: #fdf3e0; border: 1.5px dashed #c9a96a; border-radius: 12px; padding: 16px; text-align: center; }
+  .cgate p { font-size: 13px; color: #6b4a24; margin-bottom: 10px; }
+  .cgate input { width: 130px; text-align: center; padding: 9px; font-size: 16px; letter-spacing: 3px;
+    border: 1.5px solid #d8c49a; border-radius: 9px; font-family: inherit; }
+  .cgate button { margin-left: 6px; padding: 9px 14px; border: none; border-radius: 9px; background: #c96f4a;
+    color: #fff; font-family: inherit; cursor: pointer; }
+  .cgate .hint { font-size: 11px; color: #b09a6f; margin-top: 8px; }
+  .clist { display: none; flex: 1; flex-direction: column; }
+  .clist.on { display: flex; }
+  .citem { background: #fff; border: 1px solid #eee0c0; border-radius: 10px; padding: 9px 12px; margin-bottom: 8px; }
+  .citem .who { font-size: 12px; color: #a4592f; font-weight: 700; }
+  .citem .txt { font-size: 13.5px; color: #3a2c14; margin-top: 2px; line-height: 1.45; }
+  .cform { margin-top: auto; border-top: 1.5px solid #eee0c0; padding-top: 10px; }
+  .cform input, .cform textarea { width: 100%; border: 1.5px solid #e2d3b0; border-radius: 9px; padding: 8px 10px;
+    font-family: inherit; font-size: 13px; margin-bottom: 6px; background: #fff; }
+  .cform button { width: 100%; padding: 10px; border: none; border-radius: 9px; background: #c96f4a; color: #fff;
+    font-family: inherit; font-size: 14px; cursor: pointer; }
+
+  /* ── ④ 교사 설정 ── */
+  #s-admin { background: #fbf6ea; padding: 40px 8vw 100px; }
+  .apanel { max-width: 520px; background: #fff; border: 1.5px solid #e8d9bf; border-radius: 14px; padding: 20px 22px; margin-bottom: 16px; }
+  .apanel h3 { color: #a4592f; font-size: 15px; margin-bottom: 12px; }
+  .arow { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; font-size: 14px; color: #3a2c14; }
+  .arow .desc { font-size: 12px; color: #8a6a30; margin-top: 2px; }
+  .toggle { margin-left: auto; width: 46px; height: 26px; border-radius: 20px; background: #d8c49a; position: relative; cursor: pointer; }
+  .toggle::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: left .15s; }
+  .toggle.on { background: #6a9a5a; }
+  .toggle.on::after { left: 23px; }
+  .codebox { margin-left: auto; display: flex; gap: 6px; align-items: center; }
+  .codebox .code { background: #fdf3e0; border: 1.5px solid #c9a96a; border-radius: 8px; padding: 6px 14px;
+    font-size: 16px; letter-spacing: 3px; color: #8a5a2a; }
+  .codebox button { border: 1px solid #c9a96a; background: #fffaf0; border-radius: 8px; padding: 6px 10px;
+    font-family: inherit; font-size: 12px; color: #8a5a2a; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<!-- ① 입장 -->
+<div class="screen on" id="s-entry">
+  <div class="entry-card">
+    <div class="leaf">🌿</div>
+    <h1>친구들의 이야기를 만나보세요</h1>
+    <p>선생님이 알려준 <b>클래스 코드</b>를 입력하면<br>우리 반 책장이 열려요</p>
+    <input value="ABC12" maxlength="6">
+    <button class="go" onclick="go('shelf')">📚 책장 열기</button>
+    <div class="entry-hint">작품 링크(QR)로 바로 왔다면 이 화면 없이 그 작품이 열려요</div>
+  </div>
+</div>
+
+<!-- ② 책장 -->
+<div class="screen" id="s-shelf">
+<div class="shelf-inner">
+  <div class="shelf-head"><h1>📚 우리 반 책장</h1><span class="cnt">우리 4학년 · 공개된 작품 8권</span></div>
+  <div class="shelf-row">
+    <div class="book" onclick="go('work')"><div class="cover" style="background:#f7edd8;color:#3a2c14;"><span class="badge">💬 3</span><div class="t">숲속 이야기</div><div class="s">동물들의 이야기</div></div><div class="team">다람쥐 모둠</div></div>
+    <div class="book" onclick="go('work')"><div class="cover" style="background:#2d3a55;color:#f0e8d0;"><span class="badge zero">💬 0</span><div class="t">달빛 우주 탐험</div><div class="s">별을 찾아서</div></div><div class="team">김하늘</div></div>
+    <div class="book" onclick="go('work')"><div class="cover" style="background:#4a6a44;color:#f2eddc;"><span class="badge">💬 1</span><div class="t">공룡시대로!</div><div class="s">시간여행 대모험</div></div><div class="team">2모둠</div></div>
+    <div class="book" onclick="go('work')"><div class="cover" style="background:#8a4a3a;color:#ffe9d0;"><span class="badge zero">💬 0</span><div class="t">마법의 김밥</div><div class="s">급식실의 비밀</div></div><div class="team">김밥천국</div></div>
+    <div class="book" onclick="go('work')"><div class="cover" style="background:#c9b790;color:#4a3a22;"><span class="badge">💬 5</span><div class="t">바다 끝 학교</div><div class="s">전학생은 인어?</div></div><div class="team">이서준</div></div>
+    <div class="book" onclick="go('work')"><div class="cover" style="background:#5a4a6a;color:#ece2f2;"><span class="badge">💬 2</span><div class="t">유령 도서관</div><div class="s">밤 12시의 책</div></div><div class="team">부엉이팀</div></div>
+    <div class="book" onclick="go('work')"><div class="cover" style="background:#a86a30;color:#fff3dc;"><span class="badge zero">💬 0</span><div class="t">사막의 낙타</div><div class="s">오아시스를 찾아</div></div><div class="team">박지우</div></div>
+    <div class="book" onclick="go('work')"><div class="cover" style="background:#3a5a5f;color:#dff0ee;"><span class="badge">💬 1</span><div class="t">로봇 친구 삐로</div><div class="s">고장난 마음</div></div><div class="team">5모둠</div></div>
+  </div>
+  <div style="font-size:12px;color:#b09a6f;">팀 이름은 만든 그대로 보여요(자동으로 붙는 말 없음) · 비공개 작품은 책장에 나오지 않아요 · 교사가 [책장 링크 공개]를 켜면 코드 없이도 이 화면을 볼 수 있어요</div>
+</div>
+</div>
+
+<!-- ③ 작품 + 댓글 -->
+<div class="screen" id="s-work">
+  <div class="chrome">
+    <button class="chip" onclick="go('shelf')">📚 우리 반 책장</button>
+    <button class="chip hot" onclick="togglePanel()">💬 댓글 3</button>
+    <span class="sp"></span>
+    <button class="ic fs">⛶</button>
+    <button class="ic x" onclick="go('shelf')">✕</button>
+  </div>
+  <div class="workwrap">
+    <div class="stage">
+      <div class="cover-big">
+        <h2>숲속 이야기</h2><div>✦</div>
+        <div class="sub">숲속에서 일어나는 동물들의 이야기</div>
+        <button class="start">▶ 시작하기</button>
+      </div>
+    </div>
+    <div class="cpanel" id="cpanel">
+      <h3>💬 이 책의 댓글</h3>
+      <div class="note">따뜻한 말로 남겨요 · 이상한 댓글은 선생님이 지울 수 있어요</div>
+      <div class="clist on" id="clist">
+        <div class="citem"><div class="who">민준</div><div class="txt">여우가 반짝이 모으는 게 귀여워요! 결말이 감동이에요 🥹</div></div>
+        <div class="citem"><div class="who">서연</div><div class="txt">두 번째 갈림길에서 다른 길로 갔는데 완전 달라져서 신기했어요</div></div>
+        <div class="citem"><div class="who">지호 아빠</div><div class="txt">그림이 정말 멋지네요. 다음 작품도 기대할게요!</div></div>
+        <div class="cform">
+          <input placeholder="이름">
+          <textarea rows="2" placeholder="따뜻한 한마디를 남겨주세요 (200자)"></textarea>
+          <input placeholder="댓글 코드 — 선생님에게 받을 수 있어요" style="letter-spacing:1px;">
+          <button>댓글 남기기</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ④ 교사 설정 -->
+<div class="screen" id="s-admin">
+  <h1 style="color:#3a2c14;font-size:22px;margin-bottom:18px;">🛠 교사 관리 화면에 추가되는 것</h1>
+  <div class="apanel">
+    <h3>📚 우리 반 책장</h3>
+    <div class="arow"><div>책장 링크 공개<div class="desc">끄면(기본) 클래스 코드가 있어야 책장이 보여요.<br>켜면 링크·QR 하나로 학부모에게 공개할 수 있어요.</div></div><div class="toggle" onclick="this.classList.toggle('on')"></div></div>
+  </div>
+  <div class="apanel">
+    <h3>💬 댓글</h3>
+    <div class="arow"><div>댓글 기능<div class="desc">끄면 댓글 버튼 자체가 숨어요</div></div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+    <div class="arow"><div>댓글 코드<div class="desc">바꾸면 이전 코드는 바로 무효가 돼요</div></div><div class="codebox"><span class="code">1234</span><button>변경</button></div></div>
+    <div class="arow"><div>팀별 댓글 관리<div class="desc">각 팀 카드에서 댓글 보기·삭제</div></div></div>
+  </div>
+</div>
+
+<div class="demo-nav">
+  <button id="nav-entry" class="on" onclick="go('entry')">① 입장</button>
+  <button id="nav-shelf" onclick="go('shelf')">② 책장</button>
+  <button id="nav-work" onclick="go('work')">③ 작품+댓글</button>
+  <button id="nav-admin" onclick="go('admin')">④ 교사 설정</button>
+</div>
+
+<script>
+function go(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('on'));
+  document.getElementById('s-' + name).classList.add('on');
+  document.querySelectorAll('.demo-nav button').forEach(b => b.classList.remove('on'));
+  document.getElementById('nav-' + name).classList.add('on');
+  window.scrollTo(0, 0);
+}
+function togglePanel() { document.getElementById('cpanel').classList.toggle('on'); }
+/* 07-11 수정: 댓글 읽기는 코드 불필요 — 게이트 제거, 코드는 쓰기 폼 안의 한 칸 */
+</script>
+</body>
+</html>

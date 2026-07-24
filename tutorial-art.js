@@ -36,7 +36,7 @@
       <rect x="46" y="20" width="128" height="100" rx="12" fill="${C.card}" stroke="${C.line}" stroke-width="2"/>
       <text x="110" y="40" text-anchor="middle" font-family="sans-serif" font-size="12" font-weight="700" fill="${C.ink}">들어가기</text>
       <g font-family="sans-serif" font-size="9" fill="${C.mut}">
-        <rect x="60" y="48" width="100" height="16" rx="8" fill="${C.cream}" stroke="${C.line}"/><text x="66" y="59">클래스 코드  JL26A</text>
+        <rect x="60" y="48" width="100" height="16" rx="8" fill="${C.cream}" stroke="${C.line}"/><text x="66" y="59">클래스 코드  ABC12</text>
         <rect x="60" y="70" width="100" height="16" rx="8" fill="${C.cream}" stroke="${C.line}"/><text x="66" y="81">모둠 이름  2모둠</text>
         <rect x="60" y="92" width="100" height="16" rx="8" fill="${C.cream}" stroke="${C.line}"/><text x="66" y="103">비밀번호  ● ● ● ●</text>
       </g>

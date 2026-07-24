@@ -119,7 +119,7 @@ async function handleEntrySubmit() {
   const teamName  = teamInput?.value.trim();
 
   if (!code) {
-    _setEntryError('클래스 코드를 입력해주세요 (예: JL26A)');
+    _setEntryError('클래스 코드를 입력해주세요 (예: ABC12)');
     codeInput?.focus();
     return;
   }

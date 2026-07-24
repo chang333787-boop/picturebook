@@ -590,15 +590,21 @@ async function _renderAiSettingsPanel(classId) {
   _drawAiSettingsPanel(panel, classId, state, exists);
 }
 
+/* JUDGE-LOCK(2026-07-24): 심사위원 체험 반(코드 9999)에서는 AI 토글을 전부 켠 채 잠근다
+   — 심사위원이 실수로 꺼서 "안 된다"고 오인하지 않도록. 이 반에서만 적용. */
+const JUDGE_CLASS_ID = 'cls_mrykb7m8_gIlpnw';
+
 function _drawAiSettingsPanel(panel, classId, state, exists) {
+  const IS_JUDGE = (classId === JUDGE_CLASS_ID);
+  if (IS_JUDGE) state.enabled = true;
   const statusCls = state.enabled ? 'on' : 'off';
   const statusTxt = state.enabled ? 'AI 켜짐' : 'AI 꺼짐';
   const notSavedNote = exists ? '' : ' · 설정 안 함 — 저장해야 이 설정이 적용돼요';
 
   const modeToggles = AI_MODE_DEFS.map(d => {
-    const checked = state.modes[d.key] ? 'checked' : '';
-    const dis = d.soon ? ' is-disabled' : '';
-    const disAttr = d.soon ? 'disabled' : '';
+    const checked = (IS_JUDGE || state.modes[d.key]) ? 'checked' : '';
+    const dis = (d.soon || IS_JUDGE) ? ' is-disabled' : '';
+    const disAttr = (d.soon || IS_JUDGE) ? 'disabled' : '';
     const soonTag = d.soon ? '<span class="admin-ai-soon">준비 중</span>' : '';
     const badgeTag = d.badge ? `<span class="admin-ai-soon" style="color:#3a5a2a;">${_escHtml(d.badge)}</span>` : '';
     return `<label class="admin-ai-toggle${dis}" data-mode-toggle="${d.key}">
@@ -612,8 +618,8 @@ function _drawAiSettingsPanel(panel, classId, state, exists) {
       <div class="admin-ai-title">🤖 학급 AI 설정</div>
       <span class="admin-ai-status ${statusCls}" id="admin-ai-status">${statusTxt}${notSavedNote}</span>
       <div class="admin-ai-master">
-        <label class="admin-ai-toggle" data-mode-toggle="__master">
-          <input type="checkbox" id="admin-ai-master" ${state.enabled ? 'checked' : ''}>
+        <label class="admin-ai-toggle${IS_JUDGE ? ' is-disabled' : ''}" data-mode-toggle="__master">
+          <input type="checkbox" id="admin-ai-master" ${state.enabled ? 'checked' : ''} ${IS_JUDGE ? 'disabled' : ''}>
           AI 전체 ${state.enabled ? '켜짐' : '꺼짐'}
         </label>
       </div>
@@ -627,7 +633,9 @@ function _drawAiSettingsPanel(panel, classId, state, exists) {
     </div>
     <div class="admin-ai-head">
       <span class="admin-ai-hint">학생에게는 선생님이 켠 기능만 보이고 사용할 수 있어요. ‘AI 그림책 마감’은 교사용이에요 — 학생 그림이 외부 AI 서비스로 전송될 수 있어 학교 안내·설정 후 사용하세요. 학생에게는 생성 버튼이 보이지 않습니다.</span>
-      <button class="admin-ai-save" id="admin-ai-save" style="margin-left:auto;">저장</button>
+      ${IS_JUDGE
+        ? '<div class="admin-ai-judge-note" style="margin-left:auto;max-width:520px;text-align:right;font-size:12.5px;font-weight:700;color:#3a5a2a;line-height:1.5;">🔒 심사위원 계정용은 AI 기능이 모두 켜진 상태로 해제할 수 없도록 설정해 놓았습니다.</div>'
+        : '<button class="admin-ai-save" id="admin-ai-save" style="margin-left:auto;">저장</button>'}
     </div>
   `;
 
@@ -636,22 +644,25 @@ function _drawAiSettingsPanel(panel, classId, state, exists) {
   const statusEl = panel.querySelector('#admin-ai-status');
   const saveBtn  = panel.querySelector('#admin-ai-save');
 
-  masterEl.addEventListener('change', () => {
-    state.enabled = masterEl.checked;
-    masterEl.closest('.admin-ai-toggle').lastChild.textContent = ` AI 전체 ${state.enabled ? '켜짐' : '꺼짐'}`;
-    statusEl.className = 'admin-ai-status ' + (state.enabled ? 'on' : 'off');
-    statusEl.textContent = state.enabled ? 'AI 켜짐 · 저장하면 적용돼요' : 'AI 꺼짐 · 저장하면 적용돼요';
-    modesEl.classList.toggle('is-locked', !state.enabled);
-  });
-
-  modesEl.querySelectorAll('input[data-ai-mode]').forEach(input => {
-    input.addEventListener('change', () => {
-      const key = input.dataset.aiMode;
-      state.modes[key] = input.checked;
+  /* JUDGE-LOCK: 심사 반은 토글·저장 버튼이 없으므로(잠금) 상호작용 바인딩 스킵. */
+  if (!IS_JUDGE) {
+    masterEl.addEventListener('change', () => {
+      state.enabled = masterEl.checked;
+      masterEl.closest('.admin-ai-toggle').lastChild.textContent = ` AI 전체 ${state.enabled ? '켜짐' : '꺼짐'}`;
+      statusEl.className = 'admin-ai-status ' + (state.enabled ? 'on' : 'off');
+      statusEl.textContent = state.enabled ? 'AI 켜짐 · 저장하면 적용돼요' : 'AI 꺼짐 · 저장하면 적용돼요';
+      modesEl.classList.toggle('is-locked', !state.enabled);
     });
-  });
 
-  saveBtn.addEventListener('click', () => _saveAiSettings(classId, state, panel, saveBtn, statusEl));
+    modesEl.querySelectorAll('input[data-ai-mode]').forEach(input => {
+      input.addEventListener('change', () => {
+        const key = input.dataset.aiMode;
+        state.modes[key] = input.checked;
+      });
+    });
+
+    if (saveBtn) saveBtn.addEventListener('click', () => _saveAiSettings(classId, state, panel, saveBtn, statusEl));
+  }
 }
 
 async function _saveAiSettings(classId, state, panel, saveBtn, statusEl) {

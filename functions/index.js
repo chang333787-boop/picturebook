@@ -109,7 +109,7 @@ function _aiModeLabel(mode) {
   return 'AI 기능';
 }
 const ROOT_DAILY_LIMIT = 50;       /* rootBranchId 묶음 — 하루 50회 */
-const GLOBAL_DAILY_LIMIT = 500;    /* 전역 일일 hard cap */
+const GLOBAL_DAILY_LIMIT = 2000;   /* 전역 일일 hard cap (2026-07-24: 심사 기간 안정 마진 위해 500→2000 상향) */
 
 /* ════════════════════════════════════════════════════════════════
    Origin 검증 — 가지 도메인에서 온 요청만 허용

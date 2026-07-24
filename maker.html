@@ -442,6 +442,16 @@
        [+ 버튼 추가]는 숨김. 함수 관문(renameScene/addButton)과 이중 방어. */
     body.pb-linear-locked .card-num-badge{ pointer-events:none; cursor:default; }
     body.pb-linear-locked .card-add-button{ display:none !important; }
+    /* LINEAR-CARD-READ(2026-07-24 사용자 요청): 1·2단계 브랜치 카드는 '글 읽기·이어쓰기'가 목적인데
+       2단계에 그림이 들어가면 그림(144px)이 카드 절반을 먹어 글이 한눈에 안 보였음 → 그림을 작게 줄이고
+       본문 미리보기를 5줄→9줄로 늘려 글이 잘 보이게(그리드 자동정렬·다듬기/감상/인쇄엔 무영향). */
+    body.pb-linear-locked .pb-mapcard .card-thumb{ height:78px !important; max-height:78px !important; }
+    body.pb-linear-locked .pb-mapcard .card-img-btn{ height:60px !important; }
+    body.pb-linear-locked .pb-mapcard .card-image-area{ padding:1px 9px 3px; }
+    body.pb-linear-locked .pb-mapcard .pb-body-preview{
+      -webkit-line-clamp:9 !important;
+      min-height:calc(1.5em * 9) !important; max-height:calc(1.5em * 9) !important;
+    }
 
     /* v40: 복사 코드 모달 (발급/받기 공용) */
     .copy-code-modal{

@@ -450,7 +450,7 @@
        AI 판정('답 살펴보고 있어요…')을 또 기다리고 후속질문이 중복 기록되던 것 → 이미 판정한 답과
        같으면 AI 호출을 건너뛰고 바로 다음으로(검토 화면 '고치기'의 무판정 정책과 동일). */
     if (!S.judgedAnswers) S.judgedAnswers = {};
-    const _ansKey = String((ans && ans.choiceId) || '') + ' ' + String((ans && ans.answerText) || '');
+    const _ansKey = String((ans && ans.choiceId) || '') + '\u0000' + String((ans && ans.answerText) || '');
     const _alreadyJudged = Object.prototype.hasOwnProperty.call(S.judgedAnswers, q.id) && S.judgedAnswers[q.id] === _ansKey;
     /* COMPASS-V2-FOLLOWUP: v2 가드 해제 — 서버 allowlist가 v1+v2 합집합으로 확장됨(15키).
        coreTotal은 vm 기반(v1=7·v2=10) — 상한도 세트별(12/15, flow.followUpBudgetLeft).

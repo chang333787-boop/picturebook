@@ -2121,7 +2121,12 @@ async function _renderShelfCommentPanel(classId) {
     try {
       if (!commentEnabled && !commentCode) {
         /* 처음 켤 때 코드가 없으면 같이 만들기 */
-        const c = prompt('댓글 코드를 정해주세요 (숫자/영문 4~6자)', String(Math.floor(1000 + Math.random() * 9000)));
+        /* COMMENT-HARDEN-1(2026-07-26): 기본 제안을 4자리 숫자(9000가지)에서 6자리 영숫자로 —
+           대부분 제안값을 그대로 쓰는데, 4자리는 대입으로 뚫릴 수 있는 크기였다.
+           교사가 원하면 여전히 4~6자로 직접 지정 가능(검증식 불변). */
+        const _sugg = Array.from({ length: 6 }, () =>
+          'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 32)]).join('');
+        const c = prompt('댓글 코드를 정해주세요 (숫자/영문 4~6자)', _sugg);
         if (!c) return;
         const cc = c.trim();
         if (!/^[A-Za-z0-9]{4,6}$/.test(cc)) { alert('코드는 숫자/영문 4~6자로 해주세요.'); return; }

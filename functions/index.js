@@ -3978,6 +3978,15 @@ exports.postWorkComment = onCall(
     const _cleanComment = (s, keepNewline) => String(s || '')
       .replace(keepNewline ? /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g : /[\u0000-\u001F\u007F]/g, '')
       .replace(/[\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/g, '');
+    /* COMMENT-HARDEN-1(2026-07-26): 이 콜러블은 설계상 로그인 없이 쓰는 유일한 쓰기 경로다
+       (댓글 코드가 곧 열쇠). 그래서 다른 콜러블에 다 있는 origin 검사가 여기만 빠져 있으면
+       브라우저 밖 스크립트로 코드를 무제한 대입할 수 있다 — 기본 코드가 4자리 숫자(9000가지)라
+       실제로 뚫린다. origin 검사 + 아래 실패 대입 상한으로 막는다. */
+    const _origin = (req.rawRequest && req.rawRequest.headers && req.rawRequest.headers.origin) || '';
+    if (!isOriginAllowed(_origin)) {
+      logger.warn('[postWorkComment] origin 거부', { origin: _origin });
+      throw new HttpsError('permission-denied', '허용되지 않은 요청이에요.');
+    }
     const classId = String(d.classId || '').trim();
     const enc = String(d.team || '').trim();
     const code = String(d.code || '').trim();
@@ -3991,8 +4000,19 @@ exports.postWorkComment = onCall(
     if (!code) throw new HttpsError('invalid-argument', '댓글 코드를 입력해주세요. (선생님에게 받을 수 있어요)');
     const enabled = (await admin.database().ref(`classes/${classId}/settings/commentEnabled`).once('value')).val();
     if (enabled !== true) throw new HttpsError('failed-precondition', '이 학급은 아직 댓글 기능을 켜지 않았어요.');
+    /* COMMENT-HARDEN-1: 코드 대입 상한 — 학급별 하루 100회 실패까지만.
+       한 반 아이들이 오타를 내도 넉넉하고(정상 사용 방해 없음), 4자리 코드 전수(9000회)는
+       하루 100회로는 불가능하다. 학교는 한 교실이 같은 공인 IP를 쓰므로 IP 기준은 오차단
+       위험이 커서 쓰지 않는다. 성공한 시도는 카운트하지 않는다. */
+    const _failRef = admin.database().ref(`comment-fail/${classId}/${_todayYmd()}`);
+    const _fails = (await _failRef.once('value')).val() || 0;
+    if (_fails >= 100) {
+      logger.warn('[postWorkComment] 코드 대입 상한 초과', { classId, fails: _fails });
+      throw new HttpsError('resource-exhausted', '잠시 후 다시 시도해 주세요. (코드 확인은 선생님께)');
+    }
     const realCode = (await admin.database().ref(`classes/${classId}/commentAuth/code`).once('value')).val();
     if (!realCode || String(realCode) !== code) {
+      await _failRef.transaction((n) => (n || 0) + 1).catch(() => {});
       throw new HttpsError('permission-denied', '댓글 코드가 맞지 않아요. 선생님께 확인해주세요.');
     }
     /* 작품이 실제 공개 상태인지(비공개 작품에 댓글 유입 차단) */

@@ -6166,10 +6166,17 @@ function _level2NeedsCharacter() {
   } catch (e) { return false; }
 }
 
-async function _saveProtagonistRef(url) {
+async function _saveProtagonistRef(url, desc) {
   const clean = (url && /^https?:\/\//.test(String(url).trim())) ? String(url).trim() : null;
   if (!clean) throw new Error('bad url');
-  try { if (ViewerState && ViewerState.project) ViewerState.project.protagonistRef = clean; } catch (e) { /* noop */ }
+  /* PROTAG-DESC-1: 주인공 특징 글 — 누가 주인공인지 확정용(캐릭터 시트). 120자 상한. */
+  const cleanDesc = (typeof desc === 'string') ? desc.replace(/\s+/g, ' ').trim().slice(0, 120) : '';
+  try {
+    if (ViewerState && ViewerState.project) {
+      ViewerState.project.protagonistRef = clean;
+      ViewerState.project.protagonistDesc = cleanDesc || null;
+    }
+  } catch (e) { /* noop */ }
   /* classId/teamName 소스는 검증된 저장(authorName)과 동일 — 진실은 ViewerState.project.*
      (loadTeamData가 채움). ViewerState.*·URL 파라미터는 fallback. 직접 ViewerState.classId만
      쓰면 init 시점 공백에 "team not ready"로 저장 실패(사용자 보고). */
@@ -6186,7 +6193,7 @@ async function _saveProtagonistRef(url) {
   const app = (typeof getViewerApp === 'function') ? getViewerApp() : firebase.app('viewer');
   if (!app || typeof app.database !== 'function') throw new Error('db not ready');
   await app.database().ref('classes/' + cid + '/teams/' + encodeURIComponent(tn) + '/viewer-meta')
-    .update({ protagonistRef: clean });
+    .update({ protagonistRef: clean, protagonistDesc: cleanDesc || null });
 }
 
 /* 못 닫는 필수 게이트 모달 — [주인공 그리기 시작]만. 배경/ESC 닫힘 없음. */
@@ -6223,8 +6230,11 @@ function _openLevel2CharGate() {
     };
     _openPbDrawModal(shell, {
       title: '🎨 우리 주인공 그리기',
-      saveOverride: async (url) => {
-        await _saveProtagonistRef(url);
+      /* PROTAG-DESC-1: 2단계는 특징 글 필수 — 누가 주인공인지 확정(장면마다 안 흔들리게). */
+      descField: true, descRequired: true,
+      descValue: (ViewerState.project && ViewerState.project.protagonistDesc) || '',
+      saveOverride: async (url, desc) => {
+        await _saveProtagonistRef(url, desc);
         _cleanup();   /* 주인공 저장 성공 → 게이트 해제, 진행 가능 */
       },
       onClose: () => {
@@ -6301,8 +6311,11 @@ function _openLevel1ProtagGate() {
     };
     _openPbDrawModal(shell, {
       title: '🎨 우리 주인공 그리기',
-      saveOverride: async (url) => {
-        await _saveProtagonistRef(url);
+      /* PROTAG-DESC-1: 1단계도 특징 글 필수 — 확정된 주인공으로 전 장면 일관. */
+      descField: true, descRequired: true,
+      descValue: (ViewerState.project && ViewerState.project.protagonistDesc) || '',
+      saveOverride: async (url, desc) => {
+        await _saveProtagonistRef(url, desc);
         _finish(true);   /* 저장 성공 → 비전 설명 반영된 배치 시작 */
       },
       onClose: () => {
@@ -7952,6 +7965,21 @@ function _openPbDrawModal(scene, opts) {
           style="aspect-ratio: ${canvasW} / ${canvasH}; touch-action: none; cursor: crosshair;"></canvas>
       </div>
 
+      ${opts.descField ? `
+      <!-- PROTAG-DESC-1: 주인공 특징 글 — 누가 주인공인지 확정(모든 장면 동일 인물) -->
+      <div class="pb-draw-protagdesc" style="padding:8px 14px 2px;">
+        <label for="pb-draw-protagdesc" style="display:block;font-size:14px;font-weight:700;color:#3a2f22;margin-bottom:5px;">
+          ✍️ 우리 주인공은 어떻게 생겼나요? <span style="color:#c0413e;font-weight:700;">꼭 적어 주세요</span>
+        </label>
+        <input id="pb-draw-protagdesc" type="text" class="js-pb-draw-protagdesc" maxlength="120"
+          value="${escHtml(opts.descValue || '')}"
+          placeholder="예) 왕관 쓰고 파란 티셔츠 입은 남자아이"
+          style="width:100%;box-sizing:border-box;font-size:15px;padding:9px 11px;border:2px solid #d8c9b3;border-radius:9px;background:#fffdf8;">
+        <div class="js-pb-draw-protagdesc-msg" style="font-size:12.5px;color:#7a6a52;margin-top:5px;">
+          이 설명으로 AI가 모든 장면에서 <b>똑같은 주인공</b>으로 그려요.
+        </div>
+      </div>` : ''}
+
       <!-- 푸터 -->
       <div class="pb-draw-footer">
         <div class="pb-draw-footer-hint">
@@ -8663,6 +8691,19 @@ function _openPbDrawModal(scene, opts) {
       /* LEVEL2-CHAR: 작품 단위 주인공 저장 — 장면 소스모드 게이트/lock/scene write 모두 우회
          (주인공은 장면 이미지가 아님). 업로드는 공용 헬퍼('char' 키)로 고유 경로. */
       if (typeof opts.saveOverride === 'function') {
+        /* PROTAG-DESC-1: 주인공 특징 글 — 필수면 비었을 때 저장 차단(누가 주인공인지 확정). */
+        let _desc = '';
+        if (opts.descField) {
+          const _di = modal.querySelector('.js-pb-draw-protagdesc');
+          _desc = _di ? String(_di.value || '').replace(/\s+/g, ' ').trim() : '';
+          if (opts.descRequired && _desc.length < 2) {
+            const _msg = modal.querySelector('.js-pb-draw-protagdesc-msg');
+            if (_msg) { _msg.innerHTML = '⚠️ 주인공이 <b>어떻게 생겼는지</b> 한 줄 적어 주세요. (예: 왕관 쓴 남자아이)'; _msg.style.color = '#c0413e'; }
+            if (_di) { try { _di.style.borderColor = '#c0413e'; _di.focus(); } catch (e2) {} }
+            _restoreSaveBtn();
+            return;
+          }
+        }
         let _u;
         try {
           const r = await viewerUploadImageToStorage(dataUrl, 'char');
@@ -8674,7 +8715,7 @@ function _openPbDrawModal(scene, opts) {
           return;
         }
         try {
-          await opts.saveOverride(_u);
+          await opts.saveOverride(_u, _desc);
         } catch (e) {
           console.error('[viewer-edit] 주인공 저장 실패:', e);
           alert('❌ 저장하지 못했어요. 잠시 후 다시 시도해 주세요.');

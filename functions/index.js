@@ -2551,7 +2551,16 @@ exports.callImageAiS2 = onCall(
       if (_lvl === 2) {
         _s2TransformMode = 'strong';
         const _cs = (await baseRef.child('aiVariants/characterSheet').once('value')).val();
-        if (typeof _cs === 'string' && _cs.trim()) _s2CharSheet = _cs.trim().slice(0, 500);
+        const _csText = (typeof _cs === 'string' && _cs.trim()) ? _cs.trim() : '';
+        /* PROTAG-DESC-1(2026-07-25): 아이가 적은 주인공 특징 글 — 캐릭터 시트 맨 앞에 '주인공 확정'
+           으로 주입. 레퍼런스 그림만으론 넥타이→선생님처럼 오해하고 장면마다 인물이 흔들리던 것을,
+           "이 인물이 주인공"이라는 글 설명으로 못 박는다(누가 주인공인지 확정). */
+        const _pd = (await baseRef.child('viewer-meta/protagonistDesc').once('value')).val();
+        const _pdText = (typeof _pd === 'string' && _pd.trim()) ? _pd.trim().slice(0, 120) : '';
+        const _protLine = _pdText
+          ? ('이 이야기의 주인공(가장 중요·모든 장면에서 반드시 같은 인물로): ' + _pdText + '. 이 특징을 다른 조연에게 주지 마세요.')
+          : '';
+        _s2CharSheet = [_protLine, _csText].filter(Boolean).join(' / ').slice(0, 500);
         /* LEVEL2-CHAR: 우리 주인공 레퍼런스 URL(viewer-meta/protagonistRef). https만·2번째 이미지로. */
         const _pr = (await baseRef.child('viewer-meta/protagonistRef').once('value')).val();
         if (typeof _pr === 'string' && /^https:\/\//.test(_pr.trim())) _s2ProtRef = _pr.trim();
@@ -3583,10 +3592,18 @@ exports.generateStoryImages = onCall(
           const _prUrl = _prRef.trim();
           /* 캐시: 같은 그림이면 재설명 안 함(url+desc 저장). 다른 그림이면 갱신. */
           let desc = null;
+          /* PROTAG-DESC-1(2026-07-25): 아이가 직접 적은 특징 글(viewer-meta/protagonistDesc) 최우선 —
+             있으면 비전 자동설명보다 아이 말을 쓴다(주인공 확정·오해 차단). 비었으면 기존 비전 흐름. */
           try {
-            const cache = (await baseRef.child('aiVariants/protagonistDesc').once('value')).val();
-            if (cache && cache.url === _prUrl && typeof cache.desc === 'string' && cache.desc.trim()) desc = cache.desc.trim();
-          } catch (e) { /* 캐시 무시 */ }
+            const _pdStu = (await baseRef.child('viewer-meta/protagonistDesc').once('value')).val();
+            if (typeof _pdStu === 'string' && _pdStu.trim()) desc = _pdStu.trim().slice(0, 120);
+          } catch (e) { /* noop */ }
+          if (!desc) {
+            try {
+              const cache = (await baseRef.child('aiVariants/protagonistDesc').once('value')).val();
+              if (cache && cache.url === _prUrl && typeof cache.desc === 'string' && cache.desc.trim()) desc = cache.desc.trim();
+            } catch (e) { /* 캐시 무시 */ }
+          }
           if (!desc) {
             desc = await _describeProtagonist(_prUrl, ANTHROPIC_API_KEY.value());
             if (desc) {

@@ -310,6 +310,8 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
   ViewerState.project.printOverrides = null;
   /* LEVEL2-CHAR(2026-07-21): 2단계 '우리 주인공' 레퍼런스 이미지 URL — 책 전환 상속 차단 */
   ViewerState.project.protagonistRef = null;
+  /* PROTAG-DESC-1(2026-07-25): 주인공 특징 글 설명(누구·외형) — 캐릭터 확정용. 책 전환 상속 차단 */
+  ViewerState.project.protagonistDesc = null;
   /* PUBLISH-VERSION(2026-07-24): 감상 화면에서 친구에게 보일 버전 잠금(작품 설정).
      'both'/null=토글 그대로 · 'original'=원본 고정+토글숨김 · 'aiS2'=AI 고정+토글숨김. 책 전환 상속 차단 */
   ViewerState.project.viewerShowText = null;
@@ -377,6 +379,11 @@ async function loadTeamData(teamName, classId = null, fromMaker = false, ptypeHi
        다듬기 첫 진입 필수 게이트(있으면 스킵)·callImageAiS2(2단계 마감 2번째 이미지). https URL만. */
     if (typeof meta.protagonistRef === 'string' && /^https?:\/\//.test(meta.protagonistRef.trim())) {
       ViewerState.project.protagonistRef = meta.protagonistRef.trim();
+    }
+    /* PROTAG-DESC-1(2026-07-25): 주인공 특징 글(viewer-meta.protagonistDesc). 소비자=주인공 게이트
+       프리필·callImageAiS2/generateStoryImages 캐릭터 시트(누가 주인공인지 확정). */
+    if (typeof meta.protagonistDesc === 'string' && meta.protagonistDesc.trim()) {
+      ViewerState.project.protagonistDesc = meta.protagonistDesc.trim();
     }
     /* LEVELS-CONT: viewer에는 maker(ui.js)의 getPicturebookLevel이 없어 튜토리얼 pbLevels
        필터가 항상 3단계 취급되던 것 보정 — ViewerState 기반 shim(다듬기 환영/코치에서 사용).

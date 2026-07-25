@@ -97,14 +97,27 @@ function getViewerDb() {
     }
   } else if (!_viewerAuthPromise && app && typeof app.auth === 'function') {
     /* 공개/일반 감상 — 기존 named 'viewer' app 익명 로그인 사전 보장(원본 동작 유지).
-       이미지 업로드 / lock transaction 호출 시점에 인증이 확보돼 있도록 미리 시도. */
+       이미지 업로드 / lock transaction 호출 시점에 인증이 확보돼 있도록 미리 시도.
+       SHELF-AUTH-RESTORE(2026-07-25): ⚠️ auth 복원(IndexedDB 비동기)이 끝나기 전에 currentUser=null을
+       보고 signInAnonymously()를 부르면 "새 익명 uid"가 만들어져 새로고침 시 members/{기존uid}를
+       잃고 '로그아웃'처럼 됨(책장/재입장). 메이커 _resumeTeamFromSession(REFINE-STAB-C)과 동일하게
+       onAuthStateChanged 첫 발화(=복원 완료)까지 대기 후에만 필요 시 익명 로그인 → 기존 uid 재사용. */
     try {
       const auth = app.auth();
-      if (!auth.currentUser) {
-        _viewerAuthPromise = auth.signInAnonymously()
-          .then(c => { try { console.log('[viewer] anonymous auth OK', c && c.user && c.user.uid); } catch(_) {} return c; })
-          .catch(e => { try { console.warn('[viewer] anonymous auth 실패 (재시도는 각 함수에서 진행)', e && e.code, e && e.message); } catch(_) {} _viewerAuthPromise = null; });
-      }
+      _viewerAuthPromise = new Promise(resolve => {
+        let done = false;
+        const finish = () => { if (!done) { done = true; try { unsub(); } catch (e) {} resolve(); } };
+        const unsub = auth.onAuthStateChanged(finish, finish);
+        setTimeout(finish, 3000);   /* 방어: 복원 이벤트 미발화 시에도 진행 */
+      }).then(() => {
+        if (auth.currentUser) {
+          try { console.log('[viewer] auth 복원 — 기존 익명 uid 유지', auth.currentUser.uid); } catch(_) {}
+          return auth.currentUser;
+        }
+        return auth.signInAnonymously()
+          .then(c => { try { console.log('[viewer] anonymous auth OK', c && c.user && c.user.uid); } catch(_) {} return c && c.user; })
+          .catch(e => { try { console.warn('[viewer] anonymous auth 실패 (재시도는 각 함수에서 진행)', e && e.code, e && e.message); } catch(_) {} _viewerAuthPromise = null; return null; });
+      });
     } catch (e) { /* auth SDK 없거나 init 실패 — 각 함수에서 다시 시도 */ }
   }
   return _viewerDb;

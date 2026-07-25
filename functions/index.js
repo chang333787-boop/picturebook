@@ -3130,7 +3130,7 @@ exports.teacherScriptDraft = onCall(
       message:     field('message', 200),
     };
     if (!input.topic)      throw new HttpsError('invalid-argument', '주제/상황을 입력해 주세요.');
-    if (!input.characters) throw new HttpsError('invalid-argument', '주인공 구성을 입력해 주세요.');
+    if (!input.characters) throw new HttpsError('invalid-argument', '등장인물 구성을 입력해 주세요.');
     if (!input.structure)  throw new HttpsError('invalid-argument', '분기 구조를 골라 주세요.');
 
     /* 교사 일일 한도 — KST 날짜 기준 transaction 증가(초과 시 롤백) */

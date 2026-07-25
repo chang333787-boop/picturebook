@@ -50,8 +50,10 @@
             ".validate": "!newData.exists() || (newData.hasChild('createdAt') && newData.hasChild('draft'))",
             "title":     { ".validate": "newData.isString() && newData.val().length <= 120" },
             "topic":     { ".validate": "newData.isString() && newData.val().length <= 200" },
-            "createdBy": { ".validate": "newData.isString()" },
-            "createdAt": { ".validate": "newData.isNumber()" }
+            "createdBy": { ".validate": "newData.isString() && newData.val().length <= 128" },
+            "createdAt": { ".validate": "newData.isNumber()" },
+            "draft":     { ".validate": "newData.hasChildren()" },
+            "$other":    { ".validate": false }
           }
         },
         "commentAuth": {

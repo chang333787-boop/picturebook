@@ -350,6 +350,27 @@
 }
 
 /* ════════════════════════════════════════════════
+   HOME-LAPTOP-FOLD-1 (2026-07-26) — 크롬북/노트북 첫 화면에서 메인 카드가 접히던 것.
+   실측(1366×610 = 크롬북에서 탭바·주소창·셸프 뺀 실제 영역): 카드가 y=472에서 시작해
+   제목조차 안 보이고, 전부 보려면 248px 스크롤이 필요했다 → 아이가 첫 화면에서
+   "어디 눌러요?"가 됨. 세로 예산을 줄여 카드 제목까지 첫 화면에 들어오게 한다.
+   · 넓고 높은 화면(데스크톱)은 기존 디자인 그대로 — 이 블록은 세로 760px 이하에서만.
+   · 모바일(≤640px)은 별도 compact 레이아웃이 이미 있으므로 min-width로 제외.
+   ════════════════════════════════════════════════ */
+@media (orientation: landscape) and (max-height: 780px) and (min-width: 900px) {
+  .v .wh { padding-top: var(--s4); padding-bottom: var(--s4); }
+  .v .wh__main { gap: var(--s5); }              /* 64 → 24 (섹션 간 2곳) */
+  .v .wh__eyebrow { font-size: 19px; margin-bottom: var(--s1); }
+  .v .wh__title { font-size: 42px; margin-bottom: var(--s2); }
+  .v .wh__sub { font-size: 16px; line-height: 1.5; }
+  .v .wh__sub-extra { display: inline; }
+  .v .wh-card { padding: var(--s4) var(--s5) var(--s5); gap: var(--s2); }
+  .v .wh-card__desc { margin-top: 2px; }
+  /* 연구대회 표기(히어로 하단)도 붙임 — 내용은 그대로, 여백만 축소 */
+  .wh__contest-footer { margin-top: var(--s2) !important; }
+}
+
+/* ════════════════════════════════════════════════
    HOME-MOBILE-UX-1 (2026-06-10) — 모바일 전용 첫 화면
    데스크톱 큰 카드를 억지로 줄이지 않고, 모바일은 compact "가로 행" 메뉴로 전환.
    세로 = 1열 행 스택 / 가로 = 좌(로고)·우(카드 목록) 분할.

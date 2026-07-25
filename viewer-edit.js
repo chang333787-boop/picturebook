@@ -3483,10 +3483,13 @@ function _pbImageActionsHtml(scene) {
     <div class="edit-row">
       <label class="edit-label">🖼️ 장면 그림 ${_hasImg2 ? '<span class="edit-label-note">(있음)</span>' : '<span class="edit-label-note">(없음)</span>'}</label>
       <div class="edit-pb-image-actions">
-        <span class="edit-label-note" style="display:block;margin-bottom:6px;word-break:keep-all;">잘 그리지 않아도 괜찮아요! 😊 <b>누가 어디 있는지만</b> 쓱쓱 그려요. <b>AI 그림책 마감</b>을 누르면 예쁜 그림으로 짠! 바뀌어요.</span>
+        <span class="edit-label-note" style="display:block;grid-column:1 / -1;margin-bottom:6px;word-break:keep-all;">잘 그리지 않아도 괜찮아요! 😊 <b>누가 어디 있는지만</b> 쓱쓱 그려요. <b>AI 그림책 마감</b>을 누르면 예쁜 그림으로 짠! 바뀌어요.</span>
         <button type="button" class="edit-toggle js-pb-image-draw"${_hasImg2 ? ' disabled style="opacity:0.4;" title="이미 그린 그림이 있어요. 지우고 다시 그릴 수 있어요."' : ''}>✏️ 구도 그리기</button>
         ${_hasImg2 ? '<button type="button" class="edit-toggle js-pb-image-remove" style="color:#c66f4a;">🗑 지우고 다시</button>' : ''}
         <button type="button" class="edit-toggle js-pb-lvl2-example" style="color:#4a7ab0;">🎨 어떻게 바뀌어요?</button>
+        ${_hasImg2 ? `<span class="edit-label-note" style="display:block;grid-column:1 / -1;margin-top:6px;color:#a07a52;">
+          ✏️ 구도 그리기는 <b>[🗑 지우고 다시]</b>를 먼저 눌러야 열려요. (그림이 이미 있어요)
+        </span>` : ''}
       </div>
     </div>`;
   }
@@ -3505,6 +3508,9 @@ function _pbImageActionsHtml(scene) {
         ${hasImage
           ? `<button type="button" class="edit-toggle js-pb-image-draw" disabled style="opacity:0.4;" title="사진이 있을 땐 그리기를 사용할 수 없어요. 삭제 후 다시 그릴 수 있어요.">✏️ 그리기</button>`
           : `<button type="button" class="edit-toggle js-pb-image-draw">✏️ 그리기</button>`}
+        ${hasImage ? `<span class="edit-label-note" style="display:block;grid-column:1 / -1;margin-top:6px;color:#a07a52;">
+          ✏️ 그리기는 <b>[🗑 삭제]</b>를 먼저 눌러야 열려요. (그림이 이미 있어요)
+        </span>` : ''}
         <!-- IMG-BTN-RETIRE(2026-07-10): ✂️크기·이동/✄자르기 버튼 제거 — 조사 결과 imageCenter(주력)
              감상 렌더가 background-image(contain)라 imageTransform이 화면에 반영되지 않는 사문화 버튼
              (조정해도 변화 없음=학생 혼란·"그림 안 자름" 원칙과도 충돌). 인쇄도 미반영.

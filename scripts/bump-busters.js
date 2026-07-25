@@ -45,6 +45,9 @@ let mismatches = 0;
 let missing = 0;
 let rewritten = 0;
 
+/* viewer-edit.js(나침반 번들 로더)를 HTML보다 먼저 — 같은 실행에서 EDIT_SRC 해시가 갱신본 기준이 되게 */
+processCompassLoader();
+
 HTML_FILES.forEach((htmlName) => {
   const htmlPath = path.join(ROOT, htmlName);
   if (!fs.existsSync(htmlPath)) return;
@@ -76,6 +79,59 @@ HTML_FILES.forEach((htmlName) => {
 
   if (MODE === 'write' && out !== src) fs.writeFileSync(htmlPath, out);
 });
+
+/* ── 감사 #16(2026-07-25): viewer-edit.js 나침반 지연 번들 — 고정 문자열 버스터(rosefirst1)가
+   커버리지 밖이라 compass 파일 수정이 캐시 버전으로 새던 구멍.
+   · 'xxx.css?v=…' 문자열 참조 = 해당 파일 내용 해시(HTML 규칙과 동일)
+   · const V = '?v=…' = await load('file.js' + V)로 싣는 JS들의 "결합 해시"(하나만 바뀌어도 V 변경) */
+function processCompassLoader() {
+  const jsPath = path.join(ROOT, 'viewer-edit.js');
+  if (!fs.existsSync(jsPath)) return;
+  const src = fs.readFileSync(jsPath, 'utf8');
+
+  const CSS_STR_RE = /(')([^':]+?\.css)\?v=([^']*)(')/g;
+  let out = src.replace(CSS_STR_RE, (whole, q1, ref, oldV, q2) => {
+    const target = path.join(ROOT, ref);
+    if (!fs.existsSync(target)) { console.error(`❌ viewer-edit.js: 참조 파일 없음 — ${ref}`); missing++; return whole; }
+    const h = hashOf(target);
+    if (oldV === h) return whole;
+    mismatches++;
+    if (MODE === 'check') {
+      console.log(`  · viewer-edit.js: ${ref}  ?v=${oldV.length > 24 ? oldV.slice(0, 24) + '…' : oldV}  →  ${h}`);
+      return whole;
+    }
+    rewritten++;
+    return `${q1}${ref}?v=${h}${q2}`;
+  });
+
+  const bundleRefs = [];
+  const BUNDLE_RE = /await load\('([^':]+?\.js)' \+ V\)/g;
+  let m;
+  while ((m = BUNDLE_RE.exec(src)) !== null) bundleRefs.push(m[1]);
+  if (bundleRefs.length) {
+    let allExist = true;
+    const hasher = crypto.createHash('md5');
+    bundleRefs.forEach((ref) => {
+      const t = path.join(ROOT, ref);
+      if (!fs.existsSync(t)) { console.error(`❌ viewer-edit.js: 번들 참조 파일 없음 — ${ref}`); missing++; allExist = false; return; }
+      hasher.update(fs.readFileSync(t));
+    });
+    if (allExist) {
+      const combined = hasher.digest('hex').slice(0, 10);
+      out = out.replace(/(const V = '\?v=)([^']*)(')/, (whole, pre, oldV, post) => {
+        if (oldV === combined) return whole;
+        mismatches++;
+        if (MODE === 'check') {
+          console.log(`  · viewer-edit.js: compass 번들(${bundleRefs.length}종)  ?v=${oldV.length > 24 ? oldV.slice(0, 24) + '…' : oldV}  →  ${combined}`);
+          return whole;
+        }
+        rewritten++;
+        return `${pre}${combined}${post}`;
+      });
+    }
+  }
+  if (MODE === 'write' && out !== src) fs.writeFileSync(jsPath, out);
+}
 
 if (missing > 0) {
   console.error(`\n❌ 깨진 참조 ${missing}건 — 먼저 고쳐 주세요.`);

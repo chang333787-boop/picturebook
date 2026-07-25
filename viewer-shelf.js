@@ -126,9 +126,16 @@
     const res = await _fns().httpsCallable('getClassShelf')(payload);
     const data = (res && res.data) || {};
     if (!data.ok) throw new Error('책장을 불러오지 못했어요.');
+    /* 감사 #10: 자동복귀(ifIdle) 응답이 늦게 도착했을 때 사용자가 이미 코드로 작품 감상을
+       시작했다면 화면을 덮지 않음(콜드스타트 수 초 창의 레이스 차단). 컨텍스트만 갱신. */
+    const _playerActive = (function () {
+      try { const p = document.getElementById('player-screen'); return p && !p.classList.contains('hidden'); }
+      catch (e) { return false; }
+    })();
     _shelfData = data;
     /* 코드로 열었으면 코드도 보관 — 복귀 재조회(배지 갱신)가 같은 자격으로 통과하게 */
     _setCtx({ classId: data.classId, code: (opts && opts.classCode) || null });
+    if (opts && opts.ifIdle && _playerActive) return true;
     _renderShelf(data);
     _showShelf();
     return true;

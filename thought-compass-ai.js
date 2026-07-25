@@ -27,11 +27,15 @@
 
   /* ADAPTIVE-CHOICES(2026-07-24): 맥락 맞춤 보기 요청. 실패/미배포 → null(UI가 고정 보기 폴백).
      payload: { classId, teamName, projectType?, questionId?, questionTitle, priorAnswersText, staticChoices? }
-     반환: { ok, choices:[{label,value}×3] } | null */
+     반환: { ok, choices:[{label,value}×3] } | null
+     감사 #17: single-flight를 질문키별로 — 다른 질문 요청에 진행 중 프라미스를 돌려주면
+     A질문 보기가 B질문에 저장되는 교차 오염. 같은 질문 중복만 합치고, 다른 질문은 새 호출. */
   let _acInflight = null;
+  let _acInflightKey = null;
   function requestAdaptiveChoices(payload) {
-    if (_acInflight) return _acInflight;
-    _acInflight = (async function () {
+    const _key = String((payload && (payload.questionId || payload.questionTitle)) || '');
+    if (_acInflight && _acInflightKey === _key) return _acInflight;
+    const _p = (async function () {
       try {
         const app = (typeof firebase !== 'undefined' && typeof firebase.app === 'function') ? firebase.app() : null;
         if (!app || typeof app.functions !== 'function') return null;
@@ -42,7 +46,9 @@
         return null;   /* 미배포/네트워크/권한/한도 실패 → null(고정 보기로 진행) */
       }
     })();
-    return _acInflight.then(function (v) { _acInflight = null; return v; }, function () { _acInflight = null; return null; });
+    _acInflight = _p; _acInflightKey = _key;
+    const _clear = function () { if (_acInflight === _p) { _acInflight = null; _acInflightKey = null; } };
+    return _p.then(function (v) { _clear(); return v; }, function () { _clear(); return null; });
   }
 
   window.ThoughtCompassAI = { requestFollowUp: requestFollowUp, requestAdaptiveChoices: requestAdaptiveChoices };

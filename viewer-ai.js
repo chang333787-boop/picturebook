@@ -1549,6 +1549,12 @@
       if (!scene) return originalSrc;
       var raw = null;
       try { raw = localStorage.getItem(_getMockImageViewModeKey()); } catch (e) { raw = null; }   /* null|'original'|'aiS1'|'aiS2' */
+      /* PUBLISH-VERSION-FIX(2026-07-25 감사 #0): 그림 잠금이 렌더에 실제로 적용되게 —
+         잠금이 있으면 로컬 토글 잔존값(raw)을 무시하고 설정 버전을 강제.
+         (글은 _getAiViewMode가 이미 잠금 반영 — 그림만 빠져 있던 비대칭 해소.
+         aiS2 잠금인데 해당 장면 AI 그림이 없으면 아래 기존 폴백대로 원본 표시.) */
+      const _imgLock = (typeof _publishLockMode === 'function') ? _publishLockMode('image') : null;
+      if (_imgLock) raw = _imgLock;
       const sid = (scene.id != null) ? scene.id : scene.sceneId;
       if (raw === 'aiS1' || raw === 'aiS2') {
         if (sid == null) return originalSrc;
@@ -2724,9 +2730,12 @@
     /* Phase 4-A: 감상자/편집자 공통 표시. 감상자는 editMode=false라 보기 전용으로 안전. */
 
     /* 현재 보기 mode가 더 이상 유효하지 않으면 원본으로 정리 (setMode가 재렌더+업데이트).
-       _getAiViewMode가 aiS1을 이미 original로 정규화하므로 s2 유효성만 확인. */
+       _getAiViewMode가 aiS1을 이미 original로 정규화하므로 s2 유효성만 확인.
+       BOOT-DEMOTE-GUARD(2026-07-25 감사 #9): FB 변형 캐시 미로딩(null) 상태에서는 hasS2가
+       무조건 false라, 부트스트랩 동기 호출이 학생의 명시 'AI' 선택을 'original'로 영구
+       덮어쓰던 것 차단 — 캐시가 실제 로드된 뒤(preload 완료 재호출)에만 정리. */
     const cur = _getAiViewMode();
-    if (cur === 'aiS2' && !hasS2) {
+    if (cur === 'aiS2' && !hasS2 && _fbTextVariants) {
       _setAiViewMode('original');
     }
 
@@ -2825,9 +2834,10 @@
     const isPb = !!(ViewerState && ViewerState.project && ViewerState.project.projectType === 'picturebook');
     if (!isPb && !hasS2) { _hideAiImageToggleBar(); return; }
 
-    /* 현재 이미지 보기 모드가 더 이상 유효하지 않으면(aiS1 폐기/ s2 없음) 원본으로 정리 */
+    /* 현재 이미지 보기 모드가 더 이상 유효하지 않으면(aiS1 폐기/ s2 없음) 원본으로 정리.
+       BOOT-DEMOTE-GUARD(2026-07-25 감사 #9): s2 없음 판정은 FB 캐시 로드 후에만(텍스트와 동일). */
     const cur = _getAiImageViewMode();
-    if (cur === 'aiS1' || (cur === 'aiS2' && !hasS2)) {
+    if (cur === 'aiS1' || (cur === 'aiS2' && !hasS2 && _fbImageVariants)) {
       _setAiImageViewMode('original');
     }
 
@@ -3460,7 +3470,8 @@
           if (Number.isFinite(Number(o.y))) out.y = Math.round(Math.max(0, Math.min(94, Number(o.y))) * 10) / 10;
           if (Number.isFinite(Number(o.w))) out.w = Math.round(Math.max(20, Math.min(94, Number(o.w))) * 10) / 10;
           if (Number.isFinite(Number(o.h))) out.h = Math.round(Math.max(4, Math.min(92, Number(o.h))) * 10) / 10;
-          if (Number.isFinite(Number(o.fontScale)) && Math.abs(Number(o.fontScale) - 1) > 0.001) {
+          /* 감사 #33: 1.0(100% 복원)도 저장 — 빼면 자동축소(_autoFitBubbles)가 다음 인쇄에 되살아남 */
+          if (Number.isFinite(Number(o.fontScale))) {
             out.fontScale = Math.round(Math.max(0.5, Math.min(1.4, Number(o.fontScale))) * 100) / 100;
           }
           /* PRINT-HELPER-OPACITY/FONT(2026-07-23): 진하기·글씨체·글씨색도 저장(전엔 누락돼 리로드 시 사라짐). */

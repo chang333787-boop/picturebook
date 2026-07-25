@@ -463,6 +463,10 @@
 
   async function _complete() {
     if (R.busy) return;
+    /* 감사 #19: busy를 어떤 await보다 먼저 선점 — 더블클릭이 메모저장/가치단계 await 사이로
+       들어와 가치 3택1 오버레이 중복·완료 파이프라인 이중 실행되던 것 차단.
+       (유효성 실패 return에서만 해제 — 아래 기존 R.busy=true 지점은 재확인 성격.) */
+    R.busy = true;
     /* FREE-NOTE: 완료 전 현재 메모 입력값 저장(busy 재렌더로 textarea 사라지기 전). 별도 필드라 완료/진행률과 무관. */
     const _noteTa = document.querySelector('#' + OVERLAY_ID + ' .tc-note-input');
     if (_noteTa) { try { await _saveUserNotes(_noteTa.value); } catch (_) {} }
@@ -481,6 +485,7 @@
     const state = { version: qVersion, status: 'inProgress', answers: R.vm.answers, followUps: R.followUps, completedAt: null };
     const v = TC ? TC.validateThoughtCompassCompletion(state) : { valid: Flow.allAnswered(R.vm) };
     if (!v.valid) {
+      R.busy = false;   /* 감사 #19: 선점한 busy 해제(완료 버튼 재사용 가능) */
       R.error = '아직 정하지 않은 질문이 있어요. “고치기”로 채워 주세요.';
       _render();
       return;

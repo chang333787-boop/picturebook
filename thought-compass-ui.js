@@ -333,8 +333,10 @@
       } else {
         S.adaptiveChoices[capturedId] = 'failed';
       }
-      /* 아직 같은 질문 화면이면 다시 그림(다른 질문으로 이동했으면 무시) */
-      if (S.vm && S.vm.index === capturedIndex && !S.followUp) _render();
+      /* 아직 같은 질문 화면이면 다시 그림(다른 질문으로 이동했으면 무시).
+         감사 #20: 직접 적기 입력 중(S.customMode)이면 재렌더 생략 — 전체 재렌더가 포커스를
+         제목으로 옮겨 태블릿 키보드가 닫히던 것 방지(보기는 다음 자연 렌더에 반영됨). */
+      if (S.vm && S.vm.index === capturedIndex && !S.followUp && S.customMode == null) _render();
     });
   }
   function _onCustomActivate() {

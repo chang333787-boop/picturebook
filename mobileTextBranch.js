@@ -2876,6 +2876,26 @@ async function _runPendingLv1ProtagChoice() {
 }
 window.__runPendingLv1ProtagChoice = _runPendingLv1ProtagChoice;
 
+/* 감사 #27: pending 플래그 부팅 소비처 — 환영 튜토리얼 중 새로고침/탭 이탈로 review._complete의
+   소비를 놓치면 1단계 그림 배치가 영영 안 돌던 것. 부팅 몇 초 뒤, 같은 팀 세션이 복원됐고
+   나침반/환영 오버레이가 없을 때만 재소비(정상 흐름의 review 소비 우선·다른 팀 재로그인=무시).
+   플래그 제거·주인공 선택창·폴백 배치는 _runPendingLv1ProtagChoice 기존 로직 그대로. */
+if (typeof window !== 'undefined' && typeof sessionStorage !== 'undefined') {
+  setTimeout(function () {
+    try {
+      const raw = sessionStorage.getItem('pbLv1NeedsProtagChoice');
+      if (!raw) return;
+      if (document.getElementById('thought-compass-flow')
+          || document.getElementById('thought-compass-review')
+          || document.getElementById('tutorial-welcome-overlay')) return;
+      const info = JSON.parse(raw);
+      const ms = JSON.parse(sessionStorage.getItem('makerSession') || 'null');
+      if (!ms || !info || ms.classId !== info.classId || ms.teamName !== info.teamName) return;
+      _runPendingLv1ProtagChoice();
+    } catch (e) { /* noop — 다음 정상 소비처가 처리 */ }
+  }, 6000);
+}
+
 async function _promptLv1ProtagonistChoice(classId, teamName, sc) {
   let draw = false;
   try {

@@ -95,7 +95,16 @@ async function _processQueryParam() {
       /* code/classId 없거나 BranchShelf 미로드 — 로딩만 걸려 있으면 진입 폼 복구 */
       _revealEntryWithError('책장 링크가 올바르지 않아요.');
     } else if (!code && window.BranchShelf && typeof window.BranchShelf.hasCtx === 'function'
-               && window.BranchShelf.hasCtx()) {
+               && window.BranchShelf.hasCtx()
+               && (function () {   /* 감사 #10/#24: 실제 '새로고침'일 때만 자동복귀 — 홈에서
+                     '작품 감상하기'(무파라미터 링크)로 새로 들어온 탭까지 이전 학급 책장으로
+                     납치해 진입 폼을 영영 못 쓰던 것 차단. */
+                 try {
+                   const nav = performance.getEntriesByType && performance.getEntriesByType('navigation')[0];
+                   if (nav) return nav.type === 'reload' || nav.type === 'back_forward';
+                   return !!(performance.navigation && performance.navigation.type === 1);
+                 } catch (e) { return false; }
+               })()) {
       /* SHELF-REFRESH-RESUME(2026-07-25): 코드 입장 책장은 URL에 흔적이 없어 새로고침하면
          입장 폼으로 떨어졌음('풀리는' 증상의 두 번째 원인 — auth는 SHELF-AUTH-RESTORE로 해결).
          sessionStorage branchShelfCtx(책장 진입 시 저장)가 있으면 같은 게이트로 책장 자동 복귀.
@@ -103,7 +112,8 @@ async function _processQueryParam() {
       try {
         const _sctx = JSON.parse(sessionStorage.getItem('branchShelfCtx') || 'null');
         if (_sctx && (_sctx.code || _sctx.classId)) {
-          window.BranchShelf.openShelf(_sctx.code ? { classCode: _sctx.code } : { classId: _sctx.classId })
+          window.BranchShelf.openShelf(_sctx.code
+            ? { classCode: _sctx.code, ifIdle: true } : { classId: _sctx.classId, ifIdle: true })
             .then(() => { if (typeof window.__hideAutoEnterLoading === 'function') window.__hideAutoEnterLoading(); })
             .catch(() => {
               try { sessionStorage.removeItem('branchShelfCtx'); } catch (e) {}

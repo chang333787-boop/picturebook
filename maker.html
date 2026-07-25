@@ -442,6 +442,10 @@
        [+ 버튼 추가]는 숨김. 함수 관문(renameScene/addButton)과 이중 방어. */
     body.pb-linear-locked .card-num-badge{ pointer-events:none; cursor:default; }
     body.pb-linear-locked .card-add-button{ display:none !important; }
+    /* 감사 #8(2026-07-25): ⋯펼침 안에서 선택지 라벨 input·진엔딩 토글이 잠금 밖이던 누수 —
+       함수 관문(updateChoiceLabel/updateTrueEnding)과 이중 방어. */
+    body.pb-linear-locked .pb-mapcard .card-ports,
+    body.pb-linear-locked .pb-mapcard .card-ending-zone{ display:none !important; }
     /* LINEAR-CARD-READ-2(2026-07-25 사용자 결정): 1·2단계 브랜치 카드=글 전용.
        ① 그림 영역 자체를 숨김 — 그림은 다듬기에서 보고 관리(카드 절반 먹던 문제 해소).
        ② '다음으로 가기' 화살표 라벨 칩 숨김 — 일직선 고정 경로라 정보가치 0인데 다음 카드에 잘려 어색했음.
@@ -3463,12 +3467,12 @@
 <script src="thought-compass-store.js?v=512af6f032"></script>
 <script src="thought-compass-controller.js?v=c0fcd77109"></script>
 <script src="thought-compass-gate.js?v=daa0e9f967"></script>
-<script src="thought-compass-ai.js?v=2982e0ad0e"></script>
+<script src="thought-compass-ai.js?v=f830f1f219"></script>
 <script src="thought-compass-editsession.js?v=a66b296e19"></script>
-<script src="thought-compass-ui.js?v=dd6806329b"></script>
+<script src="thought-compass-ui.js?v=d7695ecdd5"></script>
 <script src="thought-compass-sheet.js?v=d092344d91"></script>
 <script src="thought-compass-rose.js?v=0e8e3bbe5f"></script>
-<script src="thought-compass-review.js?v=5815f0fdd5"></script>
+<script src="thought-compass-review.js?v=037f4500fc"></script>
 <script src="thought-compass-scenes.js?v=df6364d82a"></script>
 <script src="firebase.js?v=9dae3da157"></script>
 <script src="notices.js?v=3d93b71532"></script>
@@ -3477,13 +3481,13 @@
 <script src="sceneRenderer.js?v=fbc3dbdbec"></script>
 <script src="storyAnalyzer.js?v=4799502ff8"></script>
 <script src="mediaManager.js?v=2b05836f58"></script>
-<script src="adminConsole.js?v=ff8f21aced"></script>
+<script src="adminConsole.js?v=469606e88e"></script>
 <!-- ADMIN-REDESIGN Phase 3: 교사·학생 상세 설명서(화면형) -->
 <script src="admin-manual.js?v=095ece84a0"></script>
 <script src="projectSettings.js?v=5eb05c2079"></script>
-<script src="ui.js?v=305c722b38"></script>
+<script src="ui.js?v=e057a99c8c"></script>
 <!-- v95: 모바일 텍스트형 브랜치 전용 (텍스트 작품 + 모바일에서만 활성) -->
-<script src="mobileTextBranch.js?v=d80eb407b7"></script>
+<script src="mobileTextBranch.js?v=9b83f577fc"></script>
 <!-- TUTORIAL-PRD: 콘텐츠·삽화·데모(먼저) → 도움말/환영/인쇄 -->
 <script src="fullscreen-persist.js?v=ba97ed7f7e"></script>
 <script src="tutorial-content.js?v=fbd1a9db1e"></script>

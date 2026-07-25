@@ -14,6 +14,8 @@
 })(typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : this), function () {
   'use strict';
 
+  let _pbpBusy = false;   /* 감사 #23: open() 재진입 가드(그림 대기 중 재클릭 차단) */
+
   function _num(s) { const n = parseInt((s && (s.num != null ? s.num : s.id)), 10); return Number.isFinite(n) ? n : Infinity; }
   function _choices(s) { return (s && Array.isArray(s.choices)) ? s.choices : []; }
 
@@ -143,11 +145,15 @@
 
   async function open(opts) {
     if (typeof document === 'undefined') return false;
+    /* 감사 #23: 그림 로드 대기(≤4초) 중 재클릭이 root를 갈아엎어 그림 누락/빈 인쇄가 되던 것 —
+       진행 중이면 조용히 무시(도우미 UI가 떠 있는 동안은 cleanup이 해제). */
+    if (_pbpBusy) return false;
     opts = opts || {};
     const scenes = opts.scenes
       || (typeof window !== 'undefined' && window.ViewerState && window.ViewerState.scenes) || {};
     const keys = Object.keys(scenes);
     if (!keys.length) { try { alert('인쇄할 장면이 없어요.'); } catch (e) {} return false; }
+    _pbpBusy = true;
     const res = buildPrintOrder(scenes);
     if (!res.order.length) { try { alert('인쇄할 장면이 없어요.'); } catch (e) {} return false; }
     const title = opts.title
@@ -448,9 +454,10 @@
       const cleanup = function () {
         document.body.classList.remove('print-picturebook');
         document.documentElement.classList.remove('print-doc-unclip');
-        const r = document.getElementById('pb-print-root');
-        if (r) r.remove();
+        /* 감사 #23: id 조회 대신 자기 root만 제거(교차 제거 차단) */
+        if (rootEl && rootEl.parentNode) rootEl.parentNode.removeChild(rootEl);
         window.removeEventListener('afterprint', cleanup);
+        _pbpBusy = false;
       };
       if (_helper) {
         /* 도우미: 인쇄 대신 화면 미리보기+조절 UI — 정리는 [닫기]가 담당(인쇄 후에도 유지). */
@@ -465,6 +472,7 @@
       document.documentElement.classList.remove('print-doc-unclip');
       const r = document.getElementById('pb-print-root');
       if (r) r.remove();
+      _pbpBusy = false;
     }
     return true;
   }

@@ -4805,10 +4805,10 @@ function _ensureCompassReviewBundle() {
       s.onload = () => res(); s.onerror = () => rej(new Error('load fail ' + src)); document.head.appendChild(s);
     });
     if (!document.querySelector('link[data-tc-review-css]')) {
-      const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'thought-compass.css?v=compassfollowup1';
+      const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'thought-compass.css?v=154b9c4183';
       l.setAttribute('data-tc-review-css', '1'); document.head.appendChild(l);
     }
-    const V = '?v=rosefirst1';
+    const V = '?v=e68d5807ff';
     await load('thought-compass.js' + V);
     await load('thought-compass-questions.js' + V);
     await load('thought-compass-flow.js' + V);

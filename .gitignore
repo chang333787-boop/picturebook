@@ -43,3 +43,11 @@ scripts/image-s2-model-eval/output/
 functions/node_modules
 아카이브.zip
 *.zip
+
+# 로컬 전용 백업/목업 — commit 금지(2026-07-25 AUDIT-CLOSE-1 실수 재발 방지)
+picturebook-repo-full/
+picturebook-repo-full 2/
+d7-5-theme-stage-mockups/
+mockups/
+mockup-*.html
+database-debug.log

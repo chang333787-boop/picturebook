@@ -1436,7 +1436,7 @@ function _showEntryCardPicker(teams, onConfirm) {
     <label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid #eee4d0;cursor:pointer;font-size:14px;">
       <input type="checkbox" class="aec-pick" data-i="${i}" checked style="width:18px;height:18px;flex:none;"/>
       <span style="font-weight:700;color:#3a2c14;">${esc(t.accountName || t.name)}</span>
-      <span style="margin-left:auto;color:#9a8868;font-size:12px;letter-spacing:1px;">PIN ${esc(t.accountPin)}</span>
+      <span style="margin-left:auto;color:#9a8868;font-size:12px;letter-spacing:1px;">PIN ••••</span>
     </label>`).join('');
   ov.innerHTML = `
     <div style="background:#fffdf8;border-radius:14px;max-width:460px;width:100%;max-height:82vh;display:flex;flex-direction:column;box-shadow:0 10px 40px rgba(0,0,0,.3);font-family:'Jua',sans-serif;overflow:hidden;">

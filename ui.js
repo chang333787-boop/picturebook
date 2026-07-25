@@ -586,6 +586,13 @@ async function updateType(num, type) {
 }
 
 async function updateTrueEnding(num, val) {
+  /* 감사 #8: 1·2단계는 진엔딩 토글도 구조 변형(감상 엔딩 표시)이라 관문 — updateType과 동일 패턴 */
+  if (typeof isLinearPicturebookLock === 'function' && isLinearPicturebookLock()) {
+    const s0 = scenes[num];
+    if (s0 && typeof renderCard === 'function') renderCard(s0);
+    alert(PB_LINEAR_LOCK_MSG);
+    return;
+  }
   await mutateScene(num, { trueEnding: val });
 }
 
@@ -600,6 +607,13 @@ async function updateChoiceLabel(num, port, val) {
      · 라벨이 buttons[idx]에 없으면 새 항목 만들어 추가
      · 첫 2개는 choiceA/B 호환 키도 patch (1단계 양방향 동기화 정책 유지)
      W6: 체험전시형은 connectObjects[].label 사용 — buttons[] 흐름 X. */
+  /* 감사 #8: 1·2단계는 감상 버튼 문구('다음으로 가기')도 잠금 — ⋯펼침 안 input이 관문 밖이던 누수 */
+  if (typeof isLinearPicturebookLock === 'function' && isLinearPicturebookLock()) {
+    const s0 = scenes[num];
+    if (s0 && typeof renderCard === 'function') renderCard(s0);
+    alert(PB_LINEAR_LOCK_MSG);
+    return;
+  }
   const s = scenes[num];
   if (!s) return;
 

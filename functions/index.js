@@ -1574,7 +1574,7 @@ exports.callTextAiBatch = onCall(
         /* 환불 정책 #5 — schema 위반 → 환불 */
         await _refundQuota(ctx);
         logger.error('[ai/s1] schema 위반 — 환불 박음', { error: parseErr.message, text: ai.text.slice(0, 500) });
-        throw new HttpsError('internal', 'AI 응답 검증 실패: ' + parseErr.message);
+        throw new HttpsError('internal', 'AI 응답이 올바르지 않았어요. 잠시 후 다시 시도해 주세요. (사용 횟수는 되돌렸어요)');   /* 감사 #31: 내부 원문은 logger에만 */
       }
 
       /* 비용 추정 + stats 기록 */
@@ -1599,7 +1599,7 @@ exports.callTextAiBatch = onCall(
       /* 환불 정책 #3·#4 — Anthropic / 네트워크 실패 → 환불 */
       await _refundQuota(ctx);
       logger.error('[ai/s1] 호출 실패 — 환불 박음', { error: e.message, stack: e.stack });
-      throw new HttpsError('internal', 'AI 호출 실패: ' + (e.message || String(e)));
+      throw new HttpsError('internal', 'AI 호출에 실패했어요. 잠시 후 다시 시도해 주세요. (사용 횟수는 되돌렸어요)');   /* 감사 #31: 내부 원문은 logger에만 */
     }
   }
 );
@@ -1810,7 +1810,7 @@ exports.callTextAiBatchS2 = onCall(
       } catch (parseErr) {
         await _refundQuota(ctx);
         logger.error('[ai/s2] merge 검증 실패 — 환불 박음', { error: parseErr.message });
-        throw new HttpsError('internal', 'AI 응답 검증 실패: ' + parseErr.message);
+        throw new HttpsError('internal', 'AI 응답이 올바르지 않았어요. 잠시 후 다시 시도해 주세요. (사용 횟수는 되돌렸어요)');   /* 감사 #31: 내부 원문은 logger에만 */
       }
 
       const cost = _estimateCostUsd(totalInputTokens, totalOutputTokens);
@@ -1833,7 +1833,7 @@ exports.callTextAiBatchS2 = onCall(
       if (e instanceof HttpsError) throw e;
       await _refundQuota(ctx);
       logger.error('[ai/s2] 호출 실패 — 환불 박음', { error: e.message, stack: e.stack });
-      throw new HttpsError('internal', 'AI 호출 실패: ' + (e.message || String(e)));
+      throw new HttpsError('internal', 'AI 호출에 실패했어요. 잠시 후 다시 시도해 주세요. (사용 횟수는 되돌렸어요)');   /* 감사 #31: 내부 원문은 logger에만 */
     }
   }
 );
@@ -1947,7 +1947,7 @@ exports.callWorkCheck = onCall(
         } catch (retryErr) {
           await _refundQuota(ctx);
           logger.error('[ai/check] schema 위반(재시도 후) — 환불 박음', { error: retryErr.message, text: ai.text.slice(0, 500) });
-          throw new HttpsError('internal', 'AI 응답 검증 실패: ' + retryErr.message);
+          throw new HttpsError('internal', 'AI 응답이 올바르지 않았어요. 잠시 후 다시 시도해 주세요. (사용 횟수는 되돌렸어요)');   /* 감사 #31 */
         }
       }
 
@@ -1990,7 +1990,7 @@ exports.callWorkCheck = onCall(
 
       await _refundQuota(ctx);
       logger.error('[ai/check] 호출 실패 — 환불 박음', { error: e.message, stack: e.stack });
-      throw new HttpsError('internal', 'AI 호출 실패: ' + (e.message || String(e)));
+      throw new HttpsError('internal', 'AI 호출에 실패했어요. 잠시 후 다시 시도해 주세요. (사용 횟수는 되돌렸어요)');   /* 감사 #31: 내부 원문은 logger에만 */
     }
   }
 );
@@ -2054,7 +2054,7 @@ exports.callWriteAfterQuestions = onCall(
       } catch (parseErr) {
         await _refundQuota(ctx);
         logger.error('[ai/writeAfterQuestions] schema 위반 — 환불', { error: parseErr.message, code: parseErr.code, text: ai.text.slice(0, 500) });
-        throw new HttpsError('internal', 'AI 응답 검증 실패: ' + parseErr.message);
+        throw new HttpsError('internal', 'AI 응답이 올바르지 않았어요. 잠시 후 다시 시도해 주세요. (사용 횟수는 되돌렸어요)');   /* 감사 #31: 내부 원문은 logger에만 */
       }
 
       const cost = _estimateCostUsd(ai.inputTokens, ai.outputTokens);
@@ -2098,7 +2098,7 @@ exports.callWriteAfterQuestions = onCall(
       if (e instanceof HttpsError) throw e;
       await _refundQuota(ctx);
       logger.error('[ai/writeAfterQuestions] 호출 실패 — 환불', { error: e.message, stack: e.stack });
-      throw new HttpsError('internal', 'AI 호출 실패: ' + (e.message || String(e)));
+      throw new HttpsError('internal', 'AI 호출에 실패했어요. 잠시 후 다시 시도해 주세요. (사용 횟수는 되돌렸어요)');   /* 감사 #31: 내부 원문은 logger에만 */
     }
   }
 );
@@ -2556,7 +2556,18 @@ exports.callImageAiS2 = onCall(
            으로 주입. 레퍼런스 그림만으론 넥타이→선생님처럼 오해하고 장면마다 인물이 흔들리던 것을,
            "이 인물이 주인공"이라는 글 설명으로 못 박는다(누가 주인공인지 확정). */
         const _pd = (await baseRef.child('viewer-meta/protagonistDesc').once('value')).val();
-        const _pdText = (typeof _pd === 'string' && _pd.trim()) ? _pd.trim().slice(0, 120) : '';
+        let _pdText = (typeof _pd === 'string' && _pd.trim()) ? _pd.trim().slice(0, 120) : '';
+        /* 감사 #26: 학생 자유 텍스트 → 프롬프트 직주입 전 키워드 안전 스캔(본문과 동일 층).
+           걸리면 특징 글만 버리고 생성은 진행(페일세이프 — _protLine 생략). */
+        if (_pdText) {
+          try {
+            const _ps = _scanSafety({ p: { body: _pdText } });
+            if (_ps && _ps.blocked) {
+              logger.warn('[imageS2] protagonistDesc 안전 차단 — 특징 글 무시', { classId: ctx.classId });
+              _pdText = '';
+            }
+          } catch (e) { /* 스캔 실패=미적용(기존 동작) */ }
+        }
         const _protLine = _pdText
           ? ('이 이야기의 주인공(가장 중요·모든 장면에서 반드시 같은 인물로): ' + _pdText + '. 이 특징을 다른 조연에게 주지 마세요.')
           : '';
@@ -3057,6 +3068,9 @@ exports.adminResetPicturebookWork = onCall(
       `${base}/viewer-meta/coverImageData`,
       `${base}/viewer-meta/entrySceneId`,
       `${base}/viewer-meta/replaySceneId`,
+      `${base}/viewer-meta/protagonistRef`,               /* 감사 #13: 이전 주인공 그림/특징 잔재 —
+                                                             안 지우면 새 이야기에 옛 주인공이 강제 주입 */
+      `${base}/viewer-meta/protagonistDesc`,
       `${base}/viewer-meta/isPublic`,                     /* 빈 책이 책장에 남지 않게 */
       `classes/${classId}/shelf/${enc}`,                  /* 학급 책장 카드 정리 */
       `ai-usage/${classId}/${teamName}`,                  /* 작품검사 등 per-작품 quota */
@@ -3094,6 +3108,27 @@ exports.teacherScriptDraft = onCall(
     if (!req.auth) throw new HttpsError('unauthenticated', '로그인이 필요해요.');
     const uid  = req.auth.uid;
     const role = (req.auth.token && req.auth.token.role) || null;
+
+    /* 감사 #2(2026-07-25): 다른 AI 콜러블과 동일 게이트 — testMode·origin·killswitch·전역캡.
+       교사 전용이라도 비용 방어선은 공통으로 둔다(교사 일일 10회는 아래 기존 한도 유지). */
+    if (req.data && req.data.testMode === true) {
+      throw new HttpsError('permission-denied', 'testMode로는 실제 AI를 사용할 수 없어요.');
+    }
+    const _origin = (req.rawRequest && req.rawRequest.headers && req.rawRequest.headers.origin) || '';
+    if (!isOriginAllowed(_origin)) {
+      logger.warn('[scriptDraft] origin 거부', { uid, origin: _origin });
+      throw new HttpsError('permission-denied', '허용되지 않은 요청이에요.');
+    }
+    const _kill = (await admin.database().ref('ai-kill-switch/enabled').once('value')).val();
+    if (_kill === true) {
+      throw new HttpsError('unavailable', 'AI 기능을 잠시 사용할 수 없어요. 운영자에게 문의해 주세요.');
+    }
+    try {
+      const _g = (await admin.database().ref(`ai-usage-global/${_todayYmd()}/calls`).once('value')).val();
+      if ((_g || 0) >= GLOBAL_DAILY_LIMIT) {
+        throw new HttpsError('resource-exhausted', '오늘 전체 사용 한도에 도달했어요. 내일 다시 시도해 주세요.');
+      }
+    } catch (e) { if (e instanceof HttpsError) throw e; }
 
     const classId = String((req.data && req.data.classId) || '').trim();
     if (!classId || /[.#$\[\]\/]/.test(classId)) {
@@ -3343,6 +3378,24 @@ exports.studentStoryDraft = onCall(
     const refund = () =>
       limitRef.transaction((cur) => Math.max(0, (cur || 0) - 1)).catch(() => {});
 
+    /* 감사 #11: 전역 일일캡 — 이미지(H6)와 동일한 원자 검사·차감. 초과=팀 카운터 반납 후 거부.
+       transaction 자체가 실패(reject)하면 fail-open(카운트 미차감·호출 진행 — 가용성 우선). */
+    try {
+      const _gRef = admin.database().ref(`ai-usage-global/${_todayYmd()}/storyDraftCalls`);
+      const _gTx = await _gRef.transaction((cur) => {
+        const n = (typeof cur === 'number' && cur >= 0) ? cur : 0;
+        if (n >= STORY_DRAFT_GLOBAL_DAILY_LIMIT) return;   /* undefined = abort */
+        return n + 1;
+      });
+      if (!_gTx.committed) {
+        await refund();
+        throw new HttpsError('resource-exhausted', '오늘 전체 사용 한도에 도달했어요. 내일 다시 시도해 주세요.');
+      }
+    } catch (e) {
+      if (e instanceof HttpsError) throw e;
+      logger.warn('[studentStoryDraft] 전역캡 transaction 실패 — fail-open', { message: e && e.message });
+    }
+
     try {
       const userMsg = buildStudentStoryDraftUserMessage({ answersText, storyCount, level });
       const ai = await _callAnthropic(ANTHROPIC_API_KEY.value(), STUDENT_STORY_DRAFT_SYSTEM_PROMPT, userMsg,
@@ -3462,6 +3515,8 @@ const STORY_IMAGE_TEAM_LIMIT = 24;
    자가생성해 팀당 24를 무한 반복하는 비용 체인의 전체 상한. 정상 사용(학급당 1단계
    9~12장×팀수)에는 여유. */
 const STORY_IMAGE_GLOBAL_DAILY_LIMIT = 500;
+/* 감사 #11(2026-07-25): 초안(텍스트)도 전역 일일캡 — 이미지와 동일 방어선 */
+const STORY_DRAFT_GLOBAL_DAILY_LIMIT = 500;
 const STORY_IMAGE_LOCK_STALE_MS = 10 * 60 * 1000;
 const STORY_IMAGE_BODYBOX_PRESET = { x: 6, y: 5, width: 88, backdropOpacity: 0.85 };
 
@@ -3597,6 +3652,14 @@ exports.generateStoryImages = onCall(
           try {
             const _pdStu = (await baseRef.child('viewer-meta/protagonistDesc').once('value')).val();
             if (typeof _pdStu === 'string' && _pdStu.trim()) desc = _pdStu.trim().slice(0, 120);
+            /* 감사 #12: 학생 자유 텍스트 안전 스캔 — 걸리면 아이 글 대신 기존 비전 설명 폴백 */
+            if (desc) {
+              const _ps = _scanSafety({ p: { body: desc } });
+              if (_ps && _ps.blocked) {
+                logger.warn('[generateStoryImages] protagonistDesc 안전 차단 — 비전 설명 폴백', { classId: ctx.classId });
+                desc = null;
+              }
+            }
           } catch (e) { /* noop */ }
           if (!desc) {
             try {
@@ -3658,11 +3721,21 @@ exports.generateStoryImages = onCall(
         });
         if (!tx.committed) { limitReached = true; return; }
         /* 감사 H6: 전역 일일 캡 — 도달 시 팀 카운터 즉시 반납 후 중단 */
-        const gTx = await globalImgRef.transaction((cur) => {
-          const n = (typeof cur === 'number' && cur >= 0) ? cur : 0;
-          if (n >= STORY_IMAGE_GLOBAL_DAILY_LIMIT) return;
-          return n + 1;
-        });
+        /* 감사 #30: 전역 transaction 자체가 reject하면 방금 차감한 팀 쿼터 1회가 환불 없이
+           소실되던 비대칭 — 실패 시 팀 반납 후 이 장면만 failed 처리(워커 전파 금지). */
+        let gTx = null;
+        try {
+          gTx = await globalImgRef.transaction((cur) => {
+            const n = (typeof cur === 'number' && cur >= 0) ? cur : 0;
+            if (n >= STORY_IMAGE_GLOBAL_DAILY_LIMIT) return;
+            return n + 1;
+          });
+        } catch (e) {
+          await limitRef.transaction((cur) => Math.max(0, (cur || 0) - 1)).catch(() => {});
+          failed.push({ sceneId: sid, code: 'IMAGE_AI_PROVIDER_ERROR' });
+          logger.warn('[generateStoryImages] 전역캡 transaction 실패 — 팀 쿼터 반납', { message: e && e.message });
+          return;
+        }
         if (!gTx.committed) {
           globalLimitReached = true;
           await limitRef.transaction((cur) => Math.max(0, (cur || 0) - 1)).catch(() => {});
@@ -4105,19 +4178,33 @@ exports.joinTeamMembership = onCall(
     } else {
       /* legacy_open — 기존 pin 있는 팀만 재입장(pin 일치). SELF-REG-BLOCK-1:
          팀이 없으면(savedPin===null=미등록) 자가등록 금지 — 아무 팀명/PIN으로
-         새 팀 즉석 생성되던 구멍 차단. 교사가 만든 팀 계정만 입장한다. */
-      let savedPin = null;
-      try { savedPin = (await adb.ref(`${teamBase}/pin`).once('value')).val(); }
-      catch (e) {
-        logger.error('[membership] pin read 실패', { uid, error: e && e.message });
-        throw new HttpsError('internal', '잠시 후 다시 시도해 주세요.');
-      }
-      if (savedPin === null) {
-        logger.warn('[membership] 미등록 팀 입장 차단(SELF-REG-BLOCK)', { uid, classId });
-        throw new HttpsError('permission-denied', GENERIC_DENY);
-      } else if (String(savedPin) !== String(pin)) {
-        logger.warn('[membership] legacy 검증 실패', { uid, classId });
-        throw new HttpsError('permission-denied', GENERIC_DENY);
+         새 팀 즉석 생성되던 구멍 차단. 교사가 만든 팀 계정만 입장한다.
+         감사 #1/#5(2026-07-25): 모드 미설정(구학급) 폴백에서 교사 발급 account만 있는
+         팀(legacy pin 노드 없음)까지 전면 차단되던 것 — account가 있으면
+         teacher_managed와 동일 검증(locked 차단·account.pin 일치)으로 입장 허용.
+         자가등록 차단은 그대로(account도 pin도 없으면 거부). */
+      let account = null;
+      try { account = (await adb.ref(`${teamBase}/account`).once('value')).val(); }
+      catch (e) { account = null; /* 아래 legacy pin 경로로 폴백 */ }
+      if (account) {
+        if (account.status === 'locked' || String(account.pin) !== String(pin)) {
+          logger.warn('[membership] legacy+account 검증 실패', { uid, classId, locked: account.status === 'locked' });
+          throw new HttpsError('permission-denied', GENERIC_DENY);
+        }
+      } else {
+        let savedPin = null;
+        try { savedPin = (await adb.ref(`${teamBase}/pin`).once('value')).val(); }
+        catch (e) {
+          logger.error('[membership] pin read 실패', { uid, error: e && e.message });
+          throw new HttpsError('internal', '잠시 후 다시 시도해 주세요.');
+        }
+        if (savedPin === null) {
+          logger.warn('[membership] 미등록 팀 입장 차단(SELF-REG-BLOCK)', { uid, classId });
+          throw new HttpsError('permission-denied', GENERIC_DENY);
+        } else if (String(savedPin) !== String(pin)) {
+          logger.warn('[membership] legacy 검증 실패', { uid, classId });
+          throw new HttpsError('permission-denied', GENERIC_DENY);
+        }
       }
     }
     }  /* end if (!isTeacher) — 교사는 모드/PIN 검증 전부 스킵 */

@@ -4086,7 +4086,9 @@ exports.joinTeamMembership = onCall(
         throw new HttpsError('permission-denied', GENERIC_DENY);
       }
     } else {
-      /* legacy_open — pin 비교. 없으면 첫 학생이 설정(자가 등록, 기존 client 동작 보존). */
+      /* legacy_open — 기존 pin 있는 팀만 재입장(pin 일치). SELF-REG-BLOCK-1:
+         팀이 없으면(savedPin===null=미등록) 자가등록 금지 — 아무 팀명/PIN으로
+         새 팀 즉석 생성되던 구멍 차단. 교사가 만든 팀 계정만 입장한다. */
       let savedPin = null;
       try { savedPin = (await adb.ref(`${teamBase}/pin`).once('value')).val(); }
       catch (e) {
@@ -4094,11 +4096,8 @@ exports.joinTeamMembership = onCall(
         throw new HttpsError('internal', '잠시 후 다시 시도해 주세요.');
       }
       if (savedPin === null) {
-        try { await adb.ref(`${teamBase}/pin`).set(pin); }
-        catch (e) {
-          logger.error('[membership] pin 자가등록 실패', { uid, error: e && e.message });
-          throw new HttpsError('internal', '잠시 후 다시 시도해 주세요.');
-        }
+        logger.warn('[membership] 미등록 팀 입장 차단(SELF-REG-BLOCK)', { uid, classId });
+        throw new HttpsError('permission-denied', GENERIC_DENY);
       } else if (String(savedPin) !== String(pin)) {
         logger.warn('[membership] legacy 검증 실패', { uid, classId });
         throw new HttpsError('permission-denied', GENERIC_DENY);

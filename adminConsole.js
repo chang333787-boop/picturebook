@@ -1990,13 +1990,67 @@ async function _renderShelfCommentPanel(classId) {
       <span id="asc-cmt-code" style="background:#fdf3e0;border:1.5px solid #c9a96a;border-radius:8px;padding:4px 12px;letter-spacing:2px;color:#8a5a2a;">${_escHtml(commentCode || '(없음)')}</span>
       <button type="button" id="asc-cmt-change" style="${btnStyle}">변경</button>
     </div>
-    <div style="font-size:11.5px;color:#9a8868;margin-top:-4px;">댓글 코드가 있어야 댓글을 남길 수 있어요(보는 건 자유). 코드를 바꾸면 이전 코드는 바로 무효가 돼요. 삭제는 각 팀 카드 ⋯ 메뉴의 [💬 댓글 관리]에서.</div>`;
+    <div style="font-size:11.5px;color:#9a8868;margin-top:-4px;">댓글 코드가 있어야 댓글을 남길 수 있어요(보는 건 자유). 코드를 바꾸면 이전 코드는 바로 무효가 돼요. 삭제는 각 팀 카드 ⋯ 메뉴의 [💬 댓글 관리]에서.</div>
+    <div style="${rowStyle}margin-top:10px;">
+      <span>책장 순서</span>
+      <button type="button" id="asc-order-edit" style="${btnStyle}">📚 순서 편집</button>
+    </div>
+    <div id="asc-order-box" style="display:none;"></div>
+    <div style="font-size:11.5px;color:#9a8868;margin-top:-4px;">책장에 보이는 작품 순서를 정해요. 순서를 안 정한 작품은 최신순으로 뒤에 붙어요.</div>`;
 
   host.querySelector('#asc-shelf-toggle')?.addEventListener('click', async () => {
     try {
       await db.ref(`classes/${classId}/settings/shelfPublic`).set(!shelfPublic);
       _renderShelfCommentPanel(classId);
     } catch (e) { alert('설정을 저장하지 못했어요.'); }
+  });
+  /* SHELF-ORDER-1(2026-07-25): 책장 순서 편집 — 공개 작품을 ↑↓로 배치, settings/shelfOrder={enc:idx} 저장.
+     서버 getClassShelf가 이 순서 우선 정렬(미지정=최신순 뒤). 데이터는 순서 노드만(작품/shelf 무접촉). */
+  host.querySelector('#asc-order-edit')?.addEventListener('click', async () => {
+    const box = host.querySelector('#asc-order-box');
+    if (!box) return;
+    if (box.style.display !== 'none') { box.style.display = 'none'; return; }
+    const pubs = (adminState.allTeams || []).filter(t => t.isPublic);
+    if (!pubs.length) { alert('공개된 작품이 없어요. 먼저 [팀·작품]에서 작품을 공개해 주세요.'); return; }
+    let order = {};
+    try { order = (await db.ref(`classes/${classId}/settings/shelfOrder`).once('value')).val() || {}; } catch (e) { order = {}; }
+    /* 현재 순서: 지정 idx 우선, 미지정은 뒤(팀 목록 순) */
+    const items = pubs.map(t => ({ enc: t.encodedName, label: (t.nickname && String(t.nickname).trim()) || t.name }))
+      .sort((a, b) => {
+        const oa = (typeof order[a.enc] === 'number') ? order[a.enc] : Infinity;
+        const ob = (typeof order[b.enc] === 'number') ? order[b.enc] : Infinity;
+        return oa - ob;
+      });
+    const draw = () => {
+      box.style.cssText = 'display:block;background:#fdf8ec;border:1px solid #e8d9bf;border-radius:10px;padding:10px 12px;margin:0 0 10px;';
+      box.innerHTML = items.map((it, i) => `
+        <div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px;color:#3a2c14;">
+          <span style="width:22px;text-align:right;color:#a08b63;">${i + 1}.</span>
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_escHtml(it.label)}</span>
+          <button type="button" class="js-asc-up" data-i="${i}" ${i === 0 ? 'disabled' : ''} style="${btnStyle}padding:2px 9px;">↑</button>
+          <button type="button" class="js-asc-down" data-i="${i}" ${i === items.length - 1 ? 'disabled' : ''} style="${btnStyle}padding:2px 9px;">↓</button>
+        </div>`).join('')
+        + `<div style="display:flex;gap:8px;margin-top:8px;">
+             <button type="button" id="asc-order-save" style="${btnStyle}background:#6a9a5a;color:#fff;border-color:#6a9a5a;">저장</button>
+             <button type="button" id="asc-order-reset" style="${btnStyle}">기본 순서로(최신순)</button>
+           </div>`;
+      box.querySelectorAll('.js-asc-up').forEach(b => b.addEventListener('click', () => {
+        const i = parseInt(b.dataset.i, 10); if (i > 0) { [items[i - 1], items[i]] = [items[i], items[i - 1]]; draw(); }
+      }));
+      box.querySelectorAll('.js-asc-down').forEach(b => b.addEventListener('click', () => {
+        const i = parseInt(b.dataset.i, 10); if (i < items.length - 1) { [items[i + 1], items[i]] = [items[i], items[i + 1]]; draw(); }
+      }));
+      box.querySelector('#asc-order-save')?.addEventListener('click', async () => {
+        const map = {}; items.forEach((it, i) => { map[it.enc] = i; });
+        try { await db.ref(`classes/${classId}/settings/shelfOrder`).set(map); alert('✅ 책장 순서를 저장했어요.'); }
+        catch (e) { alert('순서를 저장하지 못했어요.'); }
+      });
+      box.querySelector('#asc-order-reset')?.addEventListener('click', async () => {
+        try { await db.ref(`classes/${classId}/settings/shelfOrder`).remove(); alert('기본 순서(최신순)로 되돌렸어요.'); box.style.display = 'none'; }
+        catch (e) { alert('되돌리지 못했어요.'); }
+      });
+    };
+    draw();
   });
   host.querySelector('#asc-shelf-copy')?.addEventListener('click', async () => {
     /* VIEW-LINK-1: 책장 링크는 shelfPublic ON일 때만 서버(getClassShelf)가 링크 모드를 허용.

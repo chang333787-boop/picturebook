@@ -3859,7 +3859,16 @@ exports.getClassShelf = onCall(
         cc,
       });
     }
-    works.sort((a, b) => (b.at || 0) - (a.at || 0));
+    /* SHELF-ORDER-1(2026-07-25): 교사 지정 순서(settings/shelfOrder = {enc: idx}) 우선,
+       미지정 작품은 기존 최신순으로 뒤에. 순서 노드 없음 = 기존 동작 그대로(최신순). */
+    let shelfOrder = {};
+    try { shelfOrder = (await admin.database().ref(`classes/${classId}/settings/shelfOrder`).once('value')).val() || {}; } catch (e) { shelfOrder = {}; }
+    const _ord = (w) => (typeof shelfOrder[w.enc] === 'number' && isFinite(shelfOrder[w.enc])) ? shelfOrder[w.enc] : Infinity;
+    works.sort((a, b) => {
+      const oa = _ord(a), ob = _ord(b);
+      if (oa !== ob) return oa - ob;
+      return (b.at || 0) - (a.at || 0);
+    });
     const commentEnabled = (await admin.database().ref(`classes/${classId}/settings/commentEnabled`).once('value')).val() === true;
     return { ok: true, classId, className: meta.name || '', commentEnabled, works };
   }

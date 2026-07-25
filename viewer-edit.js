@@ -8577,19 +8577,28 @@ function _openPbDrawModal(scene, opts) {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   });
 
+  /* DRAW-UNDO-FIX(2026-07-26): 되돌리기가 한 획씩이 아니라 두 획씩 지워지던 것.
+     history에 쌓이는 건 "획을 긋기 직전 상태"인데(_snapshot은 pointerdown에서 호출),
+     종전 _undo는 pop한 직전 상태를 버리고 그보다 한 칸 더 이전 것을 화면에 그렸다
+     → 획 2개를 긋고 되돌리기 1번이면 둘 다 사라짐(실측: 15182→5018픽셀, 시작 상태로 복귀).
+     이제 pop한 그 상태를 그대로 그리고, redo용으로는 '현재 화면'을 따로 담는다. */
+  function _snapCurrent() {
+    try { return ctx.getImageData(0, 0, canvas.width, canvas.height); } catch (e) { return null; }
+  }
   function _undo() {
     if (state.history.length <= 1) return;
-    const cur = state.history.pop();
-    state.future.push(cur);
+    const cur = _snapCurrent();                 /* 지금 화면 = redo로 돌아올 지점 */
+    if (cur) state.future.push(cur);
     if (state.future.length > 10) state.future.shift();   /* DRAW-MEM: 30→10 */
-    const prev = state.history[state.history.length - 1];
+    const prev = state.history.pop();           /* 직전 상태 = 지금 그려야 할 것 */
     if (prev) ctx.putImageData(prev, 0, 0);
   }
   function _redo() {
     if (!state.future.length) return;
-    const next = state.future.pop();
-    state.history.push(next);
+    const cur = _snapCurrent();                 /* 지금 화면을 history로 되돌려 놓아야 undo가 짝이 맞음 */
+    if (cur) state.history.push(cur);
     if (state.history.length > 10) state.history.shift();   /* DRAW-MEM(2026-07-09): 30→10, 전체 ImageData 스냅샷 메모리 완화 */
+    const next = state.future.pop();
     ctx.putImageData(next, 0, 0);
   }
 

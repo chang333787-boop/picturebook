@@ -5515,21 +5515,22 @@ function _movieDecisionSectionHtml() {
 
 /* PUBLISH-VERSION(2026-07-24): ⚙️ 작품 설정 — '친구들에게 보일 것'(감상 표시 버전 잠금).
    글/그림 각각 원본 | AI | 둘 다. '둘 다'=감상 토글 유지, 하나만=그 버전 고정+감상 토글 숨김.
-   원본·AI 데이터는 불변(무엇을 보여줄지만 정함). movie/experience·1단계는 미노출. */
+   원본·AI 데이터는 불변(무엇을 보여줄지만 정함). movie/experience는 미노출.
+   PUBLISH-LV3-ONLY(2026-07-25 사용자 판단): 그림책 1·2단계는 이 설정 자체가 필요 없다 —
+   · 1단계 = 글도 그림도 AI가 만들어 주고, 글 수정도 그 초안 위에서 한다(원본/AI 구분 없음).
+   · 2단계 = 글은 아이가 직접 쓰므로 'AI 글' 개념이 없고, 그림 원본은 의도적으로 간단히 그린
+     졸라맨이라 친구에게 보여줄 대상이 아니다(AI 마감본이 곧 완성본).
+   → 선택지가 의미를 갖는 건 3단계(+텍스트형)뿐이므로 1·2단계는 섹션 전체 미노출. */
 function _publishVersionSectionHtml() {
   const ptype = (typeof _resolveViewerProjectType === 'function') ? _resolveViewerProjectType() : null;
   if (ptype !== 'text' && ptype !== 'picturebook') return '';
   const lv = ViewerState.project && ViewerState.project.picturebookLevel;
-  if (ptype === 'picturebook' && lv === 1) return '';   /* 1단계=전부 AI 자동, 선택 무의미 */
+  if (ptype === 'picturebook' && (lv === 1 || lv === 2)) return '';
   const t  = (ViewerState.project && ViewerState.project.viewerShowText)  || 'both';
   const im = (ViewerState.project && ViewerState.project.viewerShowImage) || 'both';
   const seg = (cls, cur, val, label) =>
     `<button type="button" class="edit-toggle ${cls} ${cur === val ? 'active' : ''}" data-val="${val}">${label}</button>`;
-  /* PUBLISH-LEVEL-CLASSIFY-1: 그림책 2단계(그림 다리)는 텍스트 AI 장면발전이 없다
-     (작품 마무리 모달이 2단계에서 차단 → s2 진입점 0). '원본/AI 글' 토글이 무의미하므로
-     글 보기 행 자체를 숨긴다(그림 보기만). 3단계·텍스트 작품은 기존대로 글 행 노출. */
-  const _pbLevel2 = (ptype === 'picturebook' && lv === 2);
-  const textRow = _pbLevel2 ? '' : `
+  const textRow = `
     <div class="edit-row edit-row--compact">
       <label class="edit-label">📝 글 보기</label>
       <div class="edit-toggle-group">

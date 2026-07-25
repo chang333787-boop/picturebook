@@ -1518,6 +1518,9 @@
     try {
       if (typeof ViewerState === 'undefined' || !ViewerState || ViewerState.editMode === true) return null;
       const p = ViewerState.project || {};
+      /* PUBLISH-LV3-ONLY(2026-07-25): 1·2단계는 표시버전 설정 자체를 없앴다 — 과거에 저장된
+         값이 남아 있어도 잠그지 않는다(설정 UI가 사라져 되돌릴 방법이 없으므로). */
+      if (p.projectType === 'picturebook' && (p.picturebookLevel === 1 || p.picturebookLevel === 2)) return null;
       const v = (kind === 'image') ? p.viewerShowImage : p.viewerShowText;
       if (v === 'original') return 'original';
       if (v === 'aiS2') return 'aiS2';
@@ -1553,8 +1556,17 @@
          잠금이 있으면 로컬 토글 잔존값(raw)을 무시하고 설정 버전을 강제.
          (글은 _getAiViewMode가 이미 잠금 반영 — 그림만 빠져 있던 비대칭 해소.
          aiS2 잠금인데 해당 장면 AI 그림이 없으면 아래 기존 폴백대로 원본 표시.) */
-      const _imgLock = (typeof _publishLockMode === 'function') ? _publishLockMode('image') : null;
-      if (_imgLock) raw = _imgLock;
+      const _p = (typeof ViewerState !== 'undefined' && ViewerState && ViewerState.project) || {};
+      const _lv12 = (_p.projectType === 'picturebook' && (_p.picturebookLevel === 1 || _p.picturebookLevel === 2));
+      if (_lv12 && !(typeof ViewerState !== 'undefined' && ViewerState.editMode === true)) {
+        /* PUBLISH-LV3-ONLY(2026-07-25): 1·2단계 감상은 원본/AI 선택 개념이 없다 — 토글을
+           없앴으므로 기기에 남은 옛 선택('original')도 무시하고 발행 기본(AI 마감본)으로.
+           다듬기(editMode)는 원본 편집 대상이라 제외. */
+        raw = null;
+      } else {
+        const _imgLock = (typeof _publishLockMode === 'function') ? _publishLockMode('image') : null;
+        if (_imgLock) raw = _imgLock;
+      }
       const sid = (scene.id != null) ? scene.id : scene.sceneId;
       if (raw === 'aiS1' || raw === 'aiS2') {
         if (sid == null) return originalSrc;
@@ -2710,16 +2722,18 @@
     if (!_aiToggleProjectTypeAllowed()) { _hideAiToggleBar(); return; }
     /* PUBLISH-VERSION: 감상에서 '친구에게 보일 글'이 원본/AI로 잠겼으면 토글 숨김(친구 못 바꿈). */
     if (_publishLockMode('text')) { _hideAiToggleBar(); return; }
-    /* LEVELS-FEEDBACK(2026-07-19): 1단계는 글도 전부 AI 초안(원본=그 글 자체)이라 글 토글 무의미 — 숨김. */
+    /* LEVELS-FEEDBACK(2026-07-19): 1단계는 글도 전부 AI 초안(원본=그 글 자체)이라 글 토글 무의미 — 숨김.
+       PUBLISH-LV3-ONLY(2026-07-25): 2단계도 숨김 — 글은 아이가 직접 쓰므로 'AI 글' 개념 자체가 없다
+       (s2 진입점 0). 원본/AI 구분이 성립하는 건 3단계(+텍스트형)뿐. */
     if (ViewerState && ViewerState.project && ViewerState.project.projectType === 'picturebook'
-        && ViewerState.project.picturebookLevel === 1) { _hideAiToggleBar(); return; }
+        && (ViewerState.project.picturebookLevel === 1 || ViewerState.project.picturebookLevel === 2)) {
+      _hideAiToggleBar(); return;
+    }
     /* UI-REBUILD-1: 글 보기 = 원본 | AI 장면발전(s2)만. 텍스트 1단계(s1) 토글 폐기.
        s2 후보 없으면 바 미표시(s1만 있는 구작품도 바 숨김 → 본문은 원본 표시). */
     const hasS2 = _isS2Finalized();
-    /* LEVELS-AUDIT F5: 2단계는 AI 장면발전(s2) 진입 경로가 없어(작품 마무리 모달 없음)
-       'AI 장면발전' 토글이 영원히 비활성인 죽은 UI — 변형이 실제로 없으면 바 자체를 숨김.
-       (혹시 변형이 존재하는 예외 작품은 보기 전용으로 유지 — 접근성 보존) */
-    if (!hasS2 && _isPbLevel2()) { _hideAiToggleBar(); return; }
+    /* (구 LEVELS-AUDIT F5의 '2단계 + 변형 없음' 숨김은 위 PUBLISH-LV3-ONLY가 2단계를
+       무조건 숨기면서 흡수됨 — 중복 분기 제거) */
     /* CONTEST-FIX-1(2026-07-10): 학급 AI가 원천 꺼졌거나 교사가 s2를 안 켠 반에서 만들어둔 s2도
        없으면 — 영영 켤 수 없는 disabled 토글('먼저 만들면 켜져요')을 노출하지 않음.
        기존 s2가 있으면 보기 전용으로 유지(AI 호출 없음·안전). */
@@ -2821,9 +2835,13 @@
     /* PUBLISH-VERSION: 감상에서 '친구에게 보일 그림'이 원본/AI로 잠겼으면 토글 숨김. */
     if (_publishLockMode('image')) { _hideAiImageToggleBar(); return; }
     /* LEVELS-FEEDBACK(2026-07-19): 1단계는 원본 그림이 없어(전부 AI 자동) '원본' 토글이
-       빈 화면만 보여줌 — 그림/글 토글 바 자체를 숨긴다(감상·다듬기 공통). AI-DEFAULT가 표시 담당. */
+       빈 화면만 보여줌 — 그림/글 토글 바 자체를 숨긴다(감상·다듬기 공통). AI-DEFAULT가 표시 담당.
+       PUBLISH-LV3-ONLY(2026-07-25): 2단계도 숨김 — 원본 그림은 구도만 잡으려고 일부러 간단히
+       그린 졸라맨이라 친구에게 보여줄 대상이 아니다(AI 마감본이 곧 완성본). */
     if (ViewerState && ViewerState.project && ViewerState.project.projectType === 'picturebook'
-        && ViewerState.project.picturebookLevel === 1) { _hideAiImageToggleBar(); return; }
+        && (ViewerState.project.picturebookLevel === 1 || ViewerState.project.picturebookLevel === 2)) {
+      _hideAiImageToggleBar(); return;
+    }
     /* imageS1(AI 그림 정돈)은 폐기 — 'AI 그림책 마감'(s2)만. */
     const hasS2 = _hasImageVariantS2();
     /* CONTEST-FIX-1: 텍스트 토글과 동일 — 영영 켤 수 없는 disabled 토글 비노출. */

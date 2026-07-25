@@ -366,6 +366,9 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db   = firebase.database();
 const googleProvider = new firebase.auth.GoogleAuthProvider();
+/* GOOGLE-ACCOUNT-PICK(2026-07-25): 브라우저에 구글 세션이 하나면 팝업이 계정 선택 없이 그
+   계정으로 바로 로그인돼, 다른 선생님 계정으로 바꿀 수 없었다. 항상 계정 선택 화면을 띄운다. */
+googleProvider.setCustomParameters({ prompt: 'select_account' });
 
 /* v90: 가입 모드 토글 — false = 로그인, true = 회원가입 */
 let _signupMode = false;

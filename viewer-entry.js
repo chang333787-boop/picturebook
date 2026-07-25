@@ -94,6 +94,26 @@ async function _processQueryParam() {
     } else if (params.get('shelf') === '1') {
       /* code/classId 없거나 BranchShelf 미로드 — 로딩만 걸려 있으면 진입 폼 복구 */
       _revealEntryWithError('책장 링크가 올바르지 않아요.');
+    } else if (!code && window.BranchShelf && typeof window.BranchShelf.hasCtx === 'function'
+               && window.BranchShelf.hasCtx()) {
+      /* SHELF-REFRESH-RESUME(2026-07-25): 코드 입장 책장은 URL에 흔적이 없어 새로고침하면
+         입장 폼으로 떨어졌음('풀리는' 증상의 두 번째 원인 — auth는 SHELF-AUTH-RESTORE로 해결).
+         sessionStorage branchShelfCtx(책장 진입 시 저장)가 있으면 같은 게이트로 책장 자동 복귀.
+         실패(비활성화됨/네트워크)면 조용히 입장 폼(오류문구 없음 — 새 세션과 동일 경험). */
+      try {
+        const _sctx = JSON.parse(sessionStorage.getItem('branchShelfCtx') || 'null');
+        if (_sctx && (_sctx.code || _sctx.classId)) {
+          window.BranchShelf.openShelf(_sctx.code ? { classCode: _sctx.code } : { classId: _sctx.classId })
+            .then(() => { if (typeof window.__hideAutoEnterLoading === 'function') window.__hideAutoEnterLoading(); })
+            .catch(() => {
+              try { sessionStorage.removeItem('branchShelfCtx'); } catch (e) {}
+              const entryEl = document.getElementById('entry-screen');
+              if (entryEl) entryEl.style.cssText = 'display:flex !important;';
+              if (typeof window.__hideAutoEnterLoading === 'function') window.__hideAutoEnterLoading();
+              _setEntryLoading(false);
+            });
+        }
+      } catch (e) { /* 복원 실패 = 기존 흐름(입장 폼) */ }
     }
     return;
   }

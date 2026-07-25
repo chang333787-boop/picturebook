@@ -1445,6 +1445,15 @@ function drawArrows(onlyNums) {
     svg.querySelectorAll('path.arrow, circle.arrow, text.arrow-label, rect.arrow-label').forEach(el => el.remove());
   }
 
+  /* LINEAR-ARROW-HIDE-1: 선형 그림책(1·2단계)은 격자+번호로 읽는 순서가 이미 드러난다.
+     연결선을 그리면 줄바꿈(4→5, 8→9 등)에서 오른쪽 빈 공간으로 크게 휘었다가
+     되돌아오는 S자 곡선이 생겨 "노드가 깨진 것처럼" 보인다 → 선형 모드는 연결선 생략.
+     (위에서 기존 선은 이미 제거했으므로 여기서 바로 종료) */
+  if (typeof window !== 'undefined' && typeof window.isLinearGridActive === 'function' && window.isLinearGridActive()) {
+    _arrowOnlyNums = null;
+    return;
+  }
+
   /* W6: 체험전시형은 connectObjects[] 기반 화살표.
      다른 모드는 기존 buttons[] 흐름 그대로. */
   const _ptype = (typeof projectMeta !== 'undefined' && projectMeta && projectMeta.projectType) || null;

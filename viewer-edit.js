@@ -5525,7 +5525,11 @@ function _publishVersionSectionHtml() {
   const im = (ViewerState.project && ViewerState.project.viewerShowImage) || 'both';
   const seg = (cls, cur, val, label) =>
     `<button type="button" class="edit-toggle ${cls} ${cur === val ? 'active' : ''}" data-val="${val}">${label}</button>`;
-  const textRow = `
+  /* PUBLISH-LEVEL-CLASSIFY-1: 그림책 2단계(그림 다리)는 텍스트 AI 장면발전이 없다
+     (작품 마무리 모달이 2단계에서 차단 → s2 진입점 0). '원본/AI 글' 토글이 무의미하므로
+     글 보기 행 자체를 숨긴다(그림 보기만). 3단계·텍스트 작품은 기존대로 글 행 노출. */
+  const _pbLevel2 = (ptype === 'picturebook' && lv === 2);
+  const textRow = _pbLevel2 ? '' : `
     <div class="edit-row edit-row--compact">
       <label class="edit-label">📝 글 보기</label>
       <div class="edit-toggle-group">

@@ -41,3 +41,5 @@ functions/.firebase/
 # IMAGE-S2-8 모델 평가 — 생성 결과/계획(외부 API 산출물·dry-run 산출) commit 금지
 scripts/image-s2-model-eval/output/
 functions/node_modules
+아카이브.zip
+*.zip

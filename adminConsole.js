@@ -2021,36 +2021,85 @@ async function _renderShelfCommentPanel(classId) {
         const ob = (typeof order[b.enc] === 'number') ? order[b.enc] : Infinity;
         return oa - ob;
       });
-    const draw = () => {
-      box.style.cssText = 'display:block;background:#fdf8ec;border:1px solid #e8d9bf;border-radius:10px;padding:10px 12px;margin:0 0 10px;';
-      box.innerHTML = items.map((it, i) => `
-        <div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px;color:#3a2c14;">
-          <span style="width:22px;text-align:right;color:#a08b63;">${i + 1}.</span>
-          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_escHtml(it.label)}</span>
-          <button type="button" class="js-asc-up" data-i="${i}" ${i === 0 ? 'disabled' : ''} style="${btnStyle}padding:2px 9px;">↑</button>
-          <button type="button" class="js-asc-down" data-i="${i}" ${i === items.length - 1 ? 'disabled' : ''} style="${btnStyle}padding:2px 9px;">↓</button>
-        </div>`).join('')
-        + `<div style="display:flex;gap:8px;margin-top:8px;">
-             <button type="button" id="asc-order-save" style="${btnStyle}background:#6a9a5a;color:#fff;border-color:#6a9a5a;">저장</button>
-             <button type="button" id="asc-order-reset" style="${btnStyle}">기본 순서로(최신순)</button>
-           </div>`;
-      box.querySelectorAll('.js-asc-up').forEach(b => b.addEventListener('click', () => {
-        const i = parseInt(b.dataset.i, 10); if (i > 0) { [items[i - 1], items[i]] = [items[i], items[i - 1]]; draw(); }
-      }));
-      box.querySelectorAll('.js-asc-down').forEach(b => b.addEventListener('click', () => {
-        const i = parseInt(b.dataset.i, 10); if (i < items.length - 1) { [items[i + 1], items[i]] = [items[i], items[i + 1]]; draw(); }
-      }));
-      box.querySelector('#asc-order-save')?.addEventListener('click', async () => {
-        const map = {}; items.forEach((it, i) => { map[it.enc] = i; });
-        try { await db.ref(`classes/${classId}/settings/shelfOrder`).set(map); alert('✅ 책장 순서를 저장했어요.'); }
-        catch (e) { alert('순서를 저장하지 못했어요.'); }
-      });
-      box.querySelector('#asc-order-reset')?.addEventListener('click', async () => {
-        try { await db.ref(`classes/${classId}/settings/shelfOrder`).remove(); alert('기본 순서(최신순)로 되돌렸어요.'); box.style.display = 'none'; }
-        catch (e) { alert('되돌리지 못했어요.'); }
-      });
+    /* SHELF-ORDER-2(2026-07-25): ↑↓ 버튼 → 드래그. 17권짜리 책장에서 버튼으로 한 칸씩 올리는 건
+       클릭 수십 번이라 사실상 못 쓰는 UI였다. 이제 행을 잡아 끌면 자리가 실시간으로 바뀌고,
+       놓는 순간 저장된다(저장 버튼 없음).
+       ⚠️구현 요점: pointer 이벤트를 '컨테이너'에 위임하고 setPointerCapture도 컨테이너에 건다 —
+       행에 걸면 드래그 중 리렌더로 그 행이 사라지면서 이벤트가 끊긴다. 마우스·터치(크롬북·태블릿)
+       모두 같은 코드로 동작(touch-action:none). */
+    let dragIdx = null, baseY = 0, moved = false;
+    const setStatus = (txt, color) => {
+      const el = box.querySelector('#asc-order-status');
+      if (el) { el.textContent = txt; el.style.color = color || '#a08b63'; }
     };
-    draw();
+    const rowsHtml = () => items.map((it, i) => `
+      <div class="js-asc-row" data-i="${i}" style="display:flex;align-items:center;gap:8px;padding:7px 9px;margin:3px 0;
+           font-size:13px;color:#3a2c14;background:${dragIdx === i ? '#f2e6cf' : '#fffdf6'};
+           border:1px solid ${dragIdx === i ? '#c9a86a' : '#eee4d0'};border-radius:8px;cursor:grab;
+           touch-action:none;user-select:none;${dragIdx === i ? 'box-shadow:0 3px 10px rgba(90,70,40,.16);' : ''}">
+        <span style="color:#c0ab86;line-height:1;letter-spacing:-1px;" aria-hidden="true">⠿</span>
+        <span style="width:20px;text-align:right;color:#a08b63;font-variant-numeric:tabular-nums;">${i + 1}</span>
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_escHtml(it.label)}</span>
+      </div>`).join('');
+    const drawRows = () => {
+      const el = box.querySelector('#asc-order-rows');
+      if (el) el.innerHTML = rowsHtml();
+    };
+    const save = async () => {
+      const map = {}; items.forEach((it, i) => { map[it.enc] = i; });
+      try { await db.ref(`classes/${classId}/settings/shelfOrder`).set(map); setStatus('저장됐어요 ✓', '#5b7a4a'); }
+      catch (e) { setStatus('저장하지 못했어요 — 다시 옮겨 보세요', '#b3372c'); }
+    };
+
+    box.style.cssText = 'display:block;background:#fdf8ec;border:1px solid #e8d9bf;border-radius:10px;padding:10px 12px;margin:0 0 10px;';
+    box.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;margin:0 0 7px;font-size:12px;color:#8a7a5c;">
+        <span>끌어서 순서를 바꿔요 — 놓으면 바로 저장돼요.</span>
+        <span id="asc-order-status" style="margin-left:auto;font-weight:700;white-space:nowrap;"></span>
+      </div>
+      <div id="asc-order-rows"></div>
+      <div style="display:flex;gap:8px;margin-top:9px;">
+        <button type="button" id="asc-order-reset" style="${btnStyle}">기본 순서로(최신순)</button>
+      </div>`;
+    drawRows();
+
+    const rowsEl = box.querySelector('#asc-order-rows');
+    rowsEl.addEventListener('pointerdown', (e) => {
+      const row = e.target.closest('.js-asc-row');
+      if (!row) return;
+      dragIdx = parseInt(row.dataset.i, 10);
+      baseY = e.clientY; moved = false;
+      try { rowsEl.setPointerCapture(e.pointerId); } catch (_) { /* 미지원 브라우저=일반 이벤트로 진행 */ }
+      drawRows();
+      e.preventDefault();
+    });
+    rowsEl.addEventListener('pointermove', (e) => {
+      if (dragIdx === null) return;
+      const first = rowsEl.querySelector('.js-asc-row');
+      const h = first ? (first.offsetHeight + 6) : 34;   /* 행 높이 + margin 3px×2 */
+      const step = Math.round((e.clientY - baseY) / h);
+      if (!step) return;
+      const target = Math.max(0, Math.min(items.length - 1, dragIdx + step));
+      if (target === dragIdx) return;
+      const [m] = items.splice(dragIdx, 1);
+      items.splice(target, 0, m);
+      baseY += (target - dragIdx) * h;   /* 실제 이동한 칸만큼만 기준선 이동(끝에서 미끄러짐 방지) */
+      dragIdx = target; moved = true;
+      drawRows();
+    });
+    const endDrag = async (e) => {
+      if (dragIdx === null) return;
+      try { rowsEl.releasePointerCapture(e.pointerId); } catch (_) { /* noop */ }
+      dragIdx = null; drawRows();
+      if (moved) { setStatus('저장 중…'); await save(); }
+    };
+    rowsEl.addEventListener('pointerup', endDrag);
+    rowsEl.addEventListener('pointercancel', endDrag);
+
+    box.querySelector('#asc-order-reset')?.addEventListener('click', async () => {
+      try { await db.ref(`classes/${classId}/settings/shelfOrder`).remove(); alert('기본 순서(최신순)로 되돌렸어요.'); box.style.display = 'none'; }
+      catch (e) { alert('되돌리지 못했어요.'); }
+    });
   });
   host.querySelector('#asc-shelf-copy')?.addEventListener('click', async () => {
     /* VIEW-LINK-1: 책장 링크는 shelfPublic ON일 때만 서버(getClassShelf)가 링크 모드를 허용.

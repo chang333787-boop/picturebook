@@ -4407,6 +4407,30 @@ exports.compassAdaptiveChoices = onCall(
       }
     } catch (e) { if (e instanceof HttpsError) throw e; }
 
+    /* ADAPTIVE-CHOICES-CACHE(2026-07-25 Phase2): 같은 (질문·앞답·고정보기·프롬프트) 조합은
+       AI 재호출 없이 팀 캐시 반환. 질문별 1슬롯(무한 증식 방지)·시스템 프롬프트 해시 포함
+       (프롬프트 수정=자동 무효)·실패({ok:false})는 캐시 안 함. rules상 aiChecks .write:false
+       (클라)라 학생 오염 불가. 캐시 읽기/저장 실패=경고 로그 후 기존 흐름 그대로(fail-open). */
+    const _ccSlot = 'q' + _bodyHash(questionTitle);
+    const _ccInputHash = _bodyHash(JSON.stringify({
+      v: 1, sys: _bodyHash(COMPASS_CHOICES_SYSTEM_PROMPT),
+      q: questionTitle, p: priorAnswersText, s: staticChoices,
+    }));
+    const _ccRef = admin.database().ref(`classes/${classId}/teams/${enc}/aiChecks/compassChoices/${_ccSlot}`);
+    try {
+      const _ccSnap = await _ccRef.once('value');
+      const _cc = _ccSnap.val();
+      if (_cc && _cc.inputHash === _ccInputHash) {
+        const _rvc = validateCompassChoicesResponse({ choices: _cc.choices });
+        if (_rvc.ok) {
+          logger.info('[tc/choices] cache hit — AI 생략', { uid, classId, slot: _ccSlot });
+          return { ok: true, choices: _rvc.value.choices, cached: true };
+        }
+      }
+    } catch (e) {
+      logger.warn('[tc/choices] cache read 실패 — 새 생성 진행', { error: e && e.message });
+    }
+
     const userMsg = buildCompassChoicesUserMessage({ questionTitle, priorAnswersText, staticChoices });
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
@@ -4415,7 +4439,16 @@ exports.compassAdaptiveChoices = onCall(
         const rv = validateCompassChoicesResponse(parsed);
         if (!rv.ok) { continue; }
         logger.info('[tc/choices] ok', { uid, classId, labels: rv.value.choices.map((x) => x.label).join('/'), attempt });
-        return { ok: true, choices: rv.value.choices };
+        /* 성공 결과만 슬롯 저장(best-effort) — 저장 실패는 반환을 막지 않음 */
+        try {
+          await _ccRef.set({
+            inputHash: _ccInputHash, choices: rv.value.choices,
+            at: Date.now(), model: HAIKU_MODEL, version: 'ccChoicesCacheV1',
+          });
+        } catch (e2) {
+          logger.warn('[tc/choices] cache write 실패(결과는 정상 반환)', { error: e2 && e2.message });
+        }
+        return { ok: true, choices: rv.value.choices, cached: false };
       } catch (e) {
         logger.warn('[tc/choices] 시도 실패', { attempt, error: e && e.message });
       }

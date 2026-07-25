@@ -153,7 +153,9 @@ function addButton(num) {
    · 가지 "구조"(연결/buttons/nextId)는 무변경 — 화면 좌표(x/y)만 그리드로 정렬.
    · drawArrows도 s.x/s.y를 읽으므로 화살표가 줄 따라 자연스럽게 흐름을 보여줌.
    · 멱등(매 renderAll 재적용·같은 결과)·비선형(3단계/텍스트/무비)엔 미적용. ════ */
-const _LINEAR_GRID = { perRow: 4, cardW: 200, gapX: 48, rowH: 210, startX: 100, startY: 80 };
+/* LINEAR-CARD-READ-2(2026-07-25): 카드=글 전용(그림 숨김·라벨 칩 숨김) 실측 높이 155~230px 기준 —
+   rowH 270 = 최대 카드(9줄≈230)+여백 40. gapX 56 = 라벨 없는 화살표 숨통. (이전 rowH 210은 카드와 겹침) */
+const _LINEAR_GRID = { perRow: 4, cardW: 200, gapX: 56, rowH: 270, startX: 100, startY: 80 };
 function _linearReadingOrder() {
   const all = Object.values(scenes).filter(Boolean);
   const _num = (s) => { const n = parseInt(s && s.num, 10); return Number.isFinite(n) ? n : 9999; };

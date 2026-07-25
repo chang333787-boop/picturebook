@@ -442,15 +442,16 @@
        [+ 버튼 추가]는 숨김. 함수 관문(renameScene/addButton)과 이중 방어. */
     body.pb-linear-locked .card-num-badge{ pointer-events:none; cursor:default; }
     body.pb-linear-locked .card-add-button{ display:none !important; }
-    /* LINEAR-CARD-READ(2026-07-24 사용자 요청): 1·2단계 브랜치 카드는 '글 읽기·이어쓰기'가 목적인데
-       2단계에 그림이 들어가면 그림(144px)이 카드 절반을 먹어 글이 한눈에 안 보였음 → 그림을 작게 줄이고
-       본문 미리보기를 5줄→9줄로 늘려 글이 잘 보이게(그리드 자동정렬·다듬기/감상/인쇄엔 무영향). */
-    body.pb-linear-locked .pb-mapcard .card-thumb{ height:78px !important; max-height:78px !important; }
-    body.pb-linear-locked .pb-mapcard .card-img-btn{ height:60px !important; }
-    body.pb-linear-locked .pb-mapcard .card-image-area{ padding:1px 9px 3px; }
+    /* LINEAR-CARD-READ-2(2026-07-25 사용자 결정): 1·2단계 브랜치 카드=글 전용.
+       ① 그림 영역 자체를 숨김 — 그림은 다듬기에서 보고 관리(카드 절반 먹던 문제 해소).
+       ② '다음으로 가기' 화살표 라벨 칩 숨김 — 일직선 고정 경로라 정보가치 0인데 다음 카드에 잘려 어색했음.
+       ③ 본문 미리보기 min5·max9줄(글 길이 따라 자연 높이). 그리드 rowH는 sceneRenderer _LINEAR_GRID 참조.
+       다듬기/감상/인쇄엔 무영향(브랜치 미리보기 전용). */
+    body.pb-linear-locked .pb-mapcard .card-image-area{ display:none !important; }
+    body.pb-linear-locked svg .arrow-label{ display:none !important; }
     body.pb-linear-locked .pb-mapcard .pb-body-preview{
       -webkit-line-clamp:9 !important;
-      min-height:calc(1.5em * 9) !important; max-height:calc(1.5em * 9) !important;
+      min-height:calc(1.5em * 5) !important; max-height:calc(1.5em * 9) !important;
     }
 
     /* v40: 복사 코드 모달 (발급/받기 공용) */
@@ -3473,7 +3474,7 @@
 <script src="notices.js?v=3d93b71532"></script>
 <script src="session.js?v=14b8513855"></script>
 <script src="canvasInteraction.js?v=42257f700f"></script>
-<script src="sceneRenderer.js?v=da55756cd3"></script>
+<script src="sceneRenderer.js?v=eda4a49292"></script>
 <script src="storyAnalyzer.js?v=4799502ff8"></script>
 <script src="mediaManager.js?v=2b05836f58"></script>
 <script src="adminConsole.js?v=8dda7aabb4"></script>

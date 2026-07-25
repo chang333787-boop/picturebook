@@ -512,6 +512,9 @@
         /* COMPASS-VALUE-1: 고른 가치를 초안 생성에 전달(answers 스키마 무접촉·별도 필드) */
         await window.ThoughtCompassComplete.afterComplete(Object.assign({}, R.ctx, {
           answers: R.vm.answers,
+          /* FOLLOWUP-DIGEST-1: 후속 상세답도 전달 — 초안 digest·씨앗 힌트가 아이가
+             구체화한 핵심(예: goal 후속 "잃어버린 물건")을 반영하도록. */
+          followUps: R.followUps,
           storyValue: (R._storyValue && R._storyValue.picked) || null,
         }));
       }

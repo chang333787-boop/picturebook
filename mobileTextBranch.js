@@ -2552,8 +2552,11 @@ window.createStarterTemplateForNewProject = createStarterTemplateForNewProject;
    · 어떤 실패든 false 반환 → 호출자가 기본 틀 폴백(기존 동작·회귀 0).
    정본: docs/picturebook_levels_design_20260718.md §7.4 ════════ */
 
-/* 나침반 답 {key:{answerText,deferred,...}} → "key: 답" 디지스트(맥락 전용·1500자 상한) */
-function _storyDraftAnswersDigest(answers, storyValue) {
+/* 나침반 답 {key:{answerText,deferred,...}} → "key: 답" 디지스트(맥락 전용·1500자 상한)
+   FOLLOWUP-DIGEST-1: followUps[](후속 상세답)도 동봉 — 아이가 구체화한 핵심 정보
+   (예: goal 후속 "도현이가 잃어버린 물건을 찾아줘야 해요")가 여기 있는데 종전엔 통째로
+   버려져, AI가 문제를 스스로 지어내던(잃어버린 물건→과학 프로젝트) 원인이었다. */
+function _storyDraftAnswersDigest(answers, storyValue, followUps) {
   if (!answers || typeof answers !== 'object') return '';
   const lines = [];
   /* COMPASS-VALUE-1(2026-07-21): 1단계 마지막 질문에서 고른 가치 — 맨 앞에 강조(1500자
@@ -2574,6 +2577,23 @@ function _storyDraftAnswersDigest(answers, storyValue) {
   /* EASY-MUSTINC: 아이의 '꼭 넣고 싶은 것'은 반드시 등장하도록 디지스트 끝에 명시 지시
      (서버 프롬프트 무변경 — answersText 안 지시라 배포 불요·1500자 상한 내). */
   if (mustIncludeText) lines.push('(중요: mustInclude에 적힌 "' + mustIncludeText + '"은(는) 이야기에 꼭 등장시켜 주세요)');
+  /* FOLLOWUP-DIGEST-1: 후속 상세답 동봉 — 아이가 콕 집어 구체화한 정보라 반드시 반영.
+     parentQuestionId로 어느 질문의 상세인지 표시(예: "goal(상세): 잃어버린 물건을 찾아줘야"). */
+  if (Array.isArray(followUps) && followUps.length) {
+    const fuLines = [];
+    followUps.forEach((f) => {
+      if (!f || typeof f !== 'object') return;
+      const a = String(f.answer == null ? '' : f.answer).replace(/\s+/g, ' ').trim();
+      if (!a) return;
+      const p = String(f.parentQuestionId == null ? '' : f.parentQuestionId).replace(/\s+/g, ' ').trim();
+      fuLines.push((p ? p + '(상세): ' : '상세: ') + a.slice(0, 160));
+    });
+    if (fuLines.length) {
+      lines.push('', '[아이가 더 구체적으로 정한 것 — 반드시 반영]');
+      fuLines.forEach((l) => lines.push('- ' + l));
+      lines.push('(중요: 위 상세 설정은 아이가 직접 콕 집은 핵심이에요. 다른 문제/사건으로 바꾸지 말고 그대로 이야기에 담아 주세요.)');
+    }
+  }
   return lines.join('\n').slice(0, 1500);
 }
 
@@ -2584,7 +2604,7 @@ function _storyDraftAnswersDigest(answers, storyValue) {
    안 꼬이고, '시키는 말'이 아니라 '네 계획 되짚기'가 된다(사용자 결정 2026-07-18).
    · 대상 키: BASE10 5~9(빈 이야기 장면)+10(엔딩). AI 시작 3장면=키 2~4.
    · 답이 유예/없음이면 인용 없이 위치 문구만(항상 안전). 순수 함수 — 하니스 검증용. */
-function _buildLinearSeedHints(answers) {
+function _buildLinearSeedHints(answers, followUps) {
   const at = (k) => {
     const a = answers && typeof answers === 'object' ? answers[k] : null;
     if (!a || typeof a !== 'object' || a.deferred === true) return '';
@@ -2596,17 +2616,39 @@ function _buildLinearSeedHints(answers) {
     if (!t) return '';
     return ' «' + (t.length > 36 ? t.slice(0, 36) + '…' : t) + '»';
   };
+  /* FOLLOWUP-HINT-1: 후속 상세답(parentQuestionId→답) 맵. 아이가 콕 집은 구체 정보를
+     해당 위치 힌트에 함께 되비춘다(예: goal 후속 "잃어버린 물건을 찾아줘야"). */
+  const fuMap = {};
+  if (Array.isArray(followUps)) {
+    followUps.forEach((f) => {
+      if (!f || typeof f !== 'object') return;
+      const p = String(f.parentQuestionId == null ? '' : f.parentQuestionId).replace(/\s+/g, ' ').trim();
+      const a = String(f.answer == null ? '' : f.answer).replace(/\s+/g, ' ').trim();
+      if (p && a && !fuMap[p]) fuMap[p] = a;
+    });
+  }
+  const fq = (k) => {
+    const t = fuMap[k];
+    if (!t) return '';
+    return ' «' + (t.length > 30 ? t.slice(0, 30) + '…' : t) + '»';
+  };
+  /* 힌트엔 goal 슬롯이 없어 아이가 정한 '핵심 문제/할 일'이 안 보이던 빈틈 →
+     구체 후속답(있으면)·없으면 목표답을 첫 이어쓰기 장면(5) 앞에 앵커. */
+  const goalCore = fuMap['goal'] || at('goal');
+  const goalLead = goalCore
+    ? ('네가 도와줄/풀 일: «' + (goalCore.length > 28 ? goalCore.slice(0, 28) + '…' : goalCore) + '» ')
+    : '';
   const hints = {
     /* SEAM-TONE-HINT(2026-07-20): 2단계 4팀 실주행 소견② — AI 시작 3장면(해요체)과 아이 글의
        말투가 갈리면 점검에서 시제 지적이 다발. 첫 이어쓰기 장면(5) 힌트에 말투 맞추기 한 줄. */
-    '5': '이제 일이 점점 어려워질 차례야.' + (q('risingTrouble') ? ' 네가 정한 어려움:' + q('risingTrouble') : '') + ' 앞 장면과 말투를 맞춰서 써 보자.',
-    '6': '어려움이 커질 때 주인공의 마음은 어떨까?' + (q('protagonist') ? ' 네 주인공:' + q('protagonist') : '') + ' 마음이 보이게 써 보자.',
-    '7': '중요한 선택의 순간이야!' + (q('keyChoice') ? ' 네가 정한 고민:' + q('keyChoice') : '') + ' 주인공은 어떻게 할까?',
+    '5': goalLead + '이제 일이 점점 어려워질 차례야.' + (q('risingTrouble') ? ' 네가 정한 어려움:' + q('risingTrouble') + fq('risingTrouble') : '') + ' 앞 장면과 말투를 맞춰서 써 보자.',
+    '6': '어려움이 커질 때 주인공의 마음은 어떨까?' + (q('protagonist') ? ' 네 주인공:' + q('protagonist') + fq('protagonist') : '') + ' 마음이 보이게 써 보자.',
+    '7': '중요한 선택의 순간이야!' + (q('keyChoice') ? ' 네가 정한 고민:' + q('keyChoice') + fq('keyChoice') : '') + ' 주인공은 어떻게 할까?',
     '8': '선택한 다음, 무슨 일이 벌어질까? 일이 풀려도 좋고, 뜻밖의 일이 생겨도 좋아.',
-    '9': '마무리로 가는 길이야.' + (q('trueEnding') ? ' 네가 그린 끝:' + q('trueEnding') : '') + ' 그대로 가도, 다른 길로 가도 좋아.',
+    '9': '마무리로 가는 길이야.' + (q('trueEnding') ? ' 네가 그린 끝:' + q('trueEnding') + fq('trueEnding') : '') + ' 그대로 가도, 다른 길로 가도 좋아.',
     '10': '마지막 장면이야!' + (q('coreMessage') ? ' 네가 지키고 싶은 마음:' + q('coreMessage') : '') + ' 그 마음이 담기게 끝내 보자.',
   };
-  Object.keys(hints).forEach((k) => { hints[k] = hints[k].slice(0, 140); });
+  Object.keys(hints).forEach((k) => { hints[k] = hints[k].slice(0, k === '5' ? 180 : 150); });
   return hints;
 }
 window._buildLinearSeedHints = _buildLinearSeedHints;   /* 하니스 검증용 노출 */
@@ -2633,7 +2675,7 @@ async function _applyStoryDraftStarter(draft, opts) {
     skeleton[endingKey].body = String(draft.ending.body || '').slice(0, 600);
   }
   if (opts.level === 2) {
-    const hints = _buildLinearSeedHints(opts.answers);
+    const hints = _buildLinearSeedHints(opts.answers, opts.followUps);
     Object.keys(hints).forEach((key) => {
       const sk = skeleton[key];
       if (sk && !(sk.body && sk.body.trim())) sk.writingHint = hints[key];
@@ -2742,7 +2784,7 @@ async function requestStoryDraftStarter(opts) {
     const classId = String(opts.classId || '').trim();
     const teamName = String(opts.teamName || '').trim();
     if (!classId || !teamName) return false;
-    const answersText = _storyDraftAnswersDigest(opts.answers, opts.storyValue);
+    const answersText = _storyDraftAnswersDigest(opts.answers, opts.storyValue, opts.followUps);
     if (!answersText) return false;   /* 답이 하나도 없으면 초안 불가 → 기본 틀 */
     const sc = (opts.storyCount === 12 || opts.storyCount === 15) ? opts.storyCount : 8;
 
@@ -2767,7 +2809,7 @@ async function requestStoryDraftStarter(opts) {
     }
     _hideStoryDraftOverlay(); _overlayShown = false;
     /* LEVELS-CONT-B: answers 동봉 — level 2 위치 기반 씨앗 힌트를 나침반 답으로 생성 */
-    const applied = await _applyStoryDraftStarter(data.draft, { storyCount: data.storyCount || sc, level: data.level, answers: opts.answers });
+    const applied = await _applyStoryDraftStarter(data.draft, { storyCount: data.storyCount || sc, level: data.level, answers: opts.answers, followUps: opts.followUps });
     /* PICTUREBOOK-LEVELS ④: 1단계 = 그림도 자동 — fire-and-forget(대기 없음·실패해도 글은 유효).
        서버(generateStoryImages)가 단계/토글/팀당 총량/이중 실행 lock을 재검증. 결과는
        aiVariants s2 슬롯에 쌓여 감상 진입 시 AI-DEFAULT-VIEW-1이 자동 표시. */

@@ -1558,10 +1558,12 @@
          aiS2 잠금인데 해당 장면 AI 그림이 없으면 아래 기존 폴백대로 원본 표시.) */
       const _p = (typeof ViewerState !== 'undefined' && ViewerState && ViewerState.project) || {};
       const _lv12 = (_p.projectType === 'picturebook' && (_p.picturebookLevel === 1 || _p.picturebookLevel === 2));
-      if (_lv12 && !(typeof ViewerState !== 'undefined' && ViewerState.editMode === true)) {
-        /* PUBLISH-LV3-ONLY(2026-07-25): 1·2단계 감상은 원본/AI 선택 개념이 없다 — 토글을
-           없앴으므로 기기에 남은 옛 선택('original')도 무시하고 발행 기본(AI 마감본)으로.
-           다듬기(editMode)는 원본 편집 대상이라 제외. */
+      if (_lv12) {
+        /* PUBLISH-LV3-ONLY(2026-07-25): 1·2단계는 원본/AI 선택 개념이 없다 — 그림 토글을
+           없앴으므로 기기에 남은 옛 선택('original')은 아이가 되돌릴 수단이 없는 잔재다.
+           감상·다듬기 모두 무시하고 발행 기본(AI 마감본)으로 통일한다 —
+           다듬기 배경이 감상과 달라지면 말풍선 위치를 '보이지 않을 그림' 기준으로 맞추게 됨.
+           원본 그림 자체는 [그림] 버튼의 그리기 화면에서 그대로 편집(여기는 배경 표시일 뿐). */
         raw = null;
       } else {
         const _imgLock = (typeof _publishLockMode === 'function') ? _publishLockMode('image') : null;

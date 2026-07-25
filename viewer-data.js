@@ -1972,11 +1972,16 @@ function getPublishedImageDisplaySrc(scene, originalSrc) {
          DRAFT-UX-3(2026-07-20 사용자 결정): 그림책 1단계는 편집(다듬기)에서도 s2 자동 —
          1단계 원본 슬롯은 설계상 비어 있고(업로드/그리기 없음) 아이의 다듬기 과제가
          "AI 그림 위에서 말풍선 옮기기"라, 무대에 그림이 없으면 작업 자체가 불가했음.
-         원본 편집 충돌 없음(1단계는 원본 이미지 편집 UI 자체가 숨김·🔁 재생성만). */
+         원본 편집 충돌 없음(1단계는 원본 이미지 편집 UI 자체가 숨김·🔁 재생성만).
+         PUBLISH-LV3-ONLY(2026-07-25): 2단계도 같은 이유로 다듬기에서 s2 자동 —
+         감상은 AI 마감본을 보여주는데 다듬기 배경만 졸라맨이면 아이가 '보이지 않을 그림'을
+         기준으로 말풍선 위치를 맞추게 된다(위치가 감상에서 어긋남). 원본 그림 자체는
+         [그림] 버튼의 그리기 화면에서 그대로 편집. s2 없는 장면은 아래 폴백으로 원본 표시. */
       const editing = (typeof ViewerState !== 'undefined' && ViewerState && ViewerState.editMode === true);
-      const lv1 = (typeof ViewerState !== 'undefined' && ViewerState && ViewerState.project
-        && ViewerState.project.projectType === 'picturebook' && ViewerState.project.picturebookLevel === 1);
-      if ((editing && !lv1) || !s2) return originalSrc;
+      const _lvp = (typeof ViewerState !== 'undefined' && ViewerState && ViewerState.project) || {};
+      const lvAiStage = (_lvp.projectType === 'picturebook'
+        && (_lvp.picturebookLevel === 1 || _lvp.picturebookLevel === 2));
+      if ((editing && !lvAiStage) || !s2) return originalSrc;
       const auto = resolveSceneImageSource(scene, null, s2, 's2');   /* previewMode 's2' = usable하면 s2 */
       return (auto && auto.kind === 's2' && typeof auto.src === 'string' && auto.src) ? auto.src : originalSrc;
     }

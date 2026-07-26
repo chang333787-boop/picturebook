@@ -50,6 +50,42 @@
 
     <div class="wh__main">
 
+      <!-- USB-RUN-NOTICE(2026-07-26): USB·오프라인(file://)으로 열었을 때만 보이는 실행 안내.
+           이 작품은 서버(인증·데이터·AI)와 함께 동작하는 웹 애플리케이션이라 file:// 로 열면
+           화면은 보여도 AI 기능이 동작하지 않는다(서버가 요청 출처를 확인함).
+           실제 서비스(https)에서는 이 배너가 나타나지 않으므로 학생·교사 화면에는 영향 없음.
+           ※ 블라인드 심사 규정에 따라 학교명·출품자명은 적지 않는다. 접속 계정 정보도
+             공개 저장소에 남지 않도록 화면에 적지 않고 동봉 인쇄물로 안내한다. -->
+      <div id="usb-run-notice" style="display:none;">
+        <div class="urn-title">💻 이 작품은 웹 애플리케이션입니다</div>
+        <p class="urn-desc">
+          인터넷에 연결된 상태에서 아래 버튼을 누르면 작품이 실행됩니다.<br/>
+          (지금은 파일을 직접 연 상태라 화면만 보이고 일부 기능이 동작하지 않습니다.)
+        </p>
+        <a class="urn-cta" href="https://branchstory.co.kr" target="_blank" rel="noopener">▶ 작품 실행하기</a>
+        <p class="urn-sub">
+          체험용 접속 정보(클래스 코드 · 모둠 이름 · PIN)는 <b>함께 제출한 인쇄물</b>을 참고해 주세요.<br/>
+          실행 환경: 최신 Chrome · Edge · Safari · 인터넷 연결 필요 · 권장 해상도 1920×1080
+        </p>
+      </div>
+      <style>
+        #usb-run-notice { border:2px solid #c08a52; background:#fffaf0; border-radius:14px;
+          padding:18px 20px; margin:0 0 4px; text-align:center; max-width:640px; }
+        #usb-run-notice .urn-title { font-size:17px; font-weight:700; color:#8a5a2a; margin:0 0 6px; }
+        #usb-run-notice .urn-desc { font-size:13.5px; color:#5a4b36; line-height:1.65; margin:0 0 12px; }
+        #usb-run-notice .urn-cta { display:inline-block; background:#a4592f; color:#fff; text-decoration:none;
+          font-size:16px; font-weight:700; padding:11px 26px; border-radius:999px; }
+        #usb-run-notice .urn-sub { font-size:12px; color:#7d6f57; line-height:1.6; margin:12px 0 0; }
+      </style>
+      <script>
+        /* file:// (USB·로컬 파일 직접 열기)에서만 노출 */
+        if (location.protocol === 'file:') {
+          var _urn = document.getElementById('usb-run-notice');
+          if (_urn) _urn.style.display = '';
+        }
+      </script>
+
+
       <!-- 히어로 -->
       <section class="wh__hero">
         <p class="wh__eyebrow">선택할 때마다 이야기가 달라져요</p>

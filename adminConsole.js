@@ -2890,15 +2890,14 @@ function _consentFormHtml() {
     </div>
 
     <table class="cf-table">
-      ${row('수집·이용 목적', '예) 학급 이야기 창작 활동 기록, 작품집 제작, 학교 누리집 게시')}
+      <tr><th>수집·이용 목적</th><td>학급 이야기 창작 활동의 지도·기록 및 학급 작품집 제작</td></tr>
       <tr><th>수집 항목</th><td class="cf-checks">
         ${check('학생 이름')} ${check('학년·반·번호')} ${check('보호자 연락처')}<br/>
         ${check('학생이 만든 작품(글·그림)')} ${check('수업 활동 사진')} ${check('활동 영상')}<br/>
         ${check('기타: ')}<span class="cf-line cf-line--md"></span>
       </td></tr>
-      ${row('보유·이용 기간', '예) 해당 학년도 종료 후 즉시 파기 (   년   월   일까지)')}
-      <tr><th>제3자 제공</th><td>제공하지 않습니다. <span class="cf-hint">(제공이 필요한 경우 아래에 따로 적어 주세요)</span>
-        <span class="cf-line cf-line--lg"></span></td></tr>
+      <tr><th>보유·이용 기간</th><td>해당 학년도 종료 시까지 보관한 뒤 파기합니다.</td></tr>
+      <tr><th>제3자 제공</th><td>제공하지 않습니다.</td></tr>
     </table>
 
     <div class="cf-right">
@@ -2926,7 +2925,7 @@ function _consentFormHtml() {
     </table>
 
     <div class="cf-foot">
-      이 동의서는 담임교사가 보관합니다. 문의: 담임교사 <span class="cf-line cf-line--sm"></span>
+      이 동의서는 담임교사가 보관합니다. 문의: 담임교사
     </div>
   </div>`;
 }

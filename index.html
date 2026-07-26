@@ -36,7 +36,15 @@
 .wh__contest-footer .wh__cf-line{display:block;}
 .wh__contest-footer .wh__cf-line--title{font-weight:700;color:#7b7367;letter-spacing:.01em;}
 .wh__contest-footer .wh__cf-line--desc{margin:0 auto;max-width:520px;color:#948c80;}
-@media(max-width:480px){.wh__contest-footer{font-size:11px;padding-left:16px;padding-right:16px;}}</style>
+@media(max-width:480px){.wh__contest-footer{font-size:11px;padding-left:16px;padding-right:16px;}}
+/* CREDITS(2026-07-26): 요강 「차. 소프트웨어 개발 시 유의사항」 — 외부 자료(폰트 포함) 출처는
+   보고서 첨부뿐 아니라 소프트웨어 화면에서도 확인이 가능해야 함(미표기 시 본인 제작으로 간주·표절 판정 소지).
+   학생 화면을 해치지 않도록 하단에 가장 낮은 위계로 배치. */
+/* 서체명이 영문 + 중점(·) 연속이라 keep-all이면 한 단어로 묶여 좁은 화면에서 잘린다 → normal+anywhere. */
+.wh__credits{max-width:620px;margin:14px auto 0;padding:0 18px 4px;text-align:center;
+  color:rgba(90,75,55,0.42);font-size:10.5px;line-height:1.55;
+  word-break:normal;overflow-wrap:anywhere;}
+@media(max-width:480px){.wh__credits{font-size:10px;padding-left:16px;padding-right:16px;}}</style>
 </head>
 <body>
 
@@ -183,6 +191,17 @@
       <p style="text-align:center;margin:22px 0 0;font-size:12px;">
         <a href="./privacy.html" target="_blank" rel="noopener"
            style="color:rgba(90,75,55,0.6);text-decoration:none;border-bottom:1px dashed rgba(90,75,55,0.3);padding-bottom:1px;">개인정보 처리방침</a>
+      </p>
+
+      <!-- 사용 자료 출처 (요강: 소프트웨어 화면에서도 확인 가능해야 함) -->
+      <p class="wh__credits">
+        사용 서체 : Jua · Gaegu · Gowun Batang · Gowun Dodum · Hi Melody · Yeon Sung · East Sea Dokdo ·
+        Nanum Pen Script · Nanum Gothic · Noto Sans KR · Noto Serif KR · Hahmlet · Do Hyeon ·
+        Black Han Sans · Stylish · Diphylleia · Cormorant Garamond
+        — Google Fonts, SIL Open Font License 1.1 /
+        갈무리(Galmuri) — quiple, SIL Open Font License 1.1<br/>
+        그 밖의 화면 요소(아이콘 · 배경 · 삽화 틀)는 모두 자체 제작(CSS · 인라인 SVG)이며,
+        작품 속 그림은 학생이 직접 그린 원화입니다.
       </p>
 
     </div><!-- /wh__main -->

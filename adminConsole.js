@@ -2831,6 +2831,19 @@ function _renderDocsTab() {
       <div class="admin-docs-actions">
         <button id="admin-docs-print-cards" class="admin-tc-btn admin-tc-btn--ghost" type="button">🖨 인쇄</button>
       </div>
+    </div>
+    <div class="admin-tc">
+      <div class="admin-tc-head">
+        <div class="admin-tc-title">📝 개인정보 수집·이용 동의서 (가정 배부용)</div>
+        <div class="admin-tc-desc">
+          <b>가지는 학생 개인정보를 수집하지 않아요</b>(모둠 이름·PIN만 사용). 이 양식은 학급에서 <b>따로</b>
+          이름·사진·작품을 모으려는 선생님을 위한 A4 한 장 서식이에요. 필요한 항목만 ☑ 표시해 인쇄한 뒤
+          가정으로 보내고 서명을 받아 보관하세요.
+        </div>
+      </div>
+      <div class="admin-docs-actions">
+        <button id="admin-docs-print-consent" class="admin-tc-btn admin-tc-btn--ghost" type="button">🖨 인쇄</button>
+      </div>
     </div>`;
 
   const _tp = (fn) => {
@@ -2847,6 +2860,131 @@ function _renderDocsTab() {
     if (adminState.adminClassId) _printEntryCards(adminState.adminClassId);
     else alert('학급 정보를 아직 불러오지 못했어요. [팀·작품] 탭이 열린 뒤 다시 시도해 주세요.');
   });
+  document.getElementById('admin-docs-print-consent')?.addEventListener('click', () => _printConsentForm());
+}
+
+/* ════════════════════════════════════════════════════════════════
+   CONSENT-FORM-1(2026-07-26) — 개인정보 수집·이용 동의서 (A4 1장)
+   ─────────────────────────────────────────────────────────────────
+   · 가지 자체는 학생 개인정보를 수집하지 않는다(모둠 이름·PIN만). 이 서식은 학급에서
+     따로 이름·사진·작품을 모으려는 교사를 위한 **빈 서식**이다 — 앱 데이터와 무관.
+   · 학교/학급/교사명·수집 항목은 손으로 적거나 ☑ 하도록 빈칸으로 둔다(학교마다 달라서).
+   · 인쇄 게이트 = _printScriptDraft와 동일 패턴(body class + 전용 root + @media print + afterprint 정리).
+   ════════════════════════════════════════════════════════════════ */
+function _consentFormHtml() {
+  const row = (label, hint) => `
+    <tr><th>${_escHtml(label)}</th><td>${hint ? `<span class="cf-hint">${_escHtml(hint)}</span>` : ''}</td></tr>`;
+  const check = (t) => `<span class="cf-chk">☐</span> ${_escHtml(t)}`;
+  return `
+  <div class="cf-doc">
+    <div class="cf-head">
+      <div class="cf-school">학교명 <span class="cf-line cf-line--sm"></span> · 학년/반 <span class="cf-line cf-line--xs"></span></div>
+      <h1 class="cf-title">개인정보 수집·이용 동의서</h1>
+      <div class="cf-sub">이야기 창작 수업(가지 branch) 운영과 관련하여 보호자님의 동의를 받고자 합니다.</div>
+    </div>
+
+    <div class="cf-notice">
+      <b>먼저 알려드립니다.</b> 수업에 사용하는 프로그램(가지 branch)은 <b>학생의 이름·연락처 등
+      개인정보를 수집하지 않습니다.</b> 모둠 이름과 숫자 PIN만으로 이용하며, 작품은 학급 안에서만 봅니다.
+      아래 항목은 <b>담임교사가 학급 운영·기록을 위해 따로 모으는 경우</b>에만 해당합니다.
+    </div>
+
+    <table class="cf-table">
+      ${row('수집·이용 목적', '예) 학급 이야기 창작 활동 기록, 작품집 제작, 학교 누리집 게시')}
+      <tr><th>수집 항목</th><td class="cf-checks">
+        ${check('학생 이름')} ${check('학년·반·번호')} ${check('보호자 연락처')}<br/>
+        ${check('학생이 만든 작품(글·그림)')} ${check('수업 활동 사진')} ${check('활동 영상')}<br/>
+        ${check('기타: ')}<span class="cf-line cf-line--md"></span>
+      </td></tr>
+      ${row('보유·이용 기간', '예) 해당 학년도 종료 후 즉시 파기 (   년   월   일까지)')}
+      <tr><th>제3자 제공</th><td>제공하지 않습니다. <span class="cf-hint">(제공이 필요한 경우 아래에 따로 적어 주세요)</span>
+        <span class="cf-line cf-line--lg"></span></td></tr>
+    </table>
+
+    <div class="cf-right">
+      <b>동의를 거부할 권리가 있습니다.</b> 동의하지 않아도 수업 참여에는 아무런 불이익이 없습니다.
+      다만 동의하지 않은 항목은 위 목적에 사용되지 않습니다.
+    </div>
+
+    <div class="cf-agree">
+      <div class="cf-agree-row">
+        <span class="cf-agree-label">위 내용에 대하여</span>
+        <span class="cf-big">☐ 동의합니다</span>
+        <span class="cf-big">☐ 동의하지 않습니다</span>
+      </div>
+    </div>
+
+    <table class="cf-sign">
+      <tr>
+        <th>학생 이름</th><td><span class="cf-line cf-line--md"></span></td>
+        <th>날짜</th><td>20&nbsp;&nbsp;&nbsp;&nbsp;년&nbsp;&nbsp;&nbsp;&nbsp;월&nbsp;&nbsp;&nbsp;&nbsp;일</td>
+      </tr>
+      <tr>
+        <th>보호자 성명</th><td><span class="cf-line cf-line--md"></span></td>
+        <th>서명</th><td><span class="cf-line cf-line--md"></span> (인)</td>
+      </tr>
+    </table>
+
+    <div class="cf-foot">
+      이 동의서는 담임교사가 보관합니다. 문의: 담임교사 <span class="cf-line cf-line--sm"></span>
+    </div>
+  </div>`;
+}
+
+function _printConsentForm() {
+  const ROOT_ID = 'cf-print-root';
+  const STYLE_ID = 'cf-print-style';
+  const cleanup = () => {
+    document.body.classList.remove('cf-print-on');
+    document.getElementById(ROOT_ID)?.remove();
+    document.getElementById(STYLE_ID)?.remove();
+    window.removeEventListener('afterprint', cleanup);
+  };
+  document.getElementById(ROOT_ID)?.remove();
+  const root = document.createElement('div');
+  root.id = ROOT_ID;
+  root.innerHTML = _consentFormHtml();
+  document.body.appendChild(root);
+  const style = document.createElement('style');
+  style.id = STYLE_ID;
+  style.textContent = `
+    #${ROOT_ID} { display:none; }
+    @media print {
+      @page { size: A4 portrait; margin: 14mm 15mm; }
+      body.cf-print-on > *:not(#${ROOT_ID}) { display:none !important; }
+      body.cf-print-on #${ROOT_ID} { display:block; }
+      #${ROOT_ID} .cf-doc { color:#111; font-family:'Nanum Gothic','Malgun Gothic',sans-serif;
+        font-size:10.5pt; line-height:1.62; word-break:keep-all; }
+      #${ROOT_ID} .cf-head { text-align:center; margin:0 0 6mm; }
+      #${ROOT_ID} .cf-school { font-size:9.5pt; color:#444; margin:0 0 3mm; text-align:right; }
+      #${ROOT_ID} .cf-title { font-size:19pt; font-weight:700; margin:0 0 2mm; letter-spacing:.02em; }
+      #${ROOT_ID} .cf-sub { font-size:10pt; color:#333; }
+      #${ROOT_ID} .cf-notice { border:1px solid #999; background:#f6f6f6; padding:3.5mm 4mm;
+        margin:0 0 5mm; font-size:9.8pt; }
+      #${ROOT_ID} .cf-table, #${ROOT_ID} .cf-sign { width:100%; border-collapse:collapse; margin:0 0 5mm; }
+      #${ROOT_ID} .cf-table th, #${ROOT_ID} .cf-table td,
+      #${ROOT_ID} .cf-sign th, #${ROOT_ID} .cf-sign td { border:1px solid #666; padding:2.6mm 3mm; vertical-align:top; }
+      #${ROOT_ID} .cf-table th, #${ROOT_ID} .cf-sign th { width:26mm; background:#efefef; font-weight:700; white-space:nowrap; }
+      #${ROOT_ID} .cf-sign th { width:22mm; }
+      #${ROOT_ID} .cf-checks { line-height:2.1; }
+      #${ROOT_ID} .cf-chk { font-size:12pt; }
+      #${ROOT_ID} .cf-hint { color:#666; font-size:9pt; }
+      #${ROOT_ID} .cf-line { display:inline-block; border-bottom:1px solid #333; vertical-align:baseline; }
+      #${ROOT_ID} .cf-line--xs { width:16mm; } #${ROOT_ID} .cf-line--sm { width:32mm; }
+      #${ROOT_ID} .cf-line--md { width:42mm; } #${ROOT_ID} .cf-line--lg { width:70mm; }
+      #${ROOT_ID} .cf-right { font-size:9.8pt; margin:0 0 5mm; }
+      #${ROOT_ID} .cf-agree { border:1.6px solid #333; padding:4mm; margin:0 0 5mm; text-align:center; }
+      #${ROOT_ID} .cf-agree-label { margin-right:6mm; }
+      #${ROOT_ID} .cf-big { font-size:12.5pt; font-weight:700; margin:0 5mm; white-space:nowrap; }
+      #${ROOT_ID} .cf-foot { font-size:9pt; color:#444; text-align:center; margin-top:4mm; }
+    }`;
+  document.head.appendChild(style);
+  try {
+    document.body.classList.add('cf-print-on');
+    window.addEventListener('afterprint', cleanup);
+    window.print();
+    setTimeout(cleanup, 2000);
+  } catch (e) { cleanup(); }
 }
 window.addEventListener('DOMContentLoaded', _renderDocsTab);
 

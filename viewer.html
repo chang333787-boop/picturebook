@@ -121,6 +121,9 @@
     if (location.protocol === 'file:') {
       var _urn = document.getElementById('usb-run-notice');
       if (_urn) _urn.style.display = '';
+      /* #entry-screen 도 flex(row) 가운데정렬 — file:// 에서만 세로로 쌓는다(https 불변). */
+      var _es = document.getElementById('entry-screen');
+      if (_es) _es.style.flexDirection = 'column';
     }
   </script>
 

@@ -3063,6 +3063,10 @@
     if (location.protocol === 'file:') {
       var _urn = document.getElementById('usb-run-notice');
       if (_urn) _urn.style.display = '';
+      /* #join-screen 은 flex(row) 가운데정렬 — 배너가 카드 옆에 붙는다.
+         배너가 뜨는 file:// 에서만 세로로 쌓아 준다(https 레이아웃 불변). */
+      var _js = document.getElementById('join-screen');
+      if (_js) _js.style.flexDirection = 'column';
     }
   </script>
 

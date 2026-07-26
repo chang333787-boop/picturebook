@@ -12,9 +12,18 @@
   const SDK_MISSING = '지금은 로그인 확인 기능을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.';
   const RETRY_LATER = '잠시 후 다시 시도해 주세요.';
   const PIN_FORMAT = 'PIN은 숫자 4~6자리로 입력해주세요';
+  /* LOCAL-FILE-GUARD(2026-07-26): file:// 로 연 경우 서버 origin 검사에서 permission-denied 가 나는데,
+     그 코드는 "팀/PIN 불일치"와 같은 GENERIC_ERROR 로 합쳐져 있어 코드가 틀린 것처럼 보인다.
+     서버를 부르기 전에 원인을 정확히 알려 준다(연구대회 USB 심사 등 오프라인 실행 대비). */
+  const LOCAL_FILE = 'USB에서 파일을 직접 연 상태에서는 접속할 수 없어요. 인터넷에 연결한 뒤 branchstory.co.kr 로 접속해 주세요.';
 
   function _isNonEmptyString(v) { return typeof v === 'string' && v.trim().length > 0; }
   function _isValidPin(v) { return typeof v === 'string' && /^[0-9]{4,6}$/.test(v); }
+  /* 순수성 유지 — opts.isLocalFile 로 주입 가능(하니스), 미주입 시에만 location 감지(Node 안전). */
+  function _isLocalFile(opts) {
+    if (typeof opts.isLocalFile === 'boolean') return opts.isLocalFile;
+    return (typeof location !== 'undefined' && !!location && location.protocol === 'file:');
+  }
 
   /* 핵심: 입력 allowlist 검증 → callMembership 주입 호출 → 응답 구조 검증 → 정규화 결과.
      반환·메시지·로그 어디에도 PIN을 포함하지 않는다. callMembership 미주입(SDK 없음)이면 실패. */
@@ -28,6 +37,8 @@
     if (!_isNonEmptyString(classId))  return { ok: false, code: 'invalid-input', message: GENERIC_ERROR, called: false };
     if (!_isNonEmptyString(teamName)) return { ok: false, code: 'invalid-input', message: GENERIC_ERROR, called: false };
     if (!_isValidPin(pin))            return { ok: false, code: 'invalid-input', message: PIN_FORMAT,    called: false };
+    /* 서버 호출 전 차단 — file://은 origin이 비어 어차피 permission-denied 로 거부된다. */
+    if (_isLocalFile(opts))           return { ok: false, code: 'local-file',    message: LOCAL_FILE,   called: false };
     if (typeof callMembership !== 'function') return { ok: false, code: 'sdk-missing', message: SDK_MISSING, called: false };
 
     let data;

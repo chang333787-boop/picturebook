@@ -320,12 +320,26 @@
     const ctx = S.ctx || {};
     const capturedId = q.id;
     const capturedIndex = (S.vm && typeof S.vm.index === 'number') ? S.vm.index : null;
+    /* ADAPTIVE-LOADING-CAP(2026-07-26): 응답이 늦으면 '보기를 고르는 중…' 스켈레톤에 갇히던 것.
+       종전엔 상태가 'loading'이면 재요청 가드에 막혀 스스로 빠져나올 길이 없어, 서버 타임아웃
+       (15초)까지 아이가 빈 자리표시만 봤다(실제 신고: 분홍 자리표시가 안 없어짐).
+       10초가 넘으면 조용히 고정 보기로 진행한다 — 늦게 도착한 응답은 무시(이미 고정 보기로
+       고르고 있을 수 있어 화면이 갑자기 바뀌면 더 혼란). */
+    const _capTimer = setTimeout(function () {
+      if (!S || !S.adaptiveChoices) return;
+      if (S.adaptiveChoices[capturedId] !== 'loading') return;
+      S.adaptiveChoices[capturedId] = 'failed';
+      if (S.vm && S.vm.index === capturedIndex && !S.followUp && S.customMode == null) _render();
+    }, 10000);
     AI.requestAdaptiveChoices({
       classId: ctx.classId, teamName: ctx.teamName, projectType: ctx.projectType,
       questionId: q.id, questionTitle: q.title, priorAnswersText: priorText,
       staticChoices: (q.choices || []).map(function (c) { return c.label; }),
     }).then(function (res) {
+      clearTimeout(_capTimer);
       if (!S || !S.adaptiveChoices) return;
+      /* 상한 타이머가 이미 고정 보기로 넘긴 뒤 늦게 도착한 응답은 버린다(화면 급변 방지) */
+      if (S.adaptiveChoices[capturedId] !== 'loading') return;
       if (res && res.ok && Array.isArray(res.choices) && res.choices.length === 3) {
         S.adaptiveChoices[capturedId] = res.choices.map(function (c, i) {
           return { id: 'adaptive_' + i, label: String(c.label || ''), value: String(c.value || c.label || '') };

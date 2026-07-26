@@ -96,14 +96,27 @@ async function _processQueryParam() {
       _revealEntryWithError('책장 링크가 올바르지 않아요.');
     } else if (!code && window.BranchShelf && typeof window.BranchShelf.hasCtx === 'function'
                && window.BranchShelf.hasCtx()
-               && (function () {   /* 감사 #10/#24: 실제 '새로고침'일 때만 자동복귀 — 홈에서
-                     '작품 감상하기'(무파라미터 링크)로 새로 들어온 탭까지 이전 학급 책장으로
-                     납치해 진입 폼을 영영 못 쓰던 것 차단. */
+               && (function () {
+                 /* 감사 #10/#24: 홈에서 '작품 감상하기'(무파라미터 링크)로 새로 들어온 탭까지
+                    이전 학급 책장으로 납치해 진입 폼을 영영 못 쓰던 것을 막는 게이트.
+                    ⚠️SHELF-RESUME-ADDRBAR(2026-07-26): 처음엔 navigation type이 'reload'일 때만
+                    허용했는데, **주소창에 대고 Enter를 치는 것은 'reload'가 아니라 'navigate'**라
+                    (F5만 reload) 사용자가 늘 쓰던 그 동작에서 책장이 풀렸다.
+                    타입만으로는 '주소창 Enter'와 '홈에서 링크 클릭'을 구분할 수 없으므로
+                    referrer로 가른다 — 링크 클릭은 우리 index.html이 referrer로 찍히고,
+                    주소창 진입은 referrer가 비어 있다. */
                  try {
                    const nav = performance.getEntriesByType && performance.getEntriesByType('navigation')[0];
-                   if (nav) return nav.type === 'reload' || nav.type === 'back_forward';
-                   return !!(performance.navigation && performance.navigation.type === 1);
-                 } catch (e) { return false; }
+                   const isReload = nav
+                     ? (nav.type === 'reload' || nav.type === 'back_forward')
+                     : !!(performance.navigation && performance.navigation.type === 1);
+                   if (isReload) return true;                    /* F5·뒤로가기 */
+                   const ref = document.referrer || '';
+                   if (!ref) return true;                        /* 주소창 입력·즐겨찾기·새 탭 */
+                   const u = new URL(ref);
+                   if (u.origin !== location.origin) return true; /* 외부(메신저 링크 등) */
+                   return /viewer\.html/.test(u.pathname);        /* viewer 안에서 온 이동만 허용 */
+                 } catch (e) { return true; }                    /* 판별 실패=종전처럼 복귀(기능 우선) */
                })()) {
       /* SHELF-REFRESH-RESUME(2026-07-25): 코드 입장 책장은 URL에 흔적이 없어 새로고침하면
          입장 폼으로 떨어졌음('풀리는' 증상의 두 번째 원인 — auth는 SHELF-AUTH-RESTORE로 해결).

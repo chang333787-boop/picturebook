@@ -91,7 +91,20 @@ function normalizeGenerationRequest(raw) {
   if (!classId || !teamName || !sceneId) {
     return { ok: false, code: GEN_CODES.INVALID_ARGUMENT, message: 'classId / teamName / sceneId가 올바르지 않아요.' };
   }
-  return { ok: true, value: { classId, teamName, sceneId, forceRegenerate: data.forceRegenerate === true } };
+  /* REGEN-REASON-1(2026-07-27): 아이가 "왜 다시 만들고 싶은지" 적은 한 줄.
+     프롬프트 자유 입력(INJECTION_FIELDS의 prompt)과 달리, 지시가 아니라 '고치고 싶은 점'으로만
+     쓰이도록 서버가 좁게 정규화한다 — 60자 · 한 줄 · 제어문자/괄호류 제거.
+     내용 안전성(폭력·성적 등)은 호출부에서 _scanSafety로 한 번 더 본다. */
+  let regenReason = '';
+  if (typeof data.regenReason === 'string') {
+    regenReason = data.regenReason
+      .replace(/[\r\n\t]+/g, ' ')
+      .replace(/[<>{}[\]«»`$\\]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 60);
+  }
+  return { ok: true, value: { classId, teamName, sceneId, forceRegenerate: data.forceRegenerate === true, regenReason } };
 }
 
 /* policy 분류 — image-s2-policy.classifyPolicy 와 동일 의미.
@@ -317,6 +330,10 @@ async function runImageS2Generation(input, deps) {
          미지정(3단계·기본)=P8 원본 보존(어댑터 byte 동일). characterSheet 있으면 캐릭터 고정. */
       transformMode: (i.transformMode === 'strong') ? 'strong' : undefined,
       characterSheet: (typeof i.characterSheet === 'string') ? i.characterSheet : '',
+      /* REGEN-REASON-1(2026-07-27): 아이가 적은 "고치고 싶은 점"(콜러블이 안전 검사 후 주입).
+         어댑터가 '지시 아님' 프레임에 가둬 동봉 — 없으면 프롬프트 byte 동일(회귀 0).
+         dedup/캐시 키에는 미포함(그림 기준 유지) — 이유만 바꿔 재생성 우회 불가. */
+      regenReason: (typeof i.regenReason === 'string') ? i.regenReason : '',
       /* LEVEL2-CHAR(2026-07-21): 2단계 주인공 레퍼런스 URL(있으면 2번째 이미지). 어댑터가 SSRF 가드로 다운로드. */
       protagonistRefSrc: (typeof i.protagonistRefSrc === 'string') ? i.protagonistRefSrc : '',
     });

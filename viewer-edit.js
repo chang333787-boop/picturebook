@@ -6142,6 +6142,7 @@ function _bindPbImageActions(root, scene) {
         if (!Array.isArray(s.targets) || s.targets.length === 0) { alert('이 장면은 지금 다시 만들 수 없어요. (그림이 없거나 이미 최신이에요)'); btn.disabled = false; btn.textContent = t0; return; }
         const one = await fns.httpsCallable('callImageAiS2', { timeout: 300000 })({
           classId: _cid, teamName: _team, sceneId: s.targets[0], jobId: s.jobId,
+          regenReason: String(reason).slice(0, 60),
         });
         const r = one && one.data;
         const okOne = !!(r && (r.ok === true || r.status === 'succeeded' || r.status === 'cached' || r.reused === true));
@@ -6185,7 +6186,7 @@ function _bindPbImageActions(root, scene) {
         const _cid = (ViewerState.project && ViewerState.project.classId) || ViewerState.classId;
         const _team = (ViewerState.project && ViewerState.project.teamName) || ViewerState.teamName;
         const res = await firebase.app().functions('asia-northeast3')
-          .httpsCallable('generateStoryImages', { timeout: 180000 })({ classId: _cid, teamName: _team, sceneId: String(scene.num || scene.id), force: true });
+          .httpsCallable('generateStoryImages', { timeout: 180000 })({ classId: _cid, teamName: _team, sceneId: String(scene.num || scene.id), force: true, regenReason: String(reason).slice(0, 60) });
         const r = res && res.data;
         if (r && r.ok === true && r.generated > 0) {
           btn.textContent = '✅ 새 그림 완성!';

@@ -2578,8 +2578,19 @@ exports.callImageAiS2 = onCall(
       }
     } catch (e) { _s2TransformMode = undefined; }   /* read 실패 = 기존 P8 페일세이프 */
 
+    /* REGEN-REASON-1(2026-07-27): 아이가 적은 "고치고 싶은 점"을 프롬프트에 반영.
+       정규화(60자·괄호류 제거)는 normalizeGenerationRequest가 이미 했고, 여기서 내용 안전성을
+       한 번 더 본다 — 걸리면 조용히 버리고 그림은 정상 생성(아이 흐름을 막지 않는다). */
+    let _regenReason = String(norm.value.regenReason || '');
+    if (_regenReason) {
+      const _rs = _scanSafety({ r: { body: _regenReason } });
+      if (_rs.blocked) {
+        logger.warn('[ai/imageS2] regenReason 안전 차단 — 무시', { classId: ctx.classId, categories: _rs.categories });
+        _regenReason = '';
+      }
+    }
     const result = await ImageS2Gen.runImageS2Generation(
-      { classId: ctx.classId, enc, sceneId: sid, forceRegenerate: norm.value.forceRegenerate, isTeacher: genAuthorized, wholeStoryText, transformMode: _s2TransformMode, characterSheet: _s2CharSheet, protagonistRefSrc: _s2ProtRef },
+      { classId: ctx.classId, enc, sceneId: sid, forceRegenerate: norm.value.forceRegenerate, isTeacher: genAuthorized, wholeStoryText, transformMode: _s2TransformMode, characterSheet: _s2CharSheet, protagonistRefSrc: _s2ProtRef, regenReason: _regenReason },
       {
         readScene: async (s) => { const snap = await baseRef.child(`scenes/${s}`).once('value'); return snap.val(); },
         readPolicy: async () => { const snap = await baseRef.child('viewer-meta/imagePolicy').once('value'); return snap.val(); },
@@ -3613,6 +3624,19 @@ exports.generateStoryImages = onCall(
       throw new HttpsError('invalid-argument', 'sceneId가 올바르지 않아요.');
     }
     const force = d.force === true;
+    /* REGEN-REASON-1(2026-07-27): 1단계도 "고치고 싶은 점"을 프롬프트에 반영.
+       60자·괄호류 제거로 좁히고 내용 안전성까지 본다 — 걸리면 버리고 그림은 정상 생성. */
+    let _regenReason1 = '';
+    if (force && typeof d.regenReason === 'string') {
+      _regenReason1 = d.regenReason.replace(/[\r\n\t]+/g, ' ').replace(/[<>{}[\]«»`$\\]/g, '').replace(/\s+/g, ' ').trim().slice(0, 60);
+      if (_regenReason1) {
+        const _rs1 = _scanSafety({ r: { body: _regenReason1 } });
+        if (_rs1.blocked) {
+          logger.warn('[generateStoryImages] regenReason 안전 차단 — 무시', { classId: ctx.classId, categories: _rs1.categories });
+          _regenReason1 = '';
+        }
+      }
+    }
 
     /* REGEN-LIMIT-1(2026-07-27): 🔁 다시 만들기는 작품(팀)당 REGEN_TEAM_LIMIT회까지.
        종전엔 팀 총량(24)에만 걸려 한 장면을 여러 번 다시 만들 수 있었다(실측 3회+·비용 누수).
@@ -3797,7 +3821,7 @@ exports.generateStoryImages = onCall(
         ]);
 
         try {
-          const gen = await adapter.generate({ storyText: body, wholeStoryText, characterSheet });
+          const gen = await adapter.generate({ storyText: body, wholeStoryText, characterSheet, regenReason: _regenReason1 });
           if (!gen || gen.ok !== true) { await refund(); failed.push({ sceneId: sid, code: (gen && gen.code) || 'IMAGE_AI_PROVIDER_ERROR' }); return; }
           const outv = ImageS2Gen.validateModelOutput({ bytes: gen.bytes, mimeType: gen.mimeType });
           if (!outv.ok) { await refund(); failed.push({ sceneId: sid, code: outv.code }); return; }

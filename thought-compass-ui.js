@@ -382,8 +382,7 @@
     }).join('\n').slice(0, 1500);
     const ctx = S.ctx || {};
     const capturedId = q.id;
-    const capturedIndex = (S.vm && typeof S.vm.index === 'number') ? S.vm.index : null;
-    const capturedQid = _currentQid();   /* RENDER-BY-QID: 순번 대신 질문 id로 렌더 판정 */
+    const capturedQid = _currentQid();   /* RENDER-BY-QID: 순번 대신 질문 id로 렌더 판정(capturedIndex 死변수 제거) */
     /* ADAPTIVE-LOADING-CAP(2026-07-26): 응답이 늦으면 '보기를 고르는 중…' 스켈레톤에 갇히던 것.
        종전엔 상태가 'loading'이면 재요청 가드에 막혀 스스로 빠져나올 길이 없어, 서버 타임아웃
        (15초)까지 아이가 빈 자리표시만 봤다(실제 신고: 분홍 자리표시가 안 없어짐).

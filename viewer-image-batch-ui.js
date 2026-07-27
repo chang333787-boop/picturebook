@@ -188,14 +188,21 @@
     for (var i = 0; i < targets.length; i++) {
       if (_batchAborted) return;   /* BATCH-ABORT-ON-CLOSE(#18): 패널을 닫았으면 다음 장면 호출 중단 */
       var sid = L.nextTarget(targets, done); if (!sid) break;
-      var res = await _call('callImageAiS2', { classId: ctx.classId, teamName: ctx.teamName, sceneId: sid, jobId: jobId });
+      /* BATCH-REGEN-FORCE-1(2026-07-27·프리플라이트 확정): 전체 '다시 생성'(force)일 때 per-scene
+         callImageAiS2에도 forceRegenerate를 넘겨야 서버 dedup을 건너뛰고 실제 새 그림을 만든다.
+         없으면 원본 미변경 장면은 옛 그림을 reused로 돌려주는데 배치는 재생성 횟수를 이미 차감해,
+         '완성'처럼 보이면서 같은 그림+횟수만 소모(단일장면 REGEN-SCENE-FORCE-1과 동일 결함이 배치에 잔존). */
+      var res = await _call('callImageAiS2', { classId: ctx.classId, teamName: ctx.teamName, sceneId: sid, jobId: jobId, forceRegenerate: force === true });
       /* secret/배포 미설정(not-configured) → 명확 안내 후 중단. 원본 불변·추가 호출 없음. */
       if (res && res.ok === false && /NOT_CONFIGURED|CONFIG/i.test(String((res && res.code) || ''))) {
         body.innerHTML = '<p style="color:#c0392b;font-size:13px;line-height:1.6;">AI 이미지 서비스 설정을 확인해 주세요.<br>관리자에게 secret 등록·배포 설정을 요청하세요.</p>';
         return;
       }
-      /* 성공/실패 정확 집계 — 실패를 '완료'로 세지 않는다(과거: done만 세어 0결과인데 '완료'처럼 보임). */
-      var okOne = !!(res && (res.ok === true || res.status === 'succeeded' || res.status === 'cached' || res.reused === true));
+      /* 성공/실패 정확 집계 — 실패를 '완료'로 세지 않는다(과거: done만 세어 0결과인데 '완료'처럼 보임).
+         BATCH-REGEN-FORCE-1: force(다시 생성)일 때는 reused/cached(옛 그림 재사용)를 성공으로 치지
+         않는다 — 재생성인데 새 그림이 안 나왔으면 실패로 보고(옛 그림 그대로 '완성' 오표시 방지). */
+      var _reused = res && (res.status === 'cached' || res.reused === true);
+      var okOne = !!(res && (res.ok === true || res.status === 'succeeded' || (!force && _reused)));
       if (okOne) succeeded++;
       else { failed++; var c = (res && res.code) || 'ERROR'; failCodes[c] = (failCodes[c] || 0) + 1; }
       done[sid] = true; paint();

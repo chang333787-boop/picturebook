@@ -2660,9 +2660,9 @@ exports.callStartImageS2Batch = onCall(
        단계를 오가며 우회할 수 없다. forceRegenerate가 아닌 최초 변환은 종전대로 무제한.
        REGEN-METER-1(감사 #6): 단일 장면 재생성인데 아직 그림이 없으면(첫 채움) 계량하지 않는다
        — 실패로 빠진 장면 채우기가 2회 한도를 잡아먹지 않도록(총량 24 캡이 비용 backstop). */
-    let _meterRegen = force;
-    if (force && Array.isArray(onlyIds) && onlyIds.length === 1) {
-      _meterRegen = !!existingVariants[onlyIds[0]];   /* 기존 그림 있을 때만 '재생성' */
+    let _meterRegen = force && ctx.classId !== JUDGE_CLASS_ID;   /* JUDGE-REGEN-EXEMPT-1: 심사반 면제 */
+    if (_meterRegen && Array.isArray(onlyIds) && onlyIds.length === 1) {
+      _meterRegen = !!existingVariants[onlyIds[0]];   /* 기존 그림 있을 때만 '재생성'(심사반 면제는 위에서 이미 false) */
     }
     if (_meterRegen) {
       const _regenTx = await baseRef.child('aiUsage/imageRegen').transaction((cur) => {
@@ -3550,6 +3550,11 @@ const STORY_IMAGE_TEAM_LIMIT = 24;
 /* REGEN-LIMIT-1(2026-07-27): 🔁 다시 만들기 상한(작품=팀당). 총량(24)과 별개로 force 호출만 센다.
    한 장면을 몇 번이고 다시 만들 수 있어 비용이 새던 것(실측 3회+) 차단. */
 const REGEN_TEAM_LIMIT = 2;
+/* JUDGE-REGEN-EXEMPT-1(2026-07-27·프리플라이트): 심사위원 체험 반(코드 9999)은 재생성 상한을 면제.
+   심사위원이 그림을 여러 번 다시 만들어 보다 2회에 걸려 '작품마다 2번까지'가 뜨면 '고장'으로 오해할 수
+   있고, 재생성 계량의 잔여 결함(실패 미환불 등)도 심사 상황에선 이 면제로 무력화된다. adminConsole
+   JUDGE_CLASS_ID와 동일 값. 실학급은 종전대로 2회 유지(비용 방어). */
+const JUDGE_CLASS_ID = 'cls_mrykb7m8_gIlpnw';
 /* 감사 H6(2026-07-21): 이미지 생성 전역 일일 hard cap — 텍스트 전역(GLOBAL_DAILY_LIMIT)과
    별도 카운터(ai-usage-global/{ymd}/imageGenCalls). meta 쓰기 개방으로 가짜 학급·팀을
    자가생성해 팀당 24를 무한 반복하는 비용 체인의 전체 상한. 정상 사용(학급당 1단계
@@ -3653,11 +3658,11 @@ exports.generateStoryImages = onCall(
        무료(총량 24 캡이 비용 backstop). 종전엔 빈 장면 🔁도 차감돼, 실패 장면 3개 이상이면 2회
        한도에 막혀 영영 못 채우던 것. 단일 장면 force일 때만 기존 variant 유무로 판단하고,
        전체 재배치(비단일) force는 벌크 재생성이라 종전대로 1회 계량. */
-    let _meterRegen = force;
-    if (force && singleSceneId) {
+    let _meterRegen = force && ctx.classId !== JUDGE_CLASS_ID;   /* JUDGE-REGEN-EXEMPT-1: 심사반 면제 */
+    if (_meterRegen && singleSceneId) {
       let _existV = null;
       try { _existV = (await baseRef.child(`aiVariants/image/${singleSceneId}/s2`).once('value')).val(); } catch (e) { _existV = null; }
-      _meterRegen = !!(_existV && _existV.url && _existV.stale !== true);   /* 기존 그림이 있어야 '재생성' */
+      _meterRegen = !!(_existV && _existV.url && _existV.stale !== true);   /* 기존 그림이 있어야 '재생성'(심사반 면제는 위에서 이미 false) */
     }
     let _regenTx = null;
     if (_meterRegen) {

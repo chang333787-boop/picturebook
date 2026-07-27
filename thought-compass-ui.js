@@ -306,6 +306,20 @@
     _render();
   }
   /* 앞 답 기반 맞춤 보기 1회 요청. 실패/앞답없음/미배포 → 'failed'(고정 보기 폴백). */
+  /* ADAPTIVE-RENDER-RETRY-1(2026-07-27): 응답은 도착했는데 로딩 자리표시가 그대로 남던 것.
+     종전엔 "같은 질문 && 후속질문 아님 && 직접적기 아님"이 한 번에 맞아야만 _render()를 했고,
+     한 번 어긋나면 다시 그릴 기회가 없어 아이는 멈춘 화면을 봤다(상태는 완료라 누르면 동작 —
+     실사용 신고). 지금 못 그리면 조건이 풀릴 때까지 짧게 재시도한다.
+     · 다른 질문으로 이동 = 포기(그 질문에 다시 오면 자연 렌더)
+     · 입력/후속질문 중 = 대기(포커스를 뺏지 않는다는 기존 정책 유지)
+     · 10초 상한 — 그 안에 안 풀리면 어차피 사용자가 화면을 바꾼 것 */
+  function _renderWhenIdle(capturedIndex, tries) {
+    if (!S || !S.vm) return;
+    if (S.vm.index !== capturedIndex) return;
+    if (!S.followUp && S.customMode == null) { _render(); return; }
+    if ((tries || 0) >= 20) return;
+    setTimeout(function () { _renderWhenIdle(capturedIndex, (tries || 0) + 1); }, 500);
+  }
   function _fetchAdaptive(q) {
     if (!S) return;
     if (!S.adaptiveChoices) S.adaptiveChoices = {};
@@ -337,7 +351,7 @@
       if (!S || !S.adaptiveChoices) return;
       if (S.adaptiveChoices[capturedId] !== 'loading') return;
       S.adaptiveChoices[capturedId] = 'failed';
-      if (S.vm && S.vm.index === capturedIndex && !S.followUp && S.customMode == null) _render();
+      _renderWhenIdle(capturedIndex, 0);
     }, 10000);
     AI.requestAdaptiveChoices({
       classId: ctx.classId, teamName: ctx.teamName, projectType: ctx.projectType,
@@ -357,8 +371,10 @@
       }
       /* 아직 같은 질문 화면이면 다시 그림(다른 질문으로 이동했으면 무시).
          감사 #20: 직접 적기 입력 중(S.customMode)이면 재렌더 생략 — 전체 재렌더가 포커스를
-         제목으로 옮겨 태블릿 키보드가 닫히던 것 방지(보기는 다음 자연 렌더에 반영됨). */
-      if (S.vm && S.vm.index === capturedIndex && !S.followUp && S.customMode == null) _render();
+         제목으로 옮겨 태블릿 키보드가 닫히던 것 방지.
+         ADAPTIVE-RENDER-RETRY-1: 종전엔 여기서 건너뛰면 영영 안 그려져 로딩 자리표시가 남았다
+         → 조건이 풀릴 때까지 짧게 재시도(포커스 정책은 그대로 유지). */
+      _renderWhenIdle(capturedIndex, 0);
     });
   }
   function _onCustomActivate() {

@@ -50,7 +50,9 @@
     { title: '가지에 온 걸 환영해요', line: 'AI가 <b>이야기를 시작</b>해 주면 내가 이어서 완성하는 곳이에요. 그림도 직접 그려요.', art: 'welcomeHero', pbLevels: [2] },
     { title: '먼저 한 줄기, 그다음 갈림길', line: '이야기를 끝까지 만든 뒤, “다르게 했다면?” 하고 갈래를 더해요. 아래에서 직접 해볼까요?', demo: true, pbLevels: [3] },
     { title: '장면을 만들고 이어요',   line: '글과 그림으로 장면을 만든 뒤, 장면 카드의 <b>⋯</b>를 펼쳐 행동 버튼으로 다음 장면을 이어 줘요.', art: 'branch', pbLevels: [3] },
-    { title: '이야기를 이어서 완성해요', line: 'AI가 쓴 앞 장면을 읽고, 다음 장면 카드의 <b>💡 힌트</b>를 보며 이어 써 보세요. 힌트는 참고일 뿐 — <b>다른 방향으로 써도 좋아요</b>.', art: 'branch', pbLevels: [2] },
+    /* LEVEL2-ART-FIX(2026-07-27): 2단계는 일직선(갈림길 없음)인데 branch(갈림길 2버튼) 삽화가
+       들어가 3단계처럼 보이던 것 → 장면 만들기 삽화로 교체(연결 개념 없는 이어쓰기에 맞춤). */
+    { title: '이야기를 이어서 완성해요', line: 'AI가 쓴 앞 장면을 읽고, 다음 장면 카드의 <b>💡 힌트</b>를 보며 이어 써 보세요. 힌트는 참고일 뿐 — <b>다른 방향으로 써도 좋아요</b>.', art: 'scene', pbLevels: [2] },
     { title: '다 만들면 꾸며 봐요',    line: '오른쪽 위 “🎨 감상 화면 다듬기”를 누르면 글상자와 그림을 예쁘게 마감할 수 있어요. 헷갈리면 ❓를 눌러요.', art: 'play' },
   ];
 
@@ -76,7 +78,9 @@
       line: '행동 버튼의 글자와 개수를 바꾸고, 버튼마다 이어질 다음 장면을 연결해요.', art: 'branch', pbLevels: [3] },
     { title: '🔗 버튼 글자 바꾸기',
       line: '행동 버튼의 <b>글자</b>를 내 이야기에 어울리게 바꿀 수 있어요. (버튼 개수와 연결은 정해져 있어요)',
-      art: 'branch', types: ['picturebook'], pbLevels: [2] },
+      /* LEVEL2-ART-FIX(2026-07-27): 2단계는 갈림길이 없어 branch(2버튼 분기) 삽화가 어긋남 →
+         글자 편집 삽화로 교체('버튼 개수와 연결은 정해져 있어요'와 정합). */
+      art: 'editText', types: ['picturebook'], pbLevels: [2] },
     { title: '🎬 무비 편집',
       line: '영상을 올리고, 자막 위치와 선택지가 언제 나올지 정할 수 있어요.',
       art: 'movie', types: ['movie'] },
@@ -146,7 +150,7 @@
       text: '여기에 사진을 올릴 수 있어요. 다듬기 화면에서는 직접 그릴 수도 있어요.',
       types: ['picturebook', 'experience'], pbLevels: [2, 3] },
     { sel: '.pb-body-preview',
-      text: '저걸 누르면 여기서 글을 쓸 수 있어요.',
+      text: '여기를 누르면 이 장면의 이야기 글을 쓸 수 있어요.',
       types: ['picturebook'] },
     /* TEXT-COACH(2026-07-16): 텍스트형 글씨칸 — 텍스트 카드는 textarea가 바로 노출되므로 문구도 직접형.
        셀렉터를 텍스트 카드 한정(.card-body--text)으로 — pb 카드의 접힌 textarea(js-body-input 동일

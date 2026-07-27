@@ -2697,7 +2697,13 @@ function renderHUD() {
           <button class="maker-return-btn maker-return-btn--tool js-refine-help" title="다듬기 사용법을 다시 봐요" aria-label="다듬기 사용법 다시 보기">❓ 사용법</button>
           ${(_isNormalHudScene && !_pbHudLv1) ? '<button class="maker-return-btn maker-return-btn--tool js-edit-choice-popover" title="행동 버튼과 연결 장면을 편집합니다" aria-label="행동 버튼과 연결 장면을 편집합니다">🔗 버튼</button>' : ''}
           ${_isCoverHudScene ? '<button class="maker-return-btn maker-return-btn--tool js-edit-cover-popover" title="표지 색과 표지 느낌을 편집합니다" aria-label="표지 색과 표지 느낌을 편집합니다">🎨 표지</button>' : ''}
-          ${(_isPbImageHudScene && !_pbHudLv1) ? '<button class="maker-return-btn maker-return-btn--tool js-edit-image-popover" title="장면 그림을 편집해요 — 업로드·직접 그리기" aria-label="장면 그림을 편집합니다">🖼️ 그림</button>' : ''}
+          ${/* LV1-REGEN-ENTRY-1(2026-07-27): 1단계에서 이 버튼을 숨겨 온 탓에 팝오버 안의
+                「🔁 그림 다시 만들기」(_pbImageActionsHtml의 1단계 분기)로 갈 입구가 없었다 —
+                기능은 있는데 못 누르는 상태(실사용 신고). 팝오버 본문이 이미 단계별로 갈리므로
+                (1단계=🔁만·업로드/그리기 없음) 입구는 열고 라벨만 단계에 맞춘다. */''}
+          ${_isPbImageHudScene ? (_pbHudLv1
+            ? '<button class="maker-return-btn maker-return-btn--tool js-edit-image-popover" title="AI가 만든 장면 그림을 다시 만들어요" aria-label="장면 그림을 다시 만듭니다">🖼️ 그림</button>'
+            : '<button class="maker-return-btn maker-return-btn--tool js-edit-image-popover" title="장면 그림을 편집해요 — 업로드·직접 그리기" aria-label="장면 그림을 편집합니다">🖼️ 그림</button>') : ''}
           ${_isSceneStyleHudScene ? ((ViewerState.project && ViewerState.project.projectType === 'text')
             ? '<button class="maker-return-btn maker-return-btn--tool js-edit-scene-style-popover" title="이야기 전체 기본값과 이 장면만 다르게 꾸미기" aria-label="꾸미기 — 이야기 전체 / 이 장면만">🎨 꾸미기</button>'
             : '<button class="maker-return-btn maker-return-btn--tool js-edit-scene-style-popover" title="현재 장면의 글과 화면을 꾸며요. 같은 스타일을 모든 장면에 복사할 수 있어요" aria-label="장면 꾸미기 — 현재 장면의 글과 화면">🎨 장면 꾸미기</button>') : ''}

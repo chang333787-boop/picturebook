@@ -274,14 +274,14 @@
 <script src="viewer-image-batch-ui.js?v=5589c373fe"></script>
 <script src="viewer-locks.js?v=52dc9a8ae5"></script>
 <script src="viewer-controls.js?v=e6cc312d40"></script>
-<script src="viewer-render.js?v=091a040820"></script>
+<script src="viewer-render.js?v=fe4d107c85"></script>
 <!-- PERF-2: viewer 편집(viewer-edit.js)·AI(viewer-ai.js) 코드 지연 로딩.
      감상 모드는 둘 다 로드하지 않음(초기 다운로드 ~568KB 감소). 편집 진입 시 window.ensureEditBundle()로 1회 로드.
      · 감상 렌더는 편집 함수를 editMode+typeof 가드로만 호출 → 미로드여도 안전.
      · 중복 로드 방지(Promise 1개), 실패 시 promise reset(재시도 가능). -->
 <script>
 (function () {
-  var EDIT_SRC = 'viewer-edit.js?v=dc6f7a1dd2';
+  var EDIT_SRC = 'viewer-edit.js?v=8582b04b69';
   var AI_SRC   = 'viewer-ai.js?v=365d951a9b';
   /* WRITE-AFTER-VIEWER-HTML-CACHE-HARDENED: 디버그 마커 — 로드된 진입 HTML이 어떤 번들 cachebuster를
      들고 있는지 콘솔로 확인(옛 viewer.html 캐시 의심 시 한눈에 비교). 동작 영향 없음. */

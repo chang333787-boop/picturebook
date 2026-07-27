@@ -5889,7 +5889,9 @@ function _renderImagePopoverBody() {
         title="닫기" aria-label="닫기">✕</button>
     </div>
     <div class="edit-image-popover__body">
-      <p class="edit-image-popover__note">장면 그림을 올리거나 직접 그릴 수 있어요.</p>
+      <p class="edit-image-popover__note">${(ViewerState.project && ViewerState.project.picturebookLevel === 1)
+        ? 'AI가 만든 그림이 마음에 안 들면 다시 만들 수 있어요.'
+        : '장면 그림을 올리거나 직접 그릴 수 있어요.'}</p>
       ${scene ? _pbImageActionsHtml(scene) : ''}
     </div>`;
 }

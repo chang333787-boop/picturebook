@@ -123,6 +123,10 @@
     overlay.setAttribute('role', 'dialog');
     overlay.setAttribute('aria-modal', 'true');
     overlay.setAttribute('aria-label', '생각 나침반');
+    /* RENDER-BY-DOM-1(2026-07-27): 지금 화면에 실제로 그려진 질문 id를 DOM에 남긴다.
+       맞춤 보기 도착 시 "이 질문이 아직 화면에 떠 있는가"를 vm 내부 상태가 아니라 이 값으로 판정 —
+       후속질문·유예로 vm 판정이 화면과 어긋나 스켈레톤이 안 벗겨지던 것 차단(실사용 신고). */
+    overlay.setAttribute('data-tc-qid', String(q.id));
 
     const card = _el('div', 'tc-flow-card');
 
@@ -351,14 +355,25 @@
   function _currentQid() {
     try { const q = _Flow().currentQuestion(S.vm); return q ? q.id : null; } catch (e) { return null; }
   }
+  /* RENDER-BY-DOM-1(2026-07-27): "이 질문이 지금 화면에 실제로 떠 있는가"를 DOM의 data-tc-qid로 판정.
+     vm 내부 상태(_currentQid)는 후속질문·유예 처리 중 화면과 어긋날 수 있어, 보기가 도착해도
+     '다른 질문'으로 오판해 스켈레톤이 안 벗겨지던 것(실사용 신고)의 근본 차단. */
+  function _domShowsQuestion(qid) {
+    const o = document.getElementById(OVERLAY_ID);
+    return !!(o && o.getAttribute('data-tc-qid') === String(qid));
+  }
+  function _typingCustom() {
+    const a = document.activeElement;
+    return !!(a && a.classList && a.classList.contains('tc-flow-custom-input'));
+  }
   function _renderWhenIdle(capturedQid, tries) {
-    if (!S || !S.vm) return;
-    if (_currentQid() !== capturedQid) return;   /* 다른 질문으로 이동 = 포기(돌아오면 자연 렌더) */
-    if (!S.followUp && S.customMode == null) { _render(); return; }
-    /* STUCK-FIX(2026-07-27): 상한에 닿으면 종전엔 그냥 포기 → 자리표시가 영영 남았다(3분째 신고).
-       직접 적기 입력 중이 아니면 마지막에 반드시 한 번 그린다(빈 화면보다 낫다).
-       입력 중(customMode)일 때만 포커스 보호를 위해 양보 — 그 경우 입력을 끝내면 다음 렌더에 반영. */
-    if ((tries || 0) >= 20) { if (S.customMode == null) _render(); return; }
+    if (!S) return;
+    /* 화면에 이 질문이 안 떠 있으면(다른 질문으로 이동/후속질문 중) 포기 — 돌아오면 자연 렌더 */
+    if (!_domShowsQuestion(capturedQid)) return;
+    /* 화면엔 이 질문이 떠 있다 → 직접적기 입력 중(태블릿 키보드)만 아니면 즉시 그려 스켈레톤을 벗긴다.
+       입력 중이면 잠깐 양보(포커스 보호)하되, 상한(10초)에 닿으면 그래도 그린다(갇힘 방지). */
+    if (!_typingCustom()) { _render(); return; }
+    if ((tries || 0) >= 20) { _render(); return; }
     setTimeout(function () { _renderWhenIdle(capturedQid, (tries || 0) + 1); }, 500);
   }
   function _fetchAdaptive(q) {
@@ -388,12 +403,15 @@
        (15초)까지 아이가 빈 자리표시만 봤다(실제 신고: 분홍 자리표시가 안 없어짐).
        10초가 넘으면 조용히 고정 보기로 진행한다 — 늦게 도착한 응답은 무시(이미 고정 보기로
        고르고 있을 수 있어 화면이 갑자기 바뀌면 더 혼란). */
+    /* CAP-RAISE-1(2026-07-27): 10초 캡이 콜드 스타트 응답시간(~10-15초)과 딱 겹쳐, 11초에 온 진짜
+       맞춤 보기를 캡이 먼저 'failed'로 내려 버리던 것(경계 문제). 18초로 올려 진짜 보기가 이기게 —
+       실패 안전망 역할은 유지(그 안에 안 오면 고정 보기로 진행). */
     const _capTimer = setTimeout(function () {
       if (!S || !S.adaptiveChoices) return;
       if (S.adaptiveChoices[capturedId] !== 'loading') return;
       S.adaptiveChoices[capturedId] = 'failed';
       _renderWhenIdle(capturedQid, 0);
-    }, 10000);
+    }, 18000);
     /* SLOW-FALLBACK(2026-07-27): 3초 넘게 안 오면 고정 보기를 먼저 내주고 안내 문구를 바꾼다.
        상태는 'loading' 그대로 — 늦게 도착한 AI 보기는 아직 아무것도 고르지 않았다면 교체된다.
        첫 질문의 콜드 스타트(서버 인스턴스 기동)에서 아이가 빈 화면을 보던 것 해소. */

@@ -6140,12 +6140,17 @@ function _bindPbImageActions(root, scene) {
         if (s && s.regenLimitReached) { alert(s.message || '그림 다시 만들기는 작품마다 2번까지 할 수 있어요.'); btn.disabled = false; btn.textContent = t0; return; }
         if (!s || s.ok !== true || !s.jobId) { alert('그림을 다시 만들지 못했어요. 잠시 후 다시 시도해 주세요.'); btn.disabled = false; btn.textContent = t0; return; }
         if (!Array.isArray(s.targets) || s.targets.length === 0) { alert('이 장면은 지금 다시 만들 수 없어요. (그림이 없거나 이미 최신이에요)'); btn.disabled = false; btn.textContent = t0; return; }
+        /* REGEN-SCENE-FORCE-1(2026-07-27): callImageAiS2도 forceRegenerate:true를 받아야 서버 dedup을
+           건너뛰고 실제로 새 그림을 만든다. 없으면 dedup이 옛 variant를 그대로 reused로 돌려주는데
+           batch는 이미 재생성 횟수를 차감해, 성공처럼 보이면서 같은 그림+횟수만 소모됐다(감사 확정). */
         const one = await fns.httpsCallable('callImageAiS2', { timeout: 300000 })({
           classId: _cid, teamName: _team, sceneId: s.targets[0], jobId: s.jobId,
+          forceRegenerate: true,
           regenReason: String(reason).slice(0, 60),
         });
         const r = one && one.data;
-        const okOne = !!(r && (r.ok === true || r.status === 'succeeded' || r.status === 'cached' || r.reused === true));
+        /* reused는 성공으로 치지 않는다 — 재생성인데 옛 그림 재사용이면 실패로 보고 환불되게. */
+        const okOne = !!(r && (r.ok === true || r.status === 'succeeded'));
         if (okOne) {
           btn.textContent = '✅ 새 그림 완성!';
           try { if (window.viewerAi && typeof window.viewerAi._reinitForCurrentTeam === 'function') window.viewerAi._reinitForCurrentTeam(); } catch (e) { /* noop */ }

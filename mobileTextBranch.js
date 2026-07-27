@@ -574,6 +574,9 @@ function _mtbOpenEditScene(sceneId) {
   if (!sc) return;
   const wasOpen = MTB_EDIT.currentId !== null;
   const prevId = MTB_EDIT.currentId;
+  /* MTB-FLUSH-1(2026-07-27): 다른 장면으로 넘어가기 전에 직전 장면의 대기 저장을 먼저 push.
+     currentId를 바꾼 뒤 닫으면 이전 장면 debounce가 유실되던 것 차단. */
+  if (prevId !== null && prevId !== String(sceneId)) _mtbFlushSaves();
   MTB_EDIT.currentId = String(sceneId);
   const view = document.getElementById('mtb-edit-view');
   if (!view) return;
@@ -626,10 +629,21 @@ function _mtbNewSceneAndConnect(fromSceneId, btnIdx) {
   }, 50);
 }
 
-function _mtbCloseEditScene() {
-  /* 저장 마무리 — 진행 중인 debounce flush */
-  MTB_EDIT.saveTimers.forEach(t => clearTimeout(t));
+/* MTB-FLUSH-1(2026-07-27): 대기 중인 모든 장면 저장을 취소가 아니라 '즉시 push'로 마무리한다.
+   종전엔 saveTimers를 clearTimeout으로 버리고 currentId 하나만 push해서, 장면 A에 글을 쓰고
+   500ms 안에 장면 B로 이동한 뒤 닫으면 A의 미저장 글이 유실됐다(감사 확정·데이터 손실). */
+function _mtbFlushSaves() {
+  if (!MTB_EDIT.saveTimers || !MTB_EDIT.saveTimers.size) return;
+  MTB_EDIT.saveTimers.forEach((t, id) => {
+    clearTimeout(t);
+    if (typeof pushToFirebase === 'function') { try { pushToFirebase(id); } catch (e) { /* noop */ } }
+  });
   MTB_EDIT.saveTimers.clear();
+}
+
+function _mtbCloseEditScene() {
+  /* 저장 마무리 — 대기 중인 모든 장면을 push(취소 아님) */
+  _mtbFlushSaves();
   if (MTB_EDIT.currentId !== null && typeof pushToFirebase === 'function') {
     pushToFirebase(MTB_EDIT.currentId);
   }
@@ -847,6 +861,7 @@ function _mtbInitEditView() {
     const sc = scenes[MTB_EDIT.currentId];
     if (!sc) return;
     sc.title = e.target.value;
+    sc._hasBody = true;   /* HASBODY-MOBILE-1: 아래 body와 동일 — legacy 장면 저장 시 삭제 방지 */
     _mtbQueueSave();
   });
 
@@ -856,6 +871,10 @@ function _mtbInitEditView() {
     const sc = scenes[MTB_EDIT.currentId];
     if (!sc) return;
     sc.body = e.target.value;
+    /* HASBODY-MOBILE-1(2026-07-27): _hasBody를 안 세우면 _sceneToDbShape가 legacy 장면(원래 body키
+       없음·_hasBody=false)의 body를 저장 직전 삭제 → 새로고침 시 본문이 사라짐(감사 확정). 데스크톱
+       ui.js:264와 대칭으로 입력 즉시 true. */
+    sc._hasBody = true;
     _mtbQueueSave();
   });
 

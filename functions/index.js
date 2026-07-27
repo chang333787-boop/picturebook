@@ -3674,10 +3674,14 @@ exports.generateStoryImages = onCall(
     if (singleSceneId) {
       targetIds = targetIds.filter((s) => s === singleSceneId);
       if (targetIds.length === 0) {
+        /* REGEN-REFUND-1(2026-07-27): 카운터를 이미 +1 한 뒤 대상이 없어 빠지면 환불(감사 확정 —
+           본문 없는/표지 장면에서 🔁 두 번이면 실제 생성 0인데 상한에 잠기던 것). */
+        await _refundRegen();
         throw new HttpsError('failed-precondition', '그림을 만들 수 있는 장면이 아니에요(본문이 있어야 해요).');
       }
     }
     if (targetIds.length === 0) {
+      await _refundRegen();
       return { ok: true, generated: 0, skipped: 0, failed: [], total: 0 };
     }
 

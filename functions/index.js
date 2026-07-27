@@ -2643,8 +2643,28 @@ exports.callStartImageS2Batch = onCall(
     if (variants && typeof variants === 'object') { Object.keys(variants).forEach((sid) => { if (variants[sid] && variants[sid].s2) existingVariants[sid] = variants[sid].s2; }); }
 
     const force = req.data && req.data.forceRegenerate === true;
+    /* REGEN-LIMIT-1(2026-07-27): 2·3단계 다시 만들기도 작품당 REGEN_TEAM_LIMIT회.
+       1단계(generateStoryImages)와 같은 카운터를 공유한다 — 상한은 "작품당"이므로
+       단계를 오가며 우회할 수 없다. forceRegenerate가 아닌 최초 변환은 종전대로 무제한. */
+    if (force) {
+      const _regenTx = await baseRef.child('aiUsage/imageRegen').transaction((cur) => {
+        const n = (typeof cur === 'number' && cur >= 0) ? cur : 0;
+        if (n >= REGEN_TEAM_LIMIT) return;
+        return n + 1;
+      });
+      if (!_regenTx.committed) {
+        logger.info('[ai/imageS2] 재생성 상한', { classId: ctx.classId, teamName: ctx.teamName });
+        return { ok: false, regenLimitReached: true, limit: REGEN_TEAM_LIMIT,
+                 message: `그림 다시 만들기는 작품마다 ${REGEN_TEAM_LIMIT}번까지 할 수 있어요.` };
+      }
+    }
     const onlyIds = Array.isArray(req.data && req.data.sceneIds) ? req.data.sceneIds.map(_sanitizeFbKeySegment).filter(Boolean) : null;
     const plan = ImageS2Batch.planImageS2Batch({ scenes: scenes || {}, existingVariants, forceRegenerate: force, sceneIds: onlyIds, currentPromptVersion: ImageS2Gen.PROMPT_VERSION });
+    /* REGEN-LIMIT-1: 만들 대상이 하나도 없으면 차감분을 돌려준다(차감 대칭). */
+    if (force && (!plan.targets || plan.targets.length === 0)) {
+      try { await baseRef.child('aiUsage/imageRegen').transaction((cur) => Math.max(0, (cur || 0) - 1)); }
+      catch (e) { /* 환불 실패는 비치명 */ }
+    }
     const jobId = require('crypto').randomUUID();
     const state = ImageS2Batch.initBatchState({ jobId, requestedBy: ctx.uid, now: Date.now(), targets: plan.targets, cached: plan.cached, model: 'gpt-image-2', promptVersion: ImageS2OpenAi.PROMPT_VERSION });
     try { await baseRef.child(`aiVariants/imageJobs/${jobId}`).set(state); } catch (e) { throw new HttpsError('internal', 'JOB_CREATE_FAILED'); }

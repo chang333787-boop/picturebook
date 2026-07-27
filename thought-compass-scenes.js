@@ -49,6 +49,15 @@
     ctx = ctx || {};
     if (TYPES.indexOf(ctx.projectType) < 0) return false;
     if (typeof window === 'undefined' || typeof window.createStarterTemplateForNewProject !== 'function') return false;
+    /* SCENES-LOADED-WAIT-1(2026-07-27·e2e 확정): 나침반 완료가 maker의 장면 리스너 첫 스냅샷보다
+       먼저 실행되면 _writeBase10IfEmpty가 'not-loaded'로 no-op → 초안도 기본틀도 안 만들어지고
+       조용히 삼켜져, 1단계 완주 후 빈 에디터만 남던 것(연습반 검토C 재현). 쓰기 전에 장면 로드를
+       최대 ~8초 기다린다(이미 로드면 즉시 통과·회귀 0). */
+    if (typeof window.isBranchScenesLoaded === 'function') {
+      for (let _i = 0; _i < 16 && !window.isBranchScenesLoaded(); _i++) {
+        await new Promise((r) => setTimeout(r, 500));
+      }
+    }
     const lvl = (ctx.projectType === 'picturebook' && typeof window.getPicturebookLevel === 'function')
       ? window.getPicturebookLevel() : null;
     /* EASY-MUSTINC(2026-07-20 사용자 결정): 1단계=12장면 — AI가 전부 만들어 주니 기승전결이

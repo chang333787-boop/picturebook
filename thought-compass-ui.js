@@ -192,8 +192,10 @@
         if (_adaptive == null) _fetchAdaptive(q);
       }
     }
+    /* SKELETON-TAP hotfix(2026-07-27): _slow 를 아래 스켈레톤 블록에서도 쓰는데 이 블록 안에
+       const 로 선언해 ReferenceError → 적응형 질문에서 _render 전체가 죽던 실버그(e2e 검토 적발). */
+    const _slow = _adaptiveLoading && !!(S.adaptiveSlow && S.adaptiveSlow[q.id]);
     if (_adaptiveLoading) {
-      const _slow = !!(S.adaptiveSlow && S.adaptiveSlow[q.id]);
       const ld = _el('p', 'tc-flow-help', _slow
         ? '✨ 보기를 고르는 중… 첫 질문은 조금 오래 걸려요. 안 나오면 아래 칸을 눌러 보세요.'
         : '✨ 내 이야기에 맞는 보기를 고르는 중…');

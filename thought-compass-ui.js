@@ -316,7 +316,15 @@
     const prior = (typeof _priorSummaries === 'function' ? _priorSummaries() : [])
       .filter(function (s) { return s && s.key !== q.id && s.key !== 'targetLength' && s.text; });
     if (!prior.length) { S.adaptiveChoices[q.id] = 'failed'; return; }   /* 앞 답 없으면 폴백 */
-    const priorText = prior.map(function (s) { return String(s.text || '').trim(); }).join(' / ').slice(0, 1500);
+    /* COMPASS-CHOICES-CONTEXT-1(2026-07-27): 종전엔 답만 " / "로 이어 보내 어느 답이 주인공인지
+       AI가 알 수 없었다 → 주인공 이름을 '만나야 할 상대'로 착각해 "○○와 함께 있고 싶어요" 같은
+       모순 보기 생성(실사용 신고). 질문 제목을 함께 보내 역할을 고정한다.
+       ※ 캐시 키에 priorAnswersText가 들어가므로 형식 변경만으로 옛 캐시는 자동 무효화된다. */
+    const priorText = prior.map(function (s) {
+      const t = String(s.title || '').trim();
+      const v = String(s.text || '').trim();
+      return t ? (t + ' → ' + v) : v;
+    }).join('\n').slice(0, 1500);
     const ctx = S.ctx || {};
     const capturedId = q.id;
     const capturedIndex = (S.vm && typeof S.vm.index === 'number') ? S.vm.index : null;
@@ -452,7 +460,9 @@
     const out = [];
     for (const q of S.vm.questions) {
       const a = S.vm.answers[q.id];
-      if (a && a.answerText) out.push({ key: q.id, text: String(a.answerText).slice(0, 200) });
+      /* COMPASS-CHOICES-CONTEXT-1: title 동봉 — 맞춤 보기가 '어느 답이 주인공인지' 알아야 한다.
+         기존 소비처(key·text)는 그대로라 하위호환. */
+      if (a && a.answerText) out.push({ key: q.id, title: String(q.title || '').slice(0, 120), text: String(a.answerText).slice(0, 200) });
     }
     return out;
   }

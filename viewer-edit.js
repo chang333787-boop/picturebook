@@ -6073,9 +6073,12 @@ function _bindPbImageActions(root, scene) {
           }, 600);
           setTimeout(() => { btn.disabled = false; btn.textContent = t0; }, 1800);
         } else {
-          const _msg = (r && r.limitReached)
-            ? '이 모둠의 그림 만들기 횟수를 다 썼어요. 선생님께 말씀드려 주세요.'
-            : '그림을 다시 만들지 못했어요. 잠시 후 다시 시도해 주세요.';
+          /* REGEN-LIMIT-1(2026-07-27): 작품당 다시 만들기 상한 안내 — 총량 소진과 구분한다. */
+          const _msg = (r && r.regenLimitReached)
+            ? (r.message || '그림 다시 만들기는 작품마다 2번까지 할 수 있어요.')
+            : (r && r.limitReached)
+              ? '이 모둠의 그림 만들기 횟수를 다 썼어요. 선생님께 말씀드려 주세요.'
+              : '그림을 다시 만들지 못했어요. 잠시 후 다시 시도해 주세요.';
           alert(_msg);
           btn.disabled = false; btn.textContent = t0;
         }

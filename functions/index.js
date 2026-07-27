@@ -3510,6 +3510,9 @@ function _validateStudentStoryDraft(d, storyCount, level) {
    정본: docs/picturebook_levels_design_20260718.md §7.5·§7.6·§9
    ════════════════════════════════════════════════════════════════ */
 const STORY_IMAGE_TEAM_LIMIT = 24;
+/* REGEN-LIMIT-1(2026-07-27): 🔁 다시 만들기 상한(작품=팀당). 총량(24)과 별개로 force 호출만 센다.
+   한 장면을 몇 번이고 다시 만들 수 있어 비용이 새던 것(실측 3회+) 차단. */
+const REGEN_TEAM_LIMIT = 2;
 /* 감사 H6(2026-07-21): 이미지 생성 전역 일일 hard cap — 텍스트 전역(GLOBAL_DAILY_LIMIT)과
    별도 카운터(ai-usage-global/{ymd}/imageGenCalls). meta 쓰기 개방으로 가짜 학급·팀을
    자가생성해 팀당 24를 무한 반복하는 비용 체인의 전체 상한. 정상 사용(학급당 1단계
@@ -3590,6 +3593,32 @@ exports.generateStoryImages = onCall(
       throw new HttpsError('invalid-argument', 'sceneId가 올바르지 않아요.');
     }
     const force = d.force === true;
+
+    /* REGEN-LIMIT-1(2026-07-27): 🔁 다시 만들기는 작품(팀)당 REGEN_TEAM_LIMIT회까지.
+       종전엔 팀 총량(24)에만 걸려 한 장면을 여러 번 다시 만들 수 있었다(실측 3회+·비용 누수).
+       force 호출에만 적용 — 최초 자동 배치(force=false)는 종전과 동일하게 무제한(총량 가드만).
+       검사-차감을 transaction으로 원자화하고, 실제 생성이 0이면 아래에서 환불한다. */
+    let _regenTx = null;
+    if (force) {
+      const _regenRef = baseRef.child('aiUsage/imageRegen');
+      _regenTx = await _regenRef.transaction((cur) => {
+        const n = (typeof cur === 'number' && cur >= 0) ? cur : 0;
+        if (n >= REGEN_TEAM_LIMIT) return;          /* abort — 상한 도달 */
+        return n + 1;
+      });
+      if (!_regenTx.committed) {
+        logger.info('[generateStoryImages] 재생성 상한', { classId: ctx.classId, teamName: ctx.teamName });
+        return { ok: false, regenLimitReached: true, limit: REGEN_TEAM_LIMIT,
+                 message: `그림 다시 만들기는 작품마다 ${REGEN_TEAM_LIMIT}번까지 할 수 있어요.` };
+      }
+    }
+    let _regenRefunded = false;
+    const _refundRegen = async () => {
+      if (!_regenTx || !_regenTx.committed || _regenRefunded) return;   /* 이중 환불 차단 */
+      _regenRefunded = true;
+      try { await baseRef.child('aiUsage/imageRegen').transaction((cur) => Math.max(0, (cur || 0) - 1)); }
+      catch (e) { /* 환불 실패는 비치명 */ }
+    };
 
     /* 대상 장면 — 본문 있는 비표지(엔딩 포함). 표지는 제목 중심이라 제외(§7.5·비용 고정) */
     const scenes = (await baseRef.child('scenes').once('value')).val() || {};
@@ -3798,11 +3827,24 @@ exports.generateStoryImages = onCall(
         by: ctx.uid, classId: ctx.classId, generated, skipped, failedCount: failed.length,
         limitReached, globalLimitReached, at: admin.database.ServerValue.TIMESTAMP,
       }).catch(() => {});
+      /* REGEN-LIMIT-1: 실제로 한 장도 못 만들었으면 재생성 횟수를 돌려준다(차감 대칭). */
+      if (generated === 0) await _refundRegen();
+      let regenLeft;
+      if (force) {
+        try {
+          const _u = (await baseRef.child('aiUsage/imageRegen').once('value')).val();
+          regenLeft = Math.max(0, REGEN_TEAM_LIMIT - (typeof _u === 'number' ? _u : 0));
+        } catch (e) { regenLeft = undefined; }
+      }
       logger.info('[generateStoryImages]', {
         by: ctx.uid, classId: ctx.classId, teamName: ctx.teamName,
         generated, skipped, failedCount: failed.length, limitReached, globalLimitReached, single: !!singleSceneId,
+        force, regenLeft,
       });
-      return { ok: true, generated, skipped, failed, limitReached, globalLimitReached, total: targetIds.length };
+      return { ok: true, generated, skipped, failed, limitReached, globalLimitReached, total: targetIds.length, regenLeft };
+    } catch (e) {
+      await _refundRegen();   /* REGEN-LIMIT-1: 예외로 끝나도 횟수는 돌려준다(차감 대칭) */
+      throw e;
     } finally {
       await releaseLock();
     }

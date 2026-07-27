@@ -87,6 +87,70 @@ if (typeof window !== 'undefined') {
   window.showViewerConfirm = showViewerConfirm;
 }
 
+/* REGEN-SCENE-1(2026-07-27): "왜 바꾸고 싶은지" 묻는 창.
+   AI가 준 그림을 그냥 받지 않고 이유를 들어 판단하게 하는 활동 — 자주 나오는 이유는 버튼으로,
+   그 밖은 직접 적게 한다. 반환: 선택한 이유 문자열 / 취소면 null. */
+function _askRegenReason() {
+  return new Promise((resolve) => {
+    const PRESETS = [
+      '이야기에 없는 것이 그림에 있어요',
+      '주인공 모습이 이야기와 달라요',
+      '장면 분위기가 이야기와 안 맞아요',
+    ];
+    const back = document.createElement('div');
+    back.className = 'viewer-confirm-backdrop';
+    let done = false;
+    const finish = (v) => { if (done) return; done = true; try { back.remove(); } catch (e) { /* noop */ } resolve(v); };
+    back.innerHTML =
+      '<div class="viewer-confirm-card" role="dialog" aria-modal="true" style="max-width:440px;">'
+      +   '<div class="viewer-confirm-title">🔁 왜 다시 만들고 싶어요?</div>'
+      +   '<div class="viewer-confirm-message" style="margin-bottom:12px;">이유를 하나 고르거나 직접 적어 주세요.<br>'
+      +     '<span style="font-size:12px;color:#8a7d63;">다시 만들면 조금 다른 그림이 나와요. 작품마다 2번까지 할 수 있어요.</span></div>'
+      +   '<div class="js-reason-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;"></div>'
+      +   '<input type="text" class="js-reason-input" maxlength="60" placeholder="직접 적을래요 (예: 고양이가 아직 안 나왔어요)" '
+      +     'style="width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid #d9cfb6;border-radius:9px;font-size:13.5px;">'
+      +   '<div class="viewer-confirm-actions" style="margin-top:14px;">'
+      +     '<button type="button" class="js-reason-cancel">그만두기</button>'
+      +     '<button type="button" class="js-reason-ok">이 이유로 다시 만들기</button>'
+      +   '</div>'
+      + '</div>';
+    const list = back.querySelector('.js-reason-list');
+    const input = back.querySelector('.js-reason-input');
+    let picked = '';
+    PRESETS.forEach((p) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = p;
+      b.style.cssText = 'text-align:left;padding:10px 12px;border:1.5px solid #ded4bb;border-radius:10px;'
+        + 'background:#fffdf7;font-size:13.5px;color:#4a3f2c;cursor:pointer;';
+      b.addEventListener('click', () => {
+        picked = p;
+        input.value = '';
+        Array.prototype.forEach.call(list.children, (c) => {
+          c.style.borderColor = '#ded4bb'; c.style.background = '#fffdf7';
+        });
+        b.style.borderColor = '#8a9a5b'; b.style.background = '#f0f3e4';
+      });
+      list.appendChild(b);
+    });
+    input.addEventListener('input', () => {
+      if (!input.value.trim()) return;
+      picked = '';
+      Array.prototype.forEach.call(list.children, (c) => { c.style.borderColor = '#ded4bb'; c.style.background = '#fffdf7'; });
+    });
+    back.querySelector('.js-reason-cancel').addEventListener('click', () => finish(null));
+    back.querySelector('.js-reason-ok').addEventListener('click', () => {
+      const typed = String(input.value || '').trim();
+      const reason = typed || picked;
+      if (!reason) { input.focus(); input.style.borderColor = '#c66f4a'; return; }
+      finish(reason);
+    });
+    back.addEventListener('click', (e) => { if (e.target === back) finish(null); });
+    document.body.appendChild(back);
+    try { list.firstChild && list.firstChild.focus(); } catch (e) { /* noop */ }
+  });
+}
+
 const EDIT_SAVE_DEBOUNCE_MS = 800;
 
 /* W9 (v3): 양옆 마감 테마 collapsible 상태.
@@ -3487,6 +3551,9 @@ function _pbImageActionsHtml(scene) {
         <button type="button" class="edit-toggle js-pb-image-draw"${_hasImg2 ? ' disabled style="opacity:0.4;" title="이미 그린 그림이 있어요. 지우고 다시 그릴 수 있어요."' : ''}>✏️ 구도 그리기</button>
         ${_hasImg2 ? '<button type="button" class="edit-toggle js-pb-image-remove" style="color:#c66f4a;">🗑 지우고 다시</button>' : ''}
         <button type="button" class="edit-toggle js-pb-lvl2-example" style="color:#4a7ab0;">🎨 어떻게 바뀌어요?</button>
+        ${/* REGEN-SCENE-1(2026-07-27): 2·3단계 '다시 생성'이 전 장면 일괄이라 한 장면만 고칠 수
+             없었다 → 이 장면만 다시 만드는 버튼. 서버 sceneIds 지원을 그대로 쓴다(무배포). */''}
+        <button type="button" class="edit-toggle js-pb-image-regen-scene">🔁 이 장면만 다시 만들기</button>
         ${_hasImg2 ? `<span class="edit-label-note" style="display:block;grid-column:1 / -1;margin-top:6px;color:#a07a52;">
           ✏️ 구도 그리기는 <b>[🗑 지우고 다시]</b>를 먼저 눌러야 열려요. (그림이 이미 있어요)
         </span>` : ''}
@@ -3508,6 +3575,8 @@ function _pbImageActionsHtml(scene) {
         ${hasImage
           ? `<button type="button" class="edit-toggle js-pb-image-draw" disabled style="opacity:0.4;" title="사진이 있을 땐 그리기를 사용할 수 없어요. 삭제 후 다시 그릴 수 있어요.">✏️ 그리기</button>`
           : `<button type="button" class="edit-toggle js-pb-image-draw">✏️ 그리기</button>`}
+        ${/* REGEN-SCENE-1(2026-07-27): 3단계도 이 장면만 다시 만들 수 있게. */''}
+        <button type="button" class="edit-toggle js-pb-image-regen-scene">🔁 이 장면만 다시 만들기</button>
         ${hasImage ? `<span class="edit-label-note" style="display:block;grid-column:1 / -1;margin-top:6px;color:#a07a52;">
           ✏️ 그리기는 <b>[🗑 삭제]</b>를 먼저 눌러야 열려요. (그림이 이미 있어요)
         </span>` : ''}
@@ -6041,18 +6110,75 @@ function _bindPbImageActions(root, scene) {
     });
   });
 
+  /* REGEN-SCENE-1(2026-07-27): 2·3단계 — 이 장면만 다시 만들기.
+     종전엔 [AI 그림책 마감]의 '다시 생성'이 전 장면 일괄이라 한 장면만 고칠 수 없었다.
+     서버가 이미 sceneIds를 지원하므로 그 장면 하나만 계획에 넣어 호출한다(서버 무배포).
+     ⚠️ 누르기 전에 "왜 바꾸고 싶은지"를 먼저 묻는다 — 이 연구의 주제(AI 결과를 그대로
+     받지 않고 이유를 들어 판단하기)와 같은 활동이고, 남긴 이유는 아이의 판단 기록으로 쌓인다. */
+  root.querySelectorAll('.js-pb-image-regen-scene').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!_editText.editable) return;
+      const _cid = (ViewerState.project && ViewerState.project.classId) || ViewerState.classId;
+      const _team = (ViewerState.project && ViewerState.project.teamName) || ViewerState.teamName;
+      const _sid = String(scene.num || scene.id);
+      const reason = await _askRegenReason();
+      if (reason == null) return;                    /* 취소 */
+      const t0 = btn.textContent;
+      btn.disabled = true; btn.textContent = '🎨 만드는 중… (1분쯤 걸려요)';
+      try {
+        /* 이유 기록 — 실패해도 재생성은 진행(비치명) */
+        try {
+          await firebase.database()
+            .ref(`classes/${_cid}/teams/${encodeURIComponent(_team)}/viewer-meta/regenReasons`)
+            .push({ sceneId: _sid, reason: String(reason).slice(0, 200), at: firebase.database.ServerValue.TIMESTAMP });
+        } catch (e) { /* noop */ }
+        const fns = firebase.app().functions('asia-northeast3');
+        const start = await fns.httpsCallable('callStartImageS2Batch', { timeout: 120000 })({
+          classId: _cid, teamName: _team, forceRegenerate: true, sceneIds: [_sid],
+        });
+        const s = start && start.data;
+        if (s && s.regenLimitReached) { alert(s.message || '그림 다시 만들기는 작품마다 2번까지 할 수 있어요.'); btn.disabled = false; btn.textContent = t0; return; }
+        if (!s || s.ok !== true || !s.jobId) { alert('그림을 다시 만들지 못했어요. 잠시 후 다시 시도해 주세요.'); btn.disabled = false; btn.textContent = t0; return; }
+        if (!Array.isArray(s.targets) || s.targets.length === 0) { alert('이 장면은 지금 다시 만들 수 없어요. (그림이 없거나 이미 최신이에요)'); btn.disabled = false; btn.textContent = t0; return; }
+        const one = await fns.httpsCallable('callImageAiS2', { timeout: 300000 })({
+          classId: _cid, teamName: _team, sceneId: s.targets[0], jobId: s.jobId,
+        });
+        const r = one && one.data;
+        const okOne = !!(r && (r.ok === true || r.status === 'succeeded' || r.status === 'cached' || r.reused === true));
+        if (okOne) {
+          btn.textContent = '✅ 새 그림 완성!';
+          try { if (window.viewerAi && typeof window.viewerAi._reinitForCurrentTeam === 'function') window.viewerAi._reinitForCurrentTeam(); } catch (e) { /* noop */ }
+          setTimeout(() => {
+            try { if (typeof _scheduleViewerFrameReRender === 'function') _scheduleViewerFrameReRender(); } catch (e) { /* noop */ }
+            try { if (typeof renderEditPanel === 'function') renderEditPanel(); } catch (e) { /* noop */ }
+          }, 600);
+          setTimeout(() => { btn.disabled = false; btn.textContent = t0; }, 1800);
+        } else {
+          alert('그림을 다시 만들지 못했어요. 잠시 후 다시 시도해 주세요.');
+          btn.disabled = false; btn.textContent = t0;
+        }
+      } catch (e) {
+        alert('그림을 다시 만들지 못했어요. 잠시 후 다시 시도해 주세요.');
+        btn.disabled = false; btn.textContent = t0;
+      }
+    });
+  });
+
   /* PICTUREBOOK-LEVELS ④: 1단계 장면별 🔁 — 서버(generateStoryImages)가 단계/토글/팀당 총량 재검증.
      성공 시 viewer-ai 재초기화로 새 변형 즉시 반영(AI-DEFAULT가 감상 기본 표시). */
   root.querySelectorAll('.js-pb-image-regen1').forEach(btn => {
     btn.addEventListener('click', async () => {
       if (!_editText.editable) return;
-      const ok = await showViewerConfirm({
-        title: '그림을 다시 만들까요?',
-        message: 'AI가 이 장면의 그림을 새로 만들어요.\n모둠이 쓸 수 있는 그림 만들기 횟수에서 1번을 써요.',
-        confirmText: '다시 만들기',
-        danger: false,
-      });
-      if (!ok) return;
+      /* REGEN-SCENE-1(2026-07-27): 1단계도 2·3단계와 같은 '왜 바꾸고 싶은지' 창으로 통일. */
+      const _cidR = (ViewerState.project && ViewerState.project.classId) || ViewerState.classId;
+      const _teamR = (ViewerState.project && ViewerState.project.teamName) || ViewerState.teamName;
+      const reason = await _askRegenReason();
+      if (reason == null) return;
+      try {
+        await firebase.database()
+          .ref(`classes/${_cidR}/teams/${encodeURIComponent(_teamR)}/viewer-meta/regenReasons`)
+          .push({ sceneId: String(scene.num || scene.id), reason: String(reason).slice(0, 200), at: firebase.database.ServerValue.TIMESTAMP });
+      } catch (e) { /* 기록 실패는 비치명 */ }
       const t0 = btn.textContent;
       btn.disabled = true; btn.textContent = '🎨 만드는 중… (30초쯤 걸려요)';
       try {

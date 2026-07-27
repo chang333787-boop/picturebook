@@ -1530,6 +1530,12 @@
 
   function _getAiImageViewMode() {
     try {
+      /* AIVIEWMODE-LV12-1(2026-07-27·감사 #15): 1·2단계는 원본/AI 선택 개념이 없어 그림 토글을 없앴다.
+         기기에 남은 옛 'aiS2' 잔재로 편집 잠금(_isAiImageVariantViewActive)이 잘못 걸려 그리기/다시
+         만들기 액션이 영구 잠기던 것 방지 — _getDisplayImageSrc의 lv1·2 우회와 대칭으로 'original' 반환
+         (표시 자체는 _getDisplayImageSrc가 발행 기본 AI로 별도 처리하므로 화면 영향 없음). */
+      const _pp = (typeof ViewerState !== 'undefined' && ViewerState && ViewerState.project) || {};
+      if (_pp.projectType === 'picturebook' && (_pp.picturebookLevel === 1 || _pp.picturebookLevel === 2)) return 'original';
       const _lock = _publishLockMode('image');
       if (_lock) return _lock;   /* PUBLISH-VERSION: 잠금이면 설정 버전 강제 */
       const v = localStorage.getItem(_getMockImageViewModeKey());

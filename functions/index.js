@@ -4581,8 +4581,11 @@ exports.compassAdaptiveChoices = onCall(
     const d = req.data || {};
     const classId = String(d.classId || '').trim();
     const teamName = String(d.teamName || '').trim();
-    const questionTitle = String(d.questionTitle || '').trim().slice(0, 200);
-    const priorAnswersText = String(d.priorAnswersText || '').trim().slice(0, 1500);
+    /* INJECTION-QUOTE-1(2026-07-27·감사 #12): 프롬프트가 아이 답을 «» 인용부호로 감싸 '데이터'로
+       가두는데, 입력에 «» 자체가 들어오면 경계를 깨고 지시로 탈출할 수 있다 → «»를 일반 따옴표로
+       치환하고 공백 정규화(studentStoryDraft와 동일 방어). */
+    const questionTitle = String(d.questionTitle || '').replace(/[«»]/g, '"').replace(/\s+/g, ' ').trim().slice(0, 200);
+    const priorAnswersText = String(d.priorAnswersText || '').replace(/[«»]/g, '"').trim().slice(0, 1500);
     const staticChoices = Array.isArray(d.staticChoices)
       ? d.staticChoices.filter((s) => typeof s === 'string').slice(0, 6) : [];
     if (!classId || /[.#$\[\]\/]/.test(classId) || !teamName || teamName.length > 40 || !questionTitle || !priorAnswersText) {

@@ -673,7 +673,12 @@
 
     overlay.appendChild(card);
     document.body.appendChild(overlay);
-    try { t.setAttribute('tabindex', '-1'); t.focus(); } catch (e) {}
+    /* FOLLOWUP-FOCUS-1(2026-07-27·감사 #5): 후속질문에 직접 답을 적는 중 늦게 온 맞춤보기 응답/타이머가
+       _renderFollowUp을 다시 불러 제목으로 포커스를 뺏고(태블릿 키보드 닫힘) 흐름이 끊기던 것.
+       사용자가 이미 입력창에 타이핑 중이면 제목 포커스 이동을 건너뛴다. */
+    var _typingNow = (S.followUp && S.followUp.custom) && document.activeElement
+      && document.activeElement.classList && document.activeElement.classList.contains('tc-flow-custom-input');
+    if (!_typingNow) { try { t.setAttribute('tabindex', '-1'); t.focus(); } catch (e) {} }
   }
   function _onFollowUpChoice(i) {
     S.followUp.choiceId = i; S.followUp.custom = false;

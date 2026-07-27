@@ -2908,8 +2908,14 @@ if (typeof window !== 'undefined' && typeof sessionStorage !== 'undefined') {
           || document.getElementById('thought-compass-review')
           || document.getElementById('tutorial-welcome-overlay')) return;
       const info = JSON.parse(raw);
+      /* PENDING-FRESH-1(2026-07-27·감사 #14): 형제 소비처(viewer-edit _lv1PendingDrawInfo)와 대칭으로
+         2시간 지난 stale 플래그는 버린다 — 옛 세션 잔재로 이야기 없이 주인공 선택창만 뜨는 것 방지. */
+      if (!info || (typeof info.at === 'number' && (Date.now() - info.at) > 2 * 60 * 60 * 1000)) {
+        try { sessionStorage.removeItem('pbLv1NeedsProtagChoice'); } catch (e) { /* noop */ }
+        return;
+      }
       const ms = JSON.parse(sessionStorage.getItem('makerSession') || 'null');
-      if (!ms || !info || ms.classId !== info.classId || ms.teamName !== info.teamName) return;
+      if (!ms || ms.classId !== info.classId || ms.teamName !== info.teamName) return;
       _runPendingLv1ProtagChoice();
     } catch (e) { /* noop — 다음 정상 소비처가 처리 */ }
   }, 6000);

@@ -2654,10 +2654,17 @@ exports.callStartImageS2Batch = onCall(
     if (variants && typeof variants === 'object') { Object.keys(variants).forEach((sid) => { if (variants[sid] && variants[sid].s2) existingVariants[sid] = variants[sid].s2; }); }
 
     const force = req.data && req.data.forceRegenerate === true;
+    const onlyIds = Array.isArray(req.data && req.data.sceneIds) ? req.data.sceneIds.map(_sanitizeFbKeySegment).filter(Boolean) : null;
     /* REGEN-LIMIT-1(2026-07-27): 2·3단계 다시 만들기도 작품당 REGEN_TEAM_LIMIT회.
        1단계(generateStoryImages)와 같은 카운터를 공유한다 — 상한은 "작품당"이므로
-       단계를 오가며 우회할 수 없다. forceRegenerate가 아닌 최초 변환은 종전대로 무제한. */
-    if (force) {
+       단계를 오가며 우회할 수 없다. forceRegenerate가 아닌 최초 변환은 종전대로 무제한.
+       REGEN-METER-1(감사 #6): 단일 장면 재생성인데 아직 그림이 없으면(첫 채움) 계량하지 않는다
+       — 실패로 빠진 장면 채우기가 2회 한도를 잡아먹지 않도록(총량 24 캡이 비용 backstop). */
+    let _meterRegen = force;
+    if (force && Array.isArray(onlyIds) && onlyIds.length === 1) {
+      _meterRegen = !!existingVariants[onlyIds[0]];   /* 기존 그림 있을 때만 '재생성' */
+    }
+    if (_meterRegen) {
       const _regenTx = await baseRef.child('aiUsage/imageRegen').transaction((cur) => {
         const n = (typeof cur === 'number' && cur >= 0) ? cur : 0;
         if (n >= REGEN_TEAM_LIMIT) return;
@@ -2669,10 +2676,9 @@ exports.callStartImageS2Batch = onCall(
                  message: `그림 다시 만들기는 작품마다 ${REGEN_TEAM_LIMIT}번까지 할 수 있어요.` };
       }
     }
-    const onlyIds = Array.isArray(req.data && req.data.sceneIds) ? req.data.sceneIds.map(_sanitizeFbKeySegment).filter(Boolean) : null;
     const plan = ImageS2Batch.planImageS2Batch({ scenes: scenes || {}, existingVariants, forceRegenerate: force, sceneIds: onlyIds, currentPromptVersion: ImageS2Gen.PROMPT_VERSION });
-    /* REGEN-LIMIT-1: 만들 대상이 하나도 없으면 차감분을 돌려준다(차감 대칭). */
-    if (force && (!plan.targets || plan.targets.length === 0)) {
+    /* REGEN-LIMIT-1: 계량했는데 만들 대상이 하나도 없으면 차감분을 돌려준다(차감 대칭). */
+    if (_meterRegen && (!plan.targets || plan.targets.length === 0)) {
       try { await baseRef.child('aiUsage/imageRegen').transaction((cur) => Math.max(0, (cur || 0) - 1)); }
       catch (e) { /* 환불 실패는 비치명 */ }
     }
@@ -3642,8 +3648,19 @@ exports.generateStoryImages = onCall(
        종전엔 팀 총량(24)에만 걸려 한 장면을 여러 번 다시 만들 수 있었다(실측 3회+·비용 누수).
        force 호출에만 적용 — 최초 자동 배치(force=false)는 종전과 동일하게 무제한(총량 가드만).
        검사-차감을 transaction으로 원자화하고, 실제 생성이 0이면 아래에서 환불한다. */
+    /* REGEN-METER-1(2026-07-27·감사 #6): "이미 있는 그림을 다시 만드는 것"만 횟수로 센다.
+       최초 배치가 일부 실패해 그림이 빠진 장면을 🔁로 채우는 건 재생성이 아니라 첫 채움이므로
+       무료(총량 24 캡이 비용 backstop). 종전엔 빈 장면 🔁도 차감돼, 실패 장면 3개 이상이면 2회
+       한도에 막혀 영영 못 채우던 것. 단일 장면 force일 때만 기존 variant 유무로 판단하고,
+       전체 재배치(비단일) force는 벌크 재생성이라 종전대로 1회 계량. */
+    let _meterRegen = force;
+    if (force && singleSceneId) {
+      let _existV = null;
+      try { _existV = (await baseRef.child(`aiVariants/image/${singleSceneId}/s2`).once('value')).val(); } catch (e) { _existV = null; }
+      _meterRegen = !!(_existV && _existV.url && _existV.stale !== true);   /* 기존 그림이 있어야 '재생성' */
+    }
     let _regenTx = null;
-    if (force) {
+    if (_meterRegen) {
       const _regenRef = baseRef.child('aiUsage/imageRegen');
       _regenTx = await _regenRef.transaction((cur) => {
         const n = (typeof cur === 'number' && cur >= 0) ? cur : 0;

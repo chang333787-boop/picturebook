@@ -1588,6 +1588,13 @@ function _applyAiImageVariantEditLock() {
         box.style.opacity = '0.5';
         box.setAttribute('aria-disabled', 'true');
         box.setAttribute('title', _AI_IMAGE_LOCK_MSG);
+        /* REGEN-UNLOCK-1(2026-07-27·감사 #7): 이 잠금은 '원본(업로드·그리기·삭제) 수정'을 막는 것이지
+           AI 그림 다시 만들기를 막을 이유가 없다(오히려 AI 그림이 마음에 안 들 때 쓰는 버튼).
+           컨테이너 pointerEvents:none에 같이 묻혀 죽던 🔁 버튼만 개별로 되살린다. */
+        box.querySelectorAll('.js-pb-image-regen-scene, .js-pb-image-regen1').forEach((btn) => {
+          btn.style.pointerEvents = 'auto';
+          btn.style.opacity = '1';
+        });
       } else {
         box.style.pointerEvents = '';
         box.style.opacity = '';

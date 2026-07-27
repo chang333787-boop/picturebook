@@ -344,15 +344,22 @@
      · 다른 질문으로 이동 = 포기(그 질문에 다시 오면 자연 렌더)
      · 입력/후속질문 중 = 대기(포커스를 뺏지 않는다는 기존 정책 유지)
      · 10초 상한 — 그 안에 안 풀리면 어차피 사용자가 화면을 바꾼 것 */
-  function _renderWhenIdle(capturedIndex, tries) {
+  /* RENDER-BY-QID(2026-07-27): 종전엔 capturedIndex(질문 순번)로 "같은 화면인지" 판정했는데,
+     직접적기 답 → AI 판정 → 후속질문 삽입/해제를 거치면 순번이 바뀌었다 돌아와 캡처값과 안 맞고,
+     그러면 응답(200·보기 3개)이 왔는데도 _renderWhenIdle이 계속 리턴 → 빈 스켈레톤 영구화
+     (연습반 e2e 6/9에서 재현). 순번 대신 질문 id로 판정한다(id는 삽입/해제에도 불변). */
+  function _currentQid() {
+    try { const q = _Flow().currentQuestion(S.vm); return q ? q.id : null; } catch (e) { return null; }
+  }
+  function _renderWhenIdle(capturedQid, tries) {
     if (!S || !S.vm) return;
-    if (S.vm.index !== capturedIndex) return;
+    if (_currentQid() !== capturedQid) return;   /* 다른 질문으로 이동 = 포기(돌아오면 자연 렌더) */
     if (!S.followUp && S.customMode == null) { _render(); return; }
     /* STUCK-FIX(2026-07-27): 상한에 닿으면 종전엔 그냥 포기 → 자리표시가 영영 남았다(3분째 신고).
        직접 적기 입력 중이 아니면 마지막에 반드시 한 번 그린다(빈 화면보다 낫다).
        입력 중(customMode)일 때만 포커스 보호를 위해 양보 — 그 경우 입력을 끝내면 다음 렌더에 반영. */
     if ((tries || 0) >= 20) { if (S.customMode == null) _render(); return; }
-    setTimeout(function () { _renderWhenIdle(capturedIndex, (tries || 0) + 1); }, 500);
+    setTimeout(function () { _renderWhenIdle(capturedQid, (tries || 0) + 1); }, 500);
   }
   function _fetchAdaptive(q) {
     if (!S) return;
@@ -376,6 +383,7 @@
     const ctx = S.ctx || {};
     const capturedId = q.id;
     const capturedIndex = (S.vm && typeof S.vm.index === 'number') ? S.vm.index : null;
+    const capturedQid = _currentQid();   /* RENDER-BY-QID: 순번 대신 질문 id로 렌더 판정 */
     /* ADAPTIVE-LOADING-CAP(2026-07-26): 응답이 늦으면 '보기를 고르는 중…' 스켈레톤에 갇히던 것.
        종전엔 상태가 'loading'이면 재요청 가드에 막혀 스스로 빠져나올 길이 없어, 서버 타임아웃
        (15초)까지 아이가 빈 자리표시만 봤다(실제 신고: 분홍 자리표시가 안 없어짐).
@@ -385,7 +393,7 @@
       if (!S || !S.adaptiveChoices) return;
       if (S.adaptiveChoices[capturedId] !== 'loading') return;
       S.adaptiveChoices[capturedId] = 'failed';
-      _renderWhenIdle(capturedIndex, 0);
+      _renderWhenIdle(capturedQid, 0);
     }, 10000);
     /* SLOW-FALLBACK(2026-07-27): 3초 넘게 안 오면 고정 보기를 먼저 내주고 안내 문구를 바꾼다.
        상태는 'loading' 그대로 — 늦게 도착한 AI 보기는 아직 아무것도 고르지 않았다면 교체된다.
@@ -395,7 +403,7 @@
       if (S.adaptiveChoices[capturedId] !== 'loading') return;
       if (!S.adaptiveSlow) S.adaptiveSlow = {};
       S.adaptiveSlow[capturedId] = true;
-      _renderWhenIdle(capturedIndex, 0);
+      _renderWhenIdle(capturedQid, 0);
     }, 3000);
     AI.requestAdaptiveChoices({
       classId: ctx.classId, teamName: ctx.teamName, projectType: ctx.projectType,
@@ -418,7 +426,7 @@
          제목으로 옮겨 태블릿 키보드가 닫히던 것 방지.
          ADAPTIVE-RENDER-RETRY-1: 종전엔 여기서 건너뛰면 영영 안 그려져 로딩 자리표시가 남았다
          → 조건이 풀릴 때까지 짧게 재시도(포커스 정책은 그대로 유지). */
-      _renderWhenIdle(capturedIndex, 0);
+      _renderWhenIdle(capturedQid, 0);
     }).catch(function (e) {
       /* STUCK-FIX(2026-07-27): .catch가 없어 거부(네트워크 끊김·콜러블 오류·SDK 예외) 시
          아무도 상태를 바꾸지 않았다. 캡 타이머가 10초 뒤 건져 주긴 했지만, 그 사이 자리표시가
@@ -428,7 +436,7 @@
       if (S.adaptiveChoices[capturedId] !== 'loading') return;
       S.adaptiveChoices[capturedId] = 'failed';
       try { console.warn('[compass] adaptive choices fail:', (e && (e.code || e.message)) || e); } catch (_) { /* noop */ }
-      _renderWhenIdle(capturedIndex, 0);
+      _renderWhenIdle(capturedQid, 0);
     });
   }
   function _onCustomActivate() {

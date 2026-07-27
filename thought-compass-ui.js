@@ -317,7 +317,10 @@
     if (!S || !S.vm) return;
     if (S.vm.index !== capturedIndex) return;
     if (!S.followUp && S.customMode == null) { _render(); return; }
-    if ((tries || 0) >= 20) return;
+    /* STUCK-FIX(2026-07-27): 상한에 닿으면 종전엔 그냥 포기 → 자리표시가 영영 남았다(3분째 신고).
+       직접 적기 입력 중이 아니면 마지막에 반드시 한 번 그린다(빈 화면보다 낫다).
+       입력 중(customMode)일 때만 포커스 보호를 위해 양보 — 그 경우 입력을 끝내면 다음 렌더에 반영. */
+    if ((tries || 0) >= 20) { if (S.customMode == null) _render(); return; }
     setTimeout(function () { _renderWhenIdle(capturedIndex, (tries || 0) + 1); }, 500);
   }
   function _fetchAdaptive(q) {
@@ -374,6 +377,16 @@
          제목으로 옮겨 태블릿 키보드가 닫히던 것 방지.
          ADAPTIVE-RENDER-RETRY-1: 종전엔 여기서 건너뛰면 영영 안 그려져 로딩 자리표시가 남았다
          → 조건이 풀릴 때까지 짧게 재시도(포커스 정책은 그대로 유지). */
+      _renderWhenIdle(capturedIndex, 0);
+    }).catch(function (e) {
+      /* STUCK-FIX(2026-07-27): .catch가 없어 거부(네트워크 끊김·콜러블 오류·SDK 예외) 시
+         아무도 상태를 바꾸지 않았다. 캡 타이머가 10초 뒤 건져 주긴 했지만, 그 사이 자리표시가
+         남고 캡마저 렌더 조건에 막히면 영영 갇혔다(3분째 신고). 즉시 고정 보기로 내린다. */
+      clearTimeout(_capTimer);
+      if (!S || !S.adaptiveChoices) return;
+      if (S.adaptiveChoices[capturedId] !== 'loading') return;
+      S.adaptiveChoices[capturedId] = 'failed';
+      try { console.warn('[compass] adaptive choices fail:', (e && (e.code || e.message)) || e); } catch (_) { /* noop */ }
       _renderWhenIdle(capturedIndex, 0);
     });
   }

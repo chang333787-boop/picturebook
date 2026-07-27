@@ -366,7 +366,11 @@ const GEN_ENDPOINT = 'https://api.openai.com/v1/images/generations';
 /* CHAR-CONSIST-1(2026-07-20 사용자 보고 "별골렘 캐릭터들이 좀 변함"): 장면별 독립 생성이라
    페이지마다 캐릭터 외형이 흔들리던 것 — 초안이 뽑은 인물 외형 고정 시트(characterSheet)를
    모든 장면 프롬프트에 동일 주입 + 일관성 지시 강화. 버전 상향(dedup 정합). */
-const STORY_IMAGE_PROMPT_VERSION = 'imgGen2-char1-cast1';
+/* CAST-LEAK-GUARD-1(2026-07-27): 프롬프트에 CAST 규칙을 추가했지만 버전은 일부러 올리지 않는다.
+   generateStoryImages의 skip 조건이 existing.promptVersion === PV라, 버전을 올리면 기존 1단계
+   작품이 전부 재생성 대상이 되어 비용이 나간다(누군가 배치를 다시 돌리는 순간). 새로 만드는
+   그림에는 조립 시점에 새 프롬프트가 그대로 적용되므로 버전 상향 없이도 수정 효과는 즉시 난다. */
+const STORY_IMAGE_PROMPT_VERSION = 'imgGen2-char1';
 
 const OPENAI_STORY_IMAGE_PROMPT = [
   'Create a warm picture-book illustration for a children\'s storybook page (for ages 7-8).',

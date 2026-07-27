@@ -6063,7 +6063,14 @@ function _bindPbImageActions(root, scene) {
         const r = res && res.data;
         if (r && r.ok === true && r.generated > 0) {
           btn.textContent = '✅ 새 그림 완성!';
+          /* REGEN-REFRESH-1(2026-07-27): 서버는 새 그림을 만드는데(로그 generated:1) 화면엔 옛 그림이
+             그대로 남아 "다시 만들어도 이전 게 나온다"는 신고. _reinitForCurrentTeam만으로는 현재
+             프레임/편집 패널이 다시 그려지지 않았다 → 무대 프레임과 패널을 함께 갱신한다. */
           try { if (window.viewerAi && typeof window.viewerAi._reinitForCurrentTeam === 'function') window.viewerAi._reinitForCurrentTeam(); } catch (e) { /* noop */ }
+          setTimeout(() => {
+            try { if (typeof _scheduleViewerFrameReRender === 'function') _scheduleViewerFrameReRender(); } catch (e) { /* noop */ }
+            try { if (typeof renderEditPanel === 'function') renderEditPanel(); } catch (e) { /* noop */ }
+          }, 600);
           setTimeout(() => { btn.disabled = false; btn.textContent = t0; }, 1800);
         } else {
           const _msg = (r && r.limitReached)

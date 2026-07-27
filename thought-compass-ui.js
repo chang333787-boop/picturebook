@@ -184,12 +184,19 @@
         _choicesToRender = q.choices || [];
       } else if (!isCustom && !isDeferred) {
         _adaptiveLoading = true;
-        _choicesToRender = [];   /* 로딩 중엔 고정 보기를 보여주지 않음 — 번쩍임 방지(스켈레톤만) */
+        /* SLOW-FALLBACK(2026-07-27): 종전엔 로딩 내내 보기를 감춰(번쩍임 방지) 아이가 할 게 없었다.
+           첫 질문은 서버 인스턴스가 새로 뜨느라(콜드 스타트) 특히 오래 걸려 "멈춘 것 같다"는
+           신고로 이어졌다 → 3초가 넘으면 고정 보기를 먼저 내주고 기다리지 않아도 되게 한다.
+           빠를 때(3초 이내)는 종전과 동일하게 스켈레톤만 — 번쩍임 없음. */
+        _choicesToRender = (S.adaptiveSlow && S.adaptiveSlow[q.id]) ? (q.choices || []) : [];
         if (_adaptive == null) _fetchAdaptive(q);
       }
     }
     if (_adaptiveLoading) {
-      const ld = _el('p', 'tc-flow-help', '✨ 내 이야기에 맞는 보기를 고르는 중…');
+      const _slow = !!(S.adaptiveSlow && S.adaptiveSlow[q.id]);
+      const ld = _el('p', 'tc-flow-help', _slow
+        ? '✨ 내 이야기에 맞는 보기를 고르는 중… 첫 질문은 조금 오래 걸려요. 기다리지 말고 아래에서 골라도 괜찮아요.'
+        : '✨ 내 이야기에 맞는 보기를 고르는 중…');
       ld.style.cssText = 'margin:2px 0 6px;font-size:12.5px;color:#7a8a5b;';
       card.appendChild(ld);
     }
@@ -356,12 +363,22 @@
       S.adaptiveChoices[capturedId] = 'failed';
       _renderWhenIdle(capturedIndex, 0);
     }, 10000);
+    /* SLOW-FALLBACK(2026-07-27): 3초 넘게 안 오면 고정 보기를 먼저 내주고 안내 문구를 바꾼다.
+       상태는 'loading' 그대로 — 늦게 도착한 AI 보기는 아직 아무것도 고르지 않았다면 교체된다.
+       첫 질문의 콜드 스타트(서버 인스턴스 기동)에서 아이가 빈 화면을 보던 것 해소. */
+    const _slowTimer = setTimeout(function () {
+      if (!S || !S.adaptiveChoices) return;
+      if (S.adaptiveChoices[capturedId] !== 'loading') return;
+      if (!S.adaptiveSlow) S.adaptiveSlow = {};
+      S.adaptiveSlow[capturedId] = true;
+      _renderWhenIdle(capturedIndex, 0);
+    }, 3000);
     AI.requestAdaptiveChoices({
       classId: ctx.classId, teamName: ctx.teamName, projectType: ctx.projectType,
       questionId: q.id, questionTitle: q.title, priorAnswersText: priorText,
       staticChoices: (q.choices || []).map(function (c) { return c.label; }),
     }).then(function (res) {
-      clearTimeout(_capTimer);
+      clearTimeout(_capTimer); clearTimeout(_slowTimer);
       if (!S || !S.adaptiveChoices) return;
       /* 상한 타이머가 이미 고정 보기로 넘긴 뒤 늦게 도착한 응답은 버린다(화면 급변 방지) */
       if (S.adaptiveChoices[capturedId] !== 'loading') return;
@@ -382,7 +399,7 @@
       /* STUCK-FIX(2026-07-27): .catch가 없어 거부(네트워크 끊김·콜러블 오류·SDK 예외) 시
          아무도 상태를 바꾸지 않았다. 캡 타이머가 10초 뒤 건져 주긴 했지만, 그 사이 자리표시가
          남고 캡마저 렌더 조건에 막히면 영영 갇혔다(3분째 신고). 즉시 고정 보기로 내린다. */
-      clearTimeout(_capTimer);
+      clearTimeout(_capTimer); clearTimeout(_slowTimer);
       if (!S || !S.adaptiveChoices) return;
       if (S.adaptiveChoices[capturedId] !== 'loading') return;
       S.adaptiveChoices[capturedId] = 'failed';

@@ -188,14 +188,14 @@
            첫 질문은 서버 인스턴스가 새로 뜨느라(콜드 스타트) 특히 오래 걸려 "멈춘 것 같다"는
            신고로 이어졌다 → 3초가 넘으면 고정 보기를 먼저 내주고 기다리지 않아도 되게 한다.
            빠를 때(3초 이내)는 종전과 동일하게 스켈레톤만 — 번쩍임 없음. */
-        _choicesToRender = (S.adaptiveSlow && S.adaptiveSlow[q.id]) ? (q.choices || []) : [];
+        _choicesToRender = [];   /* 로딩 중엔 고정 보기를 보여주지 않음 — 번쩍임 방지(스켈레톤만) */
         if (_adaptive == null) _fetchAdaptive(q);
       }
     }
     if (_adaptiveLoading) {
       const _slow = !!(S.adaptiveSlow && S.adaptiveSlow[q.id]);
       const ld = _el('p', 'tc-flow-help', _slow
-        ? '✨ 내 이야기에 맞는 보기를 고르는 중… 첫 질문은 조금 오래 걸려요. 기다리지 말고 아래에서 골라도 괜찮아요.'
+        ? '✨ 보기를 고르는 중… 첫 질문은 조금 오래 걸려요. 안 나오면 아래 칸을 눌러 보세요.'
         : '✨ 내 이야기에 맞는 보기를 고르는 중…');
       ld.style.cssText = 'margin:2px 0 6px;font-size:12.5px;color:#7a8a5b;';
       card.appendChild(ld);
@@ -215,15 +215,37 @@
       if (!document.getElementById('tc-skeleton-style')) {
         const st = document.createElement('style');
         st.id = 'tc-skeleton-style';
+        /* SKELETON-TAP(2026-07-27): 종전 pointer-events:none — 아이가 눌러도 아무 일이 없었다.
+           응답이 늦을 때(첫 질문 콜드 스타트) 눌러서 직접 다시 그릴 수 있게 연다. */
         st.textContent = '@keyframes tcSkel{0%{background-position:200% 0}100%{background-position:-200% 0}}'
-          + '.tc-flow-choice--skeleton{height:46px;border-radius:12px;pointer-events:none;'
+          + '.tc-flow-choice--skeleton{height:46px;border-radius:12px;cursor:pointer;'
           + 'background:linear-gradient(90deg,#f1ead9 25%,#f8f2e4 37%,#f1ead9 63%);'
-          + 'background-size:400% 100%;animation:tcSkel 1.3s ease-in-out infinite;}';
+          + 'background-size:400% 100%;animation:tcSkel 1.3s ease-in-out infinite;}'
+          + '.tc-flow-choice--skeleton.is-tappable{border:1.5px dashed #c9bd9c;}'
+          + '.tc-flow-choice--skeleton.is-tappable:active{background:#eee5cf;}';
         document.head.appendChild(st);
       }
       for (let _si = 0; _si < 3; _si++) {
-        const sk = _el('div', 'tc-flow-choice tc-flow-choice--skeleton');
-        sk.setAttribute('aria-hidden', 'true');
+        const sk = _el('div', 'tc-flow-choice tc-flow-choice--skeleton' + (_slow ? ' is-tappable' : ''));
+        /* 늦어졌을 때만 안내 문구를 첫 칸에 띄우고, 누르면 최신 상태로 다시 그린다.
+           보기가 이미 도착해 있으면 그 자리에서 바로 뜨고, 아직이면 고정 보기로 진행한다. */
+        if (_slow && _si === 0) sk.textContent = '👆 눌러서 보기 보기';
+        sk.setAttribute('aria-hidden', _slow ? 'false' : 'true');
+        if (_slow) {
+          sk.setAttribute('role', 'button');
+          sk.setAttribute('tabindex', '0');
+          sk.setAttribute('aria-label', '보기 불러오기');
+          const _tap = function () {
+            if (!S || !S.adaptiveChoices) return;
+            /* 아직 응답 전이면 고정 보기로 내려 진행을 막지 않는다(늦게 온 AI 보기는 무시). */
+            if (S.adaptiveChoices[q.id] === 'loading') S.adaptiveChoices[q.id] = 'failed';
+            _render();
+          };
+          sk.addEventListener('click', _tap);
+          sk.addEventListener('keydown', function (ev) {
+            if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); _tap(); }
+          });
+        }
         opts.appendChild(sk);
       }
     }

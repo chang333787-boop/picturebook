@@ -2755,6 +2755,11 @@ function _notifyStoryDraftFail(kind, detail) {
    보임(교사 실보고 2회). aiVariants/image 도착 수를 8초 폴링해 좌하단 배지로 표시,
    완료 시 ✅ 안내 후 제거. read-only·팀 전환 시 자동 종료. viewer 쪽은 viewer-data가 담당. */
 let _storyImgBadgeTimer = null;
+/* 안내 보조줄 — maker.html은 pb-ai.css 미로드라 인라인 스타일로 자립. */
+function _imgBadgeSub() {
+  return '<span style="display:block;margin-top:3px;font-size:11.5px;font-weight:600;color:#8a7d63;line-height:1.45;">'
+    + '완성되면 [▶️ 감상해 보기]에서 볼 수 있어요.</span>';
+}
 function _stopStoryImageBadge() {
   if (_storyImgBadgeTimer) { clearInterval(_storyImgBadgeTimer); _storyImgBadgeTimer = null; }
 }
@@ -2765,8 +2770,8 @@ function _startStoryImageBadge(classId, tName, expected) {
   const el = document.createElement('div');
   el.id = 'story-image-progress-badge';
   el.setAttribute('role', 'status');
-  el.style.cssText = 'position:fixed;left:14px;bottom:14px;z-index:99990;padding:10px 16px;background:#fffdf8;border:1.5px solid #d8c7a6;border-radius:12px;box-shadow:0 4px 16px rgba(80,60,20,.18);font-size:13.5px;color:#5b4a2e;font-weight:700;max-width:80vw;';
-  el.textContent = '🎨 AI 그림 만드는 중 0/' + expected + '… (장당 1분 정도)';
+  el.style.cssText = 'position:fixed;left:14px;bottom:14px;z-index:99990;padding:10px 16px;background:#fffdf8;border:1.5px solid #d8c7a6;border-radius:12px;box-shadow:0 4px 16px rgba(80,60,20,.18);font-size:13.5px;color:#5b4a2e;font-weight:700;max-width:80vw;line-height:1.5;';
+  el.innerHTML = '🎨 AI 그림 만드는 중 0/' + expected + '… (장당 1분 정도)' + _imgBadgeSub();
   document.body.appendChild(el);
   let ticks = 0;
   const poll = async () => {
@@ -2786,7 +2791,7 @@ function _startStoryImageBadge(classId, tName, expected) {
       setTimeout(() => { try { badge.remove(); } catch (e) {} }, 10000);
       return;
     }
-    badge.textContent = '🎨 AI 그림 만드는 중 ' + n + '/' + expected + '… (장당 1분 정도)';
+    badge.innerHTML = '🎨 AI 그림 만드는 중 ' + n + '/' + expected + '… (장당 1분 정도)' + _imgBadgeSub();
     if (ticks > 90) { badge.remove(); _stopStoryImageBadge(); }   /* 12분 상한 — 조용히 종료 */
   };
   _storyImgBadgeTimer = setInterval(poll, 8000);

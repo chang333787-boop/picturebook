@@ -102,16 +102,16 @@ function _askRegenReason() {
     let done = false;
     const finish = (v) => { if (done) return; done = true; try { back.remove(); } catch (e) { /* noop */ } resolve(v); };
     back.innerHTML =
-      '<div class="viewer-confirm-card" role="dialog" aria-modal="true" style="max-width:440px;">'
+      '<div class="viewer-confirm-card" role="dialog" aria-modal="true" style="max-width:420px;">'
       +   '<div class="viewer-confirm-title">🔁 왜 다시 만들고 싶어요?</div>'
-      +   '<div class="viewer-confirm-message" style="margin-bottom:12px;">이유를 하나 고르거나 직접 적어 주세요.<br>'
-      +     '<span style="font-size:12px;color:#8a7d63;">다시 만들면 조금 다른 그림이 나와요. 작품마다 2번까지 할 수 있어요.</span></div>'
-      +   '<div class="js-reason-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;"></div>'
-      +   '<input type="text" class="js-reason-input" maxlength="60" placeholder="직접 적을래요 (예: 고양이가 아직 안 나왔어요)" '
-      +     'style="width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid #d9cfb6;border-radius:9px;font-size:13.5px;">'
-      +   '<div class="viewer-confirm-actions" style="margin-top:14px;">'
-      +     '<button type="button" class="js-reason-cancel">그만두기</button>'
-      +     '<button type="button" class="js-reason-ok">이 이유로 다시 만들기</button>'
+      +   '<div class="viewer-confirm-message">마음에 안 드는 이유를 하나 고르거나 직접 적어 주세요.<br>'
+      +     '<span style="font-size:12.5px;color:#8a7d63;">다시 만들면 조금 다른 그림이 나와요 · 작품마다 2번까지</span></div>'
+      +   '<div class="js-reason-list regen-reason-list"></div>'
+      +   '<div class="regen-reason-or">또는 직접 적기</div>'
+      +   '<input type="text" class="js-reason-input regen-reason-input" maxlength="60" placeholder="예: 고양이가 아직 안 나왔어요">'
+      +   '<div class="viewer-confirm-actions" style="margin-top:18px;">'
+      +     '<button type="button" class="js-reason-cancel viewer-confirm-cancel">그만두기</button>'
+      +     '<button type="button" class="js-reason-ok viewer-confirm-ok">다시 만들기</button>'
       +   '</div>'
       + '</div>';
     const list = back.querySelector('.js-reason-list');
@@ -120,23 +120,20 @@ function _askRegenReason() {
     PRESETS.forEach((p) => {
       const b = document.createElement('button');
       b.type = 'button';
+      b.className = 'regen-reason-chip';
       b.textContent = p;
-      b.style.cssText = 'text-align:left;padding:10px 12px;border:1.5px solid #ded4bb;border-radius:10px;'
-        + 'background:#fffdf7;font-size:13.5px;color:#4a3f2c;cursor:pointer;';
       b.addEventListener('click', () => {
         picked = p;
         input.value = '';
-        Array.prototype.forEach.call(list.children, (c) => {
-          c.style.borderColor = '#ded4bb'; c.style.background = '#fffdf7';
-        });
-        b.style.borderColor = '#8a9a5b'; b.style.background = '#f0f3e4';
+        Array.prototype.forEach.call(list.children, (c) => c.classList.remove('is-picked'));
+        b.classList.add('is-picked');
       });
       list.appendChild(b);
     });
     input.addEventListener('input', () => {
       if (!input.value.trim()) return;
       picked = '';
-      Array.prototype.forEach.call(list.children, (c) => { c.style.borderColor = '#ded4bb'; c.style.background = '#fffdf7'; });
+      Array.prototype.forEach.call(list.children, (c) => c.classList.remove('is-picked'));
     });
     back.querySelector('.js-reason-cancel').addEventListener('click', () => finish(null));
     back.querySelector('.js-reason-ok').addEventListener('click', () => {
@@ -149,6 +146,40 @@ function _askRegenReason() {
     document.body.appendChild(back);
     try { list.firstChild && list.firstChild.focus(); } catch (e) { /* noop */ }
   });
+}
+
+/* REGEN-BUSY-BADGE(2026-07-29): '다시 만들기'를 누르면 만드는 중이라는 표시가 어디에도 없어
+   "되고 있는 건가?" 싶던 것(사용자 지적) 해소 — 왼쪽아래에 은은히 맥동하는 배지를 띄운다.
+   버튼 텍스트 변화(팝오버 안·작음)만으로는 안 보였음. 성공/실패/취소 시 반드시 내린다. */
+function _showRegenBusyBadge(mainText, subText) {
+  try {
+    let el = document.getElementById('regen-busy-badge');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'regen-busy-badge';
+      el.setAttribute('role', 'status');
+      el.style.cssText = 'position:fixed;left:14px;bottom:14px;z-index:99991;padding:11px 16px;'
+        + 'background:#fffdf8;border:1.5px solid #d8c7a6;border-radius:12px;box-shadow:0 4px 16px rgba(80,60,20,.18);'
+        + 'font-size:13.5px;color:#5b4a2e;font-weight:700;max-width:80vw;line-height:1.5;';
+      document.body.appendChild(el);
+    }
+    el.classList.add('is-busy');
+    el.innerHTML = '🎨 ' + (mainText || '새 그림 만드는 중…')
+      + (subText ? '<span class="rb-sub">' + subText + '</span>' : '');
+  } catch (e) { /* noop */ }
+}
+function _hideRegenBusyBadge(finalText) {
+  try {
+    const el = document.getElementById('regen-busy-badge');
+    if (!el) return;
+    el.classList.remove('is-busy');
+    if (finalText) {
+      el.textContent = finalText;
+      setTimeout(() => { try { el.remove(); } catch (e) { /* noop */ } }, 4000);
+    } else {
+      el.remove();
+    }
+  } catch (e) { /* noop */ }
 }
 
 const EDIT_SAVE_DEBOUNCE_MS = 800;
@@ -6131,7 +6162,8 @@ function _bindPbImageActions(root, scene) {
       const reason = await _askRegenReason();
       if (reason == null) return;                    /* 취소 */
       const t0 = btn.textContent;
-      btn.disabled = true; btn.textContent = '🎨 만드는 중… (1분쯤 걸려요)';
+      btn.disabled = true; btn.textContent = '🎨 만드는 중…';
+      _showRegenBusyBadge('새 그림 만드는 중… (1분쯤 걸려요)', '다 되면 이 화면에 바로 나타나요.');
       try {
         /* 이유 기록 — 실패해도 재생성은 진행(비치명) */
         try {
@@ -6144,9 +6176,9 @@ function _bindPbImageActions(root, scene) {
           classId: _cid, teamName: _team, forceRegenerate: true, sceneIds: [_sid],
         });
         const s = start && start.data;
-        if (s && s.regenLimitReached) { alert(s.message || '그림 다시 만들기는 작품마다 2번까지 할 수 있어요.'); btn.disabled = false; btn.textContent = t0; return; }
-        if (!s || s.ok !== true || !s.jobId) { alert('그림을 다시 만들지 못했어요. 잠시 후 다시 시도해 주세요.'); btn.disabled = false; btn.textContent = t0; return; }
-        if (!Array.isArray(s.targets) || s.targets.length === 0) { alert('이 장면은 지금 다시 만들 수 없어요. (그림이 없거나 이미 최신이에요)'); btn.disabled = false; btn.textContent = t0; return; }
+        if (s && s.regenLimitReached) { _hideRegenBusyBadge(); alert(s.message || '그림 다시 만들기는 작품마다 2번까지 할 수 있어요.'); btn.disabled = false; btn.textContent = t0; return; }
+        if (!s || s.ok !== true || !s.jobId) { _hideRegenBusyBadge(); alert('그림을 다시 만들지 못했어요. 잠시 후 다시 시도해 주세요.'); btn.disabled = false; btn.textContent = t0; return; }
+        if (!Array.isArray(s.targets) || s.targets.length === 0) { _hideRegenBusyBadge(); alert('이 장면은 지금 다시 만들 수 없어요. (그림이 없거나 이미 최신이에요)'); btn.disabled = false; btn.textContent = t0; return; }
         /* REGEN-SCENE-FORCE-1(2026-07-27): callImageAiS2도 forceRegenerate:true를 받아야 서버 dedup을
            건너뛰고 실제로 새 그림을 만든다. 없으면 dedup이 옛 variant를 그대로 reused로 돌려주는데
            batch는 이미 재생성 횟수를 차감해, 성공처럼 보이면서 같은 그림+횟수만 소모됐다(감사 확정). */
@@ -6159,6 +6191,7 @@ function _bindPbImageActions(root, scene) {
         /* reused는 성공으로 치지 않는다 — 재생성인데 옛 그림 재사용이면 실패로 보고 환불되게. */
         const okOne = !!(r && (r.ok === true || r.status === 'succeeded'));
         if (okOne) {
+          _hideRegenBusyBadge('✅ 새 그림 완성!');
           btn.textContent = '✅ 새 그림 완성!';
           try { if (window.viewerAi && typeof window.viewerAi._reinitForCurrentTeam === 'function') window.viewerAi._reinitForCurrentTeam(); } catch (e) { /* noop */ }
           setTimeout(() => {
@@ -6167,10 +6200,12 @@ function _bindPbImageActions(root, scene) {
           }, 600);
           setTimeout(() => { btn.disabled = false; btn.textContent = t0; }, 1800);
         } else {
+          _hideRegenBusyBadge();
           alert('그림을 다시 만들지 못했어요. 잠시 후 다시 시도해 주세요.');
           btn.disabled = false; btn.textContent = t0;
         }
       } catch (e) {
+        _hideRegenBusyBadge();
         alert('그림을 다시 만들지 못했어요. 잠시 후 다시 시도해 주세요.');
         btn.disabled = false; btn.textContent = t0;
       }
@@ -6193,7 +6228,8 @@ function _bindPbImageActions(root, scene) {
           .push({ sceneId: String(scene.num || scene.id), reason: String(reason).slice(0, 200), at: firebase.database.ServerValue.TIMESTAMP });
       } catch (e) { /* 기록 실패는 비치명 */ }
       const t0 = btn.textContent;
-      btn.disabled = true; btn.textContent = '🎨 만드는 중… (30초쯤 걸려요)';
+      btn.disabled = true; btn.textContent = '🎨 만드는 중…';
+      _showRegenBusyBadge('새 그림 만드는 중… (30초쯤 걸려요)', '다 되면 이 화면에 바로 나타나요.');
       try {
         const _cid = (ViewerState.project && ViewerState.project.classId) || ViewerState.classId;
         const _team = (ViewerState.project && ViewerState.project.teamName) || ViewerState.teamName;
@@ -6201,6 +6237,7 @@ function _bindPbImageActions(root, scene) {
           .httpsCallable('generateStoryImages', { timeout: 180000 })({ classId: _cid, teamName: _team, sceneId: String(scene.num || scene.id), force: true, regenReason: String(reason).slice(0, 60) });
         const r = res && res.data;
         if (r && r.ok === true && r.generated > 0) {
+          _hideRegenBusyBadge('✅ 새 그림 완성!');
           btn.textContent = '✅ 새 그림 완성!';
           /* REGEN-REFRESH-1(2026-07-27): 서버는 새 그림을 만드는데(로그 generated:1) 화면엔 옛 그림이
              그대로 남아 "다시 만들어도 이전 게 나온다"는 신고. _reinitForCurrentTeam만으로는 현재
@@ -6218,10 +6255,12 @@ function _bindPbImageActions(root, scene) {
             : (r && r.limitReached)
               ? '이 모둠의 그림 만들기 횟수를 다 썼어요. 선생님께 말씀드려 주세요.'
               : '그림을 다시 만들지 못했어요. 잠시 후 다시 시도해 주세요.';
+          _hideRegenBusyBadge();
           alert(_msg);
           btn.disabled = false; btn.textContent = t0;
         }
       } catch (e) {
+        _hideRegenBusyBadge();
         alert('그림을 다시 만들지 못했어요. 잠시 후 다시 시도해 주세요.');
         btn.disabled = false; btn.textContent = t0;
       }

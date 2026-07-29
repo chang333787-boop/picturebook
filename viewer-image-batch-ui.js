@@ -52,9 +52,17 @@
     var variants = (await _read(base + '/aiVariants/image')) || {};
     var policy = (await _read(base + '/viewer-meta/imagePolicy')) || null;
     var total = 0, cached = 0;
+    /* DRAW-COMPLETE-GATE(2026-07-29): 2단계는 '모든 장면을 그린 뒤' 마감하도록 — 글을 쓴 비표지
+       장면인데 그림이 없는 것들을 모아 둔다(표지·빈 페이지 제외). 게이트 판정은 _renderStart에서
+       단계(2단계)일 때만 적용. 1·3단계 계산엔 영향 없음(사용만 안 함). */
+    var missingDraw = [];
     Object.keys(scenes).forEach(function (id) {
       var sc = scenes[id] || {};
-      if (!(sc.imageData || sc.imageUrl)) return;
+      var isCover = (sc.type === 'cover' || sc.isCover === true);
+      var hasBody = String(sc.body == null ? '' : sc.body).trim() !== '';
+      var hasDraw = !!(sc.imageData || sc.imageUrl);
+      if (!isCover && hasBody && !hasDraw) missingDraw.push(id);
+      if (!hasDraw) return;
       var v = variants[id] && variants[id].s2;
       /* 최신 프롬프트 버전 결과만 cached(변환 불필요). 이전 버전(P3)·없음·stale → total(재생성 대상). */
       if (L.isVariantCurrent(v)) cached++;
@@ -63,6 +71,7 @@
     var summary = L.summarizeBatchPlan({ totalScenes: total, cachedCount: cached });
     /* imagePolicy(입력 방식)가 upload/draw로 잠겨 있어야 서버가 생성 허용. 없으면 IMAGE_POLICY_REQUIRED로 전부 거부. */
     summary.hasPolicy = !!(policy && (policy.sourceMode === 'upload' || policy.sourceMode === 'draw'));
+    summary.missingDraw = missingDraw.sort(function (a, b) { return (Number(a) || 0) - (Number(b) || 0); });
     return summary;
   }
 
@@ -119,6 +128,13 @@
     var gate, plan;
     try { plan = await _planEstimate(); } catch (e) { plan = null; }
     try { gate = await _gate(plan); } catch (e) { gate = { canStart: false, state: 'error', reason: '설정을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.' }; }
+    /* DRAW-COMPLETE-GATE(2026-07-29): 2단계는 모든 장면을 그린 뒤에만 마감(진행) 가능.
+       빈 장면이 있으면 시작·다시생성을 막고 어느 장면인지 안내한다. 1·3단계는 미적용. */
+    var _lvl = null;
+    try { if (typeof window.getPicturebookLevel === 'function') _lvl = window.getPicturebookLevel(); } catch (e) { _lvl = null; }
+    var _missingDraw = (_lvl === 2 && plan && Array.isArray(plan.missingDraw)) ? plan.missingDraw : [];
+    var _blockDraw = _missingDraw.length > 0;
+
     var html = '';
     if (plan) {
       html += '<div style="background:#f7f9f5;border:1px solid #e3ead9;border-radius:10px;padding:12px;font-size:13px;line-height:1.8;">'
@@ -126,8 +142,14 @@
         + (plan.cachedLabel ? '<div style="color:#777;">' + _esc(plan.cachedLabel) + '</div>' : '')
         + '<div>' + _esc(plan.timeLabel) + '</div></div>';   /* 예상 비용 표시 제거(사용자 요청) */
     }
-    html += '<div style="margin-top:10px;font-size:12px;color:' + (gate.canStart ? '#2e7d32' : '#b26a00') + ';">'
-      + (gate.canStart ? '✅ 시작할 수 있어요' : '⛔ ' + _esc(gate.reason || '시작할 수 없어요')) + '</div>';
+    if (_blockDraw) {
+      html += '<div style="margin-top:10px;padding:12px 14px;background:#fff6e9;border:1px solid #f0d9b0;border-radius:10px;font-size:13px;color:#a9722a;line-height:1.75;">'
+        + '⛔ 아직 그림이 없는 장면이 있어요 — <b>' + _esc(_missingDraw.join(', ')) + '번</b><br>'
+        + '2단계 그림책은 <b>모든 장면을 그린 뒤</b> AI 그림으로 마감할 수 있어요. 빈 장면에 먼저 그림을 그려 주세요.</div>';
+    } else {
+      html += '<div style="margin-top:10px;font-size:12px;color:' + (gate.canStart ? '#2e7d32' : '#b26a00') + ';">'
+        + (gate.canStart ? '✅ 시작할 수 있어요' : '⛔ ' + _esc(gate.reason || '시작할 수 없어요')) + '</div>';
+    }
     /* IMAGE-S2-LEGACY: 정책 없는 옛 작품 — 차단이 아니라 안내. */
     if (gate.legacyNotice) {
       html += '<div style="margin-top:6px;font-size:12px;color:#8a7350;">옛 작품이라 입력 방식 정보가 없지만, 저장된 그림을 기준으로 마감합니다.</div>';
@@ -139,16 +161,17 @@
     /* 버튼: 결과 보기(항상) + 시작(게이트 통과 시만 활성) */
     var resultsBtn = _el('button', { style: 'padding:7px 14px;border-radius:8px;border:1px solid #6a8a5b;background:#fff;color:#3a5a2a;cursor:pointer;font-size:13px;' }, '결과 보기');
     resultsBtn.onclick = function () { _renderResults(body); };
-    var startBtn = _el('button', { style: 'padding:7px 14px;border-radius:8px;border:none;background:' + (gate.canStart ? '#6a8a5b' : '#cfcfcf') + ';color:#fff;font-size:13px;cursor:' + (gate.canStart ? 'pointer' : 'not-allowed') + ';' }, 'AI 그림책 마감 시작');
-    startBtn.disabled = !gate.canStart;
-    if (gate.canStart) startBtn.onclick = function () { _runBatch(body, startBtn, false); };
+    var _canStart = gate.canStart && !_blockDraw;
+    var startBtn = _el('button', { style: 'padding:7px 14px;border-radius:8px;border:none;background:' + (_canStart ? '#6a8a5b' : '#cfcfcf') + ';color:#fff;font-size:13px;cursor:' + (_canStart ? 'pointer' : 'not-allowed') + ';' }, 'AI 그림책 마감 시작');
+    startBtn.disabled = !_canStart;
+    if (_canStart) startBtn.onclick = function () { _runBatch(body, startBtn, false); };
     /* IMAGE-S2-REGEN(#16·#55): 이미 마감된 장면(cached>0)이 있어 정식 시작이 막혀도, 원본을 다시 그린
        경우 전 장면을 강제 재생성할 수 있게 '다시 생성' 경로를 연다. 서버 forceRegenerate 재사용(무배포).
        강제라 비용/시간이 더 드므로 확인 후 실행. 관리자 게이트(권한·설정)는 canStart로 이미 판정. */
     var regenBtn = null;
     /* all-done(전부 마감) 또는 시작 가능(권한·설정 OK)일 때만 — 권한/설정 문제(not-teacher/disabled/
        no-images)면 force도 서버에서 거부되므로 숨김. */
-    if ((gate.state === 'all-done' || gate.canStart === true) && plan && plan.cachedCount > 0 && !gate.legacyNotice) {
+    if ((gate.state === 'all-done' || gate.canStart === true) && plan && plan.cachedCount > 0 && !gate.legacyNotice && !_blockDraw) {
       regenBtn = _el('button', { style: 'padding:7px 12px;border-radius:8px;border:1px solid #b26a00;background:#fff;color:#b26a00;font-size:12.5px;cursor:pointer;' }, '🔁 다시 생성');
       regenBtn.title = '원본 그림을 고쳤다면 눌러 전 장면을 새로 만들어요';
       regenBtn.onclick = function () {

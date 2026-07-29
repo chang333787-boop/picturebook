@@ -46,7 +46,7 @@
   <link rel="stylesheet" href="v03-modes.css?v=9bc2453bcc"/>
   <link rel="stylesheet" href="pb-tone.css?v=567c692f8d"/>
   <!-- Phase 0.5 mock — AI 기능 UI (step1: 진입 버튼만) -->
-  <link rel="stylesheet" href="pb-ai.css?v=d3ab5f3386"/>
+  <link rel="stylesheet" href="pb-ai.css?v=bd83598476"/>
   <!-- W8: 자동 진입(?team= 있을 때) 깜빡임 차단.
        maker → "감상 테스트" / "다듬기" 진입 시 entry 화면이 잠깐 보였다가 사라지는 현상 제거.
        JS 로드 전에 inline으로 처리 — CSS의 #entry-screen{display:flex} 효과 무력화. -->
@@ -264,14 +264,14 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-functions-compat.js"></script>
 <!-- v37f 캐시 — 표지 높낮이/사이드/구조 + 텍스트 portrait 강제 -->
 <script src="viewer-state.js?v=41d339e641"></script>
-<script src="viewer-data.js?v=7cfe319889"></script>
+<script src="viewer-data.js?v=ca3d6a5a79"></script>
 <script src="notices.js?v=3d93b71532"></script>
 <script src="session.js?v=14b8513855"></script>
 <!-- SHELF-1/COMMENT-1: 학급 책장 + 작품 댓글 (viewer-entry보다 먼저 로드 — openShelf 참조) -->
 <script src="viewer-shelf.js?v=7235c3fac3"></script>
 <!-- IMAGE-S2-10 교사 UI: 순수 로직 + 독립 패널(교사 from=maker 세션에서만 자가활성·학생 미노출). 기존 렌더 무변경. -->
 <script src="viewer-image-batch.js?v=09fd33ba0b"></script>
-<script src="viewer-image-batch-ui.js?v=45e0eecf76"></script>
+<script src="viewer-image-batch-ui.js?v=82a73f1cce"></script>
 <script src="viewer-locks.js?v=52dc9a8ae5"></script>
 <script src="viewer-controls.js?v=e6cc312d40"></script>
 <script src="viewer-render.js?v=fe4d107c85"></script>
@@ -281,7 +281,7 @@
      · 중복 로드 방지(Promise 1개), 실패 시 promise reset(재시도 가능). -->
 <script>
 (function () {
-  var EDIT_SRC = 'viewer-edit.js?v=dd32a5626e';
+  var EDIT_SRC = 'viewer-edit.js?v=cbfe419dcd';
   var AI_SRC   = 'viewer-ai.js?v=3c347b1e57';
   /* WRITE-AFTER-VIEWER-HTML-CACHE-HARDENED: 디버그 마커 — 로드된 진입 HTML이 어떤 번들 cachebuster를
      들고 있는지 콘솔로 확인(옛 viewer.html 캐시 의심 시 한눈에 비교). 동작 영향 없음. */

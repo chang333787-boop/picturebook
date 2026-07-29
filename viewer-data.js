@@ -1580,7 +1580,8 @@ function _maybeStartLv1ImageBadge() {
       document.body.appendChild(badge);
     }
     started = true;
-    badge.textContent = '🎨 AI 그림 만드는 중 ' + n + '/' + expected + '… (장당 1분 정도)';
+    badge.innerHTML = '🎨 AI 그림 만드는 중 ' + n + '/' + expected + '… (장당 1분 정도)'
+      + '<span class="rb-sub">완성된 그림은 브랜치 화면에 나갔다 들어오면 볼 수 있어요.</span>';
     if (ticks > 90) { badge.remove(); _stopLv1ImageBadge(); }
   };
   _lv1ImgBadgeTimer = setInterval(poll, 8000);

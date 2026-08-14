@@ -1883,6 +1883,10 @@ function showMakerConfirm(opts) {
   const confirmText = opts.confirmText || '확인';
   const cancelText = opts.cancelText || '취소';
   const danger = !!opts.danger;
+  /* FORCE-CHOICE-1(2026-08-14): true면 바깥 클릭·ESC로 안 닫힌다 — 두 버튼 중 하나를 눌러야 진행.
+     종전엔 둘 다 조용히 finish(false)=취소로 처리돼, 아이가 화면 아무 데나 눌러 창이 사라지면
+     "고르지 않았는데 취소를 고른 것"이 됐다(1단계 주인공 선택창 실사용 지적). 기본값은 종전 그대로. */
+  const forceChoice = !!opts.forceChoice;
   if (!document.getElementById('maker-confirm-style')) {
     const st = document.createElement('style');
     st.id = 'maker-confirm-style';
@@ -1944,8 +1948,10 @@ function showMakerConfirm(opts) {
       resolve(val);
     }
     function onKey(e) { if (e.key === 'Escape') finish(false); }
-    root.addEventListener('click', (e) => { if (e.target === root) finish(false); });
-    document.addEventListener('keydown', onKey);
+    if (!forceChoice) {
+      root.addEventListener('click', (e) => { if (e.target === root) finish(false); });
+      document.addEventListener('keydown', onKey);
+    }
     const okBtn = root.querySelector('.maker-confirm-ok');
     const cancelBtn = root.querySelector('.maker-confirm-cancel');
     if (okBtn) okBtn.addEventListener('click', () => finish(true));
@@ -3017,6 +3023,9 @@ async function _promptLv1ProtagonistChoice(classId, teamName, sc) {
         message: '주인공을 한 번 그려 두면, AI가 그 모습(모자·색·소품)을 살려서 모든 장면을 그려 줘요.\n그리지 않아도 AI가 알아서 예쁘게 그려 줘요.',
         confirmText: '✏️ 내 주인공 그리기',
         cancelText: '아니요, AI가 그려주세요',
+        /* FORCE-CHOICE-1: 둘 중 하나를 꼭 골라야 진행 — 바깥을 눌러 창만 사라지면 아이는
+           "안 골랐는데 넘어갔다"가 되고, 실제로는 AI 그리기가 선택된 것이라 혼란스럽다. */
+        forceChoice: true,
       });
     }
   } catch (e) { draw = false; }

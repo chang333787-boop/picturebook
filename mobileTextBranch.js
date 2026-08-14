@@ -2926,6 +2926,88 @@ if (typeof window !== 'undefined' && typeof sessionStorage !== 'undefined') {
   }, 6000);
 }
 
+/* ════════════════════════════════════════════════════════════════
+   LV1-IMAGE-RESUME-1(2026-08-14): 1단계 그림이 "한 장도 없는" 작품을 재진입 때 조용히 만들어 준다.
+   ─────────────────────────────────────────────────────────────
+   · 왜: 배치 트리거가 초안 직후 sessionStorage 플래그 하나뿐이었다. 그 소비처(review._complete)는
+     `await TutorialWelcome.maybeShow()` 뒤라, 환영 튜토리얼이 떠 있는 동안 탭을 닫으면 플래그가
+     세션과 함께 사라져 배치가 영영 안 돈다(감사 #27의 부팅 재소비도 sessionStorage 의존이라 무력).
+     실사례 = 심사반 9999 심사6 — 글 14장면 정상인데 그림 0장, 서버 호출 자체가 0건이었다.
+   · 무엇: 보이는 변화 0(새 버튼·안내·모달·토스트 없음). 조건이 맞을 때 초안 직후와 똑같은 배치를
+     조용히 한 번 호출할 뿐이다. 다 되면 감상에서 그냥 그림이 보인다.
+   · 안전판: ①정상 흐름 플래그가 살아 있으면 양보(주인공 그림 반영 기회를 뺏지 않음)
+     ②viewer-meta/lv1AutoResumeAt 스탬프로 팀당 6시간 1회 ③admin·test 진입 제외
+     ④읽기는 전부 학생 rules로 되는 경로만(viewer-meta·scenes·aiVariants) ⑤모든 실패는 침묵.
+     서버도 팀 lock·총량(24)·같은 promptVersion 장면 skip으로 이중 방어하므로 중복 비용은 안 난다.
+   ════════════════════════════════════════════════════════════════ */
+const _LV1_RESUME_THROTTLE_MS = 6 * 60 * 60 * 1000;
+
+async function _lv1ResumeMissingStoryImages() {
+  /* 정상 흐름이 아직 자기 차례를 기다리는 중이면 이 재개는 손대지 않는다 */
+  try {
+    if (sessionStorage.getItem('pbLv1NeedsProtagChoice') || sessionStorage.getItem('pbLv1ProtagDraw')) return;
+  } catch (e) { /* sessionStorage 막힘 = 정상 흐름도 없다는 뜻 — 계속 */ }
+  if (document.getElementById('thought-compass-flow')
+      || document.getElementById('thought-compass-review')
+      || document.getElementById('tutorial-welcome-overlay')) return;
+  const qs = new URLSearchParams(location.search);
+  if (qs.get('admin') === '1' || qs.get('test') === '1') return;
+  if (typeof firebase === 'undefined' || !firebase.app) return;
+
+  let ms = null;
+  try { ms = JSON.parse(sessionStorage.getItem('makerSession') || 'null'); } catch (e) { ms = null; }
+  if (!ms || !ms.classId || !ms.teamName) return;
+
+  const base = firebase.database().ref('classes/' + ms.classId + '/teams/' + encodeURIComponent(ms.teamName));
+  /* viewer-meta 통째 read는 무거운 필드까지 끌어오므로 필요한 두 키만 본다(firebase.js §W7 원칙) */
+  const [lvSnap, stampSnap] = await Promise.all([
+    base.child('viewer-meta/picturebookLevel').once('value'),
+    base.child('viewer-meta/lv1AutoResumeAt').once('value'),
+  ]);
+  if (Number(lvSnap.val()) !== 1) return;
+  const stamp = stampSnap.val();
+  if (typeof stamp === 'number' && (Date.now() - stamp) < _LV1_RESUME_THROTTLE_MS) return;
+
+  /* ⚠️ aiUsage(imageGenLock)로 "도는 중" 판정은 하지 않는다 — rules에 aiUsage 노드가 없어
+     학생(멤버)은 read 거부다. 여기서 읽으면 정작 필요한 학생 쪽에서 통째로 실패한다.
+     진행 중 이중 호출은 서버 배치 lock이 BUSY로 되돌려 주므로(생성 0·비용 0) 안전하다. */
+
+  /* 대상 = 서버(generateStoryImages)와 같은 판정: 본문 있는 비표지 장면 */
+  const scenesVal = (await base.child('scenes').once('value')).val() || {};
+  const targets = Object.keys(scenesVal).filter((sid) => {
+    const s = scenesVal[sid];
+    return !!(s && typeof s === 'object' && s.type !== 'cover'
+      && typeof s.body === 'string' && s.body.trim().length > 0);
+  });
+  if (!targets.length) return;                       /* 아직 초안 전 = 재개할 게 없음 */
+  const imgs = (await base.child('aiVariants/image').once('value')).val() || {};
+  const have = targets.filter((sid) => {
+    const v = imgs[sid] && imgs[sid].s2;
+    return !!(v && v.url);
+  }).length;
+  /* ★ "한 장도 없음"(=배치가 아예 안 돈 고아)일 때만 재개한다. 일부만 빠진 경우(배치 540s 타임아웃
+     등)는 손대지 않는다 — 배치 콜러블은 장면을 골라 받지 않으므로, 나중에 프롬프트 버전이 올라간
+     뒤라면 dedup(promptVersion 일치)이 풀려 멀쩡한 그림까지 전부 다시 그려 비용이 샌다.
+     일부 빠짐은 종전대로 장면별 [🔁]가 담당(빈 장면 🔁는 REGEN-METER-1로 무료). */
+  if (have > 0) return;
+
+  /* 스탬프 먼저(호출 실패해도 6시간은 재시도 안 함 — 조용한 폭주 방지) */
+  await base.child('viewer-meta/lv1AutoResumeAt').set(Date.now());
+  firebase.app().functions('asia-northeast3')
+    .httpsCallable('generateStoryImages', { timeout: 570000 })({ classId: ms.classId, teamName: ms.teamName })
+    .then((r) => { const g = r && r.data; console.info('[storyImages] resume:', g && g.generated, 'targets:', targets.length); })
+    .catch((e) => console.warn('[storyImages] resume fail:', (e && (e.code || e.message)) || e));
+}
+window.__lv1ResumeMissingStoryImages = _lv1ResumeMissingStoryImages;   /* 하니스 검증용 */
+
+if (typeof window !== 'undefined' && typeof sessionStorage !== 'undefined') {
+  /* 감사 #27 소비처(6s)보다 늦게 — 정상 흐름이 먼저 자기 플래그를 가져가게 둔다 */
+  setTimeout(function () {
+    /* async 거부(권한/네트워크)는 sync catch로 안 잡히므로 프라미스에서도 삼킨다 */
+    try { _lv1ResumeMissingStoryImages().catch(function () { /* noop */ }); } catch (e) { /* noop */ }
+  }, 9000);
+}
+
 async function _promptLv1ProtagonistChoice(classId, teamName, sc) {
   let draw = false;
   try {

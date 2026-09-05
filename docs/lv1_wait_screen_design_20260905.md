@@ -178,3 +178,8 @@ else                                         → RESUME    (배치 호출 → WA
 - 실측 통과: ①나침반 9문항+후속 → 가치 3택1 → **주인공 선택 카드(z 100050)** → `viewer-meta/lv1Protag='ai'` 기록 ②🌱 초안 → `Lv1Book.afterDraft` → RESUME → 배치 호출 → 서버 `aiVariants/imageJob {running,total:13,done:n}` 실시간 갱신 ③대기화면 WAITING n/13·썸네일 즉시 채움 ④**재진입(페이지 새로고침) 후 부팅 훅이 WAITING 3/13으로 재부착** — 고아 버그 부류 종결 근거.
 - PoC에서 잡은 틈 2건(후속 커밋): ①구독 첫 콜백이 서버 job 기록 전에 RESUME으로 재판정 → 배치 이중 호출(BUSY·비용 0이지만 자동 재호출 2회 중 1회 허비) → `M.inflight` 가드 ②부팅 훅이 환영 튜토리얼이 떠 있으면 그냥 return → 닫혀도 대기화면 미복귀 → 2초 폴링으로 대기.
 - 백그라운드 탭 주의: `document.hidden`이면 setTimeout 스로틀(분당 1회)로 페이지 내 대기 루프가 45초 CDP 한도를 넘긴다 — 자동화는 호출 1회=1스텝(내부 대기 ≤1s).
+
+### 12.1 후속 (같은 날, 사용자 "신뢰할게 알아서 진행")
+- `6ca032e` **LV1-WAIT-1c**: 복귀 훅을 페이지 로드 타이머(3초+makerSession 15초 대기)에서 **'팀 진입 완료' 이벤트**(`gaji:branch-entered`, firebase.js `_enterTeam` scenes 첫 스냅샷 false→true 전이에서 1회 dispatch)로 교체. PIN을 천천히 치는 아이·같은 탭 모둠 교체도 놓치지 않는다. 오버레이(나침반 게이트/흐름/리뷰/인트로/가치/환영)가 떠 있으면 2초 폴링(최대 20분) 뒤 mount.
+- **그리기 경로 PoC(9999 심사8)**: 선택 카드 [✏️ 내 주인공 그리기] → `lv1Protag='draw'` → 🌱 초안 → `afterDraft`가 DRAW(fresh)로 판정 → `__lv1GoToStudio`(같은 탭 이동 `viewer.html?…edit=1&from=maker&scene=1`) → 데이터 로드 mount(allowPrompt:false)=무소음 → 다듬기 환영 튜토리얼 [건너뛰기] → `_charGate` → mount(allowPrompt:true) → DRAW → **주인공 게이트** → [그리기 시작]=스튜디오 모달(캔버스·특징 입력) 열림 → ✕ 닫기 → 게이트 재표시 → [건너뛰기] → `lv1Protag='ai'` → RESUME(inflight 가드로 1회 호출·resumeCount 1) → viewer 안 WAITING n/13 → (완료 검증은 §12.2).
+- **실학급 스캔(2026-09-05)**: 1단계 팀은 연습반 11·정림초1(연구대회) 7뿐 — **정천초 디싹(실수업 40팀)·우리반 만세엔 1단계 팀 없음**. 그림 0장 고아 3팀(연습반 검토A·검토E, 정림초1 1단계3)은 다음 입장 때 선택 카드→배치가 돈다(각 ~$0.6·의도된 동작). 나머지는 전부 완료(DONE=무소음)거나 초안 전(NONE).

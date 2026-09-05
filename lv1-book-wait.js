@@ -234,9 +234,11 @@
 
   function _openBook() {
     const ctx = M && M.ctx;
+    const page = M_page();   /* ⚠️ unmount 전에 읽는다 — unmount가 M을 비우면 페이지 판정이 DOM 폴백으로 떨어져
+                                다듬기 화면에서 감상으로 튕기던 것(심사8 PoC 실측) */
     unmount();
     if (!ctx) return;
-    if (M_page() === 'viewer') {
+    if (page === 'viewer') {
       /* 감상/다듬기 안 — 화면만 걷고 AI 그림 표시를 갱신 */
       try { if (typeof window.ensureAiViewBundle === 'function') { window.ensureAiViewBundle().then(() => { try { if (window.viewerAi && typeof window.viewerAi.reinitForCurrentTeam === 'function') window.viewerAi.reinitForCurrentTeam(); } catch (e) {} }); } } catch (e) { /* noop */ }
       try { if (typeof _scheduleViewerFrameReRender === 'function') _scheduleViewerFrameReRender(); } catch (e) { /* noop */ }
@@ -248,7 +250,7 @@
     try { if (typeof _saveReturnContext === 'function') _saveReturnContext('maker'); } catch (e) {}
     if (typeof _openInternalUrl === 'function') _openInternalUrl(url); else window.location.href = url;
   }
-  function M_page() { return (M && M.opts && M.opts.page) || (document.getElementById('viewer-root') || document.querySelector('.viewer-stage') ? 'viewer' : 'maker'); }
+  function M_page() { if (M && M.opts && M.opts.page) return M.opts.page; return /viewer\.html/.test(location.pathname) ? 'viewer' : 'maker'; }
 
   /* ── 상태 머신 tick ────────────────────────────────────────── */
   async function _tick(reason) {

@@ -68,4 +68,8 @@ test('index.js 배선 가드 — 시작 1·bump 2·fail 7·finish 2·단일은 �
   assert.equal((fn.match(/failed\.push\(/g) || []).length, 1, 'failed.push는 _fail 헬퍼 안 1곳뿐');
   assert.ok(INDEX.includes("`${base}/viewer-meta/lv1Protag`"), 'reset 목록');
   assert.ok(INDEX.includes("delete val.imageJob;"), 'clone 제외');
+  /* LV1-WAIT-1e: 일시 오류 재시도 루프(최대 3회·안전거부는 미재시도) */
+  assert.ok(fn.includes("for (let attempt = 0; attempt < 3; attempt++)"), '재시도 루프');
+  assert.ok(fn.includes("gc === 'IMAGE_AI_PROVIDER_ERROR' || gc === 'IMAGE_AI_TIMEOUT'"), '일시 오류만 재시도');
+  assert.equal((fn.match(/await adapter\.generate\(/g) || []).length, 1, 'generate 호출은 루프 안 1곳');
 });

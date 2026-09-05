@@ -3875,7 +3875,21 @@ exports.generateStoryImages = onCall(
         ]);
 
         try {
-          const gen = await adapter.generate({ storyText: body, wholeStoryText, characterSheet, regenReason: _regenReason1 });
+          /* LV1-WAIT-1e(2026-09-05): 일시 오류 재시도 — 한 반 여러 모둠이 동시에 그림을 만들면(모둠당 3병렬)
+             OpenAI 속도 제한(429→PROVIDER_ERROR)·순간 장애(5xx)로 장면이 통째로 실패해 '일부 실패'로 끝날 수
+             있다. PROVIDER_ERROR는 최대 3회(6s·15s 대기), TIMEOUT(150s)은 1회만 더. 안전 거부·형식 오류·미설정은
+             재시도하지 않는다. 총량/전역 카운터는 이미 예약된 상태라 시도 사이 변동 없음(최종 실패 때만 환불). */
+          let gen = null;
+          for (let attempt = 0; attempt < 3; attempt++) {
+            gen = await adapter.generate({ storyText: body, wholeStoryText, characterSheet, regenReason: _regenReason1 });
+            if (gen && gen.ok === true) break;
+            const gc = gen && gen.code;
+            const transient = (gc === 'IMAGE_AI_PROVIDER_ERROR' || gc === 'IMAGE_AI_TIMEOUT');
+            if (!transient || attempt === 2) break;
+            if (gc === 'IMAGE_AI_TIMEOUT' && attempt >= 1) break;
+            logger.warn('[generateStoryImages] 일시 오류 재시도', { classId: ctx.classId, sid, code: gc, attempt: attempt + 1 });
+            await new Promise((r) => setTimeout(r, attempt === 0 ? 6000 : 15000));
+          }
           if (!gen || gen.ok !== true) { await refund(); await _fail(sid, (gen && gen.code) || 'IMAGE_AI_PROVIDER_ERROR'); return; }
           const outv = ImageS2Gen.validateModelOutput({ bytes: gen.bytes, mimeType: gen.mimeType });
           if (!outv.ok) { await refund(); await _fail(sid, outv.code); return; }

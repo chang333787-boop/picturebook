@@ -2851,9 +2851,12 @@ if (typeof window !== 'undefined' && typeof sessionStorage !== 'undefined') {
       if (!ms || !ms.classId || !ms.teamName) { if (tries < 30) setTimeout(attempt, 500); return; }
       const loaded = (typeof window.isBranchScenesLoaded === 'function') ? window.isBranchScenesLoaded() : true;
       if (!loaded && tries < 30) { setTimeout(attempt, 500); return; }
-      /* 나침반/환영 오버레이가 떠 있으면 그 흐름이 끝난 뒤 자기 자리에서 부른다(초안 직후 afterDraft) */
+      /* 나침반이 떠 있으면 그 흐름이 자기 자리에서 부른다(초안 직후 afterDraft) — 여기선 손 뗀다.
+         환영 튜토리얼(기존 작품 재진입 시 ui.js가 띄움)만 떠 있으면 닫힐 때까지 기다렸다가 붙는다 —
+         종전엔 그냥 return이라 튜토리얼이 닫혀도 대기화면이 안 돌아왔다(PoC에서 확인한 틈). */
       if (document.getElementById('thought-compass-flow') || document.getElementById('thought-compass-review')
-          || document.getElementById('thought-compass-gate') || document.getElementById('tutorial-welcome-overlay')) return;
+          || document.getElementById('thought-compass-gate')) return;
+      if (document.getElementById('tutorial-welcome-overlay')) { if (tries < 150) setTimeout(attempt, 2000); return; }
       try { if (window.Lv1Book) window.Lv1Book.mountIfNeeded({ classId: ms.classId, teamName: ms.teamName }, { allowPrompt: true, page: 'maker' }); } catch (e) { /* noop */ }
     };
     setTimeout(attempt, 3000);

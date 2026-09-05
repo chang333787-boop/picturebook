@@ -307,20 +307,26 @@
       case S.RESUME:
       default:
         _startSubs(); _armEscape();
+        /* 호출이 이미 날아가 있으면(서버가 job 노드를 쓰기 전 구독 첫 콜백이 RESUME으로 재판정하는 찰나)
+           다시 쏘지 않는다 — 종전엔 이 경합이 자동 재호출 2회 중 1회를 BUSY로 허비했다(PoC 실측). */
+        if (M.inflight) { _render({ state: S.WAITING, d, snap, escape: !!M.escape }); return; }
         if (M.resumeCount >= MAX_AUTO_RESUME) {
           _render({ state: S.RESUME, d, snap, escape: true, error: true });
           return;
         }
         _render({ state: S.RESUME, d, snap, escape: false });
         M.resumeCount++;
+        M.inflight = true;
         try {
           const r = await fireBatch(ctx);
           if (!M) return;
+          M.inflight = false;
           if (r && r.ok === false && r.code === 'BUSY') { return _tick('busy'); }           /* 다른 곳에서 도는 중 → WAITING */
           if (r && (r.limitReached || r.globalLimitReached) && (r.generated || 0) === 0) { M.opts.fresh = true; return _tick('limit'); }
           return _tick('after-batch');                                                        /* 완료/부분 → DONE 또는 RESUME(재호출) */
         } catch (e) {
           if (!M) return;
+          M.inflight = false;
           const msg = String((e && (e.message || e.code)) || '');
           if (/MODE_NOT_ENABLED|AI_NOT_ENABLED|failed-precondition/.test(msg)) { M.forceOff = true; M.opts.fresh = true; _stopSubs(); _render({ state: S.OFF, d, snap }); return; }
           /* deadline-exceeded(570s) 등: 서버는 계속 만든다 → 구독이 도착을 보여준다. 5초 뒤 재판정 */
@@ -370,7 +376,7 @@
     if (typeof firebase === 'undefined' || !firebase.app) return;
     if (M && (M.ctx.classId !== ctx.classId || M.ctx.teamName !== ctx.teamName)) unmount();
     if (!M) {
-      M = { ctx: { classId: String(ctx.classId), teamName: String(ctx.teamName) }, opts: {}, subs: [], snap: null, resumeCount: 0, escapeTimer: null, escape: false, lastState: null, mountedAt: Date.now() };
+      M = { ctx: { classId: String(ctx.classId), teamName: String(ctx.teamName) }, opts: {}, subs: [], snap: null, resumeCount: 0, inflight: false, escapeTimer: null, escape: false, lastState: null, mountedAt: Date.now() };
     }
     M.opts.fresh = !!opts.fresh || !!M.opts.fresh;
     M.opts.allowPrompt = (opts.allowPrompt !== undefined) ? !!opts.allowPrompt : !!M.opts.allowPrompt;

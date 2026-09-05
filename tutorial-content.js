@@ -46,7 +46,7 @@
      · 1·2단계는 갈림길/행동버튼 슬라이드 제외(일직선 잠금과 정합). 필터는 tutorial-welcome.js. */
   const welcome = [
     { title: '가지에 온 걸 환영해요', line: '고르는 대로 이야기가 갈라지는 나만의 작품을 만드는 곳이에요.', art: 'welcomeHero', pbLevels: [3] },
-    { title: '가지에 온 걸 환영해요', line: '나침반에 답하면 <b>나만의 동화책</b>이 만들어져요. 글과 그림을 예쁘게 다듬어 보아요.', art: 'welcomeHero', pbLevels: [1] },
+    { title: '가지에 온 걸 환영해요', line: '나침반에 답하면 <b>나만의 동화책</b>이 글과 그림까지 완성돼요. 이제 글자 위치와 글을 예쁘게 다듬어 보아요.', art: 'welcomeHero', pbLevels: [1] },
     { title: '가지에 온 걸 환영해요', line: 'AI가 <b>이야기를 시작</b>해 주면 내가 이어서 완성하는 곳이에요. 그림도 직접 그려요.', art: 'welcomeHero', pbLevels: [2] },
     { title: '먼저 한 줄기, 그다음 갈림길', line: '이야기를 끝까지 만든 뒤, “다르게 했다면?” 하고 갈래를 더해요. 아래에서 직접 해볼까요?', demo: true, pbLevels: [3] },
     { title: '장면을 만들고 이어요',   line: '글과 그림으로 장면을 만든 뒤, 장면 카드의 <b>⋯</b>를 펼쳐 행동 버튼으로 다음 장면을 이어 줘요.', art: 'branch', pbLevels: [3] },

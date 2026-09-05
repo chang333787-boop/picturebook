@@ -495,6 +495,13 @@
     if (_needsStoryValueStep() && !R._storyValue) {
       try { await _runStoryValueStep(); } catch (e) { /* 생략 */ }
     }
+    /* LV1-WAIT-1(2026-09-05): 1단계 마지막 카드 — "주인공을 직접 그릴래요?" 를 초안 앞에서 묻고
+       viewer-meta/lv1Protag에 기록한다. 종전엔 초안·환영 튜토리얼 뒤 showMakerConfirm으로 물어,
+       그 사이 탭을 닫으면 그림 배치 트리거가 사라졌다. 완료 저장 전이라 여기서 이탈해도 나침반은
+       inProgress로 남아 재진입 때 카드가 다시 뜬다(멱등). 모듈 없으면 생략(재진입 CHOICE가 담당). */
+    if (_isLv1Picturebook() && !R._lv1Protag && window.Lv1Book && typeof window.Lv1Book.askProtagChoice === 'function') {
+      try { R._lv1Protag = await window.Lv1Book.askProtagChoice({ classId: R.ctx.classId, teamName: R.ctx.teamName }); } catch (e) { /* 생략 */ }
+    }
     R.busy = true; R.error = null; _render();
 
     let ok = true;
@@ -528,6 +535,7 @@
     /* 게이트/검토 닫기 → maker 노출 */
     /* LEVELS-CONT fix: 환영 필터용 projectType은 R 해제 전에 확보 */
     var _ptypeForWelcome = (R && R.ctx && R.ctx.projectType) ? R.ctx.projectType : null;
+    var _lv1SkipWelcome = _isLv1Picturebook();   /* LV1-WAIT-1: R 해제 전에 판정 */
     _remove();
     if (window.ThoughtCompassGate && typeof window.ThoughtCompassGate.closeGate === 'function') window.ThoughtCompassGate.closeGate();
     if (_UI() && typeof _UI().close === 'function') _UI().close();
@@ -535,7 +543,9 @@
 
     /* TUTORIAL-PRD(S2): 생각 나침반 질문을 끝내고 에디터로 들어오는 이 순간에 환영 튜토리얼을 띄운다
        (사용자 결정 "나침반 뒤"). 기기당 1회·닫힘 대기·실패해도 에디터 진입 무영향. */
-    if (typeof window !== 'undefined' && window.TutorialWelcome && typeof window.TutorialWelcome.maybeShow === 'function') {
+    /* LV1-WAIT-1: 1단계는 여기서 환영 튜토리얼을 띄우지 않는다 — 초안 직후 대기화면(z 100050)이
+       올라와 있어 튜토리얼(100005)과 겹친다. 완성 뒤 다음 maker 진입(ui.js 진입 경로)에서 1회 뜬다. */
+    if (!_lv1SkipWelcome && typeof window !== 'undefined' && window.TutorialWelcome && typeof window.TutorialWelcome.maybeShow === 'function') {
       /* TUTORIAL-SCOPE-MAKER(#4): 나침반 완료 경로도 모둠 계정 스코프로(ui.js와 동일 헬퍼) —
          같은 기기 다른 모둠에 '다시 열지 않기'가 새지 않게. */
       var _scope = (typeof window.__makerTutorialScope === 'function') ? window.__makerTutorialScope() : null;
@@ -543,12 +553,16 @@
          3단계 슬라이드로 나오던 것 정정. ctx는 위에서 R 해제 전에 확보한 projectType 사용. */
       try { await window.TutorialWelcome.maybeShow({ scope: _scope, filterType: _ptypeForWelcome || null }); } catch (e) { /* noop */ }
     }
+    /* (LV1-WAIT-1) 종전 __runPendingLv1ProtagChoice 호출 자리 — 폐기. 1단계 그림 흐름은 lv1-book-wait.js가 소유. */
+  }
 
-    /* LV1-PROTAG-VISION(2026-07-22): 나침반 오버레이가 완전히 닫힌 '브랜치 화면'에서 1단계
-       주인공 그리기 선택을 띄운다(오버레이 뒤 가려져 멈추던 것 방지). pending 없으면 no-op. */
-    if (typeof window !== 'undefined' && typeof window.__runPendingLv1ProtagChoice === 'function') {
-      try { await window.__runPendingLv1ProtagChoice(); } catch (e) { /* noop */ }
-    }
+  /* LV1-WAIT-1: 1단계 그림책 판정(선택 카드·환영 생략용) */
+  function _isLv1Picturebook() {
+    try {
+      if (!R || !R.ctx || R.ctx.projectType !== 'picturebook') return false;
+      const lvl = (typeof window.getPicturebookLevel === 'function') ? window.getPicturebookLevel() : null;
+      return lvl === 1;
+    } catch (e) { return false; }
   }
 
   function close() { _remove(); R = null; }

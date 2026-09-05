@@ -50,6 +50,8 @@ const ImageS2Gen = require('./image-s2-generation');
 const ImageS2Adapter = require('./image-s2-adapter');
 /* IMAGE-S2-9 — production OpenAI(gpt-image-2) adapter + 일괄 batch 상태 머신(firebase 비의존). */
 const ImageS2OpenAi = require('./image-s2-adapter-openai');
+/* LV1-WAIT-1(2026-09-05): 1단계 배치 진행 노드(aiVariants/imageJob) 순수 헬퍼 */
+const Lv1Job = require('./lv1-image-job');
 const ImageS2Batch = require('./image-s2-batch');
 
 /* Firebase Admin 초기화 — 1번만 */
@@ -3108,6 +3110,7 @@ exports.adminResetPicturebookWork = onCall(
       `${base}/viewer-meta/protagonistRef`,               /* 감사 #13: 이전 주인공 그림/특징 잔재 —
                                                              안 지우면 새 이야기에 옛 주인공이 강제 주입 */
       `${base}/viewer-meta/protagonistDesc`,
+      `${base}/viewer-meta/lv1Protag`,                    /* LV1-WAIT-1: 주인공 선택(ai/draw) — 새 이야기는 다시 묻는다 */
       `${base}/viewer-meta/isPublic`,                     /* 빈 책이 책장에 남지 않게 */
       `classes/${classId}/shelf/${enc}`,                  /* 학급 책장 카드 정리 */
       `ai-usage/${classId}/${teamName}`,                  /* 작품검사 등 per-작품 quota */
@@ -3688,11 +3691,8 @@ exports.generateStoryImages = onCall(
 
     /* 대상 장면 — 본문 있는 비표지(엔딩 포함). 표지는 제목 중심이라 제외(§7.5·비용 고정) */
     const scenes = (await baseRef.child('scenes').once('value')).val() || {};
-    let targetIds = Object.keys(scenes).filter((sid) => {
-      const sc = scenes[sid];
-      if (!sc || typeof sc !== 'object' || sc.type === 'cover') return false;
-      return typeof sc.body === 'string' && sc.body.trim().length > 0;
-    });
+    /* LV1-WAIT-1: 대상 술어는 lv1-image-job.js 단일 정의(클라 대기화면과 문자 그대로 동일) */
+    let targetIds = Object.keys(scenes).filter((sid) => Lv1Job.isImageTargetScene(scenes[sid]));
     if (singleSceneId) {
       targetIds = targetIds.filter((s) => s === singleSceneId);
       if (targetIds.length === 0) {
@@ -3721,6 +3721,32 @@ exports.generateStoryImages = onCall(
     }
     const releaseLock = async () => {
       if (!singleSceneId) { try { await lockRef.remove(); } catch (e) { /* stale 인수로 자연 해소 */ } }
+    };
+
+    /* ── LV1-WAIT-1: 진행 노드(aiVariants/imageJob) — 배치(비단일)만, lock 획득 뒤에만, 전부 best-effort.
+       클라 대기화면이 "돌고 있나/어떻게 끝났나"를 여기서 읽는다(진행률의 진실은 aiVariants/image 도착 수).
+       구버전 클라는 이 노드를 안 읽으므로 종전 동작 무영향(추가 전용). 정본 §3.1·§4 */
+    const jobRef = singleSceneId ? null : baseRef.child('aiVariants/imageJob');
+    if (jobRef) {
+      try { await jobRef.set(Lv1Job.buildJobStart({ total: targetIds.length, now: Date.now(), by: ctx.uid })); }
+      catch (e) { logger.warn('[generateStoryImages] imageJob start 기록 실패(무시)', { message: e && e.message }); }
+    }
+    const _jobBump = async () => {
+      if (!jobRef) return;
+      try {
+        await jobRef.child('done').transaction((n) => ((typeof n === 'number' && n >= 0) ? n : 0) + 1);
+        await jobRef.child('updatedAt').set(Date.now());
+      } catch (e) { /* 진행 기록 실패는 비치명 */ }
+    };
+    const _jobFail = async (sid, code) => {
+      if (!jobRef) return;
+      try { await jobRef.update({ [`failed/${sid}`]: String(code || 'UNKNOWN'), updatedAt: Date.now() }); }
+      catch (e) { /* 비치명 */ }
+    };
+    const _jobFinish = async (o) => {
+      if (!jobRef) return;
+      try { await jobRef.update(Lv1Job.buildJobFinish(Object.assign({ now: Date.now() }, o))); }
+      catch (e) { logger.warn('[generateStoryImages] imageJob finish 기록 실패(무시)', { message: e && e.message }); }
     };
 
     try {
@@ -3791,6 +3817,8 @@ exports.generateStoryImages = onCall(
 
       let generated = 0, skipped = 0, limitReached = false, globalLimitReached = false;
       const failed = [];
+      /* LV1-WAIT-1: 실패 집계 + 진행 노드 failed/{sid} 동시 기록(best-effort) */
+      const _fail = async (sid, code) => { failed.push({ sceneId: sid, code }); await _jobFail(sid, code); };
       const queue = [...targetIds].sort((a, b) => (Number(a) || 0) - (Number(b) || 0));
 
       const workOne = async (sid) => {
@@ -3802,7 +3830,7 @@ exports.generateStoryImages = onCall(
           const _bs = _scanSafety({ [sid]: { body } });
           if (_bs.blocked) {
             logger.warn('[generateStoryImages] 본문 안전 차단 — 그림 생략', { classId: ctx.classId, sid, categories: _bs.categories });
-            failed.push({ sceneId: sid, code: 'SAFETY_BLOCKED' });
+            await _fail(sid, 'SAFETY_BLOCKED');
             return;
           }
         }
@@ -3810,7 +3838,7 @@ exports.generateStoryImages = onCall(
         let existing = null;
         try { existing = (await baseRef.child(`aiVariants/image/${sid}/s2`).once('value')).val(); } catch (e) { existing = null; }
         if (!force && existing && existing.url && existing.stale !== true && existing.promptVersion === PV) {
-          skipped++; return;
+          skipped++; await _jobBump(); return;
         }
         /* 팀당 총량 — 장면당 1 소모(실패 시 환불) */
         const tx = await limitRef.transaction((cur) => {
@@ -3831,7 +3859,7 @@ exports.generateStoryImages = onCall(
           });
         } catch (e) {
           await limitRef.transaction((cur) => Math.max(0, (cur || 0) - 1)).catch(() => {});
-          failed.push({ sceneId: sid, code: 'IMAGE_AI_PROVIDER_ERROR' });
+          await _fail(sid, 'IMAGE_AI_PROVIDER_ERROR');
           logger.warn('[generateStoryImages] 전역캡 transaction 실패 — 팀 쿼터 반납', { message: e && e.message });
           return;
         }
@@ -3848,12 +3876,12 @@ exports.generateStoryImages = onCall(
 
         try {
           const gen = await adapter.generate({ storyText: body, wholeStoryText, characterSheet, regenReason: _regenReason1 });
-          if (!gen || gen.ok !== true) { await refund(); failed.push({ sceneId: sid, code: (gen && gen.code) || 'IMAGE_AI_PROVIDER_ERROR' }); return; }
+          if (!gen || gen.ok !== true) { await refund(); await _fail(sid, (gen && gen.code) || 'IMAGE_AI_PROVIDER_ERROR'); return; }
           const outv = ImageS2Gen.validateModelOutput({ bytes: gen.bytes, mimeType: gen.mimeType });
-          if (!outv.ok) { await refund(); failed.push({ sceneId: sid, code: outv.code }); return; }
+          if (!outv.ok) { await refund(); await _fail(sid, outv.code); return; }
 
           const storagePath = ImageS2Gen.buildS2StoragePath(ctx.classId, enc, sid, require('crypto').randomUUID(), gen.mimeType);
-          if (!storagePath || !ImageS2Gen.isAllowedS2StoragePath(storagePath)) { await refund(); failed.push({ sceneId: sid, code: 'IMAGE_AI_INTERNAL_PATH' }); return; }
+          if (!storagePath || !ImageS2Gen.isAllowedS2StoragePath(storagePath)) { await refund(); await _fail(sid, 'IMAGE_AI_INTERNAL_PATH'); return; }
           const up = await _uploadImageS2Result({ storagePath, bytes: gen.bytes, mimeType: gen.mimeType });
 
           const variant = ImageS2Gen.buildS2Variant({
@@ -3862,7 +3890,7 @@ exports.generateStoryImages = onCall(
             model: gen.model || adapter.model, modelVersion: gen.modelVersion || adapter.modelVersion,
             promptVersion: PV, finalizedAt: Date.now(),
           });
-          if (!variant) { await refund(); failed.push({ sceneId: sid, code: 'IMAGE_AI_WRITE_FAILED' }); return; }
+          if (!variant) { await refund(); await _fail(sid, 'IMAGE_AI_WRITE_FAILED'); return; }
           /* buildS2Variant 기본 promptVersion은 s2 정본 — 생성판 버전으로 명시 고정 */
           variant.promptVersion = PV;
           await baseRef.child(`aiVariants/image/${sid}/s2`).set(variant);
@@ -3876,10 +3904,10 @@ exports.generateStoryImages = onCall(
             const bb = (await baseRef.child(`scenes/${sid}/picturebookBodyBox`).once('value')).val();
             if (!bb) await baseRef.child(`scenes/${sid}/picturebookBodyBox`).set(STORY_IMAGE_BODYBOX_PRESET);
           } catch (e) { /* 프리셋 실패는 비치명(렌더 기본값 폴백) */ }
-          generated++;
+          generated++; await _jobBump();
         } catch (e) {
           await refund();
-          failed.push({ sceneId: sid, code: 'IMAGE_AI_UPLOAD_FAILED' });
+          await _fail(sid, 'IMAGE_AI_UPLOAD_FAILED');
         }
       };
 
@@ -3911,8 +3939,11 @@ exports.generateStoryImages = onCall(
         generated, skipped, failedCount: failed.length, limitReached, globalLimitReached, single: !!singleSceneId,
         force, regenLeft,
       });
+      /* LV1-WAIT-1: 종료 상태(done/partial/limit) 기록 — done은 워커가 누적(skipped+generated) */
+      await _jobFinish({ total: targetIds.length, done: generated + skipped, failedCount: failed.length, limitReached, globalLimitReached });
       return { ok: true, generated, skipped, failed, limitReached, globalLimitReached, total: targetIds.length, regenLeft };
     } catch (e) {
+      await _jobFinish({ total: targetIds.length, errored: true });   /* LV1-WAIT-1: 예외 종료도 남긴다(클라 RESUME 판단) */
       await _refundRegen();   /* REGEN-LIMIT-1: 예외로 끝나도 횟수는 돌려준다(차감 대칭) */
       throw e;
     } finally {
@@ -3995,6 +4026,11 @@ exports.teacherCloneTeamFull = onCall(
     CLONE_NODES.forEach((n, i) => {
       if (!snaps[i].exists()) return;
       let val = snaps[i].val();
+      /* LV1-WAIT-1: 진행 노드는 원본 배치의 상태라 복제본에 물려주지 않는다(대기화면 오판 방지) */
+      if (n === 'aiVariants' && val && typeof val === 'object' && val.imageJob) {
+        val = Object.assign({}, val);
+        delete val.imageJob;
+      }
       if (n === 'viewer-meta') {
         val = Object.assign({}, val, {
           isPublic: false,

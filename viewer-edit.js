@@ -4921,7 +4921,7 @@ function _ensureCompassReviewBundle() {
       const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'thought-compass.css?v=154b9c4183';
       l.setAttribute('data-tc-review-css', '1'); document.head.appendChild(l);
     }
-    const V = '?v=e68d5807ff';
+    const V = '?v=dd7f897c77';
     await load('thought-compass.js' + V);
     await load('thought-compass-questions.js' + V);
     await load('thought-compass-flow.js' + V);
@@ -6443,41 +6443,17 @@ function _openLevel2CharGate() {
 }
 
 /* ════════════════════════════════════════════════════════════════
-   LV1-PROTAG-VISION(2026-07-22 부활): 1단계 주인공 그리기 — 선택 게이트.
+   LV1-WAIT-1(2026-09-05): 1단계 주인공 그리기 게이트 — 상태 기반(sessionStorage 플래그 폐기).
    ─────────────────────────────────────────────────────────────
-   · maker(초안 직후)에서 [내 주인공 그리기]를 고르면 pending 플래그+다듬기 이동→이 게이트.
-     2단계 필수 게이트와 달리 [건너뛰기] 있음(선택).
-   · 저장 = viewer-meta/protagonistRef → 서버가 "그림 그대로"가 아니라 비전으로 설명해
-     순수 생성에 반영(화풍 안정·edits 아님). 건너뛰기 = 무레퍼런스 순수 생성.
-   · 어느 쪽이든 플래그 소거·배치 1회 시작(그림 없는 고아 방지). ⚠️2단계 그림(edits+스케치)과 무관.
+   · 여는 쪽: lv1-book-wait.js가 서버 상태(lv1Protag='draw' ∧ protagonistRef 없음 ∧ 그림 0장)로
+     DRAW를 판정하면 window.__lv1OpenProtagGate(ctx, onDone)를 부른다. 이 파일은 UI만 담당.
+   · 저장 = viewer-meta/protagonistRef(+Desc) → 서버가 비전으로 설명해 순수 생성에 반영(화풍 안정).
+     건너뛰기 = lv1Protag를 'ai'로 바꾼다(재진입 때 다시 안 묻게). 어느 쪽이든 onDone → 모듈이
+     배치 호출+대기화면. ⚠️2단계 그림(edits+스케치)·2단계 필수 게이트와 무관.
    ════════════════════════════════════════════════════════════════ */
-function _lv1PendingDrawInfo() {
-  try {
-    const raw = sessionStorage.getItem('pbLv1ProtagDraw');
-    if (!raw) return null;
-    const v = JSON.parse(raw);
-    if (!v || !v.classId || !v.teamName) return null;
-    const p = (ViewerState && ViewerState.project) || {};
-    if (String(p.classId || '') !== String(v.classId)) return null;
-    if (String(p.teamName || '') !== String(v.teamName)) return null;
-    if (p.projectType !== 'picturebook' || p.picturebookLevel !== 1) return null;
-    if (typeof v.at === 'number' && (Date.now() - v.at) > 2 * 60 * 60 * 1000) return null;   /* 2h 신선도 */
-    return v;
-  } catch (e) { return null; }
-}
-function _clearLv1PendingDraw() { try { sessionStorage.removeItem('pbLv1ProtagDraw'); } catch (e) { /* noop */ } }
-function _fireLv1ImagesFromViewer(cid, tn) {
-  try {
-    firebase.app().functions('asia-northeast3')
-      .httpsCallable('generateStoryImages', { timeout: 570000 })({ classId: cid, teamName: tn })
-      .then((r) => { const g = r && r.data; console.info('[storyImages] done:', g && g.generated, 'skipped:', g && g.skipped); })
-      .catch((e) => console.warn('[storyImages] fail:', (e && (e.code || e.message)) || e));
-  } catch (e) { /* 비치명 — 장면별 🔁로 수동 생성 가능 */ }
-}
-
-function _openLevel1ProtagGate() {
-  const info = _lv1PendingDrawInfo();
-  if (!info) return;
+function _openLevel1ProtagGate(ctx, onDone) {
+  if (!ctx || !ctx.classId || !ctx.teamName) return;
+  if (!(ViewerState && ViewerState.editMode && ViewerState.fromMaker)) return;   /* 다듬기(제작자 세션)에서만 */
   if (document.getElementById('lvl1-protag-gate')) return;
   const root = document.createElement('div');
   root.id = 'lvl1-protag-gate';
@@ -6493,12 +6469,17 @@ function _openLevel1ProtagGate() {
     +   '</div>'
     + '</div>';
   document.body.appendChild(root);
-  const _finish = (fire) => {
-    _clearLv1PendingDraw();
+  const _finish = (how) => {
     root.remove();
-    if (fire) _fireLv1ImagesFromViewer(info.classId, info.teamName);
+    try { if (typeof onDone === 'function') onDone(how); } catch (e) { /* noop */ }
   };
-  root.querySelector('.js-lvl1-protag-skip').addEventListener('click', () => _finish(true));
+  root.querySelector('.js-lvl1-protag-skip').addEventListener('click', async () => {
+    /* 건너뛰기 = 선택을 'ai'로 확정(재진입 때 다시 묻지 않음) — 실패해도 진행 */
+    try {
+      await firebase.database().ref(`classes/${ctx.classId}/teams/${encodeURIComponent(ctx.teamName)}/viewer-meta/lv1Protag`).set('ai');
+    } catch (e) { /* noop */ }
+    _finish('skip');
+  });
   root.querySelector('.js-lvl1-protag-start').addEventListener('click', () => {
     root.style.display = 'none';
     const shell = {
@@ -6513,7 +6494,7 @@ function _openLevel1ProtagGate() {
       descValue: (ViewerState.project && ViewerState.project.protagonistDesc) || '',
       saveOverride: async (url, desc) => {
         await _saveProtagonistRef(url, desc);
-        _finish(true);   /* 저장 성공 → 비전 설명 반영된 배치 시작 */
+        _finish('saved');   /* 저장 성공 → 모듈이 비전 설명 반영 배치 시작 */
       },
       onClose: () => {
         if (root.isConnected && document.getElementById('lvl1-protag-gate')) root.style.display = '';
@@ -6521,12 +6502,20 @@ function _openLevel1ProtagGate() {
     });
   });
 }
+if (typeof window !== 'undefined') window.__lv1OpenProtagGate = _openLevel1ProtagGate;
 
 /* viewer-entry(튜토리얼 완료 훅)에서 호출 — 2단계 필수 게이트 + 1단계 선택 게이트(pending 시). */
 if (typeof window !== 'undefined') {
   window.__maybeShowLevel2CharGate = function () {
     try { _openLevel2CharGate(); } catch (e) { /* noop */ }
-    try { _openLevel1ProtagGate(); } catch (e) { /* noop */ }
+    /* LV1-WAIT-1: 1단계는 튜토리얼이 끝난 이 시점에 상태 도출(선택/그리기 카드 허용) —
+       데이터 로드 시점 mount는 allowPrompt:false라 대기화면/완성만 그린다. */
+    try {
+      const p = ViewerState && ViewerState.project;
+      if (p && p.projectType === 'picturebook' && p.picturebookLevel === 1 && ViewerState.fromMaker && window.Lv1Book) {
+        window.Lv1Book.mountIfNeeded({ classId: p.classId, teamName: p.teamName }, { allowPrompt: true, page: 'viewer' });
+      }
+    } catch (e) { /* noop */ }
   };
 }
 

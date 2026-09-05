@@ -2732,7 +2732,7 @@ function _showStoryDraftOverlay(level) {
     + '<div style="font-size:34px;margin-bottom:10px;" aria-hidden="true">🌱</div>'
     + '<div style="font-size:19px;font-weight:800;color:#3a2c14;margin-bottom:8px;">AI가 이야기를 만들고 있어요…</div>'
     + '<div style="font-size:14px;color:#6b5638;line-height:1.6;">' + (level === 1
-      ? '나침반에 답한 내용으로 동화책 글을 쓰고 있어요.<br/>글이 먼저 오고, 그림은 뒤이어 만들어져요. (30초 정도)'
+      ? '나침반에 답한 내용으로 동화책 글을 쓰고 있어요.<br/>글이 다 되면 바로 그림을 그리기 시작해요. (30초 정도)'
       : '나침반에 답한 내용으로 이야기의 시작을 쓰고 있어요.<br/>조금만 기다려 주세요. (30초 정도)')
     + '</div></div>';
   document.body.appendChild(ov);
@@ -2755,55 +2755,6 @@ function _notifyStoryDraftFail(kind, detail) {
   }
   try { alert('🌱 ' + msg + '\n\n지금은 빈 이야기 틀로 시작해요.'); } catch (e) { /* noop */ }
 }
-
-/* ════ DRAFT-UX-2(2026-07-20): 1단계 그림 생성 진행 배지 ════
-   그림은 장당 50~70초 백그라운드(9장≈3~5분) — 토스트 한 줄로는 "안 만들어진다"로
-   보임(교사 실보고 2회). aiVariants/image 도착 수를 8초 폴링해 좌하단 배지로 표시,
-   완료 시 ✅ 안내 후 제거. read-only·팀 전환 시 자동 종료. viewer 쪽은 viewer-data가 담당. */
-let _storyImgBadgeTimer = null;
-/* 안내 보조줄 — maker.html은 pb-ai.css 미로드라 인라인 스타일로 자립. */
-function _imgBadgeSub() {
-  return '<span style="display:block;margin-top:3px;font-size:11.5px;font-weight:600;color:#8a7d63;line-height:1.45;">'
-    + '완성되면 [▶️ 감상해 보기]에서 볼 수 있어요.</span>';
-}
-function _stopStoryImageBadge() {
-  if (_storyImgBadgeTimer) { clearInterval(_storyImgBadgeTimer); _storyImgBadgeTimer = null; }
-}
-function _startStoryImageBadge(classId, tName, expected) {
-  try { _stopStoryImageBadge(); document.getElementById('story-image-progress-badge')?.remove(); } catch (e) {}
-  if (!classId || !tName || !expected) return;
-  const enc = encodeURIComponent(tName);
-  const el = document.createElement('div');
-  el.id = 'story-image-progress-badge';
-  el.setAttribute('role', 'status');
-  el.style.cssText = 'position:fixed;left:14px;bottom:14px;z-index:99990;padding:10px 16px;background:#fffdf8;border:1.5px solid #d8c7a6;border-radius:12px;box-shadow:0 4px 16px rgba(80,60,20,.18);font-size:13.5px;color:#5b4a2e;font-weight:700;max-width:80vw;line-height:1.5;';
-  el.innerHTML = '🎨 AI 그림 만드는 중 0/' + expected + '… (장당 1분 정도)' + _imgBadgeSub();
-  document.body.appendChild(el);
-  let ticks = 0;
-  const poll = async () => {
-    ticks++;
-    const badge = document.getElementById('story-image-progress-badge');
-    if (!badge) { _stopStoryImageBadge(); return; }
-    /* 팀을 바꿨으면 이 배지는 남의 것 — 종료 */
-    try { if (typeof teamName === 'string' && teamName && teamName !== tName) { badge.remove(); _stopStoryImageBadge(); return; } } catch (e) {}
-    let n = 0;
-    try {
-      const snap = await firebase.database().ref('classes/' + classId + '/teams/' + enc + '/aiVariants/image').once('value');
-      n = Object.keys(snap.val() || {}).length;
-    } catch (e) { /* 읽기 실패 = 표시만 유지 */ }
-    if (n >= expected) {
-      badge.textContent = '✅ AI 그림 ' + n + '장 완성! [▶️ 감상해 보기]에서 확인해 보세요.';
-      _stopStoryImageBadge();
-      setTimeout(() => { try { badge.remove(); } catch (e) {} }, 10000);
-      return;
-    }
-    badge.innerHTML = '🎨 AI 그림 만드는 중 ' + n + '/' + expected + '… (장당 1분 정도)' + _imgBadgeSub();
-    if (ticks > 90) { badge.remove(); _stopStoryImageBadge(); }   /* 12분 상한 — 조용히 종료 */
-  };
-  _storyImgBadgeTimer = setInterval(poll, 8000);
-  poll();
-}
-window._startStoryImageBadge = _startStoryImageBadge;   /* 하니스 검증용 */
 
 /* 콜러블 호출 + 적용. 모든 실패 = false(호출자 폴백). */
 async function requestStoryDraftStarter(opts) {
@@ -2840,20 +2791,12 @@ async function requestStoryDraftStarter(opts) {
     _hideStoryDraftOverlay(); _overlayShown = false;
     /* LEVELS-CONT-B: answers 동봉 — level 2 위치 기반 씨앗 힌트를 나침반 답으로 생성 */
     const applied = await _applyStoryDraftStarter(data.draft, { storyCount: data.storyCount || sc, level: data.level, answers: opts.answers, followUps: opts.followUps });
-    /* PICTUREBOOK-LEVELS ④: 1단계 = 그림도 자동 — fire-and-forget(대기 없음·실패해도 글은 유효).
-       서버(generateStoryImages)가 단계/토글/팀당 총량/이중 실행 lock을 재검증. 결과는
-       aiVariants s2 슬롯에 쌓여 감상 진입 시 AI-DEFAULT-VIEW-1이 자동 표시. */
+    /* LV1-WAIT-1(2026-09-05): 1단계 = 초안 직후 곧바로 대기화면(lv1-book-wait.js)으로 이어 간다.
+       주인공 선택은 나침반 마지막 카드에서 이미 viewer-meta/lv1Protag에 기록됐고, 모듈이 서버
+       상태만 읽어 배치 호출(AI) 또는 스튜디오 이동(그리기)을 결정한다. 종전 sessionStorage
+       플래그·fire-and-forget·배지는 폐기(플래그가 탭과 함께 사라져 그림이 영영 안 생기던 원인). */
     if (applied && data.level === 1) {
-      /* LV1-PROTAG-VISION(2026-07-22 부활): 그림 생성 전 "내 주인공 그릴래요?" 선택.
-         그리면 서버가 비전으로 설명→순수 생성에 반영(edits 아님·화풍 안정). 아니면 즉시 자동 생성.
-         ⚠️선택창(showMakerConfirm z10000)은 나침반 완료 오버레이(z100000) 뒤에 가려지므로,
-         여기선 pending 플래그만 남기고 오버레이 닫힌 뒤 브랜치 화면에서 띄운다(멈춤 버그 방지). */
-      try {
-        sessionStorage.setItem('pbLv1NeedsProtagChoice', JSON.stringify({ classId, teamName, sc, at: Date.now() }));
-      } catch (e) {
-        /* sessionStorage 불가 → 선택 못 띄우므로 즉시 자동 생성(그림은 나옴) */
-        _fireLv1StoryImageBatch(classId, teamName, sc);
-      }
+      try { if (window.Lv1Book) window.Lv1Book.afterDraft({ classId, teamName }, 'maker'); } catch (e) { /* 비치명 — 재진입 훅이 복귀 */ }
     }
     return applied;
   } catch (e) {
@@ -2875,166 +2818,18 @@ async function requestStoryDraftStarter(opts) {
 }
 window.requestStoryDraftStarter = requestStoryDraftStarter;
 
-/* ════ 1단계 그림 배치 시작 헬퍼 — 초안 직후 즉시 fire-and-forget(배지 포함) ════ */
-function _fireLv1StoryImageBatch(classId, teamName, sc) {
-  try {
-    /* timeout: 서버 540s 배치 — 클라 기본 70s로는 완주 전에 deadline-exceeded가 찍힘(무해하지만
-       로그 오해 소지·1단계 e2e에서 실측). 서버값+여유(#56 _FN_TIMEOUT_MS와 동일 원칙). */
-    firebase.app().functions('asia-northeast3')
-      .httpsCallable('generateStoryImages', { timeout: 570000 })({ classId, teamName })
-      .then((r) => {
-        const g = r && r.data;
-        console.info('[storyImages] done:', g && g.generated, 'skipped:', g && g.skipped);
-      })
-      .catch((e) => console.warn('[storyImages] fail:', (e && (e.code || e.message)) || e));
-    _mtbToast('그림도 만들고 있어요! 조금 뒤 [감상해 보기]에서 볼 수 있어요. 🎨');
-    /* DRAFT-UX-2: 진행 배지 — 이야기 장면 sc개 + 엔딩 1 = 그림 대상 수 */
-    _startStoryImageBadge(classId, teamName, sc + 1);
-  } catch (e) { /* 그림 실패는 비치명 */ }
-}
-window._fireLv1StoryImageBatch = _fireLv1StoryImageBatch;
-
-/* LV1-PROTAG-VISION: 나침반 오버레이가 닫힌 뒤 브랜치 화면에서 호출 — pending 플래그가 있으면
-   주인공 선택을 띄운다. 없으면 no-op. thought-compass-review _complete가 오버레이 close 직후 호출. */
-async function _runPendingLv1ProtagChoice() {
-  let info = null;
-  try { const raw = sessionStorage.getItem('pbLv1NeedsProtagChoice'); if (raw) info = JSON.parse(raw); } catch (e) { info = null; }
-  if (!info || !info.classId || !info.teamName) return;
-  try { sessionStorage.removeItem('pbLv1NeedsProtagChoice'); } catch (e) { /* noop */ }
-  try { await _promptLv1ProtagonistChoice(info.classId, info.teamName, info.sc || 12); }
-  catch (e) { /* 실패해도 배치는 _promptLv1... 내부 폴백이 담당 */ }
-}
-window.__runPendingLv1ProtagChoice = _runPendingLv1ProtagChoice;
-
-/* 감사 #27: pending 플래그 부팅 소비처 — 환영 튜토리얼 중 새로고침/탭 이탈로 review._complete의
-   소비를 놓치면 1단계 그림 배치가 영영 안 돌던 것. 부팅 몇 초 뒤, 같은 팀 세션이 복원됐고
-   나침반/환영 오버레이가 없을 때만 재소비(정상 흐름의 review 소비 우선·다른 팀 재로그인=무시).
-   플래그 제거·주인공 선택창·폴백 배치는 _runPendingLv1ProtagChoice 기존 로직 그대로. */
-if (typeof window !== 'undefined' && typeof sessionStorage !== 'undefined') {
-  setTimeout(function () {
-    try {
-      const raw = sessionStorage.getItem('pbLv1NeedsProtagChoice');
-      if (!raw) return;
-      if (document.getElementById('thought-compass-flow')
-          || document.getElementById('thought-compass-review')
-          || document.getElementById('tutorial-welcome-overlay')) return;
-      const info = JSON.parse(raw);
-      /* PENDING-FRESH-1(2026-07-27·감사 #14): 형제 소비처(viewer-edit _lv1PendingDrawInfo)와 대칭으로
-         2시간 지난 stale 플래그는 버린다 — 옛 세션 잔재로 이야기 없이 주인공 선택창만 뜨는 것 방지. */
-      if (!info || (typeof info.at === 'number' && (Date.now() - info.at) > 2 * 60 * 60 * 1000)) {
-        try { sessionStorage.removeItem('pbLv1NeedsProtagChoice'); } catch (e) { /* noop */ }
-        return;
-      }
-      const ms = JSON.parse(sessionStorage.getItem('makerSession') || 'null');
-      if (!ms || ms.classId !== info.classId || ms.teamName !== info.teamName) return;
-      _runPendingLv1ProtagChoice();
-    } catch (e) { /* noop — 다음 정상 소비처가 처리 */ }
-  }, 6000);
-}
-
 /* ════════════════════════════════════════════════════════════════
-   LV1-IMAGE-RESUME-1(2026-08-14): 1단계 그림이 "한 장도 없는" 작품을 재진입 때 조용히 만들어 준다.
-   ─────────────────────────────────────────────────────────────
-   · 왜: 배치 트리거가 초안 직후 sessionStorage 플래그 하나뿐이었다. 그 소비처(review._complete)는
-     `await TutorialWelcome.maybeShow()` 뒤라, 환영 튜토리얼이 떠 있는 동안 탭을 닫으면 플래그가
-     세션과 함께 사라져 배치가 영영 안 돈다(감사 #27의 부팅 재소비도 sessionStorage 의존이라 무력).
-     실사례 = 심사반 9999 심사6 — 글 14장면 정상인데 그림 0장, 서버 호출 자체가 0건이었다.
-   · 무엇: 보이는 변화 0(새 버튼·안내·모달·토스트 없음). 조건이 맞을 때 초안 직후와 똑같은 배치를
-     조용히 한 번 호출할 뿐이다. 다 되면 감상에서 그냥 그림이 보인다.
-   · 안전판: ①정상 흐름 플래그가 살아 있으면 양보(주인공 그림 반영 기회를 뺏지 않음)
-     ②viewer-meta/lv1AutoResumeAt 스탬프로 팀당 6시간 1회 ③admin·test 진입 제외
-     ④읽기는 전부 학생 rules로 되는 경로만(viewer-meta·scenes·aiVariants) ⑤모든 실패는 침묵.
-     서버도 팀 lock·총량(24)·같은 promptVersion 장면 skip으로 이중 방어하므로 중복 비용은 안 난다.
+   LV1-WAIT-1(2026-09-05): 1단계 그림 흐름은 lv1-book-wait.js(공용 모듈)가 소유한다.
+   ──────────────────────────────────────────────────────────────
+   종전 이 자리에 있던 것(전부 폐기): 초안 직후 fire-and-forget 배치+토스트, 좌하단 진행 배지(8초
+   폴링), sessionStorage 플래그 2종(pbLv1NeedsProtagChoice·pbLv1ProtagDraw)과 소비처(review
+   _complete·부팅 6초 재소비), showMakerConfirm 주인공 선택창, LV1-IMAGE-RESUME-1 조용한 재개.
+   → 이제 주인공 선택은 나침반 마지막 카드(Lv1Book.askProtagChoice), 그림은 초안 직후
+     Lv1Book.afterDraft가 대기화면으로 이어 가며, 재진입은 아래 부팅 훅이 서버 상태만 읽어 복귀한다.
+   maker가 모듈에 주는 훅은 하나: __lv1GoToStudio(스튜디오 이동).
+   정본: docs/lv1_wait_screen_design_20260905.md
    ════════════════════════════════════════════════════════════════ */
-const _LV1_RESUME_THROTTLE_MS = 6 * 60 * 60 * 1000;
-
-async function _lv1ResumeMissingStoryImages() {
-  /* 정상 흐름이 아직 자기 차례를 기다리는 중이면 이 재개는 손대지 않는다 */
-  try {
-    if (sessionStorage.getItem('pbLv1NeedsProtagChoice') || sessionStorage.getItem('pbLv1ProtagDraw')) return;
-  } catch (e) { /* sessionStorage 막힘 = 정상 흐름도 없다는 뜻 — 계속 */ }
-  if (document.getElementById('thought-compass-flow')
-      || document.getElementById('thought-compass-review')
-      || document.getElementById('tutorial-welcome-overlay')) return;
-  const qs = new URLSearchParams(location.search);
-  if (qs.get('admin') === '1' || qs.get('test') === '1') return;
-  if (typeof firebase === 'undefined' || !firebase.app) return;
-
-  let ms = null;
-  try { ms = JSON.parse(sessionStorage.getItem('makerSession') || 'null'); } catch (e) { ms = null; }
-  if (!ms || !ms.classId || !ms.teamName) return;
-
-  const base = firebase.database().ref('classes/' + ms.classId + '/teams/' + encodeURIComponent(ms.teamName));
-  /* viewer-meta 통째 read는 무거운 필드까지 끌어오므로 필요한 두 키만 본다(firebase.js §W7 원칙) */
-  const [lvSnap, stampSnap] = await Promise.all([
-    base.child('viewer-meta/picturebookLevel').once('value'),
-    base.child('viewer-meta/lv1AutoResumeAt').once('value'),
-  ]);
-  if (Number(lvSnap.val()) !== 1) return;
-  const stamp = stampSnap.val();
-  if (typeof stamp === 'number' && (Date.now() - stamp) < _LV1_RESUME_THROTTLE_MS) return;
-
-  /* ⚠️ aiUsage(imageGenLock)로 "도는 중" 판정은 하지 않는다 — rules에 aiUsage 노드가 없어
-     학생(멤버)은 read 거부다. 여기서 읽으면 정작 필요한 학생 쪽에서 통째로 실패한다.
-     진행 중 이중 호출은 서버 배치 lock이 BUSY로 되돌려 주므로(생성 0·비용 0) 안전하다. */
-
-  /* 대상 = 서버(generateStoryImages)와 같은 판정: 본문 있는 비표지 장면 */
-  const scenesVal = (await base.child('scenes').once('value')).val() || {};
-  const targets = Object.keys(scenesVal).filter((sid) => {
-    const s = scenesVal[sid];
-    return !!(s && typeof s === 'object' && s.type !== 'cover'
-      && typeof s.body === 'string' && s.body.trim().length > 0);
-  });
-  if (!targets.length) return;                       /* 아직 초안 전 = 재개할 게 없음 */
-  const imgs = (await base.child('aiVariants/image').once('value')).val() || {};
-  const have = targets.filter((sid) => {
-    const v = imgs[sid] && imgs[sid].s2;
-    return !!(v && v.url);
-  }).length;
-  /* ★ "한 장도 없음"(=배치가 아예 안 돈 고아)일 때만 재개한다. 일부만 빠진 경우(배치 540s 타임아웃
-     등)는 손대지 않는다 — 배치 콜러블은 장면을 골라 받지 않으므로, 나중에 프롬프트 버전이 올라간
-     뒤라면 dedup(promptVersion 일치)이 풀려 멀쩡한 그림까지 전부 다시 그려 비용이 샌다.
-     일부 빠짐은 종전대로 장면별 [🔁]가 담당(빈 장면 🔁는 REGEN-METER-1로 무료). */
-  if (have > 0) return;
-
-  /* 스탬프 먼저(호출 실패해도 6시간은 재시도 안 함 — 조용한 폭주 방지) */
-  await base.child('viewer-meta/lv1AutoResumeAt').set(Date.now());
-  firebase.app().functions('asia-northeast3')
-    .httpsCallable('generateStoryImages', { timeout: 570000 })({ classId: ms.classId, teamName: ms.teamName })
-    .then((r) => { const g = r && r.data; console.info('[storyImages] resume:', g && g.generated, 'targets:', targets.length); })
-    .catch((e) => console.warn('[storyImages] resume fail:', (e && (e.code || e.message)) || e));
-}
-window.__lv1ResumeMissingStoryImages = _lv1ResumeMissingStoryImages;   /* 하니스 검증용 */
-
-if (typeof window !== 'undefined' && typeof sessionStorage !== 'undefined') {
-  /* 감사 #27 소비처(6s)보다 늦게 — 정상 흐름이 먼저 자기 플래그를 가져가게 둔다 */
-  setTimeout(function () {
-    /* async 거부(권한/네트워크)는 sync catch로 안 잡히므로 프라미스에서도 삼킨다 */
-    try { _lv1ResumeMissingStoryImages().catch(function () { /* noop */ }); } catch (e) { /* noop */ }
-  }, 9000);
-}
-
-async function _promptLv1ProtagonistChoice(classId, teamName, sc) {
-  let draw = false;
-  try {
-    if (typeof window.showMakerConfirm === 'function') {
-      draw = await window.showMakerConfirm({
-        title: '🎨 그림을 만들기 전에 — 주인공을 직접 그릴래요?',
-        message: '주인공을 한 번 그려 두면, AI가 그 모습(모자·색·소품)을 살려서 모든 장면을 그려 줘요.\n그리지 않아도 AI가 알아서 예쁘게 그려 줘요.',
-        confirmText: '✏️ 내 주인공 그리기',
-        cancelText: '아니요, AI가 그려주세요',
-        /* FORCE-CHOICE-1: 둘 중 하나를 꼭 골라야 진행 — 바깥을 눌러 창만 사라지면 아이는
-           "안 골랐는데 넘어갔다"가 되고, 실제로는 AI 그리기가 선택된 것이라 혼란스럽다. */
-        forceChoice: true,
-      });
-    }
-  } catch (e) { draw = false; }
-  if (!draw) { _fireLv1StoryImageBatch(classId, teamName, sc); return; }
-  /* 그리기 선택 → 다듬기(그리기 스튜디오)로 이동. 도착하면 주인공 게이트가 열리고
-     저장/건너뛰기 시 그쪽에서 배치 시작(pending 플래그·2h 신선도). */
-  try {
-    sessionStorage.setItem('pbLv1ProtagDraw', JSON.stringify({ classId, teamName, sc, at: Date.now() }));
-  } catch (e) { _fireLv1StoryImageBatch(classId, teamName, sc); return; }
+window.__lv1GoToStudio = function (classId, teamName) {
   try { if (typeof flushTitleSaves === 'function') flushTitleSaves(); } catch (e) {}
   try { if (typeof flushBodySaves === 'function') flushBodySaves(); } catch (e) {}
   try { if (typeof _saveReturnContext === 'function') _saveReturnContext('maker'); } catch (e) {}
@@ -3042,7 +2837,29 @@ async function _promptLv1ProtagonistChoice(classId, teamName, sc) {
   const _vurl = 'viewer.html?' + params.join('&');
   if (typeof _openInternalUrl === 'function') _openInternalUrl(_vurl);
   else window.location.href = _vurl;
+};
+
+/* 부팅 훅 — 세션이 복원된 1단계 작품이면 서버 상태로 대기화면/선택/그리기 자리로 복귀.
+   장면 로드를 최대 15초 기다린다(초안 전 새 팀이면 NONE → 아무것도 안 함). */
+if (typeof window !== 'undefined' && typeof sessionStorage !== 'undefined') {
+  (function _lv1BootMount() {
+    let tries = 0;
+    const attempt = function () {
+      tries++;
+      let ms = null;
+      try { ms = JSON.parse(sessionStorage.getItem('makerSession') || 'null'); } catch (e) { ms = null; }
+      if (!ms || !ms.classId || !ms.teamName) { if (tries < 30) setTimeout(attempt, 500); return; }
+      const loaded = (typeof window.isBranchScenesLoaded === 'function') ? window.isBranchScenesLoaded() : true;
+      if (!loaded && tries < 30) { setTimeout(attempt, 500); return; }
+      /* 나침반/환영 오버레이가 떠 있으면 그 흐름이 끝난 뒤 자기 자리에서 부른다(초안 직후 afterDraft) */
+      if (document.getElementById('thought-compass-flow') || document.getElementById('thought-compass-review')
+          || document.getElementById('thought-compass-gate') || document.getElementById('tutorial-welcome-overlay')) return;
+      try { if (window.Lv1Book) window.Lv1Book.mountIfNeeded({ classId: ms.classId, teamName: ms.teamName }, { allowPrompt: true, page: 'maker' }); } catch (e) { /* noop */ }
+    };
+    setTimeout(attempt, 3000);
+  })();
 }
+
 
 /* 모바일 텍스트 브랜치 빈 화면(#mtb-start-template) 핸들러 */
 async function _mtbCreateBase10Template() {

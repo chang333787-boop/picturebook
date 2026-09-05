@@ -183,3 +183,7 @@ else                                         → RESUME    (배치 호출 → WA
 - `6ca032e` **LV1-WAIT-1c**: 복귀 훅을 페이지 로드 타이머(3초+makerSession 15초 대기)에서 **'팀 진입 완료' 이벤트**(`gaji:branch-entered`, firebase.js `_enterTeam` scenes 첫 스냅샷 false→true 전이에서 1회 dispatch)로 교체. PIN을 천천히 치는 아이·같은 탭 모둠 교체도 놓치지 않는다. 오버레이(나침반 게이트/흐름/리뷰/인트로/가치/환영)가 떠 있으면 2초 폴링(최대 20분) 뒤 mount.
 - **그리기 경로 PoC(9999 심사8)**: 선택 카드 [✏️ 내 주인공 그리기] → `lv1Protag='draw'` → 🌱 초안 → `afterDraft`가 DRAW(fresh)로 판정 → `__lv1GoToStudio`(같은 탭 이동 `viewer.html?…edit=1&from=maker&scene=1`) → 데이터 로드 mount(allowPrompt:false)=무소음 → 다듬기 환영 튜토리얼 [건너뛰기] → `_charGate` → mount(allowPrompt:true) → DRAW → **주인공 게이트** → [그리기 시작]=스튜디오 모달(캔버스·특징 입력) 열림 → ✕ 닫기 → 게이트 재표시 → [건너뛰기] → `lv1Protag='ai'` → RESUME(inflight 가드로 1회 호출·resumeCount 1) → viewer 안 WAITING n/13 → (완료 검증은 §12.2).
 - **실학급 스캔(2026-09-05)**: 1단계 팀은 연습반 11·정림초1(연구대회) 7뿐 — **정천초 디싹(실수업 40팀)·우리반 만세엔 1단계 팀 없음**. 그림 0장 고아 3팀(연습반 검토A·검토E, 정림초1 1단계3)은 다음 입장 때 선택 카드→배치가 돈다(각 ~$0.6·의도된 동작). 나머지는 전부 완료(DONE=무소음)거나 초안 전(NONE).
+
+### 12.2 그리기 경로 완료 + 1d
+- 심사8 배치 13/13 **3분 11초**(viewer 안 WAITING → DONE 카드·썸네일 13). 완성 카드 [📖 내 동화책 보기]를 누르자 **다듬기 화면에서 감상(viewer.html?from=maker)으로 재이동** — `_openBook`이 `unmount()`로 M을 비운 뒤 `M_page()`를 불러 DOM 폴백 'maker'로 떨어진 버그. → `13481f5` **1d**: 페이지 판정을 unmount 전에 읽고, 폴백은 `location.pathname`(viewer.html). 아이 입장에선 책이 열리긴 했으나(감상 모드) 다듬기 컨텍스트가 끊기는 문제였음.
+- 지금까지 PoC로 잡은 틈 총 4건(1b 2건·1c 1건·1d 1건) — 전부 "상태 도출"이 아니라 **페이지 배선**(구독 타이밍·훅 트리거·페이지 판정) 쪽. 순수 함수 표는 단 한 번도 틀리지 않았다.

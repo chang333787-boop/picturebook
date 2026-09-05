@@ -2839,30 +2839,35 @@ window.__lv1GoToStudio = function (classId, teamName) {
   else window.location.href = _vurl;
 };
 
-/* 부팅 훅 — 세션이 복원된 1단계 작품이면 서버 상태로 대기화면/선택/그리기 자리로 복귀.
-   장면 로드를 최대 15초 기다린다(초안 전 새 팀이면 NONE → 아무것도 안 함). */
-if (typeof window !== 'undefined' && typeof sessionStorage !== 'undefined') {
-  (function _lv1BootMount() {
+/* 진입 훅 — 1단계 작품에 (재)입장하면 서버 상태로 대기화면/선택/그리기 자리로 복귀.
+   트리거는 firebase.js가 scenes 첫 스냅샷에서 쏘는 'gaji:branch-entered'(입장 폼·tauth·세션 복원 공통).
+   나침반/환영 오버레이가 떠 있으면 닫힐 때까지 2초 폴링(최대 20분) — 나침반이 끝나면 afterDraft가 먼저
+   붙고, 여기의 mount는 같은 인스턴스를 재판정할 뿐이라 이중 표시 없음. 초안 전 새 팀은 NONE=무동작. */
+if (typeof window !== 'undefined') {
+  const _lv1OverlayUp = function () {
+    return !!(document.getElementById('thought-compass-flow') || document.getElementById('thought-compass-review')
+      || document.getElementById('thought-compass-gate') || document.getElementById('thought-compass-intro')
+      || document.getElementById('tutorial-welcome-overlay') || document.getElementById('tc-value-step'));
+  };
+  const _lv1MountAfterEntry = function (classId, teamName) {
     let tries = 0;
     const attempt = function () {
       tries++;
-      let ms = null;
-      try { ms = JSON.parse(sessionStorage.getItem('makerSession') || 'null'); } catch (e) { ms = null; }
-      if (!ms || !ms.classId || !ms.teamName) { if (tries < 30) setTimeout(attempt, 500); return; }
-      const loaded = (typeof window.isBranchScenesLoaded === 'function') ? window.isBranchScenesLoaded() : true;
-      if (!loaded && tries < 30) { setTimeout(attempt, 500); return; }
-      /* 나침반이 떠 있으면 그 흐름이 자기 자리에서 부른다(초안 직후 afterDraft) — 여기선 손 뗀다.
-         환영 튜토리얼(기존 작품 재진입 시 ui.js가 띄움)만 떠 있으면 닫힐 때까지 기다렸다가 붙는다 —
-         종전엔 그냥 return이라 튜토리얼이 닫혀도 대기화면이 안 돌아왔다(PoC에서 확인한 틈). */
-      if (document.getElementById('thought-compass-flow') || document.getElementById('thought-compass-review')
-          || document.getElementById('thought-compass-gate')) return;
-      if (document.getElementById('tutorial-welcome-overlay')) { if (tries < 150) setTimeout(attempt, 2000); return; }
-      try { if (window.Lv1Book) window.Lv1Book.mountIfNeeded({ classId: ms.classId, teamName: ms.teamName }, { allowPrompt: true, page: 'maker' }); } catch (e) { /* noop */ }
+      if (_lv1OverlayUp()) { if (tries < 600) setTimeout(attempt, 2000); return; }
+      try { if (window.Lv1Book) window.Lv1Book.mountIfNeeded({ classId, teamName }, { allowPrompt: true, page: 'maker' }); } catch (e) { /* noop */ }
     };
-    setTimeout(attempt, 3000);
-  })();
+    setTimeout(attempt, 1500);
+  };
+  window.addEventListener('gaji:branch-entered', function (ev) {
+    const d = (ev && ev.detail) || {};
+    let ms = null;
+    try { ms = JSON.parse(sessionStorage.getItem('makerSession') || 'null'); } catch (e) { ms = null; }
+    const classId = d.classId || (ms && ms.classId);
+    const teamName = d.teamName || (ms && ms.teamName);
+    if (!classId || !teamName) return;
+    _lv1MountAfterEntry(String(classId), String(teamName));
+  });
 }
-
 
 /* 모바일 텍스트 브랜치 빈 화면(#mtb-start-template) 핸들러 */
 async function _mtbCreateBase10Template() {

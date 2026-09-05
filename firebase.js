@@ -759,7 +759,18 @@ function _enterTeam(val, teamRef, opts) {
     isRemote = true;
     scenes   = snapshot.val() || {};
     /* BASE10-1: 첫 스냅샷(이후 모든 스냅샷)에서 true. 이 시점부터 scenes는 DB 실측값. */
-    window.__branchScenesLoaded = true;
+    if (!window.__branchScenesLoaded) {
+      window.__branchScenesLoaded = true;
+      /* LV1-WAIT-1(2026-09-05): 팀(재)입장 후 scenes 첫 스냅샷 = "작품 진입 완료" 단일 신호.
+         1단계 대기화면 복귀(mobileTextBranch 부팅 훅)가 이 이벤트를 듣는다 — 페이지 로드 타이머가
+         아니라 실제 진입 시점 기준이라, PIN을 천천히 치는 아이도·모둠을 바꿔 다시 들어온 경우도
+         놓치지 않는다. 진입 경로(입장 폼·tauth·세션 복원) 전부 이 콜백을 지난다. */
+      try {
+        window.dispatchEvent(new CustomEvent('gaji:branch-entered', {
+          detail: { teamName: val, classId: classId || (opts && opts.classId) || null },
+        }));
+      } catch (e) { /* noop */ }
+    }
     /* ★ buttons 호환 보존 (옵션 2 — viewer-edit가 v0.3 N개 버튼 저장 시):
        snapshot.val()은 DB 노드 본체를 통째로 받아오므로, viewer-edit가 저장한
        buttons[] 배열이 scenes[num].buttons로 자동 들어와 있다.

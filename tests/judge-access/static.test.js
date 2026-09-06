@@ -33,7 +33,8 @@ test('judgeTeamsStatus / judgeTeacherToken — origin·플래그·rate limit·�
   assert.ok(st.includes('Lv1Job.isImageTargetScene'), '완성 판정=서버 술어');
   const tk = INDEX.slice(INDEX.indexOf('exports.judgeTeacherToken'), INDEX.indexOf('helper export (step3'));
   assert.ok(tk.includes('isOriginAllowed(origin)') && tk.includes('_judgeAccessEnabled()') && tk.includes("_judgeRateLimit('judgeTeacher'"), 'token 게이트');
-  assert.ok(tk.includes('classes/${JUDGE_CLASS_ID}/meta/teacher_uid') && tk.includes('createCustomToken(String(tuid), { judge: true })'), '심사반 교사 uid만');
+  assert.ok(tk.includes('classes/${JUDGE_CLASS_ID}/meta/teacher_uid') && tk.includes("admin.auth().updateUser(String(tuid), { password: pw })"), '심사반 교사 uid만·서버 관리 비밀번호');
+  assert.ok(tk.includes("admin/judgeAccess/teacherPassword"), '비밀번호 보관 노드(서버 전용)');
   assert.ok(INDEX.includes("const JUDGE_ACCESS_FLAG_PATH = 'admin/judgeAccess/enabled';"), '플래그 경로');
 });
 
@@ -49,9 +50,9 @@ test('클라 — judge 플래그는 true일 때만 전송, ?judge= 진입은 자
 
 test('첫 화면·judge.html — 링크 3종·from=home·심사1~15 그리드', () => {
   assert.ok(HOME.includes('href="maker.html?from=home"'), '작품 만들기 from=home');
-  assert.ok(HOME.includes('href="viewer.html?code=JL26A&amp;shelf=1"'), '수업 결과물=JL26A 책장');
+  assert.ok(HOME.includes('href="viewer.html?code=0000&amp;shelf=1"'), '수업 결과물=학급 코드 0000 책장');
   assert.ok(HOME.includes('href="judge.html?go=teacher"') && HOME.includes('href="judge.html"'), '교사 화면·체험');
   assert.ok(JUDGE.includes("httpsCallable('judgeTeamsStatus')") && JUDGE.includes("httpsCallable('judgeTeacherToken')"), 'judge.html 콜러블');
-  assert.ok(JUDGE.includes('signInWithCustomToken') && JUDGE.includes("maker.html?admin=1"), '교사 화면 진입');
+  assert.ok(JUDGE.includes('signInWithEmailAndPassword') && JUDGE.includes("maker.html?admin=1"), '교사 화면 진입(password 방식)');
   assert.ok(JUDGE.includes("'maker.html?judge='"), '체험 진입 링크');
 });

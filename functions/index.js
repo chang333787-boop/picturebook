@@ -4510,8 +4510,13 @@ exports.judgeTeamsStatus = onCall(
   }
 );
 
-/* JUDGE-ACCESS-1: 심사반 담당 교사 커스텀 토큰 — 로그인 없이 교사 관리 화면. 플래그가 꺼지면 발급 중단.
-   토큰의 주체는 심사반 meta/teacher_uid(branchtest) 하나뿐·클레임은 계정에 이미 있는 role 그대로. */
+/* JUDGE-ACCESS-1: 심사반 담당 교사(branchtest) 로그인 없이 교사 관리 화면.
+   ① 원래는 커스텀 토큰이었으나 런타임 서비스 계정에 signBlob(IAM Token Creator)이 없어 실패 →
+   ② 서버가 관리하는 비밀번호로 대체: admin/judgeAccess/teacherPassword(없으면 무작위 생성)를
+      Admin SDK updateUser로 계정에 맞춰 두고(idempotent·IAM 불요) 이메일+비밀번호를 돌려준다.
+   노출 범위는 토큰 방식과 같다(플래그가 켜진 동안 사이트 origin에서 호출한 누구나 심사반 교사가 됨).
+   플래그를 끄면 발급 중단. 비밀번호를 갈려면 admin/judgeAccess/teacherPassword 삭제(다음 호출에 재생성).
+   수동 로그인이 필요하면 CLI로 그 노드를 읽으면 된다. */
 exports.judgeTeacherToken = onCall(
   { enforceAppCheck: false },
   async (req) => {
@@ -4521,16 +4526,24 @@ exports.judgeTeacherToken = onCall(
     if (!(await _judgeRateLimit('judgeTeacher', 20))) throw new HttpsError('resource-exhausted', '잠시 후 다시 시도해 주세요.');
     const tuid = (await admin.database().ref(`classes/${JUDGE_CLASS_ID}/meta/teacher_uid`).once('value')).val();
     if (!tuid) throw new HttpsError('failed-precondition', '심사반 교사 계정을 찾지 못했어요.');
-    let token;
-    try { token = await admin.auth().createCustomToken(String(tuid), { judge: true }); }
-    catch (e) {
-      /* 흔한 원인: 런타임 서비스 계정에 roles/iam.serviceAccountTokenCreator(signBlob) 없음 → GCP IAM에서 부여 */
-      logger.error('[judgeTeacherToken] createCustomToken 실패', { err: String((e && (e.message || e.code)) || e).slice(0, 300) });
+    try {
+      const userRec = await admin.auth().getUser(String(tuid));
+      const email = userRec && userRec.email;
+      if (!email) throw new Error('teacher email missing');
+      const pwRef = admin.database().ref('admin/judgeAccess/teacherPassword');
+      let pw = (await pwRef.once('value')).val();
+      if (typeof pw !== 'string' || pw.length < 12) {
+        pw = require('crypto').randomBytes(18).toString('base64url');
+        await pwRef.set(pw);
+      }
+      await admin.auth().updateUser(String(tuid), { password: pw });   /* 계정과 동기(idempotent) */
+      await admin.database().ref('ai-stats/judgeSignIn').push({ at: admin.database.ServerValue.TIMESTAMP, origin: String(origin).slice(0, 80) }).catch(() => {});
+      logger.info('[judgeTeacherToken] 발급(password)');
+      return { ok: true, method: 'password', email, password: pw };
+    } catch (e) {
+      logger.error('[judgeTeacherToken] 발급 실패', { err: String((e && (e.message || e.code)) || e).slice(0, 300) });
       throw new HttpsError('internal', '심사위원 교사 화면을 여는 데 실패했어요. 잠시 후 다시 시도해 주세요.');
     }
-    await admin.database().ref('ai-stats/judgeSignIn').push({ at: admin.database.ServerValue.TIMESTAMP, origin: String(origin).slice(0, 80) }).catch(() => {});
-    logger.info('[judgeTeacherToken] 발급');
-    return { ok: true, token };
   }
 );
 

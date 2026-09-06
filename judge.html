@@ -58,9 +58,8 @@
 
     <section class="jg__card" id="jg-results">
       <h2>📚 수업 결과물</h2>
-      <p>정림초 4학년 학급이 수업에서 만든 작품이 담긴 <b>우리반 책장</b>입니다. 표지를 누르면 감상이 시작되고, 갈래를 고르며 읽을 수 있어요.</p>
-      <a class="jg__btn jg__btn--primary" href="viewer.html?code=JL26A&amp;shelf=1">📚 우리반 책장 열기</a>
-      <a class="jg__btn" href="viewer.html?code=JL26A&amp;team=0000" style="margin-left:6px;">대표 작품(0000) 바로 보기</a>
+      <p>수업에서 만든 작품이 담긴 <b>우리반 책장(학급 코드 0000)</b>입니다. 표지를 누르면 감상이 시작되고, 갈래를 고르며 읽을 수 있어요.</p>
+      <a class="jg__btn jg__btn--primary" href="viewer.html?code=0000&amp;shelf=1">📚 우리반 책장 열기</a>
     </section>
 
     <section class="jg__card" id="jg-teacher">
@@ -136,8 +135,9 @@
         try {
           const r = await fns.httpsCallable('judgeTeacherToken')({});
           const d = (r && r.data) || {};
-          if (d.ok !== true || !d.token) { st.textContent = '지금은 심사 기간이 아니에요. 교사 로그인 화면(첫 화면 → 수업 관리)을 이용해 주세요.'; btn.disabled = false; busy = false; return; }
-          await firebase.auth().signInWithCustomToken(d.token);
+          if (d.ok !== true || !(d.token || (d.method === 'password' && d.email && d.password))) { st.textContent = '지금은 심사 기간이 아니에요. 교사 로그인 화면(첫 화면 → 수업 관리)을 이용해 주세요.'; btn.disabled = false; busy = false; return; }
+          if (d.method === 'password') await firebase.auth().signInWithEmailAndPassword(d.email, d.password);
+          else await firebase.auth().signInWithCustomToken(d.token);
           st.textContent = '열리는 중…';
           location.href = 'maker.html?admin=1';
         } catch (e) {

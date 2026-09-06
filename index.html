@@ -269,6 +269,17 @@
   .v .wh-card { padding: 22px 22px 20px; gap: 8px; }
   .v .wh-card__desc { margin: 2px 0 4px; }
   .v .wh__credits { margin-top: 6px; }
+  /* HOME-TIGHT-2(2026-09-06 사용자 '카드가 굳이 저렇게 커야 하나'): 카드 내부 축소 — 아이콘 56→44, 제목 24→20,
+     설명 14→13, 여백 절반. 모바일(≤640) compact 규칙은 warm-screens 그대로. */
+  @media (min-width: 641px) {
+    .v .wh-card { padding: 16px 18px 16px; gap: 6px; }
+    .v .wh-card__icon { width: 44px; height: 44px; font-size: 22px; }
+    .v .wh-card__kicker { font-size: 15px; margin-bottom: -4px; }
+    .v .wh-card__title { font-size: 20px; }
+    .v .wh-card__desc { font-size: 13px; line-height: 1.6; margin: 0; }
+    .v .wh-card__cta { margin-top: 6px; font-size: 13px; padding: 7px 14px; }
+    .v .wh__cards { gap: 14px; }
+  }
   html, body { margin: 0; padding: 0; background: #fbf6ea; }
   body { min-height: 100vh; min-height: 100dvh; }
   .v { min-height: 100vh; min-height: 100dvh; }

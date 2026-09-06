@@ -21,6 +21,9 @@
    ================================================================ */
 
 /* ── 관리자 세션 상태 ── */
+/* APP-DIALOG-1(2026-09-06): 교사 관리 콘솔의 confirm/prompt도 가지 디자인 창으로. 헬퍼 없으면 기본 창 폴백. */
+const _ac = (msg) => (typeof window.appConfirm === 'function') ? window.appConfirm({ message: msg }) : Promise.resolve(window.confirm(msg));
+const _ap = (msg, def) => (typeof window.appPrompt === 'function') ? window.appPrompt({ message: msg }, def) : Promise.resolve(window.prompt(msg, def));
 const adminState = {
   verified:    false,
   allTeams:    [],      // 로드된 팀 데이터 배열
@@ -241,7 +244,7 @@ async function _renderMasterClassPicker() {
     const cid = selEl ? selEl.value : '';
     const label = selEl ? selEl.options[selEl.selectedIndex].textContent : cid;
     if (!cid) return;
-    if (!confirm(`[${label}]\n이 학급 모든 팀의 AI 사용 횟수를 리셋할까요?\n(작품 데이터는 건드리지 않아요)`)) return;
+    if (!await _ac(`[${label}]\n이 학급 모든 팀의 AI 사용 횟수를 리셋할까요?\n(작품 데이터는 건드리지 않아요)`)) return;
     const btn = host.querySelector('#admin-master-reset-ai');
     btn.disabled = true; btn.textContent = '리셋 중...';
     try {
@@ -695,7 +698,7 @@ async function _saveAiSettings(classId, state, panel, saveBtn, statusEl) {
      이 상태로 저장하려 하면 경고(막지는 않음). aiSettings는 이 저장 외엔 어떤 코드도 안 건드림(리셋 없음). */
   const _anyMode = payload.modes && Object.keys(payload.modes).some(k => payload.modes[k] === true);
   if (payload.enabled && !_anyMode) {
-    const _go = confirm('‘AI 전체’는 켜졌지만 사용할 기능(예: AI 그림책 마감)이 하나도 안 켜졌어요.\n이대로 저장하면 AI를 쓸 수 없어요(권한 없음으로 표시돼요).\n그래도 저장할까요?');
+    const _go = await _ac('‘AI 전체’는 켜졌지만 사용할 기능(예: AI 그림책 마감)이 하나도 안 켜졌어요.\n이대로 저장하면 AI를 쓸 수 없어요(권한 없음으로 표시돼요).\n그래도 저장할까요?');
     if (!_go) return;
   }
 
@@ -1057,7 +1060,7 @@ function _openCsvBulkOverlay(classId) {
   let rows = [];
   let running = false;
 
-  function close() { if (running) { if (!confirm('만들기가 진행 중이에요. 정말 닫을까요?')) return; } ov.remove(); }
+  async function close() { if (running) { if (!await _ac('만들기가 진행 중이에요. 정말 닫을까요?')) return; } ov.remove(); }
   $('[data-act="close"]').addEventListener('click', close);
   ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
   document.addEventListener('keydown', function onEsc(ev) {
@@ -2106,7 +2109,7 @@ async function _renderShelfCommentPanel(classId) {
        OFF면 켜고 복사(정직 고지) → 켰으면 패널 리렌더로 ON 반영. */
     try {
       if (!shelfPublic) {
-        const ok = confirm('우리 반 책장을 링크로 공개할까요?\n\n이 링크가 있으면 클래스 코드 없이 누구나 책장(공개된 작품들)을 볼 수 있어요.');
+        const ok = await _ac('우리 반 책장을 링크로 공개할까요?\n\n이 링크가 있으면 클래스 코드 없이 누구나 책장(공개된 작품들)을 볼 수 있어요.');
         if (!ok) return;
         await db.ref(`classes/${classId}/settings/shelfPublic`).set(true);
       }
@@ -2126,7 +2129,7 @@ async function _renderShelfCommentPanel(classId) {
            교사가 원하면 여전히 4~6자로 직접 지정 가능(검증식 불변). */
         const _sugg = Array.from({ length: 6 }, () =>
           'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 32)]).join('');
-        const c = prompt('댓글 코드를 정해주세요 (숫자/영문 4~6자)', _sugg);
+        const c = await _ap('댓글 코드를 정해주세요 (숫자/영문 4~6자)', _sugg);
         if (!c) return;
         const cc = c.trim();
         if (!/^[A-Za-z0-9]{4,6}$/.test(cc)) { alert('코드는 숫자/영문 4~6자로 해주세요.'); return; }
@@ -2137,7 +2140,7 @@ async function _renderShelfCommentPanel(classId) {
     } catch (e) { alert('설정을 저장하지 못했어요.'); }
   });
   host.querySelector('#asc-cmt-change')?.addEventListener('click', async () => {
-    const c = prompt('새 댓글 코드 (숫자/영문 4~6자) — 이전 코드는 바로 무효가 돼요', commentCode || '');
+    const c = await _ap('새 댓글 코드 (숫자/영문 4~6자) — 이전 코드는 바로 무효가 돼요', commentCode || '');
     if (!c) return;
     const cc = c.trim();
     if (!/^[A-Za-z0-9]{4,6}$/.test(cc)) { alert('코드는 숫자/영문 4~6자로 해주세요.'); return; }
@@ -2185,7 +2188,7 @@ async function _openCommentsManage(encodedName, teamName) {
         <button type="button" class="acm-del" data-id="${_escHtml(c.id)}" style="border:1px solid #d9948a;background:#fff5f2;color:#b3402e;border-radius:7px;padding:4px 9px;font-size:11.5px;cursor:pointer;flex:0 0 auto;">삭제</button>
       </div>`).join('');
     listEl.querySelectorAll('.acm-del').forEach(b => b.addEventListener('click', async () => {
-      if (!confirm('이 댓글을 지울까요?')) return;
+      if (!await _ac('이 댓글을 지울까요?')) return;
       try { await ref.child(b.dataset.id).remove(); _load(); }
       catch (e) { alert('지우지 못했어요.'); }
     }));
@@ -2207,7 +2210,7 @@ async function _toggleIsPublic(encodedName, teamName, currentIsPublic) {
   const _msg = newIsPublic
     ? `"${teamName}" 작품을 공개할까요?\n· 우리 반 책장에 올라가요.\n· 감상 링크가 있으면 로그인 없이 누구나 볼 수 있어요.`
     : `"${teamName}" 작품을 비공개로 바꿀까요?\n(책장에서 내려가고, 링크로도 볼 수 없게 돼요)`;
-  if (!confirm(_msg)) return;
+  if (!await _ac(_msg)) return;
 
   try {
     await _applyIsPublic(encodedName, newIsPublic);
@@ -2271,7 +2274,7 @@ async function _copyTeamViewLink(encodedName, teamName, isPublic) {
   const url = _teamViewShareUrl(teamName);
 
   if (!isPublic) {
-    const ok = confirm(`"${teamName}" 작품의 감상 링크를 만들까요?\n\n먼저 이 작품을 공개해요.\n감상 링크가 있으면 로그인 없이 누구나 볼 수 있어요.`);
+    const ok = await _ac(`"${teamName}" 작품의 감상 링크를 만들까요?\n\n먼저 이 작품을 공개해요.\n감상 링크가 있으면 로그인 없이 누구나 볼 수 있어요.`);
     if (!ok) return;
     try {
       await _applyIsPublic(encodedName, true);
@@ -2326,7 +2329,7 @@ async function _changeTeamNickname(encodedName, teamName) {
     : `teams/${encodedName}/viewer-meta/nickname`;
   let cur = '';
   try { cur = (await db.ref(nickPath).once('value')).val() || ''; } catch (e) { cur = ''; }
-  const input = prompt(
+  const input = await _ap(
     `"${teamName}" 의 책장 표시 이름(닉네임)을 정해요.\n` +
     `· 로그인 아이디("${teamName}")는 그대로예요 — 데이터 안 날아가요.\n` +
     `· 비우고 확인하면 아이디가 그대로 표시돼요. (최대 30자)`,
@@ -2349,7 +2352,7 @@ async function _changeTeamPin(encodedName, displayName) {
   if (!ref) { alert('이 팀의 계정 정보를 찾을 수 없어요.'); return; }
 
   /* TEAM-ACCOUNT-CARD-1: 비우고 확인하면 4자리 자동 생성(모달 없이 최소 변경). */
-  const input = prompt(`"${displayName}" 팀의 새 PIN을 숫자 4~6자리로 입력해 주세요.\n(비우고 확인하면 자동으로 만들어요)`);
+  const input = await _ap(`"${displayName}" 팀의 새 PIN을 숫자 4~6자리로 입력해 주세요.\n(비우고 확인하면 자동으로 만들어요)`);
   if (input === null) return;                 /* 취소 → 아무것도 안 함 */
   let newPin = input.trim();
   if (newPin === '') newPin = _genPin(_knownAccountPins());   /* 자동 생성 */
@@ -2377,7 +2380,7 @@ async function _toggleTeamLock(encodedName, displayName, currentStatus) {
   const confirmMsg = (newStatus === 'locked')
     ? `"${displayName}" 팀을 잠글까요?\n잠금 상태에서는 학생이 이 팀으로 입장할 수 없어요. (작품 데이터는 그대로 유지돼요.)`
     : `"${displayName}" 팀의 잠금을 해제할까요?\n해제하면 학생이 다시 입장할 수 있어요.`;
-  if (!confirm(confirmMsg)) return;
+  if (!await _ac(confirmMsg)) return;
 
   try {
     /* ⚠️ status·updatedAt child만 update */
@@ -2403,7 +2406,7 @@ async function _deleteAccountOnly(encodedName, displayName) {
   if (!adminState.verified) return;
   const ref = _accountRef(encodedName);
   if (!ref) { alert('이 팀의 계정 정보를 찾을 수 없어요.'); return; }
-  const ok = confirm(
+  const ok = await _ac(
     `"${displayName}" 모둠의 입장 계정만 지울까요?\n\n` +
     `• 작품(장면·그림)은 그대로 남아요.\n` +
     `• 학생은 더 이상 이 이름·비밀번호(PIN)로 새로 입장할 수 없어요.\n` +
@@ -2438,9 +2441,9 @@ async function _registerExistingTeam(encodedName, displayName) {
   const ref = _accountRef(encodedName);
   if (!ref) { alert('이 팀의 계정 정보를 찾을 수 없어요.'); return; }
 
-  if (!confirm(`"${displayName}" 팀을 관리팀으로 등록할까요?\n기존 작품은 그대로 두고, 이 팀에 새 PIN을 부여해 교사 관리팀으로 등록합니다.`)) return;
+  if (!await _ac(`"${displayName}" 팀을 관리팀으로 등록할까요?\n기존 작품은 그대로 두고, 이 팀에 새 PIN을 부여해 교사 관리팀으로 등록합니다.`)) return;
 
-  const input = prompt(`"${displayName}" 팀에 부여할 새 PIN을 숫자 4~6자리로 입력해 주세요.`);
+  const input = await _ap(`"${displayName}" 팀에 부여할 새 PIN을 숫자 4~6자리로 입력해 주세요.`);
   if (input === null) return;                 /* 취소 → 아무것도 안 함 */
   const newPin = input.trim();
   if (!/^[0-9]{4,6}$/.test(newPin)) {
@@ -2677,11 +2680,11 @@ function _memberSectionHtml(team) {
    서버 콜러블 adminResetPicturebookWork가 장면·AI 결과/변형·나침반·팀당 AI 총량·
    작품 quota를 원자적으로 리셋(계정/PIN/단계 유지). 담당 교사/총괄만(서버 재검증).
    삭제(_deleteTeam)와 동일한 타이핑 확인. 성공 시 캐시 무효화 후 목록 재로딩. */
-function _resetPicturebookWorkFlow(displayName) {
+async function _resetPicturebookWorkFlow(displayName) {
   if (!adminState.verified) return;
   const cid = adminState.adminClassId;
   if (!cid) { alert('학급 정보를 확인하지 못했어요. 새로고침 후 다시 시도해 주세요.'); return; }
-  const typed = prompt(
+  const typed = await _ap(
     `🔄 [${displayName}] 모둠의 동화책을 처음부터 다시 시작해요.\n\n` +
     `- 모든 장면·그림·AI 결과가 삭제돼요 (되돌릴 수 없어요)\n` +
     `- 생각 나침반도 처음으로 돌아가요 — 학생이 다시 답하면 AI가 새 초안을 만들어 줘요\n` +
@@ -2705,15 +2708,15 @@ function _resetPicturebookWorkFlow(displayName) {
     });
 }
 
-function _deleteTeam(encodedName, displayName) {
+async function _deleteTeam(encodedName, displayName) {
   if (!adminState.verified) return;
-  if (!confirm(`"${displayName}" 팀의 모든 데이터를 삭제할까요?\n이 작업은 되돌릴 수 없어요!`)) return;
+  if (!await _ac(`"${displayName}" 팀의 모든 데이터를 삭제할까요?\n이 작업은 되돌릴 수 없어요!`)) return;
 
   /* 2026-05-29 admin 1차: 강한 확인 — 팀 이름을 정확히 다시 입력해야 remove() 실행.
      · 옛엔 confirm() 한 번뿐 — 실수 클릭 시 학생 작품 복구 X
      · prompt 입력값이 teamName과 정확히 일치해야 진행
      · 취소 / 빈 값 / 불일치 → remove() 호출 경로 진입 안 함 (안전 우선) */
-  const typed = prompt(
+  const typed = await _ap(
     `⚠️ 마지막 확인 — 이 작업은 복구할 수 없어요.\n\n` +
     `삭제하려면 팀 이름을 정확히 입력해주세요:\n"${displayName}"\n\n` +
     `(취소하거나 다르게 입력하면 삭제되지 않아요)`
@@ -3250,7 +3253,7 @@ async function _deleteSavedDraft(classId, id) {
   if (!classId || !id) return;
   /* 테스트 모드(?test=1)에서는 실제 저장된 대본을 지우지 못하게 막음(생성 저장이 test에서 스킵되는 것과 대칭) */
   if (/[?&]test=1/.test(location.search)) { alert('테스트 모드에서는 저장된 대본을 삭제할 수 없어요.'); return; }
-  if (!confirm('이 저장된 대본을 삭제할까요? (되돌릴 수 없어요)')) return;
+  if (!await _ac('이 저장된 대본을 삭제할까요? (되돌릴 수 없어요)')) return;
   try {
     await db.ref(`classes/${classId}/scriptDrafts/${id}`).remove();
     _renderSavedDrafts(classId);

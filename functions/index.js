@@ -4501,8 +4501,11 @@ exports.judgeTeamsStatus = onCall(
       const level = meta && (Number(meta.picturebookLevel) || null);
       const type = (meta && meta.projectType) || null;
       const title = (sc['1'] && typeof sc['1'].title === 'string') ? sc['1'].title.slice(0, 40) : '';
+      /* 단계는 골랐는데 아직 글이 없음(나침반 진행 중·중단) = 'started' — "비어 있음"으로 보이면 심사위원끼리
+         헷갈린다는 지적(2026-09-06). 글이 있으면 1단계는 그림 진행/완성, 2·3단계는 작성 중. */
       let stage = 'empty';
       if (targets > 0) stage = (level === 1) ? (have >= targets ? 'done' : 'images') : 'writing';
+      else if (level) stage = 'started';
       teams.push({ name, level, type, stage, title, imagesDone: have, imagesTotal: targets });
     }
     teams.sort((a, b) => _judgeTeamOrder(a.name) - _judgeTeamOrder(b.name));

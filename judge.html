@@ -71,14 +71,13 @@
     </section>
 
     <section class="jg__card" id="jg-teams">
-      <h2>🎭 심사위원 체험</h2>
-      <p>모둠을 하나 골라 누르면 바로 들어갑니다(PIN 없음). <b>비어 있음</b> 모둠에서 새로 시작하고, 이미 만들어진 모둠은 이어서 보거나 다듬어 볼 수 있어요. 한 모둠에는 한 작품만 담기니 다른 단계를 해 보려면 다른 모둠을 고르세요.</p>
+      <p><b>비어 있음</b> 모둠에서 새로 시작하고, <b>진행 중</b>·<b>완성</b> 모둠은 눌러서 이어서 보거나 다듬어 볼 수 있어요.</p>
       <div class="jg__levels" aria-label="단계 안내">
         <div class="jg__level"><div class="jg__level-head"><span class="jg__level-tag">1단계</span><b>나의 동화책을 만들어줘요</b></div><p>생각 나침반 9문항에 답하고 주인공을 정하면, AI가 <b>글과 그림 13장을 완성</b>합니다(3~4분 대기). 아이는 완성된 책에서 글자 위치와 글을 다듬어요. <span class="jg__level-for">저학년 추천</span></p></div>
         <div class="jg__level"><div class="jg__level-head"><span class="jg__level-tag">2단계</span><b>도움을 받아 만들어봐요</b></div><p>AI가 <b>처음 3장면만</b> 써 주고, 아이가 힌트를 보며 나머지를 이어 씁니다. 그림은 아이가 구도를 그리면 AI가 완성도만 높여요. <span class="jg__level-for">중학년 추천</span></p></div>
         <div class="jg__level"><div class="jg__level-head"><span class="jg__level-tag">3단계</span><b>갈림길이 있는 이야기를 스스로</b></div><p>글도 그림도 아이가 만들고, <b>선택지에 따라 갈라지는 분기</b>를 직접 설계합니다. AI는 원본을 보존한 채 제안만 하고 아이가 비교해 고릅니다. <span class="jg__level-for">고학년 추천</span></p></div>
       </div>
-      <p class="jg__note">모둠에 들어가면 먼저 단계를 고르는 화면이 나옵니다. 한 모둠에는 한 작품(한 단계)만 담기니, 다른 단계를 보려면 다른 모둠을 고르세요.</p>
+      <p class="jg__note">모둠에 들어가면 먼저 단계를 고르는 화면이 나옵니다. 한 모둠에는 한 작품(한 단계)만 담기니, 다른 단계를 보려면 다른 모둠을 고르세요. 배지는 실시간 상태예요 — 진행 중인 모둠은 그 심사위원이 이어서 쓰는 중일 수 있어요.</p>
       <div class="jg__grid" id="jg-grid" aria-live="polite"><span class="jg__status">모둠 상태를 불러오는 중…</span></div>
     </section>
   </main>
@@ -106,7 +105,8 @@
       /* ── 심사 체험 모둠 목록 ── */
       const STAGE = {
         empty:   { cls: 'empty',   label: '비어 있음 · 새로 시작' },
-        writing: { cls: 'writing', label: (t) => (t.level ? t.level + '단계 · ' : '') + '글 작성됨' },
+        started: { cls: 'images',  label: (t) => (t.level || '?') + '단계 · 진행 중 (나침반)' },
+        writing: { cls: 'writing', label: (t) => (t.level ? t.level + '단계 · ' : '') + '글 작성 중' },
         images:  { cls: 'images',  label: (t) => (t.level || 1) + '단계 · 그림 ' + t.imagesDone + '/' + t.imagesTotal },
         done:    { cls: 'done',    label: (t) => (t.level || 1) + '단계 · 완성' },
       };

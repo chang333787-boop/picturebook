@@ -43,7 +43,14 @@
     .jg__team-badge--writing { background:#e2eef8; color:#2f5a86; }
     .jg__team-badge--empty { background:#f1e9d6; color:#8a7a5e; }
     .jg__team-title { font-size:12px; color:#5a4b36; line-height:1.35; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
-    .jg__note { font-size:12.5px; color:#7d6f57; line-height:1.55; margin-top:12px; }
+    .jg__note { font-size:12.5px; color:#7d6f57; line-height:1.55; margin:10px 0 12px; }
+    .jg__levels { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px; margin:4px 0 2px; }
+    .jg__level { background:#fff; border:1.5px solid rgba(160,120,70,0.28); border-radius:14px; padding:12px 14px; }
+    .jg__level-head { display:flex; align-items:center; gap:8px; margin-bottom:6px; font-family:'Jua', sans-serif; font-size:15px; }
+    .jg__level-tag { display:inline-block; padding:2px 9px; border-radius:999px; background:#f4e6c8; color:#7a5320; font-size:12px; }
+    .jg__level p { margin:0; font-size:12.5px; color:#5a4b36; line-height:1.55; }
+    .jg__level-for { display:inline-block; margin-top:4px; color:#8a7a5e; font-size:11.5px; }
+    @media (max-width:700px) { .jg__levels { grid-template-columns:1fr; } }
     @media (max-width:640px) { .jg { padding:22px 16px 32px; } .jg__title { font-size:26px; } .jg__grid { grid-template-columns:repeat(auto-fill, minmax(130px, 1fr)); } }
   </style>
 </head>
@@ -66,8 +73,13 @@
     <section class="jg__card" id="jg-teams">
       <h2>🎭 심사위원 체험</h2>
       <p>모둠을 하나 골라 누르면 바로 들어갑니다(PIN 없음). <b>비어 있음</b> 모둠에서 새로 시작하고, 이미 만들어진 모둠은 이어서 보거나 다듬어 볼 수 있어요. 한 모둠에는 한 작품만 담기니 다른 단계를 해 보려면 다른 모둠을 고르세요.</p>
+      <div class="jg__levels" aria-label="단계 안내">
+        <div class="jg__level"><div class="jg__level-head"><span class="jg__level-tag">1단계</span><b>나의 동화책을 만들어줘요</b></div><p>생각 나침반 9문항에 답하고 주인공을 정하면, AI가 <b>글과 그림 13장을 완성</b>합니다(3~4분 대기). 아이는 완성된 책에서 글자 위치와 글을 다듬어요. <span class="jg__level-for">저학년 추천</span></p></div>
+        <div class="jg__level"><div class="jg__level-head"><span class="jg__level-tag">2단계</span><b>도움을 받아 만들어봐요</b></div><p>AI가 <b>처음 3장면만</b> 써 주고, 아이가 힌트를 보며 나머지를 이어 씁니다. 그림은 아이가 구도를 그리면 AI가 완성도만 높여요. <span class="jg__level-for">중학년 추천</span></p></div>
+        <div class="jg__level"><div class="jg__level-head"><span class="jg__level-tag">3단계</span><b>갈림길이 있는 이야기를 스스로</b></div><p>글도 그림도 아이가 만들고, <b>선택지에 따라 갈라지는 분기</b>를 직접 설계합니다. AI는 원본을 보존한 채 제안만 하고 아이가 비교해 고릅니다. <span class="jg__level-for">고학년 추천</span></p></div>
+      </div>
+      <p class="jg__note">모둠에 들어가면 먼저 단계를 고르는 화면이 나옵니다. 한 모둠에는 한 작품(한 단계)만 담기니, 다른 단계를 보려면 다른 모둠을 고르세요.</p>
       <div class="jg__grid" id="jg-grid" aria-live="polite"><span class="jg__status">모둠 상태를 불러오는 중…</span></div>
-      <p class="jg__note">단계 안내 — 1단계: 생각 나침반에 답하면 AI가 글과 그림을 완성 · 2단계: AI가 시작한 이야기를 이어 쓰기 · 3단계: 갈림길이 있는 이야기를 스스로 만들기</p>
     </section>
   </main>
 

@@ -280,6 +280,14 @@
     .v .wh-card__cta { margin-top: 6px; font-size: 13px; padding: 7px 14px; }
     .v .wh__cards { gap: 14px; }
   }
+  /* HOME-UNIFY-1(2026-09-06 사용자 '작품만들기·감상하기·수업관리 크기 같게, 위(심사위원용)와 통일'):
+     3카드 등폭(1.4fr→1fr)·제작 카드 min-height 해제·심사위원 섹션 폭을 카드 그리드와 동일(980)·간격 동일(12px). */
+  @media (min-width: 641px) {
+    .v .wh__cards { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+    .v .wh-card--make { min-height: 0; }
+    .v .wh__judge { max-width: none; margin-bottom: 0; }
+    .v .wh__judge-row { gap: 12px; }
+  }
   html, body { margin: 0; padding: 0; background: #fbf6ea; }
   body { min-height: 100vh; min-height: 100dvh; }
   .v { min-height: 100vh; min-height: 100dvh; }

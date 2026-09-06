@@ -4524,7 +4524,8 @@ exports.judgeTeacherToken = onCall(
     let token;
     try { token = await admin.auth().createCustomToken(String(tuid), { judge: true }); }
     catch (e) {
-      logger.error('[judgeTeacherToken] createCustomToken 실패', { message: e && e.message });
+      /* 흔한 원인: 런타임 서비스 계정에 roles/iam.serviceAccountTokenCreator(signBlob) 없음 → GCP IAM에서 부여 */
+      logger.error('[judgeTeacherToken] createCustomToken 실패', { err: String((e && (e.message || e.code)) || e).slice(0, 300) });
       throw new HttpsError('internal', '심사위원 교사 화면을 여는 데 실패했어요. 잠시 후 다시 시도해 주세요.');
     }
     await admin.database().ref('ai-stats/judgeSignIn').push({ at: admin.database.ServerValue.TIMESTAMP, origin: String(origin).slice(0, 80) }).catch(() => {});

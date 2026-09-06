@@ -51,6 +51,7 @@
           <li><b>사용량 제한과 기록</b> — 모둠별·학급별 사용 상한이 있고 교사가 사용 기록을 확인합니다. AI 도움의 양은 1단계→3단계로 갈수록 줄어들어, 목표는 AI 없이도 이야기를 구성하는 힘을 기르는 것입니다.</li>
         </ul>
         <div class="cf-ai-note">사용한 AI: 글 — Anthropic Claude API · 그림 — OpenAI 이미지 API (모두 서버 경유, 학생 직접 접속 없음)</div>
+      <div class="cf-ai-basis"><b>근거:</b> AI 제공사인 OpenAI와 Anthropic은 미성년자가 이용하는 교육 서비스에 대해 <b>연령에 맞는 접근 관리, 유해 내용 필터, 사용 모니터링, AI 사용 고지, 아동 개인정보 보호법 준수(보호자 동의)</b>를 갖출 것을 조건으로 API 활용을 허용하고 있습니다(OpenAI 「Under 18 API Guidance」, Anthropic 「Guidelines for Organizations Serving Minors」). 두 회사 모두 API로 전달된 내용을 모델 학습에 사용하지 않습니다. <b>본 프로그램은 위 조치를 모두 갖추었고, 보호자 동의를 받은 뒤 담임교사의 책임 아래 관리합니다.</b></div>
       </div>
   
       <div class="cf-right">
@@ -96,32 +97,33 @@
       body.cf-print-on > *:not(#${ROOT_ID}) { display:none !important; }
       body.cf-print-on #${ROOT_ID} { display:block; }
       #${ROOT_ID} .cf-doc { color:#111; font-family:'Nanum Gothic','Malgun Gothic',sans-serif;
-        font-size:9.6pt; line-height:1.5; word-break:keep-all; }
-      #${ROOT_ID} .cf-head { text-align:center; margin:0 0 4mm; }
+        font-size:9.2pt; line-height:1.42; word-break:keep-all; }
+      #${ROOT_ID} .cf-head { text-align:center; margin:0 0 3mm; }
       #${ROOT_ID} .cf-school { font-size:9.5pt; color:#444; margin:0 0 3mm; text-align:right; }
       #${ROOT_ID} .cf-title { font-size:17pt; font-weight:700; margin:0 0 1.5mm; letter-spacing:.01em; }
       #${ROOT_ID} .cf-sub { font-size:10pt; color:#333; }
-      #${ROOT_ID} .cf-notice { border:1px solid #999; background:#f6f6f6; padding:2.8mm 3.5mm;
-        margin:0 0 3.5mm; font-size:9.2pt; }
-      #${ROOT_ID} .cf-table, #${ROOT_ID} .cf-sign { width:100%; border-collapse:collapse; margin:0 0 3.5mm; }
+      #${ROOT_ID} .cf-notice { border:1px solid #999; background:#f6f6f6; padding:2.3mm 3.2mm;
+        margin:0 0 3mm; font-size:8.9pt; }
+      #${ROOT_ID} .cf-table, #${ROOT_ID} .cf-sign { width:100%; border-collapse:collapse; margin:0 0 3mm; }
       #${ROOT_ID} .cf-table th, #${ROOT_ID} .cf-table td,
-      #${ROOT_ID} .cf-sign th, #${ROOT_ID} .cf-sign td { border:1px solid #666; padding:2mm 3mm; vertical-align:top; }
+      #${ROOT_ID} .cf-sign th, #${ROOT_ID} .cf-sign td { border:1px solid #666; padding:1.6mm 3mm; vertical-align:top; }
       #${ROOT_ID} .cf-table th, #${ROOT_ID} .cf-sign th { width:26mm; background:#efefef; font-weight:700; white-space:nowrap; }
       #${ROOT_ID} .cf-sign th { width:22mm; }
-      #${ROOT_ID} .cf-checks { line-height:1.9; }
-      #${ROOT_ID} .cf-ai { border:1px solid #999; padding:2.8mm 3.5mm; margin:0 0 3.5mm; }
+      #${ROOT_ID} .cf-checks { line-height:1.8; }
+      #${ROOT_ID} .cf-ai { border:1px solid #999; padding:2.3mm 3.2mm; margin:0 0 3mm; }
       #${ROOT_ID} .cf-ai-title { font-size:10.5pt; font-weight:700; margin:0 0 1mm; }
       #${ROOT_ID} .cf-ai-lead { font-size:9pt; color:#333; margin:0 0 1.5mm; }
-      #${ROOT_ID} .cf-ai-list { margin:0; padding-left:4.5mm; font-size:8.9pt; line-height:1.45; }
+      #${ROOT_ID} .cf-ai-list { margin:0; padding-left:4.5mm; font-size:8.6pt; line-height:1.4; }
       #${ROOT_ID} .cf-ai-list li { margin:0 0 0.8mm; }
       #${ROOT_ID} .cf-ai-note { font-size:8.6pt; color:#444; margin-top:1.5mm; }
+      #${ROOT_ID} .cf-ai-basis { font-size:8.4pt; color:#222; margin-top:1.5mm; padding-top:1.3mm; border-top:1px dashed #bbb; line-height:1.4; }
       #${ROOT_ID} .cf-chk { font-size:12pt; }
       #${ROOT_ID} .cf-hint { color:#666; font-size:9pt; }
       #${ROOT_ID} .cf-line { display:inline-block; border-bottom:1px solid #333; vertical-align:baseline; }
       #${ROOT_ID} .cf-line--xs { width:16mm; } #${ROOT_ID} .cf-line--sm { width:32mm; }
       #${ROOT_ID} .cf-line--md { width:42mm; } #${ROOT_ID} .cf-line--lg { width:70mm; }
-      #${ROOT_ID} .cf-right { font-size:9.2pt; margin:0 0 3.5mm; }
-      #${ROOT_ID} .cf-agree { border:1.6px solid #333; padding:2.5mm 3mm; margin:0 0 3.5mm; }
+      #${ROOT_ID} .cf-right { font-size:8.9pt; margin:0 0 3mm; }
+      #${ROOT_ID} .cf-agree { border:1.6px solid #333; padding:2mm 3mm; margin:0 0 3mm; }
       #${ROOT_ID} .cf-agree-row { display:flex; align-items:center; flex-wrap:wrap; gap:0 3mm; padding:1mm 0; }
       #${ROOT_ID} .cf-agree-row + .cf-agree-row { border-top:1px dashed #999; }
       #${ROOT_ID} .cf-agree-label { flex:1 1 auto; font-weight:700; }

@@ -19,7 +19,7 @@
     .cs__btn { display:inline-flex; align-items:center; gap:8px; min-height:42px; padding:8px 18px; border-radius:999px; border:1.5px solid #c66f4a; background:#c66f4a; color:#fffaee; font-family:'Jua', sans-serif; font-size:15px; cursor:pointer; box-shadow:0 2px 8px rgba(80,50,20,0.1); }
     /* 화면 미리보기 = 종이 느낌. 인쇄 규칙(consent-form.js)과 같은 클래스라 종이에서도 동일. */
     .cs__paper { background:#fff; border:1px solid rgba(160,120,70,0.3); border-radius:8px; box-shadow:0 6px 20px rgba(80,50,20,0.08); padding:14mm 15mm; margin:0 auto; max-width:180mm;
-      color:#111; font-family:'Nanum Gothic','Malgun Gothic',sans-serif; font-size:9.6pt; line-height:1.5; }
+      color:#111; font-family:'Nanum Gothic','Malgun Gothic',sans-serif; font-size:9.2pt; line-height:1.42; }
     .cs__paper .cf-head { text-align:center; margin:0 0 4mm; }
     .cs__paper .cf-school { font-size:9.5pt; color:#444; margin:0 0 3mm; text-align:right; }
     .cs__paper .cf-title { font-size:17pt; font-weight:700; margin:0 0 1.5mm; }
@@ -37,9 +37,10 @@
     .cs__paper .cf-ai { border:1px solid #999; padding:2.8mm 3.5mm; margin:0 0 3.5mm; }
     .cs__paper .cf-ai-title { font-size:10.5pt; font-weight:700; margin:0 0 1mm; }
     .cs__paper .cf-ai-lead { font-size:9pt; color:#333; margin:0 0 1.5mm; }
-    .cs__paper .cf-ai-list { margin:0; padding-left:4.5mm; font-size:8.9pt; line-height:1.45; }
+    .cs__paper .cf-ai-list { margin:0; padding-left:4.5mm; font-size:8.6pt; line-height:1.4; }
     .cs__paper .cf-ai-list li { margin:0 0 0.8mm; }
     .cs__paper .cf-ai-note { font-size:8.6pt; color:#444; margin-top:1.5mm; }
+    .cs__paper .cf-ai-basis { font-size:8.4pt; color:#222; margin-top:1.5mm; padding-top:1.3mm; border-top:1px dashed #bbb; line-height:1.4; }
     .cs__paper .cf-right { font-size:9.2pt; margin:0 0 3.5mm; }
     .cs__paper .cf-agree { border:1.6px solid #333; padding:2.5mm 3mm; margin:0 0 3.5mm; }
     .cs__paper .cf-agree-row { display:flex; align-items:center; flex-wrap:wrap; gap:0 3mm; padding:1mm 0; }
@@ -61,7 +62,7 @@
     <p class="cs__sub">교사 관리 화면 → 설명서·인쇄물 탭에서 인쇄하는 서식과 같습니다. 개인정보 수집·이용 동의(①)와 <b>교사 감독 아래 생성형 AI 사용 동의(②)</b>를 한 장에 담았고, 학교·학급·수집 항목은 담임교사가 손으로 채웁니다. 프로그램 자체는 학생 개인정보를 수집하지 않습니다.</p>
     <div class="cs__paper" id="cs-paper"></div>
   </main>
-  <script src="consent-form.js?v=c413d7f410"></script>
+  <script src="consent-form.js?v=e392af7a11"></script>
   <script>
     (function () {
       var host = document.getElementById('cs-paper');

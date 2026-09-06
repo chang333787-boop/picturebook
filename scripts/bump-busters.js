@@ -24,7 +24,7 @@ const path = require('path');
 const crypto = require('crypto');
 
 const ROOT = path.join(__dirname, '..');
-const HTML_FILES = ['index.html', 'maker.html', 'viewer.html', 'branch.html', 'teacher-auth.html', 'privacy.html'];
+const HTML_FILES = ['index.html', 'maker.html', 'viewer.html', 'branch.html', 'teacher-auth.html', 'privacy.html', 'judge.html'];   /* JUDGE-ACCESS-1: 심사위원 안내 페이지 */
 const REF_RE = /(src|href)="([^":]+?\.(?:js|css))\?v=([^"]*)"/g;
 /* 지연 로드 번들(viewer.html EDIT_SRC/AI_SRC/IMG_SRC/STORY_SRC) — 과거 실사고(꼬리 누락)가
    정확히 이 지점. var XXX_SRC = 'file.js?v=...' 형태만 매칭(일반 JS 문자열 오변경 방지). */

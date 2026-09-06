@@ -378,8 +378,29 @@ async function callJoinTeamMembership(args) {
     throw err;
   }
   const callable = app.functions('asia-northeast3').httpsCallable('joinTeamMembership');
-  const res = await callable({ classId: args.classId, teamName: args.teamName, pin: args.pin });
+  /* JUDGE-ACCESS-1: judge:true는 심사 체험 입장(서버가 심사반+플래그 검증). 그 외엔 필드 자체를 안 보낸다(서버 allowlist). */
+  const payload = { classId: args.classId, teamName: args.teamName, pin: args.pin };
+  if (args.judge === true) payload.judge = true;
+  const res = await callable(payload);
   return res && res.data;
+}
+
+/* JUDGE-ACCESS-1(2026-09-05): 심사위원 체험 입장 — 첫 화면/judge.html의 [심사N] 버튼 → maker.html?judge=심사N.
+   익명 auth로 joinTeamMembership(judge:true) → 서버가 심사반·플래그·계정 존재를 검증하고 PIN 없이 membership 발급.
+   성공 시 _enterTeam(학생 입장과 동일 경로). 실패 시 false(호출부가 입장 폼으로 폴백·팀명 채움). */
+async function _judgeJoinTeam(classIdArg, teamName) {
+  if (!classIdArg || !teamName) return false;
+  try {
+    if (!auth.currentUser) await auth.signInAnonymously();
+    const out = await callJoinTeamMembership({ classId: classIdArg, teamName: teamName, judge: true });
+    if (out && out.ok) {
+      classId = classIdArg;
+      const teamRef = db.ref(getTeamPath(encodeURIComponent(teamName), classIdArg));
+      _enterTeam(teamName, teamRef, { sessionKind: 'student' });
+      return true;
+    }
+  } catch (e) { console.warn('[judge] 입장 실패:', (e && (e.code || e.message)) || e); }
+  return false;
 }
 
 /* 중복 클릭 잠금(single-flight) — MembershipLogin 로드 전이면 통과 래퍼 */

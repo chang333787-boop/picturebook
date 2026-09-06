@@ -4238,6 +4238,38 @@ async function _logUsageStats(ctx, ai, costUsd) {
    client는 직접 members를 만들 수 없다(Rules .write:false). PIN 원문은 응답·로그·오류에
    절대 포함하지 않는다. (PIN 경로 .read 잠금은 별도 Security Phase — 현재 client 호환 유지)
    ════════════════════════════════════════════════════════════════ */
+/* ════════════════════════════════════════════════════════════════
+   JUDGE-ACCESS-1(2026-09-05): 심사위원 접근 — 전국대회 교육청 컨설팅 지적(학급 발표·심사위원 접근 불편).
+   ──────────────────────────────────────────────────────────────
+   · 스위치: admin/judgeAccess/enabled (rules read/write:false → 서버만 읽음·CLI/마스터가 켜고 끔)
+   · joinTeamMembership judge:true → 심사반(JUDGE_CLASS_ID) 팀에 PIN 없이 입장(계정 존재·rate limit 유지)
+   · judgeTeamsStatus → 심사1~15 상태(단계·글·그림 완성) 목록 — 첫 화면 심사 체험 버튼의 배지
+   · judgeTeacherToken → 심사반 담당 교사(branchtest) 커스텀 토큰 — 로그인 없이 교사 관리 화면
+   기존 심사반 계정·작품을 그대로 쓴다(신규 계정 생성 없음). 심사가 끝나면 플래그만 false.
+   ════════════════════════════════════════════════════════════════ */
+const JUDGE_ACCESS_FLAG_PATH = 'admin/judgeAccess/enabled';
+async function _judgeAccessEnabled() {
+  try { return (await admin.database().ref(JUDGE_ACCESS_FLAG_PATH).once('value')).val() === true; }
+  catch (e) { return false; }
+}
+function _judgeTeamOrder(name) {
+  const m = /^심사(\d+)$/.exec(String(name || ''));
+  return m ? Number(m[1]) : 999;
+}
+async function _judgeRateLimit(key, max) {
+  const ref = admin.database().ref(`membership-attempts/${key}`);
+  const nowMs = Date.now();
+  let over = false;
+  await ref.transaction((cur) => {
+    cur = cur || {};
+    let count = (typeof cur.count === 'number') ? cur.count : 0;
+    let windowStart = (typeof cur.windowStart === 'number') ? cur.windowStart : 0;
+    if (nowMs - windowStart > MEMBERSHIP_RL_WINDOW_MS) { count = 0; windowStart = nowMs; }
+    if (count >= max) { over = true; return; }
+    return { count: count + 1, windowStart, lastAt: nowMs };
+  });
+  return !over;
+}
 const MEMBERSHIP_VERSION = 1;
 const MEMBERSHIP_RL_WINDOW_MS = 60 * 1000;   /* 1분 창 */
 const MEMBERSHIP_RL_MAX = 5;                 /* 1분 5회 (E2 — 영구 차단 없음) */
@@ -4273,7 +4305,7 @@ exports.joinTeamMembership = onCall(
     if (!data || typeof data !== 'object' || Array.isArray(data)) {
       throw new HttpsError('invalid-argument', '요청 형식이 올바르지 않아요.');
     }
-    const ALLOWED = ['classId', 'teamName', 'pin'];
+    const ALLOWED = ['classId', 'teamName', 'pin', 'judge'];   /* JUDGE-ACCESS-1: judge=true(심사 체험 입장) */
     for (const k of Object.keys(data)) {
       if (!ALLOWED.includes(k)) {
         throw new HttpsError('invalid-argument', '요청에 허용되지 않은 항목이 있어요.');
@@ -4300,7 +4332,17 @@ exports.joinTeamMembership = onCall(
       } catch (e) { isTeacher = false; }
     }
 
-    if (!isTeacher) {
+    /* JUDGE-ACCESS-1(2026-09-05·교육청 컨설팅 지적): 심사위원 체험 — 심사반(JUDGE_CLASS_ID) 팀은
+       admin/judgeAccess/enabled === true 인 동안 PIN 없이 입장(judge:true). 교사 바이패스와 같은 경로를
+       타되 ①심사반 한 학급만 ②서버 플래그로 켜고 끔(심사 끝나면 false) ③rate limit은 그대로.
+       학생 흐름·다른 학급은 100% 그대로. 플래그가 꺼져 있으면 일반 PIN 경로로 떨어진다. */
+    let judgeBypass = false;
+    if (!isTeacher && data.judge === true) {
+      if (classId !== JUDGE_CLASS_ID) throw new HttpsError('permission-denied', '심사 체험은 심사반에서만 할 수 있어요.');
+      judgeBypass = await _judgeAccessEnabled();
+      if (!judgeBypass) throw new HttpsError('permission-denied', '지금은 심사 체험 기간이 아니에요.');
+    }
+    if (!isTeacher && !judgeBypass) {
       if (!_isPlainPin(pin)) {
         throw new HttpsError('invalid-argument', '비밀번호 형식이 올바르지 않아요.');
       }
@@ -4333,7 +4375,7 @@ exports.joinTeamMembership = onCall(
     const GENERIC_DENY = '학급 코드, 모둠 정보 또는 비밀번호를 다시 확인해 주세요.';
 
     /* ADMIN-TEACHER-JOIN: 아래 모드별 PIN 검증은 학생만 — 교사(isTeacher)는 전부 스킵하고 바로 membership 발급. */
-    if (!isTeacher) {
+    if (!isTeacher && !judgeBypass) {
     /* teamCreationMode — 없음/오류/알 수 없는 값 → legacy_open 폴백(client와 동일). */
     let mode = 'legacy_open';
     try {
@@ -4389,19 +4431,37 @@ exports.joinTeamMembership = onCall(
         }
       }
     }
-    }  /* end if (!isTeacher) — 교사는 모드/PIN 검증 전부 스킵 */
+    }  /* end if (!isTeacher && !judgeBypass) — 교사·심사 체험은 모드/PIN 검증 전부 스킵 */
 
+    if (judgeBypass) {
+      /* JUDGE-ACCESS-1: 심사 체험도 남용 방지 rate limit(uid 기준 1분 5회·동일 창 카운터) */
+      const rlRef = admin.database().ref(`membership-attempts/${uid}`);
+      const nowMs = Date.now();
+      let overLimit = false;
+      await rlRef.transaction((cur) => {
+        cur = cur || {};
+        let count = (typeof cur.count === 'number') ? cur.count : 0;
+        let windowStart = (typeof cur.windowStart === 'number') ? cur.windowStart : 0;
+        if (nowMs - windowStart > MEMBERSHIP_RL_WINDOW_MS) { count = 0; windowStart = nowMs; }
+        if (count >= MEMBERSHIP_RL_MAX) { overLimit = true; return; }
+        return { count: count + 1, windowStart, lastAt: nowMs };
+      });
+      if (overLimit) throw new HttpsError('resource-exhausted', '잠시 후 다시 시도해 주세요.');
+      /* 심사반 팀 계정이 실제로 있어야 한다(없는 팀명으로 즉석 생성 금지) */
+      const acc = (await admin.database().ref(`${teamBase}/account`).once('value')).val();
+      if (!acc || acc.status === 'locked') throw new HttpsError('permission-denied', '심사 체험 모둠을 찾지 못했어요.');
+    }
     /* 8. members write — joinedAt 보존, lastVerifiedAt 갱신. 개인정보(이름/PIN/기기) 미저장. */
     const memRef = admin.database().ref(`${teamBase}/members/${uid}`);
     const existed = (await memRef.once('value')).val();
-    await memRef.set({
+    await memRef.set(Object.assign({
       joinedAt: (existed && typeof existed.joinedAt === 'number')
         ? existed.joinedAt : admin.database.ServerValue.TIMESTAMP,
       lastVerifiedAt: admin.database.ServerValue.TIMESTAMP,
       authType: (provider === 'anonymous') ? 'anonymous' : 'auth',
       status: 'active',
       membershipVersion: MEMBERSHIP_VERSION,
-    });
+    }, judgeBypass ? { via: 'judge' } : {}));
 
     /* 성공해도 시도 카운터를 즉시 리셋하지 않음(창 만료 방식 유지 — 공격자가 1회 성공으로
        rate-limit을 무력화하지 못하게). 1분 창이 지나면 자연 리셋. */
@@ -4409,6 +4469,67 @@ exports.joinTeamMembership = onCall(
 
     /* 9. 최소 응답 — 팀 존재/PIN 세부 비노출 */
     return { ok: true, membershipVersion: MEMBERSHIP_VERSION };
+  }
+);
+
+/* JUDGE-ACCESS-1: 심사 체험 모둠 상태 — 인증 불요(첫 화면·judge.html). origin+플래그+rate limit. */
+exports.judgeTeamsStatus = onCall(
+  { enforceAppCheck: false },
+  async (req) => {
+    const origin = (req.rawRequest && req.rawRequest.headers && req.rawRequest.headers.origin) || '';
+    if (!isOriginAllowed(origin)) throw new HttpsError('permission-denied', '허용되지 않은 요청이에요.');
+    if (!(await _judgeAccessEnabled())) return { ok: false, code: 'JUDGE_OFF', teams: [] };
+    if (!(await _judgeRateLimit('judgeStatus', 60))) throw new HttpsError('resource-exhausted', '잠시 후 다시 시도해 주세요.');
+    const base = admin.database().ref(`classes/${JUDGE_CLASS_ID}/teams`);
+    const keys = Object.keys((await base.once('value')).val() || {});
+    const teams = [];
+    for (const k of keys) {
+      const name = decodeURIComponent(k);
+      if (!/^심사\d+$/.test(name)) continue;
+      const t = base.child(k);
+      const [acc, meta, scenes, images] = await Promise.all([
+        t.child('account').once('value').then((x) => x.val()),
+        t.child('viewer-meta').once('value').then((x) => x.val()),
+        t.child('scenes').once('value').then((x) => x.val()),
+        t.child('aiVariants/image').once('value').then((x) => x.val()),
+      ]);
+      if (!acc || acc.status === 'locked') continue;
+      const sc = scenes || {};
+      const targets = Object.keys(sc).filter((sid) => Lv1Job.isImageTargetScene(sc[sid])).length;
+      const im = images || {};
+      const have = Object.keys(sc).filter((sid) => Lv1Job.isImageTargetScene(sc[sid]) && im[sid] && im[sid].s2 && im[sid].s2.url).length;
+      const level = meta && (Number(meta.picturebookLevel) || null);
+      const type = (meta && meta.projectType) || null;
+      const title = (sc['1'] && typeof sc['1'].title === 'string') ? sc['1'].title.slice(0, 40) : '';
+      let stage = 'empty';
+      if (targets > 0) stage = (level === 1) ? (have >= targets ? 'done' : 'images') : 'writing';
+      teams.push({ name, level, type, stage, title, imagesDone: have, imagesTotal: targets });
+    }
+    teams.sort((a, b) => _judgeTeamOrder(a.name) - _judgeTeamOrder(b.name));
+    return { ok: true, teams };
+  }
+);
+
+/* JUDGE-ACCESS-1: 심사반 담당 교사 커스텀 토큰 — 로그인 없이 교사 관리 화면. 플래그가 꺼지면 발급 중단.
+   토큰의 주체는 심사반 meta/teacher_uid(branchtest) 하나뿐·클레임은 계정에 이미 있는 role 그대로. */
+exports.judgeTeacherToken = onCall(
+  { enforceAppCheck: false },
+  async (req) => {
+    const origin = (req.rawRequest && req.rawRequest.headers && req.rawRequest.headers.origin) || '';
+    if (!isOriginAllowed(origin)) throw new HttpsError('permission-denied', '허용되지 않은 요청이에요.');
+    if (!(await _judgeAccessEnabled())) return { ok: false, code: 'JUDGE_OFF' };
+    if (!(await _judgeRateLimit('judgeTeacher', 20))) throw new HttpsError('resource-exhausted', '잠시 후 다시 시도해 주세요.');
+    const tuid = (await admin.database().ref(`classes/${JUDGE_CLASS_ID}/meta/teacher_uid`).once('value')).val();
+    if (!tuid) throw new HttpsError('failed-precondition', '심사반 교사 계정을 찾지 못했어요.');
+    let token;
+    try { token = await admin.auth().createCustomToken(String(tuid), { judge: true }); }
+    catch (e) {
+      logger.error('[judgeTeacherToken] createCustomToken 실패', { message: e && e.message });
+      throw new HttpsError('internal', '심사위원 교사 화면을 여는 데 실패했어요. 잠시 후 다시 시도해 주세요.');
+    }
+    await admin.database().ref('ai-stats/judgeSignIn').push({ at: admin.database.ServerValue.TIMESTAMP, origin: String(origin).slice(0, 80) }).catch(() => {});
+    logger.info('[judgeTeacherToken] 발급');
+    return { ok: true, token };
   }
 );
 

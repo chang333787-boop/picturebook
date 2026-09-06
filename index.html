@@ -141,7 +141,7 @@
       <section class="wh__cards" aria-label="주요 기능">
 
         <!-- ① 작품 만들기 -->
-        <a class="wh-card wh-card--make" href="maker.html" aria-label="작품 만들기로 이동">
+        <a class="wh-card wh-card--make" href="maker.html?from=home" aria-label="작품 만들기로 이동">
           <div class="wh-card__head">
             <span class="wh-card__icon" aria-hidden="true">✎</span>
             <span class="badge badge--make">제작</span>
@@ -186,6 +186,52 @@
         </a>
 
       </section>
+
+      <!-- JUDGE-ACCESS-1(2026-09-05·전국대회 교육청 컨설팅 지적): 학급 발표·심사위원 접근 —
+           수업 결과물(정림초 4학년 책장·JL26A 공개 책장)·심사위원 교사 화면(branchtest·로그인 없이)·
+           심사위원 체험(심사1~15·PIN 없이). 기존 계정·작품을 그대로 쓴다. 서버 스위치
+           admin/judgeAccess/enabled 로 켜고 끔(심사 뒤 false → 교사 화면·체험 버튼은 안내만). -->
+      <section class="wh__judge" aria-label="심사위원용 바로가기">
+        <div class="wh__judge-head">
+          <span class="wh__judge-badge">🏅 심사위원용</span>
+          <p class="wh__judge-desc">수업 결과물과 교사 화면, 체험 모둠으로 <b>로그인 없이</b> 바로 들어갑니다.</p>
+        </div>
+        <div class="wh__judge-row">
+          <a class="wh__judge-btn" href="viewer.html?code=JL26A&amp;shelf=1" aria-label="수업 결과물 — 우리반 책장 보기">
+            <span class="wh__judge-btn-icon" aria-hidden="true">📚</span>
+            <span class="wh__judge-btn-text"><b>수업 결과물</b><small>정림초 4학년 우리반 책장</small></span>
+          </a>
+          <a class="wh__judge-btn" href="judge.html?go=teacher" aria-label="심사위원 교사 화면 열기">
+            <span class="wh__judge-btn-icon" aria-hidden="true">🧑‍🏫</span>
+            <span class="wh__judge-btn-text"><b>심사위원 교사 화면</b><small>수업 관리 · 학급 AI 설정 · 인쇄</small></span>
+          </a>
+          <a class="wh__judge-btn wh__judge-btn--primary" href="judge.html" aria-label="심사위원 체험 — 심사1~15 모둠 고르기">
+            <span class="wh__judge-btn-icon" aria-hidden="true">🎭</span>
+            <span class="wh__judge-btn-text"><b>심사위원 체험</b><small>심사1~15 모둠 · 만들어 보기</small></span>
+          </a>
+        </div>
+      </section>
+      <style>
+        .v .wh__judge { width:100%; max-width:1080px; margin:6px auto 0; padding:16px 18px 18px;
+          background:rgba(255,250,238,0.72); border:1.5px dashed rgba(160,120,70,0.45); border-radius:18px; }
+        .v .wh__judge-head { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:12px; }
+        .v .wh__judge-badge { display:inline-flex; align-items:center; height:28px; padding:0 12px; border-radius:999px;
+          background:#f4e6c8; color:#7a5320; font-family:'Jua','Nanum Gothic',sans-serif; font-size:13.5px; font-weight:700; white-space:nowrap; }
+        .v .wh__judge-desc { margin:0; font-size:13.5px; color:#5a4b36; line-height:1.5; }
+        .v .wh__judge-row { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px; }
+        .v .wh__judge-btn { display:flex; align-items:center; gap:10px; min-height:58px; padding:10px 14px;
+          background:rgba(255,250,238,0.95); border:1.5px solid rgba(160,120,70,0.35); border-radius:14px;
+          text-decoration:none; color:#2b1f10; box-shadow:0 2px 8px rgba(80,50,20,0.08);
+          transition:transform .15s, box-shadow .15s, border-color .15s; }
+        .v .wh__judge-btn:hover { transform:translateY(-1px); border-color:rgba(160,120,70,0.7); box-shadow:0 6px 16px rgba(80,50,20,0.12); }
+        .v .wh__judge-btn--primary { border-color:rgba(198,111,74,0.6); background:#fff3e8; }
+        .v .wh__judge-btn-icon { font-size:22px; flex-shrink:0; line-height:1; }
+        .v .wh__judge-btn-text { display:flex; flex-direction:column; gap:2px; min-width:0; }
+        .v .wh__judge-btn-text b { font-family:'Jua','Nanum Gothic',sans-serif; font-size:15px; font-weight:700; line-height:1.2; }
+        .v .wh__judge-btn-text small { font-size:11.5px; color:#7d6f57; line-height:1.3; }
+        @media (max-width: 980px) { .v .wh__judge { max-width:760px; } .v .wh__judge-btn-text small { display:none; } }
+        @media (max-width: 640px) { .v .wh__judge-row { grid-template-columns:1fr; } .v .wh__judge-btn-text small { display:block; } }
+      </style>
 
       <!-- 조용한 하단 링크 -->
       <p style="text-align:center;margin:22px 0 0;font-size:12px;">

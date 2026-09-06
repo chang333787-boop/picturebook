@@ -1795,6 +1795,7 @@ window.addEventListener('DOMContentLoaded', () => {
   const _teamParam = _spTeam.get('team');
   const _tauthParam = _spTeam.get('tauth') === '1';
   const _classIdParam = _spTeam.get('classId');
+  const _judgeParam = _spTeam.get('judge');   /* JUDGE-ACCESS-1: ?judge=심사N 심사 체험 입장 */
   if (_tauthParam && _teamParam && _classIdParam) {
     /* ADMIN-TEACHER-JOIN(2026-07-09): 로그인 교사는 PIN 없이 자동 입장(편집). auth 복원 후 서버(joinTeamMembership)가
        최종 판별(super_admin ∥ meta/teacher_uid==uid). 시도 중 입장 폼 감춤 → 실패 시 폼으로 폴백(팀명 채우고 PIN 요구). */
@@ -1843,6 +1844,28 @@ window.addEventListener('DOMContentLoaded', () => {
       joinInput.value = _teamParam;
       joinPin?.focus();
     }
+  } else if (_judgeParam) {
+    /* JUDGE-ACCESS-1(2026-09-05): 첫 화면/judge.html [심사N] → PIN 없이 심사반 모둠 입장.
+       auth 복원을 기다린 뒤(교사 세션이 있으면 그대로·없으면 익명) 서버 judge 경로로 membership 발급.
+       실패(플래그 꺼짐 등) → 입장 폼(코드 9999·모둠명 채움)으로 폴백. */
+    const _joinScreenJ = document.getElementById('join-screen');
+    if (_joinScreenJ) _joinScreenJ.classList.add('hidden');
+    const JUDGE_CLASS_ID_CLIENT = 'cls_mrykb7m8_gIlpnw';
+    const _unsubJ = auth.onAuthStateChanged(async () => {
+      _unsubJ();
+      let ok = false;
+      if (typeof _judgeJoinTeam === 'function') {
+        try { ok = await _judgeJoinTeam(JUDGE_CLASS_ID_CLIENT, _judgeParam); } catch (e) { ok = false; }
+      }
+      if (!ok) {
+        if (_joinScreenJ) _joinScreenJ.classList.remove('hidden');
+        const jc = document.getElementById('join-code'); if (jc) jc.value = '9999';
+        const ji = document.getElementById('join-input'); if (ji) ji.value = _judgeParam;
+        if (typeof _maker_hideLoading === 'function') _maker_hideLoading();
+        document.getElementById('join-pin')?.focus();
+        try { alert('지금은 심사 체험 입장이 열려 있지 않아요. 안내받은 PIN으로 들어가 주세요.'); } catch (e) { /* noop */ }
+      }
+    });
   }
 
   /* ================================================================
@@ -1864,7 +1887,8 @@ window.addEventListener('DOMContentLoaded', () => {
   let _hasFreshMakerSession = false;
   if (_resumeParam !== '1'
       && new URLSearchParams(location.search).get('admin') !== '1'
-      && !_teamParam) {
+      && !_teamParam
+      && !_judgeParam) {   /* JUDGE-ACCESS-1: 심사 체험 진입은 요청한 모둠이 우선(이전 세션 자동복귀 안 함) */
     try {
       const _ms = JSON.parse(sessionStorage.getItem('makerSession') || 'null');
       const _MS_MAX_AGE = 2 * 60 * 60 * 1000; // 2시간 (아래 resume 블록 TTL과 동일)
@@ -1889,7 +1913,7 @@ window.addEventListener('DOMContentLoaded', () => {
           const joinScreen = document.getElementById('join-screen');
           if (joinScreen) joinScreen.classList.add('hidden');
 
-          _resumeTeamFromSession(ctx).then(ok => {
+          const _doResume = () => _resumeTeamFromSession(ctx).then(ok => {
             if (!ok && joinScreen) {
               /* 실패 시 원복 — 사용자가 수동 재입장 */
               joinScreen.classList.remove('hidden');
@@ -1899,6 +1923,28 @@ window.addEventListener('DOMContentLoaded', () => {
             }
             /* 성공 시 _enterTeam → viewer-meta 콜백에서 _maker_hideLoading 호출 */
           });
+          /* HOME-RESUME-ASK-1(2026-09-05·교육청 컨설팅): 첫 화면 [작품 만들기]로 다시 들어왔는데 같은 탭에
+             이전 모둠 세션이 살아 있으면 조용히 복귀하지 않고 묻는다 — 심사위원이 심사2로 1단계를 해 본 뒤
+             다른 모둠으로 2단계를 해 보려 첫 화면으로 돌아왔을 때 다시 심사2로 끌려가던 불편.
+             F5·viewer 복귀(resume=1)는 종전대로 조용히 복귀. */
+          const _fromHome = _spTeam.get('from') === 'home';
+          if (_fromHome && _resumeParam !== '1' && typeof showMakerConfirm === 'function') {
+            showMakerConfirm({
+              title: '이미 「' + String(ctx.teamName) + '」 모둠으로 들어와 있어요',
+              message: '이어서 만들까요, 아니면 다른 모둠으로 들어갈까요?',
+              confirmText: '이어서 하기',
+              cancelText: '다른 모둠으로',
+              forceChoice: true,
+            }).then((cont) => {
+              if (cont) { _doResume(); return; }
+              try { sessionStorage.removeItem('makerSession'); } catch (e) { /* noop */ }
+              if (joinScreen) joinScreen.classList.remove('hidden');
+              if (typeof _maker_hideLoading === 'function') _maker_hideLoading();
+              document.getElementById('join-code')?.focus();
+            });
+          } else {
+            _doResume();
+          }
         }
       }
     } catch (e) { /* 실패해도 일반 입장 화면 유지 */ }

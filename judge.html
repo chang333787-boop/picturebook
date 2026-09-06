@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"/>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <meta name="theme-color" content="#fbf6ea"/>
+  <meta name="color-scheme" content="light"/>
+  <meta name="robots" content="noindex"/>
+  <link rel="icon" type="image/png" href="icons/icon-192.png"/>
+  <title>가지 branch — 심사위원 안내</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Jua&family=Nanum+Gothic:wght@400;700&family=Nanum+Pen+Script&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="tokens-warm.css?v=40b1d74892"/>
+  <!-- JUDGE-ACCESS-1(2026-09-05·전국대회 교육청 컨설팅 지적): 심사위원 전용 안내 페이지.
+       ① 수업 결과물(정림초 4학년 공개 책장) ② 심사위원 교사 화면(심사반 담당 교사 토큰 → 로그인 없이)
+       ③ 심사위원 체험(심사1~15 · 기존 계정 그대로 · PIN 없이 입장 · 이미 만든 모둠은 단계/완성 표시).
+       서버 스위치 admin/judgeAccess/enabled 가 꺼져 있으면 ②③은 안내만 보인다. -->
+  <style>
+    html, body { margin:0; padding:0; background:#fbf6ea; }
+    body { font-family:'Nanum Gothic', sans-serif; color:#2b1f10; word-break:keep-all; overflow-wrap:break-word; min-height:100dvh; }
+    .jg { max-width:960px; margin:0 auto; padding:28px 20px 40px; }
+    .jg__top { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:6px; }
+    .jg__home { color:#7d6f57; text-decoration:none; font-size:13px; border-bottom:1px dashed rgba(90,75,55,0.3); }
+    .jg__eyebrow { font-family:'Nanum Pen Script', cursive; color:#c66f4a; font-size:22px; margin:0; }
+    .jg__title { font-family:'Jua', sans-serif; font-size:30px; margin:2px 0 6px; }
+    .jg__sub { margin:0 0 20px; font-size:14px; color:#5a4b36; line-height:1.6; }
+    .jg__card { background:rgba(255,250,238,0.9); border:1.5px solid rgba(160,120,70,0.32); border-radius:18px; padding:18px 20px; margin:0 0 14px; box-shadow:0 2px 8px rgba(80,50,20,0.06); }
+    .jg__card h2 { font-family:'Jua', sans-serif; font-size:19px; margin:0 0 4px; }
+    .jg__card p { margin:0 0 12px; font-size:13.5px; color:#5a4b36; line-height:1.6; }
+    .jg__btn { display:inline-flex; align-items:center; gap:8px; min-height:44px; padding:8px 18px; border-radius:999px; border:1.5px solid rgba(160,120,70,0.5); background:#fff; color:#2b1f10; text-decoration:none; font-family:'Jua', sans-serif; font-size:15px; cursor:pointer; box-shadow:0 2px 8px rgba(80,50,20,0.08); }
+    .jg__btn--primary { background:#c66f4a; color:#fffaee; border-color:#c66f4a; }
+    .jg__btn[disabled] { opacity:.55; cursor:default; }
+    .jg__status { font-size:13px; color:#7d6f57; margin-top:10px; min-height:18px; }
+    .jg__grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:10px; }
+    .jg__team { display:flex; flex-direction:column; gap:6px; min-height:84px; padding:12px 12px 10px; border-radius:14px; border:1.5px solid rgba(160,120,70,0.35); background:#fff; text-decoration:none; color:#2b1f10; transition:transform .15s, box-shadow .15s; }
+    .jg__team:hover { transform:translateY(-1px); box-shadow:0 6px 16px rgba(80,50,20,0.12); }
+    .jg__team-name { font-family:'Jua', sans-serif; font-size:17px; }
+    .jg__team-badge { display:inline-block; font-size:11.5px; padding:2px 8px; border-radius:999px; background:#f1e9d6; color:#6b5638; width:fit-content; }
+    .jg__team-badge--done { background:#e3f0da; color:#3f6b2f; }
+    .jg__team-badge--images { background:#fdebd3; color:#8a5a2a; }
+    .jg__team-badge--writing { background:#e2eef8; color:#2f5a86; }
+    .jg__team-badge--empty { background:#f1e9d6; color:#8a7a5e; }
+    .jg__team-title { font-size:12px; color:#5a4b36; line-height:1.35; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+    .jg__note { font-size:12.5px; color:#7d6f57; line-height:1.55; margin-top:12px; }
+    @media (max-width:640px) { .jg { padding:22px 16px 32px; } .jg__title { font-size:26px; } .jg__grid { grid-template-columns:repeat(auto-fill, minmax(130px, 1fr)); } }
+  </style>
+</head>
+<body>
+  <main class="jg">
+    <div class="jg__top">
+      <a class="jg__home" href="index.html">← 첫 화면으로</a>
+    </div>
+    <p class="jg__eyebrow">제20회 디지털교육연구대회 출품작</p>
+    <h1 class="jg__title">🏅 심사위원 안내</h1>
+    <p class="jg__sub">아래 세 가지는 모두 <b>로그인 없이</b> 바로 열립니다. 체험 모둠은 이미 만들어진 계정(심사1~15)을 그대로 씁니다.</p>
+
+    <section class="jg__card" id="jg-results">
+      <h2>📚 수업 결과물</h2>
+      <p>정림초 4학년 학급이 수업에서 만든 작품이 담긴 <b>우리반 책장</b>입니다. 표지를 누르면 감상이 시작되고, 갈래를 고르며 읽을 수 있어요.</p>
+      <a class="jg__btn jg__btn--primary" href="viewer.html?code=JL26A&amp;shelf=1">📚 우리반 책장 열기</a>
+      <a class="jg__btn" href="viewer.html?code=JL26A&amp;team=0000" style="margin-left:6px;">대표 작품(0000) 바로 보기</a>
+    </section>
+
+    <section class="jg__card" id="jg-teacher">
+      <h2>🧑‍🏫 심사위원 교사 화면</h2>
+      <p>심사반(코드 9999) 담당 교사 계정으로 <b>수업 관리 화면</b>을 엽니다. 학급 AI 설정·모둠 카드·인쇄물 메뉴를 그대로 볼 수 있어요.</p>
+      <button type="button" class="jg__btn jg__btn--primary" id="jg-teacher-btn">🧑‍🏫 교사 화면 열기</button>
+      <div class="jg__status" id="jg-teacher-status"></div>
+    </section>
+
+    <section class="jg__card" id="jg-teams">
+      <h2>🎭 심사위원 체험</h2>
+      <p>모둠을 하나 골라 누르면 바로 들어갑니다(PIN 없음). <b>비어 있음</b> 모둠에서 새로 시작하고, 이미 만들어진 모둠은 이어서 보거나 다듬어 볼 수 있어요. 한 모둠에는 한 작품만 담기니 다른 단계를 해 보려면 다른 모둠을 고르세요.</p>
+      <div class="jg__grid" id="jg-grid" aria-live="polite"><span class="jg__status">모둠 상태를 불러오는 중…</span></div>
+      <p class="jg__note">단계 안내 — 1단계: 생각 나침반에 답하면 AI가 글과 그림을 완성 · 2단계: AI가 시작한 이야기를 이어 쓰기 · 3단계: 갈림길이 있는 이야기를 스스로 만들기</p>
+    </section>
+  </main>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-functions-compat.js"></script>
+  <script>
+    (function () {
+      'use strict';
+      /* 공개 웹 설정(firebase.js와 동일) */
+      firebase.initializeApp({
+        apiKey: 'AIzaSyBK12nBkj6Pdwu-zpL3w0krU1PzS78McmE',
+        authDomain: 'picturebook-8731f.firebaseapp.com',
+        databaseURL: 'https://picturebook-8731f-default-rtdb.firebaseio.com',
+        projectId: 'picturebook-8731f',
+        storageBucket: 'picturebook-8731f.firebasestorage.app',
+        messagingSenderId: '590974087190',
+        appId: '1:590974087190:web:a9e9ba15adf020ff470537',
+      });
+      const fns = firebase.app().functions('asia-northeast3');
+      const $ = (id) => document.getElementById(id);
+      const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+
+      /* ── 심사 체험 모둠 목록 ── */
+      const STAGE = {
+        empty:   { cls: 'empty',   label: '비어 있음 · 새로 시작' },
+        writing: { cls: 'writing', label: (t) => (t.level ? t.level + '단계 · ' : '') + '글 작성됨' },
+        images:  { cls: 'images',  label: (t) => (t.level || 1) + '단계 · 그림 ' + t.imagesDone + '/' + t.imagesTotal },
+        done:    { cls: 'done',    label: (t) => (t.level || 1) + '단계 · 완성' },
+      };
+      function renderTeams(teams) {
+        const grid = $('jg-grid');
+        if (!teams.length) { grid.innerHTML = '<span class="jg__status">체험 모둠을 불러오지 못했어요.</span>'; return; }
+        grid.innerHTML = teams.map((t) => {
+          const st = STAGE[t.stage] || STAGE.empty;
+          const label = (typeof st.label === 'function') ? st.label(t) : st.label;
+          return '<a class="jg__team" href="' + 'maker.html?judge=' + encodeURIComponent(t.name) + '">'
+            + '<span class="jg__team-name">' + esc(t.name) + '</span>'
+            + '<span class="jg__team-badge jg__team-badge--' + st.cls + '">' + esc(label) + '</span>'
+            + (t.title ? '<span class="jg__team-title">「' + esc(t.title) + '」</span>' : '')
+            + '</a>';
+        }).join('');
+      }
+      fns.httpsCallable('judgeTeamsStatus')({})
+        .then((r) => {
+          const d = (r && r.data) || {};
+          if (d.ok !== true) { $('jg-grid').innerHTML = '<span class="jg__status">지금은 심사 체험 기간이 아니에요. 안내받은 코드(9999)와 PIN으로 들어가 주세요.</span>'; return; }
+          renderTeams(d.teams || []);
+        })
+        .catch(() => { $('jg-grid').innerHTML = '<span class="jg__status">모둠 상태를 불러오지 못했어요. 새로고침해 주세요.</span>'; });
+
+      /* ── 심사위원 교사 화면 ── */
+      let busy = false;
+      async function openTeacher() {
+        if (busy) return;
+        busy = true;
+        const btn = $('jg-teacher-btn'), st = $('jg-teacher-status');
+        btn.disabled = true; st.textContent = '교사 화면을 준비하고 있어요…';
+        try {
+          const r = await fns.httpsCallable('judgeTeacherToken')({});
+          const d = (r && r.data) || {};
+          if (d.ok !== true || !d.token) { st.textContent = '지금은 심사 기간이 아니에요. 교사 로그인 화면(첫 화면 → 수업 관리)을 이용해 주세요.'; btn.disabled = false; busy = false; return; }
+          await firebase.auth().signInWithCustomToken(d.token);
+          st.textContent = '열리는 중…';
+          location.href = 'maker.html?admin=1';
+        } catch (e) {
+          st.textContent = '교사 화면을 여는 데 실패했어요. 잠시 후 다시 시도해 주세요.';
+          btn.disabled = false; busy = false;
+        }
+      }
+      $('jg-teacher-btn').addEventListener('click', openTeacher);
+      if (new URLSearchParams(location.search).get('go') === 'teacher') setTimeout(openTeacher, 300);
+    })();
+  </script>
+</body>
+</html>

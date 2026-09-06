@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title>가정 배부용 동의서 — 가지 branch</title>
+  <!-- CONSENT-FORM-3(2026-09-06): 심사위원 교사 화면(judge.html?go=teacher)에서 로그인 없이 동의서를 미리 보는 페이지.
+       서식 본문·인쇄 CSS는 consent-form.js 단일 출처(교사 관리 → 설명서·인쇄물 탭의 인쇄와 동일). 학교명·교사명 없음(블라인드). -->
+  <link href="https://fonts.googleapis.com/css2?family=Jua&family=Nanum+Gothic:wght@400;700;800&display=swap" rel="stylesheet">
+  <style>
+    html, body { margin:0; padding:0; background:#fbf6ea; }
+    body { font-family:'Nanum Gothic', sans-serif; color:#2b1f10; word-break:keep-all; min-height:100dvh; }
+    .cs { max-width:860px; margin:0 auto; padding:24px 18px 40px; }
+    .cs__top { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:8px; }
+    .cs__home { color:#7d6f57; text-decoration:none; font-size:13px; border-bottom:1px dashed rgba(90,75,55,0.3); }
+    .cs__title { font-family:'Jua', sans-serif; font-size:24px; margin:4px 0 4px; }
+    .cs__sub { margin:0 0 14px; font-size:13.5px; color:#5a4b36; line-height:1.6; }
+    .cs__btn { display:inline-flex; align-items:center; gap:8px; min-height:42px; padding:8px 18px; border-radius:999px; border:1.5px solid #c66f4a; background:#c66f4a; color:#fffaee; font-family:'Jua', sans-serif; font-size:15px; cursor:pointer; box-shadow:0 2px 8px rgba(80,50,20,0.1); }
+    /* 화면 미리보기 = 종이 느낌. 인쇄 규칙(consent-form.js)과 같은 클래스라 종이에서도 동일. */
+    .cs__paper { background:#fff; border:1px solid rgba(160,120,70,0.3); border-radius:8px; box-shadow:0 6px 20px rgba(80,50,20,0.08); padding:14mm 15mm; margin:0 auto; max-width:180mm;
+      color:#111; font-family:'Nanum Gothic','Malgun Gothic',sans-serif; font-size:9.6pt; line-height:1.5; }
+    .cs__paper .cf-head { text-align:center; margin:0 0 4mm; }
+    .cs__paper .cf-school { font-size:9.5pt; color:#444; margin:0 0 3mm; text-align:right; }
+    .cs__paper .cf-title { font-size:17pt; font-weight:700; margin:0 0 1.5mm; }
+    .cs__paper .cf-sub { font-size:10pt; color:#333; }
+    .cs__paper .cf-notice { border:1px solid #999; background:#f6f6f6; padding:2.8mm 3.5mm; margin:0 0 3.5mm; font-size:9.2pt; }
+    .cs__paper .cf-table, .cs__paper .cf-sign { width:100%; border-collapse:collapse; margin:0 0 3.5mm; }
+    .cs__paper .cf-table th, .cs__paper .cf-table td, .cs__paper .cf-sign th, .cs__paper .cf-sign td { border:1px solid #666; padding:2mm 3mm; vertical-align:top; }
+    .cs__paper .cf-table th, .cs__paper .cf-sign th { width:26mm; background:#efefef; font-weight:700; white-space:nowrap; }
+    .cs__paper .cf-sign th { width:22mm; }
+    .cs__paper .cf-checks { line-height:1.9; }
+    .cs__paper .cf-chk { font-size:12pt; }
+    .cs__paper .cf-hint { color:#666; font-size:9pt; }
+    .cs__paper .cf-line { display:inline-block; border-bottom:1px solid #333; vertical-align:baseline; }
+    .cs__paper .cf-line--xs { width:16mm; } .cs__paper .cf-line--sm { width:32mm; } .cs__paper .cf-line--md { width:42mm; } .cs__paper .cf-line--lg { width:70mm; }
+    .cs__paper .cf-ai { border:1px solid #999; padding:2.8mm 3.5mm; margin:0 0 3.5mm; }
+    .cs__paper .cf-ai-title { font-size:10.5pt; font-weight:700; margin:0 0 1mm; }
+    .cs__paper .cf-ai-lead { font-size:9pt; color:#333; margin:0 0 1.5mm; }
+    .cs__paper .cf-ai-list { margin:0; padding-left:4.5mm; font-size:8.9pt; line-height:1.45; }
+    .cs__paper .cf-ai-list li { margin:0 0 0.8mm; }
+    .cs__paper .cf-ai-note { font-size:8.6pt; color:#444; margin-top:1.5mm; }
+    .cs__paper .cf-right { font-size:9.2pt; margin:0 0 3.5mm; }
+    .cs__paper .cf-agree { border:1.6px solid #333; padding:2.5mm 3mm; margin:0 0 3.5mm; }
+    .cs__paper .cf-agree-row { display:flex; align-items:center; flex-wrap:wrap; gap:0 3mm; padding:1mm 0; }
+    .cs__paper .cf-agree-row + .cf-agree-row { border-top:1px dashed #999; }
+    .cs__paper .cf-agree-label { flex:1 1 auto; font-weight:700; }
+    .cs__paper .cf-big { font-size:11.5pt; font-weight:700; margin:0 2mm; white-space:nowrap; }
+    .cs__paper .cf-foot { font-size:8.8pt; color:#444; text-align:center; margin-top:3mm; }
+    @media (max-width:640px) { .cs { padding:18px 10px 30px; } .cs__paper { padding:8mm 6mm; } }
+    @media print { .cs__top, .cs__title, .cs__sub, .cs__btn { display:none !important; } .cs { padding:0; max-width:none; } .cs__paper { border:none; box-shadow:none; border-radius:0; padding:0; max-width:none; } @page { size:A4 portrait; margin:14mm 15mm; } }
+  </style>
+</head>
+<body>
+  <main class="cs">
+    <div class="cs__top">
+      <a class="cs__home" href="judge.html?go=teacher">← 심사위원 교사 화면으로</a>
+      <button type="button" class="cs__btn" id="cs-print">🖨 인쇄</button>
+    </div>
+    <h1 class="cs__title">📝 가정 배부용 동의서</h1>
+    <p class="cs__sub">교사 관리 화면 → 설명서·인쇄물 탭에서 인쇄하는 서식과 같습니다. 개인정보 수집·이용 동의(①)와 <b>교사 감독 아래 생성형 AI 사용 동의(②)</b>를 한 장에 담았고, 학교·학급·수집 항목은 담임교사가 손으로 채웁니다. 프로그램 자체는 학생 개인정보를 수집하지 않습니다.</p>
+    <div class="cs__paper" id="cs-paper"></div>
+  </main>
+  <script src="consent-form.js?v=c413d7f410"></script>
+  <script>
+    (function () {
+      var host = document.getElementById('cs-paper');
+      if (window.ConsentForm && typeof window.ConsentForm.html === 'function') host.innerHTML = window.ConsentForm.html();
+      else host.textContent = '동의서 서식을 불러오지 못했어요. 새로고침해 주세요.';
+      document.getElementById('cs-print').addEventListener('click', function () { window.print(); });
+    })();
+  </script>
+</body>
+</html>

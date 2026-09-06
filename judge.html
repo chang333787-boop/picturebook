@@ -8,15 +8,15 @@
   <meta name="color-scheme" content="light"/>
   <meta name="robots" content="noindex"/>
   <link rel="icon" type="image/png" href="icons/icon-192.png"/>
-  <title>가지 branch — 심사위원 안내</title>
+  <title>가지 branch — 심사위원</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Jua&family=Nanum+Gothic:wght@400;700&family=Nanum+Pen+Script&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="tokens-warm.css?v=40b1d74892"/>
   <!-- JUDGE-ACCESS-1(2026-09-05·전국대회 교육청 컨설팅 지적): 심사위원 전용 안내 페이지.
-       ① 수업 결과물(정림초 4학년 공개 책장) ② 심사위원 교사 화면(심사반 담당 교사 토큰 → 로그인 없이)
-       ③ 심사위원 체험(심사1~15 · 기존 계정 그대로 · PIN 없이 입장 · 이미 만든 모둠은 단계/완성 표시).
-       서버 스위치 admin/judgeAccess/enabled 가 꺼져 있으면 ②③은 안내만 보인다. -->
+       첫 화면 버튼 하나 = 이 페이지 모드 하나: 기본=심사위원 체험(심사1~15 · 기존 계정 그대로 · PIN 없이 · 단계/완성 배지),
+       ?go=teacher=심사반 담당 교사 화면(서버 관리 비밀번호로 로그인 없이). 수업 결과물(책장)은 첫 화면에서 바로 연다.
+       서버 스위치 admin/judgeAccess/enabled 가 꺼져 있으면 안내만 보인다. ※블라인드 심사: 학교명 표기 금지. -->
   <style>
     html, body { margin:0; padding:0; background:#fbf6ea; }
     body { font-family:'Nanum Gothic', sans-serif; color:#2b1f10; word-break:keep-all; overflow-wrap:break-word; min-height:100dvh; }
@@ -53,14 +53,8 @@
       <a class="jg__home" href="index.html">← 첫 화면으로</a>
     </div>
     <p class="jg__eyebrow">제20회 디지털교육연구대회 출품작</p>
-    <h1 class="jg__title">🏅 심사위원 안내</h1>
-    <p class="jg__sub">아래 세 가지는 모두 <b>로그인 없이</b> 바로 열립니다. 체험 모둠은 이미 만들어진 계정(심사1~15)을 그대로 씁니다.</p>
-
-    <section class="jg__card" id="jg-results">
-      <h2>📚 수업 결과물</h2>
-      <p>수업에서 만든 작품이 담긴 <b>우리반 책장(학급 코드 0000)</b>입니다. 표지를 누르면 감상이 시작되고, 갈래를 고르며 읽을 수 있어요.</p>
-      <a class="jg__btn jg__btn--primary" href="viewer.html?code=0000&amp;shelf=1">📚 우리반 책장 열기</a>
-    </section>
+    <h1 class="jg__title" id="jg-title">🎭 심사위원 체험</h1>
+    <p class="jg__sub" id="jg-sub">모둠을 하나 골라 누르면 <b>로그인 없이</b> 바로 들어갑니다. 이미 만들어진 계정(심사1~15)을 그대로 씁니다.</p>
 
     <section class="jg__card" id="jg-teacher">
       <h2>🧑‍🏫 심사위원 교사 화면</h2>
@@ -146,7 +140,15 @@
         }
       }
       $('jg-teacher-btn').addEventListener('click', openTeacher);
-      if (new URLSearchParams(location.search).get('go') === 'teacher') setTimeout(openTeacher, 300);
+      /* 첫 화면 버튼 = 화면 하나에 하나씩: 교사 화면(go=teacher)은 교사 카드만, 그 외엔 체험 그리드만 */
+      const goTeacher = new URLSearchParams(location.search).get('go') === 'teacher';
+      $('jg-teacher').style.display = goTeacher ? '' : 'none';
+      $('jg-teams').style.display = goTeacher ? 'none' : '';
+      if (goTeacher) {
+        $('jg-title').textContent = '🧑‍🏫 심사위원 교사 화면';
+        $('jg-sub').innerHTML = '심사반(코드 9999) 담당 교사 계정으로 <b>로그인 없이</b> 수업 관리 화면을 엽니다.';
+        setTimeout(openTeacher, 300);
+      }
     })();
   </script>
 </body>

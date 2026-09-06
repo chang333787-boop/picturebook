@@ -150,7 +150,10 @@ async function handleCoverImageUpload(input) {
 
 /* ── 표지 이미지 제거 ──────────────────────────────────── */
 async function removeCoverImage() {
-  if (!confirm('표지 이미지를 제거할까요?')) return;
+  const _okRm = (typeof window.appConfirm === 'function')
+    ? await window.appConfirm({ title: '표지 이미지를 제거할까요?', confirmText: '제거', danger: true, center: true })
+    : confirm('표지 이미지를 제거할까요?');
+  if (!_okRm) return;
   projectMeta.coverImageData = null;
   const preview = document.getElementById('ps-cover-preview');
   const empty   = document.getElementById('ps-cover-empty');

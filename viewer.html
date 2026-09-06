@@ -257,6 +257,8 @@
        → viewer-edit.js
        → viewer-entry.js  (DOMContentLoaded 등록)
      ═══════════════════════════════════════════ -->
+<!-- APP-DIALOG-1: 브라우저 기본 alert/confirm/prompt → 가지 디자인 창. 다른 스크립트보다 먼저. -->
+<script src="app-dialog.js?v=be352a379e"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
@@ -276,7 +278,7 @@
 <script src="viewer-image-batch-ui.js?v=82a73f1cce"></script>
 <script src="viewer-locks.js?v=52dc9a8ae5"></script>
 <script src="viewer-controls.js?v=e6cc312d40"></script>
-<script src="viewer-render.js?v=fe4d107c85"></script>
+<script src="viewer-render.js?v=f39808d045"></script>
 <!-- PERF-2: viewer 편집(viewer-edit.js)·AI(viewer-ai.js) 코드 지연 로딩.
      감상 모드는 둘 다 로드하지 않음(초기 다운로드 ~568KB 감소). 편집 진입 시 window.ensureEditBundle()로 1회 로드.
      · 감상 렌더는 편집 함수를 editMode+typeof 가드로만 호출 → 미로드여도 안전.
@@ -284,7 +286,7 @@
 <script>
 (function () {
   var EDIT_SRC = 'viewer-edit.js?v=6d00209b41';
-  var AI_SRC   = 'viewer-ai.js?v=3c347b1e57';
+  var AI_SRC   = 'viewer-ai.js?v=3dcd27fb85';
   /* WRITE-AFTER-VIEWER-HTML-CACHE-HARDENED: 디버그 마커 — 로드된 진입 HTML이 어떤 번들 cachebuster를
      들고 있는지 콘솔로 확인(옛 viewer.html 캐시 의심 시 한눈에 비교). 동작 영향 없음. */
   try { console.log('[viewer] bundle cachebuster: AI_SRC=' + AI_SRC.split('?v=')[1] + ' / EDIT_SRC=' + EDIT_SRC.split('?v=')[1]); } catch (e) {}
@@ -327,7 +329,7 @@
 <script src="tutorial-art.js?v=4572b42c34"></script>
 <script src="tutorial-welcome.js?v=95d12d35f7"></script>
 <script src="tutorial-coach.js?v=79387535ec"></script>
-<script src="viewer-entry.js?v=ac717c2f36"></script>
+<script src="viewer-entry.js?v=e59a965496"></script>
 
 </body>
 </html>

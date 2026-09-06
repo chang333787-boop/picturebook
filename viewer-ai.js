@@ -2448,8 +2448,11 @@
           danger: true,
         });
         if (!ok) return;
-      } else if (!confirm('편집한 내용이 저장되지 않아요. 취소할까요?')) {
-        return;
+      } else {
+        const _okC = (typeof window.appConfirm === 'function')
+          ? await window.appConfirm({ title: '편집한 내용이 저장되지 않아요', message: '취소할까요?', confirmText: '취소하기', cancelText: '계속 편집', danger: true, center: true })
+          : confirm('편집한 내용이 저장되지 않아요. 취소할까요?');
+        if (!_okC) return;
       }
       _cancelDrafting();
       _removeModalRoot('ai-draft-modal-root');
@@ -3852,8 +3855,11 @@
       _afterReset('variants');
     });
     const all = root.querySelector('.js-ai-tm-reset-team-all');
-    if (all) all.addEventListener('click', function () {
-      if (!confirm('현재 팀(' + _getCurrentNamespace() + ')의 AI 사용 기록·후보·결과를 모두 초기화할까요?')) return;
+    if (all) all.addEventListener('click', async function () {
+      const _okR = (typeof window.appConfirm === 'function')
+        ? await window.appConfirm({ title: 'AI 기록을 모두 초기화할까요?', message: '현재 팀(' + _getCurrentNamespace() + ')의 AI 사용 기록·후보·결과가 지워져요.', confirmText: '초기화', danger: true })
+        : confirm('현재 팀(' + _getCurrentNamespace() + ')의 AI 사용 기록·후보·결과를 모두 초기화할까요?');
+      if (!_okR) return;
       _resetMockUsage();
       _resetMockDrafts();
       _resetMockVariants();

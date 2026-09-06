@@ -696,17 +696,21 @@ function _enterTeam(val, teamRef, opts) {
     const _sessKind = (opts && opts.sessionKind === 'teacher') ? 'teacher' : 'student';
     window.BranchSession.claim(db, teamRef, {
       kind: _sessKind,
-      confirmTakeover: (cur) => Promise.resolve(confirm(
-        _sessKind === 'teacher'
-          ? '학생이 이 모둠을 편집 중일 수 있어요.\n들어가면 학생 기기의 접속은 종료돼요. 들어갈까요?'
-          : '지금 다른 기기에서 이 모둠을 편집하고 있어요.\n계속 들어가면 그 기기의 접속은 종료돼요. 들어갈까요?')),
+      confirmTakeover: (cur) => (typeof window.appConfirm === 'function' ? window.appConfirm : (m) => Promise.resolve(confirm(m.message || m)))({
+        title: _sessKind === 'teacher' ? '학생이 이 모둠을 편집 중일 수 있어요' : '지금 다른 기기에서 이 모둠을 편집하고 있어요',
+        message: _sessKind === 'teacher' ? '들어가면 학생 기기의 접속은 종료돼요. 들어갈까요?' : '계속 들어가면 그 기기의 접속은 종료돼요. 들어갈까요?',
+        confirmText: '들어가기', cancelText: '그만두기', center: true,
+      }),
       onKicked: (v) => {
         try { if (typeof flushBodySaves === 'function') flushBodySaves(); } catch (e) {}
         try { if (typeof flushTitleSaves === 'function') flushTitleSaves(); } catch (e) {}
         /* SESSION-MSG-1: 오탐 대비 — 교사 인수 외에는 새로고침 재접속 선택 제공([확인]=reload). */
         const _msg = window.BranchSession.kickMessage(v);
         if (window.BranchSession.kickAllowsReload && window.BranchSession.kickAllowsReload(v)) {
-          if (confirm(_msg)) { location.reload(); return; }
+          (typeof window.appConfirm === 'function'
+            ? window.appConfirm({ message: _msg, confirmText: '다시 접속', cancelText: '닫기', center: true })
+            : Promise.resolve(confirm(_msg))).then((ok) => { if (ok) location.reload(); });
+          return;
         } else {
           alert(_msg);
         }

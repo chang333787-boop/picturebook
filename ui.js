@@ -679,7 +679,10 @@ async function renameScene(num) {
     alert(PB_LINEAR_LOCK_MSG);
     return;
   }
-  const newNum = parseInt(prompt(`장면 번호를 바꿀까요?\n현재: ${num}\n새 번호:`, num));
+  const _typedNum = (typeof window.appPrompt === 'function')
+    ? await window.appPrompt({ title: '장면 번호를 바꿀까요?', message: `현재: ${num}\n새 번호를 적어 주세요.`, confirmText: '바꾸기' }, String(num))
+    : prompt(`장면 번호를 바꿀까요?\n현재: ${num}\n새 번호:`, num);
+  const newNum = parseInt(_typedNum);
   if (!newNum || newNum === num) return;
   if (scenes[newNum]) { alert(`장면 ${newNum}은 이미 있어요!`); return; }
   if (!await ensureEditable(num)) {
@@ -787,7 +790,7 @@ async function deleteScene(num) {
   _afterMutation();
 }
 
-function clearAll() {
+async function clearAll() {
   /* LEVELS-AUDIT F3: 1·2단계는 전체 초기화 차단(버튼 숨김의 2중 방어) — 초기화하면
      AI 초안을 다시 받을 트리거가 없어(총량이 남아도) 복구가 교사 나침반 리셋뿐. */
   if (typeof isLinearPicturebookLock === 'function' && isLinearPicturebookLock()) {
@@ -797,7 +800,9 @@ function clearAll() {
   /* 반드시 확인창 먼저 — 확인 전 아무 삭제 없음. Undo 제거됨 → 되돌릴 수 없음.
      BTN-CLEANUP-1(2026-07-10): confirm 1회 → 타이핑 확인으로 강화 — 팀 작품 전체가
      사라지는 파괴적 동작이라 "전체 초기화"를 직접 입력해야만 실행. */
-  const typed = prompt('⚠️ 모든 장면이 삭제되고 되돌릴 수 없어요!\n정말 처음부터 다시 시작하려면 아래 칸에 "전체 초기화"라고 똑같이 써 주세요.');
+  const typed = (typeof window.appPrompt === 'function')
+    ? await window.appPrompt({ title: '⚠️ 모든 장면이 삭제되고 되돌릴 수 없어요!', message: '정말 처음부터 다시 시작하려면 아래 칸에 "전체 초기화"라고 똑같이 써 주세요.', confirmText: '초기화', cancelText: '취소', danger: true })
+    : prompt('⚠️ 모든 장면이 삭제되고 되돌릴 수 없어요!\n정말 처음부터 다시 시작하려면 아래 칸에 "전체 초기화"라고 똑같이 써 주세요.');
   if (typed === null) return;                       /* 취소 */
   if (typed.trim() !== '전체 초기화') {
     alert('입력한 글자가 달라서 초기화하지 않았어요. (작품은 그대로예요)');
@@ -962,7 +967,7 @@ function hidePtypeScreen() {
   if (screen) screen.classList.remove('show');
 }
 
-function _onPtypeCardClick(clickedType, clickedPbLevelRaw) {
+async function _onPtypeCardClick(clickedType, clickedPbLevelRaw) {
   if (!Array.isArray(PROJECT_TYPES) || !PROJECT_TYPES.includes(clickedType)) return;
   const _LABEL = { text: '텍스트형', picturebook: '그림책형', movie: '무비형', experience: '체험전시형' };
   /* PICTUREBOOK-LEVELS ①: 카드의 data-pblevel 캡처(그림책만·없으면 3단계 방어 기본값) */
@@ -1020,11 +1025,15 @@ function _onPtypeCardClick(clickedType, clickedPbLevelRaw) {
     var _confirmLabel = (clickedType === 'picturebook')
       ? '그림책 ' + _PB_LEVEL_LABEL[clickedPbLevel]
       : (_LABEL[clickedType] || clickedType);
+    /* APP-DIALOG-1(2026-09-06): 브라우저 기본 confirm → 가지 확인창(바깥 클릭 무시). 헬퍼 없으면 기본 창 폴백. */
     try {
-      _ok = window.confirm(
-        '「' + _confirmLabel + '」 모드로 시작할까요?\n' +
-        '작품 유형은 한 번 정하면 바꿀 수 없어요. 이 모드로 계속 만들게 돼요.'
-      );
+      _ok = (typeof window.appConfirm === 'function')
+        ? await window.appConfirm({
+            title: '「' + _confirmLabel + '」 모드로 시작할까요?',
+            message: '작품 유형은 한 번 정하면 바꿀 수 없어요. 이 모드로 계속 만들게 돼요.',
+            confirmText: '시작하기', cancelText: '다시 고르기', center: true,
+          })
+        : window.confirm('「' + _confirmLabel + '」 모드로 시작할까요?\n작품 유형은 한 번 정하면 바꿀 수 없어요. 이 모드로 계속 만들게 돼요.');
     } catch (e) { _ok = true; }   /* confirm 불가 환경 → 기존대로 진입(회귀 0) */
     if (!_ok) return;             /* 취소 → 진입하지 않음 */
   }

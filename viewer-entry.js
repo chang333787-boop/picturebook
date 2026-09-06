@@ -294,14 +294,19 @@ async function _enterViewer(teamName, editMode = false, fromMaker = false, class
       if (window.BranchSession) {
         window.BranchSession.claim(getViewerDb(), basePath, {
           kind: 'student',
-          confirmTakeover: () => Promise.resolve(confirm(
-            '지금 다른 기기에서 이 모둠을 편집하고 있어요.\n계속 들어가면 그 기기의 접속은 종료돼요. 들어갈까요?')),
+          confirmTakeover: () => (typeof window.appConfirm === 'function' ? window.appConfirm : (m) => Promise.resolve(confirm(m.message)))({
+            title: '지금 다른 기기에서 이 모둠을 편집하고 있어요', message: '계속 들어가면 그 기기의 접속은 종료돼요. 들어갈까요?',
+            confirmText: '들어가기', cancelText: '그만두기', center: true,
+          }),
           onKicked: async (v) => {
             try { if (typeof _flushPendingSave === 'function') await _flushPendingSave(); } catch (e) {}
             /* SESSION-MSG-1: 오탐 대비 — 교사 인수 외에는 새로고침 재접속 선택([확인]=reload). */
             const _msg = window.BranchSession.kickMessage(v);
             if (window.BranchSession.kickAllowsReload && window.BranchSession.kickAllowsReload(v)) {
-              if (confirm(_msg)) { location.reload(); return; }
+              (typeof window.appConfirm === 'function'
+              ? window.appConfirm({ message: _msg, confirmText: '다시 접속', cancelText: '닫기', center: true })
+              : Promise.resolve(confirm(_msg))).then((ok) => { if (ok) location.reload(); });
+            return;
             } else {
               alert(_msg);
             }

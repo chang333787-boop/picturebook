@@ -2820,7 +2820,10 @@ function renderHUD() {
      confirm으로 실수 클릭 방어. 편집 중이면 이동 직전 pending save 명시 flush.
      작품 데이터/storage 절대 손대지 않음. */
   hud.querySelector('.js-return-home')?.addEventListener('click', async () => {
-    if (!confirm('처음 화면으로 돌아갈까요?')) return;
+    const _okHome = (typeof window.appConfirm === 'function')
+      ? await window.appConfirm({ title: '처음 화면으로 돌아갈까요?', confirmText: '돌아가기', cancelText: '계속 보기', center: true })
+      : confirm('처음 화면으로 돌아갈까요?');
+    if (!_okHome) return;
     /* 🌿 처음으로 = 첫 화면 이동(작업 복귀 아님) → 브랜치 viewport 복원 예약 제거.
        sessionStorage는 같은 탭 공유라 maker에서 캡처한 키도 여기서 정리됨. */
     try { sessionStorage.removeItem('branchViewportReturn'); } catch (e) {}
@@ -2868,13 +2871,18 @@ function renderHUD() {
         if (window.BranchSession) {
           window.BranchSession.claim(getViewerDb(), _basePath, {
             kind: 'student',
-            confirmTakeover: () => Promise.resolve(confirm(
-              '지금 다른 기기에서 이 모둠을 편집하고 있어요.\n계속 들어가면 그 기기의 접속은 종료돼요. 들어갈까요?')),
+            confirmTakeover: () => (typeof window.appConfirm === 'function' ? window.appConfirm : (m) => Promise.resolve(confirm(m.message)))({
+              title: '지금 다른 기기에서 이 모둠을 편집하고 있어요', message: '계속 들어가면 그 기기의 접속은 종료돼요. 들어갈까요?',
+              confirmText: '들어가기', cancelText: '그만두기', center: true,
+            }),
             onKicked: async (v) => {
               try { if (typeof _flushPendingSave === 'function') await _flushPendingSave(); } catch (e) {}
               const _msg = window.BranchSession.kickMessage(v);
               if (window.BranchSession.kickAllowsReload && window.BranchSession.kickAllowsReload(v)) {
-                if (confirm(_msg)) { location.reload(); return; }
+                (typeof window.appConfirm === 'function'
+                ? window.appConfirm({ message: _msg, confirmText: '다시 접속', cancelText: '닫기', center: true })
+                : Promise.resolve(confirm(_msg))).then((ok) => { if (ok) location.reload(); });
+              return;
               } else {
                 alert(_msg);
               }

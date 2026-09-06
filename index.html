@@ -260,6 +260,15 @@
   /* HOTFIX-MOBILE-HOME-BG: html/body에 배경/margin 리셋이 없어 모바일에서 앱 영역 밖·하단(Safari 주소창 아래)
      흰색이 보였음. 종이색(=tokens --paper #fbf6ea 리터럴; 토큰은 .v에만 정의돼 html/body에선 var 미접근)으로
      채우고 동적 뷰포트(100dvh)로 화면 전체 커버. index.html(홈)만 스코프. */
+  /* HOME-TIGHT-1(2026-09-06 사용자 지적 '간격이 쓸데없이 넓다'): 블록 사이 gap s8→s5, 상하 패딩·카드 높이 축소.
+     index.html 스코프(.wh는 이 화면 전용). 태블릿 이하 규칙(warm-screens 980/640)은 그대로. */
+  .v .wh { padding: 28px var(--s7) 24px; }
+  .v .wh__main { gap: 22px; }
+  .v .wh__actions { margin: 4px auto 0; }
+  .v .wh-card--make { min-height: 0; }
+  .v .wh-card { padding: 22px 22px 20px; gap: 8px; }
+  .v .wh-card__desc { margin: 2px 0 4px; }
+  .v .wh__credits { margin-top: 6px; }
   html, body { margin: 0; padding: 0; background: #fbf6ea; }
   body { min-height: 100vh; min-height: 100dvh; }
   .v { min-height: 100vh; min-height: 100dvh; }

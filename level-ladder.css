@@ -16,7 +16,8 @@
 .lv__dot--ai { background:repeating-linear-gradient(135deg,#6f8fd8 0 3px,#dfe6f7 3px 5px); }
 .lv__dot--kid { background:#e08a4a; }
 .lv__cols { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px; }
-.lv__card { background:#fff; border-radius:12px; overflow:hidden; min-width:0; box-shadow:0 4px 14px rgba(120,80,30,0.10); padding:0 0 10px; position:relative; font-family:'Nanum Gothic','Apple SD Gothic Neo',sans-serif; color:#3a2a16; }
+/* 카드 = 세로 flex. 행 목록(.lv__rows)이 남는 높이를 먹어서 '이야기 구조' 상자와 선택 띠가 세 카드에서 같은 높이에 온다(사용자 09-08 '통일성'). */
+.lv__card { background:#fff; border-radius:12px; overflow:hidden; min-width:0; box-shadow:0 4px 14px rgba(120,80,30,0.10); padding:0 0 10px; position:relative; font-family:'Nanum Gothic','Apple SD Gothic Neo',sans-serif; color:#3a2a16; display:flex; flex-direction:column; }
 .lv__band { display:flex; align-items:center; gap:8px; padding:9px 10px; color:#fff; min-height:54px; box-sizing:border-box; }
 .lv__card--1 .lv__band { background:linear-gradient(135deg,#f0a35e,#e07a3c); }
 .lv__card--2 .lv__band { background:linear-gradient(135deg,#8fb56a,#5f9448); }
@@ -30,7 +31,7 @@
 .lv__ratio-ai { background:repeating-linear-gradient(135deg,#6f8fd8 0 6px,#a9bbe8 6px 10px); display:flex; align-items:center; padding-left:8px; text-shadow:0 0 3px #4b67b8; white-space:nowrap; }
 .lv__ratio-kid { flex:1; background:#e08a4a; display:flex; align-items:center; justify-content:flex-end; padding-right:8px; white-space:nowrap; }
 .lv__ratio-lab { display:flex; justify-content:space-between; gap:8px; margin:-4px 10px 8px; font-size:11px; color:#7a6650; }
-.lv__rows { list-style:none; margin:0 8px; padding:0; display:flex; flex-direction:column; gap:5px; }
+.lv__rows { list-style:none; margin:0 8px; padding:0; display:flex; flex-direction:column; gap:5px; flex:1 0 auto; }
 .lv__rows li { display:flex; gap:6px; align-items:flex-start; background:#fbf6ec; border-radius:9px; padding:8px 9px; font-size:13.5px; line-height:1.5; color:#3a2a16; min-width:0; }
 .lv__rows b { color:#8a6a45; margin-right:3px; }
 .lv__ic { font-size:15px; line-height:1.2; flex:none; }
@@ -38,7 +39,7 @@
 .lv__who--ai { background:#e3eafc; color:#3d55a3; border:1px dashed #6f8fd8; }
 .lv__who--kid { background:#fde5d2; color:#a5521f; }
 .lv__who--both { background:#e9f3df; color:#3f6f2a; }
-.lv__path { margin:8px 8px 0; border:2px dashed #e5d7bf; border-radius:10px; padding:7px 8px 6px; text-align:center; }
+.lv__path { margin:8px 8px 0; flex:none; border:2px dashed #e5d7bf; border-radius:10px; padding:7px 8px 6px; text-align:center; }
 .lv__path b { display:block; font-size:12px; color:#8a6a45; margin-bottom:4px; }
 .lv__path svg { display:block; margin:0 auto; max-width:100%; height:auto; }
 .lv__bar { margin-top:10px; height:32px; border-radius:16px; background:linear-gradient(90deg,#6f8fd8 0%,#8fb56a 50%,#e08a4a 100%); display:flex; align-items:center; justify-content:space-between; padding:0 14px; color:#fff; font-family:'Jua', sans-serif; font-size:13px; gap:8px; }
@@ -50,7 +51,7 @@ button.lv__card { appearance:none; -webkit-appearance:none; border:2px solid tra
 button.lv__card:hover { transform:translateY(-3px); box-shadow:0 10px 24px rgba(120,80,30,0.16); }
 button.lv__card:focus-visible { outline:3px solid rgba(198,111,74,0.45); outline-offset:2px; }
 button.lv__card .lv__band { padding-right:76px; min-height:54px; }   /* 이전 선택 배지 자리·세 카드 띠 높이 통일 */
-button.lv__card .lv__pick { display:block; margin:auto 8px 0; text-align:center; font-family:'Jua', sans-serif; font-size:14px; color:#fffaee; background:#c66f4a; border-radius:999px; padding:8px 12px; }
+button.lv__card .lv__pick { display:block; margin:0 8px; flex:none; text-align:center; font-family:'Jua', sans-serif; font-size:14px; color:#fffaee; background:#c66f4a; border-radius:999px; padding:8px 12px; }
 button.lv__card .lv__path { margin-bottom:10px; }
 button.lv__card--1 .lv__pick { background:#e07a3c; } button.lv__card--2 .lv__pick { background:#5f9448; } button.lv__card--3 .lv__pick { background:#4b67b8; }
 button.lv__card.previously-selected { border-color:#c66f4a; box-shadow:0 0 0 3px rgba(198,111,74,0.18), 0 4px 16px rgba(120,90,50,0.12); }

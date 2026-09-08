@@ -1871,15 +1871,33 @@ window.addEventListener('DOMContentLoaded', () => {
          compass = 기존 [🧭 나침반 결과] 버튼과 동일(읽기 전용·API 호출 없음). 브랜치 첫 스냅샷('gaji:branch-entered')
          뒤에 실행하고, 이벤트가 안 오면 12초 뒤 1회 시도(안전망). 새 기능 아님 — 버튼 두 개를 대신 눌러 주는 것뿐. */
       const _goParam = _spTeam.get('go');
-      if (ok && (_goParam === 'polish' || _goParam === 'compass')) {
-        let _fired = false;
-        const _run = () => {
-          if (_fired) return; _fired = true;
-          const id = (_goParam === 'polish') ? 'btn-viewer-edit' : 'btn-compass-result';
-          setTimeout(() => { try { document.getElementById(id)?.click(); } catch (e) { /* noop */ } }, _goParam === 'polish' ? 300 : 900);
-        };
-        window.addEventListener('gaji:branch-entered', _run, { once: true });
-        setTimeout(_run, 12000);
+      if (ok) {
+        /* 작품이 이미 있는 모둠(대표 작품)은 유형 선택 화면을 건너뛰고 바로 브랜치로 — 학생이 '이전 선택'
+           카드를 누르는 것과 같은 경로(selectProjectType + _enterMakerAfterPtypeSelected). 빈 모둠(심사N)은 그대로 선택 화면. */
+        let _skipped = false, _tries = 0;
+        const _skipTimer = setInterval(() => {
+          _tries++;
+          try {
+            const ps = document.getElementById('ptype-screen');
+            if (ps && ps.classList.contains('show') && _ptypeExistingType) {
+              clearInterval(_skipTimer); _skipped = true;
+              selectProjectType(_ptypeExistingType, _ptypeExistingPbLevel);
+              _enterMakerAfterPtypeSelected(_ptypeExistingType, _ptypeExistingPbLevel);
+            }
+          } catch (e) { /* noop */ }
+          if (_tries > 40) clearInterval(_skipTimer);   /* 12초 */
+        }, 300);
+        if (_goParam === 'polish' || _goParam === 'compass') {
+          let _fired = false;
+          const _run = () => {
+            if (_fired) return; _fired = true;
+            const id = (_goParam === 'polish') ? 'btn-viewer-edit' : 'btn-compass-result';
+            /* 선택 화면 건너뛰기가 먼저 끝나도록 잠시 뒤에 누른다 */
+            setTimeout(() => { try { document.getElementById(id)?.click(); } catch (e) { /* noop */ } }, _goParam === 'polish' ? 900 : 1500);
+          };
+          window.addEventListener('gaji:branch-entered', _run, { once: true });
+          setTimeout(_run, 12000);
+        }
       }
       if (!ok) {
         if (_joinScreenJ) _joinScreenJ.classList.remove('hidden');

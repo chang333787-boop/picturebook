@@ -58,17 +58,21 @@
     .jg__actions .jg__btn small { font-family:'Nanum Gothic', sans-serif; font-size:11.5px; color:#7d6f57; margin-left:2px; }
     @media (max-width:700px) { .jg__levels, .jg__levels--4 { grid-template-columns:1fr; } }
     /* 사다리 스타일은 level-ladder.css(공용·maker ptype 화면과 동일) */
-    /* ── 대표 작품 화면 ── */
+    /* ── 대표 작품 화면 ── (JUDGE-SAMPLE-2b: 세 줄 동일 레이아웃 — 정보 위·버튼 아래 균등 폭) */
     .sm { display:flex; flex-direction:column; gap:10px; margin:4px 0 6px; }
-    .sm__row { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; background:#fff; border:1.5px solid rgba(160,120,70,0.28); border-left-width:6px; border-radius:12px; padding:12px 14px; }
+    .sm__row { display:flex; flex-direction:column; gap:10px; background:#fff; border:1.5px solid rgba(160,120,70,0.28); border-left-width:6px; border-radius:12px; padding:12px 14px 12px; }
     .sm__row--1 { border-left-color:#e07a3c; } .sm__row--2 { border-left-color:#5f9448; } .sm__row--3 { border-left-color:#4b67b8; }
-    .sm__info { display:flex; flex-direction:column; gap:3px; min-width:0; }
+    .sm__info { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 10px; min-width:0; }
     .sm__info b { font-family:'Jua', sans-serif; font-size:17px; }
-    .sm__info small { font-size:12px; color:#7d6f57; line-height:1.4; }
-    .sm__tag { display:inline-block; width:fit-content; font-size:11px; font-weight:800; border-radius:999px; padding:2px 9px; background:#f4e6c8; color:#7a5320; margin-bottom:2px; }
-    .sm__btns { display:flex; gap:8px; flex-wrap:wrap; }
-    .sm__btns .jg__btn { min-height:38px; padding:6px 14px; font-size:14px; }
-    @media (max-width:640px) { .sm__btns .jg__btn { flex:1 1 auto; justify-content:center; } }
+    .sm__info small { flex-basis:100%; font-size:12.5px; color:#7d6f57; line-height:1.45; }
+    .sm__tag { display:inline-block; font-size:11px; font-weight:800; border-radius:999px; padding:2px 9px; color:#fff; }
+    .sm__row--1 .sm__tag { background:#e07a3c; } .sm__row--2 .sm__tag { background:#5f9448; } .sm__row--3 .sm__tag { background:#4b67b8; }
+    .sm__btns { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:8px; }
+    .sm__btns .jg__btn { min-height:40px; padding:6px 10px; font-size:14px; justify-content:center; white-space:nowrap; }
+    .sm__row--1 .sm__btns { grid-template-columns:repeat(3, minmax(0,1fr)); }
+    .sm__row--2 .jg__btn--primary { background:#5f9448; border-color:#5f9448; }
+    .sm__row--3 .jg__btn--primary { background:#4b67b8; border-color:#4b67b8; }
+    @media (max-width:760px) { .sm__btns, .sm__row--1 .sm__btns { grid-template-columns:repeat(2, minmax(0,1fr)); } .sm__btns .jg__btn { white-space:normal; font-size:13.5px; } }
     /* ── 구도 → AI 비교 ── */
     .cmp { display:flex; flex-direction:column; gap:12px; margin:4px 0 12px; }
     .cmp__row { background:#fff; border:1.5px solid rgba(160,120,70,0.28); border-radius:14px; padding:12px 14px; }
@@ -188,7 +192,7 @@
           </div>
         </div>
         <div class="sm__row sm__row--2">
-          <div class="sm__info"><span class="sm__tag">2단계</span><b>뇨뇨의 두드러기 모험</b><small>학생과 함께 만든 작품 · AI 3장면 초안 → 이어 쓰기, 그림 구도 → AI 완성 9장, 작품 점검 사용. <b>2단계의 핵심은 아이가 그린 구도를 보고 AI가 완성하는 것</b> — 오른쪽 비교 버튼에서 장면마다 나란히 볼 수 있어요.</small></div>
+          <div class="sm__info"><span class="sm__tag">2단계</span><b>뇨뇨의 두드러기 모험</b><small>학생과 함께 만든 작품 · AI 3장면 초안 → 이어 쓰기, 그림 구도 → AI 완성 9장, 작품 점검 사용 · <b>핵심: 아이가 그린 구도를 보고 AI가 완성</b> → [비교] 버튼</small></div>
           <div class="sm__btns">
             <a class="jg__btn" href="maker.html?judge=%EB%8C%80%ED%91%9C2%EB%8B%A8%EA%B3%84">🌿 브랜치 화면</a>
             <a class="jg__btn" href="maker.html?judge=%EB%8C%80%ED%91%9C2%EB%8B%A8%EA%B3%84&amp;go=polish">✨ 다듬기 화면</a>
@@ -197,12 +201,12 @@
           </div>
         </div>
         <div class="sm__row sm__row--3">
-          <div class="sm__info"><span class="sm__tag">3단계</span><b>보물을 찾아라</b><small>4학년 학생 작품 · 갈림길 5개, AI 그림 18장·글 다듬기 18장면, 쓰기 후 질문 사용</small></div>
+          <div class="sm__info"><span class="sm__tag">3단계</span><b>뇨뇨의 마법 구슬 찾기</b><small>4학년 학생 작품 · 갈림길 2개, AI 그림 17장·글 다듬기 17장면, 작품 점검 사용, 나침반에 아이가 남긴 메모</small></div>
           <div class="sm__btns">
             <a class="jg__btn" href="maker.html?judge=%EB%8C%80%ED%91%9C3%EB%8B%A8%EA%B3%84">🌿 브랜치 화면</a>
             <a class="jg__btn" href="maker.html?judge=%EB%8C%80%ED%91%9C3%EB%8B%A8%EA%B3%84&amp;go=polish">✨ 다듬기 화면</a>
             <a class="jg__btn" href="maker.html?judge=%EB%8C%80%ED%91%9C3%EB%8B%A8%EA%B3%84&amp;go=compass">🧭 나침반 답 보기</a>
-            <a class="jg__btn" href="judge.html?compare=%EB%8C%80%ED%91%9C3%EB%8B%A8%EA%B3%84">🖼 원화 → AI 완성 비교</a>
+            <a class="jg__btn jg__btn--primary" href="judge.html?compare=%EB%8C%80%ED%91%9C3%EB%8B%A8%EA%B3%84">🖼 원화 → AI 완성 비교</a>
           </div>
         </div>
       </div>

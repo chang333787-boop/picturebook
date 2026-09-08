@@ -4085,22 +4085,21 @@ exports.getClassShelf = onCall(
     const metaSnap = await admin.database().ref(`classes/${classId}/meta`).once('value');
     const meta = metaSnap.val() || {};
     const shelfRaw = (await admin.database().ref(`classes/${classId}/shelf`).once('value')).val() || {};
-    const works = [];
-    for (const [enc, w] of Object.entries(shelfRaw)) {
-      if (!w || typeof w !== 'object') continue;
-      let cc = 0;
-      try {
-        const cSnap = await admin.database().ref(`classes/${classId}/teams/${enc}/comments`).once('value');
-        cc = cSnap.numChildren();
-      } catch (e) { cc = 0; }
-      /* NICKNAME-1(2026-07-23): 표시 이름(닉네임)은 로그인 키(팀명)와 분리 — viewer-meta/nickname에서 읽어
-         카드 라벨용으로만 반환(team=키는 그대로·열기 식별자 유지). 없으면 undefined→클라가 team으로 폴백. */
-      let nick = '';
-      try {
-        const nSnap = await admin.database().ref(`classes/${classId}/teams/${enc}/viewer-meta/nickname`).once('value');
-        const nv = nSnap.val();
-        if (typeof nv === 'string' && nv.trim()) nick = nv.trim().slice(0, 30);
-      } catch (e) { nick = ''; }
+    /* SHELF-PERF-1(2026-09-08): 작품마다 순차 await(댓글 수·닉네임·표지)로 23권 = 46+회 왕복 → 함수(asia)↔RTDB(us)
+       왕복 ~200ms씩 9~12초가 걸려 '책장으로 들어가는 중'이 길게 멈추던 것(사용자 '삑사리'). 작품 단위로 병렬
+       처리(Promise.all)해 왕복을 겹친다. 결과 순서는 아래 sort가 정하므로 병렬 완료 순서와 무관. */
+    const _buildWork = async ([enc, w]) => {
+      if (!w || typeof w !== 'object') return null;
+      const teamRef = admin.database().ref(`classes/${classId}/teams/${enc}`);
+      const [cc, nick] = await Promise.all([
+        teamRef.child('comments').once('value').then((s) => s.numChildren()).catch(() => 0),
+        /* NICKNAME-1(2026-07-23): 표시 이름(닉네임)은 로그인 키(팀명)와 분리 — viewer-meta/nickname에서 읽어
+           카드 라벨용으로만 반환(team=키는 그대로·열기 식별자 유지). 없으면 ''→클라가 team으로 폴백. */
+        teamRef.child('viewer-meta/nickname').once('value').then((s) => {
+          const nv = s.val();
+          return (typeof nv === 'string' && nv.trim()) ? nv.trim().slice(0, 30) : '';
+        }).catch(() => ''),
+      ]);
       /* SHELF-COVER-1(2026-09-07): 표지 그림 — shelf/{enc}/img 캐시(규칙 버전 imgV 일치 시). 없거나 버전이
          다르면 작품 노드(scenes·aiVariants/image·imageSelections·viewer-meta)를 읽어 규칙(shelf-cover.js)으로
          정하고 캐시에 써 둔다(한 작품당 최초 1회·이후 무비용). 재계산 = 비공개→공개 다시(카드 재생성) 또는
@@ -4111,12 +4110,11 @@ exports.getClassShelf = onCall(
         img = w.img;
       } else {
         try {
-          const base = admin.database().ref(`classes/${classId}/teams/${enc}`);
           const [scSnap, aiSnap, selSnap, vmSnap] = await Promise.all([
-            base.child('scenes').once('value'),
-            base.child('aiVariants/image').once('value'),
-            base.child('aiVariants/imageSelections').once('value'),
-            base.child('viewer-meta').once('value'),
+            teamRef.child('scenes').once('value'),
+            teamRef.child('aiVariants/image').once('value'),
+            teamRef.child('aiVariants/imageSelections').once('value'),
+            teamRef.child('viewer-meta').once('value'),
           ]);
           const picked = ShelfCover.pickShelfCover({
             scenes: scSnap.val(), aiImage: aiSnap.val(), imageSelections: selSnap.val(), viewerMeta: vmSnap.val(),
@@ -4130,7 +4128,7 @@ exports.getClassShelf = onCall(
           img = '';
         }
       }
-      works.push({
+      return {
         team: decodeURIComponent(enc), enc,
         nick,
         t: (typeof w.t === 'string') ? w.t.slice(0, 60) : '',
@@ -4140,8 +4138,9 @@ exports.getClassShelf = onCall(
         at: w.at || 0,
         cc,
         img,
-      });
-    }
+      };
+    };
+    const works = (await Promise.all(Object.entries(shelfRaw).map(_buildWork))).filter(Boolean);
     /* SHELF-ORDER-1(2026-07-25): 교사 지정 순서(settings/shelfOrder = {enc: idx}) 우선,
        미지정 작품은 기존 최신순으로 뒤에. 순서 노드 없음 = 기존 동작 그대로(최신순). */
     let shelfOrder = {};

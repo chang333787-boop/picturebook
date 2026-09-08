@@ -4587,7 +4587,7 @@ exports.judgeSampleCompare = onCall(
     if (!(await _judgeAccessEnabled())) return { ok: false, code: 'JUDGE_OFF', items: [] };
     if (!(await _judgeRateLimit('judgeCompare', 60))) throw new HttpsError('resource-exhausted', '잠시 후 다시 시도해 주세요.');
     const team = String((req.data && req.data.team) || '').trim();
-    if (!/^대표[123]단계$/.test(team)) throw new HttpsError('invalid-argument', '대표 작품만 볼 수 있어요.');
+    if (!/^대표[123]단계2?$/.test(team)) throw new HttpsError('invalid-argument', '대표 작품만 볼 수 있어요.');   /* 대표3단계2 = 3단계 두 번째 작품 */
     const base = admin.database().ref(`classes/${JUDGE_CLASS_ID}/teams/${encodeURIComponent(team)}`);
     const [scSnap, aiSnap, vmSnap] = await Promise.all([
       base.child('scenes').once('value'), base.child('aiVariants/image').once('value'), base.child('viewer-meta').once('value'),

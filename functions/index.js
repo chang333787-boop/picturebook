@@ -53,6 +53,7 @@ const ImageS2OpenAi = require('./image-s2-adapter-openai');
 /* LV1-WAIT-1(2026-09-05): 1단계 배치 진행 노드(aiVariants/imageJob) 순수 헬퍼 */
 const Lv1Job = require('./lv1-image-job');
 const ShelfCover = require('./shelf-cover');   /* SHELF-COVER-1: 책장 표지 그림 규칙(순수) */
+const ShelfThumb = require('./shelf-thumb');   /* SHELF-THUMB-1: 책장 표지 썸네일(480×320) */
 const ImageS2Batch = require('./image-s2-batch');
 
 /* Firebase Admin 초기화 — 1번만 */
@@ -4128,6 +4129,25 @@ exports.getClassShelf = onCall(
           img = '';
         }
       }
+      /* SHELF-THUMB-1(2026-09-08): 카드에 내려보낼 것은 480×320 썸네일(imgT). 캐시 키 = 원본 URL(imgTSrc) —
+         표지가 바뀌면 다시 만들고, 같으면 재사용. 생성 실패는 imgT:'' 로 기록해 매번 재시도하지 않고 원본 URL 폴백. */
+      let imgOut = img;
+      if (img) {
+        if (typeof w.imgT === 'string' && w.imgTSrc === img) {
+          imgOut = w.imgT || img;
+        } else {
+          let thumbUrl = '';
+          try {
+            const r = await ShelfThumb.makeShelfThumb({ classId, sourceUrl: img, bucket: admin.storage().bucket(), logger });
+            thumbUrl = (r && r.url) || '';
+          } catch (e) {
+            logger.warn('[getClassShelf] 썸네일 생성 실패(원본 폴백)', { classId, enc, msg: e && e.message });
+            thumbUrl = '';
+          }
+          await admin.database().ref(`classes/${classId}/shelf/${enc}`).update({ imgT: thumbUrl, imgTSrc: img }).catch(() => {});
+          imgOut = thumbUrl || img;
+        }
+      }
       return {
         team: decodeURIComponent(enc), enc,
         nick,
@@ -4137,7 +4157,7 @@ exports.getClassShelf = onCall(
         th: (typeof w.th === 'string') ? w.th : '',
         at: w.at || 0,
         cc,
-        img,
+        img: imgOut,
       };
     };
     const works = (await Promise.all(Object.entries(shelfRaw).map(_buildWork))).filter(Boolean);
@@ -4502,6 +4522,17 @@ exports.joinTeamMembership = onCall(
   }
 );
 
+/* JUDGE-PERF-1: RTDB shallow 키 목록(REST ?shallow=true) — Admin SDK once('value')는 하위 전체를 내려받으므로
+   "키만" 필요할 때 쓴다. 인증 = 기본 서비스 계정 OAuth 토큰. 실패는 throw(호출부 폴백). */
+async function _shallowKeys(path) {
+  const tokenRes = await admin.app().options.credential.getAccessToken();
+  const dbUrl = (admin.app().options.databaseURL || 'https://picturebook-8731f-default-rtdb.firebaseio.com').replace(/\/+$/, '');
+  const res = await fetch(`${dbUrl}/${path}.json?shallow=true`, { headers: { Authorization: `Bearer ${tokenRes.access_token}` } });
+  if (!res.ok) throw new Error(`shallow ${res.status}`);
+  const j = await res.json();
+  return (j && typeof j === 'object') ? Object.keys(j) : [];
+}
+
 /* JUDGE-ACCESS-1: 심사 체험 모둠 상태 — 인증 불요(첫 화면·judge.html). origin+플래그+rate limit. */
 exports.judgeTeamsStatus = onCall(
   { enforceAppCheck: false },
@@ -4511,11 +4542,12 @@ exports.judgeTeamsStatus = onCall(
     if (!(await _judgeAccessEnabled())) return { ok: false, code: 'JUDGE_OFF', teams: [] };
     if (!(await _judgeRateLimit('judgeStatus', 60))) throw new HttpsError('resource-exhausted', '잠시 후 다시 시도해 주세요.');
     const base = admin.database().ref(`classes/${JUDGE_CLASS_ID}/teams`);
-    const keys = Object.keys((await base.once('value')).val() || {});
-    const teams = [];
-    for (const k of keys) {
+    /* JUDGE-PERF-1(2026-09-08): 종전엔 teams 노드 전체(15팀 scenes·그림 포함)를 내려받은 뒤 팀마다 순차 await →
+       실측 3.5~5.5s. 키만 shallow로 읽고(REST) 팀들을 병렬 처리. shallow 실패 시 종전 방식 폴백. */
+    const keys = await _shallowKeys(`classes/${JUDGE_CLASS_ID}/teams`).catch(async () => Object.keys((await base.once('value')).val() || {}));
+    const _one = async (k) => {
       const name = decodeURIComponent(k);
-      if (!/^심사\d+$/.test(name)) continue;
+      if (!/^심사\d+$/.test(name)) return null;
       const t = base.child(k);
       const [acc, meta, scenes, images] = await Promise.all([
         t.child('account').once('value').then((x) => x.val()),
@@ -4523,7 +4555,7 @@ exports.judgeTeamsStatus = onCall(
         t.child('scenes').once('value').then((x) => x.val()),
         t.child('aiVariants/image').once('value').then((x) => x.val()),
       ]);
-      if (!acc || acc.status === 'locked') continue;
+      if (!acc || acc.status === 'locked') return null;
       const sc = scenes || {};
       const targets = Object.keys(sc).filter((sid) => Lv1Job.isImageTargetScene(sc[sid])).length;
       const im = images || {};
@@ -4536,8 +4568,9 @@ exports.judgeTeamsStatus = onCall(
       let stage = 'empty';
       if (targets > 0) stage = (level === 1) ? (have >= targets ? 'done' : 'images') : 'writing';
       else if (level) stage = 'started';
-      teams.push({ name, level, type, stage, title, imagesDone: have, imagesTotal: targets });
-    }
+      return { name, level, type, stage, title, imagesDone: have, imagesTotal: targets };
+    };
+    const teams = (await Promise.all(keys.map(_one))).filter(Boolean);
     teams.sort((a, b) => _judgeTeamOrder(a.name) - _judgeTeamOrder(b.name));
     return { ok: true, teams };
   }

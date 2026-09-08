@@ -4576,6 +4576,38 @@ exports.judgeTeamsStatus = onCall(
   }
 );
 
+/* JUDGE-SAMPLE-2(2026-09-08): 대표 작품의 '그림 구도(스케치) → AI 완성' 짝 목록 — 2단계의 핵심(아이 구도를 보고 AI가
+   그려 준다)을 심사위원이 한 화면에서 나란히 보게. 인증 불요(origin+플래그+rate limit). 심사반의 대표N단계 팀만.
+   읽기 전용: scenes(원본 imageData/imageUrl http URL만)·aiVariants/image[num].s2.url. 본문은 80자 요약. */
+exports.judgeSampleCompare = onCall(
+  { enforceAppCheck: false },
+  async (req) => {
+    const origin = (req.rawRequest && req.rawRequest.headers && req.rawRequest.headers.origin) || '';
+    if (!isOriginAllowed(origin)) throw new HttpsError('permission-denied', '허용되지 않은 요청이에요.');
+    if (!(await _judgeAccessEnabled())) return { ok: false, code: 'JUDGE_OFF', items: [] };
+    if (!(await _judgeRateLimit('judgeCompare', 60))) throw new HttpsError('resource-exhausted', '잠시 후 다시 시도해 주세요.');
+    const team = String((req.data && req.data.team) || '').trim();
+    if (!/^대표[123]단계$/.test(team)) throw new HttpsError('invalid-argument', '대표 작품만 볼 수 있어요.');
+    const base = admin.database().ref(`classes/${JUDGE_CLASS_ID}/teams/${encodeURIComponent(team)}`);
+    const [scSnap, aiSnap, vmSnap] = await Promise.all([
+      base.child('scenes').once('value'), base.child('aiVariants/image').once('value'), base.child('viewer-meta').once('value'),
+    ]);
+    const sc = scSnap.val() || {}; const ai = aiSnap.val() || {}; const vm = vmSnap.val() || {};
+    const isHttp = (v) => typeof v === 'string' && /^https?:\/\//i.test(v);
+    const items = [];
+    Object.keys(sc).forEach((num) => {
+      const s = sc[num]; if (!s || typeof s !== 'object' || s.type === 'cover') return;
+      const orig = isHttp(s.imageData) ? s.imageData : (isHttp(s.imageUrl) ? s.imageUrl : '');
+      const a = ai[num] && ai[num].s2; const aiUrl = (a && isHttp(a.url) && a.stale !== true) ? a.url : '';
+      if (!orig && !aiUrl) return;
+      items.push({ num: Number(num), type: s.type || '', title: String(s.title || '').slice(0, 40), body: String(s.body || '').replace(/\s+/g, ' ').slice(0, 80), orig, ai: aiUrl });
+    });
+    items.sort((x, y) => (x.type === 'start' ? -1 : 0) - (y.type === 'start' ? -1 : 0) || x.num - y.num);
+    const titleScene = sc['1'] || {};
+    return { ok: true, team, level: Number(vm.picturebookLevel) || null, title: String(titleScene.title || '').slice(0, 40), items };
+  }
+);
+
 /* JUDGE-ACCESS-1: 심사반 담당 교사(branchtest) 로그인 없이 교사 관리 화면.
    ① 원래는 커스텀 토큰이었으나 런타임 서비스 계정에 signBlob(IAM Token Creator)이 없어 실패 →
    ② 서버가 관리하는 비밀번호로 대체: admin/judgeAccess/teacherPassword(없으면 무작위 생성)를

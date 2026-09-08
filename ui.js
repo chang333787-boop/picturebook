@@ -1866,6 +1866,21 @@ window.addEventListener('DOMContentLoaded', () => {
       if (typeof _judgeJoinTeam === 'function') {
         try { ok = await _judgeJoinTeam(JUDGE_CLASS_ID_CLIENT, _judgeParam); } catch (e) { ok = false; }
       }
+      /* JUDGE-SAMPLE-1(2026-09-08): ?go=polish|compass — 대표 작품(심사반 복제본) 입장 뒤 학생이 쓰던 화면을 바로 연다.
+         polish = 기존 [다듬기] 버튼 클릭과 동일 경로(_saveReturnContext·flushTitleSaves 포함) → viewer.html?edit=1
+         compass = 기존 [🧭 나침반 결과] 버튼과 동일(읽기 전용·API 호출 없음). 브랜치 첫 스냅샷('gaji:branch-entered')
+         뒤에 실행하고, 이벤트가 안 오면 12초 뒤 1회 시도(안전망). 새 기능 아님 — 버튼 두 개를 대신 눌러 주는 것뿐. */
+      const _goParam = _spTeam.get('go');
+      if (ok && (_goParam === 'polish' || _goParam === 'compass')) {
+        let _fired = false;
+        const _run = () => {
+          if (_fired) return; _fired = true;
+          const id = (_goParam === 'polish') ? 'btn-viewer-edit' : 'btn-compass-result';
+          setTimeout(() => { try { document.getElementById(id)?.click(); } catch (e) { /* noop */ } }, _goParam === 'polish' ? 300 : 900);
+        };
+        window.addEventListener('gaji:branch-entered', _run, { once: true });
+        setTimeout(_run, 12000);
+      }
       if (!ok) {
         if (_joinScreenJ) _joinScreenJ.classList.remove('hidden');
         const jc = document.getElementById('join-code'); if (jc) jc.value = '9999';

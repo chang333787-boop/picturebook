@@ -58,6 +58,17 @@
     .jg__actions .jg__btn small { font-family:'Nanum Gothic', sans-serif; font-size:11.5px; color:#7d6f57; margin-left:2px; }
     @media (max-width:700px) { .jg__levels, .jg__levels--4 { grid-template-columns:1fr; } }
     /* 사다리 스타일은 level-ladder.css(공용·maker ptype 화면과 동일) */
+    /* ── 대표 작품 화면 ── */
+    .sm { display:flex; flex-direction:column; gap:10px; margin:4px 0 6px; }
+    .sm__row { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; background:#fff; border:1.5px solid rgba(160,120,70,0.28); border-left-width:6px; border-radius:12px; padding:12px 14px; }
+    .sm__row--1 { border-left-color:#e07a3c; } .sm__row--2 { border-left-color:#5f9448; } .sm__row--3 { border-left-color:#4b67b8; }
+    .sm__info { display:flex; flex-direction:column; gap:3px; min-width:0; }
+    .sm__info b { font-family:'Jua', sans-serif; font-size:17px; }
+    .sm__info small { font-size:12px; color:#7d6f57; line-height:1.4; }
+    .sm__tag { display:inline-block; width:fit-content; font-size:11px; font-weight:800; border-radius:999px; padding:2px 9px; background:#f4e6c8; color:#7a5320; margin-bottom:2px; }
+    .sm__btns { display:flex; gap:8px; flex-wrap:wrap; }
+    .sm__btns .jg__btn { min-height:38px; padding:6px 14px; font-size:14px; }
+    @media (max-width:640px) { .sm__btns .jg__btn { flex:1 1 auto; justify-content:center; } }
     /* ── Q&A ── */
     .qa { border:1.5px solid rgba(160,120,70,0.28); border-radius:12px; background:#fff; margin:0 0 8px; padding:0 14px; }
     .qa summary { cursor:pointer; list-style:none; padding:11px 0; font-family:'Jua', sans-serif; font-size:15px; color:#2b1f10; display:flex; align-items:center; gap:8px; }
@@ -150,6 +161,40 @@
 
     <!-- JUDGE-QA-1(2026-09-07): 자주 묻는 질문 — 사용자 09-08: "심사위원 저격" 느낌 없이 중립 문구로. 두 모드(체험·교사) 공통.
          경쟁 제품명은 블라인드 표기(B*** C******). 학교명 없음. -->
+    <!-- JUDGE-SAMPLE-1(2026-09-08): 학생이 실제로 작업한 화면 — 대표 작품 3편(심사반 복제본 대표1·2·3단계, 원본 무변경).
+         버튼 = 심사 체험과 같은 PIN 없는 입장(maker.html?judge=…) + go=polish(다듬기 화면 자동 열기)·go=compass(나침반 답 보기). -->
+    <section class="jg__card" id="jg-samples">
+      <h2>🔍 학생이 실제로 작업한 화면 살펴보기</h2>
+      <p>대표 작품 세 편을 학생이 썼던 화면 그대로 엽니다. 이야기 길과 장면 편집(브랜치), 글·그림 다듬기, 생각 나침반 답을 확인할 수 있어요. 복제본이라 자유롭게 눌러 보셔도 원본은 바뀌지 않습니다.</p>
+      <div class="sm">
+        <div class="sm__row sm__row--1">
+          <div class="sm__info"><span class="sm__tag">1단계</span><b>콩이의 용감한 첫 친구</b><small>보충학습 학생 작품 · 나침반 9문항 → AI가 글·그림 13장 완성</small></div>
+          <div class="sm__btns">
+            <a class="jg__btn" href="maker.html?judge=%EB%8C%80%ED%91%9C1%EB%8B%A8%EA%B3%84">🌿 브랜치 화면</a>
+            <a class="jg__btn" href="maker.html?judge=%EB%8C%80%ED%91%9C1%EB%8B%A8%EA%B3%84&amp;go=polish">✨ 다듬기 화면</a>
+            <a class="jg__btn" href="maker.html?judge=%EB%8C%80%ED%91%9C1%EB%8B%A8%EA%B3%84&amp;go=compass">🧭 나침반 답 보기</a>
+          </div>
+        </div>
+        <div class="sm__row sm__row--2">
+          <div class="sm__info"><span class="sm__tag">2단계</span><b>뇨뇨의 두드러기 모험</b><small>학생과 함께 만든 작품 · AI 3장면 초안 → 이어 쓰기, 그림 구도 → AI 완성 9장, 작품 점검 사용</small></div>
+          <div class="sm__btns">
+            <a class="jg__btn" href="maker.html?judge=%EB%8C%80%ED%91%9C2%EB%8B%A8%EA%B3%84">🌿 브랜치 화면</a>
+            <a class="jg__btn" href="maker.html?judge=%EB%8C%80%ED%91%9C2%EB%8B%A8%EA%B3%84&amp;go=polish">✨ 다듬기 화면</a>
+            <a class="jg__btn" href="maker.html?judge=%EB%8C%80%ED%91%9C2%EB%8B%A8%EA%B3%84&amp;go=compass">🧭 나침반 답 보기</a>
+          </div>
+        </div>
+        <div class="sm__row sm__row--3">
+          <div class="sm__info"><span class="sm__tag">3단계</span><b>보물을 찾아라</b><small>4학년 학생 작품 · 갈림길 5개, AI 그림 18장·글 다듬기 18장면, 쓰기 후 질문 사용</small></div>
+          <div class="sm__btns">
+            <a class="jg__btn" href="maker.html?judge=%EB%8C%80%ED%91%9C3%EB%8B%A8%EA%B3%84">🌿 브랜치 화면</a>
+            <a class="jg__btn" href="maker.html?judge=%EB%8C%80%ED%91%9C3%EB%8B%A8%EA%B3%84&amp;go=polish">✨ 다듬기 화면</a>
+            <a class="jg__btn" href="maker.html?judge=%EB%8C%80%ED%91%9C3%EB%8B%A8%EA%B3%84&amp;go=compass">🧭 나침반 답 보기</a>
+          </div>
+        </div>
+      </div>
+      <p class="jg__note">브랜치 화면에서는 위쪽 🧭 버튼으로 나침반 답을, 아래 [이야기 길 보기]로 갈래 구조를 볼 수 있어요. 다듬기 화면은 감상 화면 위에서 글자·말풍선·AI 후보를 고치는 곳이에요.</p>
+    </section>
+
     <section class="jg__card" id="jg-qa">
       <h2>🙋 자주 묻는 질문</h2>
       <p>이 프로그램에 대해 자주 묻는 질문과 답입니다. 항목을 누르면 펼쳐져요.</p>
@@ -298,6 +343,7 @@
       const goTeacher = new URLSearchParams(location.search).get('go') === 'teacher';
       $('jg-teacher').style.display = goTeacher ? '' : 'none';
       $('jg-teams').style.display = goTeacher ? 'none' : '';
+      $('jg-samples').style.display = goTeacher ? 'none' : '';
       if (goTeacher) {
         $('jg-title').textContent = '🧑‍🏫 심사위원 교사 화면';
         $('jg-sub').innerHTML = '심사반(코드 9999) 담당 교사 계정으로 <b>로그인 없이</b> 수업 관리 화면을 엽니다. 무엇을 볼 수 있는지 먼저 살펴보고, 아래 버튼으로 여세요.';

@@ -42,6 +42,7 @@
   <link rel="stylesheet" href="v03-modes.css?v=9bc2453bcc"/>
   <!-- THOUGHT-COMPASS (생각 나침반) Phase 1 — feature branch 전용 -->
   <link rel="stylesheet" href="thought-compass.css?v=154b9c4183"/>
+  <link rel="stylesheet" href="level-ladder.css?v=a65a4529cf"/>
   <style>
     :root {
       /* W8 Step 5-B: --primary 파랑 → 코랄. 제작 영역 메인 액센트 (home 카드 띠와 통일).
@@ -385,6 +386,11 @@
     .ptype-pb-levels{
       display:grid;grid-template-columns:repeat(3,1fr);gap:14px;
     }
+    /* LEVEL-LADDER-1: 사다리 카드가 버튼일 때 .ptype-card 기본(그리드행·무드 스트립) 무효화 */
+    .ptype-card.lv__card{ display:block; grid-template-rows:none; border-radius:12px; padding:0 0 10px; background:#fff; }
+    .ptype-card.lv__card::before, .ptype-card.lv__card::after{ content:none; }
+    .lv--picker{ margin:0; }
+    .lv__legend--picker{ justify-content:flex-end; margin:-6px 0 8px; }
     /* 단계 카드 — 슬림한 무드 스트립(64px) + 성장 아이콘 */
     .ptype-card--level{ grid-template-rows:64px 1fr; }
     .ptype-card--level::before{ height:64px; }
@@ -3114,34 +3120,56 @@
       <div class="ptype-pb-group">
         <p class="ptype-group-label">🎨 그림책 만들기</p>
         <p class="ptype-group-note">학년은 추천일 뿐이에요 — 도움을 받으면 위 단계도, 스스로 하면 아래 단계도 자유롭게 만들 수 있어요.</p>
-        <div class="ptype-pb-levels">
-          <button class="ptype-card ptype-card--picturebook ptype-card--level" data-ptype="picturebook" data-pblevel="1">
-            <span class="ptype-level-chip">1단계</span>
-            <span class="ptype-card-icon" aria-hidden="true">🌱</span>
+        <!-- LEVEL-LADDER-1(2026-09-08): 단계 고르는 카드 = 심사 안내의 「3단계 사다리」와 같은 카드(level-ladder.css 공용).
+             버튼 셀렉터(#ptype-grid [data-ptype]·.ptype-card)·data-pblevel·이전 선택 배지는 그대로 — ui.js 무수정. -->
+        <div class="lv lv--picker">
+          <div class="lv__legend lv__legend--picker"><span><i class="lv__dot lv__dot--ai"></i>AI가 함</span><span><i class="lv__dot lv__dot--kid"></i>아이가 함</span></div>
+        <div class="lv__cols">
+          <button type="button" class="ptype-card lv__card lv__card--1" data-ptype="picturebook" data-pblevel="1" aria-label="1단계 이야기 만나기 고르기">
             <span class="ptype-card-prev-badge">✓ 이전 선택</span>
-            <div class="ptype-card-body">
-              <h2 class="ptype-card-name">나의 동화책을 만들어줘요</h2>
-              <p class="ptype-card-desc">나침반에 답하면 AI가 글과 그림을 만들어 줘요 · 저학년 추천</p>
-            </div>
+            <div class="lv__band"><span class="lv__num">1</span><span><b>1단계 · 이야기 만나기</b><small>1~6학년 누구나 · 일직선 그림책</small></span></div>
+            <div class="lv__motto">"내 생각이 <em>이야기가 되는 걸</em> 본다"</div>
+            <div class="lv__ratio"><span class="lv__ratio-ai" style="width:72%">AI 도움 많음</span><span class="lv__ratio-kid">아이</span></div>
+            <ul class="lv__rows">
+              <li><span class="lv__ic">🧭</span><span><b>계획</b> 생각 나침반 9문항에 답하고 가치를 고른다 <i class="lv__who lv__who--kid">아이</i></span></li>
+              <li><span class="lv__ic">✍️</span><span><b>글</b> 나침반 답을 바탕으로 12장면 초안을 만든다 <i class="lv__who lv__who--ai">AI</i></span></li>
+              <li><span class="lv__ic">🎨</span><span><b>그림</b> 주인공을 AI에게 맡기거나 직접 그린 뒤, 전체 장면 완성 <i class="lv__who lv__who--ai">AI</i></span></li>
+              <li><span class="lv__ic">📖</span><span><b>결과</b> 완성된 그림책을 읽고 감상 · 인쇄 <i class="lv__who lv__who--kid">아이</i></span></li>
+            </ul>
+            <div class="lv__path"><b>이야기 구조</b><svg viewBox="0 0 300 34" width="220" height="26" aria-hidden="true"><g fill="#e07a3c"><circle cx="20" cy="17" r="9"/><circle cx="85" cy="17" r="9"/><circle cx="150" cy="17" r="9"/><circle cx="215" cy="17" r="9"/><circle cx="280" cy="17" r="9"/></g><path d="M29 17H76M94 17h47M159 17h47M224 17h47" stroke="#e07a3c" stroke-width="4" stroke-linecap="round"/></svg></div>
+          <span class="lv__pick">이 단계로 만들기 →</span>
           </button>
-          <button class="ptype-card ptype-card--picturebook ptype-card--level" data-ptype="picturebook" data-pblevel="2">
-            <span class="ptype-level-chip">2단계</span>
-            <span class="ptype-card-icon" aria-hidden="true">🌿</span>
+          <button type="button" class="ptype-card lv__card lv__card--2" data-ptype="picturebook" data-pblevel="2" aria-label="2단계 이야기 짓기 고르기">
             <span class="ptype-card-prev-badge">✓ 이전 선택</span>
-            <div class="ptype-card-body">
-              <h2 class="ptype-card-name">도움을 받아 만들어봐요</h2>
-              <p class="ptype-card-desc">AI가 이야기를 시작해 주면 내가 이어서 완성해요 · 중학년 추천</p>
-            </div>
+            <div class="lv__band"><span class="lv__num">2</span><span><b>2단계 · 이야기 짓기</b><small>중·고학년 추천 · 일직선 그림책</small></span></div>
+            <div class="lv__motto">"<em>내 글과 내 그림</em>으로 책을 만든다"</div>
+            <div class="lv__ratio"><span class="lv__ratio-ai" style="width:38%">AI 절반</span><span class="lv__ratio-kid">아이 절반</span></div>
+            <div class="lv__ratio-lab"><span>AI는 시작과 그림 완성</span><span>이어 쓰기·구도는 아이</span></div>
+            <ul class="lv__rows">
+              <li><span class="lv__ic">🧭</span><span><b>계획</b> 생각 나침반 + AI 후속 질문으로 이야기 뼈대 <i class="lv__who lv__who--both">함께</i></span></li>
+              <li><span class="lv__ic">✍️</span><span><b>글</b> AI가 처음 3장면을 초안으로 제시하고, 나머지는 아이가 나침반 힌트를 보며 직접 쓴다 <i class="lv__who lv__who--both">함께</i></span></li>
+              <li><span class="lv__ic">🎨</span><span><b>그림</b> 아이가 주인공과 장면의 <b>그림 구도</b>(스케치)를 그리면, AI가 그 구도를 바탕으로 그림을 완성 <i class="lv__who lv__who--both">함께</i></span></li>
+              <li><span class="lv__ic">📖</span><span><b>결과</b> 그림 구도와 완성본을 나란히 두고 감상 · 인쇄 <i class="lv__who lv__who--kid">아이</i></span></li>
+            </ul>
+            <div class="lv__path"><b>이야기 구조</b><svg viewBox="0 0 300 34" width="220" height="26" aria-hidden="true"><g fill="#5f9448"><circle cx="20" cy="17" r="9"/><circle cx="85" cy="17" r="9"/><circle cx="150" cy="17" r="9"/><circle cx="215" cy="17" r="9"/><circle cx="280" cy="17" r="9"/></g><path d="M29 17H76M94 17h47M159 17h47M224 17h47" stroke="#5f9448" stroke-width="4" stroke-linecap="round"/></svg></div>
+          <span class="lv__pick">이 단계로 만들기 →</span>
           </button>
-          <button class="ptype-card ptype-card--picturebook ptype-card--level" data-ptype="picturebook" data-pblevel="3">
-            <span class="ptype-level-chip">3단계</span>
-            <span class="ptype-card-icon" aria-hidden="true">🌳</span>
+          <button type="button" class="ptype-card lv__card lv__card--3" data-ptype="picturebook" data-pblevel="3" aria-label="3단계 갈래 이야기 고르기">
             <span class="ptype-card-prev-badge">✓ 이전 선택</span>
-            <div class="ptype-card-body">
-              <h2 class="ptype-card-name">갈림길이 있는 이야기를 스스로의 힘으로</h2>
-              <p class="ptype-card-desc">선택에 따라 갈라지는 이야기를 스스로 만들어요 · 고학년 추천</p>
-            </div>
+            <div class="lv__band"><span class="lv__num">3</span><span><b>3단계 · 갈래 이야기</b><small>중·고학년 추천 · 분기 그림책</small></span></div>
+            <div class="lv__motto">"읽는 사람이 <em>고르는 이야기</em>를 설계한다"</div>
+            <div class="lv__ratio"><span class="lv__ratio-ai" style="width:12%">AI</span><span class="lv__ratio-kid">거의 다 아이가</span></div>
+            <ul class="lv__rows">
+              <li><span class="lv__ic">🧭</span><span><b>계획</b> 나침반으로 가치와 갈림길을 정하고 이야기 길을 설계 <i class="lv__who lv__who--kid">아이</i></span></li>
+              <li><span class="lv__ic">✍️</span><span><b>글</b> 장면에 행동 버튼을 달아 다음 장면을 연결, 엔딩 여러 개 <i class="lv__who lv__who--kid">아이</i></span></li>
+              <li><span class="lv__ic">🎨</span><span><b>그림</b> 아이가 그린 원화가 기본, AI 완성본은 교사가 켠 경우에만 후보 <i class="lv__who lv__who--kid">아이</i></span></li>
+              <li><span class="lv__ic">🗺️</span><span><b>결과</b> 이야기 길 보기로 구조 점검 → 학급 책장 · 댓글 · 인쇄 <i class="lv__who lv__who--kid">아이</i></span></li>
+            </ul>
+            <div class="lv__path"><b>이야기 구조</b><svg viewBox="0 0 300 34" width="220" height="26" aria-hidden="true"><g fill="#4b67b8"><circle cx="20" cy="17" r="9"/><circle cx="90" cy="17" r="9"/><circle cx="160" cy="7" r="7"/><circle cx="160" cy="27" r="7"/><circle cx="230" cy="7" r="7"/><circle cx="230" cy="27" r="7"/><circle cx="285" cy="7" r="7"/><circle cx="285" cy="27" r="7"/></g><path d="M29 17H81M98 15L153 8M98 19L153 26M167 7h56M167 27h56M237 7h41M237 27h41" stroke="#4b67b8" stroke-width="4" stroke-linecap="round" fill="none"/></svg></div>
+          <span class="lv__pick">이 단계로 만들기 →</span>
           </button>
+        </div>
+          <div class="lv__bar"><span>AI가 보여 주는 이야기</span><span>→</span><span>AI와 함께 짓는 이야기</span><span>→</span><span>아이가 설계하는 이야기</span></div>
         </div>
       </div>
       <div class="ptype-sub-group">
@@ -3525,7 +3553,7 @@
 <script src="consent-form.js?v=e392af7a11"></script>
 <script src="adminConsole.js?v=2e6274e917"></script>
 <!-- ADMIN-REDESIGN Phase 3: 교사·학생 상세 설명서(화면형) -->
-<script src="admin-manual.js?v=095ece84a0"></script>
+<script src="admin-manual.js?v=09a300ffab"></script>
 <script src="projectSettings.js?v=daf6af8300"></script>
 <script src="ui.js?v=e0a01af286"></script>
 <!-- v95: 모바일 텍스트형 브랜치 전용 (텍스트 작품 + 모바일에서만 활성) -->

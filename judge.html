@@ -13,6 +13,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Jua&family=Nanum+Gothic:wght@400;700&family=Nanum+Pen+Script&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="tokens-warm.css?v=40b1d74892"/>
+  <link rel="stylesheet" href="level-ladder.css?v=a65a4529cf"/>
   <!-- JUDGE-ACCESS-1(2026-09-05·전국대회 교육청 컨설팅 지적): 심사위원 전용 안내 페이지.
        첫 화면 버튼 하나 = 이 페이지 모드 하나: 기본=심사위원 체험(심사1~15 · 기존 계정 그대로 · PIN 없이 · 단계/완성 배지),
        ?go=teacher=심사반 담당 교사 화면(서버 관리 비밀번호로 로그인 없이). 수업 결과물(책장)은 첫 화면에서 바로 연다.
@@ -56,45 +57,7 @@
     .jg__actions { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
     .jg__actions .jg__btn small { font-family:'Nanum Gothic', sans-serif; font-size:11.5px; color:#7d6f57; margin-left:2px; }
     @media (max-width:700px) { .jg__levels, .jg__levels--4 { grid-template-columns:1fr; } }
-    /* ── 사다리(HTML판·선명) ── */
-    .lv { margin:4px 0 4px; padding:14px 14px 12px; border:1.5px solid rgba(160,120,70,0.28); border-radius:14px; background:linear-gradient(180deg,#fffdf7,#fff6e6); }
-    .lv__head { display:flex; justify-content:space-between; align-items:flex-end; gap:12px; flex-wrap:wrap; margin-bottom:10px; }
-    .lv__title { font-family:'Jua', sans-serif; font-size:19px; }
-    .lv__sub { font-size:12.5px; color:#8a6a45; margin-top:2px; }
-    .lv__legend { display:flex; gap:12px; font-size:12px; color:#5a4630; }
-    .lv__legend span { display:inline-flex; align-items:center; gap:5px; }
-    .lv__dot { width:12px; height:12px; border-radius:50%; display:inline-block; }
-    .lv__dot--ai { background:repeating-linear-gradient(135deg,#6f8fd8 0 3px,#dfe6f7 3px 5px); }
-    .lv__dot--kid { background:#e08a4a; }
-    .lv__cols { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px; }
-    .lv__card { background:#fff; border-radius:12px; overflow:hidden; min-width:0; box-shadow:0 4px 14px rgba(120,80,30,0.10); padding-bottom:10px; }
-    .lv__band { display:flex; align-items:center; gap:8px; padding:9px 10px; color:#fff; }
-    .lv__card--1 .lv__band { background:linear-gradient(135deg,#f0a35e,#e07a3c); }
-    .lv__card--2 .lv__band { background:linear-gradient(135deg,#8fb56a,#5f9448); }
-    .lv__card--3 .lv__band { background:linear-gradient(135deg,#6f8fd8,#4b67b8); }
-    .lv__num { width:30px; height:30px; border-radius:50%; background:rgba(255,255,255,.22); border:2px solid rgba(255,255,255,.55); display:inline-flex; align-items:center; justify-content:center; font-family:'Jua', sans-serif; font-size:16px; flex:none; }
-    .lv__band b { display:block; font-family:'Jua', sans-serif; font-size:16px; font-weight:400; line-height:1.15; }
-    .lv__band small { display:block; font-size:11px; opacity:.95; margin-top:2px; }
-    .lv__motto { padding:9px 10px 2px; font-family:'Jua', sans-serif; font-size:14.5px; color:#3a2a16; }
-    .lv__motto em { font-style:normal; color:#c66f4a; }
-    .lv__ratio { margin:7px 10px 8px; height:18px; border-radius:9px; overflow:hidden; display:flex; font-size:10.5px; font-weight:700; color:#fff; }
-    .lv__ratio-ai { background:repeating-linear-gradient(135deg,#6f8fd8 0 6px,#a9bbe8 6px 10px); display:flex; align-items:center; padding-left:8px; text-shadow:0 0 3px #4b67b8; white-space:nowrap; }
-    .lv__ratio-kid { flex:1; background:#e08a4a; display:flex; align-items:center; justify-content:flex-end; padding-right:8px; white-space:nowrap; }
-    .lv__ratio-lab { display:flex; justify-content:space-between; gap:8px; margin:-4px 10px 8px; font-size:11px; color:#7a6650; }
-    .lv__rows { list-style:none; margin:0 8px; padding:0; display:flex; flex-direction:column; gap:5px; }
-    .lv__rows li { display:flex; gap:6px; align-items:flex-start; background:#fbf6ec; border-radius:9px; padding:8px 9px; font-size:13.5px; line-height:1.5; color:#3a2a16; min-width:0; }
-    .lv__rows b { color:#8a6a45; margin-right:3px; }
-    .lv__ic { font-size:15px; line-height:1.2; flex:none; }
-    .lv__who { display:inline-block; font-style:normal; font-size:10.5px; font-weight:800; border-radius:5px; padding:1px 5px; margin-left:3px; vertical-align:1px; }
-    .lv__who--ai { background:#e3eafc; color:#3d55a3; border:1px dashed #6f8fd8; }
-    .lv__who--kid { background:#fde5d2; color:#a5521f; }
-    .lv__who--both { background:#e9f3df; color:#3f6f2a; }
-    .lv__path { margin:8px 8px 0; border:2px dashed #e5d7bf; border-radius:10px; padding:7px 8px 6px; text-align:center; }
-    .lv__path b { display:block; font-size:12px; color:#8a6a45; margin-bottom:4px; }
-    .lv__path svg { display:block; margin:0 auto; max-width:100%; height:auto; }
-    .lv__bar { margin-top:10px; height:32px; border-radius:16px; background:linear-gradient(90deg,#6f8fd8 0%,#8fb56a 50%,#e08a4a 100%); display:flex; align-items:center; justify-content:space-between; padding:0 14px; color:#fff; font-family:'Jua', sans-serif; font-size:13px; gap:8px; }
-    .lv__foot { margin-top:8px; font-size:12.5px; color:#6b5638; line-height:1.5; }
-    @media (max-width:760px) { .lv__cols { grid-template-columns:1fr; } .lv__bar { height:auto; padding:8px 12px; flex-wrap:wrap; justify-content:center; text-align:center; } }
+    /* 사다리 스타일은 level-ladder.css(공용·maker ptype 화면과 동일) */
     /* ── Q&A ── */
     .qa { border:1.5px solid rgba(160,120,70,0.28); border-radius:12px; background:#fff; margin:0 0 8px; padding:0 14px; }
     .qa summary { cursor:pointer; list-style:none; padding:11px 0; font-family:'Jua', sans-serif; font-size:15px; color:#2b1f10; display:flex; align-items:center; gap:8px; }
@@ -139,7 +102,7 @@
         </div>
         <div class="lv__cols">
           <div class="lv__card lv__card--1">
-            <div class="lv__band"><span class="lv__num">1</span><span><b>1단계 · 이야기 만나기</b><small>저학년 추천 · 일직선 그림책</small></span></div>
+            <div class="lv__band"><span class="lv__num">1</span><span><b>1단계 · 이야기 만나기</b><small>1~6학년 누구나 · 일직선 그림책</small></span></div>
             <div class="lv__motto">"내 생각이 <em>이야기가 되는 걸</em> 본다"</div>
             <div class="lv__ratio"><span class="lv__ratio-ai" style="width:72%">AI 도움 많음</span><span class="lv__ratio-kid">아이</span></div>
             <ul class="lv__rows">
@@ -151,20 +114,20 @@
             <div class="lv__path"><b>이야기 구조</b><svg viewBox="0 0 300 34" width="220" height="26" aria-hidden="true"><g fill="#e07a3c"><circle cx="20" cy="17" r="9"/><circle cx="85" cy="17" r="9"/><circle cx="150" cy="17" r="9"/><circle cx="215" cy="17" r="9"/><circle cx="280" cy="17" r="9"/></g><path d="M29 17H76M94 17h47M159 17h47M224 17h47" stroke="#e07a3c" stroke-width="4" stroke-linecap="round"/></svg></div>
           </div>
           <div class="lv__card lv__card--2">
-            <div class="lv__band"><span class="lv__num">2</span><span><b>2단계 · 이야기 짓기</b><small>중학년 추천 · 일직선 그림책</small></span></div>
+            <div class="lv__band"><span class="lv__num">2</span><span><b>2단계 · 이야기 짓기</b><small>중·고학년 추천 · 일직선 그림책</small></span></div>
             <div class="lv__motto">"<em>내 글과 내 그림</em>으로 책을 만든다"</div>
             <div class="lv__ratio"><span class="lv__ratio-ai" style="width:38%">AI 절반</span><span class="lv__ratio-kid">아이 절반</span></div>
             <div class="lv__ratio-lab"><span>AI는 시작과 그림 완성</span><span>이어 쓰기·구도는 아이</span></div>
             <ul class="lv__rows">
               <li><span class="lv__ic">🧭</span><span><b>계획</b> 생각 나침반 + AI 후속 질문으로 이야기 뼈대 <i class="lv__who lv__who--both">함께</i></span></li>
               <li><span class="lv__ic">✍️</span><span><b>글</b> AI가 처음 3장면을 초안으로 제시하고, 나머지는 아이가 나침반 힌트를 보며 직접 쓴다 <i class="lv__who lv__who--both">함께</i></span></li>
-              <li><span class="lv__ic">🎨</span><span><b>그림</b> 아이가 주인공과 장면의 구도를 그리면(스케치), AI가 그 구도를 바탕으로 그림을 완성 <i class="lv__who lv__who--both">함께</i></span></li>
-              <li><span class="lv__ic">📖</span><span><b>결과</b> 구도 스케치와 완성본을 나란히 두고 감상 · 인쇄 <i class="lv__who lv__who--kid">아이</i></span></li>
+              <li><span class="lv__ic">🎨</span><span><b>그림</b> 아이가 주인공과 장면의 <b>그림 구도</b>(스케치)를 그리면, AI가 그 구도를 바탕으로 그림을 완성 <i class="lv__who lv__who--both">함께</i></span></li>
+              <li><span class="lv__ic">📖</span><span><b>결과</b> 그림 구도와 완성본을 나란히 두고 감상 · 인쇄 <i class="lv__who lv__who--kid">아이</i></span></li>
             </ul>
             <div class="lv__path"><b>이야기 구조</b><svg viewBox="0 0 300 34" width="220" height="26" aria-hidden="true"><g fill="#5f9448"><circle cx="20" cy="17" r="9"/><circle cx="85" cy="17" r="9"/><circle cx="150" cy="17" r="9"/><circle cx="215" cy="17" r="9"/><circle cx="280" cy="17" r="9"/></g><path d="M29 17H76M94 17h47M159 17h47M224 17h47" stroke="#5f9448" stroke-width="4" stroke-linecap="round"/></svg></div>
           </div>
           <div class="lv__card lv__card--3">
-            <div class="lv__band"><span class="lv__num">3</span><span><b>3단계 · 갈래 이야기</b><small>고학년 추천 · 분기 그림책</small></span></div>
+            <div class="lv__band"><span class="lv__num">3</span><span><b>3단계 · 갈래 이야기</b><small>중·고학년 추천 · 분기 그림책</small></span></div>
             <div class="lv__motto">"읽는 사람이 <em>고르는 이야기</em>를 설계한다"</div>
             <div class="lv__ratio"><span class="lv__ratio-ai" style="width:12%">AI</span><span class="lv__ratio-kid">거의 다 아이가</span></div>
             <ul class="lv__rows">
@@ -221,11 +184,11 @@
         <div class="qa__a">
           <p>학년이 아니라 <b>준비도에 따라 AI 도움을 조절하는 사다리</b>입니다. 단계가 오를수록 AI의 몫은 줄고 아이의 몫이 커집니다.</p>
           <ul>
-            <li><b>1단계 이야기 만나기</b> — 아이가 나침반으로 뼈대(구조·가치·주인공)를 정하면 AI가 글과 그림을 완성. 저학년·보충학습 입문용. 일직선.</li>
-            <li><b>2단계 이야기 짓기</b> — AI가 처음 3장면을 초안으로 제시하고, 나머지 장면은 아이가 생각 나침반 힌트를 보며 직접 씁니다. 그림은 아이가 구도(스케치)를 그리면 AI가 그 구도를 바탕으로 완성합니다. 일직선.</li>
-            <li><b>3단계 갈래 이야기</b> — 아이가 글·그림·분기 구조를 스스로 설계. AI는 원본을 보존한 채 제안만 하고 아이가 비교해 고릅니다.</li>
+            <li><b>1단계 이야기 만나기</b> — 아이가 나침반으로 뼈대(구조·가치·주인공)를 정하면 AI가 글과 그림을 완성. 1~6학년 누구나, 처음 만들 때·보충학습에. 일직선.</li>
+            <li><b>2단계 이야기 짓기</b> — AI가 처음 3장면을 초안으로 제시하고, 나머지 장면은 아이가 생각 나침반 힌트를 보며 직접 씁니다. 그림은 아이가 그림 구도(스케치)를 그리면 AI가 그 구도를 바탕으로 완성합니다. 중·고학년 추천. 일직선.</li>
+            <li><b>3단계 갈래 이야기</b> — 아이가 글·그림·분기 구조를 스스로 설계. AI는 원본을 보존한 채 제안만 하고 아이가 비교해 고릅니다. 중·고학년 추천.</li>
           </ul>
-          <p>공통 목표는 3단계이고 1·2단계는 디딤돌입니다. 어느 단계든 이야기의 결정(구조·가치·주인공·채택 판단)은 아이가 합니다. 자세한 그림은 체험 화면의 사다리를 보세요.</p>
+          <p>학년은 추천일 뿐이라 도움을 받으면 위 단계도, 스스로 하면 아래 단계도 자유롭게 만들 수 있습니다. 공통 목표는 3단계이고 1·2단계는 디딤돌입니다. 어느 단계든 이야기의 결정(구조·가치·주인공·채택 판단)은 아이가 합니다. 자세한 그림은 체험 화면의 사다리를 보세요.</p>
         </div>
       </details>
       <details class="qa">

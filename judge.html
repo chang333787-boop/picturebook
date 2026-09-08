@@ -80,6 +80,7 @@
     .lv__ratio { margin:7px 10px 8px; height:18px; border-radius:9px; overflow:hidden; display:flex; font-size:10.5px; font-weight:700; color:#fff; }
     .lv__ratio-ai { background:repeating-linear-gradient(135deg,#6f8fd8 0 6px,#a9bbe8 6px 10px); display:flex; align-items:center; padding-left:8px; text-shadow:0 0 3px #4b67b8; white-space:nowrap; }
     .lv__ratio-kid { flex:1; background:#e08a4a; display:flex; align-items:center; justify-content:flex-end; padding-right:8px; white-space:nowrap; }
+    .lv__ratio-lab { display:flex; justify-content:space-between; gap:8px; margin:-4px 10px 8px; font-size:11px; color:#7a6650; }
     .lv__rows { list-style:none; margin:0 8px; padding:0; display:flex; flex-direction:column; gap:5px; }
     .lv__rows li { display:flex; gap:6px; align-items:flex-start; background:#fbf6ec; border-radius:9px; padding:8px 9px; font-size:13.5px; line-height:1.5; color:#3a2a16; min-width:0; }
     .lv__rows b { color:#8a6a45; margin-right:3px; }
@@ -153,11 +154,12 @@
             <div class="lv__band"><span class="lv__num">2</span><span><b>2단계 · 이야기 짓기</b><small>중학년 추천 · 일직선 그림책</small></span></div>
             <div class="lv__motto">"<em>내 글과 내 그림</em>으로 책을 만든다"</div>
             <div class="lv__ratio"><span class="lv__ratio-ai" style="width:38%">AI 절반</span><span class="lv__ratio-kid">아이 절반</span></div>
+            <div class="lv__ratio-lab"><span>AI는 시작과 그림 완성</span><span>이어 쓰기·구도는 아이</span></div>
             <ul class="lv__rows">
               <li><span class="lv__ic">🧭</span><span><b>계획</b> 생각 나침반 + AI 후속 질문으로 이야기 뼈대 <i class="lv__who lv__who--both">함께</i></span></li>
-              <li><span class="lv__ic">✍️</span><span><b>글</b> 장면마다 아이가 직접 쓴다 (AI 검사는 후보로만) <i class="lv__who lv__who--kid">아이</i></span></li>
-              <li><span class="lv__ic">🎨</span><span><b>그림</b> 주인공과 장면을 아이가 그리고, 마감 때 AI가 원화를 살려 완성 <i class="lv__who lv__who--both">함께</i></span></li>
-              <li><span class="lv__ic">📖</span><span><b>결과</b> 원화와 완성본을 나란히 두고 감상 · 인쇄 <i class="lv__who lv__who--kid">아이</i></span></li>
+              <li><span class="lv__ic">✍️</span><span><b>글</b> AI가 처음 3장면을 초안으로 제시하고, 나머지는 아이가 나침반 힌트를 보며 직접 쓴다 <i class="lv__who lv__who--both">함께</i></span></li>
+              <li><span class="lv__ic">🎨</span><span><b>그림</b> 아이가 주인공과 장면의 구도를 그리면(스케치), AI가 그 구도를 바탕으로 그림을 완성 <i class="lv__who lv__who--both">함께</i></span></li>
+              <li><span class="lv__ic">📖</span><span><b>결과</b> 구도 스케치와 완성본을 나란히 두고 감상 · 인쇄 <i class="lv__who lv__who--kid">아이</i></span></li>
             </ul>
             <div class="lv__path"><b>이야기 구조</b><svg viewBox="0 0 300 34" width="220" height="26" aria-hidden="true"><g fill="#5f9448"><circle cx="20" cy="17" r="9"/><circle cx="85" cy="17" r="9"/><circle cx="150" cy="17" r="9"/><circle cx="215" cy="17" r="9"/><circle cx="280" cy="17" r="9"/></g><path d="M29 17H76M94 17h47M159 17h47M224 17h47" stroke="#5f9448" stroke-width="4" stroke-linecap="round"/></svg></div>
           </div>
@@ -220,7 +222,7 @@
           <p>학년이 아니라 <b>준비도에 따라 AI 도움을 조절하는 사다리</b>입니다. 단계가 오를수록 AI의 몫은 줄고 아이의 몫이 커집니다.</p>
           <ul>
             <li><b>1단계 이야기 만나기</b> — 아이가 나침반으로 뼈대(구조·가치·주인공)를 정하면 AI가 글과 그림을 완성. 저학년·보충학습 입문용. 일직선.</li>
-            <li><b>2단계 이야기 짓기</b> — AI는 시작만 돕고, 글과 그림은 아이가. 마감 때 AI가 아이 원화를 살려 완성. 일직선.</li>
+            <li><b>2단계 이야기 짓기</b> — AI가 처음 3장면을 초안으로 제시하고, 나머지 장면은 아이가 생각 나침반 힌트를 보며 직접 씁니다. 그림은 아이가 구도(스케치)를 그리면 AI가 그 구도를 바탕으로 완성합니다. 일직선.</li>
             <li><b>3단계 갈래 이야기</b> — 아이가 글·그림·분기 구조를 스스로 설계. AI는 원본을 보존한 채 제안만 하고 아이가 비교해 고릅니다.</li>
           </ul>
           <p>공통 목표는 3단계이고 1·2단계는 디딤돌입니다. 어느 단계든 이야기의 결정(구조·가치·주인공·채택 판단)은 아이가 합니다. 자세한 그림은 체험 화면의 사다리를 보세요.</p>
@@ -229,9 +231,9 @@
       <details class="qa">
         <summary>Q4. 개인 API 키로 운영하는데, 다른 학교로 확장할 수 있나요?</summary>
         <div class="qa__a">
-          <p><b>확장을 전제로 설계되어 있습니다.</b> 지금은 연구 단계라 운영자 API 키를 서버에만 보관하고 학급별 사용 상한으로 비용을 통제합니다. 학생·교사 어느 화면에도 키가 내려가지 않습니다.</p>
+          <p><b>지금은 운영자 API 키 하나로 운영합니다.</b> 연구 단계라 키를 서버에만 보관하고 학급별 사용 상한으로 비용을 통제하며, 학생·교사 어느 화면에도 키가 내려가지 않습니다. 교사·기관별 키 등록은 <b>아직 구현하지 않았지만, 아래와 같이 기술적으로 어렵지 않습니다.</b></p>
           <ul>
-            <li><b>교사 개인 키 등록(BYOK)</b> — 모든 AI 호출이 서버의 한 진입점을 지나므로, 학급 설정에 교사 키를 암호화 보관하고 호출 때 그 학급의 키를 쓰게 하면 됩니다. 구조상 저장소 하나·분기 하나로 끝나는 작은 변경이라 구현이 어렵지 않습니다.</li>
+            <li><b>교사 개인 키 등록(BYOK)</b> — 모든 AI 호출이 서버를 지나므로, 학급 설정에 교사 키를 암호화 보관하고 호출 때 그 학급의 키를 쓰게 하면 됩니다. 키를 읽는 지점이 서버 안에 모여 있어 저장소 하나와 분기 하나를 더하는 작은 변경입니다(예상 1~2일).</li>
             <li><b>학교·교육청 단위 계약</b> — 같은 방식으로 기관 키를 학급 묶음에 배정할 수 있습니다.</li>
             <li><b>AI 없이도 동작</b> — AI를 끈 상태로도 창작·감상·책장·인쇄가 그대로 되므로, 키가 없는 학급도 바로 쓸 수 있습니다.</li>
           </ul>

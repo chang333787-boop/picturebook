@@ -13,7 +13,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Jua&family=Nanum+Gothic:wght@400;700&family=Nanum+Pen+Script&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="tokens-warm.css?v=40b1d74892"/>
-  <link rel="stylesheet" href="level-ladder.css?v=009040a4dd"/>
+  <!-- level-ladder.css: 사다리 제거로 미사용 -->
+  <!-- <link rel="stylesheet" href="level-ladder.css?v=009040a4dd"/> -->
   <!-- JUDGE-ACCESS-1(2026-09-05·전국대회 교육청 컨설팅 지적): 심사위원 전용 안내 페이지.
        첫 화면 버튼 하나 = 이 페이지 모드 하나: 기본=심사위원 체험(심사1~15 · 기존 계정 그대로 · PIN 없이 · 단계/완성 배지),
        ?go=teacher=심사반 담당 교사 화면(서버 관리 비밀번호로 로그인 없이). 수업 결과물(책장)은 첫 화면에서 바로 연다.
@@ -57,7 +58,6 @@
     .jg__actions { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
     .jg__actions .jg__btn small { font-family:'Nanum Gothic', sans-serif; font-size:11.5px; color:#7d6f57; margin-left:2px; }
     @media (max-width:700px) { .jg__levels, .jg__levels--4 { grid-template-columns:1fr; } }
-    /* 사다리 스타일은 level-ladder.css(공용·maker ptype 화면과 동일) */
     /* ── 대표 작품 화면 ── (JUDGE-SAMPLE-2b: 세 줄 동일 레이아웃 — 정보 위·버튼 아래 균등 폭) */
     .sm { display:flex; flex-direction:column; gap:10px; margin:4px 0 6px; }
     .sm__row { display:flex; flex-direction:column; gap:10px; background:#fff; border:1.5px solid rgba(160,120,70,0.28); border-left-width:6px; border-radius:12px; padding:12px 14px 12px; }
@@ -72,7 +72,7 @@
     .sm__row--1 .sm__btns { grid-template-columns:repeat(3, minmax(0,1fr)); }
     .sm__row--2 .jg__btn--primary { background:#5f9448; border-color:#5f9448; }
     .sm__row--3 .jg__btn--primary { background:#4b67b8; border-color:#4b67b8; }
-    @media (max-width:760px) { .sm__btns, .sm__row--1 .sm__btns { grid-template-columns:repeat(2, minmax(0,1fr)); } .sm__btns .jg__btn { white-space:normal; font-size:13.5px; } }
+    @media (max-width:900px) { .sm__btns, .sm__row--1 .sm__btns { grid-template-columns:repeat(2, minmax(0,1fr)); } .sm__btns .jg__btn { white-space:normal; font-size:13.5px; } }
     /* ── 구도 → AI 비교 ── */
     .cmp { display:flex; flex-direction:column; gap:12px; margin:4px 0 12px; }
     .cmp__row { background:#fff; border:1.5px solid rgba(160,120,70,0.28); border-radius:14px; padding:12px 14px; }
@@ -121,54 +121,8 @@
     </section>
 
     <section class="jg__card" id="jg-teams">
-      <p><b>비어 있음</b> 모둠에서 새로 시작하고, <b>진행 중</b>·<b>완성</b> 모둠은 눌러서 이어서 보거나 다듬어 볼 수 있어요.</p>
-      <section class="lv" aria-label="이야기 창작 3단계 사다리">
-        <div class="lv__head">
-          <div><div class="lv__title">이야기 창작 3단계 사다리</div><div class="lv__sub">AI 도움은 줄고, 아이의 몫은 늘어납니다 — 목표는 AI 없이도 이야기를 짓는 힘</div></div>
-          <div class="lv__legend"><span><i class="lv__dot lv__dot--ai"></i>AI가 함</span><span><i class="lv__dot lv__dot--kid"></i>아이가 함</span></div>
-        </div>
-        <div class="lv__cols">
-          <div class="lv__card lv__card--1">
-            <div class="lv__band"><span class="lv__num">1</span><span><b>1단계 · 이야기 만나기</b><small>1~6학년 누구나 · 일직선 그림책</small></span></div>
-            <div class="lv__motto">"내 생각이 <em>이야기가 되는 걸</em> 본다"</div>
-            <div class="lv__ratio"><span class="lv__ratio-ai" style="width:72%">AI 도움 많음</span><span class="lv__ratio-kid">아이</span></div>
-            <ul class="lv__rows">
-              <li><span class="lv__ic">🧭</span><span><b>계획</b> 생각 나침반 9문항에 답하고 가치를 고른다 <i class="lv__who lv__who--kid">아이</i></span></li>
-              <li><span class="lv__ic">✍️</span><span><b>글</b> 나침반 답을 바탕으로 12장면 초안을 만든다 <i class="lv__who lv__who--ai">AI</i></span></li>
-              <li><span class="lv__ic">🎨</span><span><b>그림</b> 주인공을 AI에게 맡기거나 직접 그린 뒤, 전체 장면 완성 <i class="lv__who lv__who--ai">AI</i></span></li>
-              <li><span class="lv__ic">📖</span><span><b>결과</b> 완성된 그림책을 읽고 감상 · 인쇄 <i class="lv__who lv__who--kid">아이</i></span></li>
-            </ul>
-            <div class="lv__path"><b>이야기 구조</b><svg viewBox="0 0 300 34" width="220" height="26" aria-hidden="true"><g fill="#e07a3c"><circle cx="20" cy="17" r="9"/><circle cx="85" cy="17" r="9"/><circle cx="150" cy="17" r="9"/><circle cx="215" cy="17" r="9"/><circle cx="280" cy="17" r="9"/></g><path d="M29 17H76M94 17h47M159 17h47M224 17h47" stroke="#e07a3c" stroke-width="4" stroke-linecap="round"/></svg></div>
-          </div>
-          <div class="lv__card lv__card--2">
-            <div class="lv__band"><span class="lv__num">2</span><span><b>2단계 · 이야기 짓기</b><small>중·고학년 추천 · 일직선 그림책</small></span></div>
-            <div class="lv__motto">"<em>내 글과 내 그림</em>으로 책을 만든다"</div>
-            <div class="lv__ratio"><span class="lv__ratio-ai" style="width:38%">AI 절반</span><span class="lv__ratio-kid">아이 절반</span></div>
-            <div class="lv__ratio-lab"><span>AI는 시작과 그림 완성</span><span>이어 쓰기·구도는 아이</span></div>
-            <ul class="lv__rows">
-              <li><span class="lv__ic">🧭</span><span><b>계획</b> 생각 나침반 + AI 후속 질문으로 이야기 뼈대 <i class="lv__who lv__who--both">함께</i></span></li>
-              <li><span class="lv__ic">✍️</span><span><b>글</b> AI가 처음 3장면을 초안으로 제시하고, 나머지는 아이가 나침반 힌트를 보며 직접 쓴다 <i class="lv__who lv__who--both">함께</i></span></li>
-              <li><span class="lv__ic">🎨</span><span><b>그림</b> 아이가 주인공과 장면의 <b>그림 구도</b>(스케치)를 그리면, AI가 그 구도를 바탕으로 그림을 완성 <i class="lv__who lv__who--both">함께</i></span></li>
-              <li><span class="lv__ic">📖</span><span><b>결과</b> 그림 구도와 완성본을 나란히 두고 감상 · 인쇄 <i class="lv__who lv__who--kid">아이</i></span></li>
-            </ul>
-            <div class="lv__path"><b>이야기 구조</b><svg viewBox="0 0 300 34" width="220" height="26" aria-hidden="true"><g fill="#5f9448"><circle cx="20" cy="17" r="9"/><circle cx="85" cy="17" r="9"/><circle cx="150" cy="17" r="9"/><circle cx="215" cy="17" r="9"/><circle cx="280" cy="17" r="9"/></g><path d="M29 17H76M94 17h47M159 17h47M224 17h47" stroke="#5f9448" stroke-width="4" stroke-linecap="round"/></svg></div>
-          </div>
-          <div class="lv__card lv__card--3">
-            <div class="lv__band"><span class="lv__num">3</span><span><b>3단계 · 갈래 이야기</b><small>중·고학년 추천 · 분기 그림책</small></span></div>
-            <div class="lv__motto">"읽는 사람이 <em>고르는 이야기</em>를 설계한다"</div>
-            <div class="lv__ratio"><span class="lv__ratio-ai" style="width:12%">AI</span><span class="lv__ratio-kid">거의 다 아이가</span></div>
-            <ul class="lv__rows">
-              <li><span class="lv__ic">🧭</span><span><b>계획</b> 나침반으로 가치와 갈림길을 정하고 이야기 길을 설계 <i class="lv__who lv__who--kid">아이</i></span></li>
-              <li><span class="lv__ic">✍️</span><span><b>글</b> 장면에 행동 버튼을 달아 다음 장면을 연결, 엔딩 여러 개 <i class="lv__who lv__who--kid">아이</i></span></li>
-              <li><span class="lv__ic">🎨</span><span><b>그림</b> 아이가 그린 원화가 기본, AI 완성본은 교사가 켠 경우에만 후보 <i class="lv__who lv__who--kid">아이</i></span></li>
-              <li><span class="lv__ic">🗺️</span><span><b>결과</b> 이야기 길 보기로 구조 점검 → 학급 책장 · 댓글 · 인쇄 <i class="lv__who lv__who--kid">아이</i></span></li>
-            </ul>
-            <div class="lv__path"><b>이야기 구조</b><svg viewBox="0 0 300 34" width="220" height="26" aria-hidden="true"><g fill="#4b67b8"><circle cx="20" cy="17" r="9"/><circle cx="90" cy="17" r="9"/><circle cx="160" cy="7" r="7"/><circle cx="160" cy="27" r="7"/><circle cx="230" cy="7" r="7"/><circle cx="230" cy="27" r="7"/><circle cx="285" cy="7" r="7"/><circle cx="285" cy="27" r="7"/></g><path d="M29 17H81M98 15L153 8M98 19L153 26M167 7h56M167 27h56M237 7h41M237 27h41" stroke="#4b67b8" stroke-width="4" stroke-linecap="round" fill="none"/></svg></div>
-          </div>
-        </div>
-        <div class="lv__bar"><span>AI가 보여 주는 이야기</span><span>→</span><span>AI와 함께 짓는 이야기</span><span>→</span><span>아이가 설계하는 이야기</span></div>
-        <div class="lv__foot">모든 단계 공통: 생각 나침반으로 시작 · 아이의 원본은 그대로 보존 · AI는 교사가 켠 기능만, 서버가 유해 표현을 먼저 차단</div>
-      </section>
+      <p><b>비어 있음</b> 모둠에서 새로 시작하고, <b>진행 중</b>·<b>완성</b> 모둠은 눌러서 이어서 보거나 다듬어 볼 수 있어요. 들어가면 1·2·3단계 안내와 함께 단계를 고르는 화면이 먼저 나와요.</p>
+      <!-- LEVEL-LADDER: 사다리 안내는 모둠 입장 후 단계 선택 화면(maker ptype)에서 같은 카드로 보이므로 여기서는 뺐다(사용자 09-08). -->
 
 
       <p class="jg__note">모둠에 들어가면 먼저 단계를 고르는 화면이 나옵니다. 한 모둠에는 한 작품(한 단계)만 담기니, 다른 단계를 보려면 다른 모둠을 고르세요. 배지는 실시간 상태예요 — 진행 중인 모둠은 그 심사위원이 이어서 쓰는 중일 수 있어요.</p>

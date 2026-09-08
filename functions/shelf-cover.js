@@ -11,8 +11,9 @@
    ② 장면당 후보: 원화 = scene.imageData → imageUrl 중 http(s) URL만(base64 data:는 카드에 못 넣으므로 제외).
                   AI  = aiVariants/image[num].s2 — url 있고 stale 아닌 것만.
    ③ 선택:
-      · 그림책 1·2단계: AI 있으면 AI, 없으면 원화(1단계는 원화 슬롯이 비어 있어 AI 없으면 = 그림 없음).
-        → "AI를 아직 안 돌린 1단계"는 표지 그림 없음(띠만). 2단계는 아이 원화가 나온다.
+      · 그림책 1·2단계: **AI 완성본만**. 없으면 그림 없음(띠만 = 색 표지).
+        1단계는 원화 슬롯 자체가 없고, 2단계 원화는 '구도 스케치'(졸라맨)라 표지에 올리면 안 된다
+        (사용자 지적 09-07). 감상 화면도 1·2단계는 AI 완성본을 보여주므로 일관된다.
       · 3단계·미지정·텍스트형·무비형:
           viewerShowImage 'original' → 원화 고정 / 'aiS2' → AI(없으면 원화) /
           그 외(both·null) → 교사 선택(imageSelections[num].selected==='s2' → AI usable이면 AI, 아니면 원화;
@@ -24,7 +25,7 @@
    ════════════════════════════════════════════════════════════════ */
 'use strict';
 
-const COVER_VERSION = 'c1';   /* 규칙 버전 — 바뀌면 캐시(shelf/{enc}/imgV) 불일치 → 재계산 */
+const COVER_VERSION = 'c2';   /* 규칙 버전 — 바뀌면 캐시(shelf/{enc}/imgV) 불일치 → 재계산. c2: 2단계 원화(구도 스케치) 제외 */
 
 function _isHttpUrl(v) {
   return typeof v === 'string' && /^https?:\/\//i.test(v.trim());
@@ -81,9 +82,8 @@ function _lookup(node, num) {
 function pickForScene({ orig, s2, level, showImage, selection }) {
   const lv12 = (level === 1 || level === 2);
   if (lv12) {
-    if (s2) return { url: s2, kind: 's2' };
-    if (orig) return { url: orig, kind: 'original' };
-    return null;
+    /* 1단계=원화 없음 / 2단계=원화는 구도 스케치(졸라맨) → 둘 다 AI 완성본만, 없으면 그림 없음 */
+    return s2 ? { url: s2, kind: 's2' } : null;
   }
   if (showImage === 'original') return orig ? { url: orig, kind: 'original' } : null;
   if (showImage === 'aiS2') {

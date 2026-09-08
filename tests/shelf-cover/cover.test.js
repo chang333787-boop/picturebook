@@ -46,10 +46,13 @@ test('1단계 — AI 있으면 AI, AI 아직 안 돌렸으면 null(원화 슬롯
   assert.equal(C.pickShelfCover({ scenes, aiImage: { 2: { s2: { url: A, stale: true } } }, imageSelections: null, viewerMeta: { picturebookLevel: 1 } }), null);
 });
 
-test('2단계 — AI 없으면 아이 원화, 1·2단계는 viewerShowImage 잠금 무시', () => {
+test('2단계 — 원화는 구도 스케치라 제외: AI 없으면 null, 1·2단계는 viewerShowImage 잠금 무시', () => {
   const scenes = { 1: { type: 'normal', imageUrl: O } };
   const r = C.pickShelfCover({ scenes, aiImage: null, imageSelections: null, viewerMeta: { picturebookLevel: 2, viewerShowImage: 'aiS2' } });
-  assert.equal(r.kind, 'original');
+  assert.equal(r, null);
+  /* AI가 2번 장면에만 있으면 1번(원화만) 건너뛰고 2번 AI */
+  const r1 = C.pickShelfCover({ scenes: { 1: { type: 'normal', imageUrl: O }, 2: { type: 'normal', imageUrl: O } }, aiImage: { 2: { s2: { url: A } } }, imageSelections: null, viewerMeta: { picturebookLevel: 2 } });
+  assert.equal(r1.num, '2'); assert.equal(r1.kind, 's2');
   const r2 = C.pickShelfCover({ scenes, aiImage: { 1: { s2: { url: A } } }, imageSelections: null, viewerMeta: { picturebookLevel: 2, viewerShowImage: 'original' } });
   assert.equal(r2.kind, 's2');   /* 1·2단계는 잠금 무시 → AI */
 });

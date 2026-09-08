@@ -77,13 +77,21 @@
     const works = data.works || [];
     const booksHtml = works.length ? works.map(w => {
       const [bg, fg] = _coverColor(w);
+      /* SHELF-COVER-1(2026-09-07·C-1 가로 책): 작품의 '첫 그림'(서버 규칙 shelf-cover.js = 감상 화면과 동일)을
+         3:2 그대로 위에, 제목 띠를 아래에 한 몸으로. img 없으면(텍스트형·1단계 AI 미생성 등) 띠만 = 색 표지.
+         onerror = 파일이 사라졌을 때(AI 재생성 등) 그림칸을 접고 색 표지로 — 카드가 깨진 이미지로 남지 않게. */
+      const hasImg = typeof w.img === 'string' && /^https?:\/\//i.test(w.img);
       return `
-        <div class="shelf-book" data-team="${esc(w.team)}" role="button" tabindex="0"
+        <div class="shelf-book${hasImg ? ' shelf-book--img' : ''}" data-team="${esc(w.team)}" role="button" tabindex="0"
           aria-label="${esc(w.t || '제목 없는 책')} — ${esc(w.nick || w.team)}">
           <div class="shelf-cover" style="background:${bg};color:${fg};">
+            ${hasImg ? `<div class="shelf-cover-img"><img src="${esc(w.img)}" alt="" loading="lazy" decoding="async"
+              onerror="this.closest('.shelf-book').classList.remove('shelf-book--img');this.parentNode.remove();"></div>` : ''}
             <span class="shelf-badge">💬 ${w.cc || 0}</span>
-            <div class="shelf-cover-t">${esc(w.t || '(제목이 아직 없어요)')}</div>
-            ${w.s ? `<div class="shelf-cover-s">${esc(w.s)}</div>` : ''}
+            <div class="shelf-cover-strip">
+              <div class="shelf-cover-t">${esc(w.t || '(제목이 아직 없어요)')}</div>
+              ${w.s ? `<div class="shelf-cover-s">${esc(w.s)}</div>` : ''}
+            </div>
           </div>
           <div class="shelf-team">${esc(w.nick || w.team)}</div>
         </div>`;

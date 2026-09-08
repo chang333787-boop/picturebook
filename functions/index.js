@@ -52,6 +52,7 @@ const ImageS2Adapter = require('./image-s2-adapter');
 const ImageS2OpenAi = require('./image-s2-adapter-openai');
 /* LV1-WAIT-1(2026-09-05): 1단계 배치 진행 노드(aiVariants/imageJob) 순수 헬퍼 */
 const Lv1Job = require('./lv1-image-job');
+const ShelfCover = require('./shelf-cover');   /* SHELF-COVER-1: 책장 표지 그림 규칙(순수) */
 const ImageS2Batch = require('./image-s2-batch');
 
 /* Firebase Admin 초기화 — 1번만 */
@@ -4100,6 +4101,35 @@ exports.getClassShelf = onCall(
         const nv = nSnap.val();
         if (typeof nv === 'string' && nv.trim()) nick = nv.trim().slice(0, 30);
       } catch (e) { nick = ''; }
+      /* SHELF-COVER-1(2026-09-07): 표지 그림 — shelf/{enc}/img 캐시(규칙 버전 imgV 일치 시). 없거나 버전이
+         다르면 작품 노드(scenes·aiVariants/image·imageSelections·viewer-meta)를 읽어 규칙(shelf-cover.js)으로
+         정하고 캐시에 써 둔다(한 작품당 최초 1회·이후 무비용). 재계산 = 비공개→공개 다시(카드 재생성) 또는
+         교사 관리 [표지 그림 새로고침](img 제거). 그림 없는 작품은 img:''(빈 문자열)로 캐시해 매번 다시 읽지 않는다.
+         실패는 조용히 img 없음(카드는 색 표지) — 책장 자체는 항상 뜬다. */
+      let img = '';
+      if (typeof w.img === 'string' && w.imgV === ShelfCover.COVER_VERSION) {
+        img = w.img;
+      } else {
+        try {
+          const base = admin.database().ref(`classes/${classId}/teams/${enc}`);
+          const [scSnap, aiSnap, selSnap, vmSnap] = await Promise.all([
+            base.child('scenes').once('value'),
+            base.child('aiVariants/image').once('value'),
+            base.child('aiVariants/imageSelections').once('value'),
+            base.child('viewer-meta').once('value'),
+          ]);
+          const picked = ShelfCover.pickShelfCover({
+            scenes: scSnap.val(), aiImage: aiSnap.val(), imageSelections: selSnap.val(), viewerMeta: vmSnap.val(),
+          });
+          img = picked ? picked.url : '';
+          await admin.database().ref(`classes/${classId}/shelf/${enc}`).update({
+            img, imgV: ShelfCover.COVER_VERSION, imgK: picked ? picked.kind : '', imgAt: Date.now(),
+          });
+        } catch (e) {
+          logger.warn('[getClassShelf] 표지 그림 계산 실패(무시)', { classId, enc, msg: e && e.message });
+          img = '';
+        }
+      }
       works.push({
         team: decodeURIComponent(enc), enc,
         nick,
@@ -4109,6 +4139,7 @@ exports.getClassShelf = onCall(
         th: (typeof w.th === 'string') ? w.th : '',
         at: w.at || 0,
         cc,
+        img,
       });
     }
     /* SHELF-ORDER-1(2026-07-25): 교사 지정 순서(settings/shelfOrder = {enc: idx}) 우선,

@@ -56,6 +56,54 @@
     .jg__actions { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
     .jg__actions .jg__btn small { font-family:'Nanum Gothic', sans-serif; font-size:11.5px; color:#7d6f57; margin-left:2px; }
     @media (max-width:700px) { .jg__levels, .jg__levels--4 { grid-template-columns:1fr; } }
+    /* ── 사다리(HTML판·선명) ── */
+    .lv { margin:4px 0 4px; padding:14px 14px 12px; border:1.5px solid rgba(160,120,70,0.28); border-radius:14px; background:linear-gradient(180deg,#fffdf7,#fff6e6); }
+    .lv__head { display:flex; justify-content:space-between; align-items:flex-end; gap:12px; flex-wrap:wrap; margin-bottom:10px; }
+    .lv__title { font-family:'Jua', sans-serif; font-size:19px; }
+    .lv__sub { font-size:12.5px; color:#8a6a45; margin-top:2px; }
+    .lv__legend { display:flex; gap:12px; font-size:12px; color:#5a4630; }
+    .lv__legend span { display:inline-flex; align-items:center; gap:5px; }
+    .lv__dot { width:12px; height:12px; border-radius:50%; display:inline-block; }
+    .lv__dot--ai { background:repeating-linear-gradient(135deg,#6f8fd8 0 3px,#dfe6f7 3px 5px); }
+    .lv__dot--kid { background:#e08a4a; }
+    .lv__cols { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px; }
+    .lv__card { background:#fff; border-radius:12px; overflow:hidden; min-width:0; box-shadow:0 4px 14px rgba(120,80,30,0.10); padding-bottom:10px; }
+    .lv__band { display:flex; align-items:center; gap:8px; padding:9px 10px; color:#fff; }
+    .lv__card--1 .lv__band { background:linear-gradient(135deg,#f0a35e,#e07a3c); }
+    .lv__card--2 .lv__band { background:linear-gradient(135deg,#8fb56a,#5f9448); }
+    .lv__card--3 .lv__band { background:linear-gradient(135deg,#6f8fd8,#4b67b8); }
+    .lv__num { width:30px; height:30px; border-radius:50%; background:rgba(255,255,255,.22); border:2px solid rgba(255,255,255,.55); display:inline-flex; align-items:center; justify-content:center; font-family:'Jua', sans-serif; font-size:16px; flex:none; }
+    .lv__band b { display:block; font-family:'Jua', sans-serif; font-size:16px; font-weight:400; line-height:1.15; }
+    .lv__band small { display:block; font-size:11px; opacity:.95; margin-top:2px; }
+    .lv__motto { padding:9px 10px 2px; font-family:'Jua', sans-serif; font-size:14.5px; color:#3a2a16; }
+    .lv__motto em { font-style:normal; color:#c66f4a; }
+    .lv__ratio { margin:7px 10px 8px; height:18px; border-radius:9px; overflow:hidden; display:flex; font-size:10.5px; font-weight:700; color:#fff; }
+    .lv__ratio-ai { background:repeating-linear-gradient(135deg,#6f8fd8 0 6px,#a9bbe8 6px 10px); display:flex; align-items:center; padding-left:8px; text-shadow:0 0 3px #4b67b8; white-space:nowrap; }
+    .lv__ratio-kid { flex:1; background:#e08a4a; display:flex; align-items:center; justify-content:flex-end; padding-right:8px; white-space:nowrap; }
+    .lv__rows { list-style:none; margin:0 8px; padding:0; display:flex; flex-direction:column; gap:5px; }
+    .lv__rows li { display:flex; gap:6px; align-items:flex-start; background:#fbf6ec; border-radius:9px; padding:8px 9px; font-size:13.5px; line-height:1.5; color:#3a2a16; min-width:0; }
+    .lv__rows b { color:#8a6a45; margin-right:3px; }
+    .lv__ic { font-size:15px; line-height:1.2; flex:none; }
+    .lv__who { display:inline-block; font-style:normal; font-size:10.5px; font-weight:800; border-radius:5px; padding:1px 5px; margin-left:3px; vertical-align:1px; }
+    .lv__who--ai { background:#e3eafc; color:#3d55a3; border:1px dashed #6f8fd8; }
+    .lv__who--kid { background:#fde5d2; color:#a5521f; }
+    .lv__who--both { background:#e9f3df; color:#3f6f2a; }
+    .lv__path { margin:8px 8px 0; border:2px dashed #e5d7bf; border-radius:10px; padding:7px 8px 6px; text-align:center; }
+    .lv__path b { display:block; font-size:12px; color:#8a6a45; margin-bottom:4px; }
+    .lv__path svg { display:block; margin:0 auto; max-width:100%; height:auto; }
+    .lv__bar { margin-top:10px; height:32px; border-radius:16px; background:linear-gradient(90deg,#6f8fd8 0%,#8fb56a 50%,#e08a4a 100%); display:flex; align-items:center; justify-content:space-between; padding:0 14px; color:#fff; font-family:'Jua', sans-serif; font-size:13px; gap:8px; }
+    .lv__foot { margin-top:8px; font-size:12.5px; color:#6b5638; line-height:1.5; }
+    @media (max-width:760px) { .lv__cols { grid-template-columns:1fr; } .lv__bar { height:auto; padding:8px 12px; flex-wrap:wrap; justify-content:center; text-align:center; } }
+    /* ── Q&A ── */
+    .qa { border:1.5px solid rgba(160,120,70,0.28); border-radius:12px; background:#fff; margin:0 0 8px; padding:0 14px; }
+    .qa summary { cursor:pointer; list-style:none; padding:11px 0; font-family:'Jua', sans-serif; font-size:15px; color:#2b1f10; display:flex; align-items:center; gap:8px; }
+    .qa summary::-webkit-details-marker { display:none; }
+    .qa summary::before { content:'▸'; color:#c66f4a; font-size:14px; flex:none; transition:transform .15s; }
+    .qa[open] summary::before { transform:rotate(90deg); }
+    .qa__a { padding:0 0 12px 22px; }
+    .qa__a p, .qa__a li { font-size:13.5px; color:#3a2a16; line-height:1.65; margin:0 0 6px; }
+    .qa__a ul { margin:0 0 6px; padding-left:18px; }
+    .qa__basis { background:#fbf6ec; border-radius:9px; padding:8px 10px; font-size:12.5px !important; color:#5a4630 !important; }
     @media (max-width:640px) { .jg { padding:22px 16px 32px; } .jg__title { font-size:26px; } .jg__grid { grid-template-columns:repeat(auto-fill, minmax(130px, 1fr)); } }
   </style>
 </head>
@@ -83,11 +131,131 @@
 
     <section class="jg__card" id="jg-teams">
       <p><b>비어 있음</b> 모둠에서 새로 시작하고, <b>진행 중</b>·<b>완성</b> 모둠은 눌러서 이어서 보거나 다듬어 볼 수 있어요.</p>
-      <figure class="jg__fig" aria-label="1·2·3단계 사다리 설명">
-        <img src="judge-levels.png" alt="이야기 창작 3단계 사다리: 1단계 이야기 만나기(저학년, AI가 글·그림을 만들어 줌) → 2단계 이야기 짓기(중학년, AI는 시작과 마무리만) → 3단계 갈래 이야기(고학년, 분기를 아이가 설계). 모든 단계에서 생각 나침반으로 시작하고 아이의 원본은 보존되며 AI는 교사가 켠 기능만 동작." loading="lazy" decoding="async">
-      </figure>
+      <section class="lv" aria-label="이야기 창작 3단계 사다리">
+        <div class="lv__head">
+          <div><div class="lv__title">이야기 창작 3단계 사다리</div><div class="lv__sub">AI 도움은 줄고, 아이의 몫은 늘어납니다 — 목표는 AI 없이도 이야기를 짓는 힘</div></div>
+          <div class="lv__legend"><span><i class="lv__dot lv__dot--ai"></i>AI가 함</span><span><i class="lv__dot lv__dot--kid"></i>아이가 함</span></div>
+        </div>
+        <div class="lv__cols">
+          <div class="lv__card lv__card--1">
+            <div class="lv__band"><span class="lv__num">1</span><span><b>1단계 · 이야기 만나기</b><small>저학년 추천 · 일직선 그림책</small></span></div>
+            <div class="lv__motto">"내 생각이 <em>이야기가 되는 걸</em> 본다"</div>
+            <div class="lv__ratio"><span class="lv__ratio-ai" style="width:72%">AI 도움 많음</span><span class="lv__ratio-kid">아이</span></div>
+            <ul class="lv__rows">
+              <li><span class="lv__ic">🧭</span><span><b>계획</b> 생각 나침반 9문항에 답하고 가치를 고른다 <i class="lv__who lv__who--kid">아이</i></span></li>
+              <li><span class="lv__ic">✍️</span><span><b>글</b> 나침반 답을 바탕으로 12장면 초안을 만든다 <i class="lv__who lv__who--ai">AI</i></span></li>
+              <li><span class="lv__ic">🎨</span><span><b>그림</b> 주인공을 AI에게 맡기거나 직접 그린 뒤, 전체 장면 완성 <i class="lv__who lv__who--ai">AI</i></span></li>
+              <li><span class="lv__ic">📖</span><span><b>결과</b> 완성된 그림책을 읽고 감상 · 인쇄 <i class="lv__who lv__who--kid">아이</i></span></li>
+            </ul>
+            <div class="lv__path"><b>이야기 구조</b><svg viewBox="0 0 300 34" width="220" height="26" aria-hidden="true"><g fill="#e07a3c"><circle cx="20" cy="17" r="9"/><circle cx="85" cy="17" r="9"/><circle cx="150" cy="17" r="9"/><circle cx="215" cy="17" r="9"/><circle cx="280" cy="17" r="9"/></g><path d="M29 17H76M94 17h47M159 17h47M224 17h47" stroke="#e07a3c" stroke-width="4" stroke-linecap="round"/></svg></div>
+          </div>
+          <div class="lv__card lv__card--2">
+            <div class="lv__band"><span class="lv__num">2</span><span><b>2단계 · 이야기 짓기</b><small>중학년 추천 · 일직선 그림책</small></span></div>
+            <div class="lv__motto">"<em>내 글과 내 그림</em>으로 책을 만든다"</div>
+            <div class="lv__ratio"><span class="lv__ratio-ai" style="width:38%">AI 절반</span><span class="lv__ratio-kid">아이 절반</span></div>
+            <ul class="lv__rows">
+              <li><span class="lv__ic">🧭</span><span><b>계획</b> 생각 나침반 + AI 후속 질문으로 이야기 뼈대 <i class="lv__who lv__who--both">함께</i></span></li>
+              <li><span class="lv__ic">✍️</span><span><b>글</b> 장면마다 아이가 직접 쓴다 (AI 검사는 후보로만) <i class="lv__who lv__who--kid">아이</i></span></li>
+              <li><span class="lv__ic">🎨</span><span><b>그림</b> 주인공과 장면을 아이가 그리고, 마감 때 AI가 원화를 살려 완성 <i class="lv__who lv__who--both">함께</i></span></li>
+              <li><span class="lv__ic">📖</span><span><b>결과</b> 원화와 완성본을 나란히 두고 감상 · 인쇄 <i class="lv__who lv__who--kid">아이</i></span></li>
+            </ul>
+            <div class="lv__path"><b>이야기 구조</b><svg viewBox="0 0 300 34" width="220" height="26" aria-hidden="true"><g fill="#5f9448"><circle cx="20" cy="17" r="9"/><circle cx="85" cy="17" r="9"/><circle cx="150" cy="17" r="9"/><circle cx="215" cy="17" r="9"/><circle cx="280" cy="17" r="9"/></g><path d="M29 17H76M94 17h47M159 17h47M224 17h47" stroke="#5f9448" stroke-width="4" stroke-linecap="round"/></svg></div>
+          </div>
+          <div class="lv__card lv__card--3">
+            <div class="lv__band"><span class="lv__num">3</span><span><b>3단계 · 갈래 이야기</b><small>고학년 추천 · 분기 그림책</small></span></div>
+            <div class="lv__motto">"읽는 사람이 <em>고르는 이야기</em>를 설계한다"</div>
+            <div class="lv__ratio"><span class="lv__ratio-ai" style="width:12%">AI</span><span class="lv__ratio-kid">거의 다 아이가</span></div>
+            <ul class="lv__rows">
+              <li><span class="lv__ic">🧭</span><span><b>계획</b> 나침반으로 가치와 갈림길을 정하고 이야기 길을 설계 <i class="lv__who lv__who--kid">아이</i></span></li>
+              <li><span class="lv__ic">✍️</span><span><b>글</b> 장면에 행동 버튼을 달아 다음 장면을 연결, 엔딩 여러 개 <i class="lv__who lv__who--kid">아이</i></span></li>
+              <li><span class="lv__ic">🎨</span><span><b>그림</b> 아이가 그린 원화가 기본, AI 완성본은 교사가 켠 경우에만 후보 <i class="lv__who lv__who--kid">아이</i></span></li>
+              <li><span class="lv__ic">🗺️</span><span><b>결과</b> 이야기 길 보기로 구조 점검 → 학급 책장 · 댓글 · 인쇄 <i class="lv__who lv__who--kid">아이</i></span></li>
+            </ul>
+            <div class="lv__path"><b>이야기 구조</b><svg viewBox="0 0 300 34" width="220" height="26" aria-hidden="true"><g fill="#4b67b8"><circle cx="20" cy="17" r="9"/><circle cx="90" cy="17" r="9"/><circle cx="160" cy="7" r="7"/><circle cx="160" cy="27" r="7"/><circle cx="230" cy="7" r="7"/><circle cx="230" cy="27" r="7"/><circle cx="285" cy="7" r="7"/><circle cx="285" cy="27" r="7"/></g><path d="M29 17H81M98 15L153 8M98 19L153 26M167 7h56M167 27h56M237 7h41M237 27h41" stroke="#4b67b8" stroke-width="4" stroke-linecap="round" fill="none"/></svg></div>
+          </div>
+        </div>
+        <div class="lv__bar"><span>AI가 보여 주는 이야기</span><span>→</span><span>AI와 함께 짓는 이야기</span><span>→</span><span>아이가 설계하는 이야기</span></div>
+        <div class="lv__foot">모든 단계 공통: 생각 나침반으로 시작 · 아이의 원본은 그대로 보존 · AI는 교사가 켠 기능만, 서버가 유해 표현을 먼저 차단</div>
+      </section>
+
+
       <p class="jg__note">모둠에 들어가면 먼저 단계를 고르는 화면이 나옵니다. 한 모둠에는 한 작품(한 단계)만 담기니, 다른 단계를 보려면 다른 모둠을 고르세요. 배지는 실시간 상태예요 — 진행 중인 모둠은 그 심사위원이 이어서 쓰는 중일 수 있어요.</p>
       <div class="jg__grid" id="jg-grid" aria-live="polite"><span class="jg__status">모둠 상태를 불러오는 중…</span></div>
+    </section>
+
+    <!-- JUDGE-QA-1(2026-09-07): 심사위원 Q&A — 예상 질문에 "이미 준비되어 있다"를 보여주는 칸. 두 모드(체험·교사) 공통.
+         경쟁 제품명은 블라인드 표기(B*** C******). 학교명 없음. -->
+    <section class="jg__card" id="jg-qa">
+      <h2>🙋 심사위원 Q&amp;A</h2>
+      <p>심사에서 자주 나오는 질문과 이 프로그램의 답입니다. 항목을 누르면 펼쳐져요.</p>
+      <details class="qa" open>
+        <summary>Q1. 초등학생이 생성형 AI에 접근해야 하는데, 어떻게 대처했나요?</summary>
+        <div class="qa__a">
+          <p><b>학생은 AI에 직접 접속하지 않습니다.</b> 학생 개인 계정이 없고(학급 코드+모둠 계정), 모든 요청은 프로그램 서버를 거쳐 AI 제공사로 갑니다. 그 사이에 다섯 겹의 장치를 두었습니다.</p>
+          <ul>
+            <li><b>교사 허용제</b> — AI 기능(초안 돕기·글 다듬기·그림 완성·작품 점검·쓰기 후 질문)은 항목별 기본 OFF. 교사가 켠 것만 동작하고, 학급 전체 AI를 한 번에 끌 수 있습니다.</li>
+            <li><b>서버 필터 + 제한된 프롬프트</b> — 폭력·잔혹, 성적 표현, 욕설, 괴롭힘·혐오, 자해, 개인정보 노출 등 유해 유형을 서버가 전송 전에 차단하고, AI에는 "어린이 그림책 톤·아이의 원본 보존·부적절 요청 거부"만 하도록 제한된 지시문을 씁니다. AI 결과도 같은 기준으로 다시 확인합니다.</li>
+            <li><b>개인정보 미전송</b> — AI로 가는 것은 작품 글·그림뿐. 이름·학년·반·사진은 보내지 않고, 두 제공사 모두 API 입력을 모델 학습에 쓰지 않습니다.</li>
+            <li><b>사용량 상한과 기록</b> — 모둠별·학급별 일일 상한, 교사 화면에서 모둠별 사용 기록 확인.</li>
+            <li><b>보호자 동의</b> — 「개인정보 수집·이용 및 생성형 AI 활용 동의서」로 ① 개인정보 ② 교사 감독 아래 AI 사용을 각각 동의받습니다(교사 화면에서 인쇄).</li>
+          </ul>
+          <p class="qa__basis">근거: OpenAI 「Under 18 API Guidance」와 Anthropic 「Guidelines for Organizations Serving Minors」는 미성년자 대상 서비스에 <b>연령 대응·콘텐츠 필터·모니터링·AI 사용 고지·아동 개인정보 보호법 준수</b>를 갖출 것을 조건으로 API 활용을 허용합니다. 위 다섯 장치가 그 요건에 하나씩 대응합니다.</p>
+        </div>
+      </details>
+      <details class="qa">
+        <summary>Q2. 기존 프로그램과 어떤 차별점이 있나요? 분기 구조는 이미 있지 않나요?</summary>
+        <div class="qa__a">
+          <p><b>분기 구조 자체는 새롭지 않습니다.</b> 차별점은 "분기를 초등 창작 수업에 맞게 통합한 방식"입니다.</p>
+          <ul>
+            <li><b>B*** C******(순차형 디지털 북)</b> — 학생이 페이지를 만들지만 분기는 링크로 흉내 내고, 구조를 볼 화면·계획 도구·AI 조력이 없습니다.</li>
+            <li><b>G***** S********(AI 생성 동화)</b> — 18세 이상 개인 계정, 10쪽 고정, AI가 글·그림을 전부 만들고 아이는 편집할 수 없습니다.</li>
+            <li><b>T****·E********(분기 서사 도구)</b> — 분기는 되지만 하이퍼텍스트 문법이나 코드 블록을 입력해야 하고 영어 기반이라 초등 저학년에게 문턱이 높습니다. 계획·그림·학급 운영은 다른 도구로 메워야 합니다.</li>
+          </ul>
+          <p>이 프로그램은 <b>글자만 쓰고 다음 장면을 고르는 버튼 분기</b>, 끊긴 길까지 보여 주는 <b>이야기 길 보기</b>, 쓰기 전 <b>생각 나침반</b>, 준비도에 따라 분기를 잠그고 여는 <b>3단계 사다리</b>, <b>교사가 통제하는 AI</b>, 학급 책장·댓글·A4 인쇄까지 <b>한 흐름</b>에 넣었습니다. 계획 → 분기 설계 → 표현 → AI 조력 → 운영·출판이 한 칸도 비지 않는 것이 차별점입니다.</p>
+        </div>
+      </details>
+      <details class="qa">
+        <summary>Q3. 그림책 1단계·2단계·3단계는 무엇인가요?</summary>
+        <div class="qa__a">
+          <p>학년이 아니라 <b>준비도에 따라 AI 도움을 조절하는 사다리</b>입니다. 단계가 오를수록 AI의 몫은 줄고 아이의 몫이 커집니다.</p>
+          <ul>
+            <li><b>1단계 이야기 만나기</b> — 아이가 나침반으로 뼈대(구조·가치·주인공)를 정하면 AI가 글과 그림을 완성. 저학년·보충학습 입문용. 일직선.</li>
+            <li><b>2단계 이야기 짓기</b> — AI는 시작만 돕고, 글과 그림은 아이가. 마감 때 AI가 아이 원화를 살려 완성. 일직선.</li>
+            <li><b>3단계 갈래 이야기</b> — 아이가 글·그림·분기 구조를 스스로 설계. AI는 원본을 보존한 채 제안만 하고 아이가 비교해 고릅니다.</li>
+          </ul>
+          <p>공통 목표는 3단계이고 1·2단계는 디딤돌입니다. 어느 단계든 이야기의 결정(구조·가치·주인공·채택 판단)은 아이가 합니다. 자세한 그림은 체험 화면의 사다리를 보세요.</p>
+        </div>
+      </details>
+      <details class="qa">
+        <summary>Q4. 개인 API 키로 운영하는데, 다른 학교로 확장할 수 있나요?</summary>
+        <div class="qa__a">
+          <p><b>확장을 전제로 설계되어 있습니다.</b> 지금은 연구 단계라 운영자 API 키를 서버에만 보관하고 학급별 사용 상한으로 비용을 통제합니다. 학생·교사 어느 화면에도 키가 내려가지 않습니다.</p>
+          <ul>
+            <li><b>교사 개인 키 등록(BYOK)</b> — 모든 AI 호출이 서버의 한 진입점을 지나므로, 학급 설정에 교사 키를 암호화 보관하고 호출 때 그 학급의 키를 쓰게 하면 됩니다. 구조상 저장소 하나·분기 하나로 끝나는 작은 변경이라 구현이 어렵지 않습니다.</li>
+            <li><b>학교·교육청 단위 계약</b> — 같은 방식으로 기관 키를 학급 묶음에 배정할 수 있습니다.</li>
+            <li><b>AI 없이도 동작</b> — AI를 끈 상태로도 창작·감상·책장·인쇄가 그대로 되므로, 키가 없는 학급도 바로 쓸 수 있습니다.</li>
+          </ul>
+          <p>설치가 없는 웹이라 교사 가입과 학급 코드 발급만으로 어느 학급이든 도입되고, 개인정보를 수집하지 않아 확산 장벽이 낮습니다.</p>
+        </div>
+      </details>
+      <details class="qa">
+        <summary>Q5. 학생 개인정보는 어떻게 다루나요?</summary>
+        <div class="qa__a">
+          <p><b>프로그램은 학생 개인정보를 수집하지 않습니다.</b> 학생은 학급 코드와 모둠 이름·숫자 PIN으로 참여하고, 작품 데이터는 학급 단위로 격리됩니다. 공개 여부는 교사가 작품마다 정하고, 비공개 작품은 링크로도 열리지 않습니다. 개인정보 처리방침을 갖추었고, 학급이 이름·사진을 따로 모을 때 쓰는 동의서 서식을 교사 화면에서 인쇄할 수 있습니다.</p>
+        </div>
+      </details>
+      <details class="qa">
+        <summary>Q6. AI 결과를 학생이 그대로 받아쓰게 되지 않나요?</summary>
+        <div class="qa__a">
+          <p><b>AI 결과는 원본을 덮어쓰지 않는 '후보'입니다.</b> 원문↔다듬은 글, 원화↔완성본이 따로 저장되어 아이와 교사가 나란히 비교하고 무엇을 남길지 고릅니다. 수업에서는 "가장 우리 작품답다"는 기준으로 지켜야 할 중심을 아이가 판단하는 활동을 두었고, 3단계에서는 AI 완성본을 감상에 쓸지도 작품 설정으로 잠글 수 있습니다.</p>
+        </div>
+      </details>
+      <details class="qa">
+        <summary>Q7. 어떤 기기와 환경이 필요한가요?</summary>
+        <div class="qa__a">
+          <p>설치 없는 웹 앱입니다. 크롬북·태블릿·PC의 최신 브라우저와 인터넷 연결이면 됩니다. 홈 화면에 앱처럼 설치할 수 있고, 인쇄는 A4 가로 그림책·활동지·동의서를 브라우저에서 바로 뽑습니다.</p>
+        </div>
+      </details>
     </section>
   </main>
 

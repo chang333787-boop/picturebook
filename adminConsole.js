@@ -2002,7 +2002,7 @@ async function _renderShelfCommentPanel(classId) {
     <div style="font-size:11.5px;color:#9a8868;margin-top:-4px;">책장에 보이는 작품 순서를 정해요. 순서를 안 정한 작품은 최신순으로 뒤에 붙어요.</div>
     <div style="${rowStyle}margin-top:10px;">
       <span>표지 그림</span>
-      <button type="button" id="asc-cover-refresh" style="${btnStyle}">🖼 표지 그림 새로고침</button>
+      <button type="button" id="asc-cover-refresh" style="${btnStyle}">🎨 표지 그림 새로고침</button>
     </div>
     <div style="font-size:11.5px;color:#9a8868;margin-top:-4px;">책장 카드의 그림은 각 작품의 첫 장면 그림이에요(감상 화면에 보이는 것과 같은 버전). 그림을 바꾸거나 AI 그림을 새로 만든 뒤 책장이 옛 그림이면 눌러 주세요 — 다음에 책장을 열 때 다시 골라요.</div>`;
 
@@ -2017,7 +2017,7 @@ async function _renderShelfCommentPanel(classId) {
       Object.keys(val).forEach((enc) => { upd[`${enc}/img`] = null; upd[`${enc}/imgV`] = null; upd[`${enc}/imgK`] = null; upd[`${enc}/imgAt`] = null; });
       if (Object.keys(upd).length) await db.ref(`classes/${classId}/shelf`).update(upd);
       btn.textContent = '✓ 다음에 책장을 열 때 다시 골라요';
-      setTimeout(() => { btn.textContent = '🖼 표지 그림 새로고침'; }, 2500);
+      setTimeout(() => { btn.textContent = '🎨 표지 그림 새로고침'; }, 2500);
     } catch (e) { alert('표지 그림 새로고침을 처리하지 못했어요. 잠시 후 다시 시도해 주세요.'); }
   });
   host.querySelector('#asc-shelf-toggle')?.addEventListener('click', async () => {

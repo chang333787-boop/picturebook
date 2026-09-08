@@ -154,7 +154,7 @@
             <a class="jg__btn" href="maker.html?judge=%EB%8C%80%ED%91%9C2%EB%8B%A8%EA%B3%84">🌿 브랜치</a>
             <a class="jg__btn" href="maker.html?judge=%EB%8C%80%ED%91%9C2%EB%8B%A8%EA%B3%84&amp;go=polish">✨ 다듬기</a>
             <a class="jg__btn" href="maker.html?judge=%EB%8C%80%ED%91%9C2%EB%8B%A8%EA%B3%84&amp;go=compass">🧭 나침반 답</a>
-            <a class="jg__btn jg__btn--primary" href="judge.html?compare=%EB%8C%80%ED%91%9C2%EB%8B%A8%EA%B3%84">🖼 구도 → AI 비교</a>
+            <a class="jg__btn jg__btn--primary" href="judge.html?compare=%EB%8C%80%ED%91%9C2%EB%8B%A8%EA%B3%84">🎨 구도 → AI 비교</a>
           </div>
         </div>
         <div class="sm__row sm__row--3">
@@ -164,7 +164,7 @@
             <a class="jg__btn" href="maker.html?judge=%EB%8C%80%ED%91%9C3%EB%8B%A8%EA%B3%84">🌿 브랜치</a>
             <a class="jg__btn" href="maker.html?judge=%EB%8C%80%ED%91%9C3%EB%8B%A8%EA%B3%84&amp;go=polish">✨ 다듬기</a>
             <a class="jg__btn" href="maker.html?judge=%EB%8C%80%ED%91%9C3%EB%8B%A8%EA%B3%84&amp;go=compass">🧭 나침반 답</a>
-            <a class="jg__btn jg__btn--primary" href="judge.html?compare=%EB%8C%80%ED%91%9C3%EB%8B%A8%EA%B3%84">🖼 원화 → AI 비교</a>
+            <a class="jg__btn jg__btn--primary" href="judge.html?compare=%EB%8C%80%ED%91%9C3%EB%8B%A8%EA%B3%84">🎨 원화 → AI 비교</a>
           </div>
         </div>
         <div class="sm__row sm__row--3">
@@ -174,7 +174,7 @@
             <a class="jg__btn" href="maker.html?judge=%EB%8C%80%ED%91%9C3%EB%8B%A8%EA%B3%842">🌿 브랜치</a>
             <a class="jg__btn" href="maker.html?judge=%EB%8C%80%ED%91%9C3%EB%8B%A8%EA%B3%842&amp;go=polish">✨ 다듬기</a>
             <a class="jg__btn" href="maker.html?judge=%EB%8C%80%ED%91%9C3%EB%8B%A8%EA%B3%842&amp;go=compass">🧭 나침반 답</a>
-            <a class="jg__btn jg__btn--primary" href="judge.html?compare=%EB%8C%80%ED%91%9C3%EB%8B%A8%EA%B3%842">🖼 원화 → AI 비교</a>
+            <a class="jg__btn jg__btn--primary" href="judge.html?compare=%EB%8C%80%ED%91%9C3%EB%8B%A8%EA%B3%842">🎨 원화 → AI 비교</a>
           </div>
         </div>
       </div>
@@ -183,7 +183,7 @@
 
     <!-- JUDGE-SAMPLE-2(2026-09-08): ?compare=대표N단계 — 장면마다 '그림 구도(아이 스케치) → AI 완성'을 나란히. judgeSampleCompare 콜러블. -->
     <section class="jg__card" id="jg-compare" style="display:none;">
-      <h2 id="jg-compare-title">🖼 그림 구도 → AI 완성 비교</h2>
+      <h2 id="jg-compare-title">🎨 그림 구도 → AI 완성 비교</h2>
       <p id="jg-compare-sub">아이가 그린 구도 스케치(왼쪽)를 AI가 어떻게 완성했는지(오른쪽) 장면마다 나란히 봅니다. 구도·인물 배치·장면 내용이 스케치를 따르는지 보세요.</p>
       <div class="cmp" id="jg-compare-list"><span class="jg__status">불러오는 중…</span></div>
       <p class="jg__note">원본 스케치는 그대로 보존되고 AI 완성본은 별도 저장된 후보예요. 감상 화면에서는 완성본이 보이고, 브랜치 화면의 장면 카드에는 스케치가 보여요.</p>
@@ -341,14 +341,14 @@
         /* 비교 모드 = 이 화면만 */
         ['jg-teacher', 'jg-teams', 'jg-samples', 'jg-qa'].forEach((id) => { const el = $(id); if (el) el.style.display = 'none'; });
         $('jg-compare').style.display = '';
-        $('jg-title').textContent = '🖼 학생 스케치와 AI 완성 비교';
+        $('jg-title').textContent = '🎨 학생 스케치와 AI 완성 비교';
         $('jg-sub').innerHTML = '대표 작품의 장면을 <b>아이가 그린 구도 → AI 완성본</b> 순서로 나란히 보여 줍니다.';
         const list = $('jg-compare-list');
         fns.httpsCallable('judgeSampleCompare')({ team: compareTeam }).then((res) => {
           const d = (res && res.data) || {};
           if (d.ok !== true) { list.innerHTML = '<span class="jg__status">지금은 심사 체험 기간이 아니에요.</span>'; return; }
           const lv = d.level || 3;
-          $('jg-compare-title').textContent = (lv === 2 ? '🖼 그림 구도 → AI 완성 비교' : '🖼 원화 → AI 완성 비교') + (d.title ? ' — 「' + d.title + '」' : '');
+          $('jg-compare-title').textContent = (lv === 2 ? '🎨 그림 구도 → AI 완성 비교' : '🎨 원화 → AI 완성 비교') + (d.title ? ' — 「' + d.title + '」' : '');
           if (lv !== 2) $('jg-compare-sub').textContent = '아이가 완성한 원화(왼쪽)와 AI가 다듬은 후보(오른쪽)를 장면마다 나란히 봅니다. 3단계에서는 아이가 어느 쪽을 감상에 쓸지 고릅니다.';
           const leftLab = lv === 2 ? '아이가 그린 구도(스케치)' : '아이의 원화';
           if (!d.items || !d.items.length) { list.innerHTML = '<span class="jg__status">비교할 그림이 없어요.</span>'; return; }

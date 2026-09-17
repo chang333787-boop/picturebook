@@ -104,6 +104,7 @@
           <span class="shelf-cnt">${esc(data.className || '')}${data.className ? ' · ' : ''}공개된 작품 ${works.length}권</span>
           <a class="shelf-home" href="index.html">🌿 처음으로</a>
         </div>
+        <div class="shelf-note">💬 말풍선은 만든 친구의 화면(데스크톱 PC)에 맞춰 놓여 있어요. 태블릿처럼 좁은 화면에서는 글자 자리가 조금 달라 보일 수 있어요.</div>
         <div class="shelf-grid">${booksHtml}</div>
         <div class="shelf-foot">표지를 누르면 그 책이 열려요 · 책을 보다가 위의 📚 버튼으로 언제든 돌아올 수 있어요</div>
       </div>`;

@@ -8183,6 +8183,17 @@ body.pb-is-scene-switching .choice-preset--ghost {
 #shelf-screen .shelf-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
 #shelf-screen .shelf-head h1 { font-size: 24px; color: #3a2c14; margin: 0; }
 #shelf-screen .shelf-cnt { color: #a4592f; font-size: 14px; }
+/* SHELF-LAYOUT-NOTE-1(2026-09-17): 아이들은 교실 PC에서 말풍선을 놓았다. 태블릿·좁은 화면에서
+   열면 글자 자리가 달라 보이는데, 모르고 보면 프로그램이 깨진 것으로 읽힌다(사용자 지적 09-17
+   — 심사위원이 아이패드로 열 수 있음). 작품을 열기 전에 먼저 알려 준다. 조용한 위계 유지.
+   ⚠️ 이모지는 기본 그림 표시인 것만(💬). 🖥 같은 글자형 코드포인트는 윈도우에서 한자처럼 보인다. */
+#shelf-screen .shelf-note {
+  margin: -8px 0 18px; padding: 9px 12px;
+  background: rgba(164,89,47,0.06); border-left: 3px solid rgba(164,89,47,0.32);
+  border-radius: 0 8px 8px 0;
+  font-size: 12.5px; line-height: 1.6; color: #6b5638; word-break: keep-all;
+}
+@media (max-width: 480px) { #shelf-screen .shelf-note { font-size: 12px; } }
 #shelf-screen .shelf-home { margin-left: auto; font-size: 13px; color: rgba(80,50,20,0.6); text-decoration: none;
   padding: 6px 14px; border: 1px dashed rgba(80,50,20,0.25); border-radius: 6px; }
 #shelf-screen .shelf-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));

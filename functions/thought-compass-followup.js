@@ -59,7 +59,13 @@ const QUESTION_BRIEF = {
   alternatePath:{ label: '다른 선택을 하면 생기는 일', sufficientWhen: '다른 길 방향 1개 분명' },
   coreMessage:  { label: '끝까지 지키고 싶은 중심', sufficientWhen: '지키고 싶은 중심 1개 분명' },
   /* LEVELS-EASY(그림책 1단계·1~2학년) — 후속질문도 아주 쉽고 짧게 판정하도록 brief 명시 */
-  heroWho:      { label: '주인공이 누구인지', sufficientWhen: '주인공이 누구인지 분명(예: 강아지, 로봇)' },
+  /* COMPASS-NAME-DUP-1(2026-09-17): heroWho 후속이 이름을 물으면 바로 다음 핵심 질문(heroName
+     '주인공 이름은 무엇인가요?')과 겹쳐 아이가 이름을 두 번 답하게 된다. 실제로 '사람 어린이'를
+     고른 세션에서 후속이 "그 어린이의 이름이나 특별한 점은?"으로 나와 민준→별이로 이름이 둘 남았다
+     (사용자 보고 09-17). easy 세트는 heroWho 바로 다음이 항상 heroName이라 무조건 겹친다.
+     ※ protagonist(v1/v2)는 세트에 따라 이름 질문이 없을 수 있어(3단계) 여기 넣지 않는다. */
+  heroWho:      { label: '주인공이 누구인지', sufficientWhen: '주인공이 누구인지 분명(예: 강아지, 로봇)',
+                  avoid: '주인공의 이름 — 바로 다음 질문에서 따로 물으니 여기서는 묻지 말고, 어떤 종류/모습인지만 좁히세요' },
   heroName:     { label: '주인공 이름', sufficientWhen: '이름 1개(무엇이든 충분·후속 불필요)' },
   storyStart:   { label: '이야기가 시작되는 곳', sufficientWhen: '장소 1개 분명' },
   heroEvent:    { label: '주인공에게 생기는 일', sufficientWhen: '일어나는 일 1개 분명' },
@@ -201,6 +207,8 @@ function buildFollowUpUserMessage(input) {
   lines.push('작품 유형: ' + (input.projectType === 'text' ? '텍스트' : '그림책'));
   lines.push('핵심 질문: ' + brief.label + ' (' + input.coreQuestionId + ')');
   if (brief.sufficientWhen) lines.push('충분 기준: ' + brief.sufficientWhen);
+  /* COMPASS-NAME-DUP-1: 뒤 질문과 겹치는 소재는 후속으로 묻지 않게 명시(브리프에 있을 때만). */
+  if (brief.avoid) lines.push('후속으로 묻지 말 것: ' + brief.avoid);
   lines.push('학생의 현재 답: ' + (input.currentAnswer || '(비어 있음)'));
   if (input.priorSummaries && input.priorSummaries.length) {
     lines.push('지금까지 정한 것:');

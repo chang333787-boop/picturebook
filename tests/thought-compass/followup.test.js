@@ -163,3 +163,20 @@ test('user message — PII 없음 + 핵심 맥락 포함', () => {
   assert.ok(msg.includes('주인공'));
   assert.ok(!/uid|pin|password/i.test(msg));
 });
+
+/* COMPASS-NAME-DUP-1(2026-09-17): heroWho 후속이 이름을 묻지 않도록 브리프에 금지 항목을 싣는다.
+   이름은 바로 다음 핵심 질문(heroName)이 묻는다 — 아이가 두 번 답하던 것(사용자 보고 09-17). */
+test('heroWho 브리프 — 이름은 후속으로 묻지 말라는 줄이 실린다', () => {
+  const msg = TC.buildFollowUpUserMessage(TC.validateFollowUpInput(
+    baseInput({ coreQuestionId: 'heroWho', currentAnswer: '사람 어린이' })).value);
+  assert.match(msg, /후속으로 묻지 말 것: .*이름/);
+  assert.match(msg, /핵심 질문: 주인공이 누구인지/);
+});
+
+test('이름 금지 줄은 heroWho에만 — 다른 질문 브리프는 종전 그대로', () => {
+  for (const q of ['heroEvent', 'heroName', 'protagonist', 'goal']) {
+    const m = TC.buildFollowUpUserMessage(TC.validateFollowUpInput(
+      baseInput({ coreQuestionId: q, currentAnswer: '아무 답' })).value);
+    assert.ok(!/후속으로 묻지 말 것/.test(m), q + '에 금지 줄이 새면 안 됨');
+  }
+});

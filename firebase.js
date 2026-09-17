@@ -536,7 +536,9 @@ async function _teacherJoinTeam(classIdArg, teamName) {
     if (out && out.ok) {
       classId = classIdArg;   /* 전역 classId — 이후 저장/viewer 링크에 사용 */
       const teamRef = db.ref(getTeamPath(encodeURIComponent(teamName), classIdArg));
-      _enterTeam(teamName, teamRef, { sessionKind: 'teacher' });   /* SINGLE-SESSION-1: 교사 인수 문구 */
+      /* PTYPE-RACE-1: 교사 🛠수정은 '이미 있는 학생 작품을 여는' 흐름이라 유형 선택 화면을 띄울 이유가
+         없다(유형이 없는 옛 작품은 existing=null이라 종전대로 선택 화면이 뜬다). */
+      _enterTeam(teamName, teamRef, { sessionKind: 'teacher', skipPtypeScreenIfExisting: true });   /* SINGLE-SESSION-1: 교사 인수 문구 */
       return true;
     }
   } catch (e) { /* permission-denied(교사 아님)/네트워크 → 폼 폴백 */ }
@@ -748,6 +750,11 @@ function _enterTeam(val, teamRef, opts) {
     teamRef.child('viewer-meta/projectType').once('value'),
     teamRef.child('viewer-meta/picturebookLevel').once('value'),
   ]).then(([snap, lvlSnap]) => {
+    /* PTYPE-RACE-1(2026-09-17): 이 read는 dbRef.on과 달리 세대 가드가 없어, 한 탭에서 _enterTeam이
+       두 번 불린 경우(교사 🛠수정 ?tauth=1 + 다듬기 복귀 ?resume=1이 같이 오는 주소) 먼저 시작해
+       늦게 끝난 진입이 이미 들어간 브랜치 화면 위에 ptype-screen을 덮었다("어떤 작품을 만들까요"로
+       튕기는 간헐 증상). 현재 세대가 아니면 화면을 만지지 않는다. */
+    if (_mySeq !== window.__enterTeamSeq) return;
     const VALID = ['text', 'picturebook', 'movie', 'experience'];
     const raw = snap.exists() ? snap.val() : null;
     const existing = (typeof raw === 'string' && VALID.includes(raw)) ? raw : null;
@@ -773,6 +780,7 @@ function _enterTeam(val, teamRef, opts) {
     if (typeof showPtypeScreen === 'function') showPtypeScreen(existing, existingPbLevel);
     if (typeof _maker_hideLoading === 'function') _maker_hideLoading();
   }).catch(() => {
+    if (_mySeq !== window.__enterTeamSeq) return;   /* PTYPE-RACE-1: 같은 이유로 실패 경로도 가드 */
     if (typeof showPtypeScreen === 'function') showPtypeScreen(null);
     if (typeof _maker_hideLoading === 'function') _maker_hideLoading();
   });

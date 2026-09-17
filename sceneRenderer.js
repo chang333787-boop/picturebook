@@ -263,11 +263,13 @@ function buildCardHTML(s) {
         const b = buttonsList[i] || {};
         const portChar = String.fromCharCode(65 + i);
         const lbl = (typeof b.label === 'string') ? b.label : '';
-        editableRows += _portRowHtml(s.num, portChar, i, lbl);
+        editableRows += _portRowHtml(s.num, portChar, i, lbl, null, _isSoloNextButton(buttonsList, b));
       }
     } else {
       /* legacy fallback: choiceA/B 두 줄 (사용자가 입력하면 buttons[] 생성됨) */
-      editableRows  = _portRowHtml(s.num, 'A', 0, s.choiceA || '');
+      /* NEXT-HINT-1: A만 연결된 옛 장면도 감상과 같은 문구로 */
+      const _legacySolo = !!s.nextA && !String(s.choiceA || '').trim() && !(s.choiceB || s.nextB);
+      editableRows  = _portRowHtml(s.num, 'A', 0, s.choiceA || '', null, _legacySolo);
       editableRows += _portRowHtml(s.num, 'B', 1, s.choiceB || '');
     }
 
@@ -673,11 +675,35 @@ const _CO_PLACEHOLDER_BY_TYPE = {
   next:      '다음 라벨',
   invisible: '영역 라벨',
 };
-function _portRowHtml(num, portChar, idx, labelVal, coType) {
+/* ════════════════════════════════════════════════════════════════
+   NEXT-HINT-1(2026-09-17): 라벨 없이 연결만 된 '단독 진행 버튼'의 표시 문구.
+   ─────────────────────────────────────────────────────────────────
+   감상·다듬기는 viewer-render.js의 _soloNext 규칙으로 빈 라벨을 '다음 장면으로'라고 보여 준다.
+   브랜치 화면에는 그 규칙이 없어 빈 입력칸 + 라벨 없는 파란 연결선만 남았고, 같은 장면이
+   화면마다 달라 보였다(사용자 보고 09-17·0000 「보물을 찾아라」 15장면, 「꾸리꾸리의 절망」 4장면).
+   빈 라벨은 옛 구조(choiceA 없이 nextA만 연결)에서 이관된 것이라 데이터가 잘못된 게 아니다.
+   ⚠️ 표시 전용 — placeholder와 화살표 라벨에만 쓰고 buttons[].label에는 절대 쓰지 않는다
+      (값으로 넣으면 아이가 적지 않은 문구가 진짜 라벨로 저장된다).
+   ════════════════════════════════════════════════════════════════ */
+const NEXT_HINT_LABEL = '다음 장면으로';
+function _hasButtonLabel(b) {
+  return !!(b && typeof b.label === 'string' && b.label.trim());
+}
+/* 의미 있는 버튼 = 라벨이 있거나 연결된 것(빈 슬롯 제외) — viewer-render _meaningfulCount와 동일 기준 */
+function _meaningfulButtonCount(buttons) {
+  return (Array.isArray(buttons) ? buttons : []).filter(b => b && (_hasButtonLabel(b) || b.nextId)).length;
+}
+function _isSoloNextButton(buttons, b) {
+  return !!(b && b.nextId && !_hasButtonLabel(b) && _meaningfulButtonCount(buttons) === 1);
+}
+
+function _portRowHtml(num, portChar, idx, labelVal, coType, soloNext) {
   /* placeholder — 일반 모드는 "버튼 N", 체험전시형은 type별 라벨 */
   let placeholder;
   if (coType && Object.prototype.hasOwnProperty.call(_CO_PLACEHOLDER_BY_TYPE, coType)) {
     placeholder = _CO_PLACEHOLDER_BY_TYPE[coType];
+  } else if (soloNext) {
+    placeholder = NEXT_HINT_LABEL;   /* NEXT-HINT-1: 감상·다듬기와 같은 문구(표시 전용) */
   } else {
     placeholder = idx === 0 ? '버튼 1' : `버튼 ${idx + 1}`;
   }
@@ -1485,11 +1511,15 @@ function drawArrows(onlyNums) {
       /* 새 구조: buttons[i].nextId 따라 화살표 */
       buttons.slice(0, 6).forEach((b, i) => {
         if (!b || !b.nextId) return;
-        drawArrowForIndex(svg, s, i, String(b.nextId), b.label || '');
+        /* NEXT-HINT-1: 라벨 없는 단독 진행 버튼은 연결선도 문구 없이 파란 줄만 남아 "표시가 없다"로 보였다. */
+        drawArrowForIndex(svg, s, i, String(b.nextId), b.label || (_isSoloNextButton(buttons, b) ? NEXT_HINT_LABEL : ''));
       });
     } else {
       /* legacy fallback: nextA/nextB */
-      if (s.nextA) drawArrowForIndex(svg, s, 0, String(s.nextA), s.choiceA || '');
+      if (s.nextA) {
+        const _legacySoloArrow = !String(s.choiceA || '').trim() && !(s.choiceB || s.nextB);
+        drawArrowForIndex(svg, s, 0, String(s.nextA), s.choiceA || (_legacySoloArrow ? NEXT_HINT_LABEL : ''));
+      }
       if (s.nextB && (s.choiceCount || 2) > 1) {
         drawArrowForIndex(svg, s, 1, String(s.nextB), s.choiceB || '');
       }

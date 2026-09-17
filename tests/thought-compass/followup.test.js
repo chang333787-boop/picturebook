@@ -180,3 +180,40 @@ test('이름 금지 줄은 heroWho에만 — 다른 질문 브리프는 종전 �
     assert.ok(!/후속으로 묻지 말 것/.test(m), q + '에 금지 줄이 새면 안 됨');
   }
 });
+
+/* COMPASS-NAME-DUP-1 일반 장치 — 뒤에서 물을 질문을 brief에 실어 후속 중복을 막는다. */
+test('upcomingKeys — 뒤 질문 라벨이 brief에 실린다', () => {
+  const v = TC.validateFollowUpInput(baseInput({
+    coreQuestionId: 'heroWho', currentAnswer: '사람 어린이',
+    upcomingKeys: ['heroName', 'storyStart'],
+  }));
+  assert.equal(v.ok, true);
+  assert.deepEqual(v.value.upcomingKeys, ['heroName', 'storyStart']);
+  const msg = TC.buildFollowUpUserMessage(v.value);
+  assert.match(msg, /뒤에서 따로 물을 것\(후속으로 중복해 묻지 마세요\): 주인공 이름, 이야기가 시작되는 곳/);
+});
+
+test('upcomingKeys — 2단계 주인공→이름 중복도 같은 장치로 덮인다', () => {
+  const v = TC.validateFollowUpInput(baseInput({
+    coreQuestionId: 'protagonist', upcomingKeys: ['protagonistName', 'goal'],
+  }));
+  assert.match(TC.buildFollowUpUserMessage(v.value), /뒤에서 따로 물을 것[^\n]*주인공 이름/);
+});
+
+test('upcomingKeys — 모르는 키·현재 질문·중복은 버리고, 잘못된 모양은 조용히 무시', () => {
+  const v = TC.validateFollowUpInput(baseInput({
+    coreQuestionId: 'heroWho',
+    upcomingKeys: ['heroName', 'heroName', 'heroWho', 'notAKey', 42, null],
+  }));
+  assert.equal(v.ok, true);
+  assert.deepEqual(v.value.upcomingKeys, ['heroName']);
+
+  const bad = TC.validateFollowUpInput(baseInput({ coreQuestionId: 'heroWho', upcomingKeys: 'nope' }));
+  assert.equal(bad.ok, true, '잘못된 모양 때문에 후속 판정이 거부되면 안 됨');
+  assert.deepEqual(bad.value.upcomingKeys, []);
+});
+
+test('upcomingKeys 없으면 그 줄은 아예 안 실린다(기존 호출 호환)', () => {
+  const v = TC.validateFollowUpInput(baseInput({ coreQuestionId: 'heroWho' }));
+  assert.ok(!/뒤에서 따로 물을 것/.test(TC.buildFollowUpUserMessage(v.value)));
+});

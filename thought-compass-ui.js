@@ -562,6 +562,19 @@
     return out;
   }
 
+  /* COMPASS-NAME-DUP-1(2026-09-17): 현재 질문 뒤에 남은 핵심 질문 키.
+     후속질문이 바로 뒤 질문과 같은 것을 묻던 중복(주인공 → 주인공 이름) 차단용으로 서버 brief에 실린다.
+     실패해도 빈 배열 — 후속 판정 자체는 종전대로 진행된다. */
+  function _upcomingCoreKeys(currentId) {
+    try {
+      const qs = (S && S.vm && Array.isArray(S.vm.questions)) ? S.vm.questions : [];
+      let i = -1;
+      for (let n = 0; n < qs.length; n++) { if (qs[n] && qs[n].id === currentId) { i = n; break; } }
+      if (i < 0) return [];
+      return qs.slice(i + 1).map(function (x) { return x && x.id; }).filter(Boolean);
+    } catch (e) { return []; }
+  }
+
   /* 핵심 답변 저장 후: AI 판정 → NEXT(다음 핵심) / ASK_FOLLOW_UP(후속 화면) / ASK_EASIER(쉬운 보기). */
   async function _judgeAndAdvance(last) {
     const Flow = _Flow();
@@ -589,6 +602,8 @@
           coreQuestionId: q.id, currentAnswer: (ans && ans.answerText) || '',
           followUpCount: S.followUpsUsed, totalQuestionCount: S.vm.total + S.followUpsUsed,
           priorSummaries: _priorSummaries(),
+          /* COMPASS-NAME-DUP-1: 뒤에서 물을 질문을 알려 중복 후속 차단(서버가 모르면 무시) */
+          upcomingKeys: _upcomingCoreKeys(q.id),
         });
       } catch (e) { decision = null; }
       S.aiBusy = false;

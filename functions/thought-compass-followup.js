@@ -124,7 +124,18 @@ function validateFollowUpInput(data) {
     }
   }
 
-  return { ok: true, value: { classId, teamName, projectType, coreQuestionId, currentAnswer, followUpCount, totalQuestionCount, priorSummaries } };
+  /* COMPASS-NAME-DUP-1(2026-09-17): 아직 안 물은 핵심 질문 키 — 뒤에서 따로 물을 것을 후속이
+     중복해 묻지 않게 brief에 싣는다(주인공→이름처럼 바로 다음 질문과 겹치던 것).
+     ⚠️ 관대하게 처리: 모르는 키·현재 질문·중복·잘못된 모양은 조용히 버린다. 이 필드 때문에
+        후속 판정이 통째로 거부되면 NEXT로 새어 아이가 되묻는 기회를 잃는다(진행 차단 금지 원칙). */
+  const upcomingKeys = [];
+  if (Array.isArray(data.upcomingKeys)) {
+    for (const k of data.upcomingKeys.slice(0, MAX_TOTAL)) {
+      if (CORE_QUESTION_KEYS.indexOf(k) >= 0 && k !== coreQuestionId && upcomingKeys.indexOf(k) < 0) upcomingKeys.push(k);
+    }
+  }
+
+  return { ok: true, value: { classId, teamName, projectType, coreQuestionId, currentAnswer, followUpCount, totalQuestionCount, priorSummaries, upcomingKeys } };
 }
 
 /* 상한 도달 시 AI 호출 없이 NEXT 강제(후속 ≤5, 전체 ≤12). */
@@ -216,6 +227,11 @@ function buildFollowUpUserMessage(input) {
       const b = QUESTION_BRIEF[s.key] || { label: s.key };
       lines.push('- ' + b.label + ': ' + (s.text || '(비어 있음)'));
     }
+  }
+  /* COMPASS-NAME-DUP-1: 뒤에서 따로 물을 질문을 알려 줘 같은 것을 두 번 묻지 않게. */
+  if (input.upcomingKeys && input.upcomingKeys.length) {
+    const upLabels = input.upcomingKeys.map(function (k) { return (QUESTION_BRIEF[k] || { label: k }).label; });
+    lines.push('뒤에서 따로 물을 것(후속으로 중복해 묻지 마세요): ' + upLabels.join(', '));
   }
   lines.push('이번에 사용한 후속질문 수: ' + input.followUpCount + ' / ' + MAX_FOLLOWUPS);
   lines.push('전체 질문 수: ' + input.totalQuestionCount + ' / ' + MAX_TOTAL);

@@ -1776,6 +1776,18 @@ function _bindSceneEvents(stage, scene) {
          감상 모드(editMode=false)는 기존 동작 그대로 — chooseOption 호출됨. */
       if (ViewerState && ViewerState.editMode) {
         e.preventDefault();
+        /* AI-EDIT-HINT-1(2026-09-17): 행동 버튼 문구 편집은 '글 원본 보기'일 때만 열린다(_allowChoiceEdit).
+           AI 보기에선 contenteditable이 안 붙어 눌러도 아무 반응이 없었고 안내도 없어서 "왜 안 눌러지지"가
+           됐다(사용자 보고 09-17 — 오랜만에 쓰면 AI 보기를 풀어야 하는 걸 떠올리기 어렵다).
+           표시 전용 토스트 — 보기 모드를 대신 바꾸거나 저장을 건드리지 않는다. */
+        try {
+          const _aiMode = (typeof window !== 'undefined' && window.viewerAi
+                           && typeof window.viewerAi._getAiViewMode === 'function')
+            ? window.viewerAi._getAiViewMode() : 'original';
+          if (_aiMode !== 'original' && typeof showPlayToast === 'function') {
+            showPlayToast('행동 버튼 문구는 글 원본일 때만 바꿀 수 있어요. 위 [글 보기]에서 원본을 눌러 주세요.');
+          }
+        } catch (_) { /* 안내 실패해도 기존 동작 그대로 */ }
         return;
       }
       const choiceId = btn.dataset.choiceId;

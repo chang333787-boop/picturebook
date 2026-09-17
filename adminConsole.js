@@ -1282,7 +1282,12 @@ function _analyzeTeam(encodedName, scenes, isPublic = false, meta = {}, account 
     if (!s) return 0;
     if (s.type === 'ending' || s.type === 'cover' || s.isCover) return 0;
     if (Array.isArray(s.buttons) && s.buttons.length > 0) {
-      return s.buttons.filter(b => !b || !b.nextId).length;
+      /* ADMIN-DIAG-1(2026-09-17): 라벨도 없고 연결도 없는 '빈 슬롯'은 세지 않는다.
+         [+ 버튼 추가]로 만들고 문구를 안 적은 잔재라, 감상 화면도 학생이 의도한 버튼이 아니라고 보고
+         걸러서 안 보여 준다(viewer-render _v03FilterChoicesIndexed). 교사 화면만 숫자로 세면
+         "감상엔 없는데 관리엔 남아 있다"가 된다(사용자 보고 09-17).
+         문구는 적었는데 연결만 안 한 버튼은 진짜 미연결이므로 그대로 센다. */
+      return s.buttons.filter(b => b && !b.nextId && String(b.label || '').trim() !== '').length;
     }
     /* legacy fallback — choiceCount가 명시된 경우에만 적용. 없으면 0. */
     if (typeof s.choiceCount !== 'number' || s.choiceCount < 1) return 0;
@@ -1303,7 +1308,10 @@ function _analyzeTeam(encodedName, scenes, isPublic = false, meta = {}, account 
      · 장면별 _unconnectedButtonsCount 결과를 합산 (표지/엔딩은 함수 내부에서 0 처리) */
   const unconnectedButtons = scenes.reduce((acc, s) => acc + _unconnectedButtonsCount(s), 0);
 
-  const noTitle = scenes.filter(s => !s.title?.trim()).length;
+  /* ADMIN-DIAG-1(2026-09-17): 종전엔 title만 보고 '내용 없는 장면'으로 셌다. 그런데 그림책 1·2단계는
+     AI가 본문(body)만 채우고 제목은 만들지 않고, 3단계도 제목을 안 적는 아이가 많다 → 내용이 멀쩡한
+     작품이 "내용 없는 장면 13개"로 뜨는 오진(사용자 보고 09-17). 제목이든 본문이든 하나라도 있으면 내용 있음. */
+  const noContent = scenes.filter(s => !((s.title || '').trim() || (s.body || '').trim())).length;
 
   /* 고립 = 진입 장면(entryNum) 아니면서 아무도 가리키지 않는 장면 */
   const allNextIds = new Set(scenes.flatMap(s => _outgoingNumsAll(s)));
@@ -1313,7 +1321,7 @@ function _analyzeTeam(encodedName, scenes, isPublic = false, meta = {}, account 
 
   const ctx = {
     total, endings, entryValid, replayValid, entryBroken, replayBroken,
-    connectivity, isolated, noTitle,
+    connectivity, isolated, noContent,
     /* 2026-05-29 admin 3차: 미연결 버튼 수를 ctx에 포함 — _listProblems에서 사용 */
     unconnectedButtons,
   };
@@ -1347,7 +1355,7 @@ function _analyzeTeam(encodedName, scenes, isPublic = false, meta = {}, account 
     shelfTitle, shelfSubtitle, shelfTheme,   /* SHELF-1: 공개 토글 시 책장 노드 기록용 */
     endings, normals, trueEnds,
     entryNum, replayNum, entryValid, replayValid, entryBroken, replayBroken,
-    hasImage, connectivity, noTitle, isolated, status, interpretation, problems,
+    hasImage, connectivity, noContent, isolated, status, interpretation, problems,
     isPublic,
     /* NICKNAME-1: 표시 이름(닉네임) — viewer-meta.nickname(meta=viewer-meta). 카드 헤더 표시용. */
     nickname: (meta && typeof meta.nickname === 'string' && meta.nickname.trim()) ? meta.nickname.trim().slice(0, 30) : '',
@@ -1569,7 +1577,7 @@ const STATUS_META = {
   'needs-attention': { label: '확인 필요', color: '#c8503c', bg: '#fbf0ec', icon: '🔴' },
 };
 
-function _makeInterpretation(status, { total, endings, entryValid, entryBroken, replayBroken, connectivity, noTitle, isolated }) {
+function _makeInterpretation(status, { total, endings, entryValid, entryBroken, replayBroken, connectivity, noContent, isolated }) {
   if (status === 'not-started') return '아직 작품 제작을 시작하지 않았어요.';
   if (status === 'needs-attention') {
     if (entryBroken)    return '첫 감상 시작점이 존재하지 않는 장면을 가리켜요.';
@@ -1584,11 +1592,11 @@ function _makeInterpretation(status, { total, endings, entryValid, entryBroken, 
     return '기본 구조가 완성되어 감상 테스트가 가능해요.';
   }
   if (connectivity < 70) return `장면 ${total}개 중 일부가 아직 연결되지 않았어요.`;
-  if (noTitle > 2) return `내용 없는 장면이 ${noTitle}개 있어요. 내용을 채워보세요.`;
+  if (noContent > 2) return `내용 없는 장면이 ${noContent}개 있어요. 내용을 채워보세요.`;
   return '이야기를 만들고 있는 중이에요.';
 }
 
-function _listProblems({ total, endings, entryValid, entryBroken, replayBroken, connectivity, noTitle, isolated, unconnectedButtons }) {
+function _listProblems({ total, endings, entryValid, entryBroken, replayBroken, connectivity, noContent, isolated, unconnectedButtons }) {
   const problems = [];
   if (total === 0) return problems;
   if (entryBroken)      problems.push({ icon: '❌', text: '첫 감상 시작점이 존재하지 않는 장면을 가리켜요' });
@@ -1600,7 +1608,7 @@ function _listProblems({ total, endings, entryValid, entryBroken, replayBroken, 
      1 이상일 때만 표시 — 0이면 생략 (불필요 경고 차단). */
   if (unconnectedButtons > 0) problems.push({ icon: '🔗', text: `미연결 버튼 ${unconnectedButtons}개` });
   if (isolated > 0)     problems.push({ icon: '🔴', text: `고립 장면 ${isolated}개` });
-  if (noTitle > 0)      problems.push({ icon: '📝', text: `내용 없는 장면 ${noTitle}개` });
+  if (noContent > 0)      problems.push({ icon: '📝', text: `내용 없는 장면 ${noContent}개` });
   return problems;
 }
 
